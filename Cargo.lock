@@ -518,6 +518,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "parity-scale-codec",
  "serde",
  "serde_json",
  "spacejam-core",

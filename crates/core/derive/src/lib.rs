@@ -31,8 +31,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                     && attr
                         .parse_args::<syn::Ident>()
                         .expect("Invalid json attribute")
-                        .to_string()
-                        == "hex".to_string()
+                        == *"hex"
             }) {
                 hex_fields.push(field.ident.clone());
                 field.ty = syn::parse_quote! { String };
