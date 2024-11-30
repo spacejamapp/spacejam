@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+core-derive.workspace = true
 hex.workspace = true
 scale.workspace = true
 serde.workspace = true
