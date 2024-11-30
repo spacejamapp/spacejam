@@ -5,6 +5,7 @@ resolver = "1"
 [workspace.dependencies]
 core = { path = "crates/core", package = "spacejam-core" }
 core-derive = { path = "crates/core/derive", package = "spacejam-core-derive" }
+json = { path = "crates/json", package = "spacejam-json" }
 
 # crates.io
 anyhow = "1.0.93"
