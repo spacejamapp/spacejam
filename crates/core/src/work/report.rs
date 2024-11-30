@@ -7,7 +7,7 @@ use scale::{Decode, Encode};
 /// Represents the result of a work execution.
 #[derive(Debug, Encode, Decode, Json)]
 pub struct WorkExecResult {
-    // TODO: support Option in JSON derive
+    #[json(hex)]
     pub ok: Option<Vec<u8>>,
     pub out_of_gas: Option<()>,
     pub panic: Option<()>,
@@ -51,6 +51,7 @@ pub struct SegmentRootLookupItem {
 }
 
 /// Represents a work report.
+#[derive(Debug, Encode, Decode)]
 pub struct WorkReport {
     pub package_spec: WorkPackageSpec,
     pub context: RefineContext,

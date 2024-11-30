@@ -70,6 +70,7 @@ mod core {
         #[json(hex)]
         pub lookup_anchor: HeaderHash,
         pub lookup_anchor_slot: TimeSlot,
+        #[json(array)]
         pub prerequisites: Vec<OpaqueHash>,
     }
 }
@@ -140,7 +141,9 @@ mod assurance {
     /// Represents an assurance of availability.
     #[derive(Debug, Encode, Decode, Json)]
     pub struct AvailAssurance {
+        #[json(hex)]
         pub anchor: OpaqueHash,
+        #[json(hex)]
         pub bitfield: Vec<u8>,
         pub validator_index: ValidatorIndex,
         #[json(hex)]

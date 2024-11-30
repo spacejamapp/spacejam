@@ -24,6 +24,8 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
 
     // 3. Modify fields based on attributes
     let mut hex_fields = Vec::new();
+    let mut option_fields = Vec::new();
+    let mut array_fields = Vec::new();
     let mut other_fields = Vec::new();
     let Fields::Named(ref mut fields) = json.fields else {
         panic!("Invalid fields");
@@ -61,9 +63,16 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
             continue;
         };
 
+        // Check for the #[json(array)] attribute
+        if arg == *"array" {
+            array_fields.push(field.ident.clone());
+            field.ty = syn::parse_quote!(Vec<String>);
+            continue;
+        }
+
         // Check for the #[json(hex)] attribute
         if arg == *"hex" {
-            if segment.ident != "Option" || field.ty.to_token_stream().to_string() == "Vec<u8>" {
+            if segment.ident != "Option" {
                 hex_fields.push(field.ident.clone());
                 field.ty = syn::parse_quote! { String };
                 continue;
@@ -74,17 +83,12 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                 panic!("Invalid json attribute");
             };
 
-            other_fields.push(field.ident.clone());
-            if args.args.len() == 1 {
-                panic!("Invalid json attribute");
+            if args.args.len() != 1 {
+                panic!("Invalid value length");
             }
 
-            if segment.ident == "Vec" {
-                field.ty = syn::parse_quote!(Vec<String>);
-            } else {
-                field.ty = syn::parse_quote!(Option<String>);
-            }
-
+            option_fields.push(field.ident.clone());
+            field.ty = syn::parse_quote!(Option<String>);
             continue;
         }
 
@@ -94,7 +98,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
 
             if segment.ident != "Vec" && segment.ident != "Option" {
                 let nested_ty = Ident::new(
-                    &format!("{}Json", field.ty.to_token_stream().to_string()),
+                    &format!("{}Json", field.ty.to_token_stream()),
                     Span::call_site(),
                 );
                 field.ty = syn::parse_quote!(#nested_ty);
@@ -105,7 +109,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
             if let syn::PathArguments::AngleBracketed(ref args) = segment.arguments {
                 if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
                     let nested_ty = Ident::new(
-                        &format!("{}Json", inner_type.to_token_stream().to_string()),
+                        &format!("{}Json", inner_type.to_token_stream()),
                         Span::call_site(),
                     );
                     if segment.ident == "Vec" {
@@ -136,6 +140,17 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                         .try_into()
                         .map_err(|_| anyhow::anyhow!("Invalid hex string"))?,
                     )*
+                    #(#option_fields: value.#option_fields.map(|v| hex::decode(v.trim_start_matches("0x")).unwrap_or_default())
+                        .try_into()
+                        .ok()
+                        .flatten(),)*
+                    #(#array_fields: value.#array_fields.into_iter().map(|v| {
+                        hex::decode(v.trim_start_matches("0x"))
+                            .map(|v| v.try_into().map_err(|_| anyhow::anyhow!("Invalid hex string")))
+                            .map_err(|_| anyhow::anyhow!("Invalid hex string"))
+                    })
+                    .collect::<anyhow::Result<anyhow::Result<Vec<_>>>>()??,
+                    )*
                 })
             }
         }
@@ -145,6 +160,8 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                 #json_name {
                     #(#other_fields: value.#other_fields.into(),)*
                     #(#hex_fields: hex::encode(value.#hex_fields),)*
+                    #(#option_fields: value.#option_fields.map(|v| hex::encode(v)).unwrap_or_default().into(),)*
+                    #(#array_fields: value.#array_fields.into_iter().map(hex::encode).collect(),)*
                 }
             }
         }
