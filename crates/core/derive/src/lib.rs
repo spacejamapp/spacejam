@@ -24,6 +24,19 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
     // TODO: support this encoding with attributes on fields.
     if let Fields::Named(ref mut fields) = json.fields {
         for field in &mut fields.named {
+            // Check for the #[json(hex)] attribute
+            if field.attrs.iter().any(|attr| {
+                attr.path().is_ident("json")
+                    && attr
+                        .parse_args::<syn::Ident>()
+                        .expect("Invalid json attribute")
+                        .to_string()
+                        == "hex".to_string()
+            }) {
+                field.ty = syn::parse_quote! { String }; // Change to String
+                continue; // Skip further checks for this field
+            }
+
             let syn::Type::Array(ref array_type) = field.ty else {
                 continue; // Skip if not an array type
             };
