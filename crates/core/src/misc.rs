@@ -25,6 +25,8 @@ mod crypto {
 // --------------------------------------------
 mod core {
     use super::crypto::*;
+    use core_derive::Json;
+    use scale::{Decode, Encode};
 
     pub type OpaqueHash = [u8; 32];
     pub type TimeSlot = u32;
@@ -57,10 +59,15 @@ mod core {
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct RefineContext {
+        #[json(hex)]
         pub anchor: HeaderHash,
+        #[json(hex)]
         pub state_root: StateRoot,
+        #[json(hex)]
         pub beefy_root: BeefyRoot,
+        #[json(hex)]
         pub lookup_anchor: HeaderHash,
         pub lookup_anchor_slot: TimeSlot,
         pub prerequisites: Vec<OpaqueHash>,
@@ -72,9 +79,15 @@ mod core {
 // --------------------------------------------
 mod service {
     use super::core::*;
+    use core_derive::Json;
+    use scale::{Decode, Encode};
 
     pub type ServiceId = u32;
+
+    /// Represents a service info.
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct ServiceInfo {
+        #[json(hex)]
         pub code_hash: OpaqueHash,
         pub balance: u64,
         pub min_item_gas: Gas,
@@ -100,10 +113,14 @@ mod availability {
 // --------------------------------------------
 mod preimage {
     use super::service::*;
+    use core_derive::Json;
+    use scale::{Decode, Encode};
 
     /// Represents a preimage request.
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct Preimage {
         pub requester: ServiceId,
+        #[json(hex)]
         pub blob: Vec<u8>,
     }
 
@@ -141,10 +158,14 @@ mod guarantee {
     use super::core::*;
     use super::crypto::*;
     use crate::work::report::*;
+    use core_derive::Json;
+    use scale::{Decode, Encode};
 
     /// Represents a signature from a validator.
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct ValidatorSignature {
         pub validator_index: ValidatorIndex,
+        #[json(hex)]
         pub signature: Ed25519Signature,
     }
 

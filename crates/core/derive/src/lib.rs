@@ -22,7 +22,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
     // 2. Clean attrs from the original struct except for doc
     json.attrs.retain(|attr| attr.path().is_ident("doc"));
 
-    // 3. Modify [u8; N] fields and fields with the #[json(hex)] attribute to String
+    // 3. Modify fields based on attributes
     let mut hex_fields = Vec::new();
     let mut other_fields = Vec::new();
     if let Fields::Named(ref mut fields) = json.fields {
@@ -41,17 +41,50 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                     continue;
                 }
 
-                if arg == *"nest" {
+                // Check for the #[json(nested)] attribute
+                //
+                // TODO: simplify this
+                if arg == *"nested" {
                     other_fields.push(field.ident.clone());
-                    let ty = Ident::new(
-                        &format!("{}{}Json", field.ty.to_token_stream().to_string(), name),
-                        Span::call_site(),
-                    );
-                    field.ty = syn::parse_quote!(#ty);
+
+                    let syn::Type::Path(ref path) = field.ty else {
+                        let nested_ty = Ident::new(
+                            &format!("{}Json", field.ty.to_token_stream().to_string()),
+                            Span::call_site(),
+                        );
+                        field.ty = syn::parse_quote!(#nested_ty);
+                        continue;
+                    };
+
+                    // If it's a Vec<T>, we need to handle it
+                    let Some(segment) = path.path.segments.last() else {
+                        continue;
+                    };
+
+                    if segment.ident != "Vec" && segment.ident != "Option" {
+                        continue;
+                    }
+
+                    // Extract the inner type
+                    if let syn::PathArguments::AngleBracketed(ref args) = segment.arguments {
+                        if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                            let nested_ty = Ident::new(
+                                &format!("{}Json", inner_type.to_token_stream().to_string()),
+                                Span::call_site(),
+                            );
+                            if segment.ident == "Vec" {
+                                field.ty = syn::parse_quote!(Vec<#nested_ty>);
+                            } else {
+                                field.ty = syn::parse_quote!(Option<#nested_ty>);
+                            }
+                        }
+                    }
+
                     continue;
                 }
             }
 
+            // Handle [u8; N] fields
             if let syn::Type::Array(ref array_type) = field.ty {
                 if let syn::Type::Path(ref path_type) = *array_type.elem {
                     if path_type.path.is_ident("u8") {
@@ -79,7 +112,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
 
             fn try_from(value: #json_name) -> anyhow::Result<Self> {
                 Ok(#name {
-                    #(#other_fields: value.#other_fields,)*
+                    #(#other_fields: value.#other_fields.try_into()?,)*
                     #(#hex_fields: hex::decode(value.#hex_fields.trim_start_matches("0x"))?
                         .try_into()
                         .map_err(|_| anyhow::anyhow!("Invalid hex string"))?,
@@ -91,7 +124,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
         impl From<#name> for #json_name {
             fn from(value: #name) -> Self {
                 #json_name {
-                    #(#other_fields: value.#other_fields,)*
+                    #(#other_fields: value.#other_fields.into(),)*
                     #(#hex_fields: hex::encode(value.#hex_fields),)*
                 }
             }
