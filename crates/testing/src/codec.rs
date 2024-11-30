@@ -1,7 +1,7 @@
 //! Codec tests
 
 use anyhow::Result;
-use core::{AvailAssurance, AvailAssuranceJson};
+use core::misc::{AvailAssurance, AvailAssuranceJson};
 // use scale::Encode;
 
 #[test]

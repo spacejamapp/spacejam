@@ -5,8 +5,9 @@ use syn::{parse_macro_input, Fields, Ident, ItemStruct};
 /// Derives a struct to implement the `Json` trait.
 ///
 /// This macro adds a new struct with the `Json` suffix to the original struct.
-/// It also modifies the fields of the original struct to be encoded as `String` instead of `[u8; N]`.
-#[proc_macro_derive(Json)]
+/// It also modifies the fields of the original struct to be encoded as `String`
+/// instead of `[u8; N]`.
+#[proc_macro_derive(Json, attributes(json))]
 pub fn json_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
 
@@ -34,6 +35,7 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                         == *"hex"
             }) {
                 hex_fields.push(field.ident.clone());
+                field.attrs.retain(|attr| !attr.path().is_ident("json"));
                 field.ty = syn::parse_quote! { String };
                 continue;
             }
