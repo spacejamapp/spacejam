@@ -1,16 +1,20 @@
 //! Codec tests
 
 use anyhow::Result;
-use core::AvailAssurance;
-use serde_json::Value;
+use core::{AvailAssurance, AvailAssuranceJson};
+// use scale::Encode;
 
 #[test]
 fn decode_avail_assurance() -> Result<()> {
     let json = include_str!("../jamtestvectors/codec/data/assurances_extrinsic.json");
     let _data = include_bytes!("../jamtestvectors/codec/data/assurances_extrinsic.bin");
 
-    let arr: Vec<Value> = serde_json::from_str(json)?;
-    let _assurances: Vec<AvailAssurance> = arr.iter().map(|_| todo!()).collect();
+    let _assurances: Vec<AvailAssurance> = serde_json::from_str::<Vec<AvailAssuranceJson>>(json)?
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<_>>>()?;
 
+    // TODO: implement the jamcodec
+    // assert_eq!(assurances.encode(), data);
     Ok(())
 }
