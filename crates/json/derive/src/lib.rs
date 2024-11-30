@@ -49,11 +49,20 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
             continue;
         };
 
-        let arg = attr
-            .parse_args::<syn::Ident>()
-            .expect("invalid json attribute");
-
+        // Clone the attribute to remove it from the field
+        let attr = attr.clone();
         field.attrs.retain(|attr| !attr.path().is_ident("json"));
+
+        // Parse the attribute
+        let Ok(arg) = attr.parse_args::<syn::Ident>() else {
+            let ty = attr
+                .parse_args::<syn::Path>()
+                .expect("invalid json attribute");
+
+            other_fields.push(field.ident.clone());
+            field.ty = syn::parse_quote!(#ty);
+            continue;
+        };
 
         let syn::Type::Path(ref path) = &field.ty else {
             continue;
@@ -102,40 +111,35 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
 
         // Check for the #[json(nested)] attribute
         if arg == *"nested" {
-            if segment.ident == "Vec" {
-                let syn::PathArguments::AngleBracketed(ref args) = segment.arguments else {
-                    panic!("Invalid json attribute");
-                };
-
-                let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() else {
-                    panic!("Invalid type depth");
-                };
-
-                nested_array_fields.push(field.ident.clone());
+            let syn::PathArguments::AngleBracketed(ref args) = segment.arguments else {
                 let nested_ty = Ident::new(
-                    &format!("{}Json", inner_type.to_token_stream()),
+                    &format!("{}Json", field.ty.to_token_stream()),
                     Span::call_site(),
                 );
-                field.ty = syn::parse_quote!(Vec<#nested_ty>);
-                continue;
-            }
 
-            other_fields.push(field.ident.clone());
+                other_fields.push(field.ident.clone());
+                field.ty = syn::parse_quote!(#nested_ty);
+                continue;
+            };
+
+            let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() else {
+                panic!("Invalid type depth");
+            };
+
+            nested_array_fields.push(field.ident.clone());
             let nested_ty = Ident::new(
-                &format!("{}Json", field.ty.to_token_stream()),
+                &format!("{}Json", inner_type.to_token_stream()),
                 Span::call_site(),
             );
 
             if is_option {
                 field.ty = syn::parse_quote!(Option<#nested_ty>);
             } else {
-                field.ty = syn::parse_quote!(#nested_ty);
+                field.ty = syn::parse_quote!(Vec<#nested_ty>);
             }
 
             continue;
         }
-
-        other_fields.push(field.ident.clone());
     }
 
     // 4. Append attributes to the json struct

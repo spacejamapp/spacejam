@@ -75,7 +75,7 @@ macro_rules! impl_json {
     };
 }
 
-impl_json!(1, 2, 3, 4, 8, 16, 32, 64, 128, 144, 256, 784);
+impl_json!(1, 2, 3, 4, 8, 16, 32, 64, 96, 128, 144, 256, 784);
 
 macro_rules! impl_primitive {
     ($($ty:ty),*) => {
