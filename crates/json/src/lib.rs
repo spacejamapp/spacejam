@@ -62,13 +62,13 @@ macro_rules! impl_json {
                     let bytes = hex::decode(json.trim_start_matches("0x"))?;
                     let len = bytes.len();
 
-                    Ok(bytes.try_into().map_err(|_| {
+                    bytes.try_into().map_err(|_| {
                         anyhow::anyhow!(
                             "Invalid hex string, target length is {len}, actual length is {actual}",
                             len = $len,
                             actual = len
                         )
-                    })?)
+                    })
                 }
             }
         )*
