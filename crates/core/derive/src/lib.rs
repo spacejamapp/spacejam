@@ -25,65 +25,12 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
     // 3. Modify fields based on attributes
     let mut hex_fields = Vec::new();
     let mut other_fields = Vec::new();
-    if let Fields::Named(ref mut fields) = json.fields {
-        for field in &mut fields.named {
-            if let Some(attr) = field.attrs.iter().find(|attr| attr.path().is_ident("json")) {
-                let arg = attr
-                    .parse_args::<syn::Ident>()
-                    .expect("invalid json attribute");
+    let Fields::Named(ref mut fields) = json.fields else {
+        panic!("Invalid fields");
+    };
 
-                field.attrs.retain(|attr| !attr.path().is_ident("json"));
-
-                // Check for the #[json(hex)] attribute
-                if arg == *"hex" {
-                    hex_fields.push(field.ident.clone());
-                    field.ty = syn::parse_quote! { String };
-                    continue;
-                }
-
-                // Check for the #[json(nested)] attribute
-                //
-                // TODO: simplify this
-                if arg == *"nested" {
-                    other_fields.push(field.ident.clone());
-
-                    let syn::Type::Path(ref path) = field.ty else {
-                        let nested_ty = Ident::new(
-                            &format!("{}Json", field.ty.to_token_stream().to_string()),
-                            Span::call_site(),
-                        );
-                        field.ty = syn::parse_quote!(#nested_ty);
-                        continue;
-                    };
-
-                    // If it's a Vec<T>, we need to handle it
-                    let Some(segment) = path.path.segments.last() else {
-                        continue;
-                    };
-
-                    if segment.ident != "Vec" && segment.ident != "Option" {
-                        continue;
-                    }
-
-                    // Extract the inner type
-                    if let syn::PathArguments::AngleBracketed(ref args) = segment.arguments {
-                        if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
-                            let nested_ty = Ident::new(
-                                &format!("{}Json", inner_type.to_token_stream().to_string()),
-                                Span::call_site(),
-                            );
-                            if segment.ident == "Vec" {
-                                field.ty = syn::parse_quote!(Vec<#nested_ty>);
-                            } else {
-                                field.ty = syn::parse_quote!(Option<#nested_ty>);
-                            }
-                        }
-                    }
-
-                    continue;
-                }
-            }
-
+    for field in &mut fields.named {
+        let Some(attr) = field.attrs.iter().find(|attr| attr.path().is_ident("json")) else {
             // Handle [u8; N] fields
             if let syn::Type::Array(ref array_type) = field.ty {
                 if let syn::Type::Path(ref path_type) = *array_type.elem {
@@ -96,6 +43,78 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
             }
 
             other_fields.push(field.ident.clone());
+            continue;
+        };
+
+        let arg = attr
+            .parse_args::<syn::Ident>()
+            .expect("invalid json attribute");
+
+        field.attrs.retain(|attr| !attr.path().is_ident("json"));
+
+        let syn::Type::Path(ref path) = &field.ty else {
+            continue;
+        };
+
+        // If it's a Vec<T>, we need to handle it
+        let Some(segment) = path.path.segments.last() else {
+            continue;
+        };
+
+        // Check for the #[json(hex)] attribute
+        if arg == *"hex" {
+            if segment.ident != "Option" || field.ty.to_token_stream().to_string() == "Vec<u8>" {
+                hex_fields.push(field.ident.clone());
+                field.ty = syn::parse_quote! { String };
+                continue;
+            }
+
+            // Extract the inner type
+            let syn::PathArguments::AngleBracketed(ref args) = segment.arguments else {
+                panic!("Invalid json attribute");
+            };
+
+            other_fields.push(field.ident.clone());
+            if args.args.len() == 1 {
+                panic!("Invalid json attribute");
+            }
+
+            if segment.ident == "Vec" {
+                field.ty = syn::parse_quote!(Vec<String>);
+            } else {
+                field.ty = syn::parse_quote!(Option<String>);
+            }
+
+            continue;
+        }
+
+        // Check for the #[json(nested)] attribute
+        if arg == *"nested" {
+            other_fields.push(field.ident.clone());
+
+            if segment.ident != "Vec" && segment.ident != "Option" {
+                let nested_ty = Ident::new(
+                    &format!("{}Json", field.ty.to_token_stream().to_string()),
+                    Span::call_site(),
+                );
+                field.ty = syn::parse_quote!(#nested_ty);
+                continue;
+            }
+
+            // Extract the inner type
+            if let syn::PathArguments::AngleBracketed(ref args) = segment.arguments {
+                if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                    let nested_ty = Ident::new(
+                        &format!("{}Json", inner_type.to_token_stream().to_string()),
+                        Span::call_site(),
+                    );
+                    if segment.ident == "Vec" {
+                        field.ty = syn::parse_quote!(Vec<#nested_ty>);
+                    } else {
+                        field.ty = syn::parse_quote!(Option<#nested_ty>);
+                    }
+                }
+            }
         }
     }
 
