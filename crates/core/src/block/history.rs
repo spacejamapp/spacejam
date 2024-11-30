@@ -1,31 +1,36 @@
 use crate::misc::*;
+use core_derive::Json;
+use scale::{Decode, Encode};
 
 /// Represents a peak in the Merkle Mountain Range (MMR).
-pub enum MmrPeak {
-    None,             // Corresponds to [0] NULL
-    Some(OpaqueHash), // Corresponds to [1] OpaqueHash
-}
+pub type MmrPeak = Option<OpaqueHash>;
 
 /// Represents the Merkle Mountain Range (MMR).
+#[derive(Debug, Encode, Decode)]
 pub struct Mmr {
-    pub peaks: Vec<MmrPeak>, // Sequence of MmrPeak
+    pub peaks: Vec<MmrPeak>,
 }
 
 /// Represents a reported work package.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct ReportedWorkPackage {
-    pub hash: OpaqueHash,         // Corresponds to WorkReportHash
-    pub exports_root: OpaqueHash, // Corresponds to ExportsRoot
+    #[json(hex)]
+    pub hash: OpaqueHash,
+    #[json(hex)]
+    pub exports_root: OpaqueHash,
 }
 
 /// Represents information about a block.
+#[derive(Debug, Encode, Decode)]
 pub struct BlockInfo {
-    pub header_hash: OpaqueHash,            // Corresponds to HeaderHash
-    pub mmr: Mmr,                           // Corresponds to Mmr
-    pub state_root: OpaqueHash,             // Corresponds to StateRoot
-    pub reported: Vec<ReportedWorkPackage>, // Sequence of ReportedWorkPackage
+    pub header_hash: OpaqueHash,
+    pub mmr: Mmr,
+    pub state_root: OpaqueHash,
+    pub reported: Vec<ReportedWorkPackage>,
 }
 
 /// Represents the history of blocks.
+#[derive(Debug, Encode, Decode)]
 pub struct BlocksHistory {
-    pub blocks: Vec<BlockInfo>, // Sequence of BlockInfo
+    pub blocks: Vec<BlockInfo>,
 }

@@ -80,7 +80,11 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
                 let inner_ty = inner_type.to_token_stream().to_string();
                 if inner_ty != *"u8" {
                     array_fields.push(field.ident.clone());
-                    field.ty = syn::parse_quote!(Vec<String>);
+                    if inner_ty.starts_with("Option") {
+                        field.ty = syn::parse_quote!(Vec<Option<String>>);
+                    } else {
+                        field.ty = syn::parse_quote!(Vec<String>);
+                    }
                     continue;
                 }
             }

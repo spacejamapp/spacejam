@@ -1,47 +1,69 @@
 //! Dispute types
 
 use crate::misc::*;
+use core_derive::Json;
+use scale::{Decode, Encode};
 
 /// Represents a judgement in a dispute.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct Judgement {
-    pub vote: bool,                  // Corresponds to BOOLEAN
-    pub index: ValidatorIndex,       // Corresponds to ValidatorIndex
-    pub signature: Ed25519Signature, // Corresponds to Ed25519Signature
+    pub vote: bool,
+    pub index: ValidatorIndex,
+    #[json(hex)]
+    pub signature: Ed25519Signature,
 }
 
 /// Represents a verdict in a dispute.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct Verdict {
-    pub target: OpaqueHash,    // Corresponds to OpaqueHash
-    pub age: u32,              // Corresponds to U32
-    pub votes: Vec<Judgement>, // Sequence of Judgement
+    pub target: OpaqueHash,
+    pub age: u32,
+    #[json(nested)]
+    pub votes: Vec<Judgement>,
 }
 
 /// Represents a culprit in a dispute.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct Culprit {
-    pub target: OpaqueHash,          // Corresponds to WorkReportHash
-    pub key: Ed25519Public,          // Corresponds to Ed25519Public
-    pub signature: Ed25519Signature, // Corresponds to Ed25519Signature
+    #[json(hex)]
+    pub target: OpaqueHash,
+    #[json(hex)]
+    pub key: Ed25519Public,
+    #[json(hex)]
+    pub signature: Ed25519Signature,
 }
 
 /// Represents a fault in a dispute.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct Fault {
-    pub target: OpaqueHash,          // Corresponds to WorkReportHash
-    pub vote: bool,                  // Corresponds to BOOLEAN
-    pub key: Ed25519Public,          // Corresponds to Ed25519Public
-    pub signature: Ed25519Signature, // Corresponds to Ed25519Signature
+    pub target: OpaqueHash,
+    pub vote: bool,
+    #[json(hex)]
+    pub key: Ed25519Public,
+    #[json(hex)]
+    pub signature: Ed25519Signature,
 }
 
 /// Represents the records of disputes.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct DisputesRecords {
-    pub good: Vec<OpaqueHash>,         // Sequence of WorkReportHash
-    pub bad: Vec<OpaqueHash>,          // Sequence of WorkReportHash
-    pub wonky: Vec<OpaqueHash>,        // Sequence of WorkReportHash
-    pub offenders: Vec<Ed25519Public>, // Sequence of Ed25519Public
+    #[json(hex)]
+    pub good: Vec<OpaqueHash>,
+    #[json(hex)]
+    pub bad: Vec<OpaqueHash>,
+    #[json(hex)]
+    pub wonky: Vec<OpaqueHash>,
+    #[json(hex)]
+    pub offenders: Vec<Ed25519Public>,
 }
 
 /// Represents the extrinsic data for disputes.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct DisputesExtrinsic {
-    pub verdicts: Vec<Verdict>, // Sequence of Verdict
-    pub culprits: Vec<Culprit>, // Sequence of Culprit
-    pub faults: Vec<Fault>,     // Sequence of Fault
+    #[json(nested)]
+    pub verdicts: Vec<Verdict>,
+    #[json(nested)]
+    pub culprits: Vec<Culprit>,
+    #[json(nested)]
+    pub faults: Vec<Fault>,
 }

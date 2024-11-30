@@ -173,9 +173,12 @@ mod guarantee {
     }
 
     /// Represents a report guarantee.
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct ReportGuarantee {
+        #[json(nested)]
         pub report: WorkReport,
         pub slot: TimeSlot,
+        #[json(nested)]
         pub signatures: Vec<ValidatorSignature>,
     }
 
