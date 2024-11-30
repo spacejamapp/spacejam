@@ -500,16 +500,7 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "serde_json",
- "spacejam-core-derive",
-]
-
-[[package]]
-name = "spacejam-core-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "spacejson",
 ]
 
 [[package]]
@@ -530,6 +521,16 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
+ "spacejson-derive",
+]
+
+[[package]]
+name = "spacejson-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

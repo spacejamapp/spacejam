@@ -1,7 +1,7 @@
 //! Report types
 
 use crate::misc::*;
-use core_derive::Json;
+use json::Json;
 use scale::{Decode, Encode};
 
 /// Represents the result of a work execution.

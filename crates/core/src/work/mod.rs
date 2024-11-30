@@ -1,5 +1,5 @@
 use crate::misc::*;
-use core_derive::Json;
+use json::Json;
 use scale::{Decode, Encode};
 
 pub mod report;

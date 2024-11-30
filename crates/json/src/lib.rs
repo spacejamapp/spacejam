@@ -2,6 +2,7 @@
 //!
 //! Now using hex as the default encoding.
 use anyhow::Result;
+pub use json_derive::Json;
 
 /// A trait for types that can be encoded and decoded to and from JSON.
 pub trait Json<Target>: Sized {

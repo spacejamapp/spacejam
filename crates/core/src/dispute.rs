@@ -1,7 +1,7 @@
 //! Dispute types
 
 use crate::misc::*;
-use core_derive::Json;
+use json::Json;
 use scale::{Decode, Encode};
 
 /// Represents a judgement in a dispute.

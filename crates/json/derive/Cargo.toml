@@ -1,5 +1,5 @@
 [package]
-name = "spacejam-core-derive"
+name = "spacejson-derive"
 version = "0.1.0"
 edition = "2021"
 
