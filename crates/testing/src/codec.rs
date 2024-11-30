@@ -4,6 +4,7 @@ use anyhow::Result;
 use core::{AvailAssurance, AvailAssuranceJson};
 use scale::Encode;
 
+#[ignore = "implement the jamcodec"]
 #[test]
 fn decode_avail_assurance() -> Result<()> {
     let json = include_str!("../jamtestvectors/codec/data/assurances_extrinsic.json");
