@@ -21,6 +21,7 @@ pub struct TicketEnvelope {
 /// Represents the body of a ticket, containing an ID and an attempt.
 #[derive(Debug, Encode, Decode, Json)]
 pub struct TicketBody {
+    #[json(hex)]
     pub id: TicketId,
     pub attempt: TicketAttempt,
 }

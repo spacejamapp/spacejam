@@ -76,3 +76,26 @@ macro_rules! impl_json {
 }
 
 impl_json!(1, 2, 3, 4, 8, 16, 32, 64, 128, 144, 256, 784);
+
+macro_rules! impl_primitive {
+    ($($ty:ty),*) => {
+        $(
+            impl Json<$ty> for $ty {
+                fn to_json(self) -> $ty {
+                    self
+                }
+
+                fn from_json(json: $ty) -> Result<Self> {
+                    Ok(json)
+                }
+            }
+        )*
+    };
+}
+
+impl_primitive!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool, ());
+
+#[derive(Json)]
+pub struct Test {
+    pub a: u8,
+}

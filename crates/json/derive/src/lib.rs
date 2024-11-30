@@ -131,7 +131,11 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
             } else {
                 field.ty = syn::parse_quote!(#nested_ty);
             }
+
+            continue;
         }
+
+        other_fields.push(field.ident.clone());
     }
 
     // 4. Append attributes to the json struct
@@ -142,43 +146,39 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
     quote! {
         #json
 
-        impl TryFrom<#json_name> for #name {
-            type Error = anyhow::Error;
+        impl Json<#json_name> for #name {
+            fn to_json(self) -> #json_name {
+                #json_name {
+                    #(#other_fields: self.#other_fields.to_json(),)*
+                    #(#hex_fields: self.#hex_fields.to_json(),)*
+                    #(#option_fields: self.#option_fields.to_json(),)*
+                    #(#array_fields: self.#array_fields.to_json(),)*
+                    #(#nested_array_fields: self.#nested_array_fields.to_json(),)*
+                }
+            }
 
-            fn try_from(value: #json_name) -> anyhow::Result<Self> {
+            fn from_json(json: #json_name) -> anyhow::Result<Self> {
                 Ok(#name {
-                    #(#other_fields: value.#other_fields.try_into()?,)*
-                    #(#hex_fields: hex::decode(value.#hex_fields.trim_start_matches("0x"))?
-                        .try_into()
-                        .map_err(|_| anyhow::anyhow!("Invalid hex string"))?,
-                    )*
-                    #(#option_fields: value.#option_fields.map(|v| hex::decode(v.trim_start_matches("0x")).unwrap_or_default())
-                        .try_into()
-                        .ok()
-                        .flatten(),)*
-                    #(#array_fields: value.#array_fields.into_iter().map(|v| {
-                        hex::decode(v.trim_start_matches("0x"))
-                            .map(|v| v.try_into().map_err(|_| anyhow::anyhow!("Invalid hex string")))
-                            .map_err(|_| anyhow::anyhow!("Invalid hex string"))
-                        })
-                    .collect::<anyhow::Result<anyhow::Result<Vec<_>>>>()??,
-                    )*
-                    #(#nested_array_fields: value.#nested_array_fields.into_iter().map(|v| {
-                        v.try_into().map_err(|_| anyhow::anyhow!("Invalid nested array"))
-                    }).collect::<anyhow::Result<Vec<_>>>()?,)*
+                    #(#other_fields: Json::from_json(json.#other_fields)?,)*
+                    #(#hex_fields: Json::from_json(json.#hex_fields)?,)*
+                    #(#option_fields: Json::from_json(json.#option_fields)?,)*
+                    #(#array_fields: Json::from_json(json.#array_fields)?,)*
+                    #(#nested_array_fields: Json::from_json(json.#nested_array_fields)?,)*
                 })
             }
         }
 
         impl From<#name> for #json_name {
             fn from(value: #name) -> Self {
-                #json_name {
-                    #(#other_fields: value.#other_fields.into(),)*
-                    #(#hex_fields: hex::encode(value.#hex_fields),)*
-                    #(#option_fields: value.#option_fields.map(|v| hex::encode(v)).unwrap_or_default().into(),)*
-                    #(#array_fields: value.#array_fields.into_iter().map(hex::encode).collect(),)*
-                    #(#nested_array_fields: value.#nested_array_fields.into_iter().map(|v| v.into()).collect(),)*
-                }
+                value.to_json()
+            }
+        }
+
+        impl TryFrom<#json_name> for #name {
+            type Error = anyhow::Error;
+
+            fn try_from(value: #json_name) -> anyhow::Result<Self> {
+                Json::from_json(value)
             }
         }
     }

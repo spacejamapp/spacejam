@@ -16,6 +16,7 @@ pub struct Judgement {
 /// Represents a verdict in a dispute.
 #[derive(Debug, Encode, Decode, Json)]
 pub struct Verdict {
+    #[json(hex)]
     pub target: OpaqueHash,
     pub age: u32,
     #[json(nested)]
@@ -36,6 +37,7 @@ pub struct Culprit {
 /// Represents a fault in a dispute.
 #[derive(Debug, Encode, Decode, Json)]
 pub struct Fault {
+    #[json(hex)]
     pub target: OpaqueHash,
     pub vote: bool,
     #[json(hex)]
