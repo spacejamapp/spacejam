@@ -1,14 +1,14 @@
 use core_derive::Json;
-use scale::{Decode, Encode};
 
-#[derive(Debug, Encode, Decode, Json)]
-pub struct AvailAssurance {
-    /// The anchor of the assurance
-    pub anchor: [u8; 32],
-    /// The bitfield of the assurance
-    pub bitfield: [u8; 1],
-    /// The validator index of the assurance
-    pub validator_index: u16,
-    /// The signature of the assurance
-    pub signature: [u8; 64],
-}
+pub mod block;
+pub mod dispute;
+pub mod misc;
+pub mod ticket;
+pub mod work;
+
+pub const VALIDATORS_COUNT: u16 = 6;
+pub const CORES_COUNT: u16 = 2;
+pub const EPOCH_LENGTH: u16 = 12;
+pub const MAX_BLOCKS_HISTORY: u16 = 8;
+pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;
+pub const AVAIL_BITFIELD_BYTES: u16 = 1;
