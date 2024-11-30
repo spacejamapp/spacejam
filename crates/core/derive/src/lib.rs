@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use proc_macro2::Span;
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Fields, Ident, ItemStruct};
 
 /// Derives a struct to implement the `Json` trait.
@@ -26,18 +27,29 @@ pub fn json_derive(input: TokenStream) -> TokenStream {
     let mut other_fields = Vec::new();
     if let Fields::Named(ref mut fields) = json.fields {
         for field in &mut fields.named {
-            // Check for the #[json(hex)] attribute
-            if field.attrs.iter().any(|attr| {
-                attr.path().is_ident("json")
-                    && attr
-                        .parse_args::<syn::Ident>()
-                        .expect("Invalid json attribute")
-                        == *"hex"
-            }) {
-                hex_fields.push(field.ident.clone());
+            if let Some(attr) = field.attrs.iter().find(|attr| attr.path().is_ident("json")) {
+                let arg = attr
+                    .parse_args::<syn::Ident>()
+                    .expect("invalid json attribute");
+
                 field.attrs.retain(|attr| !attr.path().is_ident("json"));
-                field.ty = syn::parse_quote! { String };
-                continue;
+
+                // Check for the #[json(hex)] attribute
+                if arg == *"hex" {
+                    hex_fields.push(field.ident.clone());
+                    field.ty = syn::parse_quote! { String };
+                    continue;
+                }
+
+                if arg == *"nest" {
+                    other_fields.push(field.ident.clone());
+                    let ty = Ident::new(
+                        &format!("{}{}Json", field.ty.to_token_stream().to_string(), name),
+                        Span::call_site(),
+                    );
+                    field.ty = syn::parse_quote!(#ty);
+                    continue;
+                }
             }
 
             if let syn::Type::Array(ref array_type) = field.ty {

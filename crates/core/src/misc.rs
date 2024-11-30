@@ -91,10 +91,7 @@ mod availability {
     use crate::work::report::*;
 
     pub type AvailabilityAssignment = (WorkReport, u32);
-    pub enum AvailabilityAssignmentsItem {
-        None,
-        Some(AvailabilityAssignment),
-    }
+    pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
     pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
 }
 
@@ -111,7 +108,7 @@ mod preimage {
     }
 
     /// Represents a sequence of preimages.
-    pub type PreimagesExtrinsic = Vec<Preimage>; // Sequence of Preimage
+    pub type PreimagesExtrinsic = Vec<Preimage>;
 }
 
 // --------------------------------------------
