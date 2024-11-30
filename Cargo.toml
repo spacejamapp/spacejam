@@ -1,0 +1,20 @@
+[workspace]
+members = ["crates/*"]
+resolver = "1"
+
+[workspace.dependencies]
+core = { path = "crates/core", package = "spacejam-core" }
+core-derive = { path = "crates/core-derive", package = "spacejam-core-derive" }
+
+# crates.io
+anyhow = "1.0.93"
+git2 = "0.19.0"
+hex = "0.4.3"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+
+# dev 
+scale = { package = "parity-scale-codec", version = "3.6.12", features = [
+    "derive",
+    "serde",
+], git = "https://github.com/turbofishxyz/jamcodec.git" }
