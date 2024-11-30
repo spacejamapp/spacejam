@@ -503,6 +503,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-core-derive"
+version = "0.1.0"
+
+[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
