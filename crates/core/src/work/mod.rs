@@ -1,35 +1,49 @@
 use crate::misc::*;
+use json::Json;
+use scale::{Decode, Encode};
 
 pub mod report;
 
 /// Represents a work package in the system.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct WorkPackage {
-    pub authorization: Vec<u8>, // Corresponds to ByteSequence
+    pub authorization: Vec<u8>,
     pub auth_code_host: ServiceId,
+    #[json(nested)]
     pub authorizer: ServiceInfo,
+    #[json(nested)]
     pub context: RefineContext,
-    pub items: Vec<WorkItem>, // List of work items
+    #[json(nested)]
+    pub items: Vec<WorkItem>,
 }
 
 /// Represents an individual work item within a work package.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct WorkItem {
     pub service: ServiceId,
+    #[json(hex)]
     pub code_hash: OpaqueHash,
-    pub payload: Vec<u8>, // Corresponds to ByteSequence
+    pub payload: Vec<u8>,
     pub gas_limit: Gas,
-    pub import_segments: Vec<ImportSpec>, // List of import specifications
-    pub extrinsic: Vec<ExtrinsicSpec>,    // List of extrinsic specifications
+    #[json(nested)]
+    pub import_segments: Vec<ImportSpec>,
+    #[json(nested)]
+    pub extrinsic: Vec<ExtrinsicSpec>,
     pub export_count: u16,
 }
 
 /// Represents an import specification for a work item.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct ImportSpec {
+    #[json(hex)]
     pub tree_root: OpaqueHash,
     pub index: u16,
 }
 
 /// Represents an extrinsic specification for a work item.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct ExtrinsicSpec {
+    #[json(hex)]
     pub hash: OpaqueHash,
     pub len: u32,
 }

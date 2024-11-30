@@ -1,10 +1,11 @@
 [workspace]
-members = ["crates/*", "crates/core/derive"]
+members = ["crates/*", "crates/json/derive"]
 resolver = "1"
 
 [workspace.dependencies]
 core = { path = "crates/core", package = "spacejam-core" }
-core-derive = { path = "crates/core/derive", package = "spacejam-core-derive" }
+json = { path = "crates/json", package = "spacejson" }
+json-derive = { path = "crates/json/derive", package = "spacejson-derive" }
 
 # crates.io
 anyhow = "1.0.93"

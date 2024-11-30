@@ -25,7 +25,7 @@ mod crypto {
 // --------------------------------------------
 mod core {
     use super::crypto::*;
-    use core_derive::Json;
+    use json::Json;
     use scale::{Decode, Encode};
 
     pub type OpaqueHash = [u8; 32];
@@ -70,7 +70,7 @@ mod core {
         #[json(hex)]
         pub lookup_anchor: HeaderHash,
         pub lookup_anchor_slot: TimeSlot,
-        #[json(array)]
+        #[json(hex)]
         pub prerequisites: Vec<OpaqueHash>,
     }
 }
@@ -80,7 +80,7 @@ mod core {
 // --------------------------------------------
 mod service {
     use super::core::*;
-    use core_derive::Json;
+    use json::Json;
     use scale::{Decode, Encode};
 
     pub type ServiceId = u32;
@@ -114,7 +114,7 @@ mod availability {
 // --------------------------------------------
 mod preimage {
     use super::service::*;
-    use core_derive::Json;
+    use json::Json;
     use scale::{Decode, Encode};
 
     /// Represents a preimage request.
@@ -135,7 +135,7 @@ mod preimage {
 mod assurance {
     use super::core::*;
     use super::crypto::*;
-    use crate::Json;
+    use json::Json;
     use scale::{Decode, Encode};
 
     /// Represents an assurance of availability.
@@ -161,7 +161,7 @@ mod guarantee {
     use super::core::*;
     use super::crypto::*;
     use crate::work::report::*;
-    use core_derive::Json;
+    use json::Json;
     use scale::{Decode, Encode};
 
     /// Represents a signature from a validator.
@@ -173,9 +173,12 @@ mod guarantee {
     }
 
     /// Represents a report guarantee.
+    #[derive(Debug, Encode, Decode, Json)]
     pub struct ReportGuarantee {
+        #[json(nested)]
         pub report: WorkReport,
         pub slot: TimeSlot,
+        #[json(nested)]
         pub signatures: Vec<ValidatorSignature>,
     }
 

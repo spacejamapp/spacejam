@@ -1,6 +1,8 @@
 //! Ticket types
 
 use crate::misc::*;
+use json::Json;
+use scale::{Decode, Encode};
 
 /// Represents a unique identifier for a ticket.
 pub type TicketId = OpaqueHash; // Corresponds to OpaqueHash
@@ -9,29 +11,38 @@ pub type TicketId = OpaqueHash; // Corresponds to OpaqueHash
 pub type TicketAttempt = u8; // Corresponds to U8
 
 /// Represents a ticket envelope containing an attempt and a signature.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct TicketEnvelope {
     pub attempt: TicketAttempt,
-    pub signature: BandersnatchRingVrfSignature, // Corresponds to BandersnatchRingVrfSignature
+    #[json(hex)]
+    pub signature: BandersnatchRingVrfSignature,
 }
 
 /// Represents the body of a ticket, containing an ID and an attempt.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct TicketBody {
+    #[json(hex)]
     pub id: TicketId,
     pub attempt: TicketAttempt,
 }
 
 /// Represents an accumulator of tickets.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct TicketsAccumulator {
-    pub tickets: Vec<TicketBody>, // SIZE(0..epoch-length) OF TicketBody
+    #[json(nested)]
+    pub tickets: Vec<TicketBody>,
 }
 
 /// Represents either tickets or keys.
+#[derive(Debug, Encode, Decode)]
 pub enum TicketsOrKeys {
-    Tickets(Vec<TicketBody>),      // SIZE(epoch-length) OF TicketBody
-    Keys(Vec<BandersnatchPublic>), // SIZE(epoch-length) OF BandersnatchPublic
+    Tickets(Vec<TicketBody>),
+    Keys(Vec<BandersnatchPublic>),
 }
 
 /// Represents the extrinsic data for tickets.
+#[derive(Debug, Encode, Decode, Json)]
 pub struct TicketsExtrinsic {
-    pub tickets: Vec<TicketEnvelope>, // SIZE(0..16) OF TicketEnvelope
+    #[json(nested)]
+    pub tickets: Vec<TicketEnvelope>,
 }

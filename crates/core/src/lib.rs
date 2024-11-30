@@ -1,5 +1,3 @@
-use core_derive::Json;
-
 pub mod block;
 pub mod dispute;
 pub mod misc;

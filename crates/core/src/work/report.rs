@@ -1,7 +1,7 @@
 //! Report types
 
 use crate::misc::*;
-use core_derive::Json;
+use json::Json;
 use scale::{Decode, Encode};
 
 /// Represents the result of a work execution.
@@ -51,13 +51,19 @@ pub struct SegmentRootLookupItem {
 }
 
 /// Represents a work report.
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Json)]
 pub struct WorkReport {
+    #[json(nested)]
     pub package_spec: WorkPackageSpec,
+    #[json(nested)]
     pub context: RefineContext,
     pub core_index: CoreIndex,
+    #[json(hex)]
     pub authorizer_hash: OpaqueHash,
+    #[json(hex)]
     pub auth_output: Vec<u8>,
+    #[json(nested)]
     pub segment_root_lookup: Vec<SegmentRootLookupItem>,
+    #[json(nested)]
     pub results: Vec<WorkResult>,
 }
