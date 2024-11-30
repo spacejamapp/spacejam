@@ -70,7 +70,7 @@ mod core {
         #[json(hex)]
         pub lookup_anchor: HeaderHash,
         pub lookup_anchor_slot: TimeSlot,
-        #[json(array)]
+        #[json(hex)]
         pub prerequisites: Vec<OpaqueHash>,
     }
 }
