@@ -13,11 +13,20 @@ pub use {
     ser::Serializer,
 };
 
-pub fn serialize<S: serde::ser::Serializer, T>(
-    _value: &T,
-    _serializer: S,
+/// Trait for types that can be encoded and decoded using JAMCodec
+pub trait JamCodec: serde::Serialize {
+    fn encode(&self) -> anyhow::Result<Vec<u8>> {
+        encode(&self).map_err(Into::into)
+    }
+}
+
+impl<T: serde::Serialize> JamCodec for T {}
+
+pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
+    value: &T,
+    serializer: S,
 ) -> std::result::Result<S::Ok, S::Error> {
-    todo!("serialize with not yet implemented")
+    serializer.serialize_bytes(value.as_ref())
 }
 
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: TryFrom<Vec<u8>>>(

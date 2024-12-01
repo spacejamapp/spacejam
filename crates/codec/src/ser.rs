@@ -139,12 +139,20 @@ impl ser::Serializer for &mut Serializer {
         Err(anyhow::anyhow!("Map not supported").into())
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Err(anyhow::anyhow!("Seq not supported").into())
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = len {
+            if len > 0xff {
+                // TODO: support longer sequences
+                return Err(anyhow::anyhow!("Seq too long").into());
+            }
+
+            self.output.push(len as u8);
+        }
+        Ok(self)
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(anyhow::anyhow!("Tuple not supported").into())
+        Ok(self)
     }
 
     fn serialize_tuple_struct(
@@ -170,7 +178,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        Err(anyhow::anyhow!("Struct not supported").into())
+        Ok(self)
     }
 
     fn serialize_struct_variant(
@@ -195,14 +203,6 @@ impl ser::Serializer for &mut Serializer {
         _value: &T,
     ) -> Result<()> {
         Err(anyhow::anyhow!("Newtype variant not supported").into())
-    }
-
-    fn collect_seq<I>(self, _iter: I) -> Result<()>
-    where
-        I: IntoIterator,
-        <I as IntoIterator>::Item: ser::Serialize,
-    {
-        Err(anyhow::anyhow!("Seq not supported").into())
     }
 
     fn collect_str<T>(self, _value: &T) -> Result<()>
@@ -241,11 +241,12 @@ impl ser::SerializeSeq for &mut Serializer {
     type Error = Error;
 
     // Serialize a single element of the sequence.
-    fn serialize_element<T>(&mut self, _value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Seq not supported").into())
+        value.serialize(&mut **self)?;
+        Ok(())
     }
 
     // Close the sequence.
@@ -259,11 +260,12 @@ impl ser::SerializeTuple for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T>(&mut self, _value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Tuple not supported").into())
+        value.serialize(&mut **self)?;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
@@ -361,11 +363,12 @@ impl ser::SerializeStruct for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Struct not supported").into())
+        value.serialize(&mut **self)?;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
