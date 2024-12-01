@@ -3,12 +3,12 @@ use crate::dispute::*;
 use crate::misc::*;
 use crate::ticket::*;
 use codec::Json;
-use scale::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 pub mod header;
 pub mod history;
 
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Extrinsic {
     #[json(Vec<TicketEnvelopeJson>)]
     pub tickets: TicketsExtrinsic,
@@ -23,7 +23,7 @@ pub struct Extrinsic {
 }
 
 /// Represents a block in the system.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Block {
     #[json(nested)]
     pub header: Header,

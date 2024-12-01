@@ -1,7 +1,6 @@
 //! Codec tests
 
 use anyhow::Result;
-use codec::Json;
 use core::{
     block::{
         header::{Header, HeaderJson},

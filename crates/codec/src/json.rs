@@ -4,16 +4,12 @@
 use anyhow::Result;
 
 /// A trait for types that can be encoded and decoded to and from JSON.
-pub trait Json<Target>: Sized + scale::Encode + scale::Decode + std::fmt::Debug {
+pub trait Json<Target>: Sized + std::fmt::Debug {
     /// Converts the value to its JSON representation.
     fn to_json(self) -> Target;
 
     /// Converts the value from its JSON representation.
     fn from_json(json: Target) -> Result<Self>;
-
-    fn encode(&self) -> Vec<u8> {
-        scale::Encode::encode(self)
-    }
 }
 
 impl<M, N> Json<Option<M>> for Option<N>

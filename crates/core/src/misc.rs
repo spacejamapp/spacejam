@@ -26,7 +26,7 @@ mod crypto {
 mod core {
     use super::crypto::*;
     use codec::Json;
-    use scale::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     pub type OpaqueHash = [u8; 32];
     pub type TimeSlot = u32;
@@ -59,7 +59,7 @@ mod core {
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct RefineContext {
         #[json(hex)]
         pub anchor: HeaderHash,
@@ -81,12 +81,12 @@ mod core {
 mod service {
     use super::core::*;
     use codec::Json;
-    use scale::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     pub type ServiceId = u32;
 
     /// Represents a service info.
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct ServiceInfo {
         #[json(hex)]
         pub code_hash: OpaqueHash,
@@ -115,10 +115,10 @@ mod availability {
 mod preimage {
     use super::service::*;
     use codec::Json;
-    use scale::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     /// Represents a preimage request.
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct Preimage {
         pub requester: ServiceId,
         #[json(hex)]
@@ -136,10 +136,10 @@ mod assurance {
     use super::core::*;
     use super::crypto::*;
     use codec::Json;
-    use scale::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     /// Represents an assurance of availability.
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct AvailAssurance {
         #[json(hex)]
         pub anchor: OpaqueHash,
@@ -147,6 +147,7 @@ mod assurance {
         pub bitfield: Vec<u8>,
         pub validator_index: ValidatorIndex,
         #[json(hex)]
+        #[serde(with = "codec")]
         pub signature: Ed25519Signature,
     }
 
@@ -162,18 +163,19 @@ mod guarantee {
     use super::crypto::*;
     use crate::work::report::*;
     use codec::Json;
-    use scale::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     /// Represents a signature from a validator.
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct ValidatorSignature {
         pub validator_index: ValidatorIndex,
         #[json(hex)]
+        #[serde(with = "codec")]
         pub signature: Ed25519Signature,
     }
 
     /// Represents a report guarantee.
-    #[derive(Debug, Encode, Decode, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json)]
     pub struct ReportGuarantee {
         #[json(nested)]
         pub report: WorkReport,

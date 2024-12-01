@@ -2,19 +2,20 @@
 
 use crate::misc::*;
 use codec::Json;
-use scale::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// Represents a judgement in a dispute.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
     #[json(hex)]
+    #[serde(with = "codec")]
     pub signature: Ed25519Signature,
 }
 
 /// Represents a verdict in a dispute.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -24,18 +25,19 @@ pub struct Verdict {
 }
 
 /// Represents a culprit in a dispute.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Culprit {
     #[json(hex)]
     pub target: OpaqueHash,
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
+    #[serde(with = "codec")]
     pub signature: Ed25519Signature,
 }
 
 /// Represents a fault in a dispute.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Fault {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -43,11 +45,12 @@ pub struct Fault {
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
+    #[serde(with = "codec")]
     pub signature: Ed25519Signature,
 }
 
 /// Represents the records of disputes.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct DisputesRecords {
     #[json(hex)]
     pub good: Vec<OpaqueHash>,
@@ -60,7 +63,7 @@ pub struct DisputesRecords {
 }
 
 /// Represents the extrinsic data for disputes.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct DisputesExtrinsic {
     #[json(nested)]
     pub verdicts: Vec<Verdict>,

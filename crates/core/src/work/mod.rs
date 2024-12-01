@@ -1,11 +1,11 @@
 use crate::misc::*;
 use codec::Json;
-use scale::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 pub mod report;
 
 /// Represents a work package in the system.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkPackage {
     #[json(hex)]
     pub authorization: Vec<u8>,
@@ -19,7 +19,7 @@ pub struct WorkPackage {
 }
 
 /// Represents an individual work item within a work package.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkItem {
     pub service: ServiceId,
     #[json(hex)]
@@ -35,7 +35,7 @@ pub struct WorkItem {
 }
 
 /// Represents an import specification for a work item.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct ImportSpec {
     #[json(hex)]
     pub tree_root: OpaqueHash,
@@ -43,7 +43,7 @@ pub struct ImportSpec {
 }
 
 /// Represents an extrinsic specification for a work item.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct ExtrinsicSpec {
     #[json(hex)]
     pub hash: OpaqueHash,
@@ -51,7 +51,7 @@ pub struct ExtrinsicSpec {
 }
 
 /// Represents an authorizer for a work package.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Authorizer {
     #[json(hex)]
     pub code_hash: OpaqueHash,

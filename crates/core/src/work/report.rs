@@ -2,10 +2,10 @@
 
 use crate::misc::*;
 use codec::Json;
-use scale::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// Represents the result of a work execution.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkExecResult {
     #[json(hex)]
     pub ok: Option<Vec<u8>>,
@@ -16,7 +16,7 @@ pub struct WorkExecResult {
 }
 
 /// Represents the result of a work item.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkResult {
     pub service_id: ServiceId,
     #[json(hex)]
@@ -29,7 +29,7 @@ pub struct WorkResult {
 }
 
 /// Represents the specification of a work package.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkPackageSpec {
     #[json(hex)]
     pub hash: WorkPackageHash,
@@ -42,7 +42,7 @@ pub struct WorkPackageSpec {
 }
 
 /// Represents an item in the segment root lookup.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct SegmentRootLookupItem {
     #[json(hex)]
     pub work_package_hash: WorkPackageHash,
@@ -51,7 +51,7 @@ pub struct SegmentRootLookupItem {
 }
 
 /// Represents a work report.
-#[derive(Debug, Encode, Decode, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct WorkReport {
     #[json(nested)]
     pub package_spec: WorkPackageSpec,
