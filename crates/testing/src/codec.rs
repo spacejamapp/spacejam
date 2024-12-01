@@ -84,3 +84,27 @@ load_codec_data! {
     (work_result_0, WorkResultJson, WorkResult),
     (work_result_1, WorkResultJson, WorkResult)
 }
+
+#[test]
+fn include_all_tests() -> Result<()> {
+    let this = include_str!("codec.rs");
+    let root = env!("CARGO_MANIFEST_DIR");
+
+    for file in std::fs::read_dir(format!("{root}/jamtestvectors/codec/data"))? {
+        let path = file?.path();
+        if path.ends_with("json") {
+            continue;
+        }
+
+        let test = path
+            .with_extension("")
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        assert!(this.contains(&test), "test for {test} not exist");
+    }
+
+    Ok(())
+}
