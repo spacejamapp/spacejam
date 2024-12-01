@@ -8,8 +8,8 @@ use core::{
     },
     dispute::{DisputesExtrinsic, DisputesExtrinsicJson},
     misc::{
-        AvailAssurance, AvailAssuranceJson, GuaranteesExtrinsic, PreimageJson, PreimagesExtrinsic,
-        RefineContext, RefineContextJson, ReportGuaranteeJson,
+        AssurancesExtrinsic, AvailAssuranceJson, GuaranteesExtrinsic, PreimageJson,
+        PreimagesExtrinsic, RefineContext, RefineContextJson, ReportGuaranteeJson,
     },
     ticket::{TicketEnvelopeJson, TicketsExtrinsic},
     work::{
@@ -17,20 +17,13 @@ use core::{
         WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
     },
 };
+use json::Json;
 use paste::paste;
 
 macro_rules! load_codec_data {
     ($name:ident) => {{
-        let json = include_str!(concat!(
-            "../jamtestvectors/codec/data/",
-            stringify!($name),
-            ".json"
-        ));
-        let data = include_bytes!(concat!(
-            "../jamtestvectors/codec/data/",
-            stringify!($name),
-            ".bin"
-        ));
+        let json = include_str!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".json"));
+        let data = include_bytes!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".bin"));
         (json, data)
     }};
     ($name:ident, $json:ident, $dest:ident) => {
@@ -52,6 +45,8 @@ macro_rules! load_codec_data {
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>>>()?;
+
+                // assert_eq!(decoded.encode(), data);
                 Ok(())
             }
         }
@@ -65,7 +60,7 @@ macro_rules! load_codec_data {
 }
 
 load_codec_data! {
-    (assurances_extrinsic, Vec<AvailAssuranceJson>, Vec<AvailAssurance>),
+    (assurances_extrinsic, Vec<AvailAssuranceJson>, AssurancesExtrinsic),
     (guarantees_extrinsic, Vec<ReportGuaranteeJson>, GuaranteesExtrinsic),
     (preimages_extrinsic, Vec<PreimageJson>, PreimagesExtrinsic),
     (tickets_extrinsic, Vec<TicketEnvelopeJson>, TicketsExtrinsic)

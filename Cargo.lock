@@ -518,6 +518,7 @@ dependencies = [
  "paste",
  "serde_json",
  "spacejam-core",
+ "spacejson",
 ]
 
 [[package]]
@@ -526,6 +527,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "hex",
+ "parity-scale-codec",
  "serde",
  "serde_json",
  "spacejson-derive",
