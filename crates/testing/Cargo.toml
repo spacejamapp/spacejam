@@ -7,7 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 core.workspace = true
 serde_json.workspace = true
-
+paste.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
