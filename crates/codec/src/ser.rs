@@ -110,24 +110,26 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<()> {
-        self.output.push(0);
-        Ok(())
+        Err(anyhow::anyhow!("Unit not supported").into())
     }
 
     fn serialize_unit_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
+        variant_index: u32,
         _variant: &'static str,
     ) -> Result<()> {
-        Err(anyhow::anyhow!("Unit variant not supported").into())
+        if variant_index > 0xff {
+            return Err(anyhow::anyhow!("Variant index too large").into());
+        }
+        self.serialize_u8(variant_index as u8)
     }
 
-    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<()>
+    fn serialize_newtype_struct<T>(self, _name: &'static str, _value: &T) -> Result<()>
     where
         T: ser::Serialize + ?Sized,
     {
-        value.serialize(self)
+        Err(anyhow::anyhow!("Newtype struct not supported").into())
     }
 
     fn collect_map<K, V, I>(self, _iter: I) -> Result<()>
@@ -195,14 +197,18 @@ impl ser::Serializer for &mut Serializer {
         self.serialize_unit()
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
         self,
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
-        _value: &T,
+        value: &T,
     ) -> Result<()> {
-        Err(anyhow::anyhow!("Newtype variant not supported").into())
+        if _variant_index > 0xff {
+            return Err(anyhow::anyhow!("Variant index too large").into());
+        }
+        self.serialize_u8(_variant_index as u8)?;
+        value.serialize(self)
     }
 
     fn collect_str<T>(self, _value: &T) -> Result<()>

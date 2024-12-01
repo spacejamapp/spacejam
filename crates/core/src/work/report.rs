@@ -5,14 +5,13 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents the result of a work execution.
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct WorkExecResult {
-    #[json(hex)]
-    pub ok: Option<Vec<u8>>,
-    pub out_of_gas: Option<()>,
-    pub panic: Option<()>,
-    pub bad_code: Option<()>,
-    pub code_oversize: Option<()>,
+#[derive(Debug, Serialize, Deserialize)]
+pub enum WorkExecResult {
+    Ok(Vec<u8>),
+    OutOfGas,
+    Panic,
+    BadCode,
+    CodeOversize,
 }
 
 /// Represents the result of a work item.
@@ -66,4 +65,65 @@ pub struct WorkReport {
     pub segment_root_lookup: Vec<SegmentRootLookupItem>,
     #[json(nested)]
     pub results: Vec<WorkResult>,
+}
+
+// TODO: support enum in Json macro
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct WorkExecResultJson {
+    pub ok: Option<String>,
+    #[serde(default = "default_some_unit")]
+    pub out_of_gas: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub panic: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub bad_code: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub code_oversize: Option<()>,
+}
+
+fn default_some_unit() -> Option<()> {
+    Some(())
+}
+
+impl Json<WorkExecResultJson> for WorkExecResult {
+    fn to_json(self) -> WorkExecResultJson {
+        match self {
+            WorkExecResult::Ok(v) => WorkExecResultJson {
+                ok: Some(hex::encode(v)),
+                ..Default::default()
+            },
+            WorkExecResult::OutOfGas => WorkExecResultJson {
+                out_of_gas: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::Panic => WorkExecResultJson {
+                panic: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::BadCode => WorkExecResultJson {
+                bad_code: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::CodeOversize => WorkExecResultJson {
+                code_oversize: Some(()),
+                ..Default::default()
+            },
+        }
+    }
+
+    fn from_json(json: WorkExecResultJson) -> anyhow::Result<Self> {
+        if let Some(ok) = json.ok {
+            Ok(WorkExecResult::Ok(hex::decode(
+                ok.trim_start_matches("0x"),
+            )?))
+        } else if json.out_of_gas.is_none() {
+            Ok(WorkExecResult::OutOfGas)
+        } else if json.panic.is_none() {
+            Ok(WorkExecResult::Panic)
+        } else if json.bad_code.is_none() {
+            Ok(WorkExecResult::BadCode)
+        } else {
+            Ok(WorkExecResult::CodeOversize)
+        }
+    }
 }
