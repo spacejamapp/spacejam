@@ -1,5 +1,6 @@
 use crate::misc::*;
 use crate::ticket::*;
+use crate::VALIDATORS_COUNT;
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
@@ -10,8 +11,8 @@ pub struct EpochMark {
     pub entropy: Entropy,
     #[json(hex)]
     pub tickets_entropy: Entropy,
-    #[json(hex)]
-    pub validators: Vec<BandersnatchPublic>,
+    #[json(Vec<String>)]
+    pub validators: [BandersnatchPublic; VALIDATORS_COUNT as usize],
 }
 
 /// Represents the tickets mark in a block header.
