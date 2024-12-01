@@ -1,6 +1,7 @@
 //! Codec tests
 
 use anyhow::Result;
+use codec::Json;
 use core::{
     block::{
         header::{Header, HeaderJson},
@@ -17,7 +18,6 @@ use core::{
         WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
     },
 };
-use json::Json;
 use paste::paste;
 
 macro_rules! load_codec_data {

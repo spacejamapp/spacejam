@@ -2,7 +2,7 @@ use crate::block::header::{Header, HeaderJson};
 use crate::dispute::*;
 use crate::misc::*;
 use crate::ticket::*;
-use json::Json;
+use codec::Json;
 use scale::{Decode, Encode};
 
 pub mod header;

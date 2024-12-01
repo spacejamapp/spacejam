@@ -1,5 +1,5 @@
 use crate::misc::*;
-use json::Json;
+use codec::Json;
 use scale::{Decode, Encode};
 
 /// Represents a peak in the Merkle Mountain Range (MMR).

@@ -1,6 +1,6 @@
 use crate::misc::*;
 use crate::ticket::*;
-use json::Json;
+use codec::Json;
 use scale::{Decode, Encode};
 
 /// Represents the epoch mark in a block header.

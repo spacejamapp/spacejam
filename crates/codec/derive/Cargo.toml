@@ -1,5 +1,5 @@
 [package]
-name = "spacejson-derive"
+name = "jamcodec-derive"
 version = "0.0.0"
 edition = "2021"
 
