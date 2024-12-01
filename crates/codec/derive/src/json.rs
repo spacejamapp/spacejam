@@ -50,7 +50,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         // Clone the attribute to remove it from the field
         let attr = attr.clone();
-        field.attrs.retain(|attr| !attr.path().is_ident("json"));
+        field
+            .attrs
+            .retain(|attr| !attr.path().is_ident("json") && !attr.path().is_ident("serde"));
 
         // Parse the attribute
         let Ok(arg) = attr.parse_args::<syn::Ident>() else {

@@ -3,6 +3,8 @@
 use crate::{Error, Result};
 use serde::de::{self, Visitor};
 
+pub mod visitor;
+
 /// Deserializer for JAMCodec
 pub struct Deserializer<'de> {
     input: &'de [u8],
@@ -37,31 +39,31 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl<'de> de::Deserializer<'de> for Deserializer<'de> {
+impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_bool<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         visitor.visit_bool(self.next_byte()? != 0)
     }
 
-    fn deserialize_i8<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         visitor.visit_i8(self.next_byte()? as i8)
     }
 
-    fn deserialize_u8<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         visitor.visit_u8(self.next_byte()?)
     }
 
-    fn deserialize_i16<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -69,7 +71,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_i16(i16::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_u16<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -77,7 +79,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_u16(u16::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_i32<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -85,7 +87,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_i32(i32::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_u32<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -93,7 +95,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_u32(u32::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_i64<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -101,7 +103,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_i64(i64::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_u64<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -109,7 +111,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_u64(u64::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_f32<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -117,7 +119,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_f32(f32::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_f64<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -125,14 +127,14 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         visitor.visit_f64(f64::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    fn deserialize_char<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         visitor.visit_char(self.next_byte()? as char)
     }
 
-    fn deserialize_str<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -149,7 +151,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_bytes<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -165,7 +167,7 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         self.deserialize_bytes(visitor)
     }
 
-    fn deserialize_option<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {

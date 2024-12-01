@@ -7,6 +7,5 @@ edition = "2021"
 codec-derive.workspace = true
 anyhow.workspace = true
 hex.workspace = true
-scale.workspace = true
 serde.workspace = true
 serde_json.workspace = true

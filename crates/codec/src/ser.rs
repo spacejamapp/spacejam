@@ -4,11 +4,13 @@ use crate::{Error, Result};
 use serde::ser;
 
 /// Serializer for JAMCodec
+#[derive(Default)]
 pub struct Serializer {
-    output: Vec<u8>,
+    /// Output buffer
+    pub output: Vec<u8>,
 }
 
-impl ser::Serializer for Serializer {
+impl ser::Serializer for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -20,7 +22,7 @@ impl ser::Serializer for Serializer {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    fn serialize_bool(mut self, v: bool) -> Result<()> {
+    fn serialize_bool(self, v: bool) -> Result<()> {
         if v {
             self.output.push(1);
         } else {
@@ -29,77 +31,77 @@ impl ser::Serializer for Serializer {
         Ok(())
     }
 
-    fn serialize_i8(mut self, v: i8) -> Result<()> {
+    fn serialize_i8(self, v: i8) -> Result<()> {
         self.output.extend_from_slice(&[v as u8]);
         Ok(())
     }
 
-    fn serialize_u8(mut self, v: u8) -> Result<()> {
+    fn serialize_u8(self, v: u8) -> Result<()> {
         self.output.push(v);
         Ok(())
     }
 
-    fn serialize_i16(mut self, v: i16) -> Result<()> {
+    fn serialize_i16(self, v: i16) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_u16(mut self, v: u16) -> Result<()> {
+    fn serialize_u16(self, v: u16) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_i32(mut self, v: i32) -> Result<()> {
+    fn serialize_i32(self, v: i32) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_u32(mut self, v: u32) -> Result<()> {
+    fn serialize_u32(self, v: u32) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_i64(mut self, v: i64) -> Result<()> {
+    fn serialize_i64(self, v: i64) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_u64(mut self, v: u64) -> Result<()> {
+    fn serialize_u64(self, v: u64) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_f32(mut self, v: f32) -> Result<()> {
+    fn serialize_f32(self, v: f32) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_f64(mut self, v: f64) -> Result<()> {
+    fn serialize_f64(self, v: f64) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_str(mut self, v: &str) -> Result<()> {
+    fn serialize_str(self, v: &str) -> Result<()> {
         self.output.extend_from_slice(v.as_bytes());
         Ok(())
     }
 
-    fn serialize_bytes(mut self, v: &[u8]) -> Result<()> {
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         self.output.extend_from_slice(v);
         Ok(())
     }
 
-    fn serialize_char(mut self, v: char) -> Result<()> {
+    fn serialize_char(self, v: char) -> Result<()> {
         self.output.push(v as u8);
         Ok(())
     }
 
-    fn serialize_none(mut self) -> Result<()> {
+    fn serialize_none(self) -> Result<()> {
         self.output.push(0);
         Ok(())
     }
 
-    fn serialize_some<T>(mut self, value: &T) -> Result<()>
+    fn serialize_some<T>(self, value: &T) -> Result<()>
     where
         T: ser::Serialize + ?Sized,
     {
@@ -107,7 +109,7 @@ impl ser::Serializer for Serializer {
         value.serialize(self)
     }
 
-    fn serialize_unit(mut self) -> Result<()> {
+    fn serialize_unit(self) -> Result<()> {
         self.output.push(0);
         Ok(())
     }
@@ -210,12 +212,12 @@ impl ser::Serializer for Serializer {
         Err(anyhow::anyhow!("Str not supported").into())
     }
 
-    fn serialize_i128(mut self, v: i128) -> Result<()> {
+    fn serialize_i128(self, v: i128) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
 
-    fn serialize_u128(mut self, v: u128) -> Result<()> {
+    fn serialize_u128(self, v: u128) -> Result<()> {
         self.output.extend_from_slice(&v.to_le_bytes());
         Ok(())
     }
@@ -232,7 +234,7 @@ impl ser::Serializer for Serializer {
 //
 // This impl is SerializeSeq so these methods are called after `serialize_seq`
 // is called on the Serializer.
-impl ser::SerializeSeq for Serializer {
+impl ser::SerializeSeq for &mut Serializer {
     // Must match the `Ok` type of the serializer.
     type Ok = ();
     // Must match the `Error` type of the serializer.
@@ -253,7 +255,7 @@ impl ser::SerializeSeq for Serializer {
 }
 
 // Same thing but for tuples.
-impl ser::SerializeTuple for Serializer {
+impl ser::SerializeTuple for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -270,7 +272,7 @@ impl ser::SerializeTuple for Serializer {
 }
 
 // Same thing but for tuple structs.
-impl ser::SerializeTupleStruct for Serializer {
+impl ser::SerializeTupleStruct for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -295,7 +297,7 @@ impl ser::SerializeTupleStruct for Serializer {
 //
 // So the `end` method in this impl is responsible for closing both the `]` and
 // the `}`.
-impl ser::SerializeTupleVariant for Serializer {
+impl ser::SerializeTupleVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -319,7 +321,7 @@ impl ser::SerializeTupleVariant for Serializer {
 // `serialize_entry` method allows serializers to optimize for the case where
 // key and value are both available simultaneously. In JSON it doesn't make a
 // difference so the default behavior for `serialize_entry` is fine.
-impl ser::SerializeMap for Serializer {
+impl ser::SerializeMap for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -355,7 +357,7 @@ impl ser::SerializeMap for Serializer {
 
 // Structs are like maps in which the keys are constrained to be compile-time
 // constant strings.
-impl ser::SerializeStruct for Serializer {
+impl ser::SerializeStruct for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
@@ -373,7 +375,7 @@ impl ser::SerializeStruct for Serializer {
 
 // Similar to `SerializeTupleVariant`, here the `end` method is responsible for
 // closing both of the curly braces opened by `serialize_struct_variant`.
-impl ser::SerializeStructVariant for Serializer {
+impl ser::SerializeStructVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
