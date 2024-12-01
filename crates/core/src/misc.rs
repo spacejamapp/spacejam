@@ -25,7 +25,7 @@ mod crypto {
 // --------------------------------------------
 mod core {
     use super::crypto::*;
-    use json::Json;
+    use codec::Json;
     use scale::{Decode, Encode};
 
     pub type OpaqueHash = [u8; 32];
@@ -80,7 +80,7 @@ mod core {
 // --------------------------------------------
 mod service {
     use super::core::*;
-    use json::Json;
+    use codec::Json;
     use scale::{Decode, Encode};
 
     pub type ServiceId = u32;
@@ -114,7 +114,7 @@ mod availability {
 // --------------------------------------------
 mod preimage {
     use super::service::*;
-    use json::Json;
+    use codec::Json;
     use scale::{Decode, Encode};
 
     /// Represents a preimage request.
@@ -135,7 +135,7 @@ mod preimage {
 mod assurance {
     use super::core::*;
     use super::crypto::*;
-    use json::Json;
+    use codec::Json;
     use scale::{Decode, Encode};
 
     /// Represents an assurance of availability.
@@ -161,7 +161,7 @@ mod guarantee {
     use super::core::*;
     use super::crypto::*;
     use crate::work::report::*;
-    use json::Json;
+    use codec::Json;
     use scale::{Decode, Encode};
 
     /// Represents a signature from a validator.

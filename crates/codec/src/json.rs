@@ -2,15 +2,18 @@
 //!
 //! Now using hex as the default encoding.
 use anyhow::Result;
-pub use json_derive::Json;
 
 /// A trait for types that can be encoded and decoded to and from JSON.
-pub trait Json<Target>: Sized {
+pub trait Json<Target>: Sized + scale::Encode + scale::Decode + std::fmt::Debug {
     /// Converts the value to its JSON representation.
     fn to_json(self) -> Target;
 
     /// Converts the value from its JSON representation.
     fn from_json(json: Target) -> Result<Self>;
+
+    fn encode(&self) -> Vec<u8> {
+        scale::Encode::encode(self)
+    }
 }
 
 impl<M, N> Json<Option<M>> for Option<N>
@@ -50,7 +53,7 @@ impl Json<String> for Vec<u8> {
     }
 }
 
-macro_rules! impl_json {
+macro_rules! impl_bytes {
     ($($len:expr),*) => {
         $(
             impl Json<String> for [u8; $len] {
@@ -75,7 +78,7 @@ macro_rules! impl_json {
     };
 }
 
-impl_json!(1, 2, 3, 4, 8, 16, 32, 64, 96, 128, 144, 256, 784);
+impl_bytes!(1, 2, 3, 4, 8, 16, 32, 64, 96, 128, 144, 256, 784);
 
 macro_rules! impl_primitive {
     ($($ty:ty),*) => {
@@ -94,8 +97,3 @@ macro_rules! impl_primitive {
 }
 
 impl_primitive!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool, ());
-
-#[derive(Json)]
-pub struct Test {
-    pub a: u8,
-}

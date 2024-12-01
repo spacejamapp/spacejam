@@ -1,11 +1,12 @@
 [package]
-name = "spacejson"
+name = "jamcodec"
 version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-json-derive.workspace = true
+codec-derive.workspace = true
 anyhow.workspace = true
 hex.workspace = true
+scale.workspace = true
 serde.workspace = true
 serde_json.workspace = true

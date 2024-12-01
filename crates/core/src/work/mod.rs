@@ -1,5 +1,5 @@
 use crate::misc::*;
-use json::Json;
+use codec::Json;
 use scale::{Decode, Encode};
 
 pub mod report;
@@ -7,10 +7,11 @@ pub mod report;
 /// Represents a work package in the system.
 #[derive(Debug, Encode, Decode, Json)]
 pub struct WorkPackage {
+    #[json(hex)]
     pub authorization: Vec<u8>,
     pub auth_code_host: ServiceId,
     #[json(nested)]
-    pub authorizer: ServiceInfo,
+    pub authorizer: Authorizer,
     #[json(nested)]
     pub context: RefineContext,
     #[json(nested)]
@@ -23,6 +24,7 @@ pub struct WorkItem {
     pub service: ServiceId,
     #[json(hex)]
     pub code_hash: OpaqueHash,
+    #[json(hex)]
     pub payload: Vec<u8>,
     pub gas_limit: Gas,
     #[json(nested)]
@@ -46,4 +48,13 @@ pub struct ExtrinsicSpec {
     #[json(hex)]
     pub hash: OpaqueHash,
     pub len: u32,
+}
+
+/// Represents an authorizer for a work package.
+#[derive(Debug, Encode, Decode, Json)]
+pub struct Authorizer {
+    #[json(hex)]
+    pub code_hash: OpaqueHash,
+    #[json(hex)]
+    pub params: Vec<u8>,
 }

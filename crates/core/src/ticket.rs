@@ -1,7 +1,7 @@
 //! Ticket types
 
 use crate::misc::*;
-use json::Json;
+use codec::Json;
 use scale::{Decode, Encode};
 
 /// Represents a unique identifier for a ticket.
@@ -41,8 +41,4 @@ pub enum TicketsOrKeys {
 }
 
 /// Represents the extrinsic data for tickets.
-#[derive(Debug, Encode, Decode, Json)]
-pub struct TicketsExtrinsic {
-    #[json(nested)]
-    pub tickets: Vec<TicketEnvelope>,
-}
+pub type TicketsExtrinsic = Vec<TicketEnvelope>;
