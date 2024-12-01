@@ -1,5 +1,7 @@
 use crate::misc::*;
 use crate::ticket::*;
+use crate::EPOCH_LENGTH;
+use crate::VALIDATORS_COUNT;
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
@@ -10,12 +12,12 @@ pub struct EpochMark {
     pub entropy: Entropy,
     #[json(hex)]
     pub tickets_entropy: Entropy,
-    #[json(hex)]
-    pub validators: Vec<BandersnatchPublic>,
+    #[json(Vec<String>)]
+    pub validators: [BandersnatchPublic; VALIDATORS_COUNT as usize],
 }
 
 /// Represents the tickets mark in a block header.
-pub type TicketsMark = Vec<TicketBody>;
+pub type TicketsMark = [TicketBody; EPOCH_LENGTH as usize];
 
 /// Represents the header of a block.
 #[derive(Debug, Serialize, Deserialize, Json)]

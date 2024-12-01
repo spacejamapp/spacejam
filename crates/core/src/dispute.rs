@@ -1,11 +1,11 @@
 //! Dispute types
 
-use crate::misc::*;
+use crate::{misc::*, VALIDATORS_SUPER_MAJORITY};
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents a judgement in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, Copy, Clone)]
 pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
@@ -14,14 +14,24 @@ pub struct Judgement {
     pub signature: Ed25519Signature,
 }
 
+impl Default for Judgement {
+    fn default() -> Self {
+        Judgement {
+            vote: false,
+            index: 0,
+            signature: [0u8; 64],
+        }
+    }
+}
+
 /// Represents a verdict in a dispute.
 #[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
     pub age: u32,
-    #[json(nested)]
-    pub votes: Vec<Judgement>,
+    #[json(Vec<JudgementJson>)]
+    pub votes: [Judgement; VALIDATORS_SUPER_MAJORITY as usize],
 }
 
 /// Represents a culprit in a dispute.

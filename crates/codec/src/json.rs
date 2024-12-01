@@ -74,7 +74,32 @@ macro_rules! impl_bytes {
     };
 }
 
-impl_bytes!(1, 2, 3, 4, 8, 16, 32, 64, 96, 128, 144, 256, 784);
+impl_bytes!(1, 2, 3, 4, 5, 6, 8, 12, 16, 32, 64, 96, 128, 144, 256, 784);
+
+macro_rules! impl_array {
+    ($($len:expr),*) => {
+        $(
+            impl<M, N: Default + Copy> Json<Vec<M>> for [N; $len]
+            where
+                N: Json<M>,
+            {
+                fn to_json(self) -> Vec<M> {
+                    self.into_iter().map(|v| v.to_json()).collect()
+                }
+
+                fn from_json(json: Vec<M>) -> Result<Self> {
+                    let mut array = [N::default(); $len];
+                    for (i, v) in json.into_iter().enumerate() {
+                        array[i] = N::from_json(v)?;
+                    }
+                    Ok(array)
+                }
+            }
+        )*
+    };
+}
+
+impl_array!(1, 2, 3, 4, 5, 6, 8, 12, 16, 32, 64, 96, 128, 144, 256, 784);
 
 macro_rules! impl_primitive {
     ($($ty:ty),*) => {

@@ -143,8 +143,7 @@ mod assurance {
     pub struct AvailAssurance {
         #[json(hex)]
         pub anchor: OpaqueHash,
-        #[json(hex)]
-        pub bitfield: Vec<u8>,
+        pub bitfield: [u8; 1],
         pub validator_index: ValidatorIndex,
         #[json(hex)]
         #[serde(with = "codec")]
