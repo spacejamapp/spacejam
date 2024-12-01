@@ -1,9 +1,7 @@
 //! JAMCodec serialization implementation
 
-use crate::Error;
+use crate::{Error, Result};
 use serde::ser;
-
-type Result<T> = std::result::Result<T, Error>;
 
 /// Serializer for JAMCodec
 pub struct Serializer {

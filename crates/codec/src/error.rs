@@ -33,3 +33,5 @@ impl From<anyhow::Error> for Error {
         Self(err)
     }
 }
+
+pub type Result<T> = std::result::Result<T, Error>;
