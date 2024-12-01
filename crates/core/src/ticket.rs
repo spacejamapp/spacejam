@@ -41,8 +41,4 @@ pub enum TicketsOrKeys {
 }
 
 /// Represents the extrinsic data for tickets.
-#[derive(Debug, Encode, Decode, Json)]
-pub struct TicketsExtrinsic {
-    #[json(nested)]
-    pub tickets: Vec<TicketEnvelope>,
-}
+pub type TicketsExtrinsic = Vec<TicketEnvelope>;

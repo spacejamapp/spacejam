@@ -15,11 +15,7 @@ pub struct EpochMark {
 }
 
 /// Represents the tickets mark in a block header.
-#[derive(Debug, Encode, Decode, Json)]
-pub struct TicketsMark {
-    #[json(nested)]
-    pub tickets: Vec<TicketBody>,
-}
+pub type TicketsMark = Vec<TicketBody>;
 
 /// Represents the header of a block.
 #[derive(Debug, Encode, Decode, Json)]
@@ -33,7 +29,7 @@ pub struct Header {
     pub slot: TimeSlot,
     #[json(nested)]
     pub epoch_mark: Option<EpochMark>,
-    #[json(nested)]
+    #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
     #[json(hex)]
     pub offenders_mark: Vec<Ed25519Public>,
