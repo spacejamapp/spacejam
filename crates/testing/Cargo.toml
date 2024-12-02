@@ -7,8 +7,11 @@ edition = "2021"
 anyhow.workspace = true
 core.workspace = true
 codec.workspace = true
+hex.workspace = true
 paste.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+trie.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true

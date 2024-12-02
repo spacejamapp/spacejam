@@ -474,14 +474,17 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "hex",
  "jamcodec",
  "paste",
+ "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-trie",
 ]
 
 [[package]]
-name = "spacejamp-trie"
+name = "spacejam-trie"
 version = "0.0.0"
 dependencies = [
  "blake2",

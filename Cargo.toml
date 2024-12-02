@@ -6,6 +6,7 @@ resolver = "1"
 core = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 codec-derive = { path = "crates/codec/derive", package = "jamcodec-derive" }
+trie = { path = "crates/trie", package = "spacejam-trie" }
 
 # crates.io
 anyhow = "1.0.93"

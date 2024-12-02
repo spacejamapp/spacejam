@@ -7,9 +7,11 @@ pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> [u8; 32] {
     if kvs.is_empty() {
         return [0u8; 32];
     }
+
     if kvs.len() == 1 {
-        return leaf(&kvs[0].0, &kvs[0].1);
+        return hash(&leaf(&kvs[0].0, &kvs[0].1));
     }
+
     let mut l = Vec::new();
     let mut r = Vec::new();
     for (k, v) in kvs {
@@ -19,9 +21,7 @@ pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> [u8; 32] {
             l.push((k.clone(), v.clone()));
         }
     }
-    let left = merkle(&l, i + 1);
-    let right = merkle(&r, i + 1);
-    let encoded = branch(left, right);
+    let encoded = branch(merkle(&l, i + 1), merkle(&r, i + 1));
     hash(&encoded)
 }
 
@@ -32,30 +32,28 @@ fn hash(data: &[u8]) -> [u8; 32] {
 }
 
 fn branch(l: [u8; 32], r: [u8; 32]) -> [u8; 64] {
-    let mut head = l[0];
-    head &= 0xfe;
-
     let mut result = [0u8; 64];
-    result[0] = head;
-    result[1..].copy_from_slice(&l[1..]);
-    result[33..].copy_from_slice(&r);
+    result[0] = l[0] & 0xfe;
+    result[1..32].copy_from_slice(&l[1..]);
+    result[32..].copy_from_slice(&r);
     result
 }
 
-fn leaf(k: &[u8], v: &[u8]) -> [u8; 32] {
+fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
     let mut buf = vec![0];
     buf.extend_from_slice(&k[..k.len() - 1]);
 
     if v.len() <= 32 {
         buf[0] = 0b01 | (v.len() << 2) as u8;
         buf.extend_from_slice(v);
+        buf.resize(64, 0); // Pad with zeros
     } else {
         buf[0] = 0b11;
         buf.extend_from_slice(&hash(v));
     }
 
-    let mut result = [0u8; 32];
-    result.copy_from_slice(&buf);
+    let mut result = [0u8; 64];
+    result.copy_from_slice(&buf[..64]);
     result
 }
 
