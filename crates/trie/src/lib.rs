@@ -3,13 +3,13 @@
 use blake2::{digest::consts::U32, Blake2b, Digest};
 
 /// Compute the Merkle root of a set of key-value pairs.
-pub fn merkle(kvs: &[(Vec<u8>, Vec<u8>)], i: usize) -> [u8; 32] {
+pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
     if kvs.is_empty() {
         return [0u8; 32];
     }
 
     if kvs.len() == 1 {
-        return hash(&leaf(&kvs[0].0, &kvs[0].1));
+        return hash(&leaf(kvs[0].0, &kvs[0].1));
     }
 
     let mut l = Vec::new();
@@ -39,14 +39,14 @@ fn branch(l: [u8; 32], r: [u8; 32]) -> [u8; 64] {
     result
 }
 
-fn leaf(k: &[u8], v: &[u8]) -> [u8; 64] {
+fn leaf(k: [u8; 32], v: &[u8]) -> [u8; 64] {
     let mut buf = vec![0];
     buf.extend_from_slice(&k[..k.len() - 1]);
 
     if v.len() <= 32 {
         buf[0] = 0b01 | (v.len() << 2) as u8;
         buf.extend_from_slice(v);
-        buf.resize(64, 0); // Pad with zeros
+        buf.resize(64, 0);
     } else {
         buf[0] = 0b11;
         buf.extend_from_slice(&hash(v));

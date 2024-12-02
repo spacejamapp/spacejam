@@ -19,7 +19,10 @@ fn jam() {
                 .into_iter()
                 .map(|(k, v)| {
                     (
-                        hex::decode(k).expect("failed to decode key"),
+                        hex::decode(k)
+                            .expect("failed to decode key")
+                            .try_into()
+                            .expect("failed to convert to bytes32"),
                         hex::decode(v).expect("failed to decode value"),
                     )
                 })
