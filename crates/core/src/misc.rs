@@ -59,7 +59,7 @@ mod core {
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct RefineContext {
         #[json(hex)]
         pub anchor: HeaderHash,
@@ -118,7 +118,7 @@ mod preimage {
     use serde::{Deserialize, Serialize};
 
     /// Represents a preimage request.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct Preimage {
         pub requester: ServiceId,
         #[json(hex)]
@@ -139,7 +139,7 @@ mod assurance {
     use serde::{Deserialize, Serialize};
 
     /// Represents an assurance of availability.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct AvailAssurance {
         #[json(hex)]
         pub anchor: OpaqueHash,
@@ -165,7 +165,7 @@ mod guarantee {
     use serde::{Deserialize, Serialize};
 
     /// Represents a signature from a validator.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct ValidatorSignature {
         pub validator_index: ValidatorIndex,
         #[json(hex)]
@@ -174,7 +174,7 @@ mod guarantee {
     }
 
     /// Represents a report guarantee.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct ReportGuarantee {
         #[json(nested)]
         pub report: WorkReport,

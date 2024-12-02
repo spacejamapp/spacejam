@@ -6,14 +6,14 @@ use serde::{Deserialize, Serialize};
 pub type MmrPeak = Option<OpaqueHash>;
 
 /// Represents the Merkle Mountain Range (MMR).
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Mmr {
     #[json(Vec<Option<String>>)]
     pub peaks: Vec<MmrPeak>,
 }
 
 /// Represents a reported work package.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct ReportedWorkPackage {
     #[json(hex)]
     pub hash: OpaqueHash,
@@ -22,7 +22,7 @@ pub struct ReportedWorkPackage {
 }
 
 /// Represents information about a block.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct BlockInfo {
     #[json(hex)]
     pub header_hash: OpaqueHash,
@@ -35,7 +35,7 @@ pub struct BlockInfo {
 }
 
 /// Represents the history of blocks.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct BlocksHistory {
     #[json(nested)]
     pub blocks: Vec<BlockInfo>,

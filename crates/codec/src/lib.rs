@@ -14,13 +14,17 @@ pub use {
 };
 
 /// Trait for types that can be encoded and decoded using JAMCodec
-pub trait JamCodec: serde::Serialize {
+pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         encode(&self).map_err(Into::into)
     }
+
+    fn decode(value: &[u8]) -> anyhow::Result<Self> {
+        decode(value).map_err(Into::into)
+    }
 }
 
-impl<T: serde::Serialize> JamCodec for T {}
+impl<T: serde::Serialize + serde::de::DeserializeOwned> JamCodec for T {}
 
 pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     value: &T,

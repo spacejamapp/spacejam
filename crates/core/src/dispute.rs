@@ -5,7 +5,7 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents a judgement in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, PartialEq, Eq)]
 pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
@@ -25,7 +25,7 @@ impl Default for Judgement {
 }
 
 /// Represents a verdict in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -35,7 +35,7 @@ pub struct Verdict {
 }
 
 /// Represents a culprit in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Culprit {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -47,7 +47,7 @@ pub struct Culprit {
 }
 
 /// Represents a fault in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Fault {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -60,7 +60,7 @@ pub struct Fault {
 }
 
 /// Represents the records of disputes.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct DisputesRecords {
     #[json(hex)]
     pub good: Vec<OpaqueHash>,
@@ -73,7 +73,7 @@ pub struct DisputesRecords {
 }
 
 /// Represents the extrinsic data for disputes.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct DisputesExtrinsic {
     #[json(nested)]
     pub verdicts: Vec<Verdict>,

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub mod header;
 pub mod history;
 
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Extrinsic {
     #[json(Vec<TicketEnvelopeJson>)]
     pub tickets: TicketsExtrinsic,
@@ -23,7 +23,7 @@ pub struct Extrinsic {
 }
 
 /// Represents a block in the system.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Block {
     #[json(nested)]
     pub header: Header,

@@ -6,7 +6,7 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents the epoch mark in a block header.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct EpochMark {
     #[json(hex)]
     pub entropy: Entropy,
@@ -20,7 +20,7 @@ pub struct EpochMark {
 pub type TicketsMark = [TicketBody; EPOCH_LENGTH as usize];
 
 /// Represents the header of a block.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Header {
     #[json(hex)]
     pub parent: HeaderHash,
