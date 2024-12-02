@@ -33,8 +33,8 @@ macro_rules! load_codec_data {
                 let (json, data) = load_codec_data!($name);
                 let decoded: $dest = serde_json::from_str::<$json>(json)?.try_into()?;
 
-                println!("{:?}", decoded);
                 assert_eq!(decoded.encode()?, data);
+                assert_eq!(decoded, $dest::decode(data)?);
                 Ok(())
             }
         }
@@ -49,8 +49,8 @@ macro_rules! load_codec_data {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>>>()?;
 
-                println!("{:?}", decoded);
                 assert_eq!(decoded.encode()?, data);
+                assert_eq!(decoded, $dest::decode(data)?);
                 Ok(())
             }
         }

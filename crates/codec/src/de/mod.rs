@@ -3,6 +3,7 @@
 use crate::{Error, Result};
 use serde::de::{self, Visitor};
 
+pub mod access;
 pub mod visitor;
 
 /// Deserializer for JAMCodec
@@ -60,7 +61,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u8(self.next_byte()?)
+        let value = self.next_byte()?;
+        visitor.visit_u8(value)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
@@ -68,7 +70,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(2)?;
-        visitor.visit_i16(i16::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_i16(i16::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid i16"))?,
+        ))
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
@@ -76,7 +82,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(2)?;
-        visitor.visit_u16(u16::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_u16(u16::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid u16"))?,
+        ))
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
@@ -84,7 +94,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(4)?;
-        visitor.visit_i32(i32::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_i32(i32::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid i32"))?,
+        ))
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
@@ -92,7 +106,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(4)?;
-        visitor.visit_u32(u32::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_u32(u32::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid u32"))?,
+        ))
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
@@ -100,7 +118,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(8)?;
-        visitor.visit_i64(i64::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_i64(i64::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid i64"))?,
+        ))
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
@@ -108,7 +130,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(8)?;
-        visitor.visit_u64(u64::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_u64(u64::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid u64"))?,
+        ))
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
@@ -116,7 +142,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(4)?;
-        visitor.visit_f32(f32::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_f32(f32::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid f32"))?,
+        ))
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
@@ -124,7 +154,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(8)?;
-        visitor.visit_f64(f64::from_le_bytes(bytes.try_into().unwrap()))
+        visitor.visit_f64(f64::from_le_bytes(
+            bytes
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("invalid f64"))?,
+        ))
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
@@ -199,75 +233,79 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("sequence").into())
+        let len = self.next_byte()? as usize;
+        visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("tuple").into())
+        visitor
+            .visit_seq(access::SeqAccess::new(self, len))
+            .map_err(Into::into)
     }
 
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
-        _len: usize,
-        _visitor: V,
+        len: usize,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("tuple struct").into())
+        visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("map").into())
+        Err(anyhow::anyhow!("map is not supported").into())
     }
 
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
         _fields: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("struct").into())
+        visitor.visit_seq(access::SeqAccess::new(self, _fields.len()))
     }
 
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("enum").into())
+        let variant = self.next_byte()?;
+        visitor.visit_enum(access::EnumAccess::new(self, variant))
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_str(visitor)
+        Err(anyhow::anyhow!("As bytecode format, identifier is not supported").into())
     }
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("any").into())
+        visitor.visit_seq(access::SeqAccess::new(self, 0))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>

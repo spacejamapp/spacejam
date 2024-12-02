@@ -5,7 +5,7 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents the result of a work execution.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorkExecResult {
     Ok(Vec<u8>),
     OutOfGas,
@@ -15,7 +15,7 @@ pub enum WorkExecResult {
 }
 
 /// Represents the result of a work item.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct WorkResult {
     pub service_id: ServiceId,
     #[json(hex)]
@@ -28,7 +28,7 @@ pub struct WorkResult {
 }
 
 /// Represents the specification of a work package.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct WorkPackageSpec {
     #[json(hex)]
     pub hash: WorkPackageHash,
@@ -41,7 +41,7 @@ pub struct WorkPackageSpec {
 }
 
 /// Represents an item in the segment root lookup.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct SegmentRootLookupItem {
     #[json(hex)]
     pub work_package_hash: WorkPackageHash,
@@ -50,7 +50,7 @@ pub struct SegmentRootLookupItem {
 }
 
 /// Represents a work report.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct WorkReport {
     #[json(nested)]
     pub package_spec: WorkPackageSpec,

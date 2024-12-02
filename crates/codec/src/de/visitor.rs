@@ -1,15 +1,15 @@
 //! JAMCodec deserialization visitor
 
-use serde::de;
+use serde::de::{self, Error};
 use std::fmt;
 
-/// Visitor for JAMCodec deserialization
+/// Visitor for fixed-size byte arrays
 #[derive(Default)]
-pub struct Visitor<T: TryFrom<Vec<u8>>> {
+pub struct FixedBytesVisitor<T: TryFrom<Vec<u8>>> {
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: TryFrom<Vec<u8>>> Visitor<T> {
+impl<T: TryFrom<Vec<u8>>> FixedBytesVisitor<T> {
     pub fn new() -> Self {
         Self {
             _marker: std::marker::PhantomData,
@@ -17,10 +17,70 @@ impl<T: TryFrom<Vec<u8>>> Visitor<T> {
     }
 }
 
-impl<T: TryFrom<Vec<u8>>> de::Visitor<'_> for Visitor<T> {
+impl<'v, T: TryFrom<Vec<u8>>> de::Visitor<'v> for FixedBytesVisitor<T> {
     type Value = T;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a byte vector")
+        formatter.write_str(&format!(
+            "a fixed-size byte array of {} bytes",
+            core::mem::size_of::<T>()
+        ))
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::SeqAccess<'v>,
+    {
+        let mut bytes = Vec::with_capacity(core::mem::size_of::<T>());
+        for _ in 0..core::mem::size_of::<T>() {
+            bytes.push(seq.next_element()?.unwrap_or_default());
+        }
+        T::try_from(bytes).map_err(|_| A::Error::custom("invalid bytes: {bytes:?}"))
+    }
+}
+
+impl<'v, T: TryFrom<Vec<u8>>> de::DeserializeSeed<'v> for FixedBytesVisitor<T> {
+    type Value = T;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: de::Deserializer<'v>,
+    {
+        println!("deserialize_seed ...");
+        deserializer.deserialize_any(self)
+    }
+}
+
+// Add this new visitor for Vec<u8>
+pub struct VecU8Visitor;
+
+impl<'de> de::Visitor<'de> for VecU8Visitor {
+    type Value = Vec<u8>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a byte array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::SeqAccess<'de>,
+    {
+        let mut bytes = Vec::new();
+        while let Some(byte) = seq.next_element()? {
+            bytes.push(byte);
+        }
+        Ok(bytes)
+    }
+}
+
+// Add this implementation for deserializing Vec<u8> directly
+impl<'de> de::DeserializeSeed<'de> for VecU8Visitor {
+    type Value = Vec<u8>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        deserializer.deserialize_tuple(0, self)
     }
 }

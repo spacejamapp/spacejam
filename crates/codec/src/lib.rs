@@ -7,21 +7,26 @@ mod ser;
 
 pub use codec_derive::Json;
 pub use {
-    de::{visitor::Visitor, Deserializer},
+    de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
     json::Json,
     ser::Serializer,
 };
 
 /// Trait for types that can be encoded and decoded using JAMCodec
-pub trait JamCodec: serde::Serialize {
+pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         encode(&self).map_err(Into::into)
     }
+
+    fn decode(value: &[u8]) -> anyhow::Result<Self> {
+        decode(value).map_err(Into::into)
+    }
 }
 
-impl<T: serde::Serialize> JamCodec for T {}
+impl<T: serde::Serialize + serde::de::DeserializeOwned> JamCodec for T {}
 
+/// Serialize fixed byte array that larger than 32 bytes.
 pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     value: &T,
     serializer: S,
@@ -29,10 +34,11 @@ pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     serializer.serialize_bytes(value.as_ref())
 }
 
+/// Deserialize fixed byte array that larger than 32 bytes.
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: TryFrom<Vec<u8>>>(
     deserializer: D,
 ) -> std::result::Result<T, D::Error> {
-    deserializer.deserialize_any(Visitor::<T>::new())
+    deserializer.deserialize_tuple(core::mem::size_of::<T>(), FixedBytesVisitor::<T>::new())
 }
 
 /// Encode a value to a byte vector
