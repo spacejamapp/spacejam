@@ -1,6 +1,6 @@
 //! JAMCodec deserialization visitor
 
-use serde::de;
+use serde::de::{self, Error};
 use std::fmt;
 
 /// Visitor for fixed-size byte arrays
@@ -17,17 +17,36 @@ impl<T: TryFrom<Vec<u8>>> FixedBytesVisitor<T> {
     }
 }
 
-impl<T: TryFrom<Vec<u8>>> de::Visitor<'_> for FixedBytesVisitor<T> {
+impl<'v, T: TryFrom<Vec<u8>>> de::Visitor<'v> for FixedBytesVisitor<T> {
     type Value = T;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a byte vector")
+        formatter.write_str(&format!(
+            "a fixed-size byte array of {} bytes",
+            core::mem::size_of::<T>()
+        ))
     }
 
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
-        E: de::Error,
+        A: de::SeqAccess<'v>,
     {
-        T::try_from(v.to_vec()).map_err(|_| E::custom("invalid bytes"))
+        let mut bytes = Vec::with_capacity(core::mem::size_of::<T>());
+        for _ in 0..core::mem::size_of::<T>() {
+            bytes.push(seq.next_element()?.unwrap_or_default());
+        }
+        T::try_from(bytes).map_err(|_| A::Error::custom("invalid bytes: {bytes:?}"))
+    }
+}
+
+impl<'v, T: TryFrom<Vec<u8>>> de::DeserializeSeed<'v> for FixedBytesVisitor<T> {
+    type Value = T;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: de::Deserializer<'v>,
+    {
+        println!("deserialize_seed ...");
+        deserializer.deserialize_any(self)
     }
 }

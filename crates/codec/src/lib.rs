@@ -26,6 +26,7 @@ pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
 
 impl<T: serde::Serialize + serde::de::DeserializeOwned> JamCodec for T {}
 
+/// Serialize fixed byte array that larger than 32 bytes.
 pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     value: &T,
     serializer: S,
@@ -37,8 +38,7 @@ pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: TryFrom<Vec<u8>>>(
     deserializer: D,
 ) -> std::result::Result<T, D::Error> {
-    println!("deserialize with customized visitor ...");
-    deserializer.deserialize_any(FixedBytesVisitor::<T>::new())
+    deserializer.deserialize_tuple(core::mem::size_of::<T>(), FixedBytesVisitor::<T>::new())
 }
 
 /// Encode a value to a byte vector

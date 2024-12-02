@@ -81,6 +81,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(2)?;
+        println!("deserialize_u16, bytes: {:?}", bytes);
         visitor.visit_u16(u16::from_le_bytes(
             bytes
                 .try_into()

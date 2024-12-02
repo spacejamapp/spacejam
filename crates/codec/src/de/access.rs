@@ -41,6 +41,8 @@ impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a, 'de> {
 /// Access for enum
 pub struct EnumAccess<'a, 'de> {
     deserializer: &'a mut Deserializer<'de>,
+    /// Variant of enum
+    #[allow(dead_code)]
     pub variant: u8,
 }
 
