@@ -16,9 +16,9 @@ pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
     let mut r = Vec::new();
     for (k, v) in kvs {
         if bit(k, i) {
-            r.push((k.clone(), v.clone()));
+            r.push((*k, v.clone()));
         } else {
-            l.push((k.clone(), v.clone()));
+            l.push((*k, v.clone()));
         }
     }
     let encoded = branch(merkle(&l, i + 1), merkle(&r, i + 1));
