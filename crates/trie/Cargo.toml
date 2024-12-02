@@ -1,0 +1,7 @@
+[package]
+name = "spacejamp-trie"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+blake2.workspace = true
