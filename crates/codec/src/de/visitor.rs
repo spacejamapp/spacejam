@@ -3,13 +3,13 @@
 use serde::de;
 use std::fmt;
 
-/// Visitor for JAMCodec deserialization
+/// Visitor for fixed-size byte arrays
 #[derive(Default)]
-pub struct Visitor<T: TryFrom<Vec<u8>>> {
+pub struct FixedBytesVisitor<T: TryFrom<Vec<u8>>> {
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: TryFrom<Vec<u8>>> Visitor<T> {
+impl<T: TryFrom<Vec<u8>>> FixedBytesVisitor<T> {
     pub fn new() -> Self {
         Self {
             _marker: std::marker::PhantomData,
@@ -17,7 +17,7 @@ impl<T: TryFrom<Vec<u8>>> Visitor<T> {
     }
 }
 
-impl<T: TryFrom<Vec<u8>>> de::Visitor<'_> for Visitor<T> {
+impl<T: TryFrom<Vec<u8>>> de::Visitor<'_> for FixedBytesVisitor<T> {
     type Value = T;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

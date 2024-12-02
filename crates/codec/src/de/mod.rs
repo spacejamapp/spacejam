@@ -1,11 +1,9 @@
 //! JAMCodec deserialization implementation
 
 use crate::{Error, Result};
-use serde::{
-    de::{self, Visitor},
-    Deserializer as _,
-};
+use serde::de::{self, Visitor};
 
+pub mod access;
 pub mod visitor;
 
 /// Deserializer for JAMCodec
@@ -240,7 +238,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     {
         let len = self.next_byte()? as usize;
         println!("deserialize_seq, len: {}", len);
-        visitor.visit_seq(SeqAccess::new(self, len))
+        visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value>
@@ -250,7 +248,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         println!("deserialize_tuple len: {}", len);
 
         visitor
-            .visit_seq(SeqAccess::new(self, len))
+            .visit_seq(access::SeqAccess::new(self, len))
             .map_err(Into::into)
     }
 
@@ -282,7 +280,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_seq(SeqAccess::new(self, _fields.len()))
+        visitor.visit_seq(access::SeqAccess::new(self, _fields.len()))
     }
 
     fn deserialize_enum<V>(
@@ -295,7 +293,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let variant = self.next_byte()?;
-        visitor.visit_enum(EnumAccess::new(self, variant))
+        visitor.visit_enum(access::EnumAccess::new(self, variant))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
@@ -309,7 +307,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_seq(SeqAccess::new(self, 0))
+        visitor.visit_seq(access::SeqAccess::new(self, 0))
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
@@ -317,99 +315,5 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         self.deserialize_any(visitor)
-    }
-}
-
-struct SeqAccess<'a, 'de> {
-    deserializer: &'a mut Deserializer<'de>,
-    len: usize,
-    current: usize,
-}
-
-impl<'a, 'de> SeqAccess<'a, 'de> {
-    fn new(deserializer: &'a mut Deserializer<'de>, len: usize) -> Self {
-        SeqAccess {
-            deserializer,
-            len,
-            current: 0,
-        }
-    }
-}
-
-impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a, 'de> {
-    type Error = Error;
-
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
-    where
-        T: de::DeserializeSeed<'de>,
-    {
-        if self.current >= self.len {
-            return Ok(None);
-        }
-        self.current += 1;
-        seed.deserialize(&mut *self.deserializer).map(Some)
-    }
-
-    fn size_hint(&self) -> Option<usize> {
-        Some(self.len)
-    }
-}
-
-struct EnumAccess<'a, 'de> {
-    deserializer: &'a mut Deserializer<'de>,
-    pub variant: u8,
-}
-
-impl<'a, 'de> EnumAccess<'a, 'de> {
-    fn new(deserializer: &'a mut Deserializer<'de>, variant: u8) -> Self {
-        EnumAccess {
-            deserializer,
-            variant,
-        }
-    }
-}
-
-impl<'a, 'de> de::EnumAccess<'de> for EnumAccess<'a, 'de> {
-    type Error = Error;
-    type Variant = Self;
-
-    fn variant_seed<V>(self, _seed: V) -> Result<(V::Value, Self::Variant)>
-    where
-        V: de::DeserializeSeed<'de>,
-    {
-        Err(anyhow::anyhow!("variant seed").into())
-        /* Ok((
-            self.variant.into_deserializer().deserialize_any(seed)?,
-            self,
-        )) */
-    }
-}
-
-impl<'a, 'de> de::VariantAccess<'de> for EnumAccess<'a, 'de> {
-    type Error = Error;
-
-    fn unit_variant(self) -> Result<()> {
-        Ok(())
-    }
-
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
-    where
-        T: de::DeserializeSeed<'de>,
-    {
-        seed.deserialize(self.deserializer)
-    }
-
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserializer.deserialize_seq(visitor)
-    }
-
-    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserializer.deserialize_struct("", _fields, visitor)
     }
 }

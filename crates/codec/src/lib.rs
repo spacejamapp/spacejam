@@ -7,7 +7,7 @@ mod ser;
 
 pub use codec_derive::Json;
 pub use {
-    de::{visitor::Visitor, Deserializer},
+    de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
     json::Json,
     ser::Serializer,
@@ -33,10 +33,12 @@ pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     serializer.serialize_bytes(value.as_ref())
 }
 
+/// Deserialize fixed byte array that larger than 32 bytes.
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: TryFrom<Vec<u8>>>(
     deserializer: D,
 ) -> std::result::Result<T, D::Error> {
-    deserializer.deserialize_any(Visitor::<T>::new())
+    println!("deserialize with customized visitor ...");
+    deserializer.deserialize_any(FixedBytesVisitor::<T>::new())
 }
 
 /// Encode a value to a byte vector
