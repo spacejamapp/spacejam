@@ -1,5 +1,5 @@
 use crate::{Deserializer, Error, Result};
-use serde::de::{self, Deserializer as _};
+use serde::de::{self, IntoDeserializer};
 
 /// Access for sequence
 pub struct SeqAccess<'a, 'de> {
@@ -19,7 +19,7 @@ impl<'a, 'de> SeqAccess<'a, 'de> {
     }
 }
 
-impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a, 'de> {
+impl<'de> de::SeqAccess<'de> for SeqAccess<'_, 'de> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
@@ -42,7 +42,6 @@ impl<'a, 'de> de::SeqAccess<'de> for SeqAccess<'a, 'de> {
 pub struct EnumAccess<'a, 'de> {
     deserializer: &'a mut Deserializer<'de>,
     /// Variant of enum
-    #[allow(dead_code)]
     pub variant: u8,
 }
 
@@ -56,19 +55,23 @@ impl<'a, 'de> EnumAccess<'a, 'de> {
     }
 }
 
-impl<'a, 'de> de::EnumAccess<'de> for EnumAccess<'a, 'de> {
+impl<'de> de::EnumAccess<'de> for EnumAccess<'_, 'de> {
     type Error = Error;
     type Variant = Self;
 
-    fn variant_seed<V>(self, _seed: V) -> Result<(V::Value, Self::Variant)>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self)>
     where
         V: de::DeserializeSeed<'de>,
     {
-        Err(anyhow::anyhow!("variant seed").into())
+        let val = seed
+            .deserialize(self.variant.into_deserializer())
+            .map_err(|e: Error| e)?;
+
+        Ok((val, self))
     }
 }
 
-impl<'a, 'de> de::VariantAccess<'de> for EnumAccess<'a, 'de> {
+impl<'de> de::VariantAccess<'de> for EnumAccess<'_, 'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
@@ -82,17 +85,17 @@ impl<'a, 'de> de::VariantAccess<'de> for EnumAccess<'a, 'de> {
         seed.deserialize(self.deserializer)
     }
 
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        self.deserializer.deserialize_seq(visitor)
+        de::Deserializer::deserialize_tuple(self.deserializer, len, visitor)
     }
 
-    fn struct_variant<V>(self, _fields: &'static [&'static str], visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        self.deserializer.deserialize_struct("", _fields, visitor)
+        de::Deserializer::deserialize_tuple(self.deserializer, fields.len(), visitor)
     }
 }

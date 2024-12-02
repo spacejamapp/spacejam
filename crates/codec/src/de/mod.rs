@@ -61,7 +61,8 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_u8(self.next_byte()?)
+        let value = self.next_byte()?;
+        visitor.visit_u8(value)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
@@ -81,7 +82,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let bytes = self.next_bytes(2)?;
-        println!("deserialize_u16, bytes: {:?}", bytes);
         visitor.visit_u16(u16::from_le_bytes(
             bytes
                 .try_into()
@@ -238,7 +238,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let len = self.next_byte()? as usize;
-        println!("deserialize_seq, len: {}", len);
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
@@ -246,8 +245,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("deserialize_tuple len: {}", len);
-
         visitor
             .visit_seq(access::SeqAccess::new(self, len))
             .map_err(Into::into)
@@ -256,20 +253,20 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
-        _len: usize,
-        _visitor: V,
+        len: usize,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("tuple struct").into())
+        visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("map").into())
+        Err(anyhow::anyhow!("map is not supported").into())
     }
 
     fn deserialize_struct<V>(
@@ -297,11 +294,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         visitor.visit_enum(access::EnumAccess::new(self, variant))
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_str(visitor)
+        Err(anyhow::anyhow!("As bytecode format, identifier is not supported").into())
     }
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>

@@ -34,6 +34,7 @@ macro_rules! load_codec_data {
                 let decoded: $dest = serde_json::from_str::<$json>(json)?.try_into()?;
 
                 assert_eq!(decoded.encode()?, data);
+                assert_eq!(decoded, $dest::decode(data)?);
                 Ok(())
             }
         }
