@@ -17,9 +17,9 @@ use serde::{Deserialize, Serialize};
 /// Represents the State structure.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
 pub struct State {
-    /// Current epoch
+    /// Most recent block's timeslot.
     pub tau: u32,
-    /// Entropy accumulator
+    /// Entropy accumulator and epochal randomness.
     ///
     /// graypaper reference: 6.21
     #[json(Vec<String>)]
@@ -60,15 +60,30 @@ impl State {
             return Ok(Err(Error::BadSlot));
         }
 
-        // graypaper reference: 6.22
-        //
-        // eta'_0 = H(eta_0 || entropy)
-        let eta_0 = crypto::blake2b(&[self.eta[0], entropy].concat());
-        self.eta[0] = eta_0;
+        // Update the entropy accumulator
+        self.update_eta(slot, entropy);
 
+        // Update the epoch
         self.tau = slot;
 
         Ok(Ok(OutputData::default()))
+    }
+
+    /// Updates the entropy accumulator.
+    pub fn update_eta(&mut self, slot: u32, entropy: OpaqueHash) {
+        // graypaper reference: 6.22
+        //
+        // eta'_0 = H(eta_0 || Y(H_v))
+        let eta_0 = crypto::blake2b(&[self.eta[0], entropy].concat());
+        self.eta[0] = eta_0;
+
+        // graypaper reference: 6.23
+        //
+        // eta'_e = H(eta_e || eta'_(e-1))
+        if (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH) {
+            let historical_eta = self.eta[1..].to_vec();
+            self.eta[1..].copy_from_slice(&historical_eta);
+        }
     }
 }
 
