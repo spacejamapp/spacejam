@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Represents the CustomErrorCode enumeration.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum Error {
     /// Timeslot value must be strictly monotonic
     BadSlot,

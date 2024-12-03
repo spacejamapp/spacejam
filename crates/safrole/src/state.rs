@@ -10,7 +10,7 @@ use core::{
 use serde::{Deserialize, Serialize};
 
 /// Represents the State structure.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct State {
     /// Current epoch
     pub tau: u32,
@@ -39,11 +39,17 @@ impl State {
     /// Enacts an epoch change.
     pub fn enact(
         &mut self,
-        _slot: u32,
+        slot: u32,
         _entropy: OpaqueHash,
         _extrinsic: TicketsExtrinsic,
     ) -> Result<std::result::Result<OutputData, Error>> {
-        todo!()
+        if slot <= self.tau {
+            return Ok(Err(Error::BadSlot));
+        }
+
+        self.tau = slot;
+
+        Ok(Ok(OutputData::default()))
     }
 }
 
@@ -65,7 +71,7 @@ impl Default for State {
 }
 
 /// Represents the Output marks
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
 pub struct OutputData {
     /// New epoch marker
     pub epoch_mark: Option<EpochMark>,

@@ -3,4 +3,7 @@
 pub mod error;
 pub mod state;
 
-pub use {error::Error, state::State};
+pub use {
+    error::Error,
+    state::{OutputData, State},
+};
