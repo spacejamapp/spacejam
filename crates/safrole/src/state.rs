@@ -2,36 +2,52 @@
 
 use crate::Error;
 use anyhow::Result;
+use codec::Json;
 use core::{
-    block::header::{EpochMark, TicketsMark},
-    misc::{BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorsData},
-    ticket::{TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys},
+    block::header::{EpochMark, EpochMarkJson, TicketsMark},
+    misc::{
+        BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorDataJson,
+        ValidatorsData,
+    },
+    ticket::{
+        TicketBodyJson, TicketsAccumulator, TicketsAccumulatorJson, TicketsExtrinsic,
+        TicketsOrKeys, TicketsOrKeysJson,
+    },
 };
 use serde::{Deserialize, Serialize};
 
 /// Represents the State structure.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json)]
 pub struct State {
     /// Current epoch
     pub tau: u32,
     /// Entropy accumulator
+    #[json(Vec<String>)]
     pub eta: EntropyBuffer,
     /// Previous epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
     pub lambda: ValidatorsData,
     /// Current epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
     pub kappa: ValidatorsData,
     /// Validators to be drawn from next
+    #[json(Vec<ValidatorDataJson>)]
     pub iota: ValidatorsData,
     /// Next epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
     pub gamma_k: ValidatorsData,
     /// Bandersnatch ring commitment
     #[serde(with = "codec")]
+    #[json(hex)]
     pub gamma_z: BandersnatchRingCommitment,
     /// Sealing-key series of the current epoch
+    #[json(nested)]
     pub gamma_s: TicketsOrKeys,
     /// Sealing-key contest ticket accumulator
+    #[json(nested)]
     pub gamma_a: TicketsAccumulator,
     /// Posterior offenders sequence
+    #[json(hex)]
     pub post_offenders: Vec<Ed25519Public>,
 }
 
@@ -71,10 +87,12 @@ impl Default for State {
 }
 
 /// Represents the Output marks
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]
 pub struct OutputData {
     /// New epoch marker
+    #[json(nested)]
     pub epoch_mark: Option<EpochMark>,
     /// New tickets marker
+    #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
 }

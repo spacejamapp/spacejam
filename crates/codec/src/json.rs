@@ -2,7 +2,7 @@
 //!
 //! Now using hex as the default encoding.
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// A trait for types that can be encoded and decoded to and from JSON.
 pub trait Json<Target: Serialize + DeserializeOwned>: Sized + std::fmt::Debug {
@@ -47,6 +47,46 @@ impl Json<String> for Vec<u8> {
     fn from_json(json: String) -> Result<Self> {
         let bytes = hex::decode(json.trim_start_matches("0x"))?;
         Ok(bytes)
+    }
+}
+
+/// A JSON representation of a `Result`.
+#[derive(Serialize, Deserialize)]
+pub struct ResultJson<M, N> {
+    /// The OK value.
+    pub ok: Option<M>,
+    /// The error value.
+    pub err: Option<N>,
+}
+
+impl<M: Serialize + DeserializeOwned, N: Serialize + DeserializeOwned, P, Q> Json<ResultJson<M, N>>
+    for core::result::Result<P, Q>
+where
+    P: Json<M>,
+    Q: Json<N>,
+{
+    fn to_json(self) -> ResultJson<M, N> {
+        if self.is_ok() {
+            ResultJson {
+                ok: self.ok().to_json(),
+                err: None,
+            }
+        } else {
+            ResultJson {
+                ok: None,
+                err: self.err().to_json(),
+            }
+        }
+    }
+
+    fn from_json(json: ResultJson<M, N>) -> Result<Self> {
+        if let Some(ok) = json.ok {
+            Ok(Ok(P::from_json(ok)?))
+        } else if let Some(err) = json.err {
+            Ok(Err(Q::from_json(err)?))
+        } else {
+            Err(anyhow::anyhow!("Invalid result JSON"))
+        }
     }
 }
 

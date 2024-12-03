@@ -9,7 +9,7 @@ pub use codec_derive::Json;
 pub use {
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
-    json::Json,
+    json::{Json, ResultJson},
     ser::Serializer,
 };
 

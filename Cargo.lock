@@ -586,6 +586,7 @@ dependencies = [
  "anyhow",
  "jamcodec",
  "serde",
+ "serde_json",
  "spacejam-core",
 ]
 
@@ -601,6 +602,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-safrole",
  "spacejam-trie",
  "tracing-subscriber",
 ]

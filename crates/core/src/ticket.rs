@@ -56,5 +56,50 @@ impl Default for TicketsOrKeys {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct TicketsOrKeysJson {
+    tickets: Option<Vec<TicketBodyJson>>,
+    keys: Option<Vec<String>>,
+}
+
+impl Json<TicketsOrKeysJson> for TicketsOrKeys {
+    fn from_json(json: TicketsOrKeysJson) -> anyhow::Result<Self> {
+        Ok(if let Some(tickets) = json.tickets {
+            Self::Tickets(
+                tickets
+                    .into_iter()
+                    .map(|t| <TicketBody as Json<TicketBodyJson>>::from_json(t))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            )
+        } else if let Some(keys) = json.keys {
+            Self::Keys(
+                keys.into_iter()
+                    .map(|k| {
+                        let mut r = [0u8; 32];
+                        hex::decode(k).map(|d| r.copy_from_slice(&d))?;
+                        Ok(r)
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?
+                    .try_into()?,
+            )
+        } else {
+            Self::default()
+        })
+    }
+
+    fn to_json(self) -> TicketsOrKeysJson {
+        match self {
+            Self::Tickets(tickets) => TicketsOrKeysJson {
+                tickets: Some(tickets.into_iter().map(|t| t.to_json()).collect()),
+                keys: None,
+            },
+            Self::Keys(keys) => TicketsOrKeysJson {
+                tickets: None,
+                keys: Some(keys.into_iter().map(|k| hex::encode(k)).collect()),
+            },
+        }
+    }
+}
+
 /// Represents the extrinsic data for tickets.
 pub type TicketsExtrinsic = Vec<TicketEnvelope>;

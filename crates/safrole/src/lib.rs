@@ -5,5 +5,5 @@ pub mod state;
 
 pub use {
     error::Error,
-    state::{OutputData, State},
+    state::{OutputData, OutputDataJson, State, StateJson},
 };
