@@ -151,6 +151,20 @@ pub fn derive(input: TokenStream) -> TokenStream {
     quote! {
         #json
 
+        impl #name {
+            /// Parse self from json string
+            pub fn from_json(json: impl AsRef<str>) -> anyhow::Result<Self> {
+                let jsonf = serde_json::from_str(json.as_ref())?;
+                Json::from_json(jsonf)
+            }
+
+            /// Parse Vec<Self> from json string
+            pub fn from_array_json(json: impl AsRef<str>) -> anyhow::Result<Vec<Self>> {
+                let jsonf: Vec<#json_name> = serde_json::from_str(json.as_ref())?;
+                Json::from_json(jsonf)
+            }
+        }
+
         impl Json<#json_name> for #name {
             fn to_json(self) -> #json_name {
                 #json_name {

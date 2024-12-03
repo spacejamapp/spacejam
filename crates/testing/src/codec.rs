@@ -4,19 +4,13 @@
 use anyhow::Result;
 use codec::JamCodec;
 use core::{
-    block::{
-        header::{Header, HeaderJson},
-        Block, BlockJson, Extrinsic, ExtrinsicJson,
-    },
-    dispute::{DisputesExtrinsic, DisputesExtrinsicJson},
-    misc::{
-        AssurancesExtrinsic, AvailAssuranceJson, GuaranteesExtrinsic, PreimageJson,
-        PreimagesExtrinsic, RefineContext, RefineContextJson, ReportGuaranteeJson,
-    },
-    ticket::{TicketEnvelopeJson, TicketsExtrinsic},
+    block::{header::Header, Block, Extrinsic},
+    dispute::DisputesExtrinsic,
+    misc::{AvailAssurance, Preimage, RefineContext, ReportGuarantee},
+    ticket::TicketEnvelope,
     work::{
-        report::{WorkReport, WorkReportJson, WorkResult, WorkResultJson},
-        WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
+        report::{WorkReport, WorkResult},
+        WorkItem, WorkPackage,
     },
 };
 use paste::paste;
@@ -32,7 +26,7 @@ macro_rules! impl_codec_tests {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
                 let (json, data) = impl_codec_tests!($name);
-                let decoded: $dest = serde_json::from_str::<$json>(json)?.try_into()?;
+                let decoded: $dest = $dest::from_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
                 assert_eq!(decoded, $dest::decode(data)?);
@@ -45,13 +39,10 @@ macro_rules! impl_codec_tests {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
                 let (json, data) = impl_codec_tests!($name);
-                let decoded: $dest = serde_json::from_str::<$json>(json)?
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>>>()?;
+                let decoded: Vec<$dest> = $dest::from_array_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
-                assert_eq!(decoded, $dest::decode(data)?);
+                assert_eq!(decoded, Vec::<$dest>::decode(data)?);
                 Ok(())
             }
         }
@@ -65,10 +56,10 @@ macro_rules! impl_codec_tests {
 }
 
 impl_codec_tests! {
-    (assurances_extrinsic, Vec<AvailAssuranceJson>, AssurancesExtrinsic),
-    (guarantees_extrinsic, Vec<ReportGuaranteeJson>, GuaranteesExtrinsic),
-    (preimages_extrinsic, Vec<PreimageJson>, PreimagesExtrinsic),
-    (tickets_extrinsic, Vec<TicketEnvelopeJson>, TicketsExtrinsic)
+    (assurances_extrinsic, Vec<AvailAssuranceJson>, AvailAssurance),
+    (guarantees_extrinsic, Vec<ReportGuaranteeJson>, ReportGuarantee),
+    (preimages_extrinsic, Vec<PreimageJson>, Preimage),
+    (tickets_extrinsic, Vec<TicketEnvelopeJson>, TicketEnvelope)
 }
 
 impl_codec_tests! {

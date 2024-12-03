@@ -2,9 +2,10 @@
 //!
 //! Now using hex as the default encoding.
 use anyhow::Result;
+use serde::{de::DeserializeOwned, Serialize};
 
 /// A trait for types that can be encoded and decoded to and from JSON.
-pub trait Json<Target>: Sized + std::fmt::Debug {
+pub trait Json<Target: Serialize + DeserializeOwned>: Sized + std::fmt::Debug {
     /// Converts the value to its JSON representation.
     fn to_json(self) -> Target;
 
@@ -12,7 +13,7 @@ pub trait Json<Target>: Sized + std::fmt::Debug {
     fn from_json(json: Target) -> Result<Self>;
 }
 
-impl<M, N> Json<Option<M>> for Option<N>
+impl<M: Serialize + DeserializeOwned, N> Json<Option<M>> for Option<N>
 where
     N: Json<M>,
 {
@@ -25,7 +26,7 @@ where
     }
 }
 
-impl<M, N> Json<Vec<M>> for Vec<N>
+impl<M: Serialize + DeserializeOwned, N> Json<Vec<M>> for Vec<N>
 where
     N: Json<M>,
 {
@@ -79,7 +80,7 @@ impl_bytes!(1, 2, 3, 4, 5, 6, 8, 12, 16, 32, 64, 96, 128, 144, 256, 784);
 macro_rules! impl_array {
     ($($len:expr),*) => {
         $(
-            impl<M, N: Default + Copy> Json<Vec<M>> for [N; $len]
+            impl<M: Serialize + DeserializeOwned, N: Default + Copy> Json<Vec<M>> for [N; $len]
             where
                 N: Json<M>,
             {
