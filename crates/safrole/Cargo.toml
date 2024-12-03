@@ -1,0 +1,10 @@
+[package]
+name = "spacejam-safrole"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+codec.workspace = true
+core.workspace = true
+serde.workspace = true

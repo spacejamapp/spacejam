@@ -469,6 +469,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-safrole"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "serde",
+ "spacejam-core",
+]
+
+[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [

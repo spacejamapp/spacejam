@@ -19,6 +19,15 @@ pub struct TicketEnvelope {
     pub signature: BandersnatchRingVrfSignature,
 }
 
+impl Default for TicketEnvelope {
+    fn default() -> Self {
+        Self {
+            attempt: 0,
+            signature: [0u8; 784],
+        }
+    }
+}
+
 /// Represents the body of a ticket, containing an ID and an attempt.
 #[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, Default, PartialEq, Eq)]
 pub struct TicketBody {
@@ -28,7 +37,7 @@ pub struct TicketBody {
 }
 
 /// Represents an accumulator of tickets.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
 pub struct TicketsAccumulator {
     #[json(nested)]
     pub tickets: Vec<TicketBody>,
@@ -39,6 +48,12 @@ pub struct TicketsAccumulator {
 pub enum TicketsOrKeys {
     Tickets(Vec<TicketBody>),
     Keys(Vec<BandersnatchPublic>),
+}
+
+impl Default for TicketsOrKeys {
+    fn default() -> Self {
+        Self::Tickets(Default::default())
+    }
 }
 
 /// Represents the extrinsic data for tickets.
