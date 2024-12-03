@@ -1,4 +1,5 @@
 //! Codec tests
+#![cfg(test)]
 
 use anyhow::Result;
 use codec::JamCodec;
@@ -20,7 +21,7 @@ use core::{
 };
 use paste::paste;
 
-macro_rules! load_codec_data {
+macro_rules! impl_codec_tests {
     ($name:ident) => {{
         let json = include_str!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".json"));
         let data = include_bytes!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".bin"));
@@ -30,7 +31,7 @@ macro_rules! load_codec_data {
         paste! {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
-                let (json, data) = load_codec_data!($name);
+                let (json, data) = impl_codec_tests!($name);
                 let decoded: $dest = serde_json::from_str::<$json>(json)?.try_into()?;
 
                 assert_eq!(decoded.encode()?, data);
@@ -43,7 +44,7 @@ macro_rules! load_codec_data {
         paste! {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
-                let (json, data) = load_codec_data!($name);
+                let (json, data) = impl_codec_tests!($name);
                 let decoded: $dest = serde_json::from_str::<$json>(json)?
                     .into_iter()
                     .map(TryInto::try_into)
@@ -56,21 +57,21 @@ macro_rules! load_codec_data {
         }
     };
     ($(($name:ident, $json:ident, $dest:ident)),*) => {
-        $(load_codec_data!($name, $json, $dest);)*
+        $(impl_codec_tests!($name, $json, $dest);)*
     };
     ($(($name:ident, $json:ty, $dest:ty)),*) => {
-        $(load_codec_data!($name, $json, $dest);)*
+        $(impl_codec_tests!($name, $json, $dest);)*
     };
 }
 
-load_codec_data! {
+impl_codec_tests! {
     (assurances_extrinsic, Vec<AvailAssuranceJson>, AssurancesExtrinsic),
     (guarantees_extrinsic, Vec<ReportGuaranteeJson>, GuaranteesExtrinsic),
     (preimages_extrinsic, Vec<PreimageJson>, PreimagesExtrinsic),
     (tickets_extrinsic, Vec<TicketEnvelopeJson>, TicketsExtrinsic)
 }
 
-load_codec_data! {
+impl_codec_tests! {
     (block, BlockJson, Block),
     (disputes_extrinsic, DisputesExtrinsicJson, DisputesExtrinsic),
     (extrinsic, ExtrinsicJson, Extrinsic),

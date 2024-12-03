@@ -3,6 +3,9 @@ name = "spacejam-testing"
 version = "0.0.0"
 edition = "2021"
 
+[dependencies]
+tracing-subscriber.workspace = true
+
 [dev-dependencies]
 anyhow.workspace = true
 core.workspace = true
