@@ -1,6 +1,6 @@
 //! A space-efficient trie for storing key-value pairs.
 
-use blake2::{digest::consts::U32, Blake2b, Digest};
+use crypto::blake2b;
 
 /// Compute the Merkle root of a set of key-value pairs.
 pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
@@ -9,7 +9,7 @@ pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
     }
 
     if kvs.len() == 1 {
-        return hash(&leaf(kvs[0].0, &kvs[0].1));
+        return blake2b(&leaf(kvs[0].0, &kvs[0].1));
     }
 
     let mut l = Vec::new();
@@ -22,13 +22,7 @@ pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
         }
     }
     let encoded = branch(merkle(&l, i + 1), merkle(&r, i + 1));
-    hash(&encoded)
-}
-
-fn hash(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Blake2b::<U32>::new();
-    hasher.update(data);
-    hasher.finalize().into()
+    blake2b(&encoded)
 }
 
 fn branch(l: [u8; 32], r: [u8; 32]) -> [u8; 64] {
@@ -49,7 +43,7 @@ fn leaf(k: [u8; 32], v: &[u8]) -> [u8; 64] {
         buf.resize(64, 0);
     } else {
         buf[0] = 0b11;
-        buf.extend_from_slice(&hash(v));
+        buf.extend_from_slice(&blake2b(v));
     }
 
     let mut result = [0u8; 64];

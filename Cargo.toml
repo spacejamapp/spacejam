@@ -6,6 +6,7 @@ resolver = "1"
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 codec-derive = { path = "crates/codec/derive", package = "jamcodec-derive" }
+crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 trie = { path = "crates/trie", package = "spacejam-trie" }
 safrole = { path = "crates/safrole", package = "spacejam-safrole" }
 

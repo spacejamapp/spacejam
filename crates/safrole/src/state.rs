@@ -3,7 +3,7 @@
 use crate::Error;
 use anyhow::Result;
 use codec::Json;
-use core::{
+use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     misc::{
         BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
@@ -53,12 +53,18 @@ impl State {
     pub fn enact(
         &mut self,
         slot: u32,
-        _entropy: OpaqueHash,
+        entropy: OpaqueHash,
         _extrinsic: TicketsExtrinsic,
     ) -> Result<std::result::Result<OutputData, Error>> {
         if slot <= self.tau {
             return Ok(Err(Error::BadSlot));
         }
+
+        // graypaper reference: 6.22
+        //
+        // eta'_0 = H(eta_0 || entropy)
+        let eta_0 = crypto::blake2b(&[self.eta[0], entropy].concat());
+        self.eta[0] = eta_0;
 
         self.tau = slot;
 

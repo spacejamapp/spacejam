@@ -580,6 +580,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-crypto"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+]
+
+[[package]]
 name = "spacejam-safrole"
 version = "0.0.0"
 dependencies = [
@@ -588,6 +595,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-crypto",
 ]
 
 [[package]]
@@ -611,7 +619,7 @@ dependencies = [
 name = "spacejam-trie"
 version = "0.0.0"
 dependencies = [
- "blake2",
+ "spacejam-crypto",
 ]
 
 [[package]]
