@@ -60,30 +60,71 @@ impl State {
             return Ok(Err(Error::BadSlot));
         }
 
+        let new_epoch: bool = (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH);
+
         // Update the entropy accumulator
-        self.update_eta(slot, entropy);
+        self.update_eta(new_epoch, entropy);
+
+        let epoch_mark = self.calculate_epoch_marker(new_epoch);
+        let tickets_mark = self.calculate_tickets_marker();
 
         // Update the epoch
         self.tau = slot;
 
-        Ok(Ok(OutputData::default()))
+        Ok(Ok(OutputData {
+            epoch_mark,
+            tickets_mark,
+        }))
     }
 
     /// Updates the entropy accumulator.
-    pub fn update_eta(&mut self, slot: u32, entropy: OpaqueHash) {
+    ///
+    /// graypaper reference: 6.4
+    pub fn update_eta(&mut self, new_epoch: bool, entropy: OpaqueHash) {
+        // graypaper reference: 6.23
+        //
+        // eta'_e = H(eta_e || eta'_(e-1))
+        if new_epoch {
+            let historical_eta = self.eta.clone();
+            self.eta[1..].copy_from_slice(&historical_eta[..3]);
+        }
+
         // graypaper reference: 6.22
         //
         // eta'_0 = H(eta_0 || Y(H_v))
         let eta_0 = crypto::blake2b(&[self.eta[0], entropy].concat());
         self.eta[0] = eta_0;
+    }
 
-        // graypaper reference: 6.23
-        //
-        // eta'_e = H(eta_e || eta'_(e-1))
-        if (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH) {
-            let historical_eta = self.eta[1..].to_vec();
-            self.eta[1..].copy_from_slice(&historical_eta);
+    /// Calculates the epoch markers.
+    ///
+    /// graypaper reference: 6.6
+    pub fn calculate_epoch_marker(&self, new_epoch: bool) -> Option<EpochMark> {
+        if !new_epoch {
+            return None;
         }
+
+        let next_epoch_validators: Vec<_> = self
+            .iota
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect();
+
+        let mut validators = [[0; 32]; score::VALIDATORS_COUNT as usize];
+        validators.copy_from_slice(&next_epoch_validators);
+
+        Some(EpochMark {
+            entropy: self.eta[1],
+            validators,
+            tickets_entropy: self.eta[2],
+        })
+    }
+
+    /// Calculates the tickets marker.
+    pub fn calculate_tickets_marker(&self) -> Option<TicketsMark> {
+        // TODO: conditions for epoch change
+
+        None
     }
 }
 
