@@ -15,7 +15,7 @@ use core::{
 use serde::{Deserialize, Serialize};
 
 /// Represents the State structure.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
 pub struct State {
     /// Current epoch
     pub tau: u32,

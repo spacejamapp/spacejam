@@ -11,7 +11,7 @@ pub type TicketId = OpaqueHash; // Corresponds to OpaqueHash
 pub type TicketAttempt = u8; // Corresponds to U8
 
 /// Represents a ticket envelope containing an attempt and a signature.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct TicketEnvelope {
     pub attempt: TicketAttempt,
     #[json(hex)]
@@ -40,7 +40,7 @@ pub struct TicketBody {
 pub type TicketsAccumulator = Vec<TicketBody>;
 
 /// Represents either tickets or keys.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
     Tickets(Vec<TicketBody>),
     Keys(Vec<BandersnatchPublic>),

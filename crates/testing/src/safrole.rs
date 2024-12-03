@@ -32,6 +32,21 @@ pub struct Test {
     post_state: State,
 }
 
+impl Test {
+    fn run(&self) -> anyhow::Result<()> {
+        let mut state = self.pre_state.clone();
+        let output = state.enact(
+            self.input.slot,
+            self.input.entropy,
+            self.input.extrinsic.clone(),
+        )?;
+
+        assert_eq!(output, self.output);
+        assert_eq!(state, self.post_state);
+        Ok(())
+    }
+}
+
 #[allow(unused_macros)]
 macro_rules! impl_safrole_tests {
     ($name:ident) => {
@@ -44,8 +59,7 @@ macro_rules! impl_safrole_tests {
                 root.set_extension("json");
 
                 let json = fs::read_to_string(root)?;
-                let _: Test = Test::from_json(&json)?;
-                Ok(())
+                Test::from_json(&json)?.run()
             }
         }
     };
