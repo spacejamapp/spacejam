@@ -6,12 +6,10 @@ use codec::Json;
 use core::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     misc::{
-        BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorDataJson,
-        ValidatorsData,
+        BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
     },
     ticket::{
-        TicketBodyJson, TicketsAccumulator, TicketsAccumulatorJson, TicketsExtrinsic,
-        TicketsOrKeys, TicketsOrKeysJson,
+        TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys, TicketsOrKeysJson,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -44,11 +42,8 @@ pub struct State {
     #[json(nested)]
     pub gamma_s: TicketsOrKeys,
     /// Sealing-key contest ticket accumulator
-    #[json(nested)]
+    #[json(Vec<TicketBodyJson>)]
     pub gamma_a: TicketsAccumulator,
-    /// Posterior offenders sequence
-    #[json(hex)]
-    pub post_offenders: Vec<Ed25519Public>,
 }
 
 impl State {
@@ -81,7 +76,6 @@ impl Default for State {
             gamma_z: [0u8; 144],
             gamma_s: Default::default(),
             gamma_a: Default::default(),
-            post_offenders: Default::default(),
         }
     }
 }

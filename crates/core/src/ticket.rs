@@ -37,11 +37,7 @@ pub struct TicketBody {
 }
 
 /// Represents an accumulator of tickets.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
-pub struct TicketsAccumulator {
-    #[json(nested)]
-    pub tickets: Vec<TicketBody>,
-}
+pub type TicketsAccumulator = Vec<TicketBody>;
 
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -76,7 +72,7 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
                 keys.into_iter()
                     .map(|k| {
                         let mut r = [0u8; 32];
-                        hex::decode(k).map(|d| r.copy_from_slice(&d))?;
+                        hex::decode(k.trim_start_matches("0x")).map(|d| r.copy_from_slice(&d))?;
                         Ok(r)
                     })
                     .collect::<anyhow::Result<Vec<_>>>()?
