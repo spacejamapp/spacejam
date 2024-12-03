@@ -7,7 +7,7 @@ use core::{
     ticket::{TicketEnvelopeJson, TicketsExtrinsic},
 };
 use paste::paste;
-use safrole::{Error, ErrorJson, OutputData, OutputDataJson, State, StateJson};
+use safrole::{Error, OutputData, OutputDataJson, State, StateJson};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
@@ -26,7 +26,7 @@ pub struct Test {
     input: Input,
     #[json(nested)]
     pre_state: State,
-    #[json(ResultJson<OutputDataJson, ErrorJson>)]
+    #[json(ResultJson<OutputDataJson, Error>)]
     output: std::result::Result<OutputData, Error>,
     #[json(nested)]
     post_state: State,
@@ -37,7 +37,7 @@ macro_rules! impl_safrole_tests {
     ($name:ident) => {
         paste! {
             #[test]
-            fn [<test_ $name:snake>]() -> anyhow::Result<()> {
+            fn [<$name:snake>]() -> anyhow::Result<()> {
                 let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
                 root.extend(["jamtestvectors", "safrole", "tiny"]);
                 root.push(stringify!($name).replace("_", "-"));
@@ -74,7 +74,5 @@ impl_safrole_tests! {
     publish_tickets_with_mark_4,
     publish_tickets_with_mark_5,
     skip_epoch_tail_1,
-    skip_epoch_tail_2,
-    skip_epoch_1,
-    skip_epoch_2
+    skip_epochs_1
 }

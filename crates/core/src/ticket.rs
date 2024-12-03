@@ -64,7 +64,7 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
             Self::Tickets(
                 tickets
                     .into_iter()
-                    .map(|t| <TicketBody as Json<TicketBodyJson>>::from_json(t))
+                    .map(<TicketBody as Json<TicketBodyJson>>::from_json)
                     .collect::<anyhow::Result<Vec<_>>>()?,
             )
         } else if let Some(keys) = json.keys {
@@ -75,8 +75,7 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
                         hex::decode(k.trim_start_matches("0x")).map(|d| r.copy_from_slice(&d))?;
                         Ok(r)
                     })
-                    .collect::<anyhow::Result<Vec<_>>>()?
-                    .try_into()?,
+                    .collect::<anyhow::Result<Vec<_>>>()?,
             )
         } else {
             Self::default()
@@ -91,7 +90,7 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
             },
             Self::Keys(keys) => TicketsOrKeysJson {
                 tickets: None,
-                keys: Some(keys.into_iter().map(|k| hex::encode(k)).collect()),
+                keys: Some(keys.into_iter().map(hex::encode).collect()),
             },
         }
     }
