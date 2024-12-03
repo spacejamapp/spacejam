@@ -16,6 +16,7 @@ mod crypto {
     pub type Ed25519Public = [u8; 32];
     pub type BlsPublic = [u8; 144];
     pub type BandersnatchVrfSignature = [u8; 96];
+    pub type BandersnatchRingCommitment = [u8; 144];
     pub type BandersnatchRingVrfSignature = [u8; 784];
     pub type Ed25519Signature = [u8; 64];
 }
@@ -49,10 +50,17 @@ mod core {
     pub type ValidatorMetadata = [u8; 128];
 
     /// Represents the ValidatorData structure from ASN.1
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct ValidatorData {
+        #[json(hex)]
         pub bandersnatch: BandersnatchPublic,
+        #[json(hex)]
         pub ed25519: Ed25519Public,
+        #[json(hex)]
+        #[serde(with = "codec")]
         pub bls: BlsPublic,
+        #[json(hex)]
+        #[serde(with = "codec")]
         pub metadata: ValidatorMetadata,
     }
 

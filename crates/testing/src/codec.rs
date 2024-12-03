@@ -1,37 +1,32 @@
 //! Codec tests
+#![cfg(test)]
 
 use anyhow::Result;
 use codec::JamCodec;
 use core::{
-    block::{
-        header::{Header, HeaderJson},
-        Block, BlockJson, Extrinsic, ExtrinsicJson,
-    },
-    dispute::{DisputesExtrinsic, DisputesExtrinsicJson},
-    misc::{
-        AssurancesExtrinsic, AvailAssuranceJson, GuaranteesExtrinsic, PreimageJson,
-        PreimagesExtrinsic, RefineContext, RefineContextJson, ReportGuaranteeJson,
-    },
-    ticket::{TicketEnvelopeJson, TicketsExtrinsic},
+    block::{header::Header, Block, Extrinsic},
+    dispute::DisputesExtrinsic,
+    misc::{AvailAssurance, Preimage, RefineContext, ReportGuarantee},
+    ticket::TicketEnvelope,
     work::{
-        report::{WorkReport, WorkReportJson, WorkResult, WorkResultJson},
-        WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
+        report::{WorkReport, WorkResult},
+        WorkItem, WorkPackage,
     },
 };
 use paste::paste;
 
-macro_rules! load_codec_data {
+macro_rules! impl_codec_tests {
     ($name:ident) => {{
         let json = include_str!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".json"));
         let data = include_bytes!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".bin"));
         (json, data)
     }};
-    ($name:ident, $json:ident, $dest:ident) => {
+    ($name:ident, $dest:ident) => {
         paste! {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
-                let (json, data) = load_codec_data!($name);
-                let decoded: $dest = serde_json::from_str::<$json>(json)?.try_into()?;
+                let (json, data) = impl_codec_tests!($name);
+                let decoded: $dest = $dest::from_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
                 assert_eq!(decoded, $dest::decode(data)?);
@@ -39,49 +34,43 @@ macro_rules! load_codec_data {
             }
         }
     };
-    ($name:ident, $json:ty, $dest:ty) => {
+    (@ex $name:ident, $dest:ident) => {
         paste! {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
-                let (json, data) = load_codec_data!($name);
-                let decoded: $dest = serde_json::from_str::<$json>(json)?
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>>>()?;
+                let (json, data) = impl_codec_tests!($name);
+                let decoded: Vec<$dest> = $dest::load_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
-                assert_eq!(decoded, $dest::decode(data)?);
+                assert_eq!(decoded, Vec::<$dest>::decode(data)?);
                 Ok(())
             }
         }
     };
-    ($(($name:ident, $json:ident, $dest:ident)),*) => {
-        $(load_codec_data!($name, $json, $dest);)*
-    };
-    ($(($name:ident, $json:ty, $dest:ty)),*) => {
-        $(load_codec_data!($name, $json, $dest);)*
+    ($(($name:ident, $dest:ident)),* @ex $(($ex_name:ident, $ex_dest:ident)),*) => {
+        $(impl_codec_tests!($name, $dest);)*
+        $(impl_codec_tests!(@ex $ex_name, $ex_dest);)*
     };
 }
 
-load_codec_data! {
-    (assurances_extrinsic, Vec<AvailAssuranceJson>, AssurancesExtrinsic),
-    (guarantees_extrinsic, Vec<ReportGuaranteeJson>, GuaranteesExtrinsic),
-    (preimages_extrinsic, Vec<PreimageJson>, PreimagesExtrinsic),
-    (tickets_extrinsic, Vec<TicketEnvelopeJson>, TicketsExtrinsic)
-}
+impl_codec_tests! {
+    (block, Block),
+    (disputes_extrinsic, DisputesExtrinsic),
+    (extrinsic, Extrinsic),
+    (header_0, Header),
+    (header_1, Header),
+    (refine_context, RefineContext),
+    (work_item, WorkItem),
+    (work_package, WorkPackage),
+    (work_report, WorkReport),
+    (work_result_0, WorkResult),
+    (work_result_1, WorkResult)
 
-load_codec_data! {
-    (block, BlockJson, Block),
-    (disputes_extrinsic, DisputesExtrinsicJson, DisputesExtrinsic),
-    (extrinsic, ExtrinsicJson, Extrinsic),
-    (header_0, HeaderJson, Header),
-    (header_1, HeaderJson, Header),
-    (refine_context, RefineContextJson, RefineContext),
-    (work_item, WorkItemJson, WorkItem),
-    (work_package, WorkPackageJson, WorkPackage),
-    (work_report, WorkReportJson, WorkReport),
-    (work_result_0, WorkResultJson, WorkResult),
-    (work_result_1, WorkResultJson, WorkResult)
+    @ex
+    (assurances_extrinsic, AvailAssurance),
+    (guarantees_extrinsic, ReportGuarantee),
+    (preimages_extrinsic, Preimage),
+    (tickets_extrinsic, TicketEnvelope)
 }
 
 #[test]

@@ -2,7 +2,7 @@ use anyhow::Result;
 use git2::{build::RepoBuilder, FetchOptions};
 use std::path::Path;
 
-const REPO: &str = "https://github.com/w3f/jamtestvectors.git";
+const REPO: &str = "https://github.com/davxy/jam-test-vectors.git";
 const INTO: &str = "jamtestvectors";
 
 fn main() -> Result<()> {

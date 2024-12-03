@@ -19,6 +19,15 @@ pub struct TicketEnvelope {
     pub signature: BandersnatchRingVrfSignature,
 }
 
+impl Default for TicketEnvelope {
+    fn default() -> Self {
+        Self {
+            attempt: 0,
+            signature: [0u8; 784],
+        }
+    }
+}
+
 /// Represents the body of a ticket, containing an ID and an attempt.
 #[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, Default, PartialEq, Eq)]
 pub struct TicketBody {
@@ -28,17 +37,63 @@ pub struct TicketBody {
 }
 
 /// Represents an accumulator of tickets.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct TicketsAccumulator {
-    #[json(nested)]
-    pub tickets: Vec<TicketBody>,
-}
+pub type TicketsAccumulator = Vec<TicketBody>;
 
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TicketsOrKeys {
     Tickets(Vec<TicketBody>),
     Keys(Vec<BandersnatchPublic>),
+}
+
+impl Default for TicketsOrKeys {
+    fn default() -> Self {
+        Self::Tickets(Default::default())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TicketsOrKeysJson {
+    tickets: Option<Vec<TicketBodyJson>>,
+    keys: Option<Vec<String>>,
+}
+
+impl Json<TicketsOrKeysJson> for TicketsOrKeys {
+    fn from_json(json: TicketsOrKeysJson) -> anyhow::Result<Self> {
+        Ok(if let Some(tickets) = json.tickets {
+            Self::Tickets(
+                tickets
+                    .into_iter()
+                    .map(<TicketBody as Json<TicketBodyJson>>::from_json)
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            )
+        } else if let Some(keys) = json.keys {
+            Self::Keys(
+                keys.into_iter()
+                    .map(|k| {
+                        let mut r = [0u8; 32];
+                        hex::decode(k.trim_start_matches("0x")).map(|d| r.copy_from_slice(&d))?;
+                        Ok(r)
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            )
+        } else {
+            Self::default()
+        })
+    }
+
+    fn to_json(self) -> TicketsOrKeysJson {
+        match self {
+            Self::Tickets(tickets) => TicketsOrKeysJson {
+                tickets: Some(tickets.into_iter().map(|t| t.to_json()).collect()),
+                keys: None,
+            },
+            Self::Keys(keys) => TicketsOrKeysJson {
+                tickets: None,
+                keys: Some(keys.into_iter().map(hex::encode).collect()),
+            },
+        }
+    }
 }
 
 /// Represents the extrinsic data for tickets.
