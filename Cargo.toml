@@ -3,7 +3,7 @@ members = ["crates/*", "crates/codec/derive"]
 resolver = "1"
 
 [workspace.dependencies]
-core = { path = "crates/core", package = "spacejam-core" }
+score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 codec-derive = { path = "crates/codec/derive", package = "jamcodec-derive" }
 trie = { path = "crates/trie", package = "spacejam-trie" }

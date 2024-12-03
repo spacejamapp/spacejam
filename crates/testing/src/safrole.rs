@@ -2,12 +2,12 @@
 #![cfg(test)]
 
 use codec::{Json, ResultJson};
-use core::{
+use paste::paste;
+use safrole::{Error, OutputData, OutputDataJson, State, StateJson};
+use score::{
     misc::OpaqueHash,
     ticket::{TicketEnvelopeJson, TicketsExtrinsic},
 };
-use paste::paste;
-use safrole::{Error, OutputData, OutputDataJson, State, StateJson};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
@@ -41,8 +41,8 @@ impl Test {
             self.input.extrinsic.clone(),
         )?;
 
-        assert_eq!(output, self.output);
-        assert_eq!(state, self.post_state);
+        assert_eq!(output, self.output, "Invalid output");
+        assert_eq!(state, self.post_state, "Invalid state");
         Ok(())
     }
 }

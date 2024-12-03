@@ -20,6 +20,8 @@ pub struct State {
     /// Current epoch
     pub tau: u32,
     /// Entropy accumulator
+    ///
+    /// graypaper reference: 6.21
     #[json(Vec<String>)]
     pub eta: EntropyBuffer,
     /// Previous epoch's validators
@@ -47,7 +49,7 @@ pub struct State {
 }
 
 impl State {
-    /// Enacts an epoch change.
+    /// Enacts an epoch change and updates the entropy accumulator.
     pub fn enact(
         &mut self,
         slot: u32,
