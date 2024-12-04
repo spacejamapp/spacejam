@@ -28,11 +28,9 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 # git dependencies
-ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "e491b41", features = [
+ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "d90e180", features = [
     "bandersnatch",
     "ring",
     "parallel",
 ] }
-
-[patch."https://github.com/w3f/fflonk"]
-fflonk = { git = "https://github.com/clearloop/fflonk", rev = "1e854f35e9a65d08b11a86291405cdc95baa0a35" }
+ring = { git = "https://github.com/davxy/ring-proof", rev = "db13482", default-features = false }

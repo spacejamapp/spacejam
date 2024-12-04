@@ -2,6 +2,7 @@
 
 use blake2::{digest::consts::U32, Blake2b, Digest};
 
+pub mod ring;
 pub mod vrf;
 
 /// Compute the BLAKE2b 256-bit hash of a given input.

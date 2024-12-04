@@ -9,6 +9,7 @@ ark-ec-vrfs.workspace = true
 blake2.workspace = true
 hex.workspace = true
 once_cell.workspace = true
+ring.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true

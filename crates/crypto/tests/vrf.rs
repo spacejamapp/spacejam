@@ -1,4 +1,7 @@
-use spacejam_crypto::vrf::*;
+use spacejam_crypto::{
+    ring::{RING_CTX, RING_SIZE},
+    vrf::*,
+};
 
 macro_rules! measure_time {
     ($func_name:expr, $func_call:expr) => {{

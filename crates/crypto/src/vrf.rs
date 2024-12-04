@@ -4,17 +4,12 @@
 //!
 //! commit hash: 8c82722
 
+use crate::ring::RING_CTX;
 use anyhow::Result;
+use ark_ec_vrfs::prelude::ark_serialize;
 use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
-use ark_ec_vrfs::{prelude::ark_serialize, suites::bandersnatch::edwards::RingContext};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
-use once_cell::sync::Lazy;
-
-/// Number of keys in the ring.
-///
-/// TODO: add features to support full ring size
-pub const RING_SIZE: usize = 6;
 
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
@@ -23,17 +18,6 @@ pub struct IetfVrfSignature {
     output: Output,
     proof: IetfProof,
 }
-
-/// "Static" ring context data
-pub static RING_CTX: Lazy<RingContext> = Lazy::new(|| {
-    use bandersnatch::PcsParams;
-    let buf = include_bytes!(
-        "../bandersnatch-vrfs-spec/assets/example/data/zcash-srs-2-11-uncompressed.bin"
-    );
-    let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &buf[..])
-        .expect("Failed to deserialize SRS parameters");
-    RingContext::from_srs(RING_SIZE, pcs_params).expect("Failed to create ring context")
-});
 
 /// Ring commitment type
 pub type RingCommitment = ark_ec_vrfs::ring::RingCommitment<bandersnatch::BandersnatchSha512Ell2>;

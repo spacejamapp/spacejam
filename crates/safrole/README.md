@@ -18,6 +18,12 @@
 - **Chapter**: 6.3 Key Rotation
 - **Formula**: 6.13
 
+| Symbol | Description                    |
+| ------ | ------------------------------ |
+| O      | concatenation (PCS_commitment) |
+| k_b    | base key                       |
+| k      | keys in gamma_k                |
+
 ```
 gamma'_z = O([k_b || k <- gamma_k])
 ```

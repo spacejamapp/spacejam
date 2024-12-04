@@ -62,7 +62,7 @@ dependencies = [
 [[package]]
 name = "ark-ec-vrfs"
 version = "0.1.0"
-source = "git+https://github.com/davxy/ark-ec-vrfs?rev=e491b41#e491b41b48d9132f59ff2a4d4f1c6c3e853deab7"
+source = "git+https://github.com/davxy/ark-ec-vrfs?rev=d90e180#d90e1800d571f32163e6f7b5d956d065668c899f"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -257,7 +257,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/davxy/ring-proof?rev=d3e37f9#d3e37f99a9412d65823ee7bd887eb2d5c9b304f7"
+source = "git+https://github.com/davxy/ring-proof?rev=db13482#db1348254177325ef849ed87fb87e5ec9184080f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -355,7 +355,7 @@ checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 [[package]]
 name = "fflonk"
 version = "0.1.0"
-source = "git+https://github.com/clearloop/fflonk?rev=1e854f35e9a65d08b11a86291405cdc95baa0a35#1e854f35e9a65d08b11a86291405cdc95baa0a35"
+source = "git+https://github.com/w3f/fflonk?rev=1e854f3#1e854f35e9a65d08b11a86291405cdc95baa0a35"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -935,7 +935,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/davxy/ring-proof?rev=d3e37f9#d3e37f99a9412d65823ee7bd887eb2d5c9b304f7"
+source = "git+https://github.com/davxy/ring-proof?rev=db13482#db1348254177325ef849ed87fb87e5ec9184080f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1066,6 +1066,7 @@ dependencies = [
  "git2",
  "hex",
  "once_cell",
+ "ring",
 ]
 
 [[package]]
@@ -1073,6 +1074,7 @@ name = "spacejam-safrole"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "hex",
  "jamcodec",
  "serde",
  "serde_json",

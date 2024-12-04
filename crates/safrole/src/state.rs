@@ -71,6 +71,8 @@ impl State {
         // Update the epoch
         self.tau = slot;
 
+        self.update_gamma_z()?;
+
         Ok(Ok(OutputData {
             epoch_mark,
             tickets_mark,
@@ -127,6 +129,19 @@ impl State {
         // TODO: conditions for epoch change
 
         None
+    }
+
+    /// Calculates the gamma_z.
+    ///
+    /// graypaper reference: 6.3
+    pub fn update_gamma_z(&mut self) -> anyhow::Result<()> {
+        let keys = self
+            .iota
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect::<Vec<_>>();
+        self.gamma_z = crypto::ring::commitment(keys);
+        Ok(())
     }
 }
 
