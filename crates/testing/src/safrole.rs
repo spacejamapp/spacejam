@@ -3,7 +3,7 @@
 
 use codec::{Json, ResultJson};
 use paste::paste;
-use safrole::{Error, OutputData, OutputDataJson, State, StateJson};
+use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
     misc::OpaqueHash,
     ticket::{TicketEnvelopeJson, TicketsExtrinsic},
@@ -26,8 +26,8 @@ pub struct Test {
     input: Input,
     #[json(nested)]
     pre_state: State,
-    #[json(ResultJson<OutputDataJson, Error>)]
-    output: std::result::Result<OutputData, Error>,
+    #[json(ResultJson<MarkersJson, Error>)]
+    output: std::result::Result<Markers, Error>,
     #[json(nested)]
     post_state: State,
 }
@@ -42,7 +42,36 @@ impl Test {
         )?;
 
         assert_eq!(output, self.output, "Invalid output");
-        // assert_eq!(state, self.post_state, "Invalid state");
+        assert_eq!(state.tau, self.post_state.tau, "Invalid time slot");
+        assert_eq!(state.eta, self.post_state.eta, "Invalid entropy");
+        assert_eq!(
+            state.lambda, self.post_state.lambda,
+            "Invalid previous epoch validators: lambda"
+        );
+        assert_eq!(
+            state.kappa, self.post_state.kappa,
+            "Invalid current epoch validators: kappa"
+        );
+        assert_eq!(
+            state.iota, self.post_state.iota,
+            "Validators to be drawn from next"
+        );
+        assert_eq!(
+            state.gamma_k, self.post_state.gamma_k,
+            "Invalid next epoch validators: gamma_k"
+        );
+        assert_eq!(
+            state.gamma_z, self.post_state.gamma_z,
+            "Invalid bandersnatch ring commitment: gamma_z"
+        );
+        assert_eq!(
+            state.gamma_s, self.post_state.gamma_s,
+            "Invalid sealing-key series: gamma_s"
+        );
+        assert_eq!(
+            state.gamma_a, self.post_state.gamma_a,
+            "Invalid sealing-key contest ticket accumulator: gamma_a"
+        );
         Ok(())
     }
 }
