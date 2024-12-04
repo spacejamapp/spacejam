@@ -121,6 +121,8 @@ impl State {
     }
 
     /// Calculates the tickets marker.
+    ///
+    /// graypaper reference: 6.6
     pub fn calculate_tickets_marker(&self) -> Option<TicketsMark> {
         // TODO: conditions for epoch change
 
