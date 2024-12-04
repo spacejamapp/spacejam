@@ -86,7 +86,7 @@ impl State {
         //
         // eta'_e = H(eta_e || eta'_(e-1))
         if new_epoch {
-            let historical_eta = self.eta.clone();
+            let historical_eta = self.eta;
             self.eta[1..].copy_from_slice(&historical_eta[..3]);
         }
 

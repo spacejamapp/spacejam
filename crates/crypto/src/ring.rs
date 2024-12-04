@@ -36,7 +36,7 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
 
     let mut bytes = [0u8; 144];
     commitment
-        .serialize_compressed(&mut bytes.as_mut_slice())
+        .serialize_compressed(bytes.as_mut_slice())
         .unwrap();
     bytes
 }
