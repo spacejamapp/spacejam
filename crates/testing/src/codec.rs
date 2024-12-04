@@ -3,7 +3,8 @@
 
 use anyhow::Result;
 use codec::JamCodec;
-use core::{
+use paste::paste;
+use score::{
     block::{header::Header, Block, Extrinsic},
     dispute::DisputesExtrinsic,
     misc::{AvailAssurance, Preimage, RefineContext, ReportGuarantee},
@@ -13,7 +14,6 @@ use core::{
         WorkItem, WorkPackage,
     },
 };
-use paste::paste;
 
 macro_rules! impl_codec_tests {
     ($name:ident) => {{

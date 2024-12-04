@@ -3,7 +3,7 @@
 use crate::Error;
 use anyhow::Result;
 use codec::Json;
-use core::{
+use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     misc::{
         BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
@@ -15,11 +15,13 @@ use core::{
 use serde::{Deserialize, Serialize};
 
 /// Represents the State structure.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
 pub struct State {
-    /// Current epoch
+    /// Most recent block's timeslot.
     pub tau: u32,
-    /// Entropy accumulator
+    /// Entropy accumulator and epochal randomness.
+    ///
+    /// graypaper reference: 6.21
     #[json(Vec<String>)]
     pub eta: EntropyBuffer,
     /// Previous epoch's validators
@@ -47,20 +49,109 @@ pub struct State {
 }
 
 impl State {
-    /// Enacts an epoch change.
+    /// Enacts an epoch change and updates the entropy accumulator.
     pub fn enact(
         &mut self,
         slot: u32,
-        _entropy: OpaqueHash,
+        entropy: OpaqueHash,
         _extrinsic: TicketsExtrinsic,
-    ) -> Result<std::result::Result<OutputData, Error>> {
+    ) -> Result<std::result::Result<Markers, Error>> {
         if slot <= self.tau {
             return Ok(Err(Error::BadSlot));
         }
 
+        let new_epoch: bool = (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH);
+
+        if new_epoch {
+            self.rotate_keys();
+        }
+
+        // Update the entropy accumulator
+        self.update_eta(new_epoch, entropy);
+
+        // Update the epoch
         self.tau = slot;
 
-        Ok(Ok(OutputData::default()))
+        Ok(Ok(Markers {
+            epoch_mark: self.collect_epoch_marker(new_epoch),
+            tickets_mark: self.collect_tickets_marker(new_epoch),
+        }))
+    }
+
+    /// Updates the entropy accumulator.
+    ///
+    /// graypaper reference: 6.4
+    pub fn update_eta(&mut self, new_epoch: bool, entropy: OpaqueHash) {
+        // graypaper reference: 6.23
+        //
+        // eta'_e = H(eta_e || eta'_(e-1))
+        if new_epoch {
+            let historical_eta = self.eta;
+            self.eta[1..].copy_from_slice(&historical_eta[..3]);
+        }
+
+        // graypaper reference: 6.22
+        //
+        // eta'_0 = H(eta_0 || Y(H_v))
+        let eta_0 = crypto::blake2b(&[self.eta[0], entropy].concat());
+        self.eta[0] = eta_0;
+    }
+
+    /// Calculates the epoch markers.
+    ///
+    /// graypaper reference: 6.6
+    pub fn collect_epoch_marker(&self, new_epoch: bool) -> Option<EpochMark> {
+        if !new_epoch {
+            return None;
+        }
+
+        let next_epoch_validators: Vec<_> = self
+            .gamma_k
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect();
+
+        let mut validators = [[0; 32]; score::VALIDATORS_COUNT as usize];
+        validators.copy_from_slice(&next_epoch_validators);
+
+        Some(EpochMark {
+            entropy: self.eta[1],
+            validators,
+            tickets_entropy: self.eta[2],
+        })
+    }
+
+    /// Calculates the tickets marker.
+    ///
+    /// graypaper reference: 6.6
+    pub fn collect_tickets_marker(&self, _new_epoch: bool) -> Option<TicketsMark> {
+        // TODO: conditions for epoch change
+        //
+        // graypaper reference: 6.28
+        None
+    }
+
+    /// Rotates the keys for a new epoch.
+    ///
+    /// graypaper reference: 6.3
+    /// graypaper formula: 6.13
+    pub fn rotate_keys(&mut self) {
+        // update previous epoch validators
+        self.lambda = self.kappa.clone();
+        // update current epoch validators
+        self.kappa = self.gamma_k.clone();
+        // update next epoch validators
+        self.gamma_k = self.iota.clone();
+
+        // update bandersnatch ring commitment
+        let keys = self
+            .gamma_k
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect::<Vec<_>>();
+        self.gamma_z = crypto::ring::commitment(keys);
+
+        // TODO: graypaper reference: 6.14
     }
 }
 
@@ -82,7 +173,7 @@ impl Default for State {
 
 /// Represents the Output marks
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]
-pub struct OutputData {
+pub struct Markers {
     /// New epoch marker
     #[json(nested)]
     pub epoch_mark: Option<EpochMark>,

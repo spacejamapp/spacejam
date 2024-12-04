@@ -1,0 +1,16 @@
+[package]
+name = "spacejam-crypto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+ark-ec-vrfs.workspace = true
+blake2.workspace = true
+hex.workspace = true
+once_cell.workspace = true
+ring.workspace = true
+
+[build-dependencies]
+anyhow.workspace = true
+git2.workspace = true

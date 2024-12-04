@@ -8,11 +8,11 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
-core.workspace = true
 codec.workspace = true
 hex.workspace = true
 paste.workspace = true
 safrole.workspace = true
+score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 trie.workspace = true

@@ -50,7 +50,7 @@ mod core {
     pub type ValidatorMetadata = [u8; 128];
 
     /// Represents the ValidatorData structure from ASN.1
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct ValidatorData {
         #[json(hex)]
         pub bandersnatch: BandersnatchPublic,
@@ -67,7 +67,7 @@ mod core {
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct RefineContext {
         #[json(hex)]
         pub anchor: HeaderHash,
