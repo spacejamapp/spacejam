@@ -9,7 +9,8 @@ use score::{
         BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
     },
     ticket::{
-        TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys, TicketsOrKeysJson,
+        TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
+        TicketsOrKeysJson,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -54,31 +55,77 @@ impl State {
         &mut self,
         slot: u32,
         entropy: OpaqueHash,
-        _extrinsic: TicketsExtrinsic,
+        extrinsic: TicketsExtrinsic,
     ) -> Result<std::result::Result<Markers, Error>> {
         if slot <= self.tau {
             return Ok(Err(Error::BadSlot));
         }
 
-        let new_epoch: bool = (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH);
+        let epoch = slot / score::EPOCH_LENGTH;
+        let new_epoch: bool = epoch > (self.tau / score::EPOCH_LENGTH);
 
         if new_epoch {
             self.rotate_keys();
         }
 
-        // Update the entropy accumulator
         self.update_eta(new_epoch, entropy);
-
-        // Update the sealing-key series
         self.update_sealing_key_series(slot);
-
-        // Update the epoch
+        if let Err(e) = self.validate_tickets(extrinsic)? {
+            return Ok(Err(e));
+        }
         self.tau = slot;
 
         Ok(Ok(Markers {
             epoch_mark: self.collect_epoch_marker(new_epoch),
             tickets_mark: self.collect_tickets_marker(new_epoch),
         }))
+    }
+
+    /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
+    pub fn validate_tickets(&mut self, extrinsic: TicketsExtrinsic) -> Result<crate::Result<()>> {
+        let verifier =
+            crypto::ring::verifier(self.gamma_k.iter().map(|v| v.bandersnatch).collect());
+
+        let mut new_tickets = Vec::new();
+
+        // Process each ticket envelope
+        for envelope in extrinsic {
+            // 1. Verify ticket attempt
+            //
+            // graypaper reference: 6.29
+            if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR {
+                return Ok(Err(Error::BadTicketAttempt));
+            }
+
+            // 2. Construct ring VRF input data according to graypaper 6.7
+            // X_T ∥ η'_2 ∥ r
+            let input_data = [
+                b"jam_ticket_seal",              // X_T token
+                self.eta[2].as_slice(),          // η'_2 (second-oldest entropy)
+                &envelope.attempt.to_le_bytes(), // r (attempt number)
+            ]
+            .concat();
+
+            // 3. Verify ring VRF signature and get ticket identifier
+            let id = verifier.ring_vrf_verify(
+                &input_data, // message data
+                &[],         // transcript (empty in this case)
+                &envelope.signature,
+            )?;
+
+            tracing::info!("ticket identifier: 0x{}", hex::encode(id));
+
+            // 4. Store ticket for accumulation
+            new_tickets.push(TicketBody {
+                id,
+                attempt: envelope.attempt,
+            });
+        }
+
+        self.gamma_a.extend(new_tickets);
+
+        // TODO: graypaper reference: 6.7
+        Ok(Ok(()))
     }
 
     /// Updates the entropy accumulator.
@@ -170,6 +217,18 @@ impl State {
         {
             // Case 1: New epoch, previous slot was within closing period, and accumulator is full
             // Use the ordered ticket accumulator (Z function in graypaper)
+            let ordered_tickets = self.gamma_a.clone();
+            let mid = ordered_tickets.len() / 2;
+            let mut result = Vec::with_capacity(ordered_tickets.len());
+
+            for i in 0..mid {
+                result.push(ordered_tickets[i].clone());
+                if i + mid < ordered_tickets.len() {
+                    result.push(ordered_tickets[ordered_tickets.len() - 1 - i].clone());
+                }
+            }
+
+            self.gamma_s = TicketsOrKeys::Tickets(result);
         } else if curr_epoch == prev_epoch {
             // Case 2: Same epoch, keep existing sequence
             // No change needed to gamma_s

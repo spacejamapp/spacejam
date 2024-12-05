@@ -1067,6 +1067,7 @@ dependencies = [
  "hex",
  "once_cell",
  "ring",
+ "tracing",
 ]
 
 [[package]]

@@ -4,6 +4,6 @@ pub mod error;
 pub mod state;
 
 pub use {
-    error::Error,
+    error::{Error, Result},
     state::{Markers, MarkersJson, State, StateJson},
 };

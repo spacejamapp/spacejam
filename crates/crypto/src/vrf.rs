@@ -1,6 +1,6 @@
 //! This vrf implementation is based on the example in the Bandersnatch VRFs specification.
 //!
-//! The specification can be found at https://github.com/davxy/bandersnatch-vrfs-spec
+//! The specification can be found at <https://github.com/davxy/bandersnatch-vrfs-spec>
 //!
 //! commit hash: 8c82722
 
@@ -15,7 +15,7 @@ pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 // of the Bandersnatch VRFs specification
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct IetfVrfSignature {
-    output: Output,
+    pub output: Output,
     proof: IetfProof,
 }
 
@@ -26,9 +26,9 @@ pub type RingCommitment = ark_ec_vrfs::ring::RingCommitment<bandersnatch::Bander
 // of the Bandersnatch VRFs specification
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct RingVrfSignature {
-    output: Output,
+    pub output: Output,
     // This contains both the Pedersen proof and actual ring proof.
-    proof: RingProof,
+    pub proof: RingProof,
 }
 
 // Prover actor.
@@ -132,7 +132,7 @@ impl Verifier {
         let verifier_key = RING_CTX.verifier_key_from_commitment(self.commitment.clone());
         let verifier = RING_CTX.verifier(verifier_key);
         Public::verify(input, output, aux_data, &signature.proof, &verifier)
-            .map_err(|_| anyhow::anyhow!("Ring signature verification failure"))?;
+            .map_err(|e| anyhow::anyhow!("Ring signature verification failure: {:?}", e))?;
 
         // This truncated hash is the actual value used as ticket-id/score in JAM
         let vrf_output_hash: [u8; 32] = output.hash()[..32].try_into()?;
