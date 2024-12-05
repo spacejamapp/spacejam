@@ -57,6 +57,7 @@ impl State {
         entropy: OpaqueHash,
         extrinsic: TicketsExtrinsic,
     ) -> Result<std::result::Result<Markers, Error>> {
+        let prev_state = self.clone();
         if slot <= self.tau {
             return Ok(Err(Error::BadSlot));
         }
@@ -71,6 +72,7 @@ impl State {
         self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
         if let Err(e) = self.validate_tickets(extrinsic)? {
+            *self = prev_state;
             return Ok(Err(e));
         }
         self.tau = slot;
@@ -98,6 +100,8 @@ impl State {
             }
 
             // 2. Construct ring VRF input data according to graypaper 6.7
+            //
+            // graypaper formula: 6.29
             // X_T ∥ η'_2 ∥ r
             let input_data = [
                 b"jam_ticket_seal",              // X_T token
@@ -107,11 +111,14 @@ impl State {
             .concat();
 
             // 3. Verify ring VRF signature and get ticket identifier
-            let id = verifier.ring_vrf_verify(
+            let id = match verifier.ring_vrf_verify(
                 &input_data, // message data
                 &[],         // transcript (empty in this case)
                 &envelope.signature,
-            )?;
+            ) {
+                Ok(id) => id,
+                Err(_) => return Ok(Err(Error::BadTicketProof)),
+            };
 
             tracing::info!("ticket identifier: 0x{}", hex::encode(id));
 
