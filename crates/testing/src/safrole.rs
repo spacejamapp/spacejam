@@ -34,6 +34,7 @@ pub struct Test {
 
 impl Test {
     fn run(&self) -> anyhow::Result<()> {
+        crate::init_tracing();
         let mut state = self.pre_state.clone();
         let _output = state.enact(
             self.input.slot,
@@ -41,7 +42,7 @@ impl Test {
             self.input.extrinsic.clone(),
         )?;
 
-        /*assert_eq!(output, self.output, "Invalid output");
+        /* assert_eq!(output, self.output, "Invalid output"); */
         assert_eq!(state.tau, self.post_state.tau, "Invalid time slot");
         assert_eq!(state.eta, self.post_state.eta, "Invalid entropy");
         assert_eq!(
@@ -64,7 +65,7 @@ impl Test {
             state.gamma_z, self.post_state.gamma_z,
             "Invalid bandersnatch ring commitment: gamma_z"
         );
-        assert_eq!(
+        /* assert_eq!(
             state.gamma_s, self.post_state.gamma_s,
             "Invalid sealing-key series: gamma_s"
         );

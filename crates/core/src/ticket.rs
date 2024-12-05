@@ -13,7 +13,9 @@ pub type TicketAttempt = u8; // Corresponds to U8
 /// Represents a ticket envelope containing an attempt and a signature.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct TicketEnvelope {
+    /// Ticket attempt
     pub attempt: TicketAttempt,
+    /// Ticket ring signature
     #[json(hex)]
     #[serde(with = "codec")]
     pub signature: BandersnatchRingVrfSignature,

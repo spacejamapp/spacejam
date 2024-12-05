@@ -1,10 +1,11 @@
+use crate::vrf;
 use ark_ec_vrfs::{
     prelude::{
         ark_ec::AffineRepr,
         ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
     },
     suites::bandersnatch::edwards::{BandersnatchSha512Ell2, PcsParams, RingContext},
-    AffinePoint,
+    AffinePoint, Public,
 };
 use once_cell::sync::Lazy;
 
@@ -39,4 +40,13 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
         .serialize_compressed(bytes.as_mut_slice())
         .unwrap();
     bytes
+}
+
+/// Creates a VRF verifier for a set of Bandersnatch keys
+pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
+    let keys: Vec<_> = keys
+        .iter()
+        .filter_map(|k| AffineRepr::from_random_bytes(k).map(Public))
+        .collect();
+    vrf::Verifier::new(keys)
 }

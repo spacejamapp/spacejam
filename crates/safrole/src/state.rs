@@ -9,7 +9,8 @@ use score::{
         BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
     },
     ticket::{
-        TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys, TicketsOrKeysJson,
+        TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
+        TicketsOrKeysJson,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -54,28 +55,114 @@ impl State {
         &mut self,
         slot: u32,
         entropy: OpaqueHash,
-        _extrinsic: TicketsExtrinsic,
+        extrinsic: TicketsExtrinsic,
     ) -> Result<std::result::Result<Markers, Error>> {
+        let prev_state = self.clone();
         if slot <= self.tau {
             return Ok(Err(Error::BadSlot));
         }
 
-        let new_epoch: bool = (slot / score::EPOCH_LENGTH) > (self.tau / score::EPOCH_LENGTH);
+        if slot % score::CONTEST_DURATION == 0 && !extrinsic.is_empty() {
+            return Ok(Err(Error::UnexpectedTicket));
+        }
+
+        let epoch = slot / score::EPOCH_LENGTH;
+        let new_epoch: bool = epoch > (self.tau / score::EPOCH_LENGTH);
 
         if new_epoch {
             self.rotate_keys();
         }
 
-        // Update the entropy accumulator
         self.update_eta(new_epoch, entropy);
+        self.update_sealing_key_series(slot);
 
-        // Update the epoch
+        if let Err(e) = self.validate_tickets(new_epoch, extrinsic)? {
+            *self = prev_state;
+            return Ok(Err(e));
+        }
         self.tau = slot;
 
         Ok(Ok(Markers {
             epoch_mark: self.collect_epoch_marker(new_epoch),
             tickets_mark: self.collect_tickets_marker(new_epoch),
         }))
+    }
+
+    /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
+    pub fn validate_tickets(
+        &mut self,
+        new_epoch: bool,
+        extrinsic: TicketsExtrinsic,
+    ) -> Result<crate::Result<()>> {
+        let verifier =
+            crypto::ring::verifier(self.gamma_k.iter().map(|v| v.bandersnatch).collect());
+
+        let mut new_tickets = Vec::new();
+
+        // Process each ticket envelope
+        for envelope in extrinsic {
+            // 1. Verify ticket attempt
+            //
+            // graypaper reference: 6.29
+            if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR {
+                return Ok(Err(Error::BadTicketAttempt));
+            }
+
+            // 2. Construct ring VRF input data according to graypaper 6.7
+            //
+            // graypaper formula: 6.29
+            // X_T ∥ η'_2 ∥ r
+            let input_data = [
+                b"jam_ticket_seal",              // X_T token
+                self.eta[2].as_slice(),          // η'_2 (second-oldest entropy)
+                &envelope.attempt.to_le_bytes(), // r (attempt number)
+            ]
+            .concat();
+
+            // 3. Verify ring VRF signature and get ticket identifier
+            let id = match verifier.ring_vrf_verify(
+                &input_data, // message data
+                &[],         // transcript (empty in this case)
+                &envelope.signature,
+            ) {
+                Ok(id) => id,
+                Err(_) => return Ok(Err(Error::BadTicketProof)),
+            };
+
+            tracing::info!("ticket identifier: 0x{}", hex::encode(id));
+
+            // 4. Store ticket for accumulation
+            new_tickets.push(TicketBody {
+                id,
+                attempt: envelope.attempt,
+            });
+        }
+
+        // Check for duplicates
+        if self.gamma_a.iter().any(|t| new_tickets.contains(t)) {
+            return Ok(Err(Error::DuplicateTicket));
+        }
+
+        // Check for bad order
+        //
+        // graypaper reference: 6.32 & 6.33
+        let mut sorted_new_tickets = new_tickets.clone();
+        sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
+        if sorted_new_tickets != new_tickets {
+            return Ok(Err(Error::BadTicketOrder));
+        }
+
+        // Clear the accumulator if we're starting a new epoch
+        //
+        // graypaper reference: 6.34
+        if new_epoch {
+            self.gamma_a = Default::default();
+        }
+
+        self.gamma_a.extend(sorted_new_tickets);
+        self.gamma_a.sort_by(|a, b| a.id.cmp(&b.id));
+
+        Ok(Ok(()))
     }
 
     /// Updates the entropy accumulator.
@@ -152,6 +239,42 @@ impl State {
         self.gamma_z = crypto::ring::commitment(keys);
 
         // TODO: graypaper reference: 6.14
+    }
+
+    /// Updates the sealing-key series (gamma_s) according to graypaper section 6.5
+    pub fn update_sealing_key_series(&mut self, slot: u32) {
+        // Update sealing-key series (gamma_s) according to graypaper section 6.5
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
+        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+        let curr_epoch = slot / score::EPOCH_LENGTH;
+
+        if curr_epoch > prev_epoch
+            && prev_slot_phase >= score::CONTEST_DURATION
+            && self.gamma_a.len() == score::EPOCH_LENGTH as usize
+        {
+            // Case 1: New epoch, previous slot was within closing period, and accumulator is full
+            // Use the ordered ticket accumulator (Z function in graypaper)
+            let mut ordered = self.gamma_a.clone();
+            ordered.sort_by(|a, b| a.id.cmp(&b.id));
+            self.gamma_s = TicketsOrKeys::Tickets(ordered);
+        } else if curr_epoch == prev_epoch {
+            // Case 2: Same epoch, keep existing sequence
+            // No change needed to gamma_s
+        } else {
+            // Case 3: Otherwise, use fallback key sequence
+            // Use entropy from eta[2] and current validator set (kappa) to generate fallback sequence
+            tracing::info!("Using fallback key sequence for epoch {}", curr_epoch);
+            let mut fallback_keys = Vec::with_capacity(score::EPOCH_LENGTH as usize);
+            for i in 0..score::EPOCH_LENGTH {
+                let mut input = self.eta[2].to_vec();
+                input.extend_from_slice(&i.to_le_bytes());
+                let selector = crypto::blake2b(&input);
+                let index = u32::from_le_bytes(selector[0..4].try_into().unwrap())
+                    % (self.kappa.len() as u32);
+                fallback_keys.push(self.kappa[index as usize].bandersnatch);
+            }
+            self.gamma_s = TicketsOrKeys::Keys(fallback_keys);
+        }
     }
 }
 

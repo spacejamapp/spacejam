@@ -7,11 +7,17 @@ use serde::{Deserialize, Serialize};
 pub enum Error {
     /// Timeslot value must be strictly monotonic
     BadSlot,
+    /// Unexpected ticket
     UnexpectedTicket,
+    /// Invalid ticket order
     BadTicketOrder,
+    /// Invalid ticket ring proof
     BadTicketProof,
+    /// Invalid ticket attempt value
     BadTicketAttempt,
+    /// Reserved
     Reserved,
+    /// Duplicate ticket
     DuplicateTicket,
 }
 
@@ -32,3 +38,6 @@ impl Json<Error> for Error {
         Ok(json)
     }
 }
+
+/// Result type for the safrole crate
+pub type Result<T> = core::result::Result<T, Error>;
