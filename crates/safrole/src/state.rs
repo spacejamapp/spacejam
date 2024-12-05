@@ -62,7 +62,7 @@ impl State {
             return Ok(Err(Error::BadSlot));
         }
 
-        if slot % score::CONTEST_DURATION == 0 && extrinsic.len() > 0 {
+        if slot % score::CONTEST_DURATION == 0 && !extrinsic.is_empty() {
             return Ok(Err(Error::UnexpectedTicket));
         }
 
@@ -139,7 +139,7 @@ impl State {
         }
 
         // Check for duplicates
-        if self.gamma_a.iter().any(|t| new_tickets.contains(&t)) {
+        if self.gamma_a.iter().any(|t| new_tickets.contains(t)) {
             return Ok(Err(Error::DuplicateTicket));
         }
 
@@ -244,28 +244,19 @@ impl State {
     /// Updates the sealing-key series (gamma_s) according to graypaper section 6.5
     pub fn update_sealing_key_series(&mut self, slot: u32) {
         // Update sealing-key series (gamma_s) according to graypaper section 6.5
-        let prev_slot_phase = (self.tau % score::EPOCH_LENGTH) as u32;
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
         let prev_epoch = self.tau / score::EPOCH_LENGTH;
         let curr_epoch = slot / score::EPOCH_LENGTH;
 
         if curr_epoch > prev_epoch
-            && prev_slot_phase >= score::SUBMISSION_PERIOD
+            && prev_slot_phase >= score::CONTEST_DURATION
             && self.gamma_a.len() == score::EPOCH_LENGTH as usize
         {
             // Case 1: New epoch, previous slot was within closing period, and accumulator is full
             // Use the ordered ticket accumulator (Z function in graypaper)
-            let ordered_tickets = self.gamma_a.clone();
-            let mid = ordered_tickets.len() / 2;
-            let mut result = Vec::with_capacity(ordered_tickets.len());
-
-            for i in 0..mid {
-                result.push(ordered_tickets[i].clone());
-                if i + mid < ordered_tickets.len() {
-                    result.push(ordered_tickets[ordered_tickets.len() - 1 - i].clone());
-                }
-            }
-
-            self.gamma_s = TicketsOrKeys::Tickets(result);
+            let mut ordered = self.gamma_a.clone();
+            ordered.sort_by(|a, b| a.id.cmp(&b.id));
+            self.gamma_s = TicketsOrKeys::Tickets(ordered);
         } else if curr_epoch == prev_epoch {
             // Case 2: Same epoch, keep existing sequence
             // No change needed to gamma_s
@@ -276,7 +267,7 @@ impl State {
             let mut fallback_keys = Vec::with_capacity(score::EPOCH_LENGTH as usize);
             for i in 0..score::EPOCH_LENGTH {
                 let mut input = self.eta[2].to_vec();
-                input.extend_from_slice(&(i as u32).to_le_bytes());
+                input.extend_from_slice(&i.to_le_bytes());
                 let selector = crypto::blake2b(&input);
                 let index = u32::from_le_bytes(selector[0..4].try_into().unwrap())
                     % (self.kappa.len() as u32);

@@ -46,7 +46,7 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
 pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
     let keys: Vec<_> = keys
         .iter()
-        .filter_map(|k| AffineRepr::from_random_bytes(k).map(|p| Public(p)))
+        .filter_map(|k| AffineRepr::from_random_bytes(k).map(Public))
         .collect();
     vrf::Verifier::new(keys)
 }
