@@ -62,6 +62,10 @@ impl State {
             return Ok(Err(Error::BadSlot));
         }
 
+        if slot % score::CONTEST_DURATION == 0 && extrinsic.len() > 0 {
+            return Ok(Err(Error::UnexpectedTicket));
+        }
+
         let epoch = slot / score::EPOCH_LENGTH;
         let new_epoch: bool = epoch > (self.tau / score::EPOCH_LENGTH);
 
@@ -71,6 +75,7 @@ impl State {
 
         self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
+
         if let Err(e) = self.validate_tickets(new_epoch, extrinsic)? {
             *self = prev_state;
             return Ok(Err(e));
