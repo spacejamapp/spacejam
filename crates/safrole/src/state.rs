@@ -71,7 +71,7 @@ impl State {
 
         self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
-        if let Err(e) = self.validate_tickets(extrinsic)? {
+        if let Err(e) = self.validate_tickets(new_epoch, extrinsic)? {
             *self = prev_state;
             return Ok(Err(e));
         }
@@ -84,7 +84,11 @@ impl State {
     }
 
     /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
-    pub fn validate_tickets(&mut self, extrinsic: TicketsExtrinsic) -> Result<crate::Result<()>> {
+    pub fn validate_tickets(
+        &mut self,
+        new_epoch: bool,
+        extrinsic: TicketsExtrinsic,
+    ) -> Result<crate::Result<()>> {
         let verifier =
             crypto::ring::verifier(self.gamma_k.iter().map(|v| v.bandersnatch).collect());
 
@@ -129,9 +133,30 @@ impl State {
             });
         }
 
-        self.gamma_a.extend(new_tickets);
+        // Check for duplicates
+        if self.gamma_a.iter().any(|t| new_tickets.contains(&t)) {
+            return Ok(Err(Error::DuplicateTicket));
+        }
 
-        // TODO: graypaper reference: 6.7
+        // Check for bad order
+        //
+        // graypaper reference: 6.32 & 6.33
+        let mut sorted_new_tickets = new_tickets.clone();
+        sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
+        if sorted_new_tickets != new_tickets {
+            return Ok(Err(Error::BadTicketOrder));
+        }
+
+        // Clear the accumulator if we're starting a new epoch
+        //
+        // graypaper reference: 6.34
+        if new_epoch {
+            self.gamma_a = Default::default();
+        }
+
+        self.gamma_a.extend(sorted_new_tickets);
+        self.gamma_a.sort_by(|a, b| a.id.cmp(&b.id));
+
         Ok(Ok(()))
     }
 
