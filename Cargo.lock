@@ -1071,6 +1071,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-merkle"
+version = "0.0.0"
+dependencies = [
+ "spacejam-crypto",
+]
+
+[[package]]
 name = "spacejam-safrole"
 version = "0.0.0"
 dependencies = [
@@ -1096,16 +1103,9 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-merkle",
  "spacejam-safrole",
- "spacejam-trie",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "spacejam-trie"
-version = "0.0.0"
-dependencies = [
- "spacejam-crypto",
 ]
 
 [[package]]

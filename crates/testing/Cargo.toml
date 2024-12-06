@@ -15,7 +15,7 @@ safrole.workspace = true
 score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-trie.workspace = true
+merkle.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
