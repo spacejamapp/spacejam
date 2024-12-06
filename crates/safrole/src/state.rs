@@ -91,6 +91,29 @@ impl State {
         Ok(Ok(markers))
     }
 
+    /// Rotates the keys for a new epoch.
+    ///
+    /// graypaper reference: 6.3
+    /// graypaper formula: 6.13
+    pub fn rotate_keys(&mut self) {
+        // update previous epoch validators
+        self.lambda = self.kappa.clone();
+        // update current epoch validators
+        self.kappa = self.gamma_k.clone();
+        // update next epoch validators
+        self.gamma_k = self.iota.clone();
+
+        // update bandersnatch ring commitment
+        let keys = self
+            .gamma_k
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect::<Vec<_>>();
+        self.gamma_z = crypto::ring::commitment(keys);
+
+        // TODO: graypaper reference: 6.14
+    }
+
     /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
     pub fn validate_tickets(
         &mut self,
@@ -131,8 +154,6 @@ impl State {
                 Ok(id) => id,
                 Err(_) => return Ok(Err(Error::BadTicketProof)),
             };
-
-            tracing::info!("ticket identifier: 0x{}", hex::encode(id));
 
             // 4. Store ticket for accumulation
             new_tickets.push(TicketBody {
@@ -211,6 +232,20 @@ impl State {
         })
     }
 
+    pub fn sequence_tickets(&self) -> Vec<TicketBody> {
+        let mut ordered_tickets = Vec::with_capacity(self.gamma_a.len());
+        let mid = self.gamma_a.len() / 2;
+
+        for i in 0..mid {
+            ordered_tickets.push(self.gamma_a[i].clone());
+            if i + mid < self.gamma_a.len() {
+                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i].clone());
+            }
+        }
+
+        ordered_tickets
+    }
+
     /// Calculates the tickets marker according to graypaper formula 6.28.
     pub fn collect_tickets_marker(&mut self, slot: u32) -> Option<TicketsMark> {
         let curr_epoch = slot / score::EPOCH_LENGTH;
@@ -232,44 +267,9 @@ impl State {
         }
 
         // Apply Z function to gamma_a (outside-in sequencing)
-        let mut ordered_tickets = Vec::with_capacity(self.gamma_a.len());
-        let mid = self.gamma_a.len() / 2;
-
-        for i in 0..mid {
-            ordered_tickets.push(self.gamma_a[i].clone());
-            if i + mid < self.gamma_a.len() {
-                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i].clone());
-            }
-        }
-
-        // self.gamma_a = ordered_tickets.clone();
-
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
-        tickets.copy_from_slice(&ordered_tickets);
+        tickets.copy_from_slice(&self.sequence_tickets());
         Some(tickets)
-    }
-
-    /// Rotates the keys for a new epoch.
-    ///
-    /// graypaper reference: 6.3
-    /// graypaper formula: 6.13
-    pub fn rotate_keys(&mut self) {
-        // update previous epoch validators
-        self.lambda = self.kappa.clone();
-        // update current epoch validators
-        self.kappa = self.gamma_k.clone();
-        // update next epoch validators
-        self.gamma_k = self.iota.clone();
-
-        // update bandersnatch ring commitment
-        let keys = self
-            .gamma_k
-            .iter()
-            .map(|validator| validator.bandersnatch)
-            .collect::<Vec<_>>();
-        self.gamma_z = crypto::ring::commitment(keys);
-
-        // TODO: graypaper reference: 6.14
     }
 
     /// Updates the sealing-key series (gamma_s) according to graypaper section 6.5
