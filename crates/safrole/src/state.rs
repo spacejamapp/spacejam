@@ -75,17 +75,42 @@ impl State {
 
         self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
-
         if let Err(e) = self.validate_tickets(new_epoch, extrinsic)? {
             *self = prev_state;
             return Ok(Err(e));
         }
+
+        let markers = Markers {
+            epoch_mark: self.collect_epoch_marker(new_epoch),
+            tickets_mark: self.collect_tickets_marker(slot),
+        };
+
         self.tau = slot;
 
-        Ok(Ok(Markers {
-            epoch_mark: self.collect_epoch_marker(new_epoch),
-            tickets_mark: self.collect_tickets_marker(new_epoch),
-        }))
+        Ok(Ok(markers))
+    }
+
+    /// Rotates the keys for a new epoch.
+    ///
+    /// graypaper reference: 6.3
+    /// graypaper formula: 6.13
+    pub fn rotate_keys(&mut self) {
+        // update previous epoch validators
+        self.lambda = self.kappa.clone();
+        // update current epoch validators
+        self.kappa = self.gamma_k.clone();
+        // update next epoch validators
+        self.gamma_k = self.iota.clone();
+
+        // update bandersnatch ring commitment
+        let keys = self
+            .gamma_k
+            .iter()
+            .map(|validator| validator.bandersnatch)
+            .collect::<Vec<_>>();
+        self.gamma_z = crypto::ring::commitment(keys);
+
+        // TODO: graypaper reference: 6.14
     }
 
     /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
@@ -129,8 +154,6 @@ impl State {
                 Err(_) => return Ok(Err(Error::BadTicketProof)),
             };
 
-            tracing::info!("ticket identifier: 0x{}", hex::encode(id));
-
             // 4. Store ticket for accumulation
             new_tickets.push(TicketBody {
                 id,
@@ -156,11 +179,23 @@ impl State {
         //
         // graypaper reference: 6.34
         if new_epoch {
-            self.gamma_a = Default::default();
+            self.gamma_a.clear();
         }
 
-        self.gamma_a.extend(sorted_new_tickets);
+        // Create merged set of tickets (formula 6.35: n ∪ γ_a)
+        if new_epoch {
+            // New epoch: only use new tickets
+            self.gamma_a = new_tickets;
+        } else {
+            // Same epoch: merge with existing tickets
+            self.gamma_a.extend(new_tickets);
+        };
+
+        // Sort by identifier
         self.gamma_a.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Take only the first E tickets (formula 6.35: truncate to E)
+        self.gamma_a.truncate(score::EPOCH_LENGTH as usize);
 
         Ok(Ok(()))
     }
@@ -208,71 +243,82 @@ impl State {
         })
     }
 
-    /// Calculates the tickets marker.
-    ///
-    /// graypaper reference: 6.6
-    pub fn collect_tickets_marker(&self, _new_epoch: bool) -> Option<TicketsMark> {
-        // TODO: conditions for epoch change
-        //
-        // graypaper reference: 6.28
-        None
+    pub fn sequence_tickets(&self) -> Vec<TicketBody> {
+        let mut ordered_tickets = Vec::with_capacity(self.gamma_a.len());
+        let mid = self.gamma_a.len() / 2;
+
+        for i in 0..mid {
+            ordered_tickets.push(self.gamma_a[i]);
+            if i + mid < self.gamma_a.len() {
+                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i]);
+            }
+        }
+
+        ordered_tickets
     }
 
-    /// Rotates the keys for a new epoch.
-    ///
-    /// graypaper reference: 6.3
-    /// graypaper formula: 6.13
-    pub fn rotate_keys(&mut self) {
-        // update previous epoch validators
-        self.lambda = self.kappa.clone();
-        // update current epoch validators
-        self.kappa = self.gamma_k.clone();
-        // update next epoch validators
-        self.gamma_k = self.iota.clone();
-
-        // update bandersnatch ring commitment
-        let keys = self
-            .gamma_k
-            .iter()
-            .map(|validator| validator.bandersnatch)
-            .collect::<Vec<_>>();
-        self.gamma_z = crypto::ring::commitment(keys);
-
-        // TODO: graypaper reference: 6.14
-    }
-
-    /// Updates the sealing-key series (gamma_s) according to graypaper section 6.5
-    pub fn update_sealing_key_series(&mut self, slot: u32) {
-        // Update sealing-key series (gamma_s) according to graypaper section 6.5
-        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
-        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+    /// Calculates the tickets marker according to graypaper formula 6.28.
+    pub fn collect_tickets_marker(&mut self, slot: u32) -> Option<TicketsMark> {
         let curr_epoch = slot / score::EPOCH_LENGTH;
+        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+        let curr_slot_phase = slot % score::EPOCH_LENGTH;
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
 
-        if curr_epoch > prev_epoch
+        // Return None if:
+        // 1. Different epochs (e' ≠ e)
+        // 2. Previous slot not before submission period (m ≥ Y)
+        // 3. Current slot not after submission period (m' < Y)
+        // 4. Accumulator not full (|gamma_a| ≠ E)
+        if curr_epoch != prev_epoch
+            || prev_slot_phase >= score::CONTEST_DURATION
+            || curr_slot_phase < score::CONTEST_DURATION
+            || self.gamma_a.len() != score::EPOCH_LENGTH as usize
+        {
+            return None;
+        }
+
+        // Apply Z function to gamma_a (outside-in sequencing)
+        let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
+        tickets.copy_from_slice(&self.sequence_tickets());
+        Some(tickets)
+    }
+
+    /// Updates the sealing key series according to graypaper formula 6.24.
+    pub fn update_sealing_key_series(&mut self, slot: u32) {
+        let curr_epoch = slot / score::EPOCH_LENGTH;
+        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
+
+        // Case 1: Z(γ_a) when e' = e + 1 ∧ m ≥ Y ∧ |γ_a| = E
+        if curr_epoch == prev_epoch + 1
             && prev_slot_phase >= score::CONTEST_DURATION
             && self.gamma_a.len() == score::EPOCH_LENGTH as usize
         {
-            // Case 1: New epoch, previous slot was within closing period, and accumulator is full
-            // Use the ordered ticket accumulator (Z function in graypaper)
-            let mut ordered = self.gamma_a.clone();
-            ordered.sort_by(|a, b| a.id.cmp(&b.id));
-            self.gamma_s = TicketsOrKeys::Tickets(ordered);
-        } else if curr_epoch == prev_epoch {
-            // Case 2: Same epoch, keep existing sequence
+            // Apply Z function (outside-in sequencing)
+            self.gamma_s = TicketsOrKeys::Tickets(self.sequence_tickets());
+        }
+        // Case 2: Keep existing γ_s when e' = e
+        else if curr_epoch == prev_epoch {
             // No change needed to gamma_s
-        } else {
-            // Case 3: Otherwise, use fallback key sequence
-            // Use entropy from eta[2] and current validator set (kappa) to generate fallback sequence
-            tracing::info!("Using fallback key sequence for epoch {}", curr_epoch);
+        }
+        // Case 3: Use fallback key sequence F(η'_2, κ') otherwise
+        else {
+            // Generate fallback key sequence using η'_2 and κ'
             let mut fallback_keys = Vec::with_capacity(score::EPOCH_LENGTH as usize);
+
             for i in 0..score::EPOCH_LENGTH {
-                let mut input = self.eta[2].to_vec();
-                input.extend_from_slice(&i.to_le_bytes());
-                let selector = crypto::blake2b(&input);
-                let index = u32::from_le_bytes(selector[0..4].try_into().unwrap())
-                    % (self.kappa.len() as u32);
+                // Construct input for hash: η'_2 ∥ E_4(i)
+                let input = [self.eta[2].as_slice(), &i.to_le_bytes()].concat();
+
+                // Hash input to get validator index
+                let hash = crypto::blake2b(&input);
+                let index =
+                    u32::from_le_bytes(hash[0..4].try_into().unwrap()) % (self.kappa.len() as u32);
+
+                // Get validator's Bandersnatch key
                 fallback_keys.push(self.kappa[index as usize].bandersnatch);
             }
+
             self.gamma_s = TicketsOrKeys::Keys(fallback_keys);
         }
     }
