@@ -11,6 +11,7 @@ anyhow.workspace = true
 codec.workspace = true
 hex.workspace = true
 paste.workspace = true
+spacejam.workspace = true
 safrole.workspace = true
 score.workspace = true
 serde.workspace = true

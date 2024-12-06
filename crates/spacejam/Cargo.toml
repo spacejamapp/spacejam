@@ -1,0 +1,9 @@
+[package]
+name = "spacejam"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+codec.workspace = true
+mmr.workspace = true
+score.workspace = true
