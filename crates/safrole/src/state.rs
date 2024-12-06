@@ -248,9 +248,9 @@ impl State {
         let mid = self.gamma_a.len() / 2;
 
         for i in 0..mid {
-            ordered_tickets.push(self.gamma_a[i].clone());
+            ordered_tickets.push(self.gamma_a[i]);
             if i + mid < self.gamma_a.len() {
-                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i].clone());
+                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i]);
             }
         }
 
@@ -308,7 +308,7 @@ impl State {
 
             for i in 0..score::EPOCH_LENGTH {
                 // Construct input for hash: η'_2 ∥ E_4(i)
-                let input = [self.eta[2].as_slice(), &(i as u32).to_le_bytes()].concat();
+                let input = [self.eta[2].as_slice(), &i.to_le_bytes()].concat();
 
                 // Hash input to get validator index
                 let hash = crypto::blake2b(&input);
