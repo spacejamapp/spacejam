@@ -80,12 +80,15 @@ impl State {
             *self = prev_state;
             return Ok(Err(e));
         }
+
+        let markers = Markers {
+            epoch_mark: self.collect_epoch_marker(new_epoch),
+            tickets_mark: self.collect_tickets_marker(slot),
+        };
+
         self.tau = slot;
 
-        Ok(Ok(Markers {
-            epoch_mark: self.collect_epoch_marker(new_epoch),
-            tickets_mark: self.collect_tickets_marker(new_epoch),
-        }))
+        Ok(Ok(markers))
     }
 
     /// Verifies tickets and updates the accumulator according to graypaper section 6.7.
@@ -208,14 +211,42 @@ impl State {
         })
     }
 
-    /// Calculates the tickets marker.
-    ///
-    /// graypaper reference: 6.6
-    pub fn collect_tickets_marker(&self, _new_epoch: bool) -> Option<TicketsMark> {
-        // TODO: conditions for epoch change
-        //
-        // graypaper reference: 6.28
-        None
+    /// Calculates the tickets marker according to graypaper formula 6.28.
+    pub fn collect_tickets_marker(&mut self, slot: u32) -> Option<TicketsMark> {
+        let curr_epoch = slot / score::EPOCH_LENGTH;
+        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+        let curr_slot_phase = slot % score::EPOCH_LENGTH;
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
+
+        // Return None if:
+        // 1. Different epochs (e' ≠ e)
+        // 2. Previous slot not before submission period (m ≥ Y)
+        // 3. Current slot not after submission period (m' < Y)
+        // 4. Accumulator not full (|gamma_a| ≠ E)
+        if curr_epoch != prev_epoch
+            || prev_slot_phase >= score::CONTEST_DURATION
+            || curr_slot_phase < score::CONTEST_DURATION
+            || self.gamma_a.len() != score::EPOCH_LENGTH as usize
+        {
+            return None;
+        }
+
+        // Apply Z function to gamma_a (outside-in sequencing)
+        let mut ordered_tickets = Vec::with_capacity(self.gamma_a.len());
+        let mid = self.gamma_a.len() / 2;
+
+        for i in 0..mid {
+            ordered_tickets.push(self.gamma_a[i].clone());
+            if i + mid < self.gamma_a.len() {
+                ordered_tickets.push(self.gamma_a[self.gamma_a.len() - 1 - i].clone());
+            }
+        }
+
+        // self.gamma_a = ordered_tickets.clone();
+
+        let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
+        tickets.copy_from_slice(&ordered_tickets);
+        Some(tickets)
     }
 
     /// Rotates the keys for a new epoch.
