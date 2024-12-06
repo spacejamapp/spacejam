@@ -75,7 +75,6 @@ impl State {
 
         self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
-
         if let Err(e) = self.validate_tickets(new_epoch, extrinsic)? {
             *self = prev_state;
             return Ok(Err(e));
@@ -180,11 +179,23 @@ impl State {
         //
         // graypaper reference: 6.34
         if new_epoch {
-            self.gamma_a = Default::default();
+            self.gamma_a.clear();
         }
 
-        self.gamma_a.extend(sorted_new_tickets);
+        // Create merged set of tickets (formula 6.35: n ∪ γ_a)
+        if new_epoch {
+            // New epoch: only use new tickets
+            self.gamma_a = new_tickets;
+        } else {
+            // Same epoch: merge with existing tickets
+            self.gamma_a.extend(new_tickets);
+        };
+
+        // Sort by identifier
         self.gamma_a.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Take only the first E tickets (formula 6.35: truncate to E)
+        self.gamma_a.truncate(score::EPOCH_LENGTH as usize);
 
         Ok(Ok(()))
     }
@@ -272,38 +283,42 @@ impl State {
         Some(tickets)
     }
 
-    /// Updates the sealing-key series (gamma_s) according to graypaper section 6.5
+    /// Updates the sealing key series according to graypaper formula 6.24.
     pub fn update_sealing_key_series(&mut self, slot: u32) {
-        // Update sealing-key series (gamma_s) according to graypaper section 6.5
-        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
-        let prev_epoch = self.tau / score::EPOCH_LENGTH;
         let curr_epoch = slot / score::EPOCH_LENGTH;
+        let prev_epoch = self.tau / score::EPOCH_LENGTH;
+        let prev_slot_phase = self.tau % score::EPOCH_LENGTH;
 
-        if curr_epoch > prev_epoch
+        // Case 1: Z(γ_a) when e' = e + 1 ∧ m ≥ Y ∧ |γ_a| = E
+        if curr_epoch == prev_epoch + 1
             && prev_slot_phase >= score::CONTEST_DURATION
             && self.gamma_a.len() == score::EPOCH_LENGTH as usize
         {
-            // Case 1: New epoch, previous slot was within closing period, and accumulator is full
-            // Use the ordered ticket accumulator (Z function in graypaper)
-            let mut ordered = self.gamma_a.clone();
-            ordered.sort_by(|a, b| a.id.cmp(&b.id));
-            self.gamma_s = TicketsOrKeys::Tickets(ordered);
-        } else if curr_epoch == prev_epoch {
-            // Case 2: Same epoch, keep existing sequence
+            // Apply Z function (outside-in sequencing)
+            self.gamma_s = TicketsOrKeys::Tickets(self.sequence_tickets());
+        }
+        // Case 2: Keep existing γ_s when e' = e
+        else if curr_epoch == prev_epoch {
             // No change needed to gamma_s
-        } else {
-            // Case 3: Otherwise, use fallback key sequence
-            // Use entropy from eta[2] and current validator set (kappa) to generate fallback sequence
-            tracing::info!("Using fallback key sequence for epoch {}", curr_epoch);
+        }
+        // Case 3: Use fallback key sequence F(η'_2, κ') otherwise
+        else {
+            // Generate fallback key sequence using η'_2 and κ'
             let mut fallback_keys = Vec::with_capacity(score::EPOCH_LENGTH as usize);
+
             for i in 0..score::EPOCH_LENGTH {
-                let mut input = self.eta[2].to_vec();
-                input.extend_from_slice(&i.to_le_bytes());
-                let selector = crypto::blake2b(&input);
-                let index = u32::from_le_bytes(selector[0..4].try_into().unwrap())
-                    % (self.kappa.len() as u32);
+                // Construct input for hash: η'_2 ∥ E_4(i)
+                let input = [self.eta[2].as_slice(), &(i as u32).to_le_bytes()].concat();
+
+                // Hash input to get validator index
+                let hash = crypto::blake2b(&input);
+                let index =
+                    u32::from_le_bytes(hash[0..4].try_into().unwrap()) % (self.kappa.len() as u32);
+
+                // Get validator's Bandersnatch key
                 fallback_keys.push(self.kappa[index as usize].bandersnatch);
             }
+
             self.gamma_s = TicketsOrKeys::Keys(fallback_keys);
         }
     }
