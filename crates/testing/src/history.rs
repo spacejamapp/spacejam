@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use spacejam::History;
 use std::{fs, path::PathBuf};
 
+use crate::init_tracing;
+
 #[derive(Serialize, Deserialize, Json, Debug)]
 pub struct Input {
     #[json(hex)]
@@ -44,6 +46,7 @@ pub struct Test {
 
 impl Test {
     pub fn run(&self) -> anyhow::Result<()> {
+        init_tracing();
         let state = self.pre_state.clone();
         let mut history = History(BlocksHistory { blocks: state.beta });
         history.import(
@@ -53,7 +56,7 @@ impl Test {
             self.input.work_packages.clone(),
         );
 
-        // assert_eq!(self.post_state.beta, history.0);
+        assert_eq!(self.post_state.beta, history.0.blocks);
         Ok(())
     }
 }
@@ -74,11 +77,9 @@ macro_rules! impl_history_tests {
                     pattern.last().expect("pattern must have at least one element")
                 ));
 
-
                 root.push(name);
                 root.set_extension("json");
 
-                println!("{}", root.to_string_lossy());
                 let json = fs::read_to_string(root)?;
                 Test::from_json(&json)?.run()
             }
