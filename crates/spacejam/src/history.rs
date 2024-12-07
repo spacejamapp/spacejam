@@ -20,7 +20,15 @@ impl History {
         // Update the state root of the parent block if it exists (formula 7.2)
         // β† ≡ β exc β†[|β| - 1]_s = H_r
         let Some(last) = self.0.blocks.last_mut() else {
-            panic!("TODO: Empty history");
+            self.0.blocks.push(BlockInfo {
+                header_hash,
+                mmr: Mmr {
+                    peaks: vec![Some(accumulated_root)],
+                },
+                state_root: OpaqueHash::default(),
+                reported,
+            });
+            return;
         };
 
         last.state_root = state_root;
@@ -31,7 +39,6 @@ impl History {
         // - h is the header hash
         // - b is the MMR with accumulated root appended
         // - s is initialized to zero state root
-
         let peaks = last.mmr.peaks.clone();
         let new_block = BlockInfo {
             header_hash,
@@ -95,8 +102,6 @@ impl Merge for Keccak {
             // If either input is None, the result is None
             return Ok(None);
         };
-
-        tracing::info!("merging: {} and {}", hex::encode(left), hex::encode(right));
 
         // Concatenate and hash the inputs as per the spec
         let input = [*left, *right].concat();
