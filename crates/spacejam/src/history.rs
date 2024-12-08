@@ -1,4 +1,3 @@
-use mmr::{util::MemStore, Merge, Result, MMR};
 use score::{
     block::history::{BlockInfo, BlocksHistory, Mmr, ReportedWorkPackage},
     misc::OpaqueHash,
@@ -17,8 +16,6 @@ impl History {
         accumulated_root: OpaqueHash,
         reported: Vec<ReportedWorkPackage>,
     ) {
-        // Update the state root of the parent block if it exists (formula 7.2)
-        // β† ≡ β exc β†[|β| - 1]_s = H_r
         let Some(last) = self.0.blocks.last_mut() else {
             self.0.blocks.push(BlockInfo {
                 header_hash,
@@ -31,7 +28,10 @@ impl History {
             return;
         };
 
+        // Update the state root of the parent block if it exists (formula 7.2)
+        // β† ≡ β exc β†[|β| - 1]_s = H_r
         last.state_root = state_root;
+
         // Create new block info according to formula 7.3:
         // let n = (p, h: H(H), b, s: H^0)
         // where:
@@ -39,11 +39,10 @@ impl History {
         // - h is the header hash
         // - b is the MMR with accumulated root appended
         // - s is initialized to zero state root
-        let peaks = last.mmr.peaks.clone();
         let new_block = BlockInfo {
             header_hash,
             state_root: OpaqueHash::default(), // Initialize to zero/default
-            mmr: setup_mmr(self.0.blocks.len() as u8, peaks, accumulated_root),
+            mmr: mmr_append(last.mmr.peaks.clone(), accumulated_root),
             reported,
         };
 
@@ -57,54 +56,39 @@ impl History {
     }
 }
 
-/// Setup the MMR with the previous items and the accumulated root.
-fn setup_mmr(
-    history_size: u8,
-    peaks: Vec<Option<OpaqueHash>>,
-    accumulated_root: OpaqueHash,
-) -> Mmr {
-    let store = MemStore::default();
-    let mut mmr = MMR::<_, Keccak, _>::new(0, &store);
-    let range = 2u8.pow(peaks.len() as u32) - 1;
+/// Append a root to the peaks of the MMR.
+fn mmr_append(mut peaks: Vec<Option<OpaqueHash>>, accumulate_root: OpaqueHash) -> Mmr {
+    let peaks_index = if peaks.iter().all(|p| p.is_some()) {
+        peaks.len() + 1
+    } else {
+        peaks.len()
+    };
 
-    // Push all the preview peaks
-    for peak in peaks {
-        mmr.push(peak).unwrap();
-    }
-
-    // Push the accumulated root
-    //
-    // TODO: check if we can replace the empty leaves. (use append)
-    mmr.push(Some(accumulated_root)).unwrap();
-
-    // Push the missing peaks
-    if history_size == range {
-        // TODO: append directly to the MMR
-        for _ in 0..range {
-            mmr.push(None).unwrap();
+    let mut root = Some(accumulate_root);
+    for n in 0..peaks_index {
+        if n >= peaks_index {
+            peaks.push(root.take());
+            break;
         }
-    }
 
-    // Get the peaks and reverse them
-    let mut peaks = mmr.get_ancestor_peaks_and_root(mmr.mmr_size()).unwrap().0;
-    peaks.reverse();
+        if peaks.get(n) == None || peaks[n].is_none() {
+            if n == peaks.len() {
+                peaks.push(root.take());
+            } else {
+                peaks[n] = root.take();
+            }
+            continue;
+        }
+
+        if peaks[n].is_none() || root.is_none() {
+            break;
+        } else {
+            root = Some(crypto::keccak(
+                &[*peaks[n].as_ref().unwrap(), root.unwrap()].concat(),
+            ));
+        }
+        peaks[n] = None;
+    }
 
     Mmr { peaks }
-}
-
-pub struct Keccak;
-
-impl Merge for Keccak {
-    type Item = Option<OpaqueHash>;
-
-    fn merge(left: &Self::Item, right: &Self::Item) -> Result<Self::Item> {
-        let (Some(left), Some(right)) = (left, right) else {
-            // If either input is None, the result is None
-            return Ok(None);
-        };
-
-        // Concatenate and hash the inputs as per the spec
-        let input = [*left, *right].concat();
-        Ok(Some(crypto::keccak(&input)))
-    }
 }
