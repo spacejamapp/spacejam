@@ -26,7 +26,8 @@ pub struct WorkItem {
     pub code_hash: OpaqueHash,
     #[json(hex)]
     pub payload: Vec<u8>,
-    pub gas_limit: Gas,
+    pub refine_gas_limit: Gas,
+    pub accumulate_gas_limit: Gas,
     #[json(nested)]
     pub import_segments: Vec<ImportSpec>,
     #[json(nested)]

@@ -22,7 +22,7 @@ pub struct WorkResult {
     pub code_hash: OpaqueHash,
     #[json(hex)]
     pub payload_hash: OpaqueHash,
-    pub gas: Gas,
+    pub accumulate_gas: Gas,
     #[json(nested)]
     pub result: WorkExecResult,
 }
