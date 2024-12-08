@@ -7,7 +7,8 @@ use paste::paste;
 use score::{
     block::{header::Header, Block, Extrinsic},
     dispute::DisputesExtrinsic,
-    misc::{AvailAssurance, Preimage, RefineContext, ReportGuarantee},
+    extrinsic::{AvailAssurance, Preimage, ReportGuarantee},
+    misc::RefineContext,
     ticket::TicketEnvelope,
     work::{
         report::{WorkReport, WorkResult},
