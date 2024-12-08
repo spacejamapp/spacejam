@@ -1,5 +1,5 @@
 [package]
-name = "spacejam-trie"
+name = "spacejam-merkle"
 version = "0.0.0"
 edition = "2021"
 

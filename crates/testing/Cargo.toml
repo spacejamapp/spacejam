@@ -11,11 +11,12 @@ anyhow.workspace = true
 codec.workspace = true
 hex.workspace = true
 paste.workspace = true
+spacejam.workspace = true
 safrole.workspace = true
 score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-trie.workspace = true
+merkle.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true

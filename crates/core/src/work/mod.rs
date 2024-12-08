@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub mod report;
 
 /// Represents a work package in the system.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkPackage {
     #[json(hex)]
     pub authorization: Vec<u8>,
@@ -19,14 +19,15 @@ pub struct WorkPackage {
 }
 
 /// Represents an individual work item within a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkItem {
     pub service: ServiceId,
     #[json(hex)]
     pub code_hash: OpaqueHash,
     #[json(hex)]
     pub payload: Vec<u8>,
-    pub gas_limit: Gas,
+    pub refine_gas_limit: Gas,
+    pub accumulate_gas_limit: Gas,
     #[json(nested)]
     pub import_segments: Vec<ImportSpec>,
     #[json(nested)]
@@ -35,7 +36,7 @@ pub struct WorkItem {
 }
 
 /// Represents an import specification for a work item.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct ImportSpec {
     #[json(hex)]
     pub tree_root: OpaqueHash,
@@ -43,7 +44,7 @@ pub struct ImportSpec {
 }
 
 /// Represents an extrinsic specification for a work item.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct ExtrinsicSpec {
     #[json(hex)]
     pub hash: OpaqueHash,
@@ -51,7 +52,7 @@ pub struct ExtrinsicSpec {
 }
 
 /// Represents an authorizer for a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Authorizer {
     #[json(hex)]
     pub code_hash: OpaqueHash,
