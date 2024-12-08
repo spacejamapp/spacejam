@@ -7,7 +7,7 @@ use score::{
     misc::{Ed25519Public, TimeSlot, ValidatorIndex},
 };
 use serde::{Deserialize, Serialize};
-use stats::{State, StateJson};
+use stats::{State, StateJson, Stats};
 use std::{fs, path::PathBuf};
 
 #[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
@@ -33,7 +33,27 @@ struct Test {
 
 impl Test {
     fn run(self) -> anyhow::Result<()> {
-        // TODO: compare results
+        let stats = Stats::from(self.pre_state);
+        let stats = stats.update(
+            self.input.slot,
+            self.input.author_index,
+            self.input.extrinsic,
+            self.input.reporters,
+        );
+
+        assert_eq!(
+            stats.next_state.pi.current, self.post_state.pi.current,
+            "Invalid current pi"
+        );
+        assert_eq!(
+            stats.next_state.pi.last, self.post_state.pi.last,
+            "Invalid last pi"
+        );
+        assert_eq!(stats.state.tau, self.post_state.tau, "Invalid tau");
+        assert_eq!(
+            stats.state.kappa_prime, self.post_state.kappa_prime,
+            "Invalid kappa_prime"
+        );
         Ok(())
     }
 }

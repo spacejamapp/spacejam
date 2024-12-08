@@ -2,21 +2,21 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents an activity record.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct ActivityRecord {
-    blocks: u32,
-    tickets: u32,
-    pre_images: u32,
-    pre_images_size: u32,
-    guarantees: u32,
-    assurances: u32,
+    pub blocks: u32,
+    pub tickets: u32,
+    pub pre_images: u32,
+    pub pre_images_size: u32,
+    pub guarantees: u32,
+    pub assurances: u32,
 }
 
 /// Represents statistics.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct Statistics {
     #[json(nested)]
-    current: Vec<ActivityRecord>,
+    pub current: Vec<ActivityRecord>,
     #[json(nested)]
-    last: Vec<ActivityRecord>,
+    pub last: Vec<ActivityRecord>,
 }
