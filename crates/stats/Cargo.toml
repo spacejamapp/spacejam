@@ -1,6 +1,11 @@
 [package]
-name = "stats"
+name = "spacejam-stats"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow.workspace = true
+codec.workspace = true
+serde.workspace = true
+score.workspace = true
+serde_json.workspace = true

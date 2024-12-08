@@ -17,6 +17,7 @@ score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 merkle.workspace = true
+stats.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
