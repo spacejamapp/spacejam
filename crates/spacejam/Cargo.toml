@@ -7,6 +7,5 @@ edition = "2021"
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
-mmr.workspace = true
 score.workspace = true
 tracing.workspace = true

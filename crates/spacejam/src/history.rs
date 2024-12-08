@@ -58,36 +58,28 @@ impl History {
 
 /// Append a root to the peaks of the MMR.
 fn mmr_append(mut peaks: Vec<Option<OpaqueHash>>, accumulate_root: OpaqueHash) -> Mmr {
-    let peaks_index = if peaks.iter().all(|p| p.is_some()) {
-        peaks.len() + 1
-    } else {
-        peaks.len()
-    };
-
     let mut root = Some(accumulate_root);
-    for n in 0..peaks_index {
-        if n >= peaks_index {
+    let peaks_len = peaks.len();
+    for n in 0..=peaks_len {
+        if n >= peaks_len {
             peaks.push(root.take());
-            break;
-        }
-
-        if peaks.get(n) == None || peaks[n].is_none() {
-            if n == peaks.len() {
-                peaks.push(root.take());
-            } else {
-                peaks[n] = root.take();
-            }
             continue;
         }
 
-        if peaks[n].is_none() || root.is_none() {
-            break;
-        } else {
-            root = Some(crypto::keccak(
-                &[*peaks[n].as_ref().unwrap(), root.unwrap()].concat(),
-            ));
+        if peaks[n].is_none() {
+            peaks[n] = root.take();
+            continue;
         }
-        peaks[n] = None;
+
+        let Some(next_root) = root.take() else {
+            break;
+        };
+
+        let Some(next_peak) = peaks[n].take() else {
+            break;
+        };
+
+        root = Some(crypto::keccak(&[next_peak, next_root].concat()));
     }
 
     Mmr { peaks }
