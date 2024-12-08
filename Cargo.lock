@@ -1110,6 +1110,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-stats"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+]
+
+[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
@@ -1124,6 +1135,7 @@ dependencies = [
  "spacejam-core",
  "spacejam-merkle",
  "spacejam-safrole",
+ "spacejam-stats",
  "tracing-subscriber",
 ]
 

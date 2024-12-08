@@ -1,6 +1,8 @@
 pub mod block;
 pub mod dispute;
+pub mod extrinsic;
 pub mod misc;
+pub mod stats;
 pub mod ticket;
 pub mod work;
 

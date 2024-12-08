@@ -1,6 +1,6 @@
 use crate::block::header::{Header, HeaderJson};
 use crate::dispute::*;
-use crate::misc::*;
+use crate::extrinsic::*;
 use crate::ticket::*;
 use codec::Json;
 use serde::{Deserialize, Serialize};

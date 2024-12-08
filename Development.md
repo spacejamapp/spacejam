@@ -1,8 +1,30 @@
-# Development Notes
+safrolen# Development Notes
 
 Test vectors: https://github.com/w3f/jamtestvectors
 
-## Letters in Greek Alphabet
+### 1. Codec and Trie
+
+- [x] Appendix C - [Jam Codec](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/codec)
+- [x] Appendix E.1 - [Binary Merkle Trees](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/trie)
+
+### 2. State Transaction Functions
+
+- [x] Section 6 - [Block Production and Chain Growth](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/safrole)
+- [x] Section 7 - [Recent Blocks History](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/history)
+- [ ] Section 8 - Authorization
+- [ ] Section 9 - Service Accounts
+- [ ] Section 10 - [Disputes, Verdicts and Judgements](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/disputes)
+- [ ] Section 11 - [Reporting](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/reports) and [Assurances](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/assurances)
+- [ ] Section 12 - Accumulation
+- [x] Section 13 - [Activity Statistics](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/statistics)
+
+### 3. Others
+
+- [ ] Appendix A - [Polkadot Virtual Machine](https://github.com/w3f/jamtestvectors/pull/3)
+- [ ] Appendix F - [Fishter-Yates Shuffle](https://github.com/w3f/jamtestvectors/pull/17)
+- [ ] Appendix H - [Erasure Coding](https://github.com/w3f/jamtestvectors/pull/4)
+
+### Appendix A - Letters in Greek Alphabet
 
 | Letter Upper, Lower | Name    | Pronounced  | When Speaking, Sounds Like        |
 | ------------------- | ------- | ----------- | --------------------------------- |
