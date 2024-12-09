@@ -29,10 +29,11 @@ pub struct Test {
 }
 
 impl Test {
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub fn run(&mut self) -> anyhow::Result<()> {
         init_tracing();
         let mut handler = DisputesHandler::from(self.pre_state.clone());
         let output = handler.handle(self.input.disputes.clone());
+
         assert_eq!(output, self.output, "output mismatch");
         assert_eq!(handler.next_state.psi, self.post_state.psi, "psi mismatch");
         assert_eq!(handler.next_state.rho, self.post_state.rho, "rho mismatch");

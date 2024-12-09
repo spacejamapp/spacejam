@@ -5,7 +5,7 @@ use codec::Json;
 use serde::{Deserialize, Serialize};
 
 /// Represents a judgement in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
@@ -25,7 +25,7 @@ impl Default for Judgement {
 }
 
 /// Represents a verdict in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -108,7 +108,7 @@ impl Fault {
 }
 
 /// Represents the records of disputes.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct DisputesRecords {
     /// [ψ_g] Good records
     #[json(hex)]

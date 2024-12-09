@@ -6,7 +6,7 @@ use score::{
     dispute::{Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict},
     misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
-    VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    VALIDATORS_SUPER_MAJORITY,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,13 +34,14 @@ pub struct State {
 pub struct DisputesHandler {
     pub state: State,
     pub next_state: State,
+    pub records: DisputesRecords,
 }
 
 #[derive(Json, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct OffendersMark {
     /// [H_o] Offenders marker
     #[json(Vec<String>)]
-    offenders_mark: Vec<Ed25519Public>,
+    pub offenders_mark: Vec<Ed25519Public>,
 }
 
 impl DisputesHandler {
@@ -67,20 +68,37 @@ impl DisputesHandler {
             }
         }
 
+        self.next_state.psi.offenders.sort();
         Ok(OffendersMark { offenders_mark })
     }
 
     // Update goodset, badset, wonkyset based on verdicts
     fn handle_verdicts(&mut self, verdicts: Vec<Verdict>) -> Result<()> {
+        let mut last_verdict = None;
         for verdict in verdicts {
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
                 return Err(Error::NotEnoughValidators);
             }
 
+            if let Some(last_verdict) = last_verdict.take() {
+                if verdict < last_verdict {
+                    self.next_state = self.state.clone();
+                    return Err(Error::VerdictsNotSortedUnique);
+                }
+            } else {
+                last_verdict = Some(verdict.clone());
+            }
+
             let mut aye = 0;
-            for judgement in verdict.votes {
+            for (index, judgement) in verdict.votes.iter().enumerate() {
+                if index != judgement.index as usize {
+                    self.next_state = self.state.clone();
+                    return Err(Error::JudgementsNotSortedUnique);
+                }
+
                 let aye_message = verdict.signature_message(true);
                 let nay_message = verdict.signature_message(false);
+
                 if let Err(e) = crypto::ed25519::verify(
                     if judgement.vote {
                         &aye_message
@@ -101,16 +119,23 @@ impl DisputesHandler {
             }
 
             match aye {
-                aye if aye == (2 * VALIDATORS_COUNT as usize / 3) + 1 => {
+                aye if aye >= (2 * VALIDATORS_SUPER_MAJORITY as usize / 3) + 1 => {
+                    self.records.good.push(verdict.target);
                     self.next_state.psi.good.push(verdict.target);
                 }
                 aye if aye == 0 => {
+                    self.records.bad.push(verdict.target);
                     self.next_state.psi.bad.push(verdict.target);
                 }
-                aye if aye == VALIDATORS_COUNT as usize / 3 => {
+                aye if aye == VALIDATORS_SUPER_MAJORITY as usize / 3 + 1 => {
+                    self.records.wonky.push(verdict.target);
                     self.next_state.psi.wonky.push(verdict.target);
                 }
-                _ => {}
+                _ => {
+                    tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
+                    self.next_state = self.state.clone();
+                    return Err(Error::BadVoteSplit);
+                }
             }
         }
 
@@ -124,8 +149,7 @@ impl DisputesHandler {
     ) -> Result<()> {
         let mut last_culprit = None;
         let mut bad_verdicts = self
-            .next_state
-            .psi
+            .records
             .bad
             .clone()
             .into_iter()
@@ -190,12 +214,10 @@ impl DisputesHandler {
     ) -> Result<()> {
         let mut last_fault = None;
         let mut verdicts = self
-            .next_state
-            .psi
+            .records
             .good
             .clone()
             .into_iter()
-            .chain(self.next_state.psi.wonky.clone().into_iter())
             .map(|v| (v, 0))
             .collect::<BTreeMap<_, _>>();
 
@@ -258,6 +280,7 @@ impl From<State> for DisputesHandler {
         Self {
             next_state: state.clone(),
             state,
+            records: Default::default(),
         }
     }
 }
