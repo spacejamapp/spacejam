@@ -7,21 +7,22 @@ use serde::{Deserialize, Serialize};
 #[repr(u8)]
 #[serde(rename_all = "snake_case")]
 pub enum Error {
-    AlreadyJudged = 0,
-    BadVoteSplit = 1,
-    VerdictsNotSortedUnique = 2,
-    JudgementsNotSortedUnique = 3,
-    CulpritsNotSortedUnique = 4,
-    FaultsNotSortedUnique = 5,
-    NotEnoughCulprits = 6,
-    NotEnoughFaults = 7,
-    CulpritsVerdictNotBad = 8,
-    FaultVerdictWrong = 9,
-    OffenderAlreadyReported = 10,
-    BadJudgementAge = 11,
-    BadValidatorIndex = 12,
-    BadSignature = 13,
-    NotEnoughVotes = 14,
+    AlreadyJudged,
+    BadVoteSplit,
+    VerdictsNotSortedUnique,
+    JudgementsNotSortedUnique,
+    CulpritsNotSortedUnique,
+    FaultsNotSortedUnique,
+    NotEnoughCulprits,
+    NotEnoughFaults,
+    CulpritsVerdictNotBad,
+    FaultVerdictWrong,
+    OffenderAlreadyReported,
+    BadJudgementAge,
+    BadValidatorIndex,
+    BadSignature,
+    VerdictNotExists,
+    NotEnoughValidators,
 }
 
 impl std::error::Error for Error {}

@@ -49,7 +49,7 @@ impl Verdict {
 }
 
 /// Represents a culprit in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Culprit {
     #[json(hex)]
     pub target: OpaqueHash,

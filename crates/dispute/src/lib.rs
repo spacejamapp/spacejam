@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use codec::Json;
 use error::{Error, Result};
 use score::{
@@ -49,9 +51,14 @@ impl DisputesHandler {
         // Update goodset, badset, wonkyset based on verdicts
         for verdict in extrinsic.verdicts {
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
-                // TODO: the spec currently does not specify what to do if the number of
-                // votes is not exactly VALIDATORS_SUPER_MAJORITY
-                // return Err(Error::BadVoteSplit);
+                return Err(Error::NotEnoughValidators);
+            }
+
+            if self.next_state.psi.good.contains(&verdict.target)
+                || self.next_state.psi.bad.contains(&verdict.target)
+                || self.next_state.psi.wonky.contains(&verdict.target)
+            {
+                return Err(Error::AlreadyJudged);
             }
 
             let mut aye = 0;
@@ -92,23 +99,61 @@ impl DisputesHandler {
         }
 
         let mut offenders_mark = vec![];
-        // Update offenders
+        let mut last_culprit = None;
+        let mut bad_verdicts = self
+            .next_state
+            .psi
+            .bad
+            .clone()
+            .into_iter()
+            .map(|v| (v, 0))
+            .collect::<BTreeMap<_, _>>();
+
         for culprit in extrinsic.culprits {
+            if self.next_state.psi.offenders.contains(&culprit.key) {
+                self.next_state = self.state.clone();
+                return Err(Error::OffenderAlreadyReported);
+            }
+
+            if !self.next_state.psi.bad.contains(&culprit.target) {
+                self.next_state = self.state.clone();
+                return Err(Error::CulpritsVerdictNotBad);
+            }
+
+            if let Some(last_culprit) = last_culprit {
+                if culprit < last_culprit {
+                    self.next_state = self.state.clone();
+                    return Err(Error::CulpritsNotSortedUnique);
+                }
+            }
             if let Err(e) = culprit.verify() {
                 tracing::error!("Invalid signature in culprit: {e}");
                 self.next_state = self.state.clone();
                 return Err(Error::BadSignature);
             }
 
-            tracing::info!("Valid signature in culprit");
-
+            last_culprit = Some(culprit.clone());
             if self.next_state.psi.bad.contains(&culprit.target) {
+                if let Some(count) = bad_verdicts.get_mut(&culprit.target) {
+                    *count += 1;
+                }
+
                 self.next_state.psi.offenders.push(culprit.key);
                 offenders_mark.push(culprit.key);
             }
         }
 
+        if bad_verdicts.iter().any(|(_, count)| *count < 2) {
+            self.next_state = self.state.clone();
+            return Err(Error::NotEnoughCulprits);
+        }
+
         for fault in extrinsic.faults {
+            if self.next_state.psi.offenders.contains(&fault.key) {
+                self.next_state = self.state.clone();
+                return Err(Error::OffenderAlreadyReported);
+            }
+
             if let Err(e) = fault.verify() {
                 tracing::error!("Invalid signature in fault: {e}");
                 self.next_state = self.state.clone();

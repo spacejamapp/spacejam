@@ -33,6 +33,7 @@ impl Test {
         init_tracing();
         let mut handler = DisputesHandler::from(self.pre_state.clone());
         let output = handler.handle(self.input.disputes.clone());
+        assert_eq!(output, self.output, "output mismatch");
         assert_eq!(handler.next_state.psi, self.post_state.psi, "psi mismatch");
         assert_eq!(handler.next_state.rho, self.post_state.rho, "rho mismatch");
         assert_eq!(handler.next_state.tau, self.post_state.tau, "tau mismatch");
@@ -44,7 +45,6 @@ impl Test {
             handler.next_state.lambda, self.post_state.lambda,
             "lambda mismatch"
         );
-        assert_eq!(output, self.output, "output mismatch");
         Ok(())
     }
 }
