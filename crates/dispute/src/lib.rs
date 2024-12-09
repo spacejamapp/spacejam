@@ -55,7 +55,7 @@ impl DisputesHandler {
 
         // Clear work-reports from rho if they were judged as uncertain or invalid
         // This implements equation (eq:removenonpositive) from the graypaper
-        for (_, maybe_assignment) in self.next_state.rho.iter_mut().enumerate() {
+        for maybe_assignment in self.next_state.rho.iter_mut() {
             if let Some(assignment) = maybe_assignment {
                 let hashed =
                     crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
@@ -143,13 +143,13 @@ impl DisputesHandler {
                     self.records.good.push(verdict.target);
                     self.next_state.psi.good.push(verdict.target);
                 }
-                aye if aye == 0 => {
-                    self.records.bad.push(verdict.target);
-                    self.next_state.psi.bad.push(verdict.target);
-                }
                 aye if aye == VALIDATORS_COUNT / 3 => {
                     self.records.wonky.push(verdict.target);
                     self.next_state.psi.wonky.push(verdict.target);
+                }
+                0 => {
+                    self.records.bad.push(verdict.target);
+                    self.next_state.psi.bad.push(verdict.target);
                 }
                 _ => {
                     tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
