@@ -44,15 +44,40 @@ pub struct OffendersMark {
 impl DisputesHandler {
     /// Handle an extrinsic
     pub fn handle(&mut self, extrinsic: DisputesExtrinsic) -> Result<OffendersMark> {
+        // let prev_epoch = self.state.tau / EPOCH_LENGTH;
+
         // Update goodset, badset, wonkyset based on verdicts
         for verdict in extrinsic.verdicts {
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
                 // TODO: the spec currently does not specify what to do if the number of
                 // votes is not exactly VALIDATORS_SUPER_MAJORITY
-                return Err(Error::NotEnoughVotes);
+                // return Err(Error::BadVoteSplit);
             }
 
-            match verdict.votes.iter().filter(|vote| vote.vote).count() {
+            let mut aye = 0;
+            for judgement in verdict.votes {
+                let aye_message = verdict.signature_message(true);
+                let nay_message = verdict.signature_message(false);
+                if let Err(e) = crypto::ed25519::verify(
+                    if judgement.vote {
+                        &aye_message
+                    } else {
+                        &nay_message
+                    },
+                    judgement.signature,
+                    self.state.kappa[judgement.index as usize].ed25519,
+                ) {
+                    tracing::error!("Invalid signature in verdict: {e}");
+                    self.next_state = self.state.clone();
+                    return Err(Error::BadSignature);
+                }
+
+                if judgement.vote {
+                    aye += 1;
+                }
+            }
+
+            match aye {
                 aye if aye == (2 * VALIDATORS_COUNT as usize / 3) + 1 => {
                     self.next_state.psi.good.push(verdict.target);
                 }
@@ -69,6 +94,14 @@ impl DisputesHandler {
         let mut offenders_mark = vec![];
         // Update offenders
         for culprit in extrinsic.culprits {
+            if let Err(e) = culprit.verify() {
+                tracing::error!("Invalid signature in culprit: {e}");
+                self.next_state = self.state.clone();
+                return Err(Error::BadSignature);
+            }
+
+            tracing::info!("Valid signature in culprit");
+
             if self.next_state.psi.bad.contains(&culprit.target) {
                 self.next_state.psi.offenders.push(culprit.key);
                 offenders_mark.push(culprit.key);
@@ -76,6 +109,12 @@ impl DisputesHandler {
         }
 
         for fault in extrinsic.faults {
+            if let Err(e) = fault.verify() {
+                tracing::error!("Invalid signature in fault: {e}");
+                self.next_state = self.state.clone();
+                return Err(Error::BadSignature);
+            }
+
             if (self.next_state.psi.bad.contains(&fault.target)
                 && !self.state.psi.good.contains(&fault.target))
                 == fault.vote
@@ -100,9 +139,7 @@ impl DisputesHandler {
             }
         }
 
-        Ok(OffendersMark {
-            offenders_mark 
-        })
+        Ok(OffendersMark { offenders_mark })
     }
 }
 

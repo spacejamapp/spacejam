@@ -3,6 +3,7 @@
 use blake2::{digest::consts::U32, Blake2b, Digest};
 use tiny_keccak::{Hasher, Keccak};
 
+pub mod ed25519;
 pub mod ring;
 pub mod vrf;
 

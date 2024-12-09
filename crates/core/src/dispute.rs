@@ -1,6 +1,6 @@
 //! Dispute types
 
-use crate::{misc::*, VALIDATORS_SUPER_MAJORITY};
+use crate::{misc::*, JAM_GUARANTEE, JAM_INVALID, JAM_VALID, VALIDATORS_SUPER_MAJORITY};
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +34,20 @@ pub struct Verdict {
     pub votes: [Judgement; VALIDATORS_SUPER_MAJORITY as usize],
 }
 
+impl Verdict {
+    /// Returns the message that was signed by the verdict.
+    pub fn signature_message(&self, vote: bool) -> Vec<u8> {
+        let mut message = vec![];
+        if vote {
+            message.extend_from_slice(&JAM_VALID);
+        } else {
+            message.extend_from_slice(&JAM_INVALID);
+        }
+        message.extend_from_slice(&self.target);
+        message
+    }
+}
+
 /// Represents a culprit in a dispute.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Culprit {
@@ -44,6 +58,21 @@ pub struct Culprit {
     #[json(hex)]
     #[serde(with = "codec")]
     pub signature: Ed25519Signature,
+}
+
+impl Culprit {
+    /// Returns the message that was signed by the culprit.
+    pub fn signature_message(&self) -> [u8; 45] {
+        let mut message = [0; 45];
+        message[0..13].copy_from_slice(&JAM_GUARANTEE);
+        message[13..45].copy_from_slice(&self.target);
+        message
+    }
+
+    /// Verifies the signature of the culprit.
+    pub fn verify(&self) -> anyhow::Result<()> {
+        crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
+    }
 }
 
 /// Represents a fault in a dispute.
@@ -57,6 +86,25 @@ pub struct Fault {
     #[json(hex)]
     #[serde(with = "codec")]
     pub signature: Ed25519Signature,
+}
+
+impl Fault {
+    /// Returns the message that was signed by the fault.
+    pub fn signature_message(&self) -> Vec<u8> {
+        let mut message = vec![];
+        if self.vote {
+            message.extend_from_slice(&JAM_VALID);
+        } else {
+            message.extend_from_slice(&JAM_INVALID);
+        }
+        message.extend_from_slice(&self.target);
+        message
+    }
+
+    /// Verifies the signature of the fault.
+    pub fn verify(&self) -> anyhow::Result<()> {
+        crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
+    }
 }
 
 /// Represents the records of disputes.

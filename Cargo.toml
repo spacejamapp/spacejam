@@ -16,6 +16,7 @@ dispute = { path = "crates/dispute", package = "spacejam-dispute" }
 # crates.io
 anyhow = "1.0.93"
 blake2 = "0.10.6"
+ed25519-dalek = "2.1.1"
 git2 = "0.19.0"
 hex = "0.4.3"
 mmr = { package = "polkadot-ckb-merkle-mountain-range", version = "0.8.1" }

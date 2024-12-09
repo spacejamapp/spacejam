@@ -8,6 +8,8 @@ use score::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
+use crate::init_tracing;
+
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
     #[json(nested)]
@@ -28,6 +30,7 @@ pub struct Test {
 
 impl Test {
     pub fn run(&self) -> anyhow::Result<()> {
+        init_tracing();
         let mut handler = DisputesHandler::from(self.pre_state.clone());
         let output = handler.handle(self.input.disputes.clone());
         assert_eq!(handler.next_state.psi, self.post_state.psi, "psi mismatch");
@@ -41,7 +44,7 @@ impl Test {
             handler.next_state.lambda, self.post_state.lambda,
             "lambda mismatch"
         );
-        assert_eq!(self.output, output, "output mismatch");
+        assert_eq!(output, self.output, "output mismatch");
         Ok(())
     }
 }
