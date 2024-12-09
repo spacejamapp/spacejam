@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use codec::Json;
 use error::{Error, Result};
 use score::{
-    dispute::{DisputesExtrinsic, DisputesRecords, DisputesRecordsJson},
+    dispute::{Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict},
     misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
     VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
@@ -46,19 +46,35 @@ pub struct OffendersMark {
 impl DisputesHandler {
     /// Handle an extrinsic
     pub fn handle(&mut self, extrinsic: DisputesExtrinsic) -> Result<OffendersMark> {
-        // let prev_epoch = self.state.tau / EPOCH_LENGTH;
+        self.handle_verdicts(extrinsic.verdicts)?;
 
-        // Update goodset, badset, wonkyset based on verdicts
-        for verdict in extrinsic.verdicts {
+        let mut offenders_mark = vec![];
+        self.handle_culprits(&mut offenders_mark, extrinsic.culprits)?;
+        self.handle_faults(&mut offenders_mark, extrinsic.faults)?;
+
+        // Clear work-reports from rho if they were judged as uncertain or invalid
+        // This implements equation (eq:removenonpositive) from the graypaper
+        for (_, maybe_assignment) in self.next_state.rho.iter_mut().enumerate() {
+            if let Some(assignment) = maybe_assignment {
+                let hashed =
+                    crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
+                // Clear if the report is in bad or wonky sets (i.e., t < ⌊2/3V⌋)
+                if self.next_state.psi.bad.contains(&hashed)
+                    || self.next_state.psi.wonky.contains(&hashed)
+                {
+                    *maybe_assignment = None;
+                }
+            }
+        }
+
+        Ok(OffendersMark { offenders_mark })
+    }
+
+    // Update goodset, badset, wonkyset based on verdicts
+    fn handle_verdicts(&mut self, verdicts: Vec<Verdict>) -> Result<()> {
+        for verdict in verdicts {
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
                 return Err(Error::NotEnoughValidators);
-            }
-
-            if self.next_state.psi.good.contains(&verdict.target)
-                || self.next_state.psi.bad.contains(&verdict.target)
-                || self.next_state.psi.wonky.contains(&verdict.target)
-            {
-                return Err(Error::AlreadyJudged);
             }
 
             let mut aye = 0;
@@ -98,7 +114,14 @@ impl DisputesHandler {
             }
         }
 
-        let mut offenders_mark = vec![];
+        Ok(())
+    }
+
+    fn handle_culprits(
+        &mut self,
+        offenders_mark: &mut Vec<Ed25519Public>,
+        culprits: Vec<Culprit>,
+    ) -> Result<()> {
         let mut last_culprit = None;
         let mut bad_verdicts = self
             .next_state
@@ -109,7 +132,21 @@ impl DisputesHandler {
             .map(|v| (v, 0))
             .collect::<BTreeMap<_, _>>();
 
-        for culprit in extrinsic.culprits {
+        for culprit in culprits {
+            if let Err(e) = culprit.verify() {
+                tracing::error!("Invalid signature in culprit: {e}");
+                self.next_state = self.state.clone();
+                return Err(Error::BadSignature);
+            }
+
+            if self.state.psi.good.contains(&culprit.target)
+                || self.state.psi.bad.contains(&culprit.target)
+                || self.state.psi.wonky.contains(&culprit.target)
+            {
+                self.next_state = self.state.clone();
+                return Err(Error::AlreadyJudged);
+            }
+
             if self.next_state.psi.offenders.contains(&culprit.key) {
                 self.next_state = self.state.clone();
                 return Err(Error::OffenderAlreadyReported);
@@ -125,11 +162,6 @@ impl DisputesHandler {
                     self.next_state = self.state.clone();
                     return Err(Error::CulpritsNotSortedUnique);
                 }
-            }
-            if let Err(e) = culprit.verify() {
-                tracing::error!("Invalid signature in culprit: {e}");
-                self.next_state = self.state.clone();
-                return Err(Error::BadSignature);
             }
 
             last_culprit = Some(culprit.clone());
@@ -148,7 +180,15 @@ impl DisputesHandler {
             return Err(Error::NotEnoughCulprits);
         }
 
-        for fault in extrinsic.faults {
+        Ok(())
+    }
+
+    fn handle_faults(
+        &mut self,
+        offenders_mark: &mut Vec<Ed25519Public>,
+        faults: Vec<Fault>,
+    ) -> Result<()> {
+        for fault in faults {
             if self.next_state.psi.offenders.contains(&fault.key) {
                 self.next_state = self.state.clone();
                 return Err(Error::OffenderAlreadyReported);
@@ -168,23 +208,7 @@ impl DisputesHandler {
                 offenders_mark.push(fault.key);
             }
         }
-
-        // Clear work-reports from rho if they were judged as uncertain or invalid
-        // This implements equation (eq:removenonpositive) from the graypaper
-        for (_, maybe_assignment) in self.next_state.rho.iter_mut().enumerate() {
-            if let Some(assignment) = maybe_assignment {
-                let hashed =
-                    crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
-                // Clear if the report is in bad or wonky sets (i.e., t < ⌊2/3V⌋)
-                if self.next_state.psi.bad.contains(&hashed)
-                    || self.next_state.psi.wonky.contains(&hashed)
-                {
-                    *maybe_assignment = None;
-                }
-            }
-        }
-
-        Ok(OffendersMark { offenders_mark })
+        Ok(())
     }
 }
 
