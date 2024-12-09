@@ -2,13 +2,13 @@
 
 use codec::{Json, ResultJson};
 use core::result::Result;
-use dispute::{error::Error, OffendersMark, OffendersMarkJson, State, StateJson};
+use dispute::{error::Error, DisputesHandler, OffendersMark, OffendersMarkJson, State, StateJson};
 use paste::paste;
 use score::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
-#[derive(Debug, Json, Serialize, Deserialize)]
+#[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
     #[json(nested)]
     disputes: DisputesExtrinsic,
@@ -28,6 +28,20 @@ pub struct Test {
 
 impl Test {
     pub fn run(&self) -> anyhow::Result<()> {
+        let mut handler = DisputesHandler::from(self.pre_state.clone());
+        let output = handler.handle(self.input.disputes.clone());
+        assert_eq!(handler.next_state.psi, self.post_state.psi, "psi mismatch");
+        assert_eq!(handler.next_state.rho, self.post_state.rho, "rho mismatch");
+        assert_eq!(handler.next_state.tau, self.post_state.tau, "tau mismatch");
+        assert_eq!(
+            handler.next_state.kappa, self.post_state.kappa,
+            "kappa mismatch"
+        );
+        assert_eq!(
+            handler.next_state.lambda, self.post_state.lambda,
+            "lambda mismatch"
+        );
+        assert_eq!(self.output, output, "output mismatch");
         Ok(())
     }
 }

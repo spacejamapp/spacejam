@@ -1093,10 +1093,12 @@ name = "spacejam-dispute"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "hex",
  "jamcodec",
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-crypto",
 ]
 
 [[package]]

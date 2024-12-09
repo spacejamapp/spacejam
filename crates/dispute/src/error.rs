@@ -3,7 +3,7 @@
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(u8)]
 #[serde(rename_all = "snake_case")]
 pub enum Error {
@@ -21,6 +21,15 @@ pub enum Error {
     BadJudgementAge = 11,
     BadValidatorIndex = 12,
     BadSignature = 13,
+    NotEnoughVotes = 14,
+}
+
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Json<Error> for Error {

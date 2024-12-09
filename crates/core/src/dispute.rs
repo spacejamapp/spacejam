@@ -25,7 +25,7 @@ impl Default for Judgement {
 }
 
 /// Represents a verdict in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -35,7 +35,7 @@ pub struct Verdict {
 }
 
 /// Represents a culprit in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Culprit {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -47,7 +47,7 @@ pub struct Culprit {
 }
 
 /// Represents a fault in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Fault {
     #[json(hex)]
     pub target: OpaqueHash,
@@ -62,23 +62,30 @@ pub struct Fault {
 /// Represents the records of disputes.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct DisputesRecords {
+    /// [ψ_g] Good records
     #[json(hex)]
     pub good: Vec<OpaqueHash>,
+    /// [ψ_b] Bad records
     #[json(hex)]
     pub bad: Vec<OpaqueHash>,
+    /// [ψ_w] Wonky records
     #[json(hex)]
     pub wonky: Vec<OpaqueHash>,
+    /// [ψ_o] Offenders
     #[json(hex)]
     pub offenders: Vec<Ed25519Public>,
 }
 
 /// Represents the extrinsic data for disputes.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct DisputesExtrinsic {
+    /// [ψ_v] Verdicts
     #[json(nested)]
     pub verdicts: Vec<Verdict>,
+    /// [ψ_c] Culprits
     #[json(nested)]
     pub culprits: Vec<Culprit>,
+    /// [ψ_f] Faults
     #[json(nested)]
     pub faults: Vec<Fault>,
 }

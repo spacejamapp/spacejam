@@ -72,8 +72,8 @@ mod availability {
     #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct AvailabilityAssignment {
         #[json(nested)]
-        report: WorkReport,
-        timeout: u32,
+        pub report: WorkReport,
+        pub timeout: u32,
     }
     pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
     pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
