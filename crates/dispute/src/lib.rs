@@ -6,7 +6,7 @@ use score::{
     dispute::{Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict},
     misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
-    VALIDATORS_SUPER_MAJORITY,
+    EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use serde::{Deserialize, Serialize};
 
@@ -80,6 +80,10 @@ impl DisputesHandler {
                 return Err(Error::NotEnoughValidators);
             }
 
+            /*  if verdict.age < self.state.tau {
+                return Err(Error::BadJudgementAge);
+            } */
+
             if let Some(last_verdict) = last_verdict.take() {
                 if verdict < last_verdict {
                     self.next_state = self.state.clone();
@@ -90,27 +94,43 @@ impl DisputesHandler {
             }
 
             let mut aye = 0;
+            let aye_message = verdict.signature_message(true);
+            let nay_message = verdict.signature_message(false);
             for (index, judgement) in verdict.votes.iter().enumerate() {
                 if index != judgement.index as usize {
                     self.next_state = self.state.clone();
                     return Err(Error::JudgementsNotSortedUnique);
                 }
 
-                let aye_message = verdict.signature_message(true);
-                let nay_message = verdict.signature_message(false);
+                let message = if judgement.vote {
+                    &aye_message
+                } else {
+                    &nay_message
+                };
 
-                if let Err(e) = crypto::ed25519::verify(
-                    if judgement.vote {
-                        &aye_message
-                    } else {
-                        &nay_message
-                    },
-                    judgement.signature,
-                    self.state.kappa[judgement.index as usize].ed25519,
-                ) {
-                    tracing::error!("Invalid signature in verdict: {e}");
-                    self.next_state = self.state.clone();
-                    return Err(Error::BadSignature);
+                let current_epoch = self.state.tau / EPOCH_LENGTH;
+                if verdict.age >= current_epoch {
+                    if let Err(e) = crypto::ed25519::verify(
+                        message,
+                        judgement.signature,
+                        self.state.kappa[judgement.index as usize].ed25519,
+                    ) {
+                        tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
+                        self.next_state = self.state.clone();
+                        return Err(Error::BadSignature);
+                    }
+                } else if verdict.age == current_epoch.saturating_sub(1) {
+                    if let Err(e) = crypto::ed25519::verify(
+                        message,
+                        judgement.signature,
+                        self.state.lambda[judgement.index as usize].ed25519,
+                    ) {
+                        tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
+                        self.next_state = self.state.clone();
+                        return Err(Error::BadSignature);
+                    }
+                } else {
+                    return Err(Error::BadJudgementAge);
                 }
 
                 if judgement.vote {
@@ -119,7 +139,7 @@ impl DisputesHandler {
             }
 
             match aye {
-                aye if aye >= (2 * VALIDATORS_SUPER_MAJORITY as usize / 3) + 1 => {
+                aye if aye == VALIDATORS_SUPER_MAJORITY => {
                     self.records.good.push(verdict.target);
                     self.next_state.psi.good.push(verdict.target);
                 }
@@ -127,7 +147,7 @@ impl DisputesHandler {
                     self.records.bad.push(verdict.target);
                     self.next_state.psi.bad.push(verdict.target);
                 }
-                aye if aye == VALIDATORS_SUPER_MAJORITY as usize / 3 + 1 => {
+                aye if aye == VALIDATORS_COUNT / 3 => {
                     self.records.wonky.push(verdict.target);
                     self.next_state.psi.wonky.push(verdict.target);
                 }

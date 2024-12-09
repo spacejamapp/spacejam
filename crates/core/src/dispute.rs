@@ -29,6 +29,7 @@ impl Default for Judgement {
 pub struct Verdict {
     #[json(hex)]
     pub target: OpaqueHash,
+    /// Age of the verdict
     pub age: u32,
     #[json(Vec<JudgementJson>)]
     pub votes: [Judgement; VALIDATORS_SUPER_MAJORITY as usize],
