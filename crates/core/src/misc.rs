@@ -108,8 +108,15 @@ mod service {
 // --------------------------------------------
 mod availability {
     use crate::work::report::*;
+    use codec::Json;
+    use serde::{Deserialize, Serialize};
 
-    pub type AvailabilityAssignment = (WorkReport, u32);
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+    pub struct AvailabilityAssignment {
+        #[json(nested)]
+        report: WorkReport,
+        timeout: u32,
+    }
     pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
     pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
 }

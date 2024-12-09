@@ -11,6 +11,7 @@ merkle = { path = "crates/merkle", package = "spacejam-merkle" }
 safrole = { path = "crates/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 stats = { path = "crates/stats", package = "spacejam-stats" }
+dispute = { path = "crates/dispute", package = "spacejam-dispute" }
 
 # crates.io
 anyhow = "1.0.93"

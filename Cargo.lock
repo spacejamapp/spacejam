@@ -1089,6 +1089,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-dispute"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+]
+
+[[package]]
 name = "spacejam-merkle"
 version = "0.0.0"
 dependencies = [
@@ -1133,6 +1144,7 @@ dependencies = [
  "serde_json",
  "spacejam",
  "spacejam-core",
+ "spacejam-dispute",
  "spacejam-merkle",
  "spacejam-safrole",
  "spacejam-stats",

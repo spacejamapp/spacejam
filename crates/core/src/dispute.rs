@@ -60,7 +60,7 @@ pub struct Fault {
 }
 
 /// Represents the records of disputes.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct DisputesRecords {
     #[json(hex)]
     pub good: Vec<OpaqueHash>,
