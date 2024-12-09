@@ -76,7 +76,7 @@ impl Culprit {
 }
 
 /// Represents a fault in a dispute.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Fault {
     #[json(hex)]
     pub target: OpaqueHash,

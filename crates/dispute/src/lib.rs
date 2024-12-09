@@ -188,7 +188,26 @@ impl DisputesHandler {
         offenders_mark: &mut Vec<Ed25519Public>,
         faults: Vec<Fault>,
     ) -> Result<()> {
+        let mut last_fault = None;
+        let mut verdicts = self
+            .next_state
+            .psi
+            .good
+            .clone()
+            .into_iter()
+            .chain(self.next_state.psi.wonky.clone().into_iter())
+            .map(|v| (v, 0))
+            .collect::<BTreeMap<_, _>>();
+
         for fault in faults {
+            if self.state.psi.good.contains(&fault.target)
+                || self.state.psi.bad.contains(&fault.target)
+                || self.state.psi.wonky.contains(&fault.target)
+            {
+                self.next_state = self.state.clone();
+                return Err(Error::AlreadyJudged);
+            }
+
             if self.next_state.psi.offenders.contains(&fault.key) {
                 self.next_state = self.state.clone();
                 return Err(Error::OffenderAlreadyReported);
@@ -200,14 +219,36 @@ impl DisputesHandler {
                 return Err(Error::BadSignature);
             }
 
-            if (self.next_state.psi.bad.contains(&fault.target)
+            if let Some(last_fault) = last_fault {
+                if fault < last_fault {
+                    self.next_state = self.state.clone();
+                    return Err(Error::FaultsNotSortedUnique);
+                }
+            }
+
+            last_fault = Some(fault.clone());
+
+            if (self.next_state.psi.wonky.contains(&fault.target)
                 && !self.state.psi.good.contains(&fault.target))
                 == fault.vote
             {
+                if let Some(count) = verdicts.get_mut(&fault.target) {
+                    *count += 1;
+                }
+
                 self.next_state.psi.offenders.push(fault.key);
                 offenders_mark.push(fault.key);
+            } else {
+                self.next_state = self.state.clone();
+                return Err(Error::FaultVerdictWrong);
             }
         }
+
+        if verdicts.iter().any(|(_, count)| *count < 1) {
+            self.next_state = self.state.clone();
+            return Err(Error::NotEnoughFaults);
+        }
+
         Ok(())
     }
 }
