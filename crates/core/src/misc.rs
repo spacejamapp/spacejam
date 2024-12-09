@@ -1,6 +1,5 @@
 //! Misc types
 
-pub use availability::*;
 pub use core::*;
 pub use crypto::*;
 pub use service::*;
@@ -101,15 +100,4 @@ mod service {
         pub bytes: u64,
         pub items: u32,
     }
-}
-
-// --------------------------------------------
-// Availability types
-// --------------------------------------------
-mod availability {
-    use crate::work::report::*;
-
-    pub type AvailabilityAssignment = (WorkReport, u32);
-    pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-    pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
 }

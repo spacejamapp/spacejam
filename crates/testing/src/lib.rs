@@ -10,6 +10,7 @@ pub fn init_tracing() {
 }
 
 pub mod codec;
+pub mod disputes;
 pub mod history;
 pub mod safrole;
 pub mod statistics;
