@@ -1,6 +1,5 @@
 //! Misc types
 
-pub use availability::*;
 pub use core::*;
 pub use crypto::*;
 pub use service::*;
@@ -101,22 +100,4 @@ mod service {
         pub bytes: u64,
         pub items: u32,
     }
-}
-
-// --------------------------------------------
-// Availability types
-// --------------------------------------------
-mod availability {
-    use crate::work::report::*;
-    use codec::Json;
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-    pub struct AvailabilityAssignment {
-        #[json(nested)]
-        report: WorkReport,
-        timeout: u32,
-    }
-    pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-    pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
 }

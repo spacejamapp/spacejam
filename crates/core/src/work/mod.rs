@@ -1,4 +1,5 @@
 use crate::misc::*;
+pub use availability::*;
 use codec::Json;
 use serde::{Deserialize, Serialize};
 
@@ -58,4 +59,22 @@ pub struct Authorizer {
     pub code_hash: OpaqueHash,
     #[json(hex)]
     pub params: Vec<u8>,
+}
+
+// --------------------------------------------
+// Availability types
+// --------------------------------------------
+mod availability {
+    use crate::work::report::*;
+    use codec::Json;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+    pub struct AvailabilityAssignment {
+        #[json(nested)]
+        report: WorkReport,
+        timeout: u32,
+    }
+    pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
+    pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
 }

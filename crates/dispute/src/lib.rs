@@ -2,10 +2,8 @@ use codec::Json;
 use error::Result;
 use score::{
     dispute::{DisputesExtrinsic, DisputesRecords, DisputesRecordsJson},
-    misc::{
-        AvailabilityAssignment, AvailabilityAssignmentJson, Ed25519Public, TimeSlot,
-        ValidatorDataJson, ValidatorsData,
-    },
+    misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
+    work::{AvailabilityAssignment, AvailabilityAssignmentJson},
 };
 use serde::{Deserialize, Serialize};
 
