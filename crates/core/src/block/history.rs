@@ -1,6 +1,6 @@
 use crate::misc::*;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents a peak in the Merkle Mountain Range (MMR).
 pub type MmrPeak = Option<OpaqueHash>;

@@ -1,5 +1,5 @@
 [package]
-name = "jamcodec"
+name = "spacejson"
 version = "0.0.0"
 edition = "2021"
 
@@ -7,3 +7,5 @@ edition = "2021"
 anyhow.workspace = true
 hex.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+spacejson-derive.workspace = true

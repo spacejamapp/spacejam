@@ -681,18 +681,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "hex",
- "jamcodec-derive",
  "serde",
- "serde_json",
-]
-
-[[package]]
-name = "jamcodec-derive"
-version = "0.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
 ]
 
 [[package]]
@@ -1170,6 +1159,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-crypto",
+ "spacejson",
 ]
 
 [[package]]
@@ -1199,6 +1189,7 @@ dependencies = [
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejson",
  "tracing",
 ]
 
@@ -1220,6 +1211,7 @@ dependencies = [
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejson",
  "tracing",
 ]
 
@@ -1232,6 +1224,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejson",
 ]
 
 [[package]]
@@ -1252,7 +1245,28 @@ dependencies = [
  "spacejam-merkle",
  "spacejam-safrole",
  "spacejam-stats",
+ "spacejson",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "spacejson"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "serde",
+ "serde_json",
+ "spacejson-derive",
+]
+
+[[package]]
+name = "spacejson-derive"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
 ]
 
 [[package]]

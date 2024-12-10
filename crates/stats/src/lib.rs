@@ -1,10 +1,10 @@
-use codec::Json;
 use score::{
     block::Extrinsic,
     misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorIndex, ValidatorsData},
     stats::*,
 };
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// State of the stats
 ///

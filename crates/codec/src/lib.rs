@@ -2,14 +2,11 @@
 
 mod de;
 mod error;
-mod json;
 mod ser;
 
-pub use codec_derive::Json;
 pub use {
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
-    json::{Json, ResultJson},
     ser::Serializer,
 };
 

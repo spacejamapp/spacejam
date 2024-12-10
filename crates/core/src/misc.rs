@@ -22,8 +22,8 @@ mod crypto {
 // --------------------------------------------
 mod core {
     use super::crypto::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     pub type OpaqueHash = [u8; 32];
     pub type TimeSlot = u32;
@@ -84,8 +84,8 @@ mod core {
 // --------------------------------------------
 mod service {
     use super::core::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     pub type ServiceId = u32;
 

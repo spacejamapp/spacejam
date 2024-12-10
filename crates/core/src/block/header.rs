@@ -2,8 +2,8 @@ use crate::misc::*;
 use crate::ticket::*;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents the epoch mark in a block header.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]

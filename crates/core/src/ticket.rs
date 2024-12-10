@@ -1,8 +1,8 @@
 //! Ticket types
 
 use crate::misc::*;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents a unique identifier for a ticket.
 pub type TicketId = OpaqueHash; // Corresponds to OpaqueHash

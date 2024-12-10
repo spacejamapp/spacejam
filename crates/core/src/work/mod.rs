@@ -1,7 +1,7 @@
 use crate::misc::*;
 pub use availability::*;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 pub mod report;
 
@@ -66,8 +66,8 @@ pub struct Authorizer {
 // --------------------------------------------
 mod availability {
     use crate::work::report::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct AvailabilityAssignment {

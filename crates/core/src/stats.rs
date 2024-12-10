@@ -1,5 +1,5 @@
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents an activity record.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]

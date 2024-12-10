@@ -1,12 +1,12 @@
 #![cfg(test)]
 
-use codec::Json;
 use paste::paste;
 use score::{
     block::{Extrinsic, ExtrinsicJson},
     misc::{Ed25519Public, TimeSlot, ValidatorIndex},
 };
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 use stats::{State, StateJson, Stats};
 use std::{fs, path::PathBuf};
 

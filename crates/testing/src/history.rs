@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use codec::Json;
 use paste::paste;
 use score::{
     block::history::{
@@ -10,6 +9,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejam::History;
+use spacejson::Json;
 use std::{fs, path::PathBuf};
 
 use crate::init_tracing;

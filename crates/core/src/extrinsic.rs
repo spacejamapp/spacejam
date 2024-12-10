@@ -5,8 +5,8 @@ pub use {assurance::*, guarantee::*, preimage::*};
 // --------------------------------------------
 mod preimage {
     use crate::misc::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     /// Represents a preimage request.
     #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
@@ -25,8 +25,8 @@ mod preimage {
 // --------------------------------------------
 mod assurance {
     use crate::misc::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     /// Represents an assurance of availability.
     #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
@@ -50,8 +50,8 @@ mod assurance {
 mod guarantee {
     use crate::misc::*;
     use crate::work::report::*;
-    use codec::Json;
     use serde::{Deserialize, Serialize};
+    use spacejson::Json;
 
     /// Represents a signature from a validator.
     #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]

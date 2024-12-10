@@ -1,7 +1,6 @@
 //! Safrole vector tests
 #![cfg(test)]
 
-use codec::{Json, ResultJson};
 use paste::paste;
 use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
@@ -9,6 +8,7 @@ use score::{
     ticket::{TicketEnvelopeJson, TicketsExtrinsic},
 };
 use serde::{Deserialize, Serialize};
+use spacejson::{Json, ResultJson};
 use std::{fs, path::PathBuf};
 
 #[derive(Deserialize, Serialize, Json, Debug)]

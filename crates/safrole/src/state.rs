@@ -2,7 +2,6 @@
 
 use crate::Error;
 use anyhow::Result;
-use codec::Json;
 use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     misc::{
@@ -14,6 +13,7 @@ use score::{
     },
 };
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents the State structure.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
