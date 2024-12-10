@@ -1247,6 +1247,7 @@ dependencies = [
  "serde_json",
  "spacejam",
  "spacejam-core",
+ "spacejam-crypto",
  "spacejam-dispute",
  "spacejam-merkle",
  "spacejam-safrole",

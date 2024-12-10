@@ -5,6 +5,7 @@ use tiny_keccak::{Hasher, Keccak};
 
 pub mod ed25519;
 pub mod ring;
+pub mod shuffle;
 pub mod vrf;
 
 /// Compute the BLAKE2b 256-bit hash of a given input.

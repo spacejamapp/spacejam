@@ -13,5 +13,6 @@ pub mod codec;
 pub mod disputes;
 pub mod history;
 pub mod safrole;
+pub mod shuffle;
 pub mod statistics;
 pub mod trie;
