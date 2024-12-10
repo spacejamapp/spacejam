@@ -1,6 +1,11 @@
 [workspace]
-members = ["crates/*", "crates/codec/json", "crates/codec/json/derive"]
 resolver = "1"
+members = [
+    "crates/*",
+    "crates/codec/erasure",
+    "crates/codec/json",
+    "crates/codec/json/derive",
+]
 
 [workspace.dependencies]
 score = { path = "crates/core", package = "spacejam-core" }
