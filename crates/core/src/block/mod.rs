@@ -2,8 +2,8 @@ use crate::block::header::{Header, HeaderJson};
 use crate::dispute::*;
 use crate::extrinsic::*;
 use crate::ticket::*;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 pub mod header;
 pub mod history;

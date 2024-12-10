@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-
-use codec::Json;
 use error::{Error, Result};
 use score::{
     dispute::{Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict},
@@ -9,6 +6,8 @@ use score::{
     EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
+use std::collections::BTreeMap;
 
 pub mod error;
 

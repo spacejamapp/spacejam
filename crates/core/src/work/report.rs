@@ -1,8 +1,8 @@
 //! Report types
 
 use crate::misc::*;
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents the result of a work execution.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]

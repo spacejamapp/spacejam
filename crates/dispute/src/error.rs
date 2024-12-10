@@ -1,7 +1,7 @@
 //! Error codes for disputes
 
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(u8)]

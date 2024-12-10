@@ -3,6 +3,7 @@
 //! Now using hex as the default encoding.
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+pub use spacejson_derive::Json;
 
 /// A trait for types that can be encoded and decoded to and from JSON.
 pub trait Json<Target: Serialize + DeserializeOwned>: Sized + std::fmt::Debug {

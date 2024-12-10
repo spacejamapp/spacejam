@@ -1,5 +1,5 @@
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents the CustomErrorCode enumeration.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

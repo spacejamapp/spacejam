@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
+spacejson.workspace = true
 crypto.workspace = true
 hex.workspace = true
 score.workspace = true

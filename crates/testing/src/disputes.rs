@@ -1,11 +1,11 @@
 #![cfg(test)]
 
-use codec::{Json, ResultJson};
 use core::result::Result;
 use dispute::{error::Error, DisputesHandler, OffendersMark, OffendersMarkJson, State, StateJson};
 use paste::paste;
 use score::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
+use spacejson::{Json, ResultJson};
 use std::{fs, path::PathBuf};
 
 use crate::init_tracing;

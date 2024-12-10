@@ -1,8 +1,8 @@
 //! Dispute types
 
 use crate::{misc::*, JAM_GUARANTEE, JAM_INVALID, JAM_VALID, VALIDATORS_SUPER_MAJORITY};
-use codec::Json;
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// Represents a judgement in a dispute.
 #[derive(Debug, Serialize, Deserialize, Json, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
