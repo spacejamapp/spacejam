@@ -9,6 +9,7 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 anyhow.workspace = true
 codec.workspace = true
+crypto.workspace = true
 dispute.workspace = true
 hex.workspace = true
 paste.workspace = true
