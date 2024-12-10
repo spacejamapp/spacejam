@@ -14,15 +14,14 @@ pub fn eq329(s: &[u32], r: &[u32]) -> Vec<u32> {
     let mut s_post: Vec<u32> = s.to_vec();
     s_post[index] = s[l - 1];
 
-    [[s[index] as u32].to_vec(), eq329(&s_post[..l - 1], &r[1..])].concat()
+    [[s[index]].to_vec(), eq329(&s_post[..l - 1], &r[1..])].concat()
 }
 
 /// Equihash 331
 pub fn eq331(s: &[u32], h: [u8; 32]) -> Vec<u32> {
     let len = s.len();
     let r = compute_q(h, len as u32);
-
-    eq329(&s, &r)
+    eq329(s, &r)
 }
 
 /// Compute the q vector for a given hash and length.
