@@ -36,31 +36,56 @@ where
         .partition(|(i, _)| *i < count as usize);
 
     original.sort_by_key(|(i, _)| *i);
-    let recovery = recovery.into_iter().map(|(i, v)| (i - count as usize, v));
 
     // decode the shards
-    let (mb_index, mb_bytes) = original[0].clone();
+    let recovery = recovery.into_iter().map(|(i, v)| (i - count as usize, v));
     let mut recovered = reed_solomon::decode(
         count as usize,
         recovery_count as usize,
-        original.into_iter(),
+        original.iter().map(|(i, v)| (*i, v.as_ref())),
         recovery,
     )?;
 
     // reconstruct the data
     let size = shard::size(chunks, len);
-    let mut data = vec![0; size * count as usize];
+    let mut data = Vec::with_capacity(size * count as usize);
+    let mut original = original.into_iter();
     for i in 0..count as usize {
         if let Some(chunk) = recovered.remove(&i) {
             data.extend_from_slice(chunk.as_ref());
         } else {
-            if mb_index != i {
-                anyhow::bail!("index mismatch");
+            let (index, value) = original
+                .next()
+                .ok_or(anyhow::anyhow!("not enough shards"))?;
+
+            if index != i {
+                anyhow::bail!("index mismatch, should be {i}, got {index}");
             }
-            data.extend_from_slice(mb_bytes.as_ref());
+
+            data.extend_from_slice(value.as_ref());
         }
     }
 
     data.truncate(len);
     Ok(data)
+}
+
+#[test]
+fn hello_world_coding() -> Result<()> {
+    let data = b"hello world".to_vec();
+    let size = 4;
+    let chunks = encode(size, &data)?;
+    let decoded = decode(size, data.len(), chunks)?;
+    assert_eq!(data, decoded, "data mismatch");
+    Ok(())
+}
+
+#[test]
+fn large_data_coding() -> Result<()> {
+    let data = (0..u16::MAX).map(|i| i as u8).collect::<Vec<_>>();
+    let size = 4;
+    let chunks = encode(size, &data)?;
+    let decoded = decode(size, data.len(), chunks)?;
+    assert_eq!(data, decoded, "data mismatch");
+    Ok(())
 }
