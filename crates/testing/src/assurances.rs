@@ -5,10 +5,8 @@ use assurance::{
     state::{Input, InputJson, Output, OutputJson, State, StateJson},
     Handler,
 };
-use paste::paste;
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
 struct Test {
@@ -23,42 +21,14 @@ struct Test {
 }
 
 impl Test {
-    fn run(self) -> anyhow::Result<()> {
+    fn run(self) {
         let _handler = Handler::from(self.pre_state);
         // handler.handle(self.input)?;
         // assert_eq!(handler.state(), self.post_state);
-        Ok(())
     }
 }
 
-macro_rules! impl_assurance_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "assurances", "tiny"]);
-
-                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
-                let mut name = pattern[..pattern.len() - 1].join("_");
-                name.push_str(&format!(
-                    "-{}",
-                    pattern.last().expect("pattern must have at least one element")
-                ));
-                root.push(name);
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_assurance_tests!($name);)*
-    };
-}
-
-impl_assurance_tests! {
+crate::impl_assurances_tests! {
     assurance_for_not_engaged_core_1,
     assurance_with_bad_attestation_parent_1,
     assurances_for_stale_report_1,

@@ -2,11 +2,9 @@
 
 use core::result::Result;
 use dispute::{error::Error, DisputesHandler, OffendersMark, OffendersMarkJson, State, StateJson};
-use paste::paste;
 use score::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use std::{fs, path::PathBuf};
 
 use crate::init_tracing;
 
@@ -29,7 +27,7 @@ pub struct Test {
 }
 
 impl Test {
-    pub fn run(&mut self) -> anyhow::Result<()> {
+    pub fn run(&mut self) {
         init_tracing();
         let mut handler = DisputesHandler::from(self.pre_state.clone());
         let output = handler.handle(self.input.disputes.clone());
@@ -46,40 +44,10 @@ impl Test {
             handler.next_state.lambda, self.post_state.lambda,
             "lambda mismatch"
         );
-        Ok(())
     }
 }
 
-#[allow(unused_macros)]
-macro_rules! impl_disputes_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "disputes", "tiny"]);
-
-                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
-                let mut name = pattern[..pattern.len() - 1].join("_");
-                name.push_str(&format!(
-                    "-{}",
-                    pattern.last().expect("pattern must have at least one element")
-                ));
-
-                root.push(name);
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_disputes_tests!($name);)*
-    };
-}
-
-impl_disputes_tests! {
+crate::impl_disputes_tests! {
     progress_invalidates_avail_assignments_1,
     progress_with_bad_signatures_1,
     progress_with_bad_signatures_2,

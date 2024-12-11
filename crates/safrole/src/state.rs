@@ -101,10 +101,10 @@ impl State {
     pub fn rotate_keys(&mut self) {
         // update previous epoch validators
         self.lambda = self.kappa.clone();
-        
+
         // update current epoch validators
         self.kappa = self.gamma_k.clone();
-        
+
         // update next epoch validators
         self.gamma_k = self
             .iota

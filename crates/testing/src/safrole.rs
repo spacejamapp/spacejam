@@ -1,7 +1,6 @@
 //! Safrole vector tests
 #![cfg(test)]
 
-use paste::paste;
 use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
     misc::OpaqueHash,
@@ -9,7 +8,6 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use std::{fs, path::PathBuf};
 
 #[derive(Deserialize, Serialize, Json, Debug)]
 struct Input {
@@ -33,14 +31,16 @@ pub struct Test {
 }
 
 impl Test {
-    fn run(&self) -> anyhow::Result<()> {
+    fn run(&self) {
         crate::init_tracing();
         let mut state = self.pre_state.clone();
-        let output = state.enact(
-            self.input.slot,
-            self.input.entropy,
-            self.input.extrinsic.clone(),
-        )?;
+        let output = state
+            .enact(
+                self.input.slot,
+                self.input.entropy,
+                self.input.extrinsic.clone(),
+            )
+            .expect("could not enact epoch change");
 
         assert_eq!(output, self.output, "Invalid output");
         assert_eq!(state.tau, self.post_state.tau, "Invalid time slot");
@@ -73,31 +73,10 @@ impl Test {
             state.gamma_a, self.post_state.gamma_a,
             "Invalid sealing-key contest ticket accumulator: gamma_a"
         );
-        Ok(())
     }
 }
 
-macro_rules! impl_safrole_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "safrole", "tiny"]);
-                root.push(stringify!($name).replace("_", "-"));
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_safrole_tests!($name);)*
-    };
-}
-
-impl_safrole_tests! {
+crate::impl_safrole_tests! {
     enact_epoch_change_with_no_tickets_1,
     enact_epoch_change_with_no_tickets_2,
     enact_epoch_change_with_no_tickets_3,

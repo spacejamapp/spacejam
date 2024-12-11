@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use paste::paste;
 use report::{
     error::{Error, Result},
     state::{Output, OutputJson, State, StateJson},
@@ -12,7 +11,6 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use std::{fs, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
 struct Input {
@@ -34,42 +32,14 @@ struct Test {
 }
 
 impl Test {
-    fn run(self) -> anyhow::Result<()> {
+    fn run(self) {
         let _handler = Handler::from(self.pre_state);
         // handler.handle(self.input)?;
         // assert_eq!(handler.state(), self.post_state);
-        Ok(())
     }
 }
 
-macro_rules! impl_reporting_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "reports", "tiny"]);
-
-                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
-                let mut name = pattern[..pattern.len() - 1].join("_");
-                name.push_str(&format!(
-                    "-{}",
-                    pattern.last().expect("pattern must have at least one element")
-                ));
-                root.push(name);
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_reporting_tests!($name);)*
-    };
-}
-
-impl_reporting_tests! {
+crate::impl_reports_tests! {
     anchor_not_recent_1,
     bad_beefy_mmr_1,
     bad_code_hash_1,
@@ -78,7 +48,6 @@ impl_reporting_tests! {
     bad_signature_1,
     bad_state_root_1,
     bad_validator_index_1,
-    // consume_authorization_once_1,
     core_engaged_1,
     dependency_missing_1,
     duplicate_package_in_recent_history_1,
