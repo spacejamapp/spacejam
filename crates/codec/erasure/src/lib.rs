@@ -1,25 +1,15 @@
 //! Erasure encoding and decoding
 
 use anyhow::Result;
-use std::collections::HashMap;
 
-/// Encode data with parity
-pub fn encode(data: Vec<Vec<u8>>, count: usize) -> Result<Vec<Vec<u8>>> {
-    let original = data.to_vec();
+pub mod shard;
 
-    reed_solomon::encode(count, count, original)
-        .map_err(|e| anyhow::anyhow!("Failed to encode: {}", e))
-}
+/// Construct erasure-coded chunks.
+pub fn encode(chunks: u16, data: &[u8]) -> Result<Vec<Vec<u8>>> {
+    let count = shard::recoverable(chunks)?;
+    let mut shards = shard::make(count, data)?;
+    let recovery = reed_solomon::encode(count as usize, (chunks - count) as usize, shards.iter())?;
 
-/// Decode data with parity
-pub fn decode(data: Vec<Vec<u8>>, count: usize) -> Result<HashMap<usize, Vec<u8>>> {
-    reed_solomon::decode(
-        count,
-        count,
-        [(0, []); 0],
-        data.into_iter()
-            .enumerate()
-            .collect::<Vec<(usize, Vec<u8>)>>(),
-    )
-    .map_err(|e| anyhow::anyhow!("Failed to decode: {}", e))
+    shards.extend(recovery);
+    Ok(shards)
 }
