@@ -5,7 +5,8 @@ use anyhow::Result;
 use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     misc::{
-        BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, ValidatorDataJson, ValidatorsData,
+        BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorDataJson,
+        ValidatorsData,
     },
     ticket::{
         TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
@@ -47,6 +48,9 @@ pub struct State {
     /// Sealing-key contest ticket accumulator
     #[json(Vec<TicketBodyJson>)]
     pub gamma_a: TicketsAccumulator,
+    /// Offenders
+    #[json(Vec<String>)]
+    pub post_offenders: Vec<Ed25519Public>,
 }
 
 impl State {
@@ -97,10 +101,23 @@ impl State {
     pub fn rotate_keys(&mut self) {
         // update previous epoch validators
         self.lambda = self.kappa.clone();
+        
         // update current epoch validators
         self.kappa = self.gamma_k.clone();
+        
         // update next epoch validators
-        self.gamma_k = self.iota.clone();
+        self.gamma_k = self
+            .iota
+            .clone()
+            .into_iter()
+            .map(|validator| {
+                if self.post_offenders.contains(&validator.ed25519) {
+                    Default::default()
+                } else {
+                    validator
+                }
+            })
+            .collect();
 
         // update bandersnatch ring commitment
         let keys = self
@@ -336,6 +353,7 @@ impl Default for State {
             gamma_z: [0u8; 144],
             gamma_s: Default::default(),
             gamma_a: Default::default(),
+            post_offenders: Default::default(),
         }
     }
 }

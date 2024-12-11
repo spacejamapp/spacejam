@@ -60,6 +60,17 @@ mod core {
         pub metadata: ValidatorMetadata,
     }
 
+    impl Default for ValidatorData {
+        fn default() -> Self {
+            ValidatorData {
+                bandersnatch: Default::default(),
+                ed25519: Default::default(),
+                bls: [0; 144],
+                metadata: [0; 128],
+            }
+        }
+    }
+
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1

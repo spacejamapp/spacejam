@@ -134,7 +134,7 @@ macro_rules! impl_array {
                     for v in json {
                         array.push(N::from_json(v)?);
                     }
-                    Ok(array.try_into().map_err(|_| anyhow::anyhow!("Invalid array length"))?)
+                    array.try_into().map_err(|_| anyhow::anyhow!("Invalid array length"))
                 }
             }
         )*

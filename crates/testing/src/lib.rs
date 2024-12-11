@@ -24,12 +24,10 @@ fn include_all_tests(module: &str, path: &str) {
     let root = env!("CARGO_MANIFEST_DIR");
     let path = format!("{root}/jamtestvectors/{module}/{path}");
     let this = std::fs::read_to_string(format!("{root}/src/{module}.rs"))
-        .expect(&format!("could not find module {module}.rs"));
+        .unwrap_or_else(|_| panic!("could not find module {module}.rs"));
 
     let mut count = 0;
-    for file in std::fs::read_dir(&path).expect(&format!(
-        "could not find test vectors for {module}: {path:?}"
-    )) {
+    for file in std::fs::read_dir(&path).unwrap_or_else(|_| panic!("could not find test vectors for {module}: {path:?}")) {
         let path = file.expect("could not read file {file:?}").path();
         if !path.with_extension("json").exists() {
             continue;

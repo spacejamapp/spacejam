@@ -1302,6 +1302,7 @@ dependencies = [
  "spacejam-safrole",
  "spacejam-stats",
  "spacejson",
+ "tracing",
  "tracing-subscriber",
 ]
 

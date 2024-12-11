@@ -28,6 +28,7 @@ pub enum Error {
     ServiceItemGasTooLow,
     TooManyDependencies,
     SegmentRootLookupInvalid,
+    WorkReportTooBig,
     BadSignature,
 }
 
