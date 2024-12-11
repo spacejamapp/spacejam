@@ -1,0 +1,110 @@
+#![cfg(test)]
+
+use paste::paste;
+use report::{
+    error::{Error, Result},
+    state::{Output, OutputJson, State, StateJson},
+    Handler,
+};
+use score::{
+    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
+    misc::TimeSlot,
+};
+use serde::{Deserialize, Serialize};
+use spacejson::{Json, ResultJson};
+use std::{fs, path::PathBuf};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+struct Input {
+    slot: TimeSlot,
+    #[json(Vec<ReportGuaranteeJson>)]
+    guarantees: GuaranteesExtrinsic,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+struct Test {
+    #[json(nested)]
+    input: Input,
+    #[json(ResultJson<OutputJson, Error>)]
+    output: Result<Output>,
+    #[json(nested)]
+    pre_state: State,
+    #[json(nested)]
+    post_state: State,
+}
+
+impl Test {
+    fn run(self) -> anyhow::Result<()> {
+        let _handler = Handler::from(self.pre_state);
+        // handler.handle(self.input)?;
+        // assert_eq!(handler.state(), self.post_state);
+        Ok(())
+    }
+}
+
+macro_rules! impl_reporting_tests {
+    ($name:ident) => {
+        paste! {
+            #[test]
+            fn [<$name:snake>]() -> anyhow::Result<()> {
+                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                root.extend(["jamtestvectors", "reports", "tiny"]);
+
+                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
+                let mut name = pattern[..pattern.len() - 1].join("_");
+                name.push_str(&format!(
+                    "-{}",
+                    pattern.last().expect("pattern must have at least one element")
+                ));
+                root.push(name);
+                root.set_extension("json");
+
+                let json = fs::read_to_string(root)?;
+                Test::from_json(&json)?.run()
+            }
+        }
+    };
+    ($($name:ident),*) => {
+        $(impl_reporting_tests!($name);)*
+    };
+}
+
+impl_reporting_tests! {
+    anchor_not_recent_1,
+    bad_beefy_mmr_1,
+    bad_code_hash_1,
+    bad_core_index_1,
+    bad_service_id_1,
+    bad_signature_1,
+    bad_state_root_1,
+    bad_validator_index_1,
+    // consume_authorization_once_1,
+    core_engaged_1,
+    dependency_missing_1,
+    duplicate_package_in_recent_history_1,
+    duplicated_package_in_report_1,
+    future_report_slot_1,
+    high_work_report_gas_1,
+    many_dependencies_1,
+    multiple_reports_1,
+    no_enough_guarantees_1,
+    not_authorized_1,
+    not_authorized_2,
+    not_sorted_guarantor_1,
+    out_of_order_guarantees_1,
+    report_before_last_rotation_1,
+    report_curr_rotation_1,
+    report_prev_rotation_1,
+    reports_with_dependencies_1,
+    reports_with_dependencies_2,
+    reports_with_dependencies_3,
+    reports_with_dependencies_4,
+    reports_with_dependencies_5,
+    reports_with_dependencies_6,
+    segment_root_lookup_invalid_1,
+    segment_root_lookup_invalid_2,
+    service_item_gas_too_low_1,
+    too_high_work_report_gas_1,
+    too_many_dependencies_1,
+    wrong_assignment_1
+}

@@ -77,7 +77,6 @@ impl Test {
     }
 }
 
-#[allow(unused_macros)]
 macro_rules! impl_safrole_tests {
     ($name:ident) => {
         paste! {

@@ -1172,6 +1172,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-assurance"
+version = "0.0.0"
+
+[[package]]
 name = "spacejam-core"
 version = "0.0.0"
 dependencies = [
@@ -1231,6 +1235,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-report"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+ "spacejson",
+]
+
+[[package]]
 name = "spacejam-safrole"
 version = "0.0.0"
 dependencies = [
@@ -1273,6 +1289,7 @@ dependencies = [
  "spacejam-crypto",
  "spacejam-dispute",
  "spacejam-merkle",
+ "spacejam-report",
  "spacejam-safrole",
  "spacejam-stats",
  "spacejson",

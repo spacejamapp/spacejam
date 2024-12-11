@@ -11,13 +11,15 @@ members = [
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
+dispute = { path = "crates/dispute", package = "spacejam-dispute" }
 merkle = { path = "crates/merkle", package = "spacejam-merkle" }
+report = { path = "crates/report", package = "spacejam-report" }
 safrole = { path = "crates/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 stats = { path = "crates/stats", package = "spacejam-stats" }
-dispute = { path = "crates/dispute", package = "spacejam-dispute" }
+
 
 # crates.io
 anyhow = "1.0.93"

@@ -13,6 +13,7 @@ crypto.workspace = true
 dispute.workspace = true
 hex.workspace = true
 paste.workspace = true
+report.workspace = true
 spacejam.workspace = true
 safrole.workspace = true
 score.workspace = true

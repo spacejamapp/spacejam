@@ -54,7 +54,7 @@ mod guarantee {
     use spacejson::Json;
 
     /// Represents a signature from a validator.
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct ValidatorSignature {
         pub validator_index: ValidatorIndex,
         #[json(hex)]
@@ -63,7 +63,7 @@ mod guarantee {
     }
 
     /// Represents a report guarantee.
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct ReportGuarantee {
         #[json(nested)]
         pub report: WorkReport,

@@ -121,7 +121,7 @@ impl_bytes!(1, 2, 3, 4, 5, 6, 8, 12, 16, 32, 64, 96, 128, 144, 256, 784);
 macro_rules! impl_array {
     ($($len:expr),*) => {
         $(
-            impl<M: Serialize + DeserializeOwned, N: Default + Copy> Json<Vec<M>> for [N; $len]
+            impl<M: Serialize + DeserializeOwned, N: Default> Json<Vec<M>> for [N; $len]
             where
                 N: Json<M>,
             {
@@ -130,11 +130,11 @@ macro_rules! impl_array {
                 }
 
                 fn from_json(json: Vec<M>) -> Result<Self> {
-                    let mut array = [N::default(); $len];
-                    for (i, v) in json.into_iter().enumerate() {
-                        array[i] = N::from_json(v)?;
+                    let mut array = Vec::with_capacity($len);
+                    for v in json {
+                        array.push(N::from_json(v)?);
                     }
-                    Ok(array)
+                    Ok(array.try_into().map_err(|_| anyhow::anyhow!("Invalid array length"))?)
                 }
             }
         )*

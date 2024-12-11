@@ -76,6 +76,8 @@ mod core {
         pub lookup_anchor_slot: TimeSlot,
         #[json(hex)]
         pub prerequisites: Vec<OpaqueHash>,
+        /* #[json(hex)]
+        pub hash: OpaqueHash, */
     }
 }
 
@@ -90,7 +92,7 @@ mod service {
     pub type ServiceId = u32;
 
     /// Represents a service info.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone)]
     pub struct ServiceInfo {
         #[json(hex)]
         pub code_hash: OpaqueHash,
