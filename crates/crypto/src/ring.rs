@@ -4,8 +4,8 @@ use ark_ec_vrfs::{
         ark_ec::AffineRepr,
         ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
     },
-    suites::bandersnatch::edwards::{BandersnatchSha512Ell2, PcsParams, RingContext},
-    AffinePoint, Public,
+    suites::bandersnatch::edwards::{PcsParams, RingContext},
+    Public,
 };
 use once_cell::sync::Lazy;
 
@@ -27,14 +27,18 @@ pub static RING_CTX: Lazy<RingContext> = Lazy::new(|| {
 /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
 /// Takes a vector of 32-byte Bandersnatch public keys and returns a ring commitment
 pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
-    let pubkeys: Vec<AffinePoint<BandersnatchSha512Ell2>> = keys
-        .iter()
-        .filter_map(|k| AffineRepr::from_random_bytes(k))
-        .collect();
-    println!("pubkeys: {:?}", pubkeys.len());
-    let verifier_key = RING_CTX.verifier_key(&pubkeys);
-    let commitment = verifier_key.commitment();
+    let keys = keys
+        .into_iter()
+        .map(|key| {
+            AffineRepr::from_random_bytes(&key).unwrap_or_else(|| {
+                // If key is invalid (zeroed or can't be decoded), use padding point
+                RING_CTX.padding_point()
+            })
+        })
+        .collect::<Vec<_>>();
 
+    let verifier_key = RING_CTX.verifier_key(&keys);
+    let commitment = verifier_key.commitment();
     let mut bytes = [0u8; 144];
     commitment
         .serialize_compressed(bytes.as_mut_slice())
@@ -46,7 +50,13 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
 pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
     let keys: Vec<_> = keys
         .iter()
-        .filter_map(|k| AffineRepr::from_random_bytes(k).map(Public))
+        .map(|k| {
+            AffineRepr::from_random_bytes(k).unwrap_or_else(|| {
+                // If key is invalid (zeroed or can't be decoded), use padding point
+                RING_CTX.padding_point()
+            })
+        })
+        .map(Public)
         .collect();
     vrf::Verifier::new(keys)
 }

@@ -3,24 +3,27 @@ name = "spacejam-testing"
 version = "0.0.0"
 edition = "2021"
 
-[dependencies]
-tracing-subscriber.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+assurance.workspace = true
 codec.workspace = true
 crypto.workspace = true
 dispute.workspace = true
 hex.workspace = true
+merkle.workspace = true
 paste.workspace = true
+report.workspace = true
 spacejam.workspace = true
 safrole.workspace = true
 score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-merkle.workspace = true
 stats.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
 
 [build-dependencies]
 anyhow.workspace = true

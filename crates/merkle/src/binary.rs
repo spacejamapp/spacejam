@@ -129,7 +129,7 @@ fn verify_proof() {
         for i in 0..len {
             let proof = tree
                 .proof(blake2b(&chunks[i]))
-                .expect(&format!("Proof not found, chunks: {len}"));
+                .unwrap_or_else(|| panic!("Proof not found, chunks: {len}"));
             assert!(proof.verify(), "chunk index: {i}/{len}");
         }
     };

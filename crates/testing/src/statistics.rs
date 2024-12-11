@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use paste::paste;
 use score::{
     block::{Extrinsic, ExtrinsicJson},
     misc::{Ed25519Public, TimeSlot, ValidatorIndex},
@@ -8,7 +7,6 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use stats::{State, StateJson, Stats};
-use std::{fs, path::PathBuf};
 
 #[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
 pub struct Input {
@@ -32,7 +30,7 @@ struct Test {
 }
 
 impl Test {
-    fn run(self) -> anyhow::Result<()> {
+    fn run(self) {
         let stats = Stats::from(self.pre_state);
         let stats = stats.update(
             self.input.slot,
@@ -54,40 +52,10 @@ impl Test {
             stats.state.kappa_prime, self.post_state.kappa_prime,
             "Invalid kappa_prime"
         );
-        Ok(())
     }
 }
 
-#[allow(unused_macros)]
-macro_rules! impl_history_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "statistics", "tiny"]);
-
-                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
-                let mut name = pattern[..pattern.len() - 1].join("_");
-                name.push_str(&format!(
-                    "-{}",
-                    pattern.last().expect("pattern must have at least one element")
-                ));
-
-                root.push(name);
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_history_tests!($name);)*
-    };
-}
-
-impl_history_tests! {
+crate::impl_statistics_tests! {
     stats_with_empty_extrinsic_1,
     stats_with_epoch_change_1,
     stats_with_some_extrinsic_1

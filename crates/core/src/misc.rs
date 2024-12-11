@@ -60,6 +60,17 @@ mod core {
         pub metadata: ValidatorMetadata,
     }
 
+    impl Default for ValidatorData {
+        fn default() -> Self {
+            ValidatorData {
+                bandersnatch: Default::default(),
+                ed25519: Default::default(),
+                bls: [0; 144],
+                metadata: [0; 128],
+            }
+        }
+    }
+
     pub type ValidatorsData = Vec<ValidatorData>;
 
     /// Represents the RefineContext structure from ASN.1
@@ -76,6 +87,8 @@ mod core {
         pub lookup_anchor_slot: TimeSlot,
         #[json(hex)]
         pub prerequisites: Vec<OpaqueHash>,
+        /* #[json(hex)]
+        pub hash: OpaqueHash, */
     }
 }
 
@@ -90,7 +103,7 @@ mod service {
     pub type ServiceId = u32;
 
     /// Represents a service info.
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone)]
     pub struct ServiceInfo {
         #[json(hex)]
         pub code_hash: OpaqueHash,
