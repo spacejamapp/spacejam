@@ -9,6 +9,7 @@ pub fn init_tracing() {
         .init();
 }
 
+pub mod assurances;
 pub mod codec;
 pub mod disputes;
 pub mod history;

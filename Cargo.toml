@@ -8,6 +8,7 @@ members = [
 ]
 
 [workspace.dependencies]
+assurance = { path = "crates/assurance", package = "spacejam-assurance" }
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }

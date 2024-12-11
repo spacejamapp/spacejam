@@ -29,7 +29,7 @@ mod assurance {
     use spacejson::Json;
 
     /// Represents an assurance of availability.
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct AvailAssurance {
         #[json(hex)]
         pub anchor: OpaqueHash,

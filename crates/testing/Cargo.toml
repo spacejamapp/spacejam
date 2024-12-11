@@ -8,6 +8,7 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+assurance.workspace = true
 codec.workspace = true
 crypto.workspace = true
 dispute.workspace = true
