@@ -102,6 +102,7 @@ impl_safrole_tests! {
     enact_epoch_change_with_no_tickets_2,
     enact_epoch_change_with_no_tickets_3,
     enact_epoch_change_with_no_tickets_4,
+    enact_epoch_change_with_padding_1,
     publish_tickets_no_mark_1,
     publish_tickets_no_mark_2,
     publish_tickets_no_mark_3,
