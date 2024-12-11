@@ -4,6 +4,7 @@ use anyhow::Result;
 
 const SHARD_ALIGNMENT: usize = 64;
 const MAX_CHUNKS: u16 = 16384;
+const CHUNKS_THRESHOLD: u16 = 3;
 
 /// Create shards from data
 pub fn make(original_count: u16, data: &[u8]) -> Result<Vec<Vec<u8>>> {
@@ -27,7 +28,7 @@ pub fn make(original_count: u16, data: &[u8]) -> Result<Vec<Vec<u8>>> {
 }
 
 /// Obtain a threshold of chunks that should be enough to recover the data.
-pub fn recoverable(chunks: u16) -> Result<u16> {
+pub fn recoverable(chunks: u16) -> Result<(u16, u16)> {
     if chunks > MAX_CHUNKS {
         anyhow::bail!("Too many chunks");
     }
@@ -35,12 +36,13 @@ pub fn recoverable(chunks: u16) -> Result<u16> {
         anyhow::bail!("Not enough chunks");
     }
 
-    let needed = (chunks - 1) / 3;
-    Ok(needed + 1)
+    // for every chunk, we need at least 3 chunks to recover the data
+    let needed = (chunks - 1) / CHUNKS_THRESHOLD + 1;
+    Ok((needed, chunks - needed))
 }
 
 /// Calculate the number of bytes per shard
-fn size(chunks: u16, data_len: usize) -> usize {
-    let shards = (data_len + chunks as usize - 1) / chunks as usize;
-    ((shards + SHARD_ALIGNMENT - 1) / SHARD_ALIGNMENT) * SHARD_ALIGNMENT
+pub fn size(chunks: u16, data_len: usize) -> usize {
+    let shards = data_len.div_ceil(chunks as usize);
+    shards.div_ceil(SHARD_ALIGNMENT) * SHARD_ALIGNMENT
 }
