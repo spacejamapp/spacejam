@@ -3,8 +3,11 @@
 use {
     error::{Error, Result},
     score::{
-        extrinsic::ReportGuarantee, misc::TimeSlot, work::AvailabilityAssignment, CORES_COUNT,
-        VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+        extrinsic::ReportGuarantee,
+        misc::{OpaqueHash, TimeSlot},
+        work::{report::WorkExecResult, AvailabilityAssignment},
+        CORES_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT,
+        VALIDATORS_SUPER_MAJORITY, WORK_REPORT_GAS_LIMIT,
     },
     state::{Input, Output, ReportedPackage, State},
 };
@@ -34,32 +37,9 @@ impl Handler {
         // Process each guarantee
         for (core_index, guarantee) in input.guarantees.into_iter().enumerate() {
             self.validate_core(input.slot, core_index, &guarantee)?;
-
-            if guarantee
-                .report
-                .results
-                .iter()
-                .any(|r| !code_hashes.contains(&r.code_hash))
-            {
-                return Err(Error::BadCodeHash);
-            }
-
-            if guarantee
-                .report
-                .results
-                .iter()
-                .any(|r| !service_ids.contains(&r.service_id))
-            {
-                return Err(Error::BadServiceId);
-            }
-
+            self.validate_results(&code_hashes, &service_ids, &guarantee)?;
             self.validate_block(&guarantee)?;
             self.validate_signatures(&guarantee)?;
-
-            // Validate report's authorizer is in the authorization pool
-            if !self.next.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
-                return Err(Error::CoreUnauthorized);
-            }
 
             // Record reported package
             reported.push(ReportedPackage {
@@ -134,6 +114,10 @@ impl Handler {
         core_index: usize,
         guarantee: &ReportGuarantee,
     ) -> Result<()> {
+        if !self.next.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
+            return Err(Error::CoreUnauthorized);
+        }
+
         if guarantee.report.core_index >= CORES_COUNT as u16 {
             return Err(Error::BadCoreIndex);
         }
@@ -148,6 +132,48 @@ impl Handler {
                 return Err(Error::CoreEngaged);
             }
         }
+        Ok(())
+    }
+
+    /* /// Validate work package
+    fn validate_package(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        Ok(())
+    } */
+
+    fn validate_results(
+        &self,
+        code_hashes: &[OpaqueHash],
+        service_ids: &[u32],
+        guarantee: &ReportGuarantee,
+    ) -> Result<()> {
+        let mut output_len = guarantee.report.auth_output.len();
+        let mut gas_limit = 0;
+        for result in guarantee.report.results.iter() {
+            if let WorkExecResult::Ok(blob) = &result.result {
+                output_len += blob.len();
+                if output_len >= MAX_WORK_REPORT_OUTPUT_SIZE {
+                    return Err(Error::WorkReportTooBig);
+                }
+            }
+
+            gas_limit += result.accumulate_gas;
+            if gas_limit > WORK_REPORT_GAS_LIMIT {
+                return Err(Error::WorkReportGasTooHigh);
+            }
+
+            if result.accumulate_gas < SERVICE_ITEM_MIN_GAS {
+                return Err(Error::ServiceItemGasTooLow);
+            }
+
+            if !code_hashes.contains(&result.code_hash) {
+                return Err(Error::BadCodeHash);
+            }
+
+            if !service_ids.contains(&result.service_id) {
+                return Err(Error::BadServiceId);
+            }
+        }
+
         Ok(())
     }
 
