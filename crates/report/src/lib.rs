@@ -110,6 +110,7 @@ impl Handler {
         };
     }
 
+    // TODO: validate beefy root
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let Some(block) = self
             .prev
@@ -125,24 +126,10 @@ impl Handler {
             return Err(Error::BadStateRoot);
         }
 
-        // Validate beefy mmr root
-        //
-        // FIXME: This verification could be wrong.
-        /* if block
-            .mmr
-            .peaks
-            .get(guarantee.report.context.lookup_anchor_slot as usize)
-            .cloned()
-            .flatten()
-            .ok_or(Error::BadBeefyMmrRoot)?
-            != guarantee.report.context.beefy_root
-        {
-            return Err(Error::BadBeefyMmrRoot);
-        } */
         Ok(())
     }
 
-    /// Validate core assignments
+    /// TODO: validate core assignments
     fn validate_core(
         &self,
         slot: TimeSlot,
