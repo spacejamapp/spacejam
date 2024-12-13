@@ -9,7 +9,7 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct State {
     /// [ρ†] rho dagger, which is the pending reports (ϱ) after that any
     /// work report judged as uncertain or invalid has been removed from it.
@@ -25,7 +25,7 @@ pub struct State {
 pub struct Input {
     /// [E_A] Assurances extrinsic.
     #[json(Vec<AvailAssuranceJson>)]
-    assurances: AssurancesExtrinsic,
+    pub assurances: AssurancesExtrinsic,
 
     /// [H_t] Block's timeslot.
     pub slot: TimeSlot,
@@ -35,7 +35,7 @@ pub struct Input {
     pub parent: HeaderHash,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Output {
     #[json(Vec<WorkReportJson>)]
     pub reported: Vec<WorkReport>,
