@@ -117,7 +117,7 @@ mod service {
     pub type ServiceId = u32;
 
     /// Represents a service info.
-    #[derive(Debug, Serialize, Deserialize, Json, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct ServiceInfo {
         #[json(hex)]
         pub code_hash: OpaqueHash,

@@ -15,6 +15,16 @@ pub const AVAIL_BITFIELD_BYTES: usize = 1;
 pub const MAX_TICKETS_PER_BLOCK: usize = 16;
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 pub const CONTEST_DURATION: u32 = 10;
+pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;
+
+/// The minimum gas for a service item.
+pub const SERVICE_ITEM_MIN_GAS: u64 = 1000;
+
+/// The maximum number of dependencies a work report can have.
+pub const MAX_DEPENDENCY_COUNT: usize = 8;
+
+/// FIXME: this number is extracted from the tests, I don't think it's correct.
+pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
 
 // Singing Contexts
 

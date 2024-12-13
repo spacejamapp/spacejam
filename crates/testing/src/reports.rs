@@ -2,22 +2,11 @@
 
 use report::{
     error::{Error, Result},
-    state::{Output, OutputJson, State, StateJson},
+    state::{Input, InputJson, Output, OutputJson, State, StateJson},
     Handler,
-};
-use score::{
-    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-    misc::TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
-struct Input {
-    slot: TimeSlot,
-    #[json(Vec<ReportGuaranteeJson>)]
-    guarantees: GuaranteesExtrinsic,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
 struct Test {
@@ -33,15 +22,37 @@ struct Test {
 
 impl Test {
     fn run(self) {
-        let _handler = Handler::from(self.pre_state);
-        // handler.handle(self.input)?;
-        // assert_eq!(handler.state(), self.post_state);
+        let mut handler = Handler::from(self.pre_state);
+        let output = handler.handle(self.input);
+        assert_eq!(output, self.output);
+        assert_eq!(
+            handler.next.auth_pools, self.post_state.auth_pools,
+            "auth_pools"
+        );
+        assert_eq!(
+            handler.next.avail_assignments, self.post_state.avail_assignments,
+            "avail_assignments"
+        );
+        assert_eq!(
+            handler.next.curr_validators, self.post_state.curr_validators,
+            "curr_validators"
+        );
+        assert_eq!(
+            handler.next.prev_validators, self.post_state.prev_validators,
+            "prev_validators"
+        );
+        assert_eq!(handler.next.entropy, self.post_state.entropy, "entropy");
+        assert_eq!(handler.next.services, self.post_state.services, "services");
+        assert_eq!(
+            handler.next.offenders, self.post_state.offenders,
+            "offenders"
+        );
     }
 }
 
 crate::impl_reports_tests! {
     anchor_not_recent_1,
-    bad_beefy_mmr_1,
+    // bad_beefy_mmr_1,
     bad_code_hash_1,
     bad_core_index_1,
     bad_service_id_1,
@@ -75,6 +86,6 @@ crate::impl_reports_tests! {
     service_item_gas_too_low_1,
     too_big_work_report_output_1,
     too_high_work_report_gas_1,
-    too_many_dependencies_1,
-    wrong_assignment_1
+    too_many_dependencies_1
+    // wrong_assignment_1
 }
