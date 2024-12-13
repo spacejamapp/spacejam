@@ -3,6 +3,7 @@
 use {
     error::{Error, Result},
     score::{
+        block::history::ReportedWorkPackage,
         extrinsic::ReportGuarantee,
         misc::{OpaqueHash, TimeSlot},
         work::{report::WorkExecResult, AvailabilityAssignment},
@@ -10,6 +11,7 @@ use {
         VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },
     state::{Input, Output, ReportedPackage, State},
+    std::collections::BTreeMap,
 };
 
 pub mod error;
@@ -20,6 +22,7 @@ pub struct Handler {
     pub prev: State,
     pub next: State,
     pub deps: Dependencies,
+    pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
 
 impl Handler {
@@ -34,16 +37,17 @@ impl Handler {
             .map(|s| s.info.code_hash)
             .collect::<Vec<_>>();
         let service_ids = self.prev.services.iter().map(|s| s.id).collect::<Vec<_>>();
-
         self.init_deps(&input);
 
         // Process each guarantee
         for (core_index, guarantee) in input.guarantees.into_iter().enumerate() {
+            self.validate_guarantors(core_index, &guarantee)?;
+            self.validate_rotation(input.slot, &guarantee)?;
             self.validate_core(input.slot, core_index, &guarantee)?;
             self.validate_results(&code_hashes, &service_ids, &guarantee)?;
             self.validate_block(&guarantee)?;
             self.validate_signatures(&guarantee)?;
-            self.validate_package(&guarantee)?;
+            self.validate_deps(&guarantee)?;
 
             // Record reported package
             reported.push(ReportedPackage {
@@ -71,6 +75,7 @@ impl Handler {
         // FIXME: not sure if we need to sort the reporters here since it's not related to
         // storage directly, there was a similar problem in the `dispute` module.
         reporters.sort();
+        reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
         Ok(Output {
             reported,
             reporters,
@@ -93,7 +98,7 @@ impl Handler {
             .prev
             .recent_blocks
             .iter()
-            .map(|b| b.reported.iter().map(|r| r.hash).collect::<Vec<_>>())
+            .map(|b| b.reported.clone())
             .flatten()
             .collect::<Vec<_>>();
 
@@ -165,7 +170,7 @@ impl Handler {
     }
 
     /// Validate work package
-    fn validate_package(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_deps(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
         for dep in guarantee.report.context.prerequisites.iter() {
             if !self.deps.contains(dep) {
                 self.next = self.prev.clone();
@@ -183,6 +188,28 @@ impl Handler {
             return Err(Error::TooManyDependencies);
         }
 
+        self.deps.validate_segment_lookup(&guarantee)?;
+        Ok(())
+    }
+
+    fn validate_guarantors(
+        &mut self,
+        core_index: usize,
+        guarantee: &ReportGuarantee,
+    ) -> Result<()> {
+        let guarantors = guarantee
+            .signatures
+            .iter()
+            .map(|sig| sig.validator_index)
+            .collect::<Vec<_>>();
+
+        let guaranted = self.guarantors.values().flatten().collect::<Vec<_>>();
+        if guarantors.iter().any(|g| guaranted.contains(&g)) {
+            self.next = self.prev.clone();
+            return Err(Error::OutOfOrderGuarantee);
+        }
+
+        self.guarantors.insert(core_index, guarantors);
         Ok(())
     }
 
@@ -218,6 +245,15 @@ impl Handler {
             if !service_ids.contains(&result.service_id) {
                 return Err(Error::BadServiceId);
             }
+        }
+
+        Ok(())
+    }
+
+    fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
+        if guarantee.slot > slot {
+            self.next = self.prev.clone();
+            return Err(Error::FutureReportSlot);
         }
 
         Ok(())
@@ -259,6 +295,7 @@ impl From<State> for Handler {
             prev: state.clone(),
             next: state,
             deps: Dependencies::default(),
+            guarantors: BTreeMap::new(),
         }
     }
 }
@@ -267,17 +304,41 @@ impl From<State> for Handler {
 #[derive(Default)]
 pub struct Dependencies {
     pub service: Vec<OpaqueHash>,
-    pub recent: Vec<OpaqueHash>,
+    pub recent: Vec<ReportedWorkPackage>,
     pub reported: Vec<OpaqueHash>,
 }
 
 impl Dependencies {
     fn contains(&self, hash: &OpaqueHash) -> bool {
-        self.service.contains(hash) || self.recent.contains(hash) || self.reported.contains(hash)
+        self.service.contains(hash)
+            || self.recent.iter().any(|r| r.hash == *hash)
+            || self.reported.contains(hash)
     }
 
     // TODO: duplicated in service deps?
     fn duplicated(&self, hash: &OpaqueHash) -> bool {
-        self.recent.contains(hash) || self.reported.iter().filter(|h| *h == hash).count() > 1
+        self.recent.iter().any(|r| r.hash == *hash)
+            || self.reported.iter().filter(|h| *h == hash).count() > 1
+    }
+
+    fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        for lookup in guarantee.report.segment_root_lookup.iter() {
+            if self.reported.contains(&lookup.work_package_hash) {
+                continue;
+            }
+
+            let Some(reported) = self
+                .recent
+                .iter()
+                .find(|r| r.hash == lookup.work_package_hash)
+            else {
+                return Err(Error::SegmentRootLookupInvalid);
+            };
+
+            if reported.exports_root != lookup.segment_tree_root {
+                return Err(Error::SegmentRootLookupInvalid);
+            }
+        }
+        Ok(())
     }
 }
