@@ -2,7 +2,10 @@
 
 use {
     error::{Error, Result},
-    score::{CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY},
+    score::{
+        extrinsic::AvailAssurance, misc::OpaqueHash, CORES_COUNT, VALIDATORS_COUNT,
+        VALIDATORS_SUPER_MAJORITY,
+    },
     state::{Input, Output, State},
     std::collections::BTreeMap,
 };
@@ -19,21 +22,6 @@ pub struct Handler {
 impl Handler {
     /// Handle assurances input and return newly available reports
     pub fn handle(&mut self, input: Input) -> Result<Output> {
-        // Validate assurances are ordered by validator index
-        for (index, assurance) in input.assurances.iter().enumerate() {
-            if assurance.validator_index >= VALIDATORS_COUNT {
-                return Err(Error::BadValidatorIndex);
-            }
-
-            if assurance.validator_index != index as u16 {
-                return Err(Error::NotSortedOrUniqueAssurers);
-            }
-
-            if assurance.anchor != input.parent {
-                return Err(Error::BadAttestationParent);
-            }
-        }
-
         // Track assurance count per core
         let mut core_assurance_counts = vec![0u32; CORES_COUNT as usize];
         let mut available_reports = Vec::new();
@@ -56,11 +44,13 @@ impl Handler {
         }
 
         // Check for engaged reports
-        for assurance in input.assurances {
+        for (index, assurance) in input.assurances.iter().enumerate() {
+            self.verify_assurance(index as u16, assurance, input.parent)?;
+
             // Count assurances per core
+            let bitsmap = assurance.bitsmap();
             for core_idx in 0..CORES_COUNT as usize {
-                let assured = assurance.bitfield[core_idx / 8] >> (core_idx % 8) & 1;
-                if assured == 0 {
+                if bitsmap[core_idx] == 0 {
                     continue;
                 }
 
@@ -87,6 +77,34 @@ impl Handler {
         Ok(Output {
             reported: available_reports,
         })
+    }
+
+    /// Verifies the assurance
+    fn verify_assurance(
+        &self,
+        index: u16,
+        assurance: &AvailAssurance,
+        parent: OpaqueHash,
+    ) -> Result<()> {
+        if assurance.validator_index >= VALIDATORS_COUNT {
+            return Err(Error::BadValidatorIndex);
+        }
+
+        if assurance.validator_index != index as u16 {
+            return Err(Error::NotSortedOrUniqueAssurers);
+        }
+
+        if assurance.anchor != parent {
+            return Err(Error::BadAttestationParent);
+        }
+
+        if let Err(e) = self.prev_state.curr_validators[index as usize].verify_assurance(assurance)
+        {
+            tracing::warn!("assurance verification failed: {e}");
+            return Err(Error::BadSignature);
+        }
+
+        Ok(())
     }
 }
 
