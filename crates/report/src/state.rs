@@ -2,9 +2,10 @@
 
 use score::{
     block::history::{BlockInfo, BlockInfoJson},
+    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
     misc::{
         Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, ServiceInfo, ServiceInfoJson,
-        ValidatorDataJson, ValidatorsData,
+        TimeSlot, ValidatorDataJson, ValidatorsData,
     },
     work::{AvailabilityAssignmentJson, AvailabilityAssignments},
     CORES_COUNT,
@@ -12,14 +13,14 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct ServiceItem {
     pub id: ServiceId,
     #[json(nested)]
     pub info: ServiceInfo,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct State {
     /// [ρ‡] Intermediate pending reports after that any work report judged as
     /// uncertain or invalid has been removed from it (ϱ†), and the availability
@@ -57,16 +58,24 @@ pub struct State {
 }
 
 /// A reported work package with its dependencies.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct ReportedPackage {
     #[json(hex)]
-    work_package_hash: OpaqueHash,
+    pub work_package_hash: OpaqueHash,
     #[json(hex)]
-    segment_tree_root: OpaqueHash,
+    pub segment_tree_root: OpaqueHash,
+}
+
+/// Input of the reporting module.
+#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+pub struct Input {
+    pub slot: TimeSlot,
+    #[json(Vec<ReportGuaranteeJson>)]
+    pub guarantees: GuaranteesExtrinsic,
 }
 
 /// Output of the reporting module.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct Output {
     #[json(nested)]
     pub reported: Vec<ReportedPackage>,

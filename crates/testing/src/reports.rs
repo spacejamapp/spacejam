@@ -2,22 +2,11 @@
 
 use report::{
     error::{Error, Result},
-    state::{Output, OutputJson, State, StateJson},
+    state::{Input, InputJson, Output, OutputJson, State, StateJson},
     Handler,
-};
-use score::{
-    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-    misc::TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
-struct Input {
-    slot: TimeSlot,
-    #[json(Vec<ReportGuaranteeJson>)]
-    guarantees: GuaranteesExtrinsic,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
 struct Test {
@@ -33,9 +22,10 @@ struct Test {
 
 impl Test {
     fn run(self) {
-        let _handler = Handler::from(self.pre_state);
-        // handler.handle(self.input)?;
-        // assert_eq!(handler.state(), self.post_state);
+        let mut handler = Handler::from(self.pre_state);
+        let output = handler.handle(self.input);
+        assert_eq!(output, self.output);
+        assert_eq!(handler.next, self.post_state);
     }
 }
 
