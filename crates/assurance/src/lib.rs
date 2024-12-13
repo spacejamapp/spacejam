@@ -23,7 +23,7 @@ impl Handler {
     /// Handle assurances input and return newly available reports
     pub fn handle(&mut self, input: Input) -> Result<Output> {
         // Track assurance count per core
-        let mut core_assurance_counts = vec![0u32; CORES_COUNT as usize];
+        let mut core_assurance_counts = [0u32; CORES_COUNT];
         let mut available_reports = Vec::new();
         let mut stale_reports = BTreeMap::new();
 
@@ -49,7 +49,7 @@ impl Handler {
 
             // Count assurances per core
             let bitsmap = assurance.bitsmap();
-            for core_idx in 0..CORES_COUNT as usize {
+            for core_idx in 0..CORES_COUNT {
                 if bitsmap[core_idx] == 0 {
                     continue;
                 }
@@ -57,10 +57,8 @@ impl Handler {
                 // Validate the core has a pending report that hasn't timed out
                 if self.post_state.avail_assignments[core_idx].is_some() {
                     core_assurance_counts[core_idx] += 1;
-                } else {
-                    if !stale_reports.contains_key(&core_idx) {
-                        return Err(error::Error::CoreNotEngaged);
-                    }
+                } else if !stale_reports.contains_key(&core_idx) {
+                    return Err(error::Error::CoreNotEngaged);
                 }
             }
         }
@@ -90,7 +88,7 @@ impl Handler {
             return Err(Error::BadValidatorIndex);
         }
 
-        if assurance.validator_index != index as u16 {
+        if assurance.validator_index != index {
             return Err(Error::NotSortedOrUniqueAssurers);
         }
 

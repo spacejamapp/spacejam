@@ -7,7 +7,7 @@ pub mod ticket;
 pub mod work;
 
 pub const VALIDATORS_COUNT: u16 = 6;
-pub const CORES_COUNT: u16 = 2;
+pub const CORES_COUNT: usize = 2;
 pub const EPOCH_LENGTH: u32 = 12;
 pub const MAX_BLOCKS_HISTORY: usize = 8;
 pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;

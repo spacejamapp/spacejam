@@ -42,11 +42,10 @@ mod assurance {
 
     impl AvailAssurance {
         /// Returns the bitsmap of the assurance.
-        pub fn bitsmap(&self) -> [u8; CORES_COUNT as usize] {
-            let mut bitsmap = [0u8; CORES_COUNT as usize];
-            for core_idx in 0..CORES_COUNT as usize {
-                let bit = self.bitfield[core_idx / 8] >> (core_idx % 8) & 1;
-                bitsmap[core_idx] = bit;
+        pub fn bitsmap(&self) -> [u8; CORES_COUNT] {
+            let mut bitsmap = [0u8; CORES_COUNT];
+            for (core_idx, bit) in bitsmap.iter_mut().enumerate() {
+                *bit = self.bitfield[core_idx / 8] >> (core_idx % 8) & 1;
             }
             bitsmap
         }

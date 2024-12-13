@@ -33,7 +33,7 @@ pub fn load_test(module: &str, scale: &str, path: &str, repl: bool) -> String {
 
     // set the extension to json and read the file
     root.set_extension("json");
-    std::fs::read_to_string(&root).expect(&format!("could not read test vector: {root:?}"))
+    std::fs::read_to_string(&root).unwrap_or_else(|_| panic!("could not read test vector: {root:?}"))
 }
 
 fn include_all_tests(module: &str, path: &str) {
@@ -105,7 +105,7 @@ macro_rules! impl_all_tests {
                         let module = stringify!($name);
                         let test = stringify!($test);
                         let scale = $scale;
-                        Test::from_json(crate::load_test(module, scale, test, $repl))
+                        Test::from_json($crate::load_test(module, scale, test, $repl))
                             .expect(&format!(
                                 "could not parse test vector: {module}::{scale}::{test}"
                             ))
