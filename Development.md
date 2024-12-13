@@ -1,4 +1,14 @@
-safrolen# Development Notes
+# Development Notes
+
+TODOS:
+
+- [ ] PVM implementation
+- [ ] confirm the implementation of the `erasure_coding`
+- [ ] reports
+  - [ ] validate the `beefy_root`
+  - [ ] validate the `core_assignments`
+
+## Test Vectors
 
 Test vectors: https://github.com/w3f/jamtestvectors
 
@@ -9,7 +19,7 @@ Test vectors: https://github.com/w3f/jamtestvectors
 - [ ] Section 8 - Authorization
 - [ ] Section 9 - Service Accounts
 - [x] Section 10 - [Disputes, Verdicts and Judgements](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/disputes)
-- [ ] Section 11 - [Reporting](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/reports) and [Assurances](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/assurances)
+- [x] Section 11 - [Reporting](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/reports) and [Assurances](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/assurances)
 - [ ] Section 12 - Accumulation
 - [x] Section 13 - [Activity Statistics](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/statistics)
 

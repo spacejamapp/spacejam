@@ -217,8 +217,8 @@ impl Handler {
             .map(|sig| sig.validator_index)
             .collect::<Vec<_>>();
 
-        let guaranted = self.guarantors.values().flatten().collect::<Vec<_>>();
-        if guarantors.iter().any(|g| guaranted.contains(&g)) {
+        let guaranteed = self.guarantors.values().flatten().collect::<Vec<_>>();
+        if guarantors.iter().any(|g| guaranteed.contains(&g)) {
             self.next = self.prev.clone();
             return Err(Error::OutOfOrderGuarantee);
         }
