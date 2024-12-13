@@ -39,7 +39,7 @@ pub struct State {
     #[json(Vec<ValidatorDataJson>)]
     pub gamma_k: ValidatorsData,
     /// Bandersnatch ring commitment
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     #[json(hex)]
     pub gamma_z: BandersnatchRingCommitment,
     /// Sealing-key series of the current epoch

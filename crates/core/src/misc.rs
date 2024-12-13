@@ -21,6 +21,8 @@ mod crypto {
 // application specific core types
 // --------------------------------------------
 mod core {
+    use crate::extrinsic::AvailAssurance;
+
     use super::crypto::*;
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
@@ -53,11 +55,23 @@ mod core {
         #[json(hex)]
         pub ed25519: Ed25519Public,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub bls: BlsPublic,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub metadata: ValidatorMetadata,
+    }
+
+    impl ValidatorData {
+        /// Returns the bitsmap of the validator.
+        pub fn verify_assurance(&self, assurance: &AvailAssurance) -> anyhow::Result<()> {
+            crypto::ed25519::verify(
+                &assurance.singing_message(),
+                assurance.signature,
+                self.ed25519,
+            )?;
+            Ok(())
+        }
     }
 
     impl Default for ValidatorData {

@@ -17,7 +17,7 @@ pub struct TicketEnvelope {
     pub attempt: TicketAttempt,
     /// Ticket ring signature
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: BandersnatchRingVrfSignature,
 }
 

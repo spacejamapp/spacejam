@@ -22,9 +22,10 @@ struct Test {
 
 impl Test {
     fn run(self) {
-        let _handler = Handler::from(self.pre_state);
-        // handler.handle(self.input)?;
-        // assert_eq!(handler.state(), self.post_state);
+        let mut handler = Handler::from(self.pre_state);
+        let output = handler.handle(self.input);
+        assert_eq!(output, self.output);
+        assert_eq!(handler.post_state, self.post_state);
     }
 }
 

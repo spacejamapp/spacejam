@@ -10,7 +10,7 @@ pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 
@@ -57,7 +57,7 @@ pub struct Culprit {
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 
@@ -85,13 +85,13 @@ pub struct Fault {
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 
 impl Fault {
     /// Returns the message that was signed by the fault.
-    pub fn signature_message(&self) -> Vec<u8> {
+    pub fn singing_message(&self) -> Vec<u8> {
         let mut message = vec![];
         if self.vote {
             message.extend_from_slice(&JAM_VALID);
@@ -104,7 +104,7 @@ impl Fault {
 
     /// Verifies the signature of the fault.
     pub fn verify(&self) -> anyhow::Result<()> {
-        crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
+        crypto::ed25519::verify(&self.singing_message(), self.signature, self.key)
     }
 }
 
