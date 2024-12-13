@@ -71,8 +71,8 @@ mod assurance {
 // Guarantee types
 // --------------------------------------------
 mod guarantee {
-    use crate::misc::*;
     use crate::work::report::*;
+    use crate::{misc::*, JAM_GUARANTEE};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -93,6 +93,18 @@ mod guarantee {
         pub slot: TimeSlot,
         #[json(nested)]
         pub signatures: Vec<ValidatorSignature>,
+    }
+
+    impl ReportGuarantee {
+        /// Returns the message that was signed by the guarantors.
+        pub fn signing_message(&self) -> anyhow::Result<Vec<u8>> {
+            let mut message = vec![];
+            message.extend_from_slice(&JAM_GUARANTEE);
+
+            let hashed = crypto::blake2b(&codec::encode(&self.report)?);
+            message.extend_from_slice(&hashed);
+            Ok(message)
+        }
     }
 
     /// Represents a sequence of guarantees.

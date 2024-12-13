@@ -152,10 +152,21 @@ impl Handler {
     }
 
     fn validate_signatures(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        let message = guarantee
+            .signing_message()
+            .map_err(|_| Error::BadSignature)?;
         for (_, sig) in guarantee.signatures.iter().enumerate() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
                 return Err(Error::BadValidatorIndex);
+            }
+
+            if let Err(_) = crypto::ed25519::verify(
+                &message,
+                sig.signature,
+                self.next.curr_validators[validator_index].ed25519,
+            ) {
+                return Err(Error::BadSignature);
             }
         }
 

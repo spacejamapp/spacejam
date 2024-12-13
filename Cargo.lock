@@ -1252,6 +1252,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-crypto",
  "spacejson",
 ]
 
