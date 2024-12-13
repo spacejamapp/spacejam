@@ -5,7 +5,7 @@ use {
     score::{
         block::history::ReportedWorkPackage,
         extrinsic::ReportGuarantee,
-        misc::{OpaqueHash, TimeSlot},
+        misc::{OpaqueHash, TimeSlot, ValidatorData},
         work::{report::WorkExecResult, AvailabilityAssignment},
         CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS,
         VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
@@ -21,6 +21,7 @@ pub mod state;
 pub struct Handler {
     pub prev: State,
     pub next: State,
+    pub validators: Vec<ValidatorData>,
     pub deps: Dependencies,
     pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
@@ -41,12 +42,12 @@ impl Handler {
 
         // Process each guarantee
         for (core_index, guarantee) in input.guarantees.into_iter().enumerate() {
-            self.validate_guarantors(core_index, &guarantee)?;
-            self.validate_rotation(input.slot, &guarantee)?;
             self.validate_core(input.slot, core_index, &guarantee)?;
+            self.validate_rotation(input.slot, &guarantee)?;
+            self.validate_guarantors(core_index, &guarantee)?;
             self.validate_results(&code_hashes, &service_ids, &guarantee)?;
+            self.validate_guarantees(&guarantee)?;
             self.validate_block(&guarantee)?;
-            self.validate_signatures(&guarantee)?;
             self.validate_deps(&guarantee)?;
 
             // Record reported package
@@ -65,11 +66,12 @@ impl Handler {
             self.next.avail_assignments[core_index] = Some(assignment);
 
             // Record reporters (guarantors)
-            reporters.extend(guarantee.signatures.iter().map(|sig| {
-                self.next.curr_validators[sig.validator_index as usize]
-                    .ed25519
-                    .clone()
-            }));
+            reporters.extend(
+                guarantee
+                    .signatures
+                    .iter()
+                    .map(|sig| self.validators[sig.validator_index as usize].ed25519),
+            );
         }
 
         // FIXME: not sure if we need to sort the reporters here since it's not related to
@@ -98,8 +100,7 @@ impl Handler {
             .prev
             .recent_blocks
             .iter()
-            .map(|b| b.reported.clone())
-            .flatten()
+            .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
 
         self.deps = Dependencies {
@@ -148,16 +149,14 @@ impl Handler {
         core_index: usize,
         guarantee: &ReportGuarantee,
     ) -> Result<()> {
-        if !self.next.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
-            return Err(Error::CoreUnauthorized);
-        }
-
         if guarantee.report.core_index >= CORES_COUNT as u16 {
             return Err(Error::BadCoreIndex);
         }
 
-        if guarantee.report.core_index != core_index as u16 {
-            return Err(Error::NotSortedOrUniqueGuarantors);
+        if !self.prev.auth_pools[guarantee.report.core_index as usize]
+            .contains(&guarantee.report.authorizer_hash)
+        {
+            return Err(Error::CoreUnauthorized);
         }
 
         // Check if core already has a pending report that hasn't timed out
@@ -188,7 +187,35 @@ impl Handler {
             return Err(Error::TooManyDependencies);
         }
 
-        self.deps.validate_segment_lookup(&guarantee)?;
+        self.deps.validate_segment_lookup(guarantee)?;
+        Ok(())
+    }
+
+    fn validate_guarantees(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        let min_guarantees = (VALIDATORS_COUNT as usize / CORES_COUNT) * 2 / 3;
+        println!("min_guarantees: {}", min_guarantees);
+        if guarantee.signatures.len() < min_guarantees {
+            return Err(Error::InsufficientGuarantees);
+        }
+
+        let message = guarantee
+            .signing_message()
+            .map_err(|_| Error::BadSignature)?;
+
+        for sig in guarantee.signatures.iter() {
+            let validator_index = sig.validator_index as usize;
+            if validator_index >= VALIDATORS_COUNT as usize {
+                return Err(Error::BadValidatorIndex);
+            }
+
+            crypto::ed25519::verify(
+                &message,
+                sig.signature,
+                self.validators[validator_index].ed25519,
+            )
+            .map_err(|_| Error::BadSignature)?
+        }
+
         Ok(())
     }
 
@@ -207,6 +234,14 @@ impl Handler {
         if guarantors.iter().any(|g| guaranted.contains(&g)) {
             self.next = self.prev.clone();
             return Err(Error::OutOfOrderGuarantee);
+        }
+
+        if guarantee
+            .signatures
+            .windows(2)
+            .any(|w| w[0].validator_index > w[1].validator_index)
+        {
+            return Err(Error::NotSortedOrUniqueGuarantors);
         }
 
         self.guarantors.insert(core_index, guarantors);
@@ -251,40 +286,29 @@ impl Handler {
     }
 
     fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
+        if guarantee.slot == slot {
+            return Ok(());
+        }
+
         if guarantee.slot > slot {
             self.next = self.prev.clone();
             return Err(Error::FutureReportSlot);
         }
 
-        Ok(())
-    }
-
-    fn validate_signatures(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        let message = guarantee
-            .signing_message()
-            .map_err(|_| Error::BadSignature)?;
-        for (_, sig) in guarantee.signatures.iter().enumerate() {
-            let validator_index = sig.validator_index as usize;
-            if validator_index >= VALIDATORS_COUNT as usize {
-                return Err(Error::BadValidatorIndex);
-            }
-
-            if let Err(_) = crypto::ed25519::verify(
-                &message,
-                sig.signature,
-                self.next.curr_validators[validator_index].ed25519,
-            ) {
-                return Err(Error::BadSignature);
-            }
+        // R(c, n) = [(x + n) % c | x in [0, c)]
+        //
+        // - x is the core index
+        // - n is the step or rotation increment
+        // - c is the core count
+        //
+        // FIXME: need more strict logic to align to the GP.
+        if guarantee.slot + (CORES_COUNT as u32 * 2) < slot {
+            self.next = self.prev.clone();
+            // TODO: this error should be `ReportRotationBeforeLast`
+            return Err(Error::ReportEpochBeforeLast);
         }
 
-        // Require at least 2/3 guarantors
-        //
-        // FIXME: this is not correct, we need to check the number of guarantors
-        /* if guarantee.signatures.len() < VALIDATORS_SUPER_MAJORITY as usize {
-            return Err(Error::InsufficientGuarantees);
-        } */
-
+        self.validators = self.prev.prev_validators.clone();
         Ok(())
     }
 }
@@ -292,6 +316,7 @@ impl Handler {
 impl From<State> for Handler {
     fn from(state: State) -> Self {
         Self {
+            validators: state.curr_validators.clone(),
             prev: state.clone(),
             next: state,
             deps: Dependencies::default(),
