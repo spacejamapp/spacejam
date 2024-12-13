@@ -6,8 +6,8 @@ use {
         extrinsic::ReportGuarantee,
         misc::{OpaqueHash, TimeSlot},
         work::{report::WorkExecResult, AvailabilityAssignment},
-        CORES_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT,
-        WORK_REPORT_GAS_LIMIT,
+        CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS,
+        VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },
     state::{Input, Output, ReportedPackage, State},
 };
@@ -19,6 +19,7 @@ pub mod state;
 pub struct Handler {
     pub prev: State,
     pub next: State,
+    pub deps: Dependencies,
 }
 
 impl Handler {
@@ -34,12 +35,15 @@ impl Handler {
             .collect::<Vec<_>>();
         let service_ids = self.prev.services.iter().map(|s| s.id).collect::<Vec<_>>();
 
+        self.init_deps(&input);
+
         // Process each guarantee
         for (core_index, guarantee) in input.guarantees.into_iter().enumerate() {
             self.validate_core(input.slot, core_index, &guarantee)?;
             self.validate_results(&code_hashes, &service_ids, &guarantee)?;
             self.validate_block(&guarantee)?;
             self.validate_signatures(&guarantee)?;
+            self.validate_package(&guarantee)?;
 
             // Record reported package
             reported.push(ReportedPackage {
@@ -71,6 +75,33 @@ impl Handler {
             reported,
             reporters,
         })
+    }
+
+    fn init_deps(&mut self, input: &Input) {
+        let service = self
+            .prev
+            .services
+            .iter()
+            .map(|s| s.info.code_hash)
+            .collect::<Vec<_>>();
+        let reported = input
+            .guarantees
+            .iter()
+            .map(|g| g.report.package_spec.hash)
+            .collect::<Vec<_>>();
+        let recent = self
+            .prev
+            .recent_blocks
+            .iter()
+            .map(|b| b.reported.iter().map(|r| r.hash).collect::<Vec<_>>())
+            .flatten()
+            .collect::<Vec<_>>();
+
+        self.deps = Dependencies {
+            service,
+            recent,
+            reported,
+        };
     }
 
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
@@ -133,10 +164,27 @@ impl Handler {
         Ok(())
     }
 
-    /* /// Validate work package
-    fn validate_package(&self, guarantee: &ReportGuarantee) -> Result<()> {
+    /// Validate work package
+    fn validate_package(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+        for dep in guarantee.report.context.prerequisites.iter() {
+            if !self.deps.contains(dep) {
+                self.next = self.prev.clone();
+                return Err(Error::DependencyMissing);
+            }
+        }
+
+        if self.deps.duplicated(&guarantee.report.package_spec.hash) {
+            return Err(Error::DuplicatePackage);
+        }
+
+        if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len()
+            > MAX_DEPENDENCY_COUNT
+        {
+            return Err(Error::TooManyDependencies);
+        }
+
         Ok(())
-    } */
+    }
 
     fn validate_results(
         &self,
@@ -210,6 +258,26 @@ impl From<State> for Handler {
         Self {
             prev: state.clone(),
             next: state,
+            deps: Dependencies::default(),
         }
+    }
+}
+
+/// Temp dependencies for validation
+#[derive(Default)]
+pub struct Dependencies {
+    pub service: Vec<OpaqueHash>,
+    pub recent: Vec<OpaqueHash>,
+    pub reported: Vec<OpaqueHash>,
+}
+
+impl Dependencies {
+    fn contains(&self, hash: &OpaqueHash) -> bool {
+        self.service.contains(hash) || self.recent.contains(hash) || self.reported.contains(hash)
+    }
+
+    // TODO: duplicated in service deps?
+    fn duplicated(&self, hash: &OpaqueHash) -> bool {
+        self.recent.contains(hash) || self.reported.iter().filter(|h| *h == hash).count() > 1
     }
 }

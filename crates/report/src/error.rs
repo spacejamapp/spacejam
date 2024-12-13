@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Error codes for the reporting module.
+///
+/// NOTE:
+///
+/// Missing cases:
+/// - import self
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Error {
