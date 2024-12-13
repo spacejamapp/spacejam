@@ -33,7 +33,8 @@ pub fn load_test(module: &str, scale: &str, path: &str, repl: bool) -> String {
 
     // set the extension to json and read the file
     root.set_extension("json");
-    std::fs::read_to_string(&root).unwrap_or_else(|_| panic!("could not read test vector: {root:?}"))
+    std::fs::read_to_string(&root)
+        .unwrap_or_else(|_| panic!("could not read test vector: {root:?}"))
 }
 
 fn include_all_tests(module: &str, path: &str) {
