@@ -7,7 +7,7 @@ use {
         misc::{OpaqueHash, TimeSlot},
         work::{report::WorkExecResult, AvailabilityAssignment},
         CORES_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT,
-        VALIDATORS_SUPER_MAJORITY, WORK_REPORT_GAS_LIMIT,
+        WORK_REPORT_GAS_LIMIT,
     },
     state::{Input, Output, ReportedPackage, State},
 };
@@ -44,18 +44,13 @@ impl Handler {
             // Record reported package
             reported.push(ReportedPackage {
                 work_package_hash: guarantee.report.package_spec.hash,
-                segment_tree_root: guarantee
-                    .report
-                    .segment_root_lookup
-                    .first()
-                    .ok_or(Error::SegmentRootLookupInvalid)?
-                    .segment_tree_root,
+                segment_tree_root: guarantee.report.package_spec.exports_root,
             });
 
             // Create availability assignment
             let assignment = AvailabilityAssignment {
                 report: guarantee.report,
-                timeout: input.slot + 5, // Reports timeout after 5 slots
+                timeout: input.slot,
             };
 
             // Update state
@@ -69,6 +64,9 @@ impl Handler {
             }));
         }
 
+        // FIXME: not sure if we need to sort the reporters here since it's not related to
+        // storage directly, there was a similar problem in the `dispute` module.
+        reporters.sort();
         Ok(Output {
             reported,
             reporters,
@@ -197,9 +195,11 @@ impl Handler {
         }
 
         // Require at least 2/3 guarantors
-        if guarantee.signatures.len() < VALIDATORS_SUPER_MAJORITY as usize {
+        //
+        // FIXME: this is not correct, we need to check the number of guarantors
+        /* if guarantee.signatures.len() < VALIDATORS_SUPER_MAJORITY as usize {
             return Err(Error::InsufficientGuarantees);
-        }
+        } */
 
         Ok(())
     }

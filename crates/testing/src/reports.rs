@@ -25,7 +25,28 @@ impl Test {
         let mut handler = Handler::from(self.pre_state);
         let output = handler.handle(self.input);
         assert_eq!(output, self.output);
-        assert_eq!(handler.next, self.post_state);
+        assert_eq!(
+            handler.next.auth_pools, self.post_state.auth_pools,
+            "auth_pools"
+        );
+        assert_eq!(
+            handler.next.avail_assignments, self.post_state.avail_assignments,
+            "avail_assignments"
+        );
+        assert_eq!(
+            handler.next.curr_validators, self.post_state.curr_validators,
+            "curr_validators"
+        );
+        assert_eq!(
+            handler.next.prev_validators, self.post_state.prev_validators,
+            "prev_validators"
+        );
+        assert_eq!(handler.next.entropy, self.post_state.entropy, "entropy");
+        assert_eq!(handler.next.services, self.post_state.services, "services");
+        assert_eq!(
+            handler.next.offenders, self.post_state.offenders,
+            "offenders"
+        );
     }
 }
 
