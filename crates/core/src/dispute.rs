@@ -10,7 +10,7 @@ pub struct Judgement {
     pub vote: bool,
     pub index: ValidatorIndex,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 
@@ -57,7 +57,7 @@ pub struct Culprit {
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 
@@ -85,7 +85,7 @@ pub struct Fault {
     #[json(hex)]
     pub key: Ed25519Public,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,
 }
 

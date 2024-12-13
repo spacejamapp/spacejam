@@ -37,9 +37,9 @@ pub struct Header {
     pub offenders_mark: Vec<Ed25519Public>,
     pub author_index: ValidatorIndex,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub entropy_source: BandersnatchVrfSignature,
     #[json(hex)]
-    #[serde(with = "codec")]
+    #[serde(with = "codec::bytes")]
     pub seal: BandersnatchVrfSignature,
 }

@@ -53,10 +53,10 @@ mod core {
         #[json(hex)]
         pub ed25519: Ed25519Public,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub bls: BlsPublic,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub metadata: ValidatorMetadata,
     }
 

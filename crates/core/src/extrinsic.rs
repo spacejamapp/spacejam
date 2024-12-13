@@ -24,7 +24,7 @@ mod preimage {
 // Assurance types
 // --------------------------------------------
 mod assurance {
-    use crate::misc::*;
+    use crate::{misc::*, AVAIL_BITFIELD_BYTES};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -33,10 +33,10 @@ mod assurance {
     pub struct AvailAssurance {
         #[json(hex)]
         pub anchor: OpaqueHash,
-        pub bitfield: u8,
+        pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
         pub validator_index: ValidatorIndex,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub signature: Ed25519Signature,
     }
 
@@ -58,7 +58,7 @@ mod guarantee {
     pub struct ValidatorSignature {
         pub validator_index: ValidatorIndex,
         #[json(hex)]
-        #[serde(with = "codec")]
+        #[serde(with = "codec::bytes")]
         pub signature: Ed25519Signature,
     }
 

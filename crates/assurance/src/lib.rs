@@ -30,7 +30,8 @@ impl Handler {
         for assurance in input.assurances {
             // Count assurances per core
             for core_idx in 0..CORES_COUNT as usize {
-                let assured = assurance.bitfield >> core_idx & 1;
+                // TODO: workaround for the bitfield
+                let assured = assurance.bitfield[0] >> (core_idx % 8) & 1;
                 if assured == 0 {
                     continue;
                 }
