@@ -3,10 +3,9 @@
 TODOS:
 
 - [ ] PVM implementation
-- [ ] confirm the implementation of the `erasure_coding`
+- [ ] confirm the implementation of `erasure_coding`
 - [ ] reports
-  - [ ] validate the `beefy_root`
-  - [ ] validate the `core_assignments`
+  - [ ] the calculation related to rotation period seems not correct.
 
 ## Test Vectors
 

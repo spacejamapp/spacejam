@@ -1,4 +1,5 @@
 use crate::misc::*;
+use merkle::mmr;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -10,6 +11,18 @@ pub type MmrPeak = Option<OpaqueHash>;
 pub struct Mmr {
     #[json(Vec<Option<String>>)]
     pub peaks: Vec<MmrPeak>,
+}
+
+impl Mmr {
+    /// Append a peak to the MMR.
+    pub fn append(&mut self, peak: OpaqueHash) {
+        self.peaks = mmr::append(self.peaks.clone(), peak);
+    }
+
+    /// Get the root of the MMR.
+    pub fn root(&self) -> Option<OpaqueHash> {
+        mmr::root(&self.peaks)
+    }
 }
 
 /// Represents a reported work package.

@@ -1,4 +1,3 @@
-use merkle::mmr;
 use score::{
     block::history::{BlockInfo, BlocksHistory, Mmr, ReportedWorkPackage},
     misc::OpaqueHash,
@@ -32,6 +31,8 @@ impl History {
         // Update the state root of the parent block if it exists (formula 7.2)
         // β† ≡ β exc β†[|β| - 1]_s = H_r
         last.state_root = state_root;
+        let mut mmr = last.mmr.clone();
+        mmr.append(accumulated_root);
 
         // Create new block info according to formula 7.3:
         // let n = (p, h: H(H), b, s: H^0)
@@ -43,9 +44,7 @@ impl History {
         let new_block = BlockInfo {
             header_hash,
             state_root: OpaqueHash::default(), // Initialize to zero/default
-            mmr: Mmr {
-                peaks: mmr::append(last.mmr.peaks.clone(), accumulated_root),
-            },
+            mmr,
             reported,
         };
 
