@@ -36,30 +36,24 @@ pub fn append(
 
 /// Calculate the root of the MMR from the peaks.
 pub fn root(peaks: &[Option<[u8; 32]>]) -> Option<[u8; 32]> {
-    // Filter out None peaks to get sequence h as defined in graypaper
     let non_empty_peaks: Vec<[u8; 32]> = peaks.iter().filter_map(|p| *p).collect();
 
-    // If no peaks, the MMR is empty and cannot contain the BEEFY root
     if non_empty_peaks.is_empty() {
         return None;
     }
 
-    // If only one peak, it must match the BEEFY root
     if non_empty_peaks.len() == 1 {
         return Some(non_empty_peaks[0]);
     }
 
-    // Calculate super-peak recursively as per graypaper:
-    // 𝓜_R(b) = H_K($node ∥ 𝓜_R(h_{...|b|-1}) ∥ h_{|b|-1})
+    // Calculate super-peak
     let mut current = non_empty_peaks[0];
     for peak in non_empty_peaks.iter().skip(1) {
-        // Concatenate "$node", current peak, and next peak
         let mut to_hash = vec![];
         to_hash.extend_from_slice(&MMR_NODE);
         to_hash.extend_from_slice(&current);
         to_hash.extend_from_slice(peak);
 
-        // Hash using keccak as specified in graypaper (H_K)
         current = crypto::keccak(&to_hash);
     }
 

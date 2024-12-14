@@ -361,7 +361,7 @@ impl Dependencies {
             || self.reported.contains(hash)
     }
 
-    // TODO: check ifduplicated in service deps?
+    // TODO: check if duplicated in service deps?
     fn duplicated(&self, hash: &OpaqueHash) -> bool {
         self.recent.iter().any(|r| r.hash == *hash)
             || self.reported.iter().filter(|h| *h == hash).count() > 1
