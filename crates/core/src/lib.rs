@@ -17,7 +17,7 @@ pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 pub const CONTEST_DURATION: u32 = 10;
 pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;
 
-/// The rotation period of validator core assigments, in timeslots.
+/// The rotation period of validator core assignments, in timeslots.
 pub const ROTATION_PERIOD: u32 = 4;
 
 /// The minimum gas for a service item.

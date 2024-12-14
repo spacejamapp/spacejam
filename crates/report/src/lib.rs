@@ -62,7 +62,7 @@ impl Handler {
             });
 
             // Update state
-            let core_index = guarantee.report.core_index.clone() as usize;
+            let core_index = guarantee.report.core_index as usize;
             self.next.avail_assignments[core_index] = Some(AvailabilityAssignment {
                 report: guarantee.report,
                 timeout: input.slot,
@@ -163,7 +163,7 @@ impl Handler {
     }
 
     fn validate_core(&self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
-        let core_index = guarantee.report.core_index.clone();
+        let core_index = guarantee.report.core_index;
         if guarantee.report.core_index >= CORES_COUNT as u16 {
             return Err(Error::BadCoreIndex);
         }
