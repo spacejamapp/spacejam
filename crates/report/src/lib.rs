@@ -1,5 +1,7 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
+use crypto::shuffle;
+use score::{EPOCH_LENGTH, ROTATION_PERIOD};
 use {
     error::{Error, Result},
     score::{
@@ -23,32 +25,35 @@ pub struct Handler {
     pub next: State,
     pub validators: Vec<ValidatorData>,
     pub deps: Dependencies,
+    pub core_assignments: Vec<Vec<u16>>,
     pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
 
 impl Handler {
     /// Handle work reports according to the guarantees extrinsic
     pub fn handle(&mut self, input: Input) -> Result<Output> {
+        self.init_deps(&input);
+
+        // Prepare for reporting
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
+        let service_ids = self.prev.services.iter().map(|s| s.id).collect::<Vec<_>>();
         let code_hashes = self
             .prev
             .services
             .iter()
             .map(|s| s.info.code_hash)
             .collect::<Vec<_>>();
-        let service_ids = self.prev.services.iter().map(|s| s.id).collect::<Vec<_>>();
-        self.init_deps(&input);
 
         // Process each guarantee
-        for (core_index, guarantee) in input.guarantees.into_iter().enumerate() {
-            self.validate_core(input.slot, core_index, &guarantee)?;
+        for guarantee in input.guarantees.into_iter() {
+            self.validate_core(input.slot, &guarantee)?;
             self.validate_rotation(input.slot, &guarantee)?;
-            self.validate_guarantors(core_index, &guarantee)?;
             self.validate_results(&code_hashes, &service_ids, &guarantee)?;
-            self.validate_guarantees(&guarantee)?;
             self.validate_block(&guarantee)?;
             self.validate_deps(&guarantee)?;
+            self.validate_guarantees(&guarantee)?;
+            self.validate_guarantors(&guarantee)?;
 
             // Record reported package
             reported.push(ReportedPackage {
@@ -56,14 +61,12 @@ impl Handler {
                 segment_tree_root: guarantee.report.package_spec.exports_root,
             });
 
-            // Create availability assignment
-            let assignment = AvailabilityAssignment {
+            // Update state
+            let core_index = guarantee.report.core_index.clone() as usize;
+            self.next.avail_assignments[core_index] = Some(AvailabilityAssignment {
                 report: guarantee.report,
                 timeout: input.slot,
-            };
-
-            // Update state
-            self.next.avail_assignments[core_index] = Some(assignment);
+            });
 
             // Record reporters (guarantors)
             reporters.extend(
@@ -82,6 +85,33 @@ impl Handler {
             reported,
             reporters,
         })
+    }
+
+    /// Assign cores to validators based on the timeslot
+    fn assign_cores(&mut self, timeslot: u32, eta: [u8; 32]) {
+        let initial_sequence: Vec<u32> = (0..VALIDATORS_COUNT as u32)
+            .map(|i| (i * CORES_COUNT as u32) / VALIDATORS_COUNT as u32)
+            .collect();
+
+        // Calculate rotation offset based on timeslot
+        let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD;
+
+        // First shuffle using epoch entropy
+        let shuffled = shuffle::eq331(&initial_sequence, eta);
+
+        // Apply rotation to the shuffled sequence
+        let rotated: Vec<u32> = shuffled
+            .iter()
+            .map(|&core_idx| (core_idx + rotation) % CORES_COUNT as u32)
+            .collect();
+
+        // Group validators by their assigned cores
+        let mut assignments: Vec<Vec<u16>> = vec![Vec::new(); CORES_COUNT];
+        for (validator_idx, &core_idx) in rotated.iter().enumerate() {
+            assignments[core_idx as usize].push(validator_idx as u16);
+        }
+
+        self.core_assignments = assignments;
     }
 
     fn init_deps(&mut self, input: &Input) {
@@ -132,13 +162,8 @@ impl Handler {
         Ok(())
     }
 
-    /// TODO: validate core assignments
-    fn validate_core(
-        &self,
-        slot: TimeSlot,
-        core_index: usize,
-        guarantee: &ReportGuarantee,
-    ) -> Result<()> {
+    fn validate_core(&self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
+        let core_index = guarantee.report.core_index.clone();
         if guarantee.report.core_index >= CORES_COUNT as u16 {
             return Err(Error::BadCoreIndex);
         }
@@ -150,11 +175,12 @@ impl Handler {
         }
 
         // Check if core already has a pending report that hasn't timed out
-        if let Some(assignment) = &self.next.avail_assignments[core_index] {
+        if let Some(Some(assignment)) = self.prev.avail_assignments.get(core_index as usize) {
             if slot <= assignment.timeout + 1 {
                 return Err(Error::CoreEngaged);
             }
         }
+
         Ok(())
     }
 
@@ -183,7 +209,6 @@ impl Handler {
 
     fn validate_guarantees(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let min_guarantees = (VALIDATORS_COUNT as usize / CORES_COUNT) * 2 / 3;
-        println!("min_guarantees: {}", min_guarantees);
         if guarantee.signatures.len() < min_guarantees {
             return Err(Error::InsufficientGuarantees);
         }
@@ -209,11 +234,8 @@ impl Handler {
         Ok(())
     }
 
-    fn validate_guarantors(
-        &mut self,
-        core_index: usize,
-        guarantee: &ReportGuarantee,
-    ) -> Result<()> {
+    fn validate_guarantors(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+        let core_index = guarantee.report.core_index as usize;
         let guarantors = guarantee
             .signatures
             .iter()
@@ -232,6 +254,15 @@ impl Handler {
             .any(|w| w[0].validator_index > w[1].validator_index)
         {
             return Err(Error::NotSortedOrUniqueGuarantors);
+        }
+
+        let Some(assignments) = self.core_assignments.get(core_index) else {
+            return Err(Error::WrongAssignment);
+        };
+
+        if guarantors.iter().any(|g| !assignments.contains(g)) {
+            self.next = self.prev.clone();
+            return Err(Error::WrongAssignment);
         }
 
         self.guarantors.insert(core_index, guarantors);
@@ -276,29 +307,28 @@ impl Handler {
     }
 
     fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
-        if guarantee.slot == slot {
-            return Ok(());
-        }
-
         if guarantee.slot > slot {
             self.next = self.prev.clone();
             return Err(Error::FutureReportSlot);
         }
 
-        // R(c, n) = [(x + n) % c | x in [0, c)]
+        // TODO: reference GP 11.23
         //
-        // - x is the core index
-        // - n is the step or rotation increment
-        // - c is the core count
-        //
-        // FIXME: need more strict logic to align to the GP.
-        if guarantee.slot + (CORES_COUNT as u32 * 2) < slot {
+        // The test case or the GP is not correct.
+        if guarantee.slot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
+            self.validators = self.prev.curr_validators.clone();
+            self.assign_cores(slot, self.prev.entropy[2]);
+            return Ok(());
+        } else {
+            self.validators = self.prev.prev_validators.clone();
+            self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.prev.entropy[3]);
+        }
+
+        if guarantee.slot / ROTATION_PERIOD + 1 < slot / ROTATION_PERIOD {
             self.next = self.prev.clone();
-            // TODO: this error should be `ReportRotationBeforeLast`
             return Err(Error::ReportEpochBeforeLast);
         }
 
-        self.validators = self.prev.prev_validators.clone();
         Ok(())
     }
 }
@@ -309,8 +339,9 @@ impl From<State> for Handler {
             validators: state.curr_validators.clone(),
             prev: state.clone(),
             next: state,
-            deps: Dependencies::default(),
+            core_assignments: vec![],
             guarantors: BTreeMap::new(),
+            deps: Dependencies::default(),
         }
     }
 }
@@ -330,7 +361,7 @@ impl Dependencies {
             || self.reported.contains(hash)
     }
 
-    // TODO: duplicated in service deps?
+    // TODO: check ifduplicated in service deps?
     fn duplicated(&self, hash: &OpaqueHash) -> bool {
         self.recent.iter().any(|r| r.hash == *hash)
             || self.reported.iter().filter(|h| *h == hash).count() > 1

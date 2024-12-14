@@ -86,6 +86,6 @@ crate::impl_reports_tests! {
     service_item_gas_too_low_1,
     too_big_work_report_output_1,
     too_high_work_report_gas_1,
-    too_many_dependencies_1
-    // wrong_assignment_1
+    too_many_dependencies_1,
+    wrong_assignment_1
 }
