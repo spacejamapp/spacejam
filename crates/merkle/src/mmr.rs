@@ -1,3 +1,7 @@
+//! MMR utils.
+
+const MMR_NODE: [u8; 4] = *b"node";
+
 /// Append a root to the peaks of the MMR.
 pub fn append(
     mut peaks: Vec<Option<[u8; 32]>>,
@@ -28,4 +32,85 @@ pub fn append(
     }
 
     peaks
+}
+
+/// Calculate the root of the MMR from the peaks.
+pub fn root(peaks: &[Option<[u8; 32]>]) -> Option<[u8; 32]> {
+    // Filter out None peaks to get sequence h as defined in graypaper
+    let non_empty_peaks: Vec<[u8; 32]> = peaks.iter().filter_map(|p| *p).collect();
+
+    // If no peaks, the MMR is empty and cannot contain the BEEFY root
+    if non_empty_peaks.is_empty() {
+        return None;
+    }
+
+    // If only one peak, it must match the BEEFY root
+    if non_empty_peaks.len() == 1 {
+        return Some(non_empty_peaks[0]);
+    }
+
+    // Calculate super-peak recursively as per graypaper:
+    // 𝓜_R(b) = H_K($node ∥ 𝓜_R(h_{...|b|-1}) ∥ h_{|b|-1})
+    let mut current = non_empty_peaks[0];
+    for peak in non_empty_peaks.iter().skip(1) {
+        // Concatenate "$node", current peak, and next peak
+        let mut to_hash = vec![];
+        to_hash.extend_from_slice(&MMR_NODE);
+        to_hash.extend_from_slice(&current);
+        to_hash.extend_from_slice(peak);
+
+        // Hash using keccak as specified in graypaper (H_K)
+        current = crypto::keccak(&to_hash);
+    }
+
+    Some(current)
+}
+
+#[cfg(test)]
+fn to_bytes(hex: &str) -> [u8; 32] {
+    hex::decode(hex)
+        .expect("Failed to decode hex")
+        .try_into()
+        .expect("Failed to convert to [u8; 32]")
+}
+
+#[test]
+fn test_verify_beefy_root_valid() {
+    // From reports_with_dependencies-1.json
+    let peaks = vec![
+        Some(to_bytes(
+            "4c31a1024d553c6f5eb90a26f9c53507d6d58b7be1197c0f86054b084353de5f",
+        )),
+        None,
+        Some(to_bytes(
+            "7f64e54f8be039cea06582eb38e7f36f924c1f59a0f3043b4df6f140cccd6ddf",
+        )),
+        Some(to_bytes(
+            "d7cc7a7751048dbe8d0232b5d0273acd874e56c19e41a2e09b590ca00e59908d",
+        )),
+    ];
+
+    let beefy_root = to_bytes("71c150347dc035847d5944c864a2d3ed0fa410341b2ffbfdeeaa1c9d6aa9cacd");
+    assert_eq!(root(&peaks), Some(beefy_root));
+}
+
+#[test]
+fn test_verify_beefy_root_invalid() {
+    // From bad_beefy_mmr-1.json
+    let peaks = vec![
+        Some(to_bytes(
+            "4c31a1024d553c6f5eb90a26f9c53507d6d58b7be1197c0f86054b084353de5f",
+        )),
+        None,
+        Some(to_bytes(
+            "7f64e54f8be039cea06582eb38e7f36f924c1f59a0f3043b4df6f140cccd6ddf",
+        )),
+        Some(to_bytes(
+            "d7cc7a7751048dbe8d0232b5d0273acd874e56c19e41a2e09b590ca00e59908d",
+        )),
+    ];
+
+    let invalid_beefy_root =
+        to_bytes("1248fd314e6ca467f0305f3494a66c75c37aa084512c6066ee211d49bb1f39bc");
+    assert_ne!(root(&peaks), Some(invalid_beefy_root));
 }

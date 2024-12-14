@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 crypto.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+hex.workspace = true

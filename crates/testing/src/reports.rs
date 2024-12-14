@@ -52,7 +52,7 @@ impl Test {
 
 crate::impl_reports_tests! {
     anchor_not_recent_1,
-    // bad_beefy_mmr_1,
+    bad_beefy_mmr_1,
     bad_code_hash_1,
     bad_core_index_1,
     bad_service_id_1,

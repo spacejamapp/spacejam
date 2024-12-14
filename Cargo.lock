@@ -1168,7 +1168,6 @@ dependencies = [
  "jamcodec",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-merkle",
  "tracing",
 ]
 
@@ -1195,6 +1194,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-crypto",
+ "spacejam-merkle",
  "spacejson",
 ]
 
@@ -1241,6 +1241,8 @@ dependencies = [
 name = "spacejam-merkle"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
+ "hex",
  "spacejam-crypto",
 ]
 

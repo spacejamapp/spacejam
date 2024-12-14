@@ -110,7 +110,6 @@ impl Handler {
         };
     }
 
-    // TODO: validate beefy root
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let Some(block) = self
             .prev
@@ -124,6 +123,10 @@ impl Handler {
         // Validate state root
         if block.state_root != guarantee.report.context.state_root {
             return Err(Error::BadStateRoot);
+        }
+
+        if block.mmr.root() != Some(guarantee.report.context.beefy_root) {
+            return Err(Error::BadBeefyMmrRoot);
         }
 
         Ok(())
