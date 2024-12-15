@@ -1,3 +1,4 @@
 //! RISC-V machine code parser
 
-mod instr;
+pub mod format;
+pub mod instr;

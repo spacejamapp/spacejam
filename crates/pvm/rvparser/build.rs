@@ -1,17 +1,17 @@
 //! Build script for the RISC-V parser
 
 use anyhow::Result;
-use std::{collections::HashMap, env, path::PathBuf, process::Command};
+use std::{env, path::PathBuf, process::Command};
 
 const RISCV_OPCODES_REPO: &str = "https://github.com/riscv/riscv-opcodes.git";
 const PARSE_ARGS: [&str; 3] = ["-rust", "rv_i", "rv_m"];
-const TYPES: [(&str, &str); 6] = [
-    ("R", "0110011"),
-    ("I", "0010011"),
-    ("S", "0000011"),
-    ("U", "0110111"),
-    ("B", "1100011"),
-    ("J", "1101111"),
+const TYPES: [(&str, u8); 6] = [
+    ("R", 0b0010011),
+    ("I", 0b0000011),
+    ("S", 0b0100011),
+    ("B", 0b1100011),
+    ("U", 0b0110111),
+    ("J", 0b1101111),
 ];
 
 fn main() -> Result<()> {
@@ -21,11 +21,6 @@ fn main() -> Result<()> {
     download_opcodes(&root)?;
 
     Ok(())
-}
-
-struct BuildContext<'s> {
-    /// Map of instruction name with [match, mask]
-    instructions: HashMap<&'s str, [u8; 2]>,
 }
 
 // Download the RISC-V opcodes repository
