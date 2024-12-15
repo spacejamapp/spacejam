@@ -1,0 +1,12 @@
+[package]
+name = "rvparser"
+version = "0.1.0"
+edition = "2021"
+description = "Parser for RISC-V instructions"
+
+[dependencies]
+anyhow.workspace = true
+
+[build-dependencies]
+anyhow.workspace = true
+syn.workspace = true
