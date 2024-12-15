@@ -2,3 +2,7 @@
 
 pub mod format;
 pub mod instr;
+pub mod parser;
+pub mod visitor;
+
+pub use parser::parse;
