@@ -5,7 +5,7 @@ use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::{env, fs, path::PathBuf, process::Command};
-use syn::{parse_quote, ExprMatch, Ident, ItemEnum, ItemTrait};
+use syn::{parse_quote, Arm, Expr, ExprMatch, Ident, ItemEnum, ItemFn, ItemTrait};
 
 const RISCV_OPCODES_REPO: &str = "https://github.com/riscv/riscv-opcodes.git";
 const PARSE_ARGS: [&str; 3] = ["-rust", "rv_i", "rv_m"];
@@ -28,6 +28,7 @@ struct BuildContext {
     expr_match_parse: ExprMatch,
     expr_match_visit: ExprMatch,
     expr_match_visit_u32: ExprMatch,
+    parser_tests: Vec<ItemFn>,
 }
 
 impl BuildContext {
@@ -44,8 +45,8 @@ impl BuildContext {
                 /// RISC-V instruction visitor
                 pub trait Visitor {
                     /// Visit an instruction in bytes
-                    fn visit_bytes(bytes: [u8; 4]) -> anyhow::Result<()> {
-                        Self::visit(u32::from_le_bytes(bytes))
+                    fn visit_bytes(&mut self, bytes: [u8; 4]) -> anyhow::Result<()> {
+                        Self::visit(self, u32::from_le_bytes(bytes))
                     }
                 }
             ),
@@ -53,6 +54,7 @@ impl BuildContext {
             expr_match_parse: parse_quote!(match bits {}),
             expr_match_visit: parse_quote!(match instr {}),
             expr_match_visit_u32: parse_quote!(match instr {}),
+            parser_tests: vec![],
         })
     }
 
@@ -60,6 +62,7 @@ impl BuildContext {
         let item_enum_instr = self.item_enum_instr.clone();
         let expr_match_parse = self.expr_match_parse.clone();
         let expr_match_encode = self.expr_match_encode.clone();
+        let parser_tests = self.parser_tests.clone();
         let instr_rs = quote::quote! {
             #item_enum_instr
 
@@ -76,6 +79,8 @@ impl BuildContext {
                     #expr_match_encode
                 }
             }
+
+            #(#parser_tests)*
         };
 
         fs::write(
@@ -92,13 +97,16 @@ impl BuildContext {
         item_trait_visitor.items.append(&mut vec![
             parse_quote! {
                 /// Visit an instruction in u32
-                fn visit(instr: u32) -> anyhow::Result<()> {
+                fn visit(&mut self, instr: u32) -> anyhow::Result<()> {
                     #expr_match_visit_u32
                 }
             },
             parse_quote! {
                 /// Visit an instruction
-                fn visit_instr(instr: Instruction) -> anyhow::Result<()> {
+                ///
+                /// NOTE: You you need to parse instruction from bytes or u32 first,
+                /// please use [Self::visit] directly.
+                fn visit_instr(&mut self, instr: Instruction) -> anyhow::Result<()> {
                     #expr_match_visit
                 }
             },
@@ -147,6 +155,7 @@ impl BuildContext {
                 (name, march, mask)
             };
 
+            let name_snake = Ident::new(&name.to_snake_case(), Span::call_site());
             let match_value = u32::from_str_radix(march, 16).expect("Failed to parse match value");
             let mask_value = u32::from_str_radix(mask, 16).expect("Failed to parse mask value");
             let format = Ident::new(
@@ -162,44 +171,45 @@ impl BuildContext {
                 Span::call_site(),
             );
 
+            // prepare shared tokens
             let variant_name = Ident::new(&name.to_upper_camel_case(), Span::call_site());
+            let mut marm: Arm = parse_quote!(instr if instr ^ #match_value & #mask_value == 0 => Self::#variant_name(#format::from(instr)));
+            let mut iarm: Arm = parse_quote!(Instruction::#variant_name(instr) => instr.into());
+
+            // parser codegen
             self.item_enum_instr.variants.push(parse_quote! {
                 #[doc = concat!("RISC-V `", #name, "` instruction")]
                 #variant_name(#format)
             });
 
-            self.expr_match_encode.arms.push(parse_quote! {
-                Instruction::#variant_name(instr) => instr.into()
+            self.expr_match_encode.arms.push(iarm.clone());
+            self.expr_match_parse.arms.push(marm.clone());
+            self.parser_tests.push(parse_quote! {
+                #[test]
+                fn #name_snake() {
+                    let instr = Instruction::try_from(#match_value).expect(format!("Failed to parse instruction: {}", #name).as_str());
+                    assert_eq!(instr, Instruction::#variant_name(#format::from(#match_value)));
+                    assert_eq!(u32::from(instr), #match_value);
+                }
             });
 
-            self.expr_match_parse.arms.push(parse_quote! {
-                instr if instr ^ #match_value & #mask_value == 0 => Self::#variant_name(#format::from(instr.to_le_bytes()))
-            });
-
-            let fn_name = Ident::new(
-                &format!("visit_{}", name.to_snake_case()),
-                Span::call_site(),
-            );
+            // visitor codegen
+            let visit: Expr = parse_quote!(Self::#name_snake(self, instr.into()));
             self.item_trait_visitor.items.push(parse_quote! {
                 #[doc = concat!("Visit `", #name, "` instruction")]
-                fn #fn_name(instr: #format) -> anyhow::Result<()>;
+                fn #name_snake(&mut self, instr: #format) -> anyhow::Result<()>;
             });
 
-            self.expr_match_visit.arms.push(parse_quote! {
-                Instruction::#variant_name(instr) => Self::#fn_name(instr)
-            });
+            iarm.body = Box::new(visit.clone());
+            self.expr_match_visit.arms.push(iarm);
 
-            self.expr_match_visit_u32.arms.push(parse_quote! {
-                instr if instr ^ #match_value & #mask_value == 0 => Self::#fn_name(instr.into())
-            });
+            marm.body = Box::new(visit);
+            self.expr_match_visit_u32.arms.push(marm);
         }
 
-        self.expr_match_parse
-            .arms
-            .push(parse_quote!(_ => anyhow::bail!("Invalid instruction")));
-        self.expr_match_visit_u32
-            .arms
-            .push(parse_quote!(_ => anyhow::bail!("Invalid instruction")));
+        let invalid: Arm = parse_quote!(_ => anyhow::bail!("Invalid instruction"));
+        self.expr_match_parse.arms.push(invalid.clone());
+        self.expr_match_visit_u32.arms.push(invalid.clone());
         Ok(())
     }
 
