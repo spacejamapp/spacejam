@@ -126,9 +126,9 @@ fn verify_proof() {
     let verify = |chunks: Vec<Vec<u8>>| {
         let len = chunks.len();
         let tree = MerkleTree::from(chunks.clone());
-        for i in 0..len {
+        for (i, chunk) in chunks.into_iter().enumerate().take(len) {
             let proof = tree
-                .proof(blake2b(&chunks[i]))
+                .proof(blake2b(&chunk))
                 .unwrap_or_else(|| panic!("Proof not found, chunks: {len}"));
             assert!(proof.verify(), "chunk index: {i}/{len}");
         }

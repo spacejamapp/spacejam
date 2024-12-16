@@ -139,6 +139,7 @@ pub mod assurances;
 pub mod codec;
 pub mod disputes;
 pub mod history;
+pub mod pvm;
 pub mod reports;
 pub mod safrole;
 pub mod shuffle;

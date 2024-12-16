@@ -1317,6 +1317,8 @@ dependencies = [
  "hex",
  "jamcodec",
  "paste",
+ "proc-macro2",
+ "quote",
  "serde",
  "serde_json",
  "spacejam",
@@ -1329,6 +1331,7 @@ dependencies = [
  "spacejam-safrole",
  "spacejam-stats",
  "spacejson",
+ "syn 2.0.90",
  "tracing",
  "tracing-subscriber",
 ]

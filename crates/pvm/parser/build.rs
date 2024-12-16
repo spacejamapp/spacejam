@@ -5,7 +5,7 @@ use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::{env, fs, path::PathBuf, process::Command};
-use syn::{parse_quote, Arm, Expr, ExprMatch, Ident, ItemEnum, ItemFn, ItemTrait};
+use syn::{parse_quote, Arm, ExprMatch, Ident, ItemEnum, ItemFn, ItemTrait};
 
 const RISCV_OPCODES_REPO: &str = "https://github.com/riscv/riscv-opcodes.git";
 const PARSE_ARGS: [&str; 3] = ["-rust", "rv_i", "rv_m"];
@@ -194,16 +194,15 @@ impl BuildContext {
             });
 
             // visitor codegen
-            let visit: Expr = parse_quote!(Self::#name_snake(self, instr.into()));
             self.item_trait_visitor.items.push(parse_quote! {
                 #[doc = concat!("Visit `", #name, "` instruction")]
                 fn #name_snake(&mut self, instr: #format) -> anyhow::Result<()>;
             });
 
-            iarm.body = Box::new(visit.clone());
+            iarm.body = parse_quote!(Self::#name_snake(self, instr));
             self.expr_match_visit.arms.push(iarm);
 
-            marm.body = Box::new(visit);
+            marm.body = parse_quote!(Self::#name_snake(self, instr.into()));
             self.expr_match_visit_u32.arms.push(marm);
         }
 
