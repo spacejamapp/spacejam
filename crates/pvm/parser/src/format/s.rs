@@ -3,14 +3,17 @@
 use crate::format::{self, Format};
 
 /// RISC-V S-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SType {
-    /// imm[11:5]
+    /// imm\[11:5\]
     pub imm_11_5: u8,
-    /// imm[4:0]
+    /// imm\[4:0\]
     pub imm_4_0: u8,
+    /// rs1
     pub rs1: u8,
+    /// rs2
     pub rs2: u8,
+    /// funct3
     pub funct3: u8,
 }
 

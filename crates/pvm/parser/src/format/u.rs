@@ -3,14 +3,16 @@
 use crate::format::{self, Format};
 
 /// RISC-V U-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UType {
+    /// imm\[31:12\]
     pub imm_31_12: u32,
+    /// rd
     pub rd: u8,
 }
 
 impl Format for UType {
-    const OPCODE: u8 = 0b0110111;
+    const OPCODE: u8 = 0b0010111;
 }
 
 impl From<[u8; 4]> for UType {

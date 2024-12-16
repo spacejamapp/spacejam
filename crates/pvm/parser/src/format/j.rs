@@ -3,16 +3,17 @@
 use crate::format::{self, Format};
 
 /// RISC-V J-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JType {
-    /// imm[20]
+    /// imm\[20\]
     pub imm_20: u8,
-    /// imm[19:12]
+    /// imm\[19:12\]
     pub imm_19_12: u8,
-    /// imm[11]
+    /// imm\[11\]
     pub imm_11: u8,
-    /// imm[10:1]
+    /// imm\[10:1\]
     pub imm_10_1: u16,
+    /// rd
     pub rd: u8,
 }
 

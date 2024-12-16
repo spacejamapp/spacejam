@@ -3,16 +3,20 @@
 use crate::format::{self, Format};
 
 /// RISC-V I-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IType {
+    /// imm\[11:0\]
     pub imm_11_0: u16,
+    /// rs1
     pub rs1: u8,
+    /// funct3
     pub funct3: u8,
+    /// rd
     pub rd: u8,
 }
 
 impl Format for IType {
-    const OPCODE: u8 = 0b0010011;
+    const OPCODE: u8 = 0b1100111;
 }
 
 impl From<[u8; 4]> for IType {

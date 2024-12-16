@@ -3,7 +3,7 @@
 use crate::format::{self, Format};
 
 /// RISC-V R-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RType {
     /// The funct7 field
     pub funct7: u8,

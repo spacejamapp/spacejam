@@ -3,15 +3,15 @@
 use crate::format::{self, Format};
 
 /// RISC-V B-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BType {
-    /// imm[12]
+    /// imm\[12\]
     pub imm_12: u8,
-    /// imm[11]
+    /// imm\[11\]
     pub imm_11: u8,
-    /// imm[10:5]
+    /// imm\[10:5\]
     pub imm_10_5: u8,
-    /// imm[4:1]
+    /// imm\[4:1\]
     pub imm_4_1: u8,
     pub rs1: u8,
     pub rs2: u8,
