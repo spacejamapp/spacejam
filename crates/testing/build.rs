@@ -17,8 +17,8 @@ fn main() -> Result<()> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(INTO);
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
 
-    build_tests(&root.join("pvm/programs"), &out_dir.join("pvm.rs"))?;
-    download_tests()
+    download_tests()?;
+    build_tests(&root.join("pvm/programs"), &out_dir.join("pvm.rs"))
 }
 
 fn build_tests(tests: &Path, out_dir: &Path) -> Result<()> {
