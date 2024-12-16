@@ -9,4 +9,7 @@ anyhow.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
-syn.workspace = true
+heck.workspace = true
+syn = { workspace = true, features = ["full"] }
+proc-macro2.workspace = true
+quote.workspace = true

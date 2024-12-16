@@ -3,7 +3,7 @@
 use crate::format::{self, Format};
 
 /// RISC-V R-type instruction
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RType {
     /// The funct7 field
     pub funct7: u8,
@@ -21,9 +21,8 @@ impl Format for RType {
     const OPCODE: u8 = 0b0110011;
 }
 
-impl From<[u8; 4]> for RType {
-    fn from(bytes: [u8; 4]) -> Self {
-        let value = u32::from_le_bytes(bytes);
+impl From<u32> for RType {
+    fn from(value: u32) -> Self {
         Self {
             funct7: format::extract_bits(value, 31, 25) as u8,
             rs2: format::extract_bits(value, 24, 20) as u8,
@@ -34,7 +33,13 @@ impl From<[u8; 4]> for RType {
     }
 }
 
-impl From<RType> for [u8; 4] {
+impl From<[u8; 4]> for RType {
+    fn from(bytes: [u8; 4]) -> Self {
+        Self::from(u32::from_le_bytes(bytes))
+    }
+}
+
+impl From<RType> for u32 {
     fn from(instr: RType) -> Self {
         let mut value = 0u32;
         value |= (instr.funct7 as u32) << 25;
@@ -43,6 +48,12 @@ impl From<RType> for [u8; 4] {
         value |= (instr.funct3 as u32) << 12;
         value |= (instr.rd as u32) << 7;
         value |= RType::OPCODE as u32;
-        value.to_le_bytes()
+        value
+    }
+}
+
+impl From<RType> for [u8; 4] {
+    fn from(instr: RType) -> Self {
+        u32::from(instr).to_le_bytes()
     }
 }
