@@ -5,7 +5,7 @@ use heck::ToUpperCamelCase;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::{env, fs, path::PathBuf, process::Command};
-use syn::{parse_quote, Expr, Ident, ItemEnum};
+use syn::{parse_quote, ExprMatch, Ident, ItemEnum};
 
 const RISCV_OPCODES_REPO: &str = "https://github.com/riscv/riscv-opcodes.git";
 const PARSE_ARGS: [&str; 3] = ["-rust", "rv_i", "rv_m"];
@@ -19,26 +19,23 @@ fn main() -> Result<()> {
 }
 
 /// Opcodes build context
-#[derive(Default)]
 struct BuildContext {
     root: PathBuf,
-    instr_rs: PathBuf,
-    r: Vec<Instr>,
-    i: Vec<Instr>,
-    s: Vec<Instr>,
-    b: Vec<Instr>,
-    u: Vec<Instr>,
-    j: Vec<Instr>,
+    item_enum: ItemEnum,
+    expr_match: ExprMatch,
 }
 
 impl BuildContext {
     fn new() -> Result<Self> {
         let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
         Ok(Self {
             root,
-            instr_rs: out_dir.join("instr.rs"),
-            ..Default::default()
+            item_enum: parse_quote!(
+                /// RISC-V instruction
+                #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+                pub enum Instruction {}
+            ),
+            expr_match: parse_quote!(match bits {}),
         })
     }
 
@@ -46,33 +43,29 @@ impl BuildContext {
         let mut instr_rs = String::new();
         instr_rs.push_str("use crate::format::{RType, IType, SType, BType, UType, JType};\n");
 
-        let mut item_enum: ItemEnum = parse_quote!(
-            /// RISC-V instruction
-            #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-            pub enum Instruction {}
+        let item_enum = self.item_enum.clone();
+        let expr_match = self.expr_match.clone();
+        instr_rs.push_str(
+            quote::quote! {
+                #item_enum
+
+                impl TryFrom<u32> for Instruction {
+                    type Error = anyhow::Error;
+
+                    fn try_from(bits: u32) -> anyhow::Result<Self> {
+                        Ok(#expr_match)
+                    }
+                }
+            }
+            .to_token_stream()
+            .to_string()
+            .as_str(),
         );
 
-        for (fmt, instructions) in [
-            ("R", &self.r),
-            ("I", &self.i),
-            ("S", &self.s),
-            ("B", &self.b),
-            ("U", &self.u),
-            ("J", &self.j),
-        ] {
-            for instr in instructions {
-                let format = Ident::new(&format!("{fmt}Type"), Span::call_site());
-                let name = Ident::new(&instr.name.to_upper_camel_case(), Span::call_site());
-                let variant = parse_quote!(#name(#format));
-                item_enum.variants.push(variant);
-
-                // TODO: update parse
-            }
-        }
-
-        instr_rs.push_str(item_enum.to_token_stream().to_string().as_str());
-
-        fs::write(&self.instr_rs, instr_rs)?;
+        fs::write(
+            PathBuf::from(env::var("OUT_DIR")?).join("instr.rs"),
+            instr_rs,
+        )?;
         Ok(())
     }
 
@@ -86,44 +79,62 @@ impl BuildContext {
                 break;
             }
 
-            let (name, march) = {
+            let (name, march, mask) = {
                 let mut matches = march.split_ascii_whitespace();
                 let name = matches
                     .nth(1)
                     .expect("Failed to parse name")
                     .trim_start_matches("MATCH_")
-                    .trim();
+                    .trim_end_matches(':');
 
                 let march = matches
                     .last()
                     .expect("Failed to parse match")
+                    .trim_start_matches("0x")
                     .trim_end_matches(';')
                     .trim();
 
-                (name, march)
+                let mask = mask
+                    .split("=")
+                    .nth(1)
+                    .expect("Failed to parse mask")
+                    .trim()
+                    .trim_start_matches("0x")
+                    .trim_end_matches(';');
+
+                (name, march, mask)
             };
 
-            let mask = mask.split("=").nth(1).expect("Failed to parse mask");
-            let instr = Instr {
-                name: name.to_string(),
-                mask_value: parse_quote!(#mask),
-                match_value: parse_quote!(#march),
-            };
+            let match_value = u32::from_str_radix(march, 16).expect("Failed to parse match value");
+            let mask_value = u32::from_str_radix(mask, 16).expect("Failed to parse mask value");
 
-            let value = u32::from_str_radix(march.trim_start_matches("0x"), 16)
-                .expect("Failed to parse match value");
+            let format = Ident::new(
+                match (match_value & 255) as u8 {
+                    0b1100011 => "BType",
+                    0b1100111 => "IType",
+                    0b1101111 => "JType",
+                    0b0110011 => "RType",
+                    0b0100011 => "SType",
+                    0b0010111 => "UType",
+                    _ => continue,
+                },
+                Span::call_site(),
+            );
 
-            match (value & 255) as u8 {
-                0b1100011 => self.b.push(instr),
-                0b1100111 => self.i.push(instr),
-                0b1101111 => self.j.push(instr),
-                0b0110011 => self.r.push(instr),
-                0b0100011 => self.s.push(instr),
-                0b0010111 => self.u.push(instr),
-                _ => {}
-            }
+            let variant_name = Ident::new(&name.to_upper_camel_case(), Span::call_site());
+            self.item_enum.variants.push(parse_quote! {
+                #[doc = concat!("RISC-V `", #name, "` instruction")]
+                #variant_name(#format)
+            });
+
+            self.expr_match.arms.push(parse_quote! {
+                instr if instr ^ #match_value & #mask_value == 0 => Self::#variant_name(#format::from(instr.to_le_bytes()))
+            });
         }
 
+        self.expr_match.arms.push(parse_quote! {
+            _ => anyhow::bail!("Invalid instruction")
+        });
         Ok(())
     }
 
@@ -148,13 +159,4 @@ impl BuildContext {
 
         Ok(())
     }
-}
-
-/// An RISC-V instruction
-struct Instr {
-    name: String,
-    /// The mask value of the instruction
-    mask_value: Expr,
-    /// The match value of the instruction
-    match_value: Expr,
 }
