@@ -1,5 +1,7 @@
 //! RISC-V instructions.
 
+use crate::format::{BType, IType, JType, RType, SType, UType};
+
 include!(concat!(env!("OUT_DIR"), "/instr.rs"));
 
 impl TryFrom<[u8; 4]> for Instruction {
