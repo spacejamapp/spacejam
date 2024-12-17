@@ -1,7 +1,7 @@
 //! The opcode definitions.
 
 use super::format::Opcode;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{parse_quote, Arm, Ident, ItemEnum};
 
 /// The opcode enum.
@@ -51,7 +51,6 @@ impl ToString for OpcodeEnum {
                 }
             }
         }
-        .to_token_stream()
         .to_string()
     }
 }
