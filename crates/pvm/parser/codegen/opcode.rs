@@ -11,11 +11,14 @@ pub struct OpcodeEnum {
 
     /// The try_from_u8 implementation.
     pub try_from_u8_arms: Vec<Arm>,
+
+    /// parse instruction arms
+    pub parse_instr_arms: Vec<Arm>,
 }
 
 impl OpcodeEnum {
     /// Emits a new opcode.
-    pub fn emit(&mut self, opcode: &Opcode, name: &Ident) {
+    pub fn emit(&mut self, opcode: &Opcode, name: &Ident, format: &Option<Ident>) {
         let index = opcode.opcode;
         let description = &opcode.description;
 
@@ -26,9 +29,17 @@ impl OpcodeEnum {
         });
 
         // Add the try_from_u8 implementation.
-        self.try_from_u8_arms.push(parse_quote! {
-            #index => Ok(Self::#name),
-        });
+        self.try_from_u8_arms
+            .push(parse_quote!(#index => Ok(Self::#name),));
+
+        // Add the parse_instr implementation.
+        let arm = if let Some(format) = format {
+            parse_quote!(Self::#name => Instruction::#name(#format::try_from(bytes)?),)
+        } else {
+            parse_quote!(Self::#name => Instruction::#name,)
+        };
+
+        self.parse_instr_arms.push(arm);
     }
 }
 
@@ -36,7 +47,7 @@ impl core::fmt::Display for OpcodeEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let item = self.item.clone();
         let arms = self.try_from_u8_arms.clone();
-
+        let parse_instr_arms = self.parse_instr_arms.clone();
         let formatted = quote! {
             #item
 
@@ -48,6 +59,13 @@ impl core::fmt::Display for OpcodeEnum {
                         #(#arms)*
                         _ => anyhow::bail!("invalid opcode: {value}"),
                     }
+                }
+            }
+
+            impl Opcode {
+                /// Parse the following instruction from the bytes.
+                pub fn instr(&self, bytes: &[u8]) -> anyhow::Result<Instruction> {
+                    Ok(match self { #(#parse_instr_arms)* })
                 }
             }
         }
@@ -69,6 +87,7 @@ impl Default for OpcodeEnum {
         Self {
             item,
             try_from_u8_arms: vec![],
+            parse_instr_arms: vec![],
         }
     }
 }

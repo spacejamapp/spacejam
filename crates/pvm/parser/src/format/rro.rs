@@ -1,11 +1,16 @@
-use crate::format::{ISA, O, RRO};
+use crate::format::{Format, ISA, RRO};
+
+impl Format for RRO {
+    const MIN_LEN: usize = 2;
+    const MAX_LEN: usize = 5;
+}
 
 impl TryFrom<&[u8]> for RRO {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() <= 2 {
-            anyhow::bail!("Invalid length");
+        if bytes.len() < 3 {
+            anyhow::bail!("Invalid byte length, expected at least 3 bytes");
         }
 
         Ok(RRO {
@@ -19,8 +24,7 @@ impl TryFrom<&[u8]> for RRO {
 impl From<RRO> for Vec<u8> {
     fn from(value: RRO) -> Self {
         let mut bytes = vec![((value.reg1 << 4) | value.reg0)];
-        let o: Vec<u8> = O { off0: value.off0 }.into();
-        bytes.extend(o);
+        bytes.extend(value.off0.bytes());
         bytes
     }
 }

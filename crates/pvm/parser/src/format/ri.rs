@@ -1,22 +1,19 @@
-use crate::format::RI;
+use crate::format::{Format, ISA, RI};
+
+impl Format for RI {
+    const MIN_LEN: usize = 2;
+    const MAX_LEN: usize = 5;
+}
 
 impl From<RI> for Vec<u8> {
     fn from(value: RI) -> Vec<u8> {
-        // Calculate minimum bytes needed for x
-        let x_len = if value.imm0 == 0 {
-            1
-        } else {
-            (32 - value.imm0.leading_zeros() + 7) / 8
-        }
-        .min(4);
-
+        let x_len = value.imm0.len();
         let mut bytes = Vec::with_capacity(1 + x_len as usize);
         bytes.push(value.reg0 % 16); // Register encoded mod 16
 
         // Encode immediate
         let x_bytes = value.imm0.to_le_bytes();
         bytes.extend_from_slice(&x_bytes[..x_len as usize]);
-
         bytes
     }
 }
@@ -25,8 +22,8 @@ impl TryFrom<&[u8]> for RI {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> anyhow::Result<Self> {
-        if bytes.is_empty() {
-            anyhow::bail!("Empty bytes");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!("Insufficient bytes");
         }
 
         // Get register index

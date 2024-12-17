@@ -1,4 +1,9 @@
-use crate::format::{ISA, RRI};
+use crate::format::{Format, ISA, RRI};
+
+impl Format for RRI {
+    const MIN_LEN: usize = 2;
+    const MAX_LEN: usize = 5;
+}
 
 impl From<RRI> for Vec<u8> {
     fn from(value: RRI) -> Self {
@@ -19,30 +24,14 @@ impl TryFrom<&[u8]> for RRI {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.is_empty() {
-            anyhow::bail!("No bytes provided");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!("Invalid length, expected at least 3 bytes");
         }
-
-        // Extract registers from first byte
-        let reg0 = (bytes[0] & 0x0f).min(12);
-        let reg1 = (bytes[0] >> 4).min(12);
-
-        // Get immediate length
-        let x_len = (bytes.len() - 1).min(4);
-
-        if x_len == 0 {
-            anyhow::bail!("No immediate bytes");
-        }
-
-        // Extract immediate
-        let mut x_bytes = [0u8; 4];
-        x_bytes[..x_len].copy_from_slice(&bytes[1..1 + x_len]);
-        let x = u32::from_le_bytes(x_bytes);
 
         Ok(RRI {
-            reg0,
-            reg1,
-            imm0: x,
+            reg0: (bytes[0] & 0x0f).min(12),
+            reg1: (bytes[0] >> 4).min(12),
+            imm0: u32::read(&bytes[1..])?,
         })
     }
 }

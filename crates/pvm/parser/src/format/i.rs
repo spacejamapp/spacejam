@@ -1,4 +1,9 @@
-use crate::format::{I, ISA};
+use crate::format::{Format, I, ISA};
+
+impl Format for I {
+    const MIN_LEN: usize = 1;
+    const MAX_LEN: usize = 4;
+}
 
 impl From<I> for Vec<u8> {
     fn from(value: I) -> Self {
@@ -12,8 +17,8 @@ impl TryFrom<&[u8]> for I {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.is_empty() {
-            anyhow::bail!("No bytes provided");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!("Insufficient bytes, expected at least {}", Self::MIN_LEN);
         }
 
         // Get length capped at 4 bytes
@@ -23,7 +28,6 @@ impl TryFrom<&[u8]> for I {
         let mut x_bytes = [0u8; 4];
         x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
         let x = u32::from_le_bytes(x_bytes);
-
         Ok(I { imm0: x })
     }
 }

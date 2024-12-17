@@ -26,8 +26,6 @@ impl InstructionEnum {
             parse_quote!(#[doc = concat!("Format: ", #desc, ".")]),
         ]);
         self.item.variants.push(variant);
-
-        // TODO: encode and decode the instruction from bytes
     }
 }
 

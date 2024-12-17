@@ -1,6 +1,9 @@
-use crate::format::RIO;
+use crate::format::{Format, RII, RIO};
 
-use super::RII;
+impl Format for RIO {
+    const MIN_LEN: usize = 3;
+    const MAX_LEN: usize = 9;
+}
 
 impl From<RIO> for Vec<u8> {
     fn from(value: RIO) -> Self {

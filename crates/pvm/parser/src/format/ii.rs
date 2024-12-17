@@ -1,4 +1,9 @@
-use crate::format::{II, ISA};
+use crate::format::{Format, II, ISA};
+
+impl Format for II {
+    const MIN_LEN: usize = 2;
+    const MAX_LEN: usize = 8;
+}
 
 impl From<II> for Vec<u8> {
     fn from(value: II) -> Self {
@@ -18,8 +23,8 @@ impl TryFrom<&[u8]> for II {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> anyhow::Result<Self> {
-        if bytes.is_empty() {
-            anyhow::bail!("No bytes provided");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!("Insufficient bytes");
         }
 
         // Get l_X from first byte

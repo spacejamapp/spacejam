@@ -1,4 +1,9 @@
-use crate::format::{ISA, RII};
+use crate::format::{Format, ISA, RII};
+
+impl Format for RII {
+    const MIN_LEN: usize = 3;
+    const MAX_LEN: usize = 9;
+}
 
 impl From<RII> for Vec<u8> {
     fn from(value: RII) -> Self {
@@ -26,8 +31,8 @@ impl TryFrom<&[u8]> for RII {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.is_empty() {
-            anyhow::bail!("No bytes provided");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!("Insufficient bytes");
         }
 
         // Get register index

@@ -1,4 +1,9 @@
-use crate::format::RR;
+use crate::format::{Format, RR};
+
+impl Format for RR {
+    const MIN_LEN: usize = 1;
+    const MAX_LEN: usize = 1;
+}
 
 impl From<u8> for RR {
     fn from(byte: u8) -> Self {
@@ -6,6 +11,15 @@ impl From<u8> for RR {
             reg0: (byte & 0x0f).min(12),
             reg1: (byte >> 4).min(12),
         }
+    }
+}
+
+impl TryFrom<&[u8]> for RR {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        let bytes: [u8; 1] = bytes.try_into()?;
+        Ok(Self::from(bytes[0]))
     }
 }
 
