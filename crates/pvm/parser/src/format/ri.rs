@@ -1,0 +1,62 @@
+use crate::format::RI;
+
+impl From<RI> for Vec<u8> {
+    fn from(value: RI) -> Vec<u8> {
+        // Calculate minimum bytes needed for x
+        let x_len = if value.imm0 == 0 {
+            1
+        } else {
+            (32 - value.imm0.leading_zeros() + 7) / 8
+        }
+        .min(4);
+
+        let mut bytes = Vec::with_capacity(1 + x_len as usize);
+        bytes.push(value.reg0 % 16); // Register encoded mod 16
+
+        // Encode immediate
+        let x_bytes = value.imm0.to_le_bytes();
+        bytes.extend_from_slice(&x_bytes[..x_len as usize]);
+
+        bytes
+    }
+}
+
+impl TryFrom<&[u8]> for RI {
+    type Error = anyhow::Error;
+
+    fn try_from(bytes: &[u8]) -> anyhow::Result<Self> {
+        if bytes.is_empty() {
+            anyhow::bail!("Empty bytes");
+        }
+
+        // Get register index
+        let reg = bytes[0] % 16;
+
+        // Get immediate length capped at 4 bytes
+        let x_len = (bytes.len() - 1).min(4);
+
+        if x_len == 0 {
+            anyhow::bail!("No immediate bytes");
+        }
+
+        // Extract immediate
+        let mut x_bytes = [0u8; 4];
+        x_bytes[..x_len].copy_from_slice(&bytes[1..1 + x_len]);
+
+        Ok(RI {
+            reg0: reg,
+            imm0: u32::from_le_bytes(x_bytes),
+        })
+    }
+}
+
+#[test]
+fn test_ri_encoding() {
+    let bytes = vec![7, 0, 0, 2];
+    let decoded = RI::try_from(bytes.as_ref()).expect("Failed to decode");
+    assert_eq!(decoded.reg0, 7);
+    assert_eq!(decoded.imm0, 0x020000);
+
+    let encoded: Vec<u8> = decoded.into();
+    assert_eq!(encoded, bytes);
+}

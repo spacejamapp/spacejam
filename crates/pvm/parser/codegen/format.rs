@@ -2,9 +2,10 @@ use proc_macro2::Span;
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use syn::{parse_quote, Field, Ident, ItemImpl, ItemStruct};
+use syn::{parse_quote, Field, Ident, ItemImpl, ItemStruct, Type};
 
 /// The codegen for the formats.
+#[derive(Default)]
 pub struct Formats {
     /// The formats.
     pub formats: Vec<ItemStruct>,
@@ -22,15 +23,18 @@ impl Formats {
 
         // introduce the format struct
         let fields: Vec<Field> = (0..format.register)
-            .map(|i| (format!("reg{}", i), "register"))
-            .chain((0..format.immediate).map(|i| (format!("imm{}", i), "immediate")))
-            .chain((0..format.offset).map(|i| (format!("off{}", i), "offset")))
-            .map(|(name, doc)| {
+            .map(|i| (format!("reg{}", i), parse_quote!(u8), "register"))
+            .chain(
+                (0..format.immediate)
+                    .map(|i| (format!("imm{}", i), parse_quote!(u32), "immediate")),
+            )
+            .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(u32), "offset")))
+            .map(|(name, value, doc): (String, Type, &str)| {
                 let i = name.chars().last().expect("Failed to get last char");
                 let ident = Ident::new(&name, Span::call_site());
                 parse_quote! {
                     #[doc = concat!("The ", #doc, " ", #i, ".") ]
-                    pub #ident: u8
+                    pub #ident: #value
                 }
             })
             .collect();
@@ -50,26 +54,19 @@ impl Formats {
     }
 }
 
-impl ToString for Formats {
-    fn to_string(&self) -> String {
+impl core::fmt::Display for Formats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let formats = self.formats.clone();
         let impls = self.impls.clone();
 
-        quote! {
+        let formatted = quote! {
             #(#formats)*
 
             #(#impls)*
         }
-        .to_string()
-    }
-}
+        .to_string();
 
-impl Default for Formats {
-    fn default() -> Self {
-        Self {
-            formats: Vec::new(),
-            impls: Vec::new(),
-        }
+        write!(f, "{formatted}")
     }
 }
 
@@ -98,7 +95,7 @@ impl Format {
         let formats: HashMap<String, Format> =
             toml::from_str(toml).expect("Failed to parse formats");
 
-        let formats = formats
+        formats
             .into_iter()
             .map(|(name, mut format)| {
                 if name != "Z" {
@@ -108,9 +105,7 @@ impl Format {
 
                 format
             })
-            .collect();
-
-        formats
+            .collect()
     }
 }
 

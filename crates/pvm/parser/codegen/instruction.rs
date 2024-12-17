@@ -31,9 +31,10 @@ impl InstructionEnum {
     }
 }
 
-impl ToString for InstructionEnum {
-    fn to_string(&self) -> String {
-        self.item.to_token_stream().to_string()
+impl core::fmt::Display for InstructionEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let formatted = self.item.to_token_stream().to_string();
+        write!(f, "{formatted}")
     }
 }
 

@@ -32,12 +32,12 @@ impl OpcodeEnum {
     }
 }
 
-impl ToString for OpcodeEnum {
-    fn to_string(&self) -> String {
+impl core::fmt::Display for OpcodeEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let item = self.item.clone();
         let arms = self.try_from_u8_arms.clone();
 
-        quote! {
+        let formatted = quote! {
             #item
 
             impl TryFrom<u8> for Opcode {
@@ -51,7 +51,9 @@ impl ToString for OpcodeEnum {
                 }
             }
         }
-        .to_string()
+        .to_string();
+
+        write!(f, "{formatted}")
     }
 }
 
