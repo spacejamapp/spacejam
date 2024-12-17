@@ -1,0 +1,179 @@
+[Z]
+description = "Instructions without arguments"
+register = 0
+immediate = 0
+offset = 0
+opcodes = [
+    { name = "trap", description = "Trap", opcode = 0x00 },
+    { name = "fallthrough", description = "Fallthrough", opcode = 0x11 },
+]
+
+[I]
+description = "Instructions with arguments of one immediate"
+register = 0
+immediate = 1
+offset = 0
+opcodes = [
+    { name = "ecalli", description = "Host call with immediate", opcode = 0x4e },
+]
+
+[II]
+description = "Instructions with arguments of two immediates"
+register = 0
+immediate = 2
+offset = 0
+opcodes = [
+    { name = "store_imm_u8", description = "Store immediate u8", opcode = 0x3e },
+    { name = "store_imm_u16", description = "Store immediate u16", opcode = 0x4f },
+    { name = "store_imm_u32", description = "Store immediate u32", opcode = 0x26 },
+]
+
+[O]
+description = "Instructions with arguments of one offset"
+register = 0
+immediate = 0
+offset = 1
+opcodes = [{ name = "jump", description = "Jump", opcode = 0x05 }]
+
+[RI]
+description = "Instructions with arguments of one register and one immediate"
+register = 1
+immediate = 1
+offset = 0
+opcodes = [
+    { name = "jump_ind", description = "Jump indirect", opcode = 0x13 },
+    { name = "load_imm", description = "Load immediate", opcode = 0x04 },
+    { name = "load_u8", description = "Load u8", opcode = 0x3c },
+    { name = "load_i8", description = "Load i8", opcode = 0x4a },
+    { name = "load_u16", description = "Load u16", opcode = 0x4c },
+    { name = "load_i16", description = "Load i16", opcode = 0x42 },
+    { name = "load_u32", description = "Load u32", opcode = 0x0a },
+    { name = "store_u8", description = "Store u8", opcode = 0x47 },
+    { name = "store_u16", description = "Store u16", opcode = 0x45 },
+    { name = "store_u32", description = "Store u32", opcode = 0x16 },
+]
+
+[RIO]
+description = "Instructions with arguments of one register, one immediate and one offset"
+register = 1
+immediate = 1
+offset = 1
+opcodes = [
+    { name = "load_imm_jump", description = "Load immediate and jump", opcode = 0x06 },
+    { name = "branch_eq_imm", description = "Branch if equal immediate", opcode = 0x07 },
+    { name = "branch_ne_imm", description = "Branch if not equal immediate", opcode = 0x0f },
+    { name = "branch_lt_u_imm", description = "Branch if less than unsigned immediate", opcode = 0x2c },
+    { name = "branch_le_u_imm", description = "Branch if less than or equal unsigned immediate", opcode = 0x3b },
+    { name = "branch_ge_u_imm", description = "Branch if greater than or equal unsigned immediate", opcode = 0x34 },
+    { name = "branch_gt_u_imm", description = "Branch if greater than unsigned immediate", opcode = 0x32 },
+    { name = "branch_lt_s_imm", description = "Branch if less than signed immediate", opcode = 0x20 },
+    { name = "branch_le_s_imm", description = "Branch if less than or equal signed immediate", opcode = 0x2e },
+    { name = "branch_ge_s_imm", description = "Branch if greater than or equal signed immediate", opcode = 0x2d },
+    { name = "branch_gt_s_imm", description = "Branch if greater than signed immediate", opcode = 0x35 },
+]
+
+[RII]
+description = "Instructions with arguments of one register and two immediates"
+register = 1
+immediate = 2
+offset = 0
+opcodes = [
+    { name = "store_imm_ind_u8", description = "Store immediate indirect u8", opcode = 0x1a },
+    { name = "store_imm_ind_u16", description = "Store immediate indirect u16", opcode = 0x36 },
+    { name = "store_imm_ind_u32", description = "Store immediate indirect u32", opcode = 0x0d },
+]
+
+[RR]
+description = "Instructions with arguments of two register"
+register = 2
+immediate = 0
+offset = 0
+opcodes = [
+    { name = "move_reg", description = "Move register", opcode = 0x52 },
+    { name = "sbrk", description = "Set break", opcode = 0x57 },
+]
+
+[RRI]
+description = "Instructions with arguments of two register and one immediate"
+register = 2
+immediate = 1
+offset = 0
+opcodes = [
+    { name = "store_ind_u8", description = "Store indirect u8", opcode = 0x10 },
+    { name = "store_ind_u16", description = "Store indirect u16", opcode = 0x1d },
+    { name = "store_ind_u32", description = "Store indirect u32", opcode = 0x03 },
+    { name = "load_ind_u8", description = "Load indirect u8", opcode = 0x0b },
+    { name = "load_ind_i8", description = "Load indirect i8", opcode = 0x15 },
+    { name = "load_ind_u16", description = "Load indirect u16", opcode = 0x25 },
+    { name = "load_ind_i16", description = "Load indirect i16", opcode = 0x21 },
+    { name = "load_ind_u32", description = "Load indirect u32", opcode = 0x01 },
+    { name = "add_imm", description = "Add immediate", opcode = 0x02 },
+    { name = "and_imm", description = "And immediate", opcode = 0x12 },
+    { name = "xor_imm", description = "Xor immediate", opcode = 0x1f },
+    { name = "or_imm", description = "Or immediate", opcode = 0x31 },
+    { name = "mul_imm", description = "Multiply immediate", opcode = 0x23 },
+    { name = "mul_upper_s_s_imm", description = "Multiply signed signed upper immediate", opcode = 0x41 },
+    { name = "mul_upper_u_u_imm", description = "Multiply unsigned unsigned upper immediate", opcode = 0x3f },
+    { name = "set_lt_u_imm", description = "Set if less than unsigned immediate", opcode = 0x1b },
+    { name = "set_lt_s_imm", description = "Set if less than signed immediate", opcode = 0x38 },
+    { name = "shlo_l_imm", description = "Shift left immediate", opcode = 0x09 },
+    { name = "shlo_r_imm", description = "Shift right immediate", opcode = 0x0e },
+    { name = "shar_r_imm", description = "Shift arithmetic right immediate", opcode = 0x19 },
+    { name = "neg_add_imm", description = "Negate and add immediate", opcode = 0x28 },
+    { name = "set_gt_u_imm", description = "Set if greater than unsigned immediate", opcode = 0x27 },
+    { name = "set_gt_s_imm", description = "Set if greater than signed immediate", opcode = 0x3d },
+    { name = "shlo_l_imm_alt", description = "Shift left immediate alternative", opcode = 0x4b },
+    { name = "shlo_r_imm_alt", description = "Shift right immediate alternative", opcode = 0x48 },
+    { name = "shar_r_imm_alt", description = "Shift arithmetic right immediate alternative", opcode = 0x50 },
+]
+
+[RRO]
+description = "Instructions with arguments of two register and one offset"
+register = 2
+immediate = 0
+offset = 1
+opcodes = [
+    { name = "branch_eq", description = "Branch if equal", opcode = 0x18 },
+    { name = "branch_ne", description = "Branch if not equal", opcode = 0x1e },
+    { name = "branch_lt_u", description = "Branch if less than unsigned", opcode = 0x2f },
+    { name = "branch_lt_s", description = "Branch if less than signed", opcode = 0x30 },
+    { name = "branch_ge_u", description = "Branch if greater than or equal unsigned", opcode = 0x29 },
+    { name = "branch_ge_s", description = "Branch if greater than or equal signed", opcode = 0x2b },
+]
+
+[RRR]
+description = "Instructions with arguments of three register"
+register = 3
+immediate = 0
+offset = 0
+opcodes = [
+    { name = "add", description = "Add", opcode = 0x08 },
+    { name = "sub", description = "Subtract", opcode = 0x14 },
+    { name = "and", description = "And", opcode = 0x17 },
+    { name = "xor", description = "Xor", opcode = 0x1c },
+    { name = "or", description = "Or", opcode = 0x0c },
+    { name = "mul", description = "Multiply", opcode = 0x22 },
+    { name = "mul_upper_s_s", description = "Multiply signed signed upper", opcode = 0x43 },
+    { name = "mul_upper_u_u", description = "Multiply unsigned unsigned upper", opcode = 0x39 },
+    { name = "mul_upper_s_u", description = "Multiply signed unsigned upper", opcode = 0x51 },
+    { name = "div_u", description = "Divide unsigned", opcode = 0x44 },
+    { name = "div_s", description = "Divide signed", opcode = 0x40 },
+    { name = "rem_u", description = "Remainder unsigned", opcode = 0x49 },
+    { name = "rem_s", description = "Remainder signed", opcode = 0x46 },
+    { name = "set_lt_u", description = "Set if less than unsigned", opcode = 0x24 },
+    { name = "set_lt_s", description = "Set if less than signed", opcode = 0x3a },
+    { name = "shlo_l", description = "Shift left", opcode = 0x37 },
+    { name = "shlo_r", description = "Shift right", opcode = 0x33 },
+    { name = "shar_r", description = "Shift arithmetic right", opcode = 0x4d },
+    { name = "cmov_iz", description = "Conditional move if zero", opcode = 0x53 },
+    { name = "cmov_nz", description = "Conditional move if not zero", opcode = 0x54 },
+]
+
+[RRII]
+description = "Instructions with arguments of two register and two immediates"
+register = 2
+immediate = 2
+offset = 0
+opcodes = [
+    { name = "load_imm_jump_ind", description = "Load immediate and jump indirect", opcode = 0x2a },
+]
