@@ -38,7 +38,10 @@ pub enum Opcode {
 */
 
 fn main() {
-    let formats = Format::tables().expect("failed to load formats");
-    let codegen = Codegen::new().expect("failed to init codegen");
-    codegen.process(formats).expect("failed to process codegen");
+    // println!("cargo:rerun-if-changed=instruction/v0.4.5.toml");
+    // println!("cargo:rerun-if-changed=src");
+
+    Codegen::default()
+        .process(Format::tables())
+        .expect("failed to process codegen");
 }

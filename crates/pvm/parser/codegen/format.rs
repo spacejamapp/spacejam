@@ -1,9 +1,7 @@
-use anyhow::Result;
-use heck::ToUpperCamelCase;
 use proc_macro2::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use syn::{parse_quote, Expr, Ident};
+use syn::Ident;
 
 /// A instruction format in the PVM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,22 +16,31 @@ pub struct Format {
     pub offset: u8,
     /// The opcodes in the format.
     pub opcodes: Vec<Opcode>,
+    /// The identifier of the format.
+    #[serde(skip)]
+    pub ident: Option<Ident>,
 }
 
 impl Format {
     /// Returns the instruction formats for the PVM.
-    pub fn tables() -> Result<HashMap<Ident, Format>> {
+    pub fn tables() -> Vec<Format> {
         let toml = include_str!("../instruction/v0.4.5.toml");
-        let formats: HashMap<String, Format> = toml::from_str(toml)?;
+        let formats: HashMap<String, Format> =
+            toml::from_str(toml).expect("Failed to parse formats");
 
-        // Convert the format names to identifiers.
-        let mut map = HashMap::new();
-        for (name, format) in formats {
-            let ident = Ident::new(&name, Span::call_site());
-            map.insert(ident, format);
-        }
+        let formats = formats
+            .into_iter()
+            .map(|(name, mut format)| {
+                if name != "Z" {
+                    let ident = Ident::new(&name, Span::call_site());
+                    format.ident = Some(ident);
+                }
 
-        Ok(map)
+                format
+            })
+            .collect();
+
+        formats
     }
 }
 

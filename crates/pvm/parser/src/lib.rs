@@ -1,4 +1,4 @@
-mod format;
-mod opcode;
-
-pub use opcode::Opcode;
+pub mod format;
+pub mod instruction;
+pub mod opcode;
+pub mod visitor;

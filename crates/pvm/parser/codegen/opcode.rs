@@ -1,8 +1,6 @@
 //! The opcode definitions.
 
 use super::format::Opcode;
-use heck::ToUpperCamelCase;
-use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Arm, Ident, ItemEnum};
 
@@ -17,9 +15,8 @@ pub struct OpcodeEnum {
 
 impl OpcodeEnum {
     /// Emits a new opcode.
-    pub fn emit(&mut self, opcode: &Opcode) {
+    pub fn emit(&mut self, opcode: &Opcode, name: &Ident) {
         let index = opcode.opcode;
-        let name = Ident::new(&opcode.name.to_upper_camel_case(), Span::call_site());
         let description = &opcode.description;
 
         // Add the opcode to the enum.
@@ -39,6 +36,7 @@ impl ToString for OpcodeEnum {
     fn to_string(&self) -> String {
         let item = self.item.clone();
         let arms = self.try_from_u8_arms.clone();
+
         quote! {
             #item
 
