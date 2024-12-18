@@ -950,6 +950,10 @@ dependencies = [
 [[package]]
 name = "pvm"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "pvm-parser",
+]
 
 [[package]]
 name = "pvm-parser"

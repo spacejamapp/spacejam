@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use core::ops::Range;
+
 pub use {
     data::{InstructionData, InstructionReader},
     jump::JumpTable,
@@ -11,6 +12,7 @@ mod data;
 mod jump;
 
 /// The code section.
+#[derive(Default)]
 pub struct ProgramBlob {
     /// The jump table.
     pub jump_table: JumpTable,
@@ -26,6 +28,11 @@ impl ProgramBlob {
     /// Get the instruction reader.
     pub fn instr_reader(&self) -> InstructionReader<'_> {
         self.instruction_data.reader()
+    }
+
+    /// Get the instruction reader at the program counter.
+    pub fn instr_reader_at(&self, pc: usize) -> InstructionReader<'_> {
+        self.instr_reader().with_position(pc)
     }
 }
 

@@ -8,6 +8,7 @@ use anyhow::Result;
 use core::ops::Range;
 
 /// The instruction data.
+#[derive(Default)]
 pub struct InstructionData {
     /// The instructions.
     pub instructions: Vec<u8>,
@@ -42,6 +43,12 @@ impl InstructionReader<'_> {
     /// Read an instruction.
     pub fn read(&mut self) -> Result<Offset<Instruction>> {
         self.reader.read_instr(self.bitmask)
+    }
+
+    /// Set the position of the reader.
+    pub fn with_position(mut self, position: usize) -> Self {
+        self.reader.position = position;
+        self
     }
 }
 
