@@ -18,9 +18,9 @@ impl From<&[u8]> for RIO {
             return Default::default();
         }
 
-        let mid = (bytes.len() - 1).min(4) + 1;
+        let mid = (bytes[0] / 16 % 8).min(4) as usize + 1;
         RIO {
-            reg0: bytes[0] % 16,
+            reg0: (bytes[0] % 16).min(12),
             imm0: u32::read_imm(&bytes[1..mid]),
             off0: u32::read(&bytes[mid..]),
         }

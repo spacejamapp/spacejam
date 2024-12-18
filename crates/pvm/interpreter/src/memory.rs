@@ -3,7 +3,13 @@
 use std::collections::BTreeMap;
 
 /// The memory of the interpreter.
-pub type Memory = BTreeMap<u32, Page>;
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
+pub struct Memory {
+    /// The pages of the memory.
+    pub pages: BTreeMap<u32, Page>,
+    /// The slots of the memory.
+    pub slots: BTreeMap<u32, [u8; 4]>,
+}
 
 /// A memory page.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -12,8 +18,6 @@ pub struct Page {
     pub length: u32,
     /// The access type of the page.
     pub access: Access,
-    /// The contents of the page.
-    pub contents: Vec<u8>,
 }
 
 /// The access type of a memory page.

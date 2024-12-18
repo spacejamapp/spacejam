@@ -11,7 +11,7 @@ impl Interpreter {
 
     /// Set the memory of the interpreter.
     pub fn memory(mut self, value: Memory) -> Self {
-        self.mem = value;
+        self.memory = value;
         self
     }
 

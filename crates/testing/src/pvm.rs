@@ -45,10 +45,9 @@ impl Test {
         // Initialize memory
         let mut memory = pvmi::Memory::default();
         for mem in self.initial_memory {
-            let Some(page) = memory.get_mut(&mem.address) else {
-                panic!("page not found");
-            };
-            page.contents.copy_from_slice(&mem.contents);
+            let mut contents = [0; 4];
+            contents[..mem.contents.len()].copy_from_slice(&mem.contents);
+            memory.slots.insert(mem.address, contents);
         }
 
         // Initialize interpreter
@@ -61,21 +60,27 @@ impl Test {
             .interp(&self.program)
             .expect("failed to run program");
 
-        assert!(self.expected_memory.is_empty());
+        let expected_memory = interpreter
+            .memory
+            .slots
+            .iter()
+            .map(|(k, v)| {
+                let mut contents = v.to_vec();
+                while let Some(0) = contents.last() {
+                    contents.pop();
+                }
+
+                Memory {
+                    address: *k,
+                    contents,
+                }
+            })
+            .collect::<Vec<_>>();
+
         assert_eq!(interpreter.pc, self.expected_pc);
         assert_eq!(interpreter.status.to_string(), self.expected_status);
         assert_eq!(interpreter.registers.to_vec(), self.expected_regs);
         assert_eq!(interpreter.gas, self.expected_gas);
-
-        // Compare memory
-        let expected_memory = interpreter
-            .mem
-            .iter()
-            .map(|(k, v)| Memory {
-                address: *k,
-                contents: v.contents.clone(),
-            })
-            .collect::<Vec<_>>();
         assert_eq!(expected_memory, self.expected_memory);
     }
 }

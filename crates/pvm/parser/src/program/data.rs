@@ -50,6 +50,11 @@ impl InstructionReader<'_> {
         self.reader.position = position;
         self
     }
+
+    /// Set the position of the reader.
+    pub fn set_position(&mut self, position: usize) {
+        self.reader.position = position;
+    }
 }
 
 impl<'r> core::ops::Deref for InstructionReader<'r> {
