@@ -1,9 +1,4 @@
-use crate::format::{Format, RRR};
-
-impl Format for RRR {
-    const MIN_LEN: usize = 2;
-    const MAX_LEN: usize = 2;
-}
+use crate::format::RRR;
 
 impl From<[u8; 2]> for RRR {
     fn from(bytes: [u8; 2]) -> Self {
@@ -15,19 +10,20 @@ impl From<[u8; 2]> for RRR {
     }
 }
 
-impl TryFrom<&[u8]> for RRR {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!(
-                "Insufficient bytes for RRR format, expected at least {}",
-                Self::MIN_LEN
-            );
+impl From<&[u8]> for RRR {
+    fn from(bytes: &[u8]) -> Self {
+        if bytes.is_empty() || bytes == [0] {
+            return Default::default();
         }
 
-        let bytes: [u8; 2] = bytes.try_into()?;
-        Ok(Self::from(bytes))
+        let mut source = [0u8; 2];
+        if bytes.len() > 1 {
+            source.copy_from_slice(&bytes[0..2]);
+        } else {
+            source[0] = bytes[0];
+        }
+
+        Self::from(source)
     }
 }
 

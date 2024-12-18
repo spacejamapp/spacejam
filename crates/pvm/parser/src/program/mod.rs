@@ -24,7 +24,7 @@ pub struct ProgramBlob {
 
 impl ProgramBlob {
     /// Get the instruction reader.
-    pub fn instr_reader<'r>(&'r self) -> InstructionReader<'r> {
+    pub fn instr_reader(&self) -> InstructionReader<'_> {
         self.instruction_data.reader()
     }
 }
@@ -34,7 +34,7 @@ impl TryFrom<&[u8]> for ProgramBlob {
 
     fn try_from(blob: &[u8]) -> Result<Self> {
         let jump_table_len = &blob[0..2];
-        if jump_table_len != &[0, 0] {
+        if jump_table_len != [0, 0] {
             anyhow::bail!("does not support jump tables atm");
         }
 

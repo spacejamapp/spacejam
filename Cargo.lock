@@ -962,7 +962,6 @@ dependencies = [
  "serde",
  "syn 2.0.90",
  "toml",
- "tracing",
 ]
 
 [[package]]

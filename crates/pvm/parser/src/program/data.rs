@@ -38,7 +38,7 @@ pub struct InstructionReader<'r> {
     reader: Reader<'r>,
 }
 
-impl<'r> InstructionReader<'r> {
+impl InstructionReader<'_> {
     /// Read an instruction.
     pub fn read(&mut self) -> Result<Offset<Instruction>> {
         self.reader.read_instr(self.bitmask)

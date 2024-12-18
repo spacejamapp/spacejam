@@ -1,9 +1,4 @@
-use crate::format::{Format, II, ISA};
-
-impl Format for II {
-    const MIN_LEN: usize = 1;
-    const MAX_LEN: usize = 8;
-}
+use crate::format::{II, ISA};
 
 impl From<II> for Vec<u8> {
     fn from(value: II) -> Self {
@@ -19,44 +14,30 @@ impl From<II> for Vec<u8> {
     }
 }
 
-impl TryFrom<&[u8]> for II {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> anyhow::Result<Self> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!(
-                "Insufficient bytes for II format, expected at least {}",
-                Self::MIN_LEN
-            );
+impl From<&[u8]> for II {
+    fn from(bytes: &[u8]) -> Self {
+        if bytes == [0] || bytes.is_empty() {
+            return Default::default();
         }
 
-        // Get l_X from first byte
         let x_len = (bytes[0] % 8).min(4);
-
-        // Calculate l_Y based on remaining length
-        let remaining = bytes.len() - (1 + x_len as usize);
-        let y_len = remaining.min(4);
-
-        // Extract first immediate
-        let mid = 1 + x_len as usize;
-        let (mut x_bytes, mut y_bytes) = ([0u8; 4], [0u8; 4]);
-        x_bytes[..x_len as usize].copy_from_slice(&bytes[1..mid]);
-        let x = u32::from_le_bytes(x_bytes);
-
-        // Extract second immediate
-        if y_len > 0 {
-            y_bytes[..y_len].copy_from_slice(&bytes[mid..mid + y_len]);
+        if x_len == 0 {
+            return Default::default();
         }
-        let y = u32::from_le_bytes(y_bytes);
 
-        Ok(II { imm0: x, imm1: y })
+        let mid = 1 + x_len as usize;
+
+        II {
+            imm0: u32::read(&bytes[1..mid]),
+            imm1: u32::read(&bytes[mid..]),
+        }
     }
 }
 
 #[test]
 fn test_store_imm_u8() {
     let bytes = [3, 0, 0, 2, 18];
-    let decoded = II::try_from(bytes.as_ref()).expect("Failed to decode");
+    let decoded = II::from(bytes.as_ref());
     let encoded: Vec<u8> = decoded.into();
     assert_eq!(encoded, bytes);
 }
@@ -64,7 +45,7 @@ fn test_store_imm_u8() {
 #[test]
 fn test_store_imm_u32() {
     let bytes = [3, 0, 0, 2, 120, 86, 52, 18];
-    let decoded = II::try_from(bytes.as_ref()).expect("Failed to decode");
+    let decoded = II::from(bytes.as_ref());
     let encoded: Vec<u8> = decoded.into();
     assert_eq!(encoded, bytes);
 }

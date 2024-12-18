@@ -34,7 +34,7 @@ impl OpcodeEnum {
 
         // Add the parse_instr implementation.
         let arm = if let Some(format) = format {
-            parse_quote!(Self::#name => Instruction::#name(#format::try_from(bytes)?),)
+            parse_quote!(Self::#name => Instruction::#name(#format::from(bytes)),)
         } else {
             parse_quote!(Self::#name => Instruction::#name,)
         };
@@ -64,8 +64,8 @@ impl core::fmt::Display for OpcodeEnum {
 
             impl Opcode {
                 /// Parse the following instruction from the bytes.
-                pub fn instr(&self, bytes: &[u8]) -> anyhow::Result<Instruction> {
-                    Ok(match self { #(#parse_instr_arms)* })
+                pub fn instr(&self, bytes: &[u8]) -> Instruction {
+                    match self { #(#parse_instr_arms)* }
                 }
             }
         }

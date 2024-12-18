@@ -1,26 +1,14 @@
-use crate::format::{Format, ISA, RRO};
+use crate::format::{ISA, RRI, RRO};
 
-impl Format for RRO {
-    const MIN_LEN: usize = 2;
-    const MAX_LEN: usize = 5;
-}
+impl From<&[u8]> for RRO {
+    fn from(bytes: &[u8]) -> Self {
+        let rri = RRI::from(bytes);
 
-impl TryFrom<&[u8]> for RRO {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!(
-                "Insufficient bytes for RRO format, expected at least {}",
-                Self::MIN_LEN
-            );
+        RRO {
+            reg0: rri.reg0,
+            reg1: rri.reg1,
+            off0: rri.imm0,
         }
-
-        Ok(RRO {
-            reg0: (bytes[0] & 0x0f).min(12),
-            reg1: (bytes[0] >> 4).min(12),
-            off0: u32::read(&bytes[1..])?,
-        })
     }
 }
 

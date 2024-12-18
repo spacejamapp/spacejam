@@ -1,9 +1,4 @@
-use crate::format::{Format, ISA, RRI};
-
-impl Format for RRI {
-    const MIN_LEN: usize = 2;
-    const MAX_LEN: usize = 5;
-}
+use crate::format::{ISA, RRI};
 
 impl From<RRI> for Vec<u8> {
     fn from(value: RRI) -> Self {
@@ -20,32 +15,30 @@ impl From<RRI> for Vec<u8> {
     }
 }
 
-impl TryFrom<&[u8]> for RRI {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes == &[0] {
-            return Ok(Default::default());
+impl From<&[u8]> for RRI {
+    fn from(bytes: &[u8]) -> Self {
+        if bytes == [0] || bytes.is_empty() {
+            return Default::default();
         }
 
         let imm0 = if bytes.len() == 1 {
             0
         } else {
-            u32::read(&bytes[1..])?
+            u32::read(&bytes[1..])
         };
 
-        Ok(RRI {
+        RRI {
             reg0: (bytes[0] & 0x0f).min(12),
             reg1: (bytes[0] >> 4).min(12),
             imm0,
-        })
+        }
     }
 }
 
 #[test]
 fn rri_encoding() {
     let bytes = vec![121, 2];
-    let decoded = RRI::try_from(bytes.as_ref()).expect("failed to decode");
+    let decoded = RRI::from(bytes.as_ref());
     let encoded: Vec<u8> = decoded.into();
     assert_eq!(bytes, encoded);
 }

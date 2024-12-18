@@ -14,15 +14,6 @@ mod rrii;
 mod rro;
 mod rrr;
 
-/// Shared trait for all formats.
-pub trait Format: Sized {
-    /// Minimum length of bytes required for this format
-    const MIN_LEN: usize;
-
-    /// Maximum length of bytes required for this format
-    const MAX_LEN: usize;
-}
-
 /// Encoding for immediate and offset values on ISA.
 pub trait ISA: Sized {
     /// Whether the value is empty.
@@ -32,7 +23,7 @@ pub trait ISA: Sized {
     fn len(&self) -> Self;
 
     /// Read the value from the bytes.
-    fn read(bytes: &[u8]) -> anyhow::Result<Self>;
+    fn read(bytes: &[u8]) -> Self;
 
     /// Get the bytes of the encoding.
     fn bytes(&self) -> Vec<u8>;
@@ -51,15 +42,15 @@ impl ISA for u32 {
         ((32 - self.leading_zeros() + 7) / 8).min(4)
     }
 
-    fn read(bytes: &[u8]) -> anyhow::Result<Self> {
+    fn read(bytes: &[u8]) -> Self {
         if bytes.is_empty() {
-            anyhow::bail!("No bytes provided");
+            return 0;
         }
 
-        let x_len = bytes.len().min(4) as usize;
+        let x_len = bytes.len().min(4);
         let mut x_bytes = [0u8; 4];
         x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
-        Ok(u32::from_le_bytes(x_bytes))
+        u32::from_le_bytes(x_bytes)
     }
 
     fn bytes(&self) -> Vec<u8> {

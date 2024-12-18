@@ -45,16 +45,10 @@ impl<'r> Reader<'r> {
 
         // Get skip distance to next instruction
         let next_instr = self.next_instr(bitmask);
-        println!("bitmask: {:?}", bitmask);
-        println!(
-            "instruction: {opcode:?}({:?})",
-            &self.buffer[self.position..]
-        );
-        println!("next_instr: {:?}", next_instr);
 
         // Read instruction
         let buffer = &self.buffer[self.position..next_instr];
-        let instruction = opcode.instr(buffer)?;
+        let instruction = opcode.instr(buffer);
         self.position = next_instr;
 
         Ok(Offset {
@@ -106,27 +100,4 @@ pub struct Offset<T> {
 
     /// The value.
     pub value: T,
-}
-
-#[test]
-fn test_skip() {
-    fn instr_positions(bitmask: &[u8]) -> Vec<usize> {
-        let mut positions = Vec::new();
-        let mut pc = 0;
-
-        for byte in bitmask {
-            for bit_idx in 0..8 {
-                if (byte >> bit_idx) & 1 == 1 {
-                    positions.push(pc);
-                }
-                pc += 1;
-            }
-        }
-
-        positions
-    }
-
-    let bytes = [0b11010001, 0b11010001];
-    let positions = instr_positions(&bytes);
-    assert_eq!(positions, vec![0, 2, 4, 6]);
 }

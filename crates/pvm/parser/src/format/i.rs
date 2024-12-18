@@ -1,9 +1,4 @@
-use crate::format::{Format, I, ISA};
-
-impl Format for I {
-    const MIN_LEN: usize = 1;
-    const MAX_LEN: usize = 4;
-}
+use crate::format::{I, ISA};
 
 impl From<I> for Vec<u8> {
     fn from(value: I) -> Self {
@@ -13,32 +8,22 @@ impl From<I> for Vec<u8> {
     }
 }
 
-impl TryFrom<&[u8]> for I {
-    type Error = anyhow::Error;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!(
-                "Insufficient bytes for I format, expected at least {}",
-                Self::MIN_LEN
-            );
+impl From<&[u8]> for I {
+    fn from(bytes: &[u8]) -> Self {
+        if bytes == [0] || bytes.is_empty() {
+            return Default::default();
         }
 
-        // Get length capped at 4 bytes
-        let x_len = bytes.len().min(4);
-
-        // Extract offset
-        let mut x_bytes = [0u8; 4];
-        x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
-        let x = u32::from_le_bytes(x_bytes);
-        Ok(I { imm0: x })
+        I {
+            imm0: u32::read(&bytes[..bytes.len().min(4)]),
+        }
     }
 }
 
 #[test]
 fn test_i_encoding() {
     let bytes = vec![3];
-    let decoded = I::try_from(bytes.as_ref()).expect("Failed to decode");
+    let decoded = I::from(bytes.as_ref());
     let encoded: Vec<u8> = decoded.into();
     assert_eq!(encoded, bytes);
 }
