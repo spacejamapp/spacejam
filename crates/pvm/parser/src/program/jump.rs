@@ -3,6 +3,7 @@
 use core::ops::Range;
 
 /// The dynamic jump table.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct JumpTable {
     /// The index of the jump table.
     pub index: Vec<u8>,

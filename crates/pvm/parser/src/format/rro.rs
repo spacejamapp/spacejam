@@ -9,8 +9,11 @@ impl TryFrom<&[u8]> for RRO {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < 3 {
-            anyhow::bail!("Invalid byte length, expected at least 3 bytes");
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!(
+                "Insufficient bytes for RRO format, expected at least {}",
+                Self::MIN_LEN
+            );
         }
 
         Ok(RRO {

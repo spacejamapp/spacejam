@@ -44,3 +44,11 @@ impl<'r> InstructionReader<'r> {
         self.reader.read_instr(self.bitmask)
     }
 }
+
+impl<'r> core::ops::Deref for InstructionReader<'r> {
+    type Target = Reader<'r>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.reader
+    }
+}

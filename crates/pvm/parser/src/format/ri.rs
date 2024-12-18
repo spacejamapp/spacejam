@@ -22,18 +22,17 @@ impl TryFrom<&[u8]> for RI {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> anyhow::Result<Self> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!("Insufficient bytes");
+        if bytes == &[0] {
+            return Ok(RI { reg0: 0, imm0: 0 });
         }
-
-        // Get register index
-        let reg = bytes[0] % 16;
 
         // Get immediate length capped at 4 bytes
         let x_len = (bytes.len() - 1).min(4);
-
         if x_len == 0 {
-            anyhow::bail!("No immediate bytes");
+            anyhow::bail!(
+                "Insufficient bytes for RI format, expected at least {}",
+                Self::MIN_LEN
+            );
         }
 
         // Extract immediate
@@ -41,7 +40,7 @@ impl TryFrom<&[u8]> for RI {
         x_bytes[..x_len].copy_from_slice(&bytes[1..1 + x_len]);
 
         Ok(RI {
-            reg0: reg,
+            reg0: bytes[0] % 16,
             imm0: u32::from_le_bytes(x_bytes),
         })
     }

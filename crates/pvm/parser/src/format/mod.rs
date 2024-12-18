@@ -56,7 +56,7 @@ impl ISA for u32 {
             anyhow::bail!("No bytes provided");
         }
 
-        let x_len = (bytes[0] % 8).min(4) as usize;
+        let x_len = bytes.len().min(4) as usize;
         let mut x_bytes = [0u8; 4];
         x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
         Ok(u32::from_le_bytes(x_bytes))

@@ -18,7 +18,10 @@ impl TryFrom<&[u8]> for I {
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!("Insufficient bytes, expected at least {}", Self::MIN_LEN);
+            anyhow::bail!(
+                "Insufficient bytes for I format, expected at least {}",
+                Self::MIN_LEN
+            );
         }
 
         // Get length capped at 4 bytes

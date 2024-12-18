@@ -46,7 +46,17 @@ impl Test {
     }
 
     /// Run the test
-    fn run(self) {}
+    fn run(self) {
+        if self.program.len() > 256 {
+            panic!("program too long");
+        }
+
+        let program = parser::parse(self.program.to_vec()).expect("failed to parse program");
+        let mut reader = program.instr_reader();
+        while !reader.eof() {
+            let _ = reader.read().expect("failed to read instruction");
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/pvm.rs"));

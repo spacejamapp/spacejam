@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+tracing.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true

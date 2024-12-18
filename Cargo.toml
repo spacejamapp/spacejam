@@ -16,6 +16,7 @@ codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/dispute", package = "spacejam-dispute" }
 merkle = { path = "crates/merkle", package = "spacejam-merkle" }
+parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 report = { path = "crates/report", package = "spacejam-report" }
 safrole = { path = "crates/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }

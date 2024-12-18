@@ -962,6 +962,7 @@ dependencies = [
  "serde",
  "syn 2.0.90",
  "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -1362,6 +1363,7 @@ dependencies = [
  "jamcodec",
  "paste",
  "proc-macro2",
+ "pvm-parser",
  "quote",
  "serde",
  "serde_json",

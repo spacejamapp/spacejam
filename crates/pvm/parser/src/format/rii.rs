@@ -32,20 +32,16 @@ impl TryFrom<&[u8]> for RII {
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!("Insufficient bytes");
+            anyhow::bail!(
+                "Insufficient bytes for RII format, expected at least {}",
+                Self::MIN_LEN
+            );
         }
-
-        // Get register index
-        let reg = bytes[0] % 16;
 
         // Get immediate lengths
         let remaining = bytes.len() - 1;
         let x_len = remaining.min(4);
         let y_len = (remaining - x_len).min(4);
-
-        if x_len == 0 {
-            anyhow::bail!("No immediate bytes");
-        }
 
         // Extract first immediate
         let mut x_bytes = [0u8; 4];
@@ -60,7 +56,7 @@ impl TryFrom<&[u8]> for RII {
         let y = u32::from_le_bytes(y_bytes);
 
         Ok(RII {
-            reg0: reg,
+            reg0: bytes[0] % 16,
             imm0: x,
             imm1: y,
         })

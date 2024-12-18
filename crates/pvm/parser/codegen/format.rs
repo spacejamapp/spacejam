@@ -2,16 +2,13 @@ use proc_macro2::Span;
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use syn::{parse_quote, Field, Ident, ItemImpl, ItemStruct, Type};
+use syn::{parse_quote, Field, Ident, ItemStruct, Type};
 
 /// The codegen for the formats.
 #[derive(Default)]
 pub struct Formats {
     /// The formats.
     pub formats: Vec<ItemStruct>,
-
-    /// The impls.
-    pub impls: Vec<ItemImpl>,
 }
 
 impl Formats {
@@ -42,27 +39,22 @@ impl Formats {
         let description = &format.description;
         let item: ItemStruct = parse_quote! {
             #[doc = #description]
-            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+            #[derive(Default,Debug, Clone, Copy, PartialEq, Eq)]
             pub struct #name {
                 #(#fields),*
             }
         };
 
         self.formats.push(item);
-
-        // implement the format struct
     }
 }
 
 impl core::fmt::Display for Formats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let formats = self.formats.clone();
-        let impls = self.impls.clone();
 
         let formatted = quote! {
             #(#formats)*
-
-            #(#impls)*
         }
         .to_string();
 

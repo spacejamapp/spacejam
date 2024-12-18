@@ -35,7 +35,10 @@ impl TryFrom<&[u8]> for RRII {
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!("Insufficient bytes");
+            anyhow::bail!(
+                "Insufficient bytes for RRII format, expected at least {}",
+                Self::MIN_LEN
+            );
         }
 
         // Extract registers from first byte

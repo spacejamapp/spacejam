@@ -13,6 +13,7 @@ dispute.workspace = true
 hex.workspace = true
 merkle.workspace = true
 paste.workspace = true
+parser.workspace = true
 report.workspace = true
 spacejam.workspace = true
 safrole.workspace = true

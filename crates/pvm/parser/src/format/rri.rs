@@ -24,14 +24,28 @@ impl TryFrom<&[u8]> for RRI {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < Self::MIN_LEN {
-            anyhow::bail!("Invalid length, expected at least 3 bytes");
+        if bytes == &[0] {
+            return Ok(Default::default());
         }
+
+        let imm0 = if bytes.len() == 1 {
+            0
+        } else {
+            u32::read(&bytes[1..])?
+        };
 
         Ok(RRI {
             reg0: (bytes[0] & 0x0f).min(12),
             reg1: (bytes[0] >> 4).min(12),
-            imm0: u32::read(&bytes[1..])?,
+            imm0,
         })
     }
+}
+
+#[test]
+fn rri_encoding() {
+    let bytes = vec![121, 2];
+    let decoded = RRI::try_from(bytes.as_ref()).expect("failed to decode");
+    let encoded: Vec<u8> = decoded.into();
+    assert_eq!(bytes, encoded);
 }

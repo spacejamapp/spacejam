@@ -18,6 +18,13 @@ impl TryFrom<&[u8]> for RR {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!(
+                "Insufficient bytes for RR format, expected at least {}",
+                Self::MIN_LEN
+            );
+        }
+
         let bytes: [u8; 1] = bytes.try_into()?;
         Ok(Self::from(bytes[0]))
     }

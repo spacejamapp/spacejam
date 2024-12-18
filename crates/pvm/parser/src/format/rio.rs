@@ -21,8 +21,14 @@ impl TryFrom<&[u8]> for RIO {
     type Error = anyhow::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let rii = RII::try_from(bytes)?;
+        if bytes.len() < Self::MIN_LEN {
+            anyhow::bail!(
+                "Insufficient bytes for RIO format, expected at least {}",
+                Self::MIN_LEN
+            );
+        }
 
+        let rii = RII::try_from(bytes)?;
         Ok(RIO {
             reg0: rii.reg0,
             imm0: rii.imm0,

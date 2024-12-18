@@ -125,6 +125,8 @@ opcodes = [
     { name = "shlo_l_imm_alt", description = "Shift left immediate alternative", opcode = 0x4b },
     { name = "shlo_r_imm_alt", description = "Shift right immediate alternative", opcode = 0x48 },
     { name = "shar_r_imm_alt", description = "Shift arithmetic right immediate alternative", opcode = 0x50 },
+    { name = "cmov_iz_imm", description = "Conditional move if zero immediate", opcode = 0x55 },
+    { name = "cmov_nz_imm", description = "Conditional move if not zero immediate", opcode = 0x56 },
 ]
 
 [RRO]

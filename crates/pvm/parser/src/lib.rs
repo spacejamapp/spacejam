@@ -1,8 +1,16 @@
 //! The PVM parser.
 
+use anyhow::Result;
+pub use {program::ProgramBlob, visitor::Visitor};
+
 pub mod format;
 pub mod instruction;
 pub mod opcode;
 pub mod program;
 pub mod reader;
 pub mod visitor;
+
+/// Parse a PVM program blob.
+pub fn parse(blob: Vec<u8>) -> Result<ProgramBlob> {
+    ProgramBlob::try_from(blob.as_ref())
+}
