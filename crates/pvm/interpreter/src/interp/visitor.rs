@@ -41,7 +41,7 @@ impl Visitor for Interpreter {
     fn visit_branch_eq(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         if self.registers[reg0 as usize] == self.registers[reg1 as usize] {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -49,7 +49,7 @@ impl Visitor for Interpreter {
     fn visit_branch_eq_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] == imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -57,7 +57,7 @@ impl Visitor for Interpreter {
     fn visit_branch_ge_s(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         if self.registers[reg0 as usize] as i32 >= self.registers[reg1 as usize] as i32 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -65,7 +65,7 @@ impl Visitor for Interpreter {
     fn visit_branch_ge_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] as i32 >= imm0 as i32 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -73,7 +73,7 @@ impl Visitor for Interpreter {
     fn visit_branch_ge_u(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         if self.registers[reg0 as usize] >= self.registers[reg1 as usize] {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -81,7 +81,7 @@ impl Visitor for Interpreter {
     fn visit_branch_ge_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] >= imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -89,7 +89,7 @@ impl Visitor for Interpreter {
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] as i32 > imm0 as i32 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -97,7 +97,7 @@ impl Visitor for Interpreter {
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] > imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -105,7 +105,7 @@ impl Visitor for Interpreter {
     fn visit_branch_le_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] as i32 <= imm0 as i32 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -113,7 +113,23 @@ impl Visitor for Interpreter {
     fn visit_branch_le_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] <= imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
+        }
+        Ok(())
+    }
+
+    fn visit_branch_lt_s(&mut self, format: format::RRO) -> Result<()> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        if (self.registers[reg0 as usize] as i32) < (self.registers[reg1 as usize] as i32) {
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
+        }
+        Ok(())
+    }
+
+    fn visit_branch_lt_u(&mut self, format: format::RRO) -> Result<()> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        if self.registers[reg0 as usize] < self.registers[reg1 as usize] {
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -121,7 +137,7 @@ impl Visitor for Interpreter {
     fn visit_branch_lt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if (self.registers[reg0 as usize] as i32) < (imm0 as i32) {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -129,7 +145,15 @@ impl Visitor for Interpreter {
     fn visit_branch_lt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] < imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
+        }
+        Ok(())
+    }
+
+    fn visit_branch_ne(&mut self, format: format::RRO) -> Result<()> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        if self.registers[reg0 as usize] != self.registers[reg1 as usize] {
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -137,7 +161,7 @@ impl Visitor for Interpreter {
     fn visit_branch_ne_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         if self.registers[reg0 as usize] != imm0 {
-            self.pc = self.pc.wrapping_add(off0 as usize);
+            self.jump = Some(self.pc.wrapping_add(off0 as usize));
         }
         Ok(())
     }
@@ -199,6 +223,22 @@ impl Visitor for Interpreter {
         } else {
             (dividend.wrapping_div(divisor)) as u32
         };
+        Ok(())
+    }
+
+    fn visit_fallthrough(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn visit_jump(&mut self, format: format::O) -> Result<()> {
+        let format::O { off0 } = format;
+        self.jump = Some(self.pc.wrapping_add(off0 as usize));
+        Ok(())
+    }
+
+    fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
+        let format::RI { reg0, imm0 } = format;
+        self.jump = Some((self.registers[reg0 as usize] + imm0) as usize);
         Ok(())
     }
 
@@ -307,6 +347,12 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_move_reg(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        self.registers[reg0 as usize] = self.registers[reg1 as usize];
+        Ok(())
+    }
+
     fn visit_mul(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_mul(self.registers[reg1 as usize]);
@@ -395,26 +441,94 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        if (self.registers[reg1 as usize] as i32) > (imm0 as i32) {
+            self.registers[reg0 as usize] = 1;
+        } else {
+            self.registers[reg0 as usize] = 0;
+        }
+
+        Ok(())
+    }
+
+    fn visit_set_gt_u_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        if self.registers[reg1 as usize] > imm0 {
+            self.registers[reg0 as usize] = 1;
+        } else {
+            self.registers[reg0 as usize] = 0;
+        }
+        Ok(())
+    }
+
+    fn visit_set_lt_s_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        if (self.registers[reg1 as usize] as i32) < (imm0 as i32) {
+            self.registers[reg0 as usize] = 1;
+        } else {
+            self.registers[reg0 as usize] = 0;
+        }
+
+        Ok(())
+    }
+
+    fn visit_set_lt_u_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        if self.registers[reg1 as usize] < imm0 {
+            self.registers[reg0 as usize] = 1;
+        } else {
+            self.registers[reg0 as usize] = 0;
+        }
+
+        Ok(())
+    }
+
     fn visit_set_lt_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = if self.registers[reg0 as usize] < self.registers[reg1 as usize] {
-            1
+        if self.registers[reg0 as usize] < self.registers[reg1 as usize] {
+            self.registers[reg2 as usize] = 1;
         } else {
-            0
-        };
-        self.registers[reg2 as usize] = value;
+            self.registers[reg2 as usize] = 0;
+        }
+
         Ok(())
     }
 
     fn visit_set_lt_s(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value =
-            if (self.registers[reg0 as usize] as i32) < (self.registers[reg1 as usize] as i32) {
-                1
-            } else {
-                0
-            };
+        if (self.registers[reg0 as usize] as i32) < (self.registers[reg1 as usize] as i32) {
+            self.registers[reg2 as usize] = 1;
+        } else {
+            self.registers[reg2 as usize] = 0;
+        }
+
+        Ok(())
+    }
+
+    fn visit_shar_r(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let shift = self.registers[reg1 as usize] % 32;
+        let value = ((self.registers[reg0 as usize] as i32).wrapping_shr(shift)) as u32;
         self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_shar_r_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift = imm0 % 32;
+        let value = ((self.registers[reg1 as usize] as i32).wrapping_shr(shift)) as u32;
+        self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_shar_r_imm_alt(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        // ω'A = Z4^-1(⌊Z4(νX) ÷ 2^ωB mod 32⌋)
+        let shift = self.registers[reg1 as usize] % 32;
+        // Z4 converts to signed, arithmetic shift, then back to unsigned
+        let value = ((imm0 as i32).wrapping_shr(shift)) as u32;
+        self.registers[reg0 as usize] = value;
         Ok(())
     }
 
@@ -426,6 +540,23 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_shlo_l_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift = imm0 % 32;
+        let value = self.registers[reg1 as usize].wrapping_shl(shift);
+        self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_shlo_l_imm_alt(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        // ω'A = (νX · 2^ωB mod 32) mod 2^32
+        let shift = self.registers[reg1 as usize] % 32;
+        let value = imm0.wrapping_shl(shift);
+        self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
     fn visit_shlo_r(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let shift = self.registers[reg1 as usize] % 32;
@@ -434,11 +565,20 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_shar_r(&mut self, format: format::RRR) -> Result<()> {
-        let format::RRR { reg0, reg1, reg2 } = format;
+    fn visit_shlo_r_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift = imm0 % 32;
+        let value = self.registers[reg1 as usize].wrapping_shr(shift);
+        self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_shlo_r_imm_alt(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        // ω'A = ⌊νX ÷ 2^ωB mod 32⌋
         let shift = self.registers[reg1 as usize] % 32;
-        let value = ((self.registers[reg0 as usize] as i32).wrapping_shr(shift)) as u32;
-        self.registers[reg2 as usize] = value;
+        let value = imm0.wrapping_shr(shift);
+        self.registers[reg0 as usize] = value;
         Ok(())
     }
 

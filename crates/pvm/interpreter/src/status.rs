@@ -26,6 +26,11 @@ impl Status {
     pub fn is_unknown(&self) -> bool {
         *self == Status::Unknown
     }
+
+    /// Check if the status is a trap.
+    pub fn is_trap(&self) -> bool {
+        *self == Status::Trap
+    }
 }
 
 impl std::fmt::Display for Status {

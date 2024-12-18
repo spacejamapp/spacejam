@@ -12,7 +12,7 @@ pub struct VisitorTrait {
     pub item: ItemTrait,
 
     /// The implementation arms.
-    pub impl_vist_arms: Vec<Arm>,
+    pub impl_visit_arms: Vec<Arm>,
 }
 
 impl VisitorTrait {
@@ -32,7 +32,7 @@ impl VisitorTrait {
                 }
             });
 
-            self.impl_vist_arms
+            self.impl_visit_arms
                 .push(parse_quote!(Instruction::#opcodei(fmt) => self.#fun(fmt),));
         } else {
             self.item.items.push(parse_quote! {
@@ -41,7 +41,7 @@ impl VisitorTrait {
                     unimplemented!(concat!("visit_", #name, " not implemented"))
                 }
             });
-            self.impl_vist_arms
+            self.impl_visit_arms
                 .push(parse_quote!(Instruction::#opcodei => self.#fun(),));
         }
     }
@@ -50,13 +50,13 @@ impl VisitorTrait {
 impl core::fmt::Display for VisitorTrait {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut item = self.item.clone();
-        let impl_vist_arms = self.impl_vist_arms.clone();
+        let impl_visit_arms = self.impl_visit_arms.clone();
 
         item.items.push(parse_quote! {
             /// Visits an instruction.
             fn visit(&mut self, instruction: Instruction) -> anyhow::Result<()> {
                 match instruction {
-                    #(#impl_vist_arms)*
+                    #(#impl_visit_arms)*
                 }
             }
         });
@@ -75,7 +75,7 @@ impl Default for VisitorTrait {
 
         Self {
             item,
-            impl_vist_arms: vec![],
+            impl_visit_arms: vec![],
         }
     }
 }
