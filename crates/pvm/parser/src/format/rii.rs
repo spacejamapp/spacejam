@@ -27,8 +27,8 @@ impl From<&[u8]> for RII {
         let mid = (bytes.len() - 1).min(4) + 1;
         RII {
             reg0: bytes[0] % 16,
-            imm0: u32::read(&bytes[1..mid]),
-            imm1: u32::read(&bytes[mid..]),
+            imm0: u32::read_imm(&bytes[1..mid]),
+            imm1: u32::read_imm(&bytes[mid..]),
         }
     }
 }

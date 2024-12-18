@@ -1,14 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-struct PageMap {
-    address: u32,
-    length: u32,
-    #[serde(alias = "is-writable")]
-    is_writable: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct Memory {
     address: u32,
     contents: Vec<u8>,
@@ -22,8 +14,6 @@ pub struct Test {
     initial_regs: Vec<u32>,
     #[serde(alias = "initial-pc")]
     initial_pc: u32,
-    #[serde(alias = "initial-page-map")]
-    initial_page_map: Vec<PageMap>,
     #[serde(alias = "initial-memory")]
     initial_memory: Vec<Memory>,
     #[serde(alias = "initial-gas")]
@@ -52,9 +42,20 @@ impl Test {
         let mut registers = [0; 13];
         registers.copy_from_slice(&self.initial_regs);
 
+        // Initialize memory
+        let mut memory = pvmi::Memory::default();
+        for mem in self.initial_memory {
+            let Some(page) = memory.get_mut(&mem.address) else {
+                panic!("page not found");
+            };
+            page.contents.copy_from_slice(&mem.contents);
+        }
+
+        // Initialize interpreter
         let mut interpreter = pvmi::Interpreter::default()
             .gas(self.initial_gas)
-            .registers(registers);
+            .registers(registers)
+            .memory(memory);
 
         interpreter
             .interp(&self.program)
@@ -65,6 +66,17 @@ impl Test {
         assert_eq!(interpreter.status.to_string(), self.expected_status);
         assert_eq!(interpreter.registers.to_vec(), self.expected_regs);
         assert_eq!(interpreter.gas, self.expected_gas);
+
+        // Compare memory
+        let expected_memory = interpreter
+            .mem
+            .iter()
+            .map(|(k, v)| Memory {
+                address: *k,
+                contents: v.contents.clone(),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(expected_memory, self.expected_memory);
     }
 }
 

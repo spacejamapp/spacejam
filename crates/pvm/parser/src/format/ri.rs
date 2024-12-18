@@ -21,7 +21,7 @@ impl From<&[u8]> for RI {
 
         RI {
             reg0: bytes[0] % 16,
-            imm0: u32::read(&bytes[1..]),
+            imm0: u32::read_imm(&bytes[1..]),
         }
     }
 }

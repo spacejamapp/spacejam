@@ -1,6 +1,6 @@
 //! PolkaVM program interpreter
 
-use crate::status::Status;
+use crate::{status::Status, Memory};
 use anyhow::Result;
 use parser::{Instruction, ProgramBlob, Visitor};
 
@@ -18,6 +18,9 @@ pub struct Interpreter {
 
     /// The status of the execution.
     pub status: Status,
+
+    /// The memory of the interpreter.
+    pub mem: Memory,
 
     /// The program counter.
     pub pc: usize,

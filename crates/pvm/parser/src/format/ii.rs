@@ -28,8 +28,8 @@ impl From<&[u8]> for II {
         let mid = 1 + x_len as usize;
 
         II {
-            imm0: u32::read(&bytes[1..mid]),
-            imm1: u32::read(&bytes[mid..]),
+            imm0: u32::read_imm(&bytes[1..mid]),
+            imm1: u32::read_imm(&bytes[mid..]),
         }
     }
 }

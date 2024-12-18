@@ -15,7 +15,7 @@ impl From<&[u8]> for I {
         }
 
         I {
-            imm0: u32::read(&bytes[..bytes.len().min(4)]),
+            imm0: u32::read_imm(&bytes[..bytes.len().min(4)]),
         }
     }
 }

@@ -25,6 +25,9 @@ pub trait ISA: Sized {
     /// Read the value from the bytes.
     fn read(bytes: &[u8]) -> Self;
 
+    /// Read the immediate value from the bytes.
+    fn read_imm(bytes: &[u8]) -> Self;
+
     /// Get the bytes of the encoding.
     fn bytes(&self) -> Vec<u8>;
 }
@@ -43,6 +46,17 @@ impl ISA for u32 {
     }
 
     fn read(bytes: &[u8]) -> Self {
+        if bytes.is_empty() {
+            return 0;
+        }
+
+        let x_len = bytes.len().min(4) as usize;
+        let mut x_bytes = [0u8; 4];
+        x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
+        u32::from_le_bytes(x_bytes)
+    }
+
+    fn read_imm(bytes: &[u8]) -> Self {
         if bytes.is_empty() {
             return 0;
         }

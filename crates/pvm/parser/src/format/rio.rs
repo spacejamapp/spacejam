@@ -1,4 +1,4 @@
-use crate::format::{RII, RIO};
+use crate::format::{ISA, RII, RIO};
 
 impl From<RIO> for Vec<u8> {
     fn from(value: RIO) -> Self {
@@ -14,11 +14,15 @@ impl From<RIO> for Vec<u8> {
 
 impl From<&[u8]> for RIO {
     fn from(bytes: &[u8]) -> Self {
-        let rii = RII::from(bytes);
+        if bytes == [0] || bytes.is_empty() {
+            return Default::default();
+        }
+
+        let mid = (bytes.len() - 1).min(4) + 1;
         RIO {
-            reg0: rii.reg0,
-            imm0: rii.imm0,
-            off0: rii.imm1,
+            reg0: bytes[0] % 16,
+            imm0: u32::read_imm(&bytes[1..mid]),
+            off0: u32::read(&bytes[mid..]),
         }
     }
 }
