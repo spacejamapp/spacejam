@@ -29,6 +29,8 @@ pub struct Test {
     #[serde(alias = "initial-gas")]
     initial_gas: u32,
     program: Vec<u8>,
+    #[serde(alias = "expected-pc")]
+    expected_pc: usize,
     #[serde(alias = "expected-status")]
     expected_status: String,
     #[serde(alias = "expected-regs")]
@@ -59,6 +61,7 @@ impl Test {
             .expect("failed to run program");
 
         assert!(self.expected_memory.is_empty());
+        assert_eq!(interpreter.pc, self.expected_pc);
         assert_eq!(interpreter.status.to_string(), self.expected_status);
         assert_eq!(interpreter.registers.to_vec(), self.expected_regs);
         assert_eq!(interpreter.gas, self.expected_gas);
