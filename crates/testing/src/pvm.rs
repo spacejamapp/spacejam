@@ -47,15 +47,21 @@ impl Test {
 
     /// Run the test
     fn run(self) {
-        if self.program.len() > 256 {
-            panic!("program too long");
-        }
+        let mut registers = [0; 13];
+        registers.copy_from_slice(&self.initial_regs);
 
-        let program = parser::parse(self.program.to_vec()).expect("failed to parse program");
-        let mut reader = program.instr_reader();
-        while !reader.eof() {
-            let _ = reader.read().expect("failed to read instruction");
-        }
+        let mut interpreter = pvmi::Interpreter::default()
+            .gas(self.initial_gas)
+            .registers(registers);
+
+        interpreter
+            .interp(&self.program)
+            .expect("failed to run program");
+
+        assert!(self.expected_memory.is_empty());
+        assert_eq!(interpreter.status.to_string(), self.expected_status);
+        assert_eq!(interpreter.registers.to_vec(), self.expected_regs);
+        assert_eq!(interpreter.gas, self.expected_gas);
     }
 }
 

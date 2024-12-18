@@ -4,7 +4,7 @@ use crate::Interpreter;
 
 impl Interpreter {
     /// Set the registers of the interpreter.
-    pub fn registers(mut self, value: [u32; 12]) -> Self {
+    pub fn registers(mut self, value: [u32; 13]) -> Self {
         self.registers = value;
         self
     }

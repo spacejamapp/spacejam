@@ -11,7 +11,7 @@ mod visitor;
 #[derive(Default)]
 pub struct Interpreter {
     /// The registers of the interpreter.
-    pub registers: [u32; 12],
+    pub registers: [u32; 13],
 
     /// The gas limit of the interpreter.
     pub gas: u32,
@@ -45,6 +45,7 @@ impl Interpreter {
 
     /// Execute a single instruction.
     pub fn step(&mut self, instr: Instruction) -> Result<()> {
+        tracing::debug!("stepping instruction: {:?}", instr);
         if self.gas == 0 {
             self.status = Status::OutOfGas;
             return Ok(());
@@ -59,12 +60,15 @@ impl Interpreter {
 #[test]
 fn test_add() {
     let mut interpreter = Interpreter::default()
-        .registers([0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0])
+        .registers([0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0])
         .gas(10000);
 
     interpreter
         .interp([0, 0, 3, 8, 135, 9, 1])
         .expect("interp failed");
     assert_eq!(interpreter.status, Status::Trap);
-    assert_eq!(interpreter.registers, [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 0,]);
+    assert_eq!(
+        interpreter.registers,
+        [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 0, 0]
+    );
 }

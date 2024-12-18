@@ -40,6 +40,7 @@ impl Default for InstructionEnum {
     fn default() -> Self {
         let item = parse_quote! {
             /// The PVM instruction enum.
+            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             pub enum Instruction {}
         };
 

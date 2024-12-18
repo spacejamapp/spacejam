@@ -47,15 +47,28 @@ impl ISA for u32 {
             return 0;
         }
 
-        let x_len = bytes.len().min(4);
+        let x_len = bytes.len().min(4) as usize;
         let mut x_bytes = [0u8; 4];
         x_bytes[..x_len].copy_from_slice(&bytes[..x_len]);
-        u32::from_le_bytes(x_bytes)
+        sign_extend(u32::from_le_bytes(x_bytes), x_len)
     }
 
     fn bytes(&self) -> Vec<u8> {
         let bytes = self.to_le_bytes().to_vec();
         let len = self.len();
         bytes[..len as usize].to_vec()
+    }
+}
+
+/// Sign extend a value to 32 bits.
+fn sign_extend(x: u32, n: usize) -> u32 {
+    // Check the sign bit (most significant bit of the n-byte value)
+    let msb = 1 << (8 * n - 1); // Position of the sign bit
+    if x & msb != 0 {
+        // If the sign bit is set, perform sign extension
+        x | (!0 << (8 * n)) // Fill higher bits with 1s
+    } else {
+        // If the sign bit is not set, return x as is
+        x
     }
 }
