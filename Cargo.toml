@@ -3,7 +3,7 @@ resolver = "1"
 members = [
     "crates/*",
     "crates/pvm/parser",
-    "crates/pvm/rvparser",
+    "crates/pvm/interpreter",
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",

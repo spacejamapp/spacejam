@@ -1,7 +1,10 @@
 [package]
-name = "pvm"
+name = "pvmi"
 version = "0.0.0"
 edition = "2021"
 description = "Polkadot Virtual Machine"
 
 [dependencies]
+anyhow.workspace = true
+parser.workspace = true
+tracing.workspace = true
