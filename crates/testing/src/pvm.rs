@@ -45,9 +45,7 @@ impl Test {
         // Initialize memory
         let mut memory = pvmi::Memory::default();
         for mem in self.initial_memory {
-            let mut contents = [0; 4];
-            contents[..mem.contents.len()].copy_from_slice(&mem.contents);
-            memory.slots.insert(mem.address, contents);
+            memory.slots.insert(mem.address, mem.contents.clone());
         }
 
         // Initialize interpreter
@@ -64,16 +62,9 @@ impl Test {
             .memory
             .slots
             .iter()
-            .map(|(k, v)| {
-                let mut contents = v.to_vec();
-                while let Some(0) = contents.last() {
-                    contents.pop();
-                }
-
-                Memory {
-                    address: *k,
-                    contents,
-                }
+            .map(|(k, v)| Memory {
+                address: *k,
+                contents: v.to_vec(),
             })
             .collect::<Vec<_>>();
 

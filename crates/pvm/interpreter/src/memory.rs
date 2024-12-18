@@ -8,7 +8,7 @@ pub struct Memory {
     /// The pages of the memory.
     pub pages: BTreeMap<u32, Page>,
     /// The slots of the memory.
-    pub slots: BTreeMap<u32, [u8; 4]>,
+    pub slots: BTreeMap<u32, Vec<u8>>,
 }
 
 /// A memory page.
