@@ -48,7 +48,7 @@ impl Codegen {
                 let opcodei = Ident::new(&opcode.name.to_upper_camel_case(), Span::call_site());
                 self.instruction.emit(&format, &opcodei);
                 self.opcode.emit(opcode, &opcodei, &format.ident);
-                self.visitor.emit(&name, opcode);
+                self.visitor.emit(&name, opcode, &opcodei);
             }
         }
 

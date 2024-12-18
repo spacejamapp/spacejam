@@ -962,6 +962,16 @@ dependencies = [
  "serde",
  "syn 2.0.90",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "pvmi"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "pvm-parser",
+ "tracing",
 ]
 
 [[package]]
@@ -1108,17 +1118,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
-]
-
-[[package]]
-name = "rvparser"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "heck",
- "proc-macro2",
- "quote",
- "syn 2.0.90",
 ]
 
 [[package]]
@@ -1362,7 +1361,7 @@ dependencies = [
  "jamcodec",
  "paste",
  "proc-macro2",
- "pvm-parser",
+ "pvmi",
  "quote",
  "serde",
  "serde_json",

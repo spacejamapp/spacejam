@@ -44,6 +44,7 @@ fn build_tests(tests: &Path, out_dir: &Path) -> Result<()> {
         tests.push(parse_quote! {
             #[test]
             fn #test_name() {
+                crate::init_tracing();
                 let test = Test::from_json(include_str!(#json_path)).expect(&format!("Failed to parse {}", #json_path));
                 test.run();
             }

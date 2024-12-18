@@ -24,7 +24,7 @@ impl From<&[u8]> for RRI {
         let imm0 = if bytes.len() == 1 {
             0
         } else {
-            u32::read(&bytes[1..])
+            u32::read_imm(&bytes[1..])
         };
 
         RRI {
