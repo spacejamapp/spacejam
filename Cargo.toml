@@ -22,7 +22,7 @@ codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/core/dispute", package = "spacejam-dispute" }
 validator = { path = "crates/validator", package = "spacejam-validator" }
-merkle = { path = "crates/merkle", package = "spacejam-merkle" }
+merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 pvmi = { path = "crates/pvm/interpreter" }
 report = { path = "crates/core/report", package = "spacejam-report" }
@@ -31,7 +31,6 @@ spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 stats = { path = "crates/stats", package = "spacejam-stats" }
-
 
 # crates.io
 anyhow = "1.0.93"
