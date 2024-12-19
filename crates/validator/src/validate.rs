@@ -1,7 +1,7 @@
-//! Extension for validating extrinsic
+//! maybe generate this trait from build script
 #![allow(async_fn_in_trait)]
 
-use crate::{extrinsic::ExtrinsicInMem, Error, ExtrinsicType, Result};
+use crate::{Context, Error, ExtrinsicInMem, ExtrinsicType, Result};
 use score::{
     consensus::Safrole,
     extrinsic::{
@@ -12,7 +12,9 @@ use score::{
 use std::sync::Arc;
 
 /// Extrinsic validator
-pub trait Validator {
+pub trait ValidateExtrinsic:
+    ValidateAssurance + ValidateDispute + ValidatePreimage + ValidateGuarantee + ValidateTicket
+{
     const ASSIGNMENT: ExtrinsicType;
 
     type Error: Into<Error>;
@@ -21,14 +23,18 @@ pub trait Validator {
     ///
     /// - returns state changes (safrole)
     /// - returns storage changes (TODO)
-    async fn validate(&self, safrole: Arc<Safrole>, extrinsic: &mut ExtrinsicInMem) -> Result<()> {
+    async fn validate_extrinsic(
+        &self,
+        context: Context,
+        extrinsic: &mut ExtrinsicInMem,
+    ) -> Result<()> {
         match Self::ASSIGNMENT {
             ExtrinsicType::Assurances => {
                 let Some(assurances) = extrinsic.assurances.clone() else {
                     return Err(Error::ExtrinsicValidated);
                 };
 
-                let _ = self.validate_assurances(safrole, assurances).await?;
+                let _ = self.validate_assurances(context, assurances).await?;
                 extrinsic.assurances = None;
                 Ok(())
             }
@@ -37,7 +43,7 @@ pub trait Validator {
                     return Err(Error::ExtrinsicValidated);
                 };
 
-                let _ = self.validate_disputes(safrole, disputes).await?;
+                let _ = self.validate_disputes(context, disputes).await?;
                 extrinsic.disputes = None;
                 Ok(())
             }
@@ -46,7 +52,7 @@ pub trait Validator {
                     return Err(Error::ExtrinsicValidated);
                 };
 
-                let _ = self.validate_preimages(safrole, preimages).await?;
+                let _ = self.validate_preimages(context, preimages).await?;
                 extrinsic.preimages = None;
                 Ok(())
             }
@@ -55,7 +61,7 @@ pub trait Validator {
                     return Err(Error::ExtrinsicValidated);
                 };
 
-                let _ = self.validate_guarantees(safrole, guarantees).await?;
+                let _ = self.validate_guarantees(context, guarantees).await?;
                 extrinsic.guarantees = None;
                 Ok(())
             }
@@ -64,50 +70,55 @@ pub trait Validator {
                     return Err(Error::ExtrinsicValidated);
                 };
 
-                let _ = self.validate_tickets(safrole, tickets).await?;
+                let _ = self.validate_tickets(context, tickets).await?;
                 extrinsic.tickets = None;
                 Ok(())
             }
         }
     }
+}
 
+/// Validate assurances
+pub trait ValidateAssurance {
     async fn validate_assurances(
         &self,
-        safrole: Arc<Safrole>,
-        _assurances: Arc<AssurancesExtrinsic>,
-    ) -> Result<Safrole> {
-        Ok((*safrole).clone())
-    }
+        context: Context,
+        assurances: Arc<AssurancesExtrinsic>,
+    ) -> Result<Safrole>;
+}
 
+/// Validate disputes
+pub trait ValidateDispute {
     async fn validate_disputes(
         &self,
-        safrole: Arc<Safrole>,
-        _disputes: Arc<DisputesExtrinsic>,
-    ) -> Result<Safrole> {
-        Ok((*safrole).clone())
-    }
+        context: Context,
+        disputes: Arc<DisputesExtrinsic>,
+    ) -> Result<Safrole>;
+}
 
+/// Validate preimages
+pub trait ValidatePreimage {
     async fn validate_preimages(
         &self,
-        safrole: Arc<Safrole>,
-        _preimages: Arc<PreimagesExtrinsic>,
-    ) -> Result<Safrole> {
-        Ok((*safrole).clone())
-    }
+        context: Context,
+        preimages: Arc<PreimagesExtrinsic>,
+    ) -> Result<Safrole>;
+}
 
+/// Validate guarantees
+pub trait ValidateGuarantee {
     async fn validate_guarantees(
         &self,
-        safrole: Arc<Safrole>,
-        _guarantees: Arc<GuaranteesExtrinsic>,
-    ) -> Result<Safrole> {
-        Ok((*safrole).clone())
-    }
+        context: Context,
+        guarantees: Arc<GuaranteesExtrinsic>,
+    ) -> Result<Safrole>;
+}
 
+/// Validate tickets
+pub trait ValidateTicket {
     async fn validate_tickets(
         &self,
-        safrole: Arc<Safrole>,
-        _tickets: Arc<TicketsExtrinsic>,
-    ) -> Result<Safrole> {
-        Ok((*safrole).clone())
-    }
+        context: Context,
+        tickets: Arc<TicketsExtrinsic>,
+    ) -> Result<Safrole>;
 }

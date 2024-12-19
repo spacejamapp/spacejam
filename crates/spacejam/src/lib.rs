@@ -1,1 +1,1 @@
-//! SpaceJAM is an implementation of the JAM protocol.
+//! TODO: compose SpaceJam binary here.
