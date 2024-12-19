@@ -1,15 +1,8 @@
 # Development Notes
 
-TODOS:
+## Milestone 1 - Block Importer
 
-- [ ] PVM implementation
-- [ ] confirm the implementation of `erasure_coding`
-- [ ] reports
-  - [ ] the calculation related to rotation period seems not correct.
-
-## Test Vectors
-
-Test vectors: https://github.com/w3f/jamtestvectors
+- [ ] the calculation of rotation period seems not correct in `reports`.
 
 ### 1. State Transaction Functions
 
@@ -24,13 +17,15 @@ Test vectors: https://github.com/w3f/jamtestvectors
 
 ### 2. Others
 
-- [ ] Appendix A - [Polkadot Virtual Machine](https://github.com/w3f/jamtestvectors/pull/3)
+- [x] Appendix A - [Polkadot Virtual Machine](https://github.com/w3f/jamtestvectors/pull/3)
 - [x] Appendix C - [Jam Codec](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/codec)
 - [x] Appendix E.1 - [Binary Merkle Trees](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/trie)
 - [x] Appendix F - [Fishter-Yates Shuffle](https://github.com/w3f/jamtestvectors/pull/17)
-- [ ] Appendix H - [Erasure Coding](https://github.com/w3f/jamtestvectors/pull/4)
+- [x] Appendix H - [Erasure Coding](https://github.com/w3f/jamtestvectors/pull/4)
 
-### Appendix A - Letters in Greek Alphabet
+## Milestone 2 - Block Authorization
+
+## Appendix A - Letters in Greek Alphabet
 
 | Letter Upper, Lower | Name    | Pronounced  | When Speaking, Sounds Like        |
 | ------------------- | ------- | ----------- | --------------------------------- |

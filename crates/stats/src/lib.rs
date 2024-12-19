@@ -1,7 +1,9 @@
 use score::{
     block::Extrinsic,
-    misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorIndex, ValidatorsData},
-    stats::*,
+    misc::{
+        ActivityRecord, Ed25519Public, Statistics, StatisticsJson, TimeSlot, ValidatorDataJson,
+        ValidatorIndex, ValidatorsData,
+    },
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

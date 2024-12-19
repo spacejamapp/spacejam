@@ -3,8 +3,8 @@
 
 use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
+    extrinsic::ticket::{TicketEnvelopeJson, TicketsExtrinsic},
     misc::OpaqueHash,
-    ticket::{TicketEnvelopeJson, TicketsExtrinsic},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};

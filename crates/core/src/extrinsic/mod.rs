@@ -1,4 +1,7 @@
-pub use {assurance::*, guarantee::*, preimage::*};
+pub use {assurance::*, dispute::*, guarantee::*, preimage::*, ticket::*};
+
+pub mod dispute;
+pub mod ticket;
 
 // --------------------------------------------
 // Preimage types

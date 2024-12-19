@@ -6,10 +6,11 @@ use codec::JamCodec;
 use paste::paste;
 use score::{
     block::{header::Header, Block, Extrinsic},
-    dispute::DisputesExtrinsic,
-    extrinsic::{AvailAssurance, Preimage, ReportGuarantee},
+    extrinsic::{
+        dispute::DisputesExtrinsic, ticket::TicketEnvelope, AvailAssurance, Preimage,
+        ReportGuarantee,
+    },
     misc::RefineContext,
-    ticket::TicketEnvelope,
     work::{
         report::{WorkReport, WorkResult},
         WorkItem, WorkPackage,
