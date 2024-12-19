@@ -1,3 +1,1 @@
-mod history;
-
-pub use history::History;
+//! SpaceJAM is an implementation of the JAM protocol.

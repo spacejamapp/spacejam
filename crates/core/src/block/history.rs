@@ -1,4 +1,4 @@
-use crate::misc::*;
+use crate::{misc::*, MAX_BLOCKS_HISTORY};
 use merkle::mmr;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -52,4 +52,46 @@ pub struct BlockInfo {
 pub struct BlocksHistory {
     #[json(nested)]
     pub blocks: Vec<BlockInfo>,
+}
+
+impl BlocksHistory {
+    /// Import a new block into the chain according to graypaper section 7.1-7.4.
+    pub fn import(
+        &mut self,
+        header_hash: OpaqueHash,
+        state_root: OpaqueHash,
+        accumulated_root: OpaqueHash,
+        reported: Vec<ReportedWorkPackage>,
+    ) {
+        let Some(last) = self.blocks.last_mut() else {
+            self.blocks.push(BlockInfo {
+                header_hash,
+                mmr: Mmr {
+                    peaks: vec![Some(accumulated_root)],
+                },
+                state_root: OpaqueHash::default(),
+                reported,
+            });
+            return;
+        };
+
+        // Update the state root of the parent block if it exists
+        last.state_root = state_root;
+        let mut mmr = last.mmr.clone();
+        mmr.append(accumulated_root);
+
+        // Append the new block to history
+        let new_block = BlockInfo {
+            header_hash,
+            state_root: OpaqueHash::default(),
+            mmr,
+            reported,
+        };
+        self.blocks.push(new_block);
+
+        // Truncate to maintain history size limit
+        if self.blocks.len() > MAX_BLOCKS_HISTORY {
+            self.blocks.remove(0);
+        }
+    }
 }
