@@ -8,7 +8,6 @@ use score::{
     misc::OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
-use spacejam::History;
 use spacejson::Json;
 use std::{fs, path::PathBuf};
 
@@ -48,7 +47,7 @@ impl Test {
     pub fn run(&self) -> anyhow::Result<()> {
         init_tracing();
         let state = self.pre_state.clone();
-        let mut history = History(BlocksHistory { blocks: state.beta });
+        let mut history = BlocksHistory { blocks: state.beta };
         history.import(
             self.input.header_hash,
             self.input.parent_state_root,
@@ -56,7 +55,7 @@ impl Test {
             self.input.work_packages.clone(),
         );
 
-        assert_eq!(self.post_state.beta, history.0.blocks);
+        assert_eq!(self.post_state.beta, history.blocks);
         Ok(())
     }
 }

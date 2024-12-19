@@ -1,6 +1,8 @@
 use error::{Error, Result};
 use score::{
-    dispute::{Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict},
+    extrinsic::dispute::{
+        Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict,
+    },
     misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
     EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,

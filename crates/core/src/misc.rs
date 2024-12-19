@@ -1,8 +1,6 @@
 //! Misc types
 
-pub use core::*;
-pub use crypto::*;
-pub use service::*;
+pub use {core::*, crypto::*, service::*, stats::*};
 
 // --------------------------------------------
 // crypto types
@@ -21,9 +19,7 @@ mod crypto {
 // application specific core types
 // --------------------------------------------
 mod core {
-    use crate::extrinsic::AvailAssurance;
-
-    use super::crypto::*;
+    use crate::{extrinsic::AvailAssurance, misc::crypto::*};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -41,10 +37,8 @@ mod core {
     pub type ErasureRoot = OpaqueHash;
 
     pub type Gas = u64;
-
     pub type Entropy = OpaqueHash;
     pub type EntropyBuffer = [Entropy; 4];
-
     pub type ValidatorMetadata = [u8; 128];
 
     /// Represents the ValidatorData structure from ASN.1
@@ -101,8 +95,6 @@ mod core {
         pub lookup_anchor_slot: TimeSlot,
         #[json(hex)]
         pub prerequisites: Vec<OpaqueHash>,
-        /* #[json(hex)]
-        pub hash: OpaqueHash, */
     }
 }
 
@@ -126,5 +118,33 @@ mod service {
         pub min_memo_gas: Gas,
         pub bytes: u64,
         pub items: u32,
+    }
+}
+
+// --------------------------------------------
+// Stats types
+// --------------------------------------------
+mod stats {
+    use serde::{Deserialize, Serialize};
+    use spacejson::Json;
+
+    /// Represents an activity record.
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+    pub struct ActivityRecord {
+        pub blocks: u32,
+        pub tickets: u32,
+        pub pre_images: u32,
+        pub pre_images_size: u32,
+        pub guarantees: u32,
+        pub assurances: u32,
+    }
+
+    /// Represents statistics.
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+    pub struct Statistics {
+        #[json(nested)]
+        pub current: Vec<ActivityRecord>,
+        #[json(nested)]
+        pub last: Vec<ActivityRecord>,
     }
 }

@@ -2,6 +2,12 @@
 resolver = "1"
 members = [
     "crates/*",
+    "crates/core/assurance",
+    "crates/core/dispute",
+    "crates/core/report",
+    "crates/core/safrole",
+    "crates/validator/authoring",
+    "crates/validator/validation",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
     "crates/codec/erasure",
@@ -10,24 +16,25 @@ members = [
 ]
 
 [workspace.dependencies]
-assurance = { path = "crates/assurance", package = "spacejam-assurance" }
+assurance = { path = "crates/core/assurance", package = "spacejam-assurance" }
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
-dispute = { path = "crates/dispute", package = "spacejam-dispute" }
-merkle = { path = "crates/merkle", package = "spacejam-merkle" }
+dispute = { path = "crates/core/dispute", package = "spacejam-dispute" }
+validator = { path = "crates/validator", package = "spacejam-validator" }
+merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 pvmi = { path = "crates/pvm/interpreter" }
-report = { path = "crates/report", package = "spacejam-report" }
-safrole = { path = "crates/safrole", package = "spacejam-safrole" }
+report = { path = "crates/core/report", package = "spacejam-report" }
+safrole = { path = "crates/core/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
-stats = { path = "crates/stats", package = "spacejam-stats" }
-
+statistic = { path = "crates/statistic", package = "spacejam-statistic" }
 
 # crates.io
 anyhow = "1.0.93"
+async-lock = "3.4.0"
 blake2 = "0.10.6"
 ed25519-dalek = "2.1.1"
 git2 = "0.19.0"

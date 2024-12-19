@@ -4,13 +4,13 @@ use crate::Error;
 use anyhow::Result;
 use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
+    extrinsic::ticket::{
+        TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
+        TicketsOrKeysJson,
+    },
     misc::{
         BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorDataJson,
         ValidatorsData,
-    },
-    ticket::{
-        TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
-        TicketsOrKeysJson,
     },
 };
 use serde::{Deserialize, Serialize};

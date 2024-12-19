@@ -1,9 +1,7 @@
 pub mod block;
-pub mod dispute;
+pub mod consensus;
 pub mod extrinsic;
 pub mod misc;
-pub mod stats;
-pub mod ticket;
 pub mod work;
 
 pub const VALIDATORS_COUNT: u16 = 6;

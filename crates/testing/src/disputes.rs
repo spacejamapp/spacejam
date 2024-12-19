@@ -2,7 +2,7 @@
 
 use core::result::Result;
 use dispute::{error::Error, DisputesHandler, OffendersMark, OffendersMarkJson, State, StateJson};
-use score::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
+use score::extrinsic::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 

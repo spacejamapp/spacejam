@@ -21,7 +21,7 @@ score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-stats.workspace = true
+statistic.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

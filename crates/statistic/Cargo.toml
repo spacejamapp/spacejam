@@ -1,5 +1,5 @@
 [package]
-name = "spacejam-stats"
+name = "spacejam-statistic"
 version = "0.1.0"
 edition = "2021"
 

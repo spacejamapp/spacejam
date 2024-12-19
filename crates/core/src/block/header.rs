@@ -1,5 +1,5 @@
+use crate::extrinsic::*;
 use crate::misc::*;
-use crate::ticket::*;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,1 @@
-mod history;
-
-pub use history::History;
+//! TODO: compose SpaceJam binary here.
