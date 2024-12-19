@@ -30,7 +30,7 @@ safrole = { path = "crates/core/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
-stats = { path = "crates/stats", package = "spacejam-stats" }
+statistic = { path = "crates/statistic", package = "spacejam-statistic" }
 
 # crates.io
 anyhow = "1.0.93"

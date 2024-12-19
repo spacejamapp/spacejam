@@ -6,7 +6,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use stats::{State, StateJson, Stats};
+use statistic::{State, StateJson, Stats};
 
 #[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
 pub struct Input {

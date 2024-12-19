@@ -4,8 +4,6 @@ A compact implementation of [the JAM Protocol][graypaper].
 
 ## License
 
-maybe the last move or the new journey.
-
--- Koh Chang, 30 Nov 2024
+_maybe the last move or the new journey. -- Koh Chang, 30 Nov 2024_
 
 [graypaper]: https://graypaper.com
