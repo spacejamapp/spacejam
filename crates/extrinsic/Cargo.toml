@@ -1,0 +1,8 @@
+[package]
+name = "spacejam-extrinsic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+score.workspace = true
+async-lock.workspace = true

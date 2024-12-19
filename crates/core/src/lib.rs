@@ -1,4 +1,5 @@
 pub mod block;
+pub mod consensus;
 pub mod extrinsic;
 pub mod misc;
 pub mod work;
