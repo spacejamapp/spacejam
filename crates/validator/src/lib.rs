@@ -1,12 +1,11 @@
 //! Extrinsic extensions in SpaceJam
 
 mod extrinsic;
-mod pool;
 mod result;
 mod validator;
 
 pub use {
-    pool::Pool,
+    extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
     result::{Error, Result},
     validator::Validator,
 };

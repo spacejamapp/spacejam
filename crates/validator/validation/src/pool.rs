@@ -1,10 +1,11 @@
 //! Extrinsic Pool
 
-use crate::extrinsic::{ExtrinsicInMem, ExtrinsicInPool};
+use async_lock::RwLock;
 use score::{block::Extrinsic, consensus::Safrole, misc::OpaqueHash};
 use std::{collections::BTreeMap, sync::Arc};
+use validator::{ExtrinsicInMem, ExtrinsicInPool};
 
-/// Extrinsic Pool in memory
+/// Extrinsic Validation pool in memory
 ///
 /// Storing extrinsic with in smart pointers for avoiding memory allocation.
 ///
@@ -17,13 +18,13 @@ pub struct Pool {
     /// Extrinsic stored in pool
     pub extrinsic: BTreeMap<OpaqueHash, ExtrinsicInPool>,
     /// Validated extrinsic
-    pub memory: BTreeMap<OpaqueHash, ExtrinsicInMem>,
+    pub memory: BTreeMap<OpaqueHash, Arc<RwLock<ExtrinsicInMem>>>,
     /// extrinsic ready to be packed into block
     pub ready: Vec<OpaqueHash>,
 }
 
 impl Pool {
-    /// Create a new extrinsic pool
+    /// Creates a new extrinsic pool
     pub fn new(safrole: Arc<Safrole>) -> Self {
         Self {
             safrole,
@@ -53,13 +54,13 @@ impl Pool {
 
         self.memory.insert(
             block_hash,
-            ExtrinsicInMem {
+            Arc::new(RwLock::new(ExtrinsicInMem {
                 assurances: Some(ex.assurances.clone()),
                 disputes: Some(ex.disputes.clone()),
                 preimages: Some(ex.preimages.clone()),
                 guarantees: Some(ex.guarantees.clone()),
                 tickets: Some(ex.tickets.clone()),
-            },
+            })),
         );
 
         self.extrinsic.insert(block_hash, ex);

@@ -1,8 +1,9 @@
 [package]
-name = "spacejam-extrinsic"
+name = "spacejam-validation"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-score.workspace = true
 async-lock.workspace = true
+validator.workspace = true
+score.workspace = true

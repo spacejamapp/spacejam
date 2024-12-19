@@ -213,6 +213,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "authoring"
+version = "0.1.0"
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,14 +1353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-extrinsic"
-version = "0.1.0"
-dependencies = [
- "async-lock",
- "spacejam-core",
-]
-
-[[package]]
 name = "spacejam-merkle"
 version = "0.0.0"
 dependencies = [
@@ -1433,6 +1429,23 @@ dependencies = [
  "syn 2.0.90",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "spacejam-validation"
+version = "0.1.0"
+dependencies = [
+ "async-lock",
+ "spacejam-core",
+ "spacejam-validator",
+]
+
+[[package]]
+name = "spacejam-validator"
+version = "0.1.0"
+dependencies = [
+ "async-lock",
+ "spacejam-core",
 ]
 
 [[package]]

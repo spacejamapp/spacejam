@@ -2,6 +2,8 @@
 resolver = "1"
 members = [
     "crates/*",
+    "crates/validator/authoring",
+    "crates/validator/validation",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
     "crates/codec/erasure",
@@ -15,6 +17,7 @@ score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/dispute", package = "spacejam-dispute" }
+validator = { path = "crates/validator", package = "spacejam-validator" }
 merkle = { path = "crates/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 pvmi = { path = "crates/pvm/interpreter" }
