@@ -3,8 +3,8 @@ use score::block::{Block, BlocksHistory};
 use validation::Validation;
 use validator::validate::ValidateExtrinsic;
 
-pub mod validation;
 pub mod cmd;
+pub mod validation;
 
 /// The runtime of SpaceJam
 pub struct SpaceJam<Validator: ValidateExtrinsic> {

@@ -1,6 +1,6 @@
 use crate::block::header::{Header, HeaderJson};
 use crate::extrinsic::*;
-use crate::misc::HeaderHash;
+use crate::misc::{HeaderHash, OpaqueHash};
 pub use history::BlocksHistory;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -27,8 +27,16 @@ pub struct Extrinsic {
     pub disputes: DisputesExtrinsic,
 }
 
+impl Extrinsic {
+    /// Returns the hash of the extrinsic
+    pub fn hash(&self) -> anyhow::Result<OpaqueHash> {
+        let encoded = codec::encode(&self)?;
+        Ok(crypto::blake2b(&encoded))
+    }
+}
+
 /// Represents a block in the system.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
 pub struct Block {
     /// The header of the block
     #[json(nested)]

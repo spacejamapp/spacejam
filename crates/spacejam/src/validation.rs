@@ -1,6 +1,6 @@
 use score::{
     block::{Block, Extrinsic},
-    consensus::Safrole,
+    state::State,
 };
 use std::{marker::PhantomData, sync::Arc};
 use tokio::{
@@ -12,7 +12,7 @@ use validator::{validate::ValidateExtrinsic, Context, Result};
 /// Block validation service
 pub struct Validation<Validator: ValidateExtrinsic> {
     /// The safrole of the validation
-    pub safrole: Arc<Safrole>,
+    pub safrole: Arc<State>,
     /// The sender of the validation
     pub sender: Sender<()>,
     /// The receiver of the validation
@@ -23,7 +23,7 @@ pub struct Validation<Validator: ValidateExtrinsic> {
 
 impl<Validator: ValidateExtrinsic> Validation<Validator> {
     /// Creates a new block validation service
-    pub fn new(safrole: Arc<Safrole>, sender: Sender<()>, receiver: Receiver<Block>) -> Self {
+    pub fn new(safrole: Arc<State>, sender: Sender<()>, receiver: Receiver<Block>) -> Self {
         Self {
             safrole,
             sender,
@@ -40,7 +40,7 @@ impl<Validator: ValidateExtrinsic> Validation<Validator> {
     }
 
     /// Validate the block
-    pub async fn validate(&self, safrole: Arc<Safrole>, block: Block) -> Result<Block> {
+    pub async fn validate(&self, safrole: Arc<State>, block: Block) -> Result<Block> {
         let mut queue = JoinSet::<Result<()>>::new();
         let header = Arc::new(block.header);
         let context = Context {

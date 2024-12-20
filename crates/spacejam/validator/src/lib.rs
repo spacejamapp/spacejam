@@ -1,6 +1,6 @@
 //! Extrinsic extensions in SpaceJam
 
-use score::{block::header::Header, consensus::Safrole};
+use score::{block::header::Header, state::State};
 use std::sync::Arc;
 pub use {
     extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
@@ -17,7 +17,7 @@ pub struct Context {
     /// Block Header
     pub header: Arc<Header>,
     /// Safrole
-    pub safrole: Arc<Safrole>,
+    pub safrole: Arc<State>,
 }
 
 /// An interface for patch

@@ -28,4 +28,10 @@ fn main() {
 
     // Initialize tracing
     tracing_subscriber::fmt().with_env_filter(env).init();
+
+    let Some(cmd) = app.cmd else {
+        return;
+    };
+
+    cmd.run().expect("failed to run spacejam");
 }

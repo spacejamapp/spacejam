@@ -53,3 +53,20 @@ pub struct Header {
     #[serde(with = "codec::bytes")]
     pub seal: BandersnatchVrfSignature,
 }
+
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            parent: HeaderHash::default(),
+            parent_state_root: StateRoot::default(),
+            extrinsic_hash: OpaqueHash::default(),
+            slot: TimeSlot::default(),
+            epoch_mark: None,
+            tickets_mark: None,
+            offenders_mark: vec![],
+            author_index: ValidatorIndex::default(),
+            entropy_source: [0; 96],
+            seal: [0; 96],
+        }
+    }
+}
