@@ -8,7 +8,7 @@ pub enum Error {
     /// Extrinsic is validated
     ExtrinsicValidated,
 
-    Validation(Box<dyn ValidationError>),
+    Validation(Box<dyn ValidationError + Send>),
 }
 
 impl Display for Error {

@@ -1,5 +1,7 @@
 use crate::block::header::{Header, HeaderJson};
 use crate::extrinsic::*;
+use crate::misc::HeaderHash;
+pub use history::BlocksHistory;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -27,4 +29,12 @@ pub struct Block {
     pub header: Header,
     #[json(nested)]
     pub extrinsic: Extrinsic,
+}
+
+impl Block {
+    /// Returns the hash of the block
+    pub fn hash(&self) -> anyhow::Result<HeaderHash> {
+        let encoded = codec::encode(&self.header)?;
+        Ok(crypto::blake2b(&encoded))
+    }
 }

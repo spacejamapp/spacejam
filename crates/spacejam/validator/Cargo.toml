@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 score.workspace = true
+trait-variant.workspace = true

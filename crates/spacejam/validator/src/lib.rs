@@ -3,7 +3,7 @@
 use score::{block::header::Header, consensus::Safrole};
 use std::sync::Arc;
 pub use {
-    extrinsic::{ExtrinsicInMem, ExtrinsicInPool, ExtrinsicType},
+    extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
     result::{Error, Result, ValidationError},
 };
 

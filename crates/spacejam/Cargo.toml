@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-codec.workspace = true
-crypto.workspace = true
-hex.workspace = true
 score.workspace = true
-tracing.workspace = true
+tokio = { workspace = true, features = ["rt", "sync"] }
+validator.workspace = true

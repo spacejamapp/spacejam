@@ -4,16 +4,6 @@ use score::extrinsic::{
 };
 use std::sync::Arc;
 
-/// Extrinsic type
-#[derive(Debug, PartialEq, Eq)]
-pub enum ExtrinsicType {
-    Assurances,
-    Disputes,
-    Preimages,
-    Guarantees,
-    Tickets,
-}
-
 /// Extrinsic in pool
 ///
 /// storing extrinsic with smart pointers for avoiding memory allocation.

@@ -2,17 +2,15 @@
 resolver = "1"
 members = [
     "crates/*",
+    "crates/codec/erasure",
+    "crates/codec/json",
+    "crates/codec/json/derive",
     "crates/core/assurance",
     "crates/core/dispute",
     "crates/core/report",
     "crates/core/safrole",
-    "crates/validator/authoring",
-    "crates/validator/validation",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
-    "crates/codec/erasure",
-    "crates/codec/json",
-    "crates/codec/json/derive",
 ]
 
 [workspace.dependencies]
@@ -21,7 +19,6 @@ score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/core/dispute", package = "spacejam-dispute" }
-validator = { path = "crates/validator", package = "spacejam-validator" }
 merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 pvmi = { path = "crates/pvm/interpreter" }
@@ -31,10 +28,10 @@ spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 statistic = { path = "crates/statistic", package = "spacejam-statistic" }
+validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 
 # crates.io
 anyhow = "1.0.93"
-async-lock = "3.4.0"
 blake2 = "0.10.6"
 ed25519-dalek = "2.1.1"
 git2 = "0.19.0"
@@ -52,9 +49,11 @@ serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 syn = "2.0.90"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+tokio = "1.42.0"
 toml = "0.8.19"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+trait-variant = "0.1.2"
 
 # git dependencies
 ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "d90e180", features = [

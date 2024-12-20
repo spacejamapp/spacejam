@@ -48,7 +48,7 @@ pub struct BlockInfo {
 }
 
 /// Represents the history of blocks.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct BlocksHistory {
     #[json(nested)]
     pub blocks: Vec<BlockInfo>,
