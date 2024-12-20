@@ -4,6 +4,7 @@ use validation::Validation;
 use validator::validate::ValidateExtrinsic;
 
 pub mod validation;
+pub mod cmd;
 
 /// The runtime of SpaceJam
 pub struct SpaceJam<Validator: ValidateExtrinsic> {
@@ -16,5 +17,7 @@ pub struct SpaceJam<Validator: ValidateExtrinsic> {
 
 impl<Validator: ValidateExtrinsic> SpaceJam<Validator> {
     /// Import a new block into the chain
+    ///
+    /// TODO: waiting for test data for block importing or authoring service.
     pub async fn import(&mut self, _block: Block) {}
 }

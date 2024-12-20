@@ -1,9 +1,22 @@
 [package]
 name = "spacejam"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
+[[bin]]
+name = "spacejam"
+path = "bin/spacejam.rs"
+required-features = ["node"]
+
 [dependencies]
+clap = { workspace = true, features = ["derive"], optional = true }
 score.workspace = true
 tokio = { workspace = true, features = ["rt", "sync"] }
+tracing-subscriber = { workspace = true, optional = true }
 validator.workspace = true
+
+[features]
+bin = ["node"]
+cmd = ["clap"]
+default = ["bin"]
+node = ["cmd", "tracing-subscriber"]
