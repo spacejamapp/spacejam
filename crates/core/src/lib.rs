@@ -1,3 +1,5 @@
+//! Core of SpaceJam
+
 pub mod block;
 pub mod extrinsic;
 pub mod misc;
