@@ -1,7 +1,10 @@
+//! Core of SpaceJam
+
 pub mod block;
-pub mod consensus;
 pub mod extrinsic;
 pub mod misc;
+pub mod state;
+pub mod validator;
 pub mod work;
 
 pub const VALIDATORS_COUNT: u16 = 6;

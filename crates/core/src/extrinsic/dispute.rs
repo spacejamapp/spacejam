@@ -126,7 +126,7 @@ pub struct DisputesRecords {
 }
 
 /// Represents the extrinsic data for disputes.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct DisputesExtrinsic {
     /// [ψ_v] Verdicts
     #[json(nested)]

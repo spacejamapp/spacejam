@@ -1,9 +1,10 @@
-//! Extrinsic extensions in SpaceJam
+//! Validator abstraction
+#![cfg(feature = "validator")]
 
-use score::{block::header::Header, consensus::Safrole};
+use crate::{block::header::Header, state::State};
 use std::sync::Arc;
 pub use {
-    extrinsic::{ExtrinsicInMem, ExtrinsicInPool, ExtrinsicType},
+    extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
     result::{Error, Result, ValidationError},
 };
 
@@ -17,7 +18,7 @@ pub struct Context {
     /// Block Header
     pub header: Arc<Header>,
     /// Safrole
-    pub safrole: Arc<Safrole>,
+    pub safrole: Arc<State>,
 }
 
 /// An interface for patch

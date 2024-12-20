@@ -1,18 +1,8 @@
-use score::extrinsic::{
+use crate::extrinsic::{
     AssurancesExtrinsic, DisputesExtrinsic, GuaranteesExtrinsic, PreimagesExtrinsic,
     TicketsExtrinsic,
 };
 use std::sync::Arc;
-
-/// Extrinsic type
-#[derive(Debug, PartialEq, Eq)]
-pub enum ExtrinsicType {
-    Assurances,
-    Disputes,
-    Preimages,
-    Guarantees,
-    Tickets,
-}
 
 /// Extrinsic in pool
 ///

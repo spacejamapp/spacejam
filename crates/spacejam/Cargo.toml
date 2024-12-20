@@ -1,11 +1,23 @@
 [package]
 name = "spacejam"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
+[[bin]]
+name = "spacejam"
+path = "bin/spacejam.rs"
+required-features = ["node"]
+
 [dependencies]
-codec.workspace = true
-crypto.workspace = true
-hex.workspace = true
-score.workspace = true
-tracing.workspace = true
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"], optional = true }
+score = { workspace = true, features = ["validator"] }
+serde_json = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["rt", "sync"] }
+tracing-subscriber = { workspace = true, optional = true }
+
+[features]
+bin = ["node"]
+cmd = ["clap", "serde_json"]
+default = ["bin"]
+node = ["cmd", "tracing-subscriber"]

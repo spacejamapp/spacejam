@@ -39,6 +39,7 @@ pub struct Prover {
 }
 
 impl Prover {
+    /// Creates a new prover.
     pub fn new(ring: Vec<Public>, prover_idx: usize) -> Self {
         Self {
             prover_idx,
