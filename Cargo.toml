@@ -8,6 +8,7 @@ members = [
     "crates/core/dispute",
     "crates/core/report",
     "crates/core/safrole",
+    "crates/core/statistic",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
     "crates/spacejam/storage",
@@ -29,7 +30,7 @@ safrole = { path = "crates/core/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
-statistic = { path = "crates/statistic", package = "spacejam-statistic" }
+statistic = { path = "crates/core/statistic", package = "spacejam-statistic" }
 storage = { path = "crates/spacejam/storage", package = "spacejam-storage" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 
