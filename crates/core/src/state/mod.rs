@@ -11,6 +11,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
+pub mod key;
+
 /// The state of SpaceJam
 ///
 /// σ = (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, θ, ξ)
@@ -48,11 +50,11 @@ pub struct State {
     /// The authorization queue (φ)
     pub authorization: Vec<()>,
 
-    /// Past judgments on work-reports and validators (ψ)
-    pub judgments: Vec<()>,
-
     /// The privileged service indices (χ)
     pub service: Vec<()>,
+
+    /// Past judgments on work-reports and validators (ψ)
+    pub judgments: Vec<()>,
 
     /// The activity statistics for the validators (π)
     pub statistics: Statistics,
@@ -62,6 +64,15 @@ pub struct State {
 
     /// The accumulation history (ξ)
     pub history: Vec<()>,
+}
+
+impl State {
+    /// The root of the state
+    ///
+    /// H_r = M_σ(σ)
+    pub fn root(&self) -> OpaqueHash {
+        todo!()
+    }
 }
 
 /// Safrole consensus state
