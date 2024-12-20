@@ -1,11 +1,11 @@
 //! maybe generate this trait from build script
 #![allow(async_fn_in_trait)]
 
-use crate::{Context, Result};
-use score::extrinsic::{
+use crate::extrinsic::{
     AssurancesExtrinsic, DisputesExtrinsic, GuaranteesExtrinsic, PreimagesExtrinsic,
     TicketsExtrinsic,
 };
+use crate::validator::{Context, Result};
 use std::sync::Arc;
 
 /// Extrinsic validator

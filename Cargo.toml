@@ -11,8 +11,6 @@ members = [
     "crates/core/statistic",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
-    "crates/spacejam/storage",
-    "crates/spacejam/validator",
 ]
 resolver = "1"
 
@@ -31,7 +29,6 @@ spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 statistic = { path = "crates/core/statistic", package = "spacejam-statistic" }
-storage = { path = "crates/spacejam/storage", package = "spacejam-storage" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 
 # crates.io

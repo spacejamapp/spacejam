@@ -1,8 +1,0 @@
-[package]
-name = "spacejam-validator"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-score.workspace = true
-trait-variant.workspace = true

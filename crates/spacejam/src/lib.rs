@@ -1,10 +1,12 @@
 //! The runtime of SpaceJam
-use score::block::{Block, BlocksHistory};
-use validation::Validation;
-use validator::validate::ValidateExtrinsic;
+use score::{
+    block::{Block, BlocksHistory},
+    validator::validate::ValidateExtrinsic,
+};
+use validator::Validation;
 
 pub mod cmd;
-pub mod validation;
+pub mod validator;
 
 /// The runtime of SpaceJam
 pub struct SpaceJam<Validator: ValidateExtrinsic> {

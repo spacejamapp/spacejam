@@ -1,3 +1,4 @@
+use score::validator::{validate::ValidateExtrinsic, Context, Result};
 use score::{
     block::{Block, Extrinsic},
     state::State,
@@ -7,7 +8,6 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinSet,
 };
-use validator::{validate::ValidateExtrinsic, Context, Result};
 
 /// Block validation service
 pub struct Validation<Validator: ValidateExtrinsic> {

@@ -1,6 +1,7 @@
-//! Extrinsic extensions in SpaceJam
+//! Validator abstraction
+#![cfg(feature = "validator")]
 
-use score::{block::header::Header, state::State};
+use crate::{block::header::Header, state::State};
 use std::sync::Arc;
 pub use {
     extrinsic::{ExtrinsicInMem, ExtrinsicInPool},

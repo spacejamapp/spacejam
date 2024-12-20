@@ -1,4 +1,4 @@
-use score::extrinsic::{
+use crate::extrinsic::{
     AssurancesExtrinsic, DisputesExtrinsic, GuaranteesExtrinsic, PreimagesExtrinsic,
     TicketsExtrinsic,
 };

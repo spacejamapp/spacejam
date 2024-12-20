@@ -12,3 +12,8 @@ merkle.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
+trait-variant = { workspace = true, optional = true }
+
+[features]
+default = []
+validator = ["trait-variant"]

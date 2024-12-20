@@ -11,11 +11,10 @@ required-features = ["node"]
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
-score.workspace = true
+score = { workspace = true, features = ["validator"] }
 serde_json = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["rt", "sync"] }
 tracing-subscriber = { workspace = true, optional = true }
-validator.workspace = true
 
 [features]
 bin = ["node"]
