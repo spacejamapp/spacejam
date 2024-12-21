@@ -5,4 +5,4 @@ pub mod mmr;
 mod trie;
 
 pub use binary::MerkleTree;
-pub use trie::merkle;
+pub use trie::merkle as trie;

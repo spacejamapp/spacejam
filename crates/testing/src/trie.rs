@@ -15,7 +15,7 @@ fn jam() {
     let tests: Vec<Test> = serde_json::from_str(test).expect("failed to parse trie test");
 
     for test in tests {
-        let root = merkle::merkle(
+        let root = merkle::trie(
             &test
                 .input
                 .into_iter()
