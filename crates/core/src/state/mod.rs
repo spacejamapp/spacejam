@@ -12,6 +12,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 pub mod key;
+pub mod storage;
 
 /// The state of SpaceJam
 ///
