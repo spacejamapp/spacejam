@@ -73,14 +73,14 @@ pub trait Storage {
         state.queue = codec::decode(data.get(14).unwrap_or(&vec![]))?;
         state.history = codec::decode(data.get(15).unwrap_or(&vec![]))?;
 
-        // TODO: accmulate account state with `iter()`, requires an update of the trie calculation.
+        // TODO: accumulate account state with `iter()`, requires an update of the trie calculation.
         Ok(state)
     }
 
     /// Finalize the state
     ///
-    /// It's not allowed to save state seperately in our system atm for avoiding
-    /// uncontrolable dangorous operations, we only provide this method for state
+    /// It's not allowed to save state separately in our system atm for avoiding
+    /// uncontrollable dangorous operations, we only provide this method for state
     /// transition, and this should only be called on block finalization.
     ///
     /// TODO: comparing with the current state, only write the updated state.

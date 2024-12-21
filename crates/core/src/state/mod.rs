@@ -195,7 +195,7 @@ impl ServiceAccount {
         2 * self.lookup.len() as u32 + self.storage.len() as u32
     }
 
-    /// totol number of octets used in storage
+    /// total number of octets used in storage
     pub fn total(&self) -> u64 {
         self.lookup
             .iter()
