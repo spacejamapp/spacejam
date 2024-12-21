@@ -1,13 +1,16 @@
 //! State of SpaceJam
 
+use std::collections::BTreeMap;
+
 use crate::{
     block::history::BlockInfo,
-    extrinsic::{TicketsAccumulator, TicketsOrKeys},
+    extrinsic::{DisputesRecords, TicketsAccumulator, TicketsOrKeys},
     misc::{
-        BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, Statistics, TimeSlot, ValidatorData,
-        ValidatorsData,
+        BandersnatchRingCommitment, EntropyBuffer, Gas, OpaqueHash, Statistics, TimeSlot,
+        ValidatorData, ValidatorsData,
     },
-    CORES_COUNT,
+    work::report::WorkReport,
+    CORES_COUNT, EPOCH_LENGTH,
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,8 +34,10 @@ pub struct State {
 
     /// The prior state of the service accounts (δ)
     ///
+    /// D(u32 -> A)
+    ///
     /// TODO: to be confirmed, see also the report implementation.
-    pub service_accounts: ServiceAccounts,
+    pub service_accounts: BTreeMap<u32, ServiceAccount>,
 
     /// The entropy accumulator and epochal randomness (η)
     pub entropy: EntropyBuffer,
@@ -49,22 +54,22 @@ pub struct State {
     pub timeslot: TimeSlot,
 
     /// The authorization queue (φ)
-    pub authorization: Vec<()>,
+    pub authorization: [Vec<OpaqueHash>; CORES_COUNT],
 
     /// The privileged service indices (χ)
-    pub service: Vec<()>,
+    pub service: ServiceIndex,
 
-    /// Past judgments on work-reports and validators (ψ)
-    pub judgments: Vec<()>,
+    /// Past judgments (disputes) on work-reports and validators (ψ)
+    pub disputes: DisputesRecords,
 
     /// The activity statistics for the validators (π)
     pub statistics: Statistics,
 
     /// The accumulation queue (θ)
-    pub queue: Vec<()>,
+    pub queue: [(Vec<WorkReport>, Vec<OpaqueHash>); EPOCH_LENGTH as usize],
 
     /// The accumulation history (ξ)
-    pub history: Vec<()>,
+    pub history: [Vec<OpaqueHash>; EPOCH_LENGTH as usize],
 }
 
 /// Safrole consensus state
@@ -83,12 +88,36 @@ pub struct Safrole {
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct ServiceAccounts {
-    /// The post-preimage integration, pre-accumulation intermediate state.
-    pub preimage: (),
+pub struct ServiceAccount {
+    /// storage of the service account (s)
+    pub storage: BTreeMap<OpaqueHash, Vec<u8>>,
 
-    /// The post-accumulation, pre-transfer intermediate state.
-    pub accumulation: (),
+    /// The preimage of the service account (p)
+    pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,
+
+    /// Preimage lookup dictionary (l)
+    pub lookup: BTreeMap<(OpaqueHash, u32), [TimeSlot; 3]>,
+
+    /// The code hash of the service account (c)
+    pub code: OpaqueHash,
+
+    /// The balance of the service account (b)
+    pub balance: u32,
+
+    /// The gas limits of the service account (g) and (m)
+    #[serde(flatten)]
+    pub gas: GasLimit,
+}
+
+/// The gas limits of the service account
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct GasLimit {
+    /// The minimum gas in order to execute the accumulate
+    /// entry-point of the service code (g)
+    pub accumulate: Gas,
+
+    /// The minimum required for the on transfer entry-point (m)
+    pub transfer: Gas,
 }
 
 /// The validators (ι, κ, λ)
@@ -111,4 +140,23 @@ pub struct PendingReports {
     pub judgement: (),
     /// The post-guarantees-extrinsic, pre-accumulation intermediate state.
     pub guarantees: (),
+}
+
+/// The privileged service indices (χ)
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ServiceIndex {
+    /// The manager of the service index (m)
+    pub manager: u32,
+
+    /// The authorized service indices (a)
+    pub authorized: u32,
+
+    /// index of the validator keys and metadata to be drawn
+    /// from next (t)
+    pub validator: u32,
+
+    /// indices of services which automatically accumulate
+    /// in each block together with a basic amount of gas with
+    /// which each accumulates.
+    pub gas: BTreeMap<u32, Gas>,
 }
