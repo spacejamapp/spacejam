@@ -18,8 +18,14 @@ pub trait Storage {
     /// Set a value in the storage
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
 
+    /// Batch write a set of key-value pairs to the storage
+    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()>;
+
     /// Get a value from the storage
     fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
+
+    /// Batch read a set of key-value pairs from the storage
+    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(OpaqueHash, Vec<u8>)>>;
 
     /// Fetch state from the storage
     fn state(&self) -> Result<State> {
@@ -31,7 +37,11 @@ pub trait Storage {
     /// It's not allowed to save state seperately in our system atm for avoiding
     /// uncontrolable dangorous operations, we only provide this method for state
     /// transition, and this should only be called on block finalization.
-    fn finalize(&self, _state: &State) -> Result<()> {
+    fn finalize(&self, state: &State) -> Result<()> {
+        let kvs = state.accumulate()?;
+        for (key, value) in kvs {
+            self.set(key, value)?;
+        }
         Ok(())
     }
 

@@ -1,7 +1,5 @@
 //! State of SpaceJam
 
-use std::collections::BTreeMap;
-
 use crate::{
     block::history::BlockInfo,
     extrinsic::{DisputesRecords, TicketsAccumulator, TicketsOrKeys},
@@ -13,6 +11,7 @@ use crate::{
     CORES_COUNT, EPOCH_LENGTH,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub mod key;
 pub mod storage;
@@ -33,10 +32,6 @@ pub struct State {
     pub safrole: Safrole,
 
     /// The prior state of the service accounts (δ)
-    ///
-    /// D(u32 -> A)
-    ///
-    /// TODO: to be confirmed, see also the report implementation.
     pub service_accounts: BTreeMap<u32, ServiceAccount>,
 
     /// The entropy accumulator and epochal randomness (η)
@@ -48,7 +43,7 @@ pub struct State {
 
     /// The pending reports, per core, which are being made available prior to
     /// accumulation. (ρ)
-    pub reports: [PendingReports; CORES_COUNT],
+    pub reports: [Option<(WorkReport, TimeSlot)>; CORES_COUNT],
 
     /// The current timeslot (τ)
     pub timeslot: TimeSlot,
@@ -70,6 +65,88 @@ pub struct State {
 
     /// The accumulation history (ξ)
     pub history: [Vec<OpaqueHash>; EPOCH_LENGTH as usize],
+}
+
+impl State {
+    /// Accumulate the state into a vector of key-value pairs
+    pub fn accumulate(&self) -> anyhow::Result<Vec<(OpaqueHash, Vec<u8>)>> {
+        let mut kvs = Vec::new();
+        kvs.push((key::AUTHORIZATION_POOLS, codec::encode(&self.pools)?));
+        kvs.push((
+            key::AUTHORIZATION_QUEUE,
+            codec::encode(&self.authorization)?,
+        ));
+        kvs.push((key::RECENT_BLOCKS, codec::encode(&self.recent_blocks)?));
+        kvs.push((key::SAFROLE, codec::encode(&self.safrole)?));
+        kvs.push((key::JUDGEMENTS, codec::encode(&self.disputes)?));
+        kvs.push((key::ENTROPY, codec::encode(&self.entropy)?));
+        kvs.push((key::NEXT_VALIDATORS, codec::encode(&self.validators.next)?));
+        kvs.push((
+            key::CURRENT_VALIDATORS,
+            codec::encode(&self.validators.current)?,
+        ));
+        kvs.push((
+            key::PREVIOUS_VALIDATORS,
+            codec::encode(&self.validators.previous)?,
+        ));
+        kvs.push((key::PENDING_REPORTS, codec::encode(&self.reports)?));
+        kvs.push((key::TIMESLOT, codec::encode(&self.timeslot)?));
+        kvs.push((key::PRIVILEGED_SERVICE, codec::encode(&self.service)?));
+        kvs.push((key::STATISTICS, codec::encode(&self.statistics)?));
+        kvs.push((key::ACCUMULATION_QUEUE, codec::encode(&self.queue)?));
+        kvs.push((key::ACCUMULATION_HISTORY, codec::encode(&self.history)?));
+
+        // Encode the service accounts
+        //
+        // TODO: confirm what is a_i and is we need to encode a_l to the state
+        for (service, acc) in self.service_accounts.iter() {
+            let mut value = Vec::new();
+            value.extend_from_slice(&acc.code);
+            value.extend_from_slice(
+                &codec::encode(&(
+                    &acc.balance,
+                    &acc.gas.accumulate,
+                    &acc.gas.transfer,
+                    &acc.lookup,
+                ))?[..8],
+            );
+            value.extend_from_slice(&service.to_le_bytes());
+            kvs.push((key::account::state(*service), value));
+
+            for (storage, value) in acc.storage.iter() {
+                kvs.push((
+                    key::account::storage(*service, *storage),
+                    codec::encode(value)?,
+                ));
+            }
+
+            for (preimage, value) in acc.preimage.iter() {
+                kvs.push((
+                    key::account::preimage(*service, *preimage),
+                    codec::encode(value)?,
+                ));
+            }
+
+            for ((h, lookup), slots) in acc.lookup.iter() {
+                kvs.push((
+                    key::account::lookup(*service, *lookup, *h),
+                    slots
+                        .iter()
+                        .map(|slot| slot.to_le_bytes())
+                        .flatten()
+                        .collect(),
+                ));
+            }
+        }
+
+        Ok(kvs)
+    }
+
+    /// Calculate the root of the state
+    pub fn root(&self, index: usize) -> anyhow::Result<OpaqueHash> {
+        let kvs = self.accumulate()?;
+        Ok(merkle::trie(&kvs, index))
+    }
 }
 
 /// Safrole consensus state
@@ -131,15 +208,6 @@ pub struct Validators {
 
     /// The validator keys and metadata of the previous epoch (λ)
     pub previous: Vec<ValidatorData>,
-}
-
-/// The pending reports, being made available prior to accumulation.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct PendingReports {
-    /// The post-judgment, pre-guarantees-extrinsic intermediate state.
-    pub judgement: (),
-    /// The post-guarantees-extrinsic, pre-accumulation intermediate state.
-    pub guarantees: (),
 }
 
 /// The privileged service indices (χ)
