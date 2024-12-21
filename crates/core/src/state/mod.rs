@@ -19,7 +19,7 @@ pub mod storage;
 /// The state of SpaceJam
 ///
 /// σ = (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, θ, ξ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct State {
     /// The authorization pools (α)
     pub pools: [Vec<OpaqueHash>; CORES_COUNT],
@@ -70,47 +70,43 @@ pub struct State {
 impl State {
     /// Accumulate the state into a vector of key-value pairs
     pub fn accumulate(&self) -> anyhow::Result<Vec<(OpaqueHash, Vec<u8>)>> {
-        let mut kvs = Vec::new();
-        kvs.push((key::AUTHORIZATION_POOLS, codec::encode(&self.pools)?));
-        kvs.push((
-            key::AUTHORIZATION_QUEUE,
-            codec::encode(&self.authorization)?,
-        ));
-        kvs.push((key::RECENT_BLOCKS, codec::encode(&self.recent_blocks)?));
-        kvs.push((key::SAFROLE, codec::encode(&self.safrole)?));
-        kvs.push((key::JUDGEMENTS, codec::encode(&self.disputes)?));
-        kvs.push((key::ENTROPY, codec::encode(&self.entropy)?));
-        kvs.push((key::NEXT_VALIDATORS, codec::encode(&self.validators.next)?));
-        kvs.push((
-            key::CURRENT_VALIDATORS,
-            codec::encode(&self.validators.current)?,
-        ));
-        kvs.push((
-            key::PREVIOUS_VALIDATORS,
-            codec::encode(&self.validators.previous)?,
-        ));
-        kvs.push((key::PENDING_REPORTS, codec::encode(&self.reports)?));
-        kvs.push((key::TIMESLOT, codec::encode(&self.timeslot)?));
-        kvs.push((key::PRIVILEGED_SERVICE, codec::encode(&self.service)?));
-        kvs.push((key::STATISTICS, codec::encode(&self.statistics)?));
-        kvs.push((key::ACCUMULATION_QUEUE, codec::encode(&self.queue)?));
-        kvs.push((key::ACCUMULATION_HISTORY, codec::encode(&self.history)?));
+        let mut kvs = vec![
+            (key::AUTHORIZATION_POOLS, codec::encode(&self.pools)?),
+            (
+                key::AUTHORIZATION_QUEUE,
+                codec::encode(&self.authorization)?,
+            ),
+            (key::RECENT_BLOCKS, codec::encode(&self.recent_blocks)?),
+            (key::SAFROLE, codec::encode(&self.safrole)?),
+            (key::DISPUTES, codec::encode(&self.disputes)?),
+            (key::ENTROPY, codec::encode(&self.entropy)?),
+            (key::NEXT_VALIDATORS, codec::encode(&self.validators.next)?),
+            (
+                key::CURRENT_VALIDATORS,
+                codec::encode(&self.validators.current)?,
+            ),
+            (
+                key::PREVIOUS_VALIDATORS,
+                codec::encode(&self.validators.previous)?,
+            ),
+            (key::PENDING_REPORTS, codec::encode(&self.reports)?),
+            (key::TIMESLOT, codec::encode(&self.timeslot)?),
+            (key::PRIVILEGED_SERVICE, codec::encode(&self.service)?),
+            (key::STATISTICS, codec::encode(&self.statistics)?),
+            (key::ACCUMULATION_QUEUE, codec::encode(&self.queue)?),
+            (key::ACCUMULATION_HISTORY, codec::encode(&self.history)?),
+        ];
 
-        // Encode the service accounts
-        //
-        // TODO: confirm what is a_i and is we need to encode a_l to the state
         for (service, acc) in self.service_accounts.iter() {
             let mut value = Vec::new();
             value.extend_from_slice(&acc.code);
-            value.extend_from_slice(
-                &codec::encode(&(
-                    &acc.balance,
-                    &acc.gas.accumulate,
-                    &acc.gas.transfer,
-                    &acc.lookup,
-                ))?[..8],
-            );
-            value.extend_from_slice(&service.to_le_bytes());
+            value.extend_from_slice(&codec::encode(&(
+                &acc.balance,
+                &acc.gas.accumulate,
+                &acc.gas.transfer,
+                &acc.total(),
+            ))?);
+            value.extend_from_slice(&acc.items().to_le_bytes());
             kvs.push((key::account::state(*service), value));
 
             for (storage, value) in acc.storage.iter() {
@@ -130,11 +126,7 @@ impl State {
             for ((h, lookup), slots) in acc.lookup.iter() {
                 kvs.push((
                     key::account::lookup(*service, *lookup, *h),
-                    slots
-                        .iter()
-                        .map(|slot| slot.to_le_bytes())
-                        .flatten()
-                        .collect(),
+                    slots.iter().flat_map(|slot| slot.to_le_bytes()).collect(),
                 ));
             }
         }
@@ -163,6 +155,17 @@ pub struct Safrole {
     pub ring_commitment: BandersnatchRingCommitment,
 }
 
+impl Default for Safrole {
+    fn default() -> Self {
+        Self {
+            accumulator: vec![],
+            validators: vec![],
+            series: TicketsOrKeys::default(),
+            ring_commitment: [0u8; 144],
+        }
+    }
+}
+
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ServiceAccount {
@@ -179,11 +182,58 @@ pub struct ServiceAccount {
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
-    pub balance: u32,
+    pub balance: u64,
 
     /// The gas limits of the service account (g) and (m)
     #[serde(flatten)]
     pub gas: GasLimit,
+}
+
+impl ServiceAccount {
+    /// The number of items in storage
+    pub fn items(&self) -> u32 {
+        2 * self.lookup.len() as u32 + self.storage.len() as u32
+    }
+
+    /// totol number of octets used in storage
+    pub fn total(&self) -> u64 {
+        self.lookup
+            .iter()
+            .map(|((_, z), _)| 81 + *z as u64)
+            .chain(self.storage.values().map(|x| 32 + x.len() as u64))
+            .sum::<u64>()
+    }
+
+    /// The state of the service account
+    pub fn state(&self) -> ServiceAccountState {
+        ServiceAccountState {
+            code: self.code,
+            balance: self.balance,
+            gas: self.gas.clone(),
+            items: self.items(),
+            total: self.total(),
+        }
+    }
+}
+
+/// The state of the service account
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ServiceAccountState {
+    /// The code hash of the service account (c)
+    pub code: OpaqueHash,
+
+    /// The balance of the service account (b)
+    pub balance: u64,
+
+    /// The gas limits of the service account (g) and (m)
+    #[serde(flatten)]
+    pub gas: GasLimit,
+
+    /// The total number of octets used in storage (t)
+    pub total: u64,
+
+    /// The number of items in storage (i)
+    pub items: u32,
 }
 
 /// The gas limits of the service account
@@ -198,7 +248,7 @@ pub struct GasLimit {
 }
 
 /// The validators (ι, κ, λ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct Validators {
     /// The validator keys and metadata to be drawn from next (ι)
     pub next: Vec<ValidatorData>,
@@ -211,7 +261,7 @@ pub struct Validators {
 }
 
 /// The privileged service indices (χ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct ServiceIndex {
     /// The manager of the service index (m)
     pub manager: u32,

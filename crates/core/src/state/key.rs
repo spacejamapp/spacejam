@@ -23,8 +23,8 @@ pub const RECENT_BLOCKS: OpaqueHash = to_key!(3);
 /// C(4) - State concerning Safrole (γ)
 pub const SAFROLE: OpaqueHash = to_key!(4);
 
-/// C(5) - Past judgments on work-reports and validators (ψ)
-pub const JUDGEMENTS: OpaqueHash = to_key!(5);
+/// C(5) - Past judgments (disputes) on work-reports and validators (ψ)
+pub const DISPUTES: OpaqueHash = to_key!(5);
 
 /// C(6) - The entropy accumulator and epochal randomness (η)
 pub const ENTROPY: OpaqueHash = to_key!(6);
