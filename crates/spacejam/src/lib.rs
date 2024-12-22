@@ -6,6 +6,7 @@ use score::{
 use validator::Validation;
 
 pub mod cmd;
+pub mod storage;
 pub mod validator;
 
 /// The runtime of SpaceJam

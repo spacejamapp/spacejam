@@ -1,5 +1,7 @@
 //! Storage APIs of the state of SpaceJam
 
+use std::path::Path;
+
 use crate::{
     block::history::BlockInfo,
     extrinsic::DisputesRecords,
@@ -15,7 +17,10 @@ use anyhow::Result;
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage {
+pub trait Storage: Sized {
+    /// Open the storage from path
+    fn open(path: impl AsRef<Path>) -> Result<Self>;
+
     /// Set a value in the storage
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
 
@@ -32,7 +37,7 @@ pub trait Storage {
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = (OpaqueHash, Vec<u8>)>>;
+    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>>;
 
     /// Fetch state from the storage
     ///

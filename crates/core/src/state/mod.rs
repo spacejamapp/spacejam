@@ -12,9 +12,10 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+pub use storage::Storage;
 
 pub mod key;
-pub mod storage;
+mod storage;
 
 /// The state of SpaceJam
 ///
