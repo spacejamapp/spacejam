@@ -29,7 +29,7 @@ impl<Db: Storage> SpaceJam<Db> {
 
     /// Mine a new block
     pub fn mine(&mut self) -> anyhow::Result<Block> {
-        let validator = Validator::default();
+        let validator = Validator;
         let last_block = if let Some(last_block) = self.history.blocks.last() {
             last_block.clone()
         } else {

@@ -18,9 +18,11 @@ pub struct Validator;
 impl Validator {
     /// Mine the block
     pub fn mine(&self, block: BlockInfo, db: &impl Storage) -> anyhow::Result<Block> {
-        let mut header = Header::default();
-        header.parent = block.header_hash;
-        header.parent_state_root = block.state_root;
+        let mut header = Header {
+            parent: block.header_hash,
+            parent_state_root: block.state_root,
+            ..Default::default()
+        };
 
         // TODO: handle the transaction pool.
         let extrinsic: Extrinsic = Default::default();
@@ -34,7 +36,7 @@ impl Validator {
         header.seal = [0u8; 96];
 
         // write the new state to the database
-        db.set(key::TIMESLOT, header.slot.to_le_bytes().to_vec())?;
+        db.set(key::TIMESLOT, header.slot.to_le_bytes())?;
         Ok(Block { header, extrinsic })
     }
 }
