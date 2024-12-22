@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 pub use storage::Storage;
 
+pub mod account;
 pub mod key;
 mod storage;
 
@@ -108,25 +109,22 @@ impl State {
                 &acc.total(),
             ))?);
             value.extend_from_slice(&acc.items().to_le_bytes());
-            kvs.push((key::account::state(*service), value));
+            kvs.push((account::state(*service), value));
 
             for (storage, value) in acc.storage.iter() {
-                kvs.push((
-                    key::account::storage(*service, *storage),
-                    codec::encode(value)?,
-                ));
+                kvs.push((account::storage(*service, *storage), codec::encode(value)?));
             }
 
             for (preimage, value) in acc.preimage.iter() {
                 kvs.push((
-                    key::account::preimage(*service, *preimage),
+                    account::preimage(*service, *preimage),
                     codec::encode(value)?,
                 ));
             }
 
             for ((h, lookup), slots) in acc.lookup.iter() {
                 kvs.push((
-                    key::account::lookup(*service, *lookup, *h),
+                    account::lookup(*service, *lookup, *h),
                     slots.iter().flat_map(|slot| slot.to_le_bytes()).collect(),
                 ));
             }
@@ -135,7 +133,7 @@ impl State {
         Ok(kvs)
     }
 
-    /// Calculate the root of the state
+    /// Calculate the root of the state in **memory**
     pub fn root(&self, index: usize) -> anyhow::Result<OpaqueHash> {
         let kvs = self.accumulate()?;
         Ok(merkle::trie(&kvs, index))
@@ -168,7 +166,7 @@ impl Default for Safrole {
 }
 
 /// The service accounts (δ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct ServiceAccount {
     /// storage of the service account (s)
     pub storage: BTreeMap<OpaqueHash, Vec<u8>>,
@@ -238,7 +236,7 @@ pub struct ServiceAccountState {
 }
 
 /// The gas limits of the service account
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct GasLimit {
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
