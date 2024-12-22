@@ -3,19 +3,26 @@
 use crate::{
     block::history::BlockInfo,
     extrinsic::DisputesRecords,
-    misc::{EntropyBuffer, OpaqueHash, Statistics, TimeSlot, ValidatorData},
-    state::{key, Safrole, ServiceAccountState, ServiceIndex, State},
+    safrole::Safrole,
+    service::{ServiceAccountState, ServiceIndex},
+    state::{account, key, State},
+    statistic::Statistics,
+    validator::ValidatorData,
     work::report::WorkReport,
-    CORES_COUNT, EPOCH_LENGTH,
+    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;
+use std::path::Path;
 
 /// Storage of the state of SpaceJam
 ///
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage {
+pub trait Storage: Sized {
+    /// Open the storage from path
+    fn open(path: impl AsRef<Path>) -> Result<Self>;
+
     /// Set a value in the storage
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
 
@@ -32,7 +39,28 @@ pub trait Storage {
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = (OpaqueHash, Vec<u8>)>>;
+    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>>;
+
+    /// Batch read a set of key-value pairs from the storage
+    fn prefix_collect(&self, prefix: [u8; 4]) -> Result<Vec<([u8; 32], Vec<u8>)>> {
+        let mut kvs = vec![];
+        let mut service = 0;
+        loop {
+            let mut storage_iter = self.prefix_iter(key::prefix(service, &prefix))?;
+            let mut count = 0;
+            while let Some(Ok((key, value))) = storage_iter.next() {
+                kvs.push((key, value));
+                count += 1;
+            }
+
+            if count == 0 {
+                break;
+            }
+            service += 1;
+        }
+
+        Ok(kvs)
+    }
 
     /// Fetch state from the storage
     ///
@@ -73,8 +101,40 @@ pub trait Storage {
         state.queue = codec::decode(data.get(14).unwrap_or(&vec![]))?;
         state.history = codec::decode(data.get(15).unwrap_or(&vec![]))?;
 
-        // TODO: accumulate account state with `iter()`, requires an update of the trie calculation.
+        // we don't need to batch all state in the memory to calculate the root since we can use
+        // the prefix of storage keys to iterate them.
+        //
+        // We need to read the state for validating blocks.
         Ok(state)
+    }
+
+    /// Calculate the root of the state from storage.
+    fn root(&self) -> Result<OpaqueHash> {
+        let mut kvs = vec![];
+        for key in key::CONSTANT_KEYS {
+            kvs.push((key, self.get(key)?.unwrap_or_default()));
+        }
+
+        // fetch account state
+        let mut service = 0;
+        while let Some(state) = self.get(account::info(service))? {
+            kvs.push((account::info(service), state));
+            service += 1;
+        }
+
+        // fetch account storage and preimage
+        for prefix in [key::ACCOUNT_STORAGE_PREFIX, key::ACCOUNT_PREIMAGE_PREFIX] {
+            kvs.extend(self.prefix_collect(prefix)?);
+        }
+
+        // fetch lookup data
+        let mut service: u32 = 0;
+        while let Ok(lookup) = self.prefix_collect(service.to_le_bytes()) {
+            kvs.extend(lookup);
+            service += 1;
+        }
+
+        Ok(merkle::trie(&kvs, 0))
     }
 
     /// Finalize the state
@@ -84,8 +144,9 @@ pub trait Storage {
     /// transition, and this should only be called on block finalization.
     ///
     /// TODO: comparing with the current state, only write the updated state.
-    fn finalize(&self, state: &State) -> Result<()> {
-        self.batch_write(state.accumulate()?)
+    fn finalize(&self, _state: &State) -> Result<()> {
+        // self.batch_write(state.accumulate()?)
+        Ok(())
     }
 
     /// Fetch the authorization pools from the storage
@@ -213,8 +274,8 @@ pub trait Storage {
     }
 
     /// Fetch the account state
-    fn account_state(&self, service: u32) -> Result<Option<ServiceAccountState>> {
-        self.get(key::account::state(service))?
+    fn account_info(&self, service: u32) -> Result<Option<ServiceAccountState>> {
+        self.get(account::info(service))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account state: {e}"))
@@ -222,7 +283,7 @@ pub trait Storage {
 
     /// Fetch the account storage
     fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
-        self.get(key::account::storage(service, key))?
+        self.get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account storage: {e}"))
@@ -230,7 +291,7 @@ pub trait Storage {
 
     /// Fetch the account preimage
     fn account_preimage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
-        self.get(key::account::preimage(service, key))?
+        self.get(account::preimage(service, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
@@ -243,9 +304,50 @@ pub trait Storage {
         lookup: u32,
         key: OpaqueHash,
     ) -> Result<Option<[TimeSlot; 3]>> {
-        self.get(key::account::lookup(service, lookup, key))?
+        self.get(account::lookup(service, lookup, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
+    }
+
+    /// Set the service account info
+    fn set_info(&self, service: u32, acc: &ServiceAccountState) -> Result<()> {
+        let mut value = Vec::new();
+        value.extend_from_slice(&acc.code);
+        value.extend_from_slice(&codec::encode(&(
+            &acc.balance,
+            &acc.gas.accumulate,
+            &acc.gas.transfer,
+            &acc.total,
+        ))?);
+        value.extend_from_slice(&acc.items.to_le_bytes());
+        self.set(account::info(service), value)
+    }
+
+    /// Set the service account storage
+    fn set_storage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(account::storage(service, key), value)
+    }
+
+    /// Set the service account preimage
+    fn set_preimage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(account::preimage(service, key), value)
+    }
+
+    /// Set the service account lookup
+    fn set_lookup(
+        &self,
+        service: u32,
+        lookup: u32,
+        key: OpaqueHash,
+        slots: [TimeSlot; 3],
+    ) -> Result<()> {
+        self.set(
+            account::lookup(service, lookup, key),
+            slots
+                .iter()
+                .flat_map(|slot| slot.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        )
     }
 }

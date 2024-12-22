@@ -3,7 +3,7 @@
 use {
     error::{Error, Result},
     score::{
-        extrinsic::AvailAssurance, misc::OpaqueHash, CORES_COUNT, VALIDATORS_COUNT,
+        extrinsic::AvailAssurance, OpaqueHash, CORES_COUNT, VALIDATORS_COUNT,
         VALIDATORS_SUPER_MAJORITY,
     },
     state::{Input, Output, State},

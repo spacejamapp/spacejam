@@ -1,14 +1,15 @@
-use crate::block::header::{Header, HeaderJson};
-use crate::extrinsic::*;
-use crate::misc::{HeaderHash, OpaqueHash};
-pub use history::BlocksHistory;
+use crate::{extrinsic::*, HeaderHash, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+pub use {
+    header::{Header, HeaderJson},
+    history::BlocksHistory,
+};
 
 pub mod header;
 pub mod history;
 
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
 pub struct Extrinsic {
     /// The tickets
     #[json(Vec<TicketEnvelopeJson>)]
@@ -36,7 +37,7 @@ impl Extrinsic {
 }
 
 /// Represents a block in the system.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
 pub struct Block {
     /// The header of the block
     #[json(nested)]

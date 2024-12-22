@@ -7,10 +7,10 @@ use {
     score::{
         block::history::ReportedWorkPackage,
         extrinsic::ReportGuarantee,
-        misc::{OpaqueHash, TimeSlot, ValidatorData},
+        validator::ValidatorData,
         work::{report::WorkExecResult, AvailabilityAssignment},
-        CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, SERVICE_ITEM_MIN_GAS,
-        VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
+        OpaqueHash, TimeSlot, CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
+        SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },
     state::{Input, Output, ReportedPackage, State},
     std::collections::BTreeMap,

@@ -3,9 +3,9 @@ use score::{
     extrinsic::dispute::{
         Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict,
     },
-    misc::{Ed25519Public, TimeSlot, ValidatorDataJson, ValidatorsData},
+    validator::{ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
-    EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    Ed25519Public, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

@@ -3,3 +3,6 @@
 /crates/crypto/bandersnatch-vrfs-spec
 /crates/pvm/rvparser/riscv-opcodes
 /res
+
+# database
+chain.db

@@ -1,6 +1,6 @@
 //! State key constructor
 
-use crate::misc::OpaqueHash;
+use crate::OpaqueHash;
 
 macro_rules! to_key {
     ($key:expr) => {
@@ -57,13 +57,38 @@ pub const ACCUMULATION_QUEUE: OpaqueHash = to_key!(14);
 /// C(15) - The accumulation history (ξ)
 pub const ACCUMULATION_HISTORY: OpaqueHash = to_key!(15);
 
+/// The prefix of account storage (u32::MAX - 1)
+pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [254, 255, 255, 255];
+
+/// The prefix of account preimage (u32::MAX - 2)
+pub const ACCOUNT_PREIMAGE_PREFIX: [u8; 4] = [253, 255, 255, 255];
+
+/// The constant keys
+pub const CONSTANT_KEYS: [OpaqueHash; 15] = [
+    AUTHORIZATION_POOLS,
+    AUTHORIZATION_QUEUE,
+    RECENT_BLOCKS,
+    SAFROLE,
+    DISPUTES,
+    ENTROPY,
+    NEXT_VALIDATORS,
+    CURRENT_VALIDATORS,
+    PREVIOUS_VALIDATORS,
+    PENDING_REPORTS,
+    TIMESLOT,
+    PRIVILEGED_SERVICE,
+    STATISTICS,
+    ACCUMULATION_QUEUE,
+    ACCUMULATION_HISTORY,
+];
+
 /// A trait for state key construction
-trait StateKey {
+pub(crate) trait StorageKey {
     /// The key of the state
     fn key(&self) -> OpaqueHash;
 }
 
-impl StateKey for u8 {
+impl StorageKey for u8 {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         key[0] = *self;
@@ -72,7 +97,7 @@ impl StateKey for u8 {
 }
 
 // for service indices
-impl StateKey for (u8, u32) {
+impl StorageKey for (u8, u32) {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         let (i, s) = *self;
@@ -88,69 +113,36 @@ impl StateKey for (u8, u32) {
         key[6] = 0;
         key[7] = n[3];
         key[8] = 0;
-
         key
     }
 }
 
 // used for service account state keys
-impl StateKey for (u32, [u8; 32]) {
+impl StorageKey for (u32, [u8; 32]) {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         let (s, h) = *self;
-        let n = s.to_le_bytes();
 
         // Format: [n0, h0, n1, h1, n2, h2, n3, h3, h4, h5, ..., h27]
-        key[0] = n[0];
-        key[1] = h[0];
-        key[2] = n[1];
-        key[3] = h[1];
-        key[4] = n[2];
-        key[5] = h[2];
-        key[6] = n[3];
-        key[7] = h[3];
-
+        let mut hashp = [0; 4];
+        hashp.copy_from_slice(&h[..4]);
+        key[..8].copy_from_slice(&prefix(s, &hashp));
         key[8..].copy_from_slice(&h[4..28]);
         key
     }
 }
 
-/// Service account keys
-pub mod account {
-    use super::StateKey;
-    use crate::misc::OpaqueHash;
-
-    /// C(255, s) - The service account state ((s -> a) δ)
-    pub fn state(service: u32) -> OpaqueHash {
-        (255, service).key()
-    }
-
-    /// C(s, [(2^32 - 1), k0...28]) maybe verdict? ((s ->a ->k ->v) δ)
-    ///
-    /// from storage dictionary s
-    pub fn storage(service: u32, k: OpaqueHash) -> OpaqueHash {
-        let mut key = [0u8; 32];
-        key[..4].copy_from_slice(&(u32::MAX - 1).to_le_bytes());
-        key[4..].copy_from_slice(&k[..28]);
-        (service, key).key()
-    }
-
-    /// C(s, [(2^32 - 2), k0...28]) maybe preimage? ((s ->(a ->h) ->p) δ)
-    pub fn preimage(service: u32, h: OpaqueHash) -> OpaqueHash {
-        let mut key = [0u8; 32];
-        key[..4].copy_from_slice(&(u32::MAX - 2).to_le_bytes());
-        key[4..].copy_from_slice(&h[1..29]);
-        (service, key).key()
-    }
-
-    /// C(s, [(2^32 - 3), k0...28]) maybe lookup? ((s ->a ->h ->l) δ)
-    ///
-    /// TODO: maybe embed this function to the account service
-    pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> OpaqueHash {
-        let mut key = [0; 32];
-        let hashed = crypto::blake2b(&h);
-        key[..4].copy_from_slice(&lookup.to_le_bytes());
-        key[4..].copy_from_slice(&hashed[2..30]);
-        (service, key).key()
-    }
+/// Generate a prefix for a storage
+pub fn prefix(service: u32, prefix: &[u8; 4]) -> [u8; 8] {
+    let mut key = [0; 8];
+    service
+        .to_le_bytes()
+        .iter()
+        .zip(prefix.iter())
+        .enumerate()
+        .for_each(|(i, (a, b))| {
+            key[i] = *a;
+            key[i + 4] = *b;
+        });
+    key
 }
