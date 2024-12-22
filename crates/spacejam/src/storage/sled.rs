@@ -2,7 +2,7 @@
 #![cfg(feature = "sled")]
 
 use anyhow::Result;
-use score::{storage::Storage, OpaqueHash};
+use score::{state::Storage, OpaqueHash};
 use sled::{Batch, Db};
 use std::path::Path;
 

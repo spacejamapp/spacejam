@@ -4,6 +4,8 @@ use spacejson::Json;
 use std::collections::BTreeMap;
 
 /// Represents a service info.
+///
+/// TODO: replace this with the new struct while refactoring tests
 #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
 pub struct ServiceInfo {
     #[json(hex)]

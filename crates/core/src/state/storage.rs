@@ -5,7 +5,7 @@ use crate::{
     extrinsic::DisputesRecords,
     safrole::Safrole,
     service::{ServiceAccountState, ServiceIndex},
-    state::State,
+    state::{account, key, State},
     statistic::Statistics,
     validator::ValidatorData,
     work::report::WorkReport,
@@ -13,9 +13,6 @@ use crate::{
 };
 use anyhow::Result;
 use std::path::Path;
-
-pub mod account;
-pub mod key;
 
 /// Storage of the state of SpaceJam
 ///
@@ -120,8 +117,8 @@ pub trait Storage: Sized {
 
         // fetch account state
         let mut service = 0;
-        while let Some(state) = self.get(account::state(service))? {
-            kvs.push((account::state(service), state));
+        while let Some(state) = self.get(account::info(service))? {
+            kvs.push((account::info(service), state));
             service += 1;
         }
 
@@ -277,8 +274,8 @@ pub trait Storage: Sized {
     }
 
     /// Fetch the account state
-    fn account_state(&self, service: u32) -> Result<Option<ServiceAccountState>> {
-        self.get(account::state(service))?
+    fn account_info(&self, service: u32) -> Result<Option<ServiceAccountState>> {
+        self.get(account::info(service))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account state: {e}"))
@@ -311,5 +308,46 @@ pub trait Storage: Sized {
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
+    }
+
+    /// Set the service account info
+    fn set_info(&self, service: u32, acc: &ServiceAccountState) -> Result<()> {
+        let mut value = Vec::new();
+        value.extend_from_slice(&acc.code);
+        value.extend_from_slice(&codec::encode(&(
+            &acc.balance,
+            &acc.gas.accumulate,
+            &acc.gas.transfer,
+            &acc.total,
+        ))?);
+        value.extend_from_slice(&acc.items.to_le_bytes());
+        self.set(account::info(service), value)
+    }
+
+    /// Set the service account storage
+    fn set_storage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(account::storage(service, key), value)
+    }
+
+    /// Set the service account preimage
+    fn set_preimage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(account::preimage(service, key), value)
+    }
+
+    /// Set the service account lookup
+    fn set_lookup(
+        &self,
+        service: u32,
+        lookup: u32,
+        key: OpaqueHash,
+        slots: [TimeSlot; 3],
+    ) -> Result<()> {
+        self.set(
+            account::lookup(service, lookup, key),
+            slots
+                .iter()
+                .flat_map(|slot| slot.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        )
     }
 }

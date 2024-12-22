@@ -1,8 +1,8 @@
-use crate::storage::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
+use crate::state::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::OpaqueHash;
 
 /// C(255, s) - The service account state ((s -> a) δ)
-pub fn state(service: u32) -> OpaqueHash {
+pub fn info(service: u32) -> OpaqueHash {
     (255, service).key()
 }
 

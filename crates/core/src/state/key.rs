@@ -132,7 +132,7 @@ impl StorageKey for (u32, [u8; 32]) {
     }
 }
 
-/// Generate a prefix for a stroage
+/// Generate a prefix for a storage
 pub fn prefix(service: u32, prefix: &[u8; 4]) -> [u8; 8] {
     let mut key = [0; 8];
     service

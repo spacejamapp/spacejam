@@ -6,7 +6,6 @@ pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod storage;
 pub mod validator;
 pub mod work;
 
