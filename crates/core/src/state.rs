@@ -2,20 +2,18 @@
 
 use crate::{
     block::history::BlockInfo,
-    extrinsic::{DisputesRecords, TicketsAccumulator, TicketsOrKeys},
+    extrinsic::DisputesRecords,
+    safrole::Safrole,
     service::{ServiceAccount, ServiceIndex},
     statistic::Statistics,
-    validator::{Validators, ValidatorsData},
+    storage::account,
+    storage::key,
+    validator::Validators,
     work::report::WorkReport,
-    BandersnatchRingCommitment, EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
+    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-pub use storage::Storage;
-
-pub mod account;
-pub mod key;
-mod storage;
 
 /// The state of SpaceJam
 ///
@@ -136,30 +134,5 @@ impl State {
     pub fn root(&self, index: usize) -> anyhow::Result<OpaqueHash> {
         let kvs = self.accumulate()?;
         Ok(merkle::trie(&kvs, index))
-    }
-}
-
-/// Safrole consensus state
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct Safrole {
-    /// Sealing-key contest ticket accumulator (gamma_a)
-    pub accumulator: TicketsAccumulator,
-    /// Next epoch's validators (gamma_k)
-    pub validators: ValidatorsData,
-    /// Sealing-key series of the current epoch (gamma_s)
-    pub series: TicketsOrKeys,
-    /// Bandersnatch ring commitment (gamma_z)
-    #[serde(with = "codec::bytes")]
-    pub ring_commitment: BandersnatchRingCommitment,
-}
-
-impl Default for Safrole {
-    fn default() -> Self {
-        Self {
-            accumulator: vec![],
-            validators: vec![],
-            series: TicketsOrKeys::default(),
-            ring_commitment: [0u8; 144],
-        }
     }
 }

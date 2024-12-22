@@ -3,8 +3,9 @@
 use crate::{
     block::history::BlockInfo,
     extrinsic::DisputesRecords,
-    service::ServiceAccountState,
-    state::{account, key, Safrole, ServiceIndex, State},
+    safrole::Safrole,
+    service::{ServiceAccountState, ServiceIndex},
+    state::State,
     statistic::Statistics,
     validator::ValidatorData,
     work::report::WorkReport,
@@ -13,7 +14,8 @@ use crate::{
 use anyhow::Result;
 use std::path::Path;
 
-use super::key::CONSTANT_KEYS;
+pub mod account;
+pub mod key;
 
 /// Storage of the state of SpaceJam
 ///
@@ -112,7 +114,7 @@ pub trait Storage: Sized {
     /// Calculate the root of the state from storage.
     fn root(&self) -> Result<OpaqueHash> {
         let mut kvs = vec![];
-        for key in CONSTANT_KEYS {
+        for key in key::CONSTANT_KEYS {
             kvs.push((key, self.get(key)?.unwrap_or_default()));
         }
 

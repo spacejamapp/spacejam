@@ -2,9 +2,11 @@
 
 pub mod block;
 pub mod extrinsic;
+pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
+pub mod storage;
 pub mod validator;
 pub mod work;
 
@@ -51,6 +53,7 @@ pub type OpaqueHash = [u8; 32];
 pub type TimeSlot = u32;
 pub type ValidatorIndex = u16;
 pub type CoreIndex = u16;
+pub type ServiceId = u32;
 
 pub type HeaderHash = OpaqueHash;
 pub type StateRoot = OpaqueHash;

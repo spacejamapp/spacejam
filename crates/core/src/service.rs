@@ -3,9 +3,6 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 
-/// The service id
-pub type ServiceId = u32;
-
 /// Represents a service info.
 #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
 pub struct ServiceInfo {

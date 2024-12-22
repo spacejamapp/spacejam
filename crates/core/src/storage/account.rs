@@ -1,4 +1,4 @@
-use crate::state::key::{StateKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
+use crate::storage::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::OpaqueHash;
 
 /// C(255, s) - The service account state ((s -> a) δ)

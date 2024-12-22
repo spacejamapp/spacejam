@@ -1,4 +1,4 @@
-use crate::{service::ServiceId, Gas, OpaqueHash};
+use crate::{Gas, OpaqueHash, ServiceId};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {availability::*, context::*, report::*};

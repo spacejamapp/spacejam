@@ -1,9 +1,8 @@
 //! Report types
 
 use crate::{
-    service::ServiceId,
     work::context::{RefineContext, RefineContextJson},
-    CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, WorkPackageHash,
+    CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

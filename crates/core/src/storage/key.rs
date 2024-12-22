@@ -83,12 +83,12 @@ pub const CONSTANT_KEYS: [OpaqueHash; 15] = [
 ];
 
 /// A trait for state key construction
-pub(crate) trait StateKey {
+pub(crate) trait StorageKey {
     /// The key of the state
     fn key(&self) -> OpaqueHash;
 }
 
-impl StateKey for u8 {
+impl StorageKey for u8 {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         key[0] = *self;
@@ -97,7 +97,7 @@ impl StateKey for u8 {
 }
 
 // for service indices
-impl StateKey for (u8, u32) {
+impl StorageKey for (u8, u32) {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         let (i, s) = *self;
@@ -118,7 +118,7 @@ impl StateKey for (u8, u32) {
 }
 
 // used for service account state keys
-impl StateKey for (u32, [u8; 32]) {
+impl StorageKey for (u32, [u8; 32]) {
     fn key(&self) -> OpaqueHash {
         let mut key = [0u8; 32];
         let (s, h) = *self;

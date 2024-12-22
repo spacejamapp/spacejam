@@ -7,7 +7,7 @@ pub mod ticket;
 // Preimage types
 // --------------------------------------------
 mod preimage {
-    use crate::service::ServiceId;
+    use crate::ServiceId;
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
