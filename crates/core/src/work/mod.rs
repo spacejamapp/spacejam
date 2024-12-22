@@ -1,8 +1,9 @@
-use crate::misc::*;
-pub use availability::*;
+use crate::{service::ServiceId, Gas, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+pub use {availability::*, context::*, report::*};
 
+pub mod context;
 pub mod report;
 
 /// Represents a work package in the system.

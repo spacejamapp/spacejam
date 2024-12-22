@@ -2,7 +2,7 @@
 #![cfg(feature = "rocksdb")]
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
-use score::{misc::OpaqueHash, state::Storage};
+use score::{state::Storage, OpaqueHash};
 use std::path::Path;
 
 /// The RocksDB storage of SpaceJam

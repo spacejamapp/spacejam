@@ -10,10 +10,9 @@ use score::{
         dispute::DisputesExtrinsic, ticket::TicketEnvelope, AvailAssurance, Preimage,
         ReportGuarantee,
     },
-    misc::RefineContext,
     work::{
         report::{WorkReport, WorkResult},
-        WorkItem, WorkPackage,
+        RefineContext, WorkItem, WorkPackage,
     },
 };
 

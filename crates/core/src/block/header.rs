@@ -1,7 +1,9 @@
-use crate::extrinsic::*;
-use crate::misc::*;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
+use crate::{
+    extrinsic::*, BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash,
+    OpaqueHash, StateRoot, TimeSlot, ValidatorIndex,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

@@ -1,7 +1,7 @@
 //! The runtime of SpaceJam
 use score::{
     block::{Block, BlocksHistory},
-    validator::validate::ValidateExtrinsic,
+    validator::ValidateExtrinsic,
 };
 use validator::Validation;
 

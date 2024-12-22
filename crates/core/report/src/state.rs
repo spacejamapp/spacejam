@@ -3,12 +3,10 @@
 use score::{
     block::history::{BlockInfo, BlockInfoJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-    misc::{
-        Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, ServiceInfo, ServiceInfoJson,
-        TimeSlot, ValidatorDataJson, ValidatorsData,
-    },
+    service::{ServiceId, ServiceInfo, ServiceInfoJson},
+    validator::{ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignmentJson, AvailabilityAssignments},
-    CORES_COUNT,
+    Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

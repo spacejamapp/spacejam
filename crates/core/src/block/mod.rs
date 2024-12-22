@@ -1,9 +1,10 @@
-use crate::block::header::{Header, HeaderJson};
-use crate::extrinsic::*;
-use crate::misc::{HeaderHash, OpaqueHash};
-pub use history::BlocksHistory;
+use crate::{extrinsic::*, HeaderHash, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+pub use {
+    header::{Header, HeaderJson},
+    history::BlocksHistory,
+};
 
 pub mod header;
 pub mod history;

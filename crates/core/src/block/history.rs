@@ -1,4 +1,4 @@
-use crate::{misc::*, MAX_BLOCKS_HISTORY};
+use crate::{OpaqueHash, MAX_BLOCKS_HISTORY};
 use merkle::mmr;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

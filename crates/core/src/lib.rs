@@ -2,8 +2,9 @@
 
 pub mod block;
 pub mod extrinsic;
-pub mod misc;
+pub mod service;
 pub mod state;
+pub mod statistic;
 pub mod validator;
 pub mod work;
 
@@ -31,8 +32,35 @@ pub const MAX_DEPENDENCY_COUNT: usize = 8;
 pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
 
 // Singing Contexts
-
 pub const JAM_AVAILABLE: [u8; 13] = *b"jam_available";
 pub const JAM_VALID: [u8; 9] = *b"jam_valid";
 pub const JAM_INVALID: [u8; 11] = *b"jam_invalid";
 pub const JAM_GUARANTEE: [u8; 13] = *b"jam_guarantee";
+
+// crypto types
+pub type BandersnatchPublic = [u8; 32];
+pub type Ed25519Public = [u8; 32];
+pub type BlsPublic = [u8; 144];
+pub type BandersnatchVrfSignature = [u8; 96];
+pub type BandersnatchRingCommitment = [u8; 144];
+pub type BandersnatchRingVrfSignature = [u8; 784];
+pub type Ed25519Signature = [u8; 64];
+
+// application specific core types
+pub type OpaqueHash = [u8; 32];
+pub type TimeSlot = u32;
+pub type ValidatorIndex = u16;
+pub type CoreIndex = u16;
+
+pub type HeaderHash = OpaqueHash;
+pub type StateRoot = OpaqueHash;
+pub type BeefyRoot = OpaqueHash;
+pub type WorkPackageHash = OpaqueHash;
+pub type WorkReportHash = OpaqueHash;
+pub type ExportsRoot = OpaqueHash;
+pub type ErasureRoot = OpaqueHash;
+
+pub type Gas = u64;
+pub type Entropy = OpaqueHash;
+pub type EntropyBuffer = [Entropy; 4];
+pub type ValidatorMetadata = [u8; 128];

@@ -8,10 +8,8 @@ use score::{
         TicketBody, TicketBodyJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
         TicketsOrKeysJson,
     },
-    misc::{
-        BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash, ValidatorDataJson,
-        ValidatorsData,
-    },
+    validator::{ValidatorDataJson, ValidatorsData},
+    BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

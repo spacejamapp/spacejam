@@ -1,4 +1,4 @@
-use score::validator::{validate::ValidateExtrinsic, Context, Result};
+use score::validator::{Context, Result, ValidateExtrinsic};
 use score::{
     block::{Block, Extrinsic},
     state::State,

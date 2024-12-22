@@ -1,6 +1,9 @@
 //! Dispute types
 
-use crate::{misc::*, JAM_GUARANTEE, JAM_INVALID, JAM_VALID, VALIDATORS_SUPER_MAJORITY};
+use crate::{
+    Ed25519Public, Ed25519Signature, OpaqueHash, ValidatorIndex, JAM_GUARANTEE, JAM_INVALID,
+    JAM_VALID, VALIDATORS_SUPER_MAJORITY,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

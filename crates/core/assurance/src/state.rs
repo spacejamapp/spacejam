@@ -1,10 +1,11 @@
 use score::{
     extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
-    misc::{HeaderHash, TimeSlot, ValidatorDataJson, ValidatorsData},
+    validator::{ValidatorDataJson, ValidatorsData},
     work::{
         report::{WorkReport, WorkReportJson},
         AvailabilityAssignmentJson, AvailabilityAssignments,
     },
+    HeaderHash, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

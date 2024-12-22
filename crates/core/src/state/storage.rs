@@ -3,10 +3,12 @@
 use crate::{
     block::history::BlockInfo,
     extrinsic::DisputesRecords,
-    misc::{EntropyBuffer, OpaqueHash, Statistics, TimeSlot, ValidatorData},
-    state::{account, key, Safrole, ServiceAccountState, ServiceIndex, State},
+    service::ServiceAccountState,
+    state::{account, key, Safrole, ServiceIndex, State},
+    statistic::Statistics,
+    validator::ValidatorData,
     work::report::WorkReport,
-    CORES_COUNT, EPOCH_LENGTH,
+    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;
 use std::path::Path;

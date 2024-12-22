@@ -5,7 +5,7 @@ use score::{
     block::history::{
         BlockInfo, BlockInfoJson, BlocksHistory, ReportedWorkPackage, ReportedWorkPackageJson,
     },
-    misc::OpaqueHash,
+    OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

@@ -1,6 +1,10 @@
 //! Report types
 
-use crate::misc::*;
+use crate::{
+    service::ServiceId,
+    work::context::{RefineContext, RefineContextJson},
+    CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, WorkPackageHash,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

@@ -4,7 +4,7 @@
 use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
     extrinsic::ticket::{TicketEnvelopeJson, TicketsExtrinsic},
-    misc::OpaqueHash,
+    OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};

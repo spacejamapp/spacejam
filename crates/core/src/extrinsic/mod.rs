@@ -7,7 +7,7 @@ pub mod ticket;
 // Preimage types
 // --------------------------------------------
 mod preimage {
-    use crate::misc::*;
+    use crate::service::ServiceId;
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -27,7 +27,10 @@ mod preimage {
 // Assurance types
 // --------------------------------------------
 mod assurance {
-    use crate::{misc::*, AVAIL_BITFIELD_BYTES, CORES_COUNT, JAM_AVAILABLE};
+    use crate::{
+        Ed25519Signature, OpaqueHash, ValidatorIndex, AVAIL_BITFIELD_BYTES, CORES_COUNT,
+        JAM_AVAILABLE,
+    };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -74,8 +77,7 @@ mod assurance {
 // Guarantee types
 // --------------------------------------------
 mod guarantee {
-    use crate::work::report::*;
-    use crate::{misc::*, JAM_GUARANTEE};
+    use crate::{work::report::*, Ed25519Signature, TimeSlot, ValidatorIndex, JAM_GUARANTEE};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 

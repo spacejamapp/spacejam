@@ -1,6 +1,6 @@
 //! State key constructor
 
-use crate::misc::OpaqueHash;
+use crate::OpaqueHash;
 
 macro_rules! to_key {
     ($key:expr) => {

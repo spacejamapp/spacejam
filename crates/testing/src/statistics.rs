@@ -2,7 +2,7 @@
 
 use score::{
     block::{Extrinsic, ExtrinsicJson},
-    misc::{Ed25519Public, TimeSlot, ValidatorIndex},
+    Ed25519Public, TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

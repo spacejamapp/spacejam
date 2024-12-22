@@ -1,6 +1,6 @@
 //! Ticket types
 
-use crate::misc::*;
+use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
