@@ -1,38 +1,37 @@
-//! Storage interface with sled
-#![cfg(feature = "sled")]
-
+//! The RocksDB storage of SpaceJam
+#![cfg(feature = "rocksdb")]
 use anyhow::Result;
+use rocksdb::{WriteBatch, DB};
 use score::{misc::OpaqueHash, state::Storage};
-use sled::{Batch, Db};
 use std::path::Path;
 
-/// Sled storage
-pub struct Sled {
-    db: Db,
+/// The RocksDB storage of SpaceJam
+pub struct RocksDB {
+    db: DB,
 }
 
-impl Storage for Sled {
+impl Storage for RocksDB {
     fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let db = sled::open(path)?;
+        let db = DB::open_default(path.as_ref())?;
         Ok(Self { db })
     }
 
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
-        self.db.insert(key.as_ref(), value.as_ref())?;
-        Ok(())
-    }
-
-    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
-        let mut batch = Batch::default();
-        for (key, value) in kvs {
-            batch.insert(key.as_ref(), value);
-        }
-        self.db.apply_batch(batch)?;
+        self.db.put(key.as_ref(), value.as_ref())?;
         Ok(())
     }
 
     fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
+    }
+
+    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
+        let mut batch = WriteBatch::default();
+        for (key, value) in kvs {
+            batch.put(&key, &value);
+        }
+        self.db.write(batch)?;
+        Ok(())
     }
 
     fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>> {
@@ -47,13 +46,10 @@ impl Storage for Sled {
         &self,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>> {
-        let iter = self.db.scan_prefix(prefix.as_ref());
-
+        let iter = self.db.prefix_iterator(prefix.as_ref());
         Ok(iter.map(|r| {
             let (k, v) = r?;
-            let key = OpaqueHash::try_from(k.to_vec())
-                .map_err(|e| anyhow::anyhow!("failed to decode key: {e:?}"))?;
-            Ok((key, v.to_vec()))
+            Ok((OpaqueHash::try_from(k.to_vec()).unwrap(), v.to_vec()))
         }))
     }
 }
