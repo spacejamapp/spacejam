@@ -12,7 +12,7 @@ mod preimage {
     use spacejson::Json;
 
     /// Represents a preimage request.
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
     pub struct Preimage {
         pub requester: ServiceId,
         #[json(hex)]

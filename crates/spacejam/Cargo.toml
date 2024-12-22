@@ -11,6 +11,7 @@ required-features = ["node"]
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
+hex.workspace = true
 rocksdb = { workspace = true, optional = true }
 score = { workspace = true }
 serde_json = { workspace = true, optional = true }

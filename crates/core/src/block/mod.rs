@@ -9,7 +9,7 @@ pub use {
 pub mod header;
 pub mod history;
 
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
 pub struct Extrinsic {
     /// The tickets
     #[json(Vec<TicketEnvelopeJson>)]
@@ -37,7 +37,7 @@ impl Extrinsic {
 }
 
 /// Represents a block in the system.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
 pub struct Block {
     /// The header of the block
     #[json(nested)]

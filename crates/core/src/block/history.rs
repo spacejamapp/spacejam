@@ -7,7 +7,7 @@ use spacejson::Json;
 pub type MmrPeak = Option<OpaqueHash>;
 
 /// Represents the Merkle Mountain Range (MMR).
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct Mmr {
     #[json(Vec<Option<String>>)]
     pub peaks: Vec<MmrPeak>,
@@ -35,7 +35,7 @@ pub struct ReportedWorkPackage {
 }
 
 /// Represents information about a block.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct BlockInfo {
     #[json(hex)]
     pub header_hash: OpaqueHash,
