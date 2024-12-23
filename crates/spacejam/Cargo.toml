@@ -20,7 +20,7 @@ tokio = { workspace = true, features = ["rt", "sync"] }
 tracing-subscriber = { workspace = true, optional = true }
 
 [features]
-bin = ["node"]
+bin = ["node", "sled"]
 cmd = ["clap", "serde_json"]
-default = ["bin", "sled"]
+default = ["bin"]
 node = ["cmd", "tracing-subscriber"]

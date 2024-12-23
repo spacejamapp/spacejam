@@ -1,14 +1,10 @@
 //! Validator abstraction
 
-use crate::{
-    extrinsic::AvailAssurance, BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata,
-};
-use serde::{Deserialize, Serialize};
-use spacejson::Json;
-
+use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
 pub use {
     context::{Context, Patch},
     extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
+    public::{ValidatorData, ValidatorDataJson, Validators, ValidatorsData},
     result::{Error, Result, ValidationError},
     validate::{
         ValidateAssurance, ValidateDispute, ValidateExtrinsic, ValidateGuarantee, ValidatePreimage,
@@ -18,58 +14,49 @@ pub use {
 
 mod context;
 mod extrinsic;
+mod public;
 mod result;
 mod validate;
 
-/// The validators (ι, κ, λ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
-pub struct Validators {
-    /// The validator keys and metadata to be drawn from next (ι)
-    pub next: ValidatorsData,
+/// Validator interface
+pub trait Validator {
+    /// BLS public key
+    fn bls_public_key(&self) -> BlsPublic;
 
-    /// The validator keys and metadata currently active (κ)
-    pub current: ValidatorsData,
+    /// Ed25519 public key
+    fn ed25519_public_key(&self) -> Ed25519Public;
 
-    /// The validator keys and metadata of the previous epoch (λ)
-    pub previous: ValidatorsData,
-}
+    /// Bandersnatch public key
+    fn bandersnatch_public_key(&self) -> BandersnatchPublic;
 
-/// Represents the ValidatorData structure from ASN.1
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-pub struct ValidatorData {
-    #[json(hex)]
-    pub bandersnatch: BandersnatchPublic,
-    #[json(hex)]
-    pub ed25519: Ed25519Public,
-    #[json(hex)]
-    #[serde(with = "codec::bytes")]
-    pub bls: BlsPublic,
-    #[json(hex)]
-    #[serde(with = "codec::bytes")]
-    pub metadata: ValidatorMetadata,
-}
+    /// Metadata of the validator
+    fn metadata(&self) -> ValidatorMetadata;
 
-impl ValidatorData {
-    /// Returns the bitsmap of the validator.
-    pub fn verify_assurance(&self, assurance: &AvailAssurance) -> anyhow::Result<()> {
-        crypto::ed25519::verify(
-            &assurance.singing_message(),
-            assurance.signature,
-            self.ed25519,
-        )?;
-        Ok(())
-    }
-}
-
-impl Default for ValidatorData {
-    fn default() -> Self {
+    /// Data of the validator
+    fn data(&self) -> ValidatorData {
         ValidatorData {
-            bandersnatch: Default::default(),
-            ed25519: Default::default(),
-            bls: [0; 144],
-            metadata: [0; 128],
+            bls: self.bls_public_key(),
+            ed25519: self.ed25519_public_key(),
+            bandersnatch: self.bandersnatch_public_key(),
+            metadata: self.metadata(),
         }
     }
 }
 
-pub type ValidatorsData = Vec<ValidatorData>;
+impl Validator for () {
+    fn bls_public_key(&self) -> BlsPublic {
+        [0u8; 144]
+    }
+
+    fn ed25519_public_key(&self) -> Ed25519Public {
+        [0u8; 32]
+    }
+
+    fn bandersnatch_public_key(&self) -> BandersnatchPublic {
+        [0u8; 32]
+    }
+
+    fn metadata(&self) -> ValidatorMetadata {
+        [0u8; 128]
+    }
+}

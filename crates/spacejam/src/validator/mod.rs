@@ -3,6 +3,7 @@
 use score::{
     block::{history::BlockInfo, Block, Extrinsic, Header},
     state::{key, Storage},
+    validator,
 };
 pub use validate::Validation;
 
@@ -12,10 +13,18 @@ mod validate;
 /// The validator of SpaceJam
 ///
 /// currently just an empty type which can calculate next blocks without any signatures.
-#[derive(Default)]
-pub struct Validator;
+#[allow(unused)]
+pub struct Validator<V: validator::Validator> {
+    /// The inner validator
+    inner: V,
+}
 
-impl Validator {
+impl<V: validator::Validator> Validator<V> {
+    /// Creates a new validator
+    pub fn new(inner: V) -> Self {
+        Self { inner }
+    }
+
     /// Mine the block
     pub fn mine(&self, block: BlockInfo, db: &impl Storage) -> anyhow::Result<Block> {
         let mut header = Header {
@@ -38,5 +47,11 @@ impl Validator {
         // write the new state to the database
         db.set(key::TIMESLOT, header.slot.to_le_bytes())?;
         Ok(Block { header, extrinsic })
+    }
+}
+
+impl<V: validator::Validator> From<V> for Validator<V> {
+    fn from(inner: V) -> Self {
+        Self { inner }
     }
 }

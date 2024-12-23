@@ -1,6 +1,6 @@
 //! Ed25519 signatures.
 
-use ed25519_dalek::{Signature, VerifyingKey};
+pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 /// Verify an Ed25519 signature.
 pub fn verify(message: &[u8], signature: [u8; 64], key: [u8; 32]) -> anyhow::Result<()> {

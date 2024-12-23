@@ -6,7 +6,7 @@ use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, UniformRand};
 use ark_std::rand;
 
-// Define structures for our key pair
+/// BLS12-381 secret key.
 #[derive(Clone)]
 pub struct SecretKey(pub(crate) Bls12_381Scalar);
 

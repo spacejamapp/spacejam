@@ -1,11 +1,12 @@
 //! BLS12-381 public key.
 
+use anyhow::{Error, Result};
 use ark_bls12_381::{Bls12_381, Fr as Bls12_381Scalar, G1Affine, G2Affine, G2Projective};
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
-use ark_serialize::CanonicalDeserialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-#[allow(unused)]
+/// BLS12-381 public key.
 #[derive(Clone)]
 pub struct PublicKey(pub(crate) G1Affine);
 
@@ -22,5 +23,36 @@ impl PublicKey {
         let lhs = Bls12_381::pairing(self.0, message_hash.into_affine());
         let rhs = Bls12_381::pairing(G1Affine::generator(), signature);
         lhs == rhs
+    }
+}
+
+impl TryFrom<PublicKey> for [u8; 48] {
+    type Error = Error;
+
+    fn try_from(value: PublicKey) -> Result<Self> {
+        let mut output = [0u8; 48];
+        value.0.serialize_compressed(&mut output[..])?;
+        Ok(output)
+    }
+}
+
+impl TryFrom<PublicKey> for [u8; 96] {
+    type Error = Error;
+
+    fn try_from(value: PublicKey) -> Result<Self> {
+        let mut output = [0u8; 96];
+        value.0.serialize_uncompressed(&mut output[..])?;
+        Ok(output)
+    }
+}
+
+impl TryFrom<PublicKey> for [u8; 144] {
+    type Error = Error;
+
+    fn try_from(value: PublicKey) -> Result<Self> {
+        let mut output = [0u8; 144];
+        value.0.serialize_compressed(&mut output[..48])?;
+        value.0.serialize_uncompressed(&mut output[48..])?;
+        Ok(output)
     }
 }
