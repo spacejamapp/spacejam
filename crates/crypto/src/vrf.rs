@@ -27,6 +27,42 @@ impl KeyPair {
         self.public.0.serialize_compressed(&mut buf[..])?;
         Ok(buf)
     }
+
+    /// Get the VRF output.
+    pub fn output(&self, message: &[u8]) -> Result<[u8; 96]> {
+        let output = self.secret.output(
+            Input::new(message).ok_or(anyhow::anyhow!("Invalid bandersnatch input {message:?}"))?,
+        );
+        let mut buf = [0; 96];
+        output.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
+
+    /// Sign a message using the ring VRF.
+    pub fn sign(&self, pks: Vec<[u8; 32]>, context: &[u8], message: &[u8]) -> Result<[u8; 96]> {
+        let public = self.public()?;
+        let this = pks
+            .iter()
+            .position(|pk| pk == &public)
+            .ok_or(anyhow::anyhow!(
+                "Public key not found in the list of validators"
+            ))?;
+
+        let prover = Prover::new(
+            pks.into_iter()
+                .map(|pk| {
+                    Public::deserialize_compressed(&mut pk.as_slice())
+                        .map_err(|e| anyhow::anyhow!(e))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            this,
+        );
+
+        let mut buf = [0; 96];
+        let sig = prover.ring_vrf_sign(message, context)?;
+        sig.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
 }
 
 impl From<[u8; 32]> for KeyPair {

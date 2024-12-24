@@ -1,9 +1,11 @@
 //! Validator from local.
 
+use anyhow::Result;
 use crypto::{bls, ed25519, vrf};
 use rand::Rng;
 use score::{
-    validator::Validator, BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata,
+    validator::Validator, BandersnatchPublic, BandersnatchVrfSignature, BlsPublic, Ed25519Public,
+    ValidatorMetadata,
 };
 
 /// Validator from local.
@@ -46,6 +48,22 @@ impl Validator for LocalValidator {
         self.banersnatch
             .public()
             .expect("invalid bandersnatch public key")
+    }
+
+    fn bandersnatch_sign(
+        &self,
+        keys: &[[u8; 32]],
+        context: &[u8],
+        message: &[u8],
+    ) -> anyhow::Result<BandersnatchVrfSignature> {
+        self.banersnatch.sign(keys.to_vec(), context, message)
+    }
+
+    fn bandersnatch_output(
+        &self,
+        signature: BandersnatchVrfSignature,
+    ) -> Result<BandersnatchVrfSignature> {
+        self.banersnatch.output(&signature)
     }
 
     fn metadata(&self) -> ValidatorMetadata {

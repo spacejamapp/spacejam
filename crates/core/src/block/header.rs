@@ -33,7 +33,7 @@ pub struct Header {
     /// The extrinsic hash (H_x)
     #[json(hex)]
     pub extrinsic_hash: OpaqueHash,
-    /// The slot of the block
+    /// The slot of the block (H_t)
     pub slot: TimeSlot,
     /// The epoch mark (H_e)
     #[json(nested)]

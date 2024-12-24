@@ -1,4 +1,3 @@
 edition = "2021"
-group_imports = "One"
-
+# group_imports = "One"
 # imports_granularity = "Crate"
