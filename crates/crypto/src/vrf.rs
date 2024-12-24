@@ -11,6 +11,23 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
+/// Banersnatch key pair.
+pub struct KeyPair {
+    /// Secret key.
+    pub secret: Secret,
+
+    /// Public key.
+    pub public: Public,
+}
+
+impl From<[u8; 32]> for KeyPair {
+    fn from(seed: [u8; 32]) -> Self {
+        let secret = Secret::from_seed(&seed);
+        let public = secret.public();
+        Self { secret, public }
+    }
+}
+
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
 #[derive(CanonicalSerialize, CanonicalDeserialize)]

@@ -1,7 +1,6 @@
 //! The runtime of SpaceJam
 use score::block::{Block, BlockInfo, BlocksHistory};
-pub use score::Config;
-use validator::Validator;
+pub use score::{validator::Validator, Config};
 
 pub mod cmd;
 pub mod storage;
@@ -18,12 +17,12 @@ pub struct SpaceJam<C: Config> {
     pub db: C::Db,
 
     /// The validator of SpaceJam
-    pub validator: Validator<C::Validator>,
+    pub validator: C::Validator,
 }
 
 impl<C: Config> SpaceJam<C> {
     /// Initialize the chain with the given database.
-    pub fn new(db: C::Db, validator: Validator<C::Validator>) -> Self {
+    pub fn new(db: C::Db, validator: C::Validator) -> Self {
         Self {
             history: BlocksHistory::default(),
             db,

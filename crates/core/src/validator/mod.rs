@@ -1,6 +1,10 @@
 //! Validator abstraction
 
-use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
+use crate::{
+    block::{Block, BlockInfo},
+    state::{key, Storage},
+    BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata,
+};
 pub use {
     context::{Context, Patch},
     extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
@@ -40,6 +44,19 @@ pub trait Validator {
             bandersnatch: self.bandersnatch_public_key(),
             metadata: self.metadata(),
         }
+    }
+
+    /// Mines a block
+    fn mine(&self, block: BlockInfo, db: &impl Storage) -> anyhow::Result<Block> {
+        let mut block = block.mine();
+
+        // TODO: handle the transaction pool.
+        block.header.extrinsic_hash = block.extrinsic.hash()?;
+        block.header.slot = db.timeslot()?.unwrap_or(0) + 1;
+
+        // write the new state to the database
+        db.set(key::TIMESLOT, block.header.slot.to_le_bytes())?;
+        Ok(block)
     }
 }
 
