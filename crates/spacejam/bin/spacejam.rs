@@ -1,11 +1,11 @@
 use clap::{ArgAction, CommandFactory, Parser};
-use spacejam::cmd::Command;
+use spacejam::{cmd::Command, validator::LocalValidator};
 use tracing_subscriber::EnvFilter;
 
 struct Config;
 
 impl spacejam::Config for Config {
-    type Validator = ();
+    type Validator = LocalValidator;
     type Db = spacejam::storage::sled::Sled;
 }
 

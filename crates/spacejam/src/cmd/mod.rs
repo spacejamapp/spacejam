@@ -26,7 +26,7 @@ impl Command {
             Command::Rand(rand) => rand.run(),
             Command::Spawn => {
                 let mut spacejam: SpaceJam<C> =
-                    SpaceJam::new(C::Db::open("chain.db")?, C::Validator::default().into());
+                    SpaceJam::new(C::Db::open("chain.db")?, C::Validator::default());
 
                 let mut bn = 0;
                 loop {

@@ -20,6 +20,15 @@ pub struct KeyPair {
     pub public: Public,
 }
 
+impl KeyPair {
+    /// Get the public key as a 32-byte array.
+    pub fn public(&self) -> Result<[u8; 32]> {
+        let mut buf = [0; 32];
+        self.public.0.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
+}
+
 impl From<[u8; 32]> for KeyPair {
     fn from(seed: [u8; 32]) -> Self {
         let secret = Secret::from_seed(&seed);

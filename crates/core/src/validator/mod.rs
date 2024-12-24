@@ -59,21 +59,3 @@ pub trait Validator {
         Ok(block)
     }
 }
-
-impl Validator for () {
-    fn bls_public_key(&self) -> BlsPublic {
-        [0u8; 144]
-    }
-
-    fn ed25519_public_key(&self) -> Ed25519Public {
-        [0u8; 32]
-    }
-
-    fn bandersnatch_public_key(&self) -> BandersnatchPublic {
-        [0u8; 32]
-    }
-
-    fn metadata(&self) -> ValidatorMetadata {
-        [0u8; 128]
-    }
-}
