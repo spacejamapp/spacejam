@@ -1,5 +1,5 @@
 use score::{
-    block::Extrinsic,
+    extrinsic::Extrinsic,
     statistic::{ActivityRecord, Statistics, StatisticsJson},
     validator::{ValidatorDataJson, ValidatorsData},
     Ed25519Public, TimeSlot, ValidatorIndex,

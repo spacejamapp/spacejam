@@ -1,9 +1,9 @@
 //! The runtime of SpaceJam
 use score::block::{history::BlockInfo, Block, BlocksHistory};
-pub use {config::Config, validator::Validator};
+pub use score::Config;
+use validator::Validator;
 
 pub mod cmd;
-mod config;
 pub mod storage;
 pub mod validator;
 

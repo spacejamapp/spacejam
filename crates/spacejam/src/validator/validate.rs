@@ -1,7 +1,8 @@
-use score::validator::{Context, Result, ValidateExtrinsic};
 use score::{
-    block::{Block, Extrinsic},
+    block::Block,
+    extrinsic::Extrinsic,
     state::State,
+    validator::{Context, Result, ValidateExtrinsic},
 };
 use std::{marker::PhantomData, sync::Arc};
 use tokio::{

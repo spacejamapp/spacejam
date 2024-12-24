@@ -1,4 +1,6 @@
-//! BLS12-381 keypair
+//! BLS12-381 keypair with double public key
+//!
+//! TODO: use w3f-bls to refactor this library
 
 pub use {public::PublicKey, secret::SecretKey, signature::Signature};
 

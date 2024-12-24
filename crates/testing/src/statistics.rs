@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use score::{
-    block::{Extrinsic, ExtrinsicJson},
+    extrinsic::{Extrinsic, ExtrinsicJson},
     Ed25519Public, TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};

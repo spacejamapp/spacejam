@@ -1,6 +1,6 @@
 //! The configuration of SpaceJam
 
-use score::{state::Storage, validator::Validator};
+use crate::{state::Storage, validator::Validator};
 
 /// The configuration of SpaceJam
 pub trait Config {

@@ -63,6 +63,7 @@ toml = "0.8.19"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 trait-variant = "0.1.2"
+w3f-bls = "0.1.8"
 
 # git dependencies
 ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "d90e180", features = [

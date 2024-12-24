@@ -1,6 +1,9 @@
 //! Core of SpaceJam
 
+pub use config::Config;
+
 pub mod block;
+pub mod config;
 pub mod extrinsic;
 pub mod safrole;
 pub mod service;

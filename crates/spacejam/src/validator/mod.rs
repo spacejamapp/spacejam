@@ -1,7 +1,8 @@
 //! The validator service of SpaceJam
 
 use score::{
-    block::{history::BlockInfo, Block, Extrinsic, Header},
+    block::{history::BlockInfo, Block, Header},
+    extrinsic::Extrinsic,
     state::{key, Storage},
     validator,
 };
