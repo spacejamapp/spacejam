@@ -2,7 +2,7 @@
 
 use score::{
     extrinsic::{Extrinsic, ExtrinsicJson},
-    Ed25519Public, TimeSlot, ValidatorIndex,
+    TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -14,8 +14,6 @@ pub struct Input {
     author_index: ValidatorIndex,
     #[json(nested)]
     extrinsic: Extrinsic,
-    #[json(Vec<String>)]
-    reporters: Vec<Ed25519Public>,
 }
 
 #[derive(Json, Serialize, Deserialize, Debug)]
@@ -36,7 +34,6 @@ impl Test {
             self.input.slot,
             self.input.author_index,
             self.input.extrinsic,
-            self.input.reporters,
         );
 
         assert_eq!(
