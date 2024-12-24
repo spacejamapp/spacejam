@@ -5,10 +5,9 @@ use score::{EPOCH_LENGTH, ROTATION_PERIOD};
 use {
     error::{Error, Result},
     score::{
-        block::history::ReportedWorkPackage,
         extrinsic::ReportGuarantee,
         validator::ValidatorData,
-        work::{report::WorkExecResult, AvailabilityAssignment},
+        work::{report::WorkExecResult, AvailabilityAssignment, ReportedWorkPackage},
         OpaqueHash, TimeSlot, CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
         SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },

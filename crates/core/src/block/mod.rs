@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
     header::{Header, HeaderJson},
-    history::BlocksHistory,
+    history::{BlocksHistory, BlocksHistoryJson},
+    info::{BlockInfo, BlockInfoJson},
 };
 
 pub mod header;
 pub mod history;
+mod info;
 
 /// Represents a block in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]

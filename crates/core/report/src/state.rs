@@ -1,7 +1,7 @@
 //! The state of the reporting portion of the protocol.
 
 use score::{
-    block::history::{BlockInfo, BlockInfoJson},
+    block::{BlockInfo, BlockInfoJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
     service::{ServiceInfo, ServiceInfoJson},
     validator::{ValidatorDataJson, ValidatorsData},

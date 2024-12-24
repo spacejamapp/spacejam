@@ -20,6 +20,15 @@ pub struct WorkPackage {
     pub items: Vec<WorkItem>,
 }
 
+/// Represents a reported work package.
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+pub struct ReportedWorkPackage {
+    #[json(hex)]
+    pub hash: OpaqueHash,
+    #[json(hex)]
+    pub exports_root: OpaqueHash,
+}
+
 /// Represents an individual work item within a work package.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkItem {

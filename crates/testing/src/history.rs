@@ -2,9 +2,8 @@
 
 use paste::paste;
 use score::{
-    block::history::{
-        BlockInfo, BlockInfoJson, BlocksHistory, ReportedWorkPackage, ReportedWorkPackageJson,
-    },
+    block::{BlockInfo, BlockInfoJson, BlocksHistory},
+    work::{ReportedWorkPackage, ReportedWorkPackageJson},
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 //! Storage APIs of the state of SpaceJam
 
 use crate::{
-    block::history::BlockInfo,
+    block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::Safrole,
     service::{ServiceAccountState, ServiceIndex},
