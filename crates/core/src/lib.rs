@@ -1,6 +1,9 @@
 //! Core of SpaceJam
 
+pub use config::Config;
+
 pub mod block;
+pub mod config;
 pub mod extrinsic;
 pub mod safrole;
 pub mod service;
@@ -37,6 +40,9 @@ pub const JAM_AVAILABLE: [u8; 13] = *b"jam_available";
 pub const JAM_VALID: [u8; 9] = *b"jam_valid";
 pub const JAM_INVALID: [u8; 11] = *b"jam_invalid";
 pub const JAM_GUARANTEE: [u8; 13] = *b"jam_guarantee";
+pub const JAM_ENTROPY: [u8; 11] = *b"jam_entropy";
+pub const JAM_TICKET_SEAL: [u8; 15] = *b"jam_ticket_seal";
+pub const JAM_FALLBACK_SEAL: [u8; 17] = *b"jam_fallback_seal";
 
 // crypto types
 pub type BandersnatchPublic = [u8; 32];

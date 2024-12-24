@@ -1,40 +1,15 @@
-use crate::{extrinsic::*, HeaderHash, OpaqueHash};
+use crate::{extrinsic::*, HeaderHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
     header::{Header, HeaderJson},
-    history::BlocksHistory,
+    history::{BlocksHistory, BlocksHistoryJson},
+    info::{BlockInfo, BlockInfoJson},
 };
 
 pub mod header;
 pub mod history;
-
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
-pub struct Extrinsic {
-    /// The tickets
-    #[json(Vec<TicketEnvelopeJson>)]
-    pub tickets: TicketsExtrinsic,
-    /// The preimages
-    #[json(Vec<PreimageJson>)]
-    pub preimages: PreimagesExtrinsic,
-    /// The guarantees
-    #[json(Vec<ReportGuaranteeJson>)]
-    pub guarantees: GuaranteesExtrinsic,
-    /// The assurances
-    #[json(Vec<AvailAssuranceJson>)]
-    pub assurances: AssurancesExtrinsic,
-    /// The disputes
-    #[json(nested)]
-    pub disputes: DisputesExtrinsic,
-}
-
-impl Extrinsic {
-    /// Returns the hash of the extrinsic
-    pub fn hash(&self) -> anyhow::Result<OpaqueHash> {
-        let encoded = codec::encode(&self)?;
-        Ok(crypto::blake2b(&encoded))
-    }
-}
+mod info;
 
 /// Represents a block in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]

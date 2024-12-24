@@ -1,7 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
-    block::history::BlockInfo,
+    block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::Safrole,
     service::{ServiceAccount, ServiceIndex},

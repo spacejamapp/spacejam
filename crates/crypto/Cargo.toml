@@ -1,6 +1,6 @@
 [package]
 name = "spacejam-crypto"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 [dependencies]
@@ -13,6 +13,7 @@ once_cell.workspace = true
 ring.workspace = true
 tiny-keccak.workspace = true
 tracing.workspace = true
+w3f-bls.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true

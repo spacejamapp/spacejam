@@ -24,33 +24,33 @@ pub type TicketsMark = [TicketBody; EPOCH_LENGTH as usize];
 /// Represents the header of a block.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct Header {
-    /// The parent block hash
+    /// The parent block hash (H_p)
     #[json(hex)]
     pub parent: HeaderHash,
-    /// The parent state root
+    /// The parent state root (H_r)
     #[json(hex)]
     pub parent_state_root: StateRoot,
-    /// The extrinsic hash
+    /// The extrinsic hash (H_x)
     #[json(hex)]
     pub extrinsic_hash: OpaqueHash,
-    /// The slot of the block
+    /// The slot of the block (H_t)
     pub slot: TimeSlot,
-    /// The epoch mark
+    /// The epoch mark (H_e)
     #[json(nested)]
     pub epoch_mark: Option<EpochMark>,
-    /// The tickets mark
+    /// The winning tickets marker (H_w)
     #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
-    /// The offenders mark
+    /// The offenders mark (H_o)
     #[json(hex)]
     pub offenders_mark: Vec<Ed25519Public>,
-    /// The author index
+    /// The author index (H_i)
     pub author_index: ValidatorIndex,
-    /// The entropy source
+    /// The entropy source (H_v)
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub entropy_source: BandersnatchVrfSignature,
-    /// The seal
+    /// The seal (H_s)
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub seal: BandersnatchVrfSignature,

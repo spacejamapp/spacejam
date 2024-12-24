@@ -35,6 +35,7 @@ impl Default for TicketEnvelope {
 pub struct TicketBody {
     #[json(hex)]
     pub id: TicketId,
+    /// Ticket entry index
     pub attempt: TicketAttempt,
 }
 

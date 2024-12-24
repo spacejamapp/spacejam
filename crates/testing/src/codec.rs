@@ -5,7 +5,8 @@ use anyhow::Result;
 use codec::JamCodec;
 use paste::paste;
 use score::{
-    block::{header::Header, Block, Extrinsic},
+    block::{header::Header, Block},
+    extrinsic::Extrinsic,
     extrinsic::{
         dispute::DisputesExtrinsic, ticket::TicketEnvelope, AvailAssurance, Preimage,
         ReportGuarantee,

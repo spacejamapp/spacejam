@@ -1,6 +1,6 @@
 //! Command line interface for spacejam
 
-use crate::{storage::sled::Sled, SpaceJam};
+use crate::{Config, SpaceJam};
 use clap::Parser;
 pub use rand::Rand;
 use score::state::Storage;
@@ -21,12 +21,12 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub fn run<C: Config>(&self) -> anyhow::Result<()> {
         match self {
             Command::Rand(rand) => rand.run(),
             Command::Spawn => {
-                let db = Sled::open("chain.db")?;
-                let mut spacejam = SpaceJam::new(db);
+                let mut spacejam: SpaceJam<C> =
+                    SpaceJam::new(C::Db::open("chain.db")?, C::Validator::default());
 
                 let mut bn = 0;
                 loop {

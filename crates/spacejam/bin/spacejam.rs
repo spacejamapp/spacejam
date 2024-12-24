@@ -1,6 +1,13 @@
 use clap::{ArgAction, CommandFactory, Parser};
-use spacejam::cmd::Command;
+use spacejam::{cmd::Command, validator::LocalValidator};
 use tracing_subscriber::EnvFilter;
+
+struct Config;
+
+impl spacejam::Config for Config {
+    type Validator = LocalValidator;
+    type Db = spacejam::storage::sled::Sled;
+}
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]
@@ -33,5 +40,5 @@ fn main() {
         return;
     };
 
-    cmd.run().expect("failed to run spacejam");
+    cmd.run::<Config>().expect("failed to run spacejam");
 }

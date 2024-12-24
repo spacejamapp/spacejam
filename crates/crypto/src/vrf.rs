@@ -11,6 +11,68 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
+/// Banersnatch key pair.
+pub struct KeyPair {
+    /// Secret key.
+    pub secret: Secret,
+
+    /// Public key.
+    pub public: Public,
+}
+
+impl KeyPair {
+    /// Get the public key as a 32-byte array.
+    pub fn public(&self) -> Result<[u8; 32]> {
+        let mut buf = [0; 32];
+        self.public.0.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
+
+    /// Get the VRF output.
+    pub fn output(&self, message: &[u8]) -> Result<[u8; 96]> {
+        let output = self.secret.output(
+            Input::new(message).ok_or(anyhow::anyhow!("Invalid bandersnatch input {message:?}"))?,
+        );
+        let mut buf = [0; 96];
+        output.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
+
+    /// Sign a message using the ring VRF.
+    pub fn sign(&self, pks: Vec<[u8; 32]>, context: &[u8], message: &[u8]) -> Result<[u8; 96]> {
+        let public = self.public()?;
+        let this = pks
+            .iter()
+            .position(|pk| pk == &public)
+            .ok_or(anyhow::anyhow!(
+                "Public key not found in the list of validators"
+            ))?;
+
+        let prover = Prover::new(
+            pks.into_iter()
+                .map(|pk| {
+                    Public::deserialize_compressed(&mut pk.as_slice())
+                        .map_err(|e| anyhow::anyhow!(e))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            this,
+        );
+
+        let mut buf = [0; 96];
+        let sig = prover.ring_vrf_sign(message, context)?;
+        sig.serialize_compressed(&mut buf[..])?;
+        Ok(buf)
+    }
+}
+
+impl From<[u8; 32]> for KeyPair {
+    fn from(seed: [u8; 32]) -> Self {
+        let secret = Secret::from_seed(&seed);
+        let public = secret.public();
+        Self { secret, public }
+    }
+}
+
 // This is the IETF `Prove` procedure output as described in section 2.2
 // of the Bandersnatch VRFs specification
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
