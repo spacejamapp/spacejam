@@ -9,10 +9,7 @@ use score::{extrinsic::GuaranteesExtrinsic, State};
 pub fn handle(mut state: State, slot: u32, guarantees: GuaranteesExtrinsic) -> Result<State> {
     let mut processed = Vec::new();
     for guarantee in guarantees {
-        guarantee.report.authorizer_hash;
-        guarantee.report.core_index;
-
-        // Remove the authorizer from the pool
+        // Consume the authorizer from the pool
         state.pools[guarantee.report.core_index as usize] = state.pools
             [guarantee.report.core_index as usize]
             .iter()

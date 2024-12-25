@@ -126,6 +126,7 @@ impl_all_tests! {
     history,
 
     @scale
+    authorizations,
     assurances,
     disputes,
     reports,
@@ -136,6 +137,7 @@ impl_all_tests! {
 }
 
 pub mod assurances;
+pub mod authorizations;
 pub mod codec;
 pub mod disputes;
 pub mod history;

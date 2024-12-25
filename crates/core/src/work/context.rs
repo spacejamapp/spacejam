@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents the RefineContext structure from ASN.1
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct RefineContext {
     #[json(hex)]
     pub anchor: HeaderHash,

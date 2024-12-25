@@ -31,7 +31,7 @@ pub struct WorkResult {
 }
 
 /// Represents the specification of a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackageSpec {
     #[json(hex)]
     pub hash: WorkPackageHash,
@@ -53,7 +53,7 @@ pub struct SegmentRootLookupItem {
 }
 
 /// Represents a work report.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkReport {
     #[json(nested)]
     pub package_spec: WorkPackageSpec,
