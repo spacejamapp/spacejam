@@ -2,7 +2,7 @@ use score::{
     extrinsic::Extrinsic,
     statistic::{ActivityRecord, Statistics, StatisticsJson},
     validator::{ValidatorDataJson, ValidatorsData},
-    Ed25519Public, TimeSlot, ValidatorIndex,
+    TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -40,7 +40,6 @@ impl Stats {
         slot: TimeSlot,
         author_index: ValidatorIndex,
         extrinsic: Extrinsic,
-        reporters: Vec<Ed25519Public>,
     ) -> Self {
         // Get current and next epoch
         let epoch = slot / score::EPOCH_LENGTH;
@@ -73,21 +72,15 @@ impl Stats {
             self.next_state.pi.current[assurance.validator_index as usize].assurances += 1;
         }
 
-        // Update guarantor reports
-        for reporter in reporters {
-            if let Some(validator_idx) = self
-                .state
-                .kappa_prime
-                .iter()
-                .position(|v| v.ed25519 == reporter)
-            {
-                self.next_state.pi.current[validator_idx].guarantees += 1;
+        // Update Guarantees
+        for guarantor in extrinsic.guarantees {
+            for signature in guarantor.signatures {
+                self.next_state.pi.current[signature.validator_index as usize].guarantees += 1;
             }
         }
 
         // Update timestamp
         self.next_state.tau = slot;
-
         self
     }
 }

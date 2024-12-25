@@ -7,7 +7,7 @@ pub struct Context {
     /// Block Header
     pub header: Arc<Header>,
     /// Safrole
-    pub safrole: Arc<State>,
+    pub state: Arc<State>,
 }
 
 /// An interface for patch
