@@ -15,6 +15,7 @@ use {
     std::collections::BTreeMap,
 };
 
+pub mod auth;
 pub mod error;
 pub mod state;
 
