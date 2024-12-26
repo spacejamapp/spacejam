@@ -1,10 +1,14 @@
 //! Preimage handler
 
 use anyhow::Result;
-use score::{extrinsic::PreimagesExtrinsic, State};
+use score::{extrinsic::PreimagesExtrinsic, State, TimeSlot};
 
 /// handle preimage
-pub fn handle(mut state: State, mut preimages: PreimagesExtrinsic) -> Result<State> {
+pub fn handle(
+    mut state: State,
+    slot: TimeSlot,
+    mut preimages: PreimagesExtrinsic,
+) -> Result<State> {
     let mut missing = Vec::new();
 
     // TODO: remove clone
@@ -22,12 +26,24 @@ pub fn handle(mut state: State, mut preimages: PreimagesExtrinsic) -> Result<Sta
             anyhow::bail!("Preimage not needed");
         }
 
-        state
+        let account = state
             .service_accounts
             .get_mut(&preimage.requester)
-            .ok_or(anyhow::anyhow!("Service account not found"))?
-            .preimage
-            .insert(hash, preimage.blob);
+            .ok_or(anyhow::anyhow!("Service account not found"))?;
+
+        let blob = preimage.blob;
+        account.preimage.insert(hash, blob.clone());
+
+        let lookup = (hash, blob.len() as u32);
+
+        let slots = account
+            .lookup
+            .get_mut(&lookup)
+            .ok_or(anyhow::anyhow!("Lookup not found"))?;
+
+        slots[2] = slots[1];
+        slots[1] = slots[0];
+        slots[0] = slot;
     }
 
     if !preimages.is_empty() {
