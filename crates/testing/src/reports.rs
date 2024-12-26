@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use report::{
+use guarantee::{
     error::{Error, Result},
     state::{Input, InputJson, Output, OutputJson, State, StateJson},
     Handler,

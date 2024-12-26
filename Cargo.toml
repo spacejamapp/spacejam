@@ -6,10 +6,10 @@ members = [
     "crates/codec/json/derive",
     "crates/core/assurance",
     "crates/core/dispute",
+    "crates/core/guarantee",
     "crates/core/preimage",
-    "crates/core/report",
-    "crates/core/safrole",
     "crates/core/statistic",
+    "crates/core/ticket",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
 ]
@@ -21,16 +21,16 @@ score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/core/dispute", package = "spacejam-dispute" }
+guarantee = { path = "crates/core/guarantee", package = "spacejam-guarantee" }
 merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 preimage = { path = "crates/core/preimage", package = "spacejam-preimage" }
 pvmi = { path = "crates/pvm/interpreter" }
-report = { path = "crates/core/report", package = "spacejam-report" }
-safrole = { path = "crates/core/safrole", package = "spacejam-safrole" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 statistic = { path = "crates/core/statistic", package = "spacejam-statistic" }
+ticket = { path = "crates/core/ticket", package = "spacejam-ticket" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 
 # crates.io

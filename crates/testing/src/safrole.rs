@@ -1,13 +1,13 @@
 //! Safrole vector tests
 #![cfg(test)]
 
-use safrole::{Error, Markers, MarkersJson, State, StateJson};
 use score::{
     extrinsic::ticket::{TicketEnvelopeJson, TicketsExtrinsic},
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+use ticket::{Error, Markers, MarkersJson, State, StateJson};
 
 #[derive(Deserialize, Serialize, Json, Debug)]
 struct Input {
