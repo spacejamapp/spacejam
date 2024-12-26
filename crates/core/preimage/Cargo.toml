@@ -1,0 +1,9 @@
+[package]
+name = "spacejam-preimage"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+crypto.workspace = true
+score.workspace = true

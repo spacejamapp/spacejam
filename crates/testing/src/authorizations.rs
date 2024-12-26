@@ -60,7 +60,7 @@ impl Test {
     pub fn run(self) {
         let pre: State = self.pre_state.into();
         let post: State = self.post_state.into();
-        let result = report::auth::handle(
+        let result = guarantee::auth::handle(
             pre,
             self.input.slot,
             self.input.auths.into_iter().map(|a| a.into()).collect(),

@@ -1733,6 +1733,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-guarantee"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "jamcodec",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejson",
+]
+
+[[package]]
 name = "spacejam-merkle"
 version = "0.0.0"
 dependencies = [
@@ -1742,32 +1756,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-report"
+name = "spacejam-preimage"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "hex",
- "jamcodec",
- "serde",
- "serde_json",
  "spacejam-core",
  "spacejam-crypto",
- "spacejson",
-]
-
-[[package]]
-name = "spacejam-safrole"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "hex",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
- "tracing",
 ]
 
 [[package]]
@@ -1801,14 +1795,30 @@ dependencies = [
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-dispute",
+ "spacejam-guarantee",
  "spacejam-merkle",
- "spacejam-report",
- "spacejam-safrole",
+ "spacejam-preimage",
  "spacejam-statistic",
+ "spacejam-ticket",
  "spacejson",
  "syn 2.0.90",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "spacejam-ticket"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "jamcodec",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejson",
+ "tracing",
 ]
 
 [[package]]
