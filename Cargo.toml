@@ -6,6 +6,7 @@ members = [
     "crates/codec/json/derive",
     "crates/core/assurance",
     "crates/core/dispute",
+    "crates/core/preimage",
     "crates/core/report",
     "crates/core/safrole",
     "crates/core/statistic",
@@ -22,6 +23,7 @@ crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 dispute = { path = "crates/core/dispute", package = "spacejam-dispute" }
 merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
+preimage = { path = "crates/core/preimage", package = "spacejam-preimage" }
 pvmi = { path = "crates/pvm/interpreter" }
 report = { path = "crates/core/report", package = "spacejam-report" }
 safrole = { path = "crates/core/safrole", package = "spacejam-safrole" }
