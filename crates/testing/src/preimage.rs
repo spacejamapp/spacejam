@@ -1,96 +1,21 @@
 use paste::paste;
-use score::{
-    extrinsic::{Preimage, PreimageJson},
-    service::ServiceAccount,
-    OpaqueHash, State,
-};
+use score::State;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::{fs, path::PathBuf};
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct Input {
-    #[json(nested)]
-    preimages: Vec<Preimage>,
-    slot: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct Account {
-    /// Account ID
-    id: u32,
-
-    /// Account info
-    #[json(nested)]
-    info: AccountInfo,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct TPreimage {
-    #[json(hex)]
-    hash: OpaqueHash,
-    #[json(hex)]
-    blob: Vec<u8>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct HistoryKey {
-    #[json(hex)]
-    pub hash: OpaqueHash,
-    length: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct History {
-    #[json(nested)]
-    key: HistoryKey,
-    value: Vec<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct AccountInfo {
-    #[json(nested)]
-    preimages: Vec<TPreimage>,
-    #[json(nested)]
-    history: Vec<History>,
-}
-
-impl From<AccountInfo> for ServiceAccount {
-    fn from(info: AccountInfo) -> Self {
-        let mut account = ServiceAccount::default();
-        for preimage in info.preimages {
-            account.preimage.insert(preimage.hash, preimage.blob);
-        }
-
-        for lookup in info.history {
-            let mut slots = [0; 3];
-            slots[..lookup.value.len()].copy_from_slice(&lookup.value);
-            account
-                .lookup
-                .insert((lookup.key.hash, lookup.key.length), slots);
-        }
-
-        account
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Json)]
-pub struct TState {
-    #[json(nested)]
-    accounts: Vec<Account>,
-}
+use types::*;
 
 #[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Test {
     #[json(nested)]
-    input: Input,
+    pub input: Input,
     #[json(nested)]
-    pre_state: TState,
+    pub pre_state: TState,
     #[json(nested)]
-    post_state: TState,
+    pub post_state: TState,
 }
 
-fn to_state(accs: Vec<Account>) -> State {
+fn to_state(accs: Vec<types::Account>) -> State {
     let mut state = State::default();
     for acc in accs {
         state.service_accounts.insert(acc.id, acc.info.into());
@@ -144,4 +69,87 @@ impl_preimage_tests! {
     preimage_needed_2,
     preimage_not_needed_1,
     preimage_not_needed_2
+}
+
+// TODO: clean types later
+mod types {
+    use score::{
+        extrinsic::{Preimage, PreimageJson},
+        service::ServiceAccount,
+        OpaqueHash,
+    };
+    use serde::{Deserialize, Serialize};
+    use spacejson::Json;
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct Input {
+        #[json(nested)]
+        pub preimages: Vec<Preimage>,
+        pub slot: u32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct Account {
+        /// Account ID
+        pub id: u32,
+
+        /// Account info
+        #[json(nested)]
+        pub info: AccountInfo,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct TPreimage {
+        #[json(hex)]
+        pub hash: OpaqueHash,
+        #[json(hex)]
+        pub blob: Vec<u8>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct HistoryKey {
+        #[json(hex)]
+        pub hash: OpaqueHash,
+        pub length: u32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct History {
+        #[json(nested)]
+        pub key: HistoryKey,
+        pub value: Vec<u32>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct AccountInfo {
+        #[json(nested)]
+        pub preimages: Vec<TPreimage>,
+        #[json(nested)]
+        pub history: Vec<History>,
+    }
+
+    impl From<AccountInfo> for ServiceAccount {
+        fn from(info: AccountInfo) -> Self {
+            let mut account = ServiceAccount::default();
+            for preimage in info.preimages {
+                account.preimage.insert(preimage.hash, preimage.blob);
+            }
+
+            for lookup in info.history {
+                let mut slots = [0; 3];
+                slots[..lookup.value.len()].copy_from_slice(&lookup.value);
+                account
+                    .lookup
+                    .insert((lookup.key.hash, lookup.key.length), slots);
+            }
+
+            account
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Json)]
+    pub struct TState {
+        #[json(nested)]
+        pub accounts: Vec<Account>,
+    }
 }
