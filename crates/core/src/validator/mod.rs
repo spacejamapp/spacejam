@@ -22,7 +22,7 @@ mod result;
 mod validate;
 
 /// Validator interface
-pub trait Validator {
+pub trait Validator: TryFrom<String> {
     /// BLS public key
     fn bls_public_key(&self) -> BlsPublic;
 

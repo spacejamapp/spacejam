@@ -80,3 +80,15 @@ impl From<[u8; 32]> for LocalValidator {
         }
     }
 }
+
+impl TryFrom<String> for LocalValidator {
+    type Error = anyhow::Error;
+
+    fn try_from(seed: String) -> Result<Self> {
+        let seed = hex::decode(&seed.trim_start_matches("0x"))?;
+        let seed: [u8; 32] = seed
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("invalid seed length"))?;
+        Ok(Self::from(seed))
+    }
+}
