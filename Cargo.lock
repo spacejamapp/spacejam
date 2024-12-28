@@ -1657,11 +1657,13 @@ dependencies = [
  "hex",
  "rand",
  "rocksdb",
+ "serde",
  "serde_json",
  "sled",
  "spacejam-core",
  "spacejam-crypto",
  "tokio",
+ "toml",
  "tracing-subscriber",
 ]
 
