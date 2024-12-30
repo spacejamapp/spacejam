@@ -2,7 +2,10 @@
 
 use anyhow::Result;
 use clap::Parser;
-use score::block::Block;
+use score::{config::Genesis, validator::Validator};
+use spacejson::Json;
+
+use crate::validator::LocalValidator;
 
 /// The `rand` command
 ///
@@ -23,8 +26,10 @@ impl Rand {
     }
 
     fn genesis(&self) -> Result<()> {
-        let block = Block::default();
-        println!("{}", serde_json::to_string_pretty(&block)?);
+        let mut genesis = Genesis::default();
+        let validator = LocalValidator::default();
+        genesis.validators.push(validator.data().to_json());
+        println!("{}", serde_json::to_string_pretty(&genesis)?);
         Ok(())
     }
 }

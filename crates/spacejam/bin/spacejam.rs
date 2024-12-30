@@ -40,5 +40,8 @@ fn main() {
         return;
     };
 
-    cmd.run::<Config>().expect("failed to run spacejam");
+    if let Err(e) = cmd.run::<Config>() {
+        eprintln!("failed to run spacejam: {e}");
+        eprintln!("backtrace: {:#?}", e.backtrace());
+    }
 }
