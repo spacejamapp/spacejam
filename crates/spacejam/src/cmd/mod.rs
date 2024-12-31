@@ -1,22 +1,21 @@
 //! Command line interface for spacejam
 
-use crate::{Config, SpaceJam};
+use crate::Config;
 use clap::Parser;
-pub use rand::Rand;
-use score::state::Storage;
+pub use {rand::Rand, spawn::Spawn};
 
 mod rand;
+mod spawn;
 
 /// The command line interface for spacejam
-#[derive(Parser, Default)]
+#[derive(Parser)]
 pub enum Command {
     /// Generate random data
     #[command(subcommand)]
     Rand(Rand),
 
     /// Start the SpaceJam node
-    #[default]
-    Spawn,
+    Spawn(Spawn),
 }
 
 impl Command {
@@ -24,18 +23,13 @@ impl Command {
     pub fn run<C: Config>(&self) -> anyhow::Result<()> {
         match self {
             Command::Rand(rand) => rand.run(),
-            Command::Spawn => {
-                let mut spacejam: SpaceJam<C> =
-                    SpaceJam::new(C::Db::open("chain.db")?, C::Validator::default());
-
-                let mut bn = 0;
-                loop {
-                    let block = spacejam.mine()?;
-                    bn += 1;
-                    println!("mined block #{}: {}", bn, hex::encode(block.hash()?));
-                    std::thread::sleep(std::time::Duration::from_secs(5));
-                }
-            }
+            Command::Spawn(spawn) => spawn.run::<C>(),
         }
+    }
+}
+
+impl Default for Command {
+    fn default() -> Self {
+        Command::Spawn(Spawn::default())
     }
 }

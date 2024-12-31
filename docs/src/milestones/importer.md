@@ -12,8 +12,7 @@ The block importer is a component that imports blocks into the blockchain.
 
 - [x] Section 6 - [Block Production and Chain Growth](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/safrole)
 - [x] Section 7 - [Recent Blocks History](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/history)
-- [ ] Section 8 - Authorization
-- [ ] Section 9 - Service Accounts
+- [x] Section 8 - Authorization
 - [x] Section 10 - [Disputes, Verdicts and Judgements](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/disputes)
 - [x] Section 11 - [Reporting](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/reports) and [Assurances](https://github.com/clearloop/jam-test-vectors/tree/polkajam-vectors/assurances)
 - [ ] Section 12 - Accumulation

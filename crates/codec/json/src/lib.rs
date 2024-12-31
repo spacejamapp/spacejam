@@ -52,7 +52,7 @@ impl Json<String> for Vec<u8> {
 }
 
 /// A JSON representation of a `Result`.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ResultJson<M, N> {
     /// The OK value.
     pub ok: Option<M>,

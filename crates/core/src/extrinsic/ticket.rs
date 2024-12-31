@@ -55,7 +55,7 @@ impl Default for TicketsOrKeys {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TicketsOrKeysJson {
     tickets: Option<Vec<TicketBodyJson>>,
     keys: Option<Vec<String>>,

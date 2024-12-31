@@ -20,6 +20,13 @@ use std::path::Path;
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
 pub trait Storage: Sized {
+    /// Check if the storage is empty
+    fn is_empty(&self) -> bool {
+        self.get(key::CURRENT_VALIDATORS)
+            .map(|v| v.is_none())
+            .unwrap_or(true)
+    }
+
     /// Open the storage from path
     fn open(path: impl AsRef<Path>) -> Result<Self>;
 

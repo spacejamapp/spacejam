@@ -11,18 +11,24 @@ required-features = ["node"]
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
+codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
 rocksdb = { workspace = true, optional = true }
 rand.workspace = true
 score = { workspace = true }
+serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sled = { workspace = true, optional = true }
+spacejson = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["rt", "sync"] }
+tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
 
 [features]
 bin = ["node", "sled"]
-cmd = ["clap", "serde_json"]
+cmd = ["clap", "serde", "spacejson"]
 default = ["bin"]
 node = ["cmd", "tracing-subscriber"]
+serde = ["dep:serde", "serde_json", "toml"]

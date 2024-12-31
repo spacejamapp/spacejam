@@ -4,5 +4,6 @@
 /crates/pvm/rvparser/riscv-opcodes
 /res
 
-# database
+# misc
 chain.db
+genesis.json

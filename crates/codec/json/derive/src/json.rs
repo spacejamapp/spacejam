@@ -10,7 +10,6 @@ use syn::{parse_macro_input, Fields, Ident, ItemStruct};
 /// instead of `[u8; N]`.
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
-
     let mut json = input.clone();
 
     // 1. Append Json to the struct name
@@ -145,7 +144,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     // 4. Append attributes to the json struct
     json.attrs.extend(vec![syn::parse_quote! {
-        #[derive(serde::Serialize, serde::Deserialize)]
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
     }]);
 
     quote! {
