@@ -11,6 +11,7 @@ required-features = ["node"]
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
+codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
 rocksdb = { workspace = true, optional = true }
@@ -22,6 +23,7 @@ sled = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["rt", "sync"] }
+tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
 
 [features]

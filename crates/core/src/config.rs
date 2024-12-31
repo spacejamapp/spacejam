@@ -19,7 +19,7 @@ pub trait Config {
 }
 
 /// The genesis configuration
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Genesis {
     /// The genesis block
     pub block: BlockJson,

@@ -39,7 +39,14 @@ impl KeyPair {
     }
 
     /// Sign a message using the ring VRF.
-    pub fn sign(&self, pks: Vec<[u8; 32]>, context: &[u8], message: &[u8]) -> Result<[u8; 96]> {
+    pub fn sign(
+        &self,
+        pks: Vec<[u8; 32]>,
+        context: &[u8],
+        message: &[u8],
+        ring: bool,
+        buffer: &mut [u8],
+    ) -> Result<()> {
         let public = self.public()?;
         let this = pks
             .iter()
@@ -58,10 +65,38 @@ impl KeyPair {
             this,
         );
 
-        let mut buf = [0; 96];
-        let sig = prover.ring_vrf_sign(message, context)?;
-        sig.serialize_compressed(&mut buf[..])?;
-        Ok(buf)
+        let signature = if ring {
+            prover.ring_vrf_sign(message, context)?
+        } else {
+            prover.ietf_vrf_sign(message, context)?
+        };
+
+        buffer.copy_from_slice(&signature);
+        Ok(())
+    }
+
+    /// Sign a message using bandersnatch.
+    pub fn ietf_sign(
+        &self,
+        pks: Vec<[u8; 32]>,
+        message: &[u8],
+        context: &[u8],
+    ) -> Result<[u8; 96]> {
+        let mut buffer = [0; 96];
+        self.sign(pks, context, message, false, &mut buffer)?;
+        Ok(buffer)
+    }
+
+    /// Sign a message using ring.
+    pub fn ring_sign(
+        &self,
+        pks: Vec<[u8; 32]>,
+        message: &[u8],
+        context: &[u8],
+    ) -> Result<[u8; 784]> {
+        let mut buffer = [0; 784];
+        self.sign(pks, context, message, true, &mut buffer)?;
+        Ok(buffer)
     }
 }
 

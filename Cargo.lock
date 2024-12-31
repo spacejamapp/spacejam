@@ -1655,6 +1655,7 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
+ "jamcodec",
  "rand",
  "rocksdb",
  "serde",
@@ -1665,6 +1666,7 @@ dependencies = [
  "spacejson",
  "tokio",
  "toml",
+ "tracing",
  "tracing-subscriber",
 ]
 
@@ -1693,6 +1695,7 @@ dependencies = [
  "spacejam-crypto",
  "spacejam-merkle",
  "spacejson",
+ "tracing",
 ]
 
 [[package]]

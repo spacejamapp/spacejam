@@ -4,8 +4,8 @@ use crate::{
     block::{Block, BlockInfo},
     extrinsic::TicketsOrKeys,
     state::{key, Storage},
-    BandersnatchPublic, BandersnatchVrfSignature, BlsPublic, Ed25519Public, ValidatorMetadata,
-    JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
+    BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
+    Ed25519Public, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
 };
 pub use {
     context::{Context, Patch},
@@ -39,6 +39,14 @@ pub trait Validator: TryFrom<String> {
         context: &[u8],
         message: &[u8],
     ) -> anyhow::Result<BandersnatchVrfSignature>;
+
+    /// Bandersnatch ring sign
+    fn bandersnatch_ring_sign(
+        &self,
+        keys: &[[u8; 32]],
+        context: &[u8],
+        message: &[u8],
+    ) -> anyhow::Result<BandersnatchRingVrfSignature>;
 
     /// Bandersnatch output
     fn bandersnatch_output(
@@ -110,6 +118,7 @@ pub trait Validator: TryFrom<String> {
         // write the new state to the database
         //
         // TODO: mb not, store it in a separate database.
+        tracing::debug!("Writing timeslot to database: {}", block.header.slot);
         db.set(key::TIMESLOT, block.header.slot.to_le_bytes())?;
         Ok(block)
     }
