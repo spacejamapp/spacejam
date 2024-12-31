@@ -6,7 +6,7 @@ src = "src"
 title = "SpaceJam"
 
 [output.html.fold]
-enable = true
+# enable = true
 
 [output.html.playground]
 runnable = false
