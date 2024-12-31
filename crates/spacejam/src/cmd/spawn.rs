@@ -37,7 +37,7 @@ impl Spawn {
             let validators = genesis
                 .validators
                 .into_iter()
-                .map(|v| Json::from_json(v))
+                .map(Json::from_json)
                 .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
             tracing::info!("Trying to encode validators: {:?}", validators);
             let encoded = codec::encode(&validators)?;
