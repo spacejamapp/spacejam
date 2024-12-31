@@ -4,7 +4,10 @@ use crate::{Config, SpaceJam};
 use clap::Parser;
 use score::{
     config::Genesis,
-    state::{key::CURRENT_VALIDATORS, Storage},
+    state::{
+        key::{CURRENT_VALIDATORS, TIMESLOT},
+        Storage,
+    },
     validator::ValidatorData,
 };
 use spacejson::Json;
@@ -31,27 +34,24 @@ impl Spawn {
         if spacejam.db.is_empty() {
             let genesis = fs::read_to_string(self.genesis.clone())?;
             let genesis: Genesis = serde_json::from_str(&genesis)?;
-
-            tracing::info!("Trying to decode genesis: {:?}", &genesis);
-
             let validators = genesis
                 .validators
                 .into_iter()
                 .map(Json::from_json)
                 .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
-            tracing::info!("Trying to encode validators: {:?}", validators);
             let encoded = codec::encode(&validators)?;
-            tracing::info!("Writing validators to database, size: {}", encoded.len());
+
             spacejam.db.set(CURRENT_VALIDATORS, encoded)?;
-        } else {
-            tracing::info!("Genesis already exists, skipping");
         }
 
-        let mut bn = 0;
+        // TODO: confirm slot vs block.
+        let slot = spacejam.db.get(TIMESLOT)?.unwrap_or(vec![]);
+        let mut slot: u32 = codec::decode(&slot).unwrap_or(0);
+
         loop {
             let block = spacejam.mine()?;
-            bn += 1;
-            println!("mined block #{}: {}", bn, hex::encode(block.hash()?));
+            slot += 1;
+            tracing::info!("mined block #{}: 0x{}", slot, hex::encode(block.hash()?));
             std::thread::sleep(std::time::Duration::from_secs(5));
         }
     }

@@ -118,8 +118,8 @@ pub trait Validator: TryFrom<String> {
         // write the new state to the database
         //
         // TODO: mb not, store it in a separate database.
-        tracing::debug!("Writing timeslot to database: {}", block.header.slot);
-        db.set(key::TIMESLOT, block.header.slot.to_le_bytes())?;
+        tracing::trace!("Writing timeslot to database: {}", block.header.slot);
+        db.set(key::TIMESLOT, codec::encode(&block.header.slot)?)?;
         Ok(block)
     }
 }
