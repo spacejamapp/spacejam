@@ -50,11 +50,14 @@ mmr = { package = "polkadot-ckb-merkle-mountain-range", version = "0.8.1" }
 once_cell = "1.20.2"
 paste = "1.0.15"
 proc-macro2 = "1.0.92"
+quinn = "0.11.5"
+quinn-proto = "0.11.5"
 quote = "1.0.33"
 rand = "0.8.5"
 rand_xoshiro = "0.6.0"
 reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
 rocksdb = "0.22.0"
+rustls = "0.23"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 sled = "0.34.7"

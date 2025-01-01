@@ -1,0 +1,13 @@
+[package]
+name = "spacejam-network"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+crypto.workspace = true
+quinn.workspace = true
+quinn-proto.workspace = true
+rustls.workspace = true
+score.workspace = true
+tracing.workspace = true
