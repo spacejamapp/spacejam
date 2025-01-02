@@ -9,12 +9,20 @@ use litep2p::{
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+/// Configuration for the network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    block_announce: NotifiConfig,
-    block_sync: SyncConfig,
-    quic: QuicConfig,
-    state_sync: SyncConfig,
+    /// The block announce configuration.
+    pub block: NotifiConfig,
+
+    /// The block sync configuration.
+    pub block_sync: SyncConfig,
+
+    /// The QUIC configuration.
+    pub quic: QuicConfig,
+
+    /// The state sync configuration.
+    pub state_sync: SyncConfig,
 }
 
 impl Config {
@@ -24,23 +32,23 @@ impl Config {
     }
 
     /// Get the notification configuration.
-    pub fn block_announce(
+    pub fn block(
         &self,
         name: &'static str,
         fallback_names: &[&'static str],
     ) -> (protocol::notification::Config, NotificationHandle) {
         protocol::notification::Config::new(
             name.into(),
-            self.block_announce.max_notification_size,
-            self.block_announce.handshake.clone(),
+            self.block.max_notification_size,
+            self.block.handshake.clone(),
             fallback_names
-                .into_iter()
+                .iter()
                 .map(|s| ProtocolName::Static(s))
                 .collect(),
-            self.block_announce.auto_accept,
-            self.block_announce.sync_channel_size,
-            self.block_announce.async_channel_size,
-            self.block_announce.should_dial,
+            self.block.auto_accept,
+            self.block.sync_channel_size,
+            self.block.async_channel_size,
+            self.block.should_dial,
         )
     }
 
@@ -72,7 +80,7 @@ impl Config {
         protocol::request_response::Config::new(
             name.into(),
             fallback_names
-                .into_iter()
+                .iter()
                 .map(|s| ProtocolName::Static(s))
                 .collect(),
             config.max_message_size,
@@ -87,6 +95,16 @@ pub struct QuicConfig {
     addresses: Vec<Multiaddr>,
     connection: Duration,
     substream: Duration,
+}
+
+impl Default for QuicConfig {
+    fn default() -> Self {
+        Self {
+            addresses: vec![],
+            connection: Duration::from_secs(10),
+            substream: Duration::from_secs(10),
+        }
+    }
 }
 
 impl From<QuicConfig> for quic::config::Config {
