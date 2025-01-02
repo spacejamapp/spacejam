@@ -5,17 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-crypto.workspace = true
-quinn.workspace = true
-quinn-proto.workspace = true
-rustls.workspace = true
-score.workspace = true
 serde.workspace = true
-tokio = { workspace = true, features = ["full"] }
-toml.workspace = true
+score.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
-
-[build-dependencies]
-rcgen = { workspace = true, features = ["pem"] }
-rustls.workspace = true
+litep2p = { workspace = true, features = ["quic"] }

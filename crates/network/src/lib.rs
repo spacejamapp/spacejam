@@ -1,7 +1,8 @@
-//! SpaceJam networking implementation using QUIC protocol.
+//! Network implementation of Spacejam.
 
-mod client;
-mod config;
-mod server;
+pub use config::Config;
 
-pub use {client::Client, config::Config, server::Server};
+pub mod config;
+
+/// Network implementation of Spacejam.
+pub struct Network {}
