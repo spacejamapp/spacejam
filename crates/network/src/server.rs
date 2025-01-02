@@ -3,7 +3,7 @@
 use crate::config::Config;
 use anyhow::Result;
 use quinn::{crypto::rustls::QuicServerConfig, Endpoint, ServerConfig};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 /// The server implementation for SpaceJam with QUIC
 pub struct Server {
@@ -48,13 +48,17 @@ impl Server {
             tracing::trace!("connection accepted from {}", connection.remote_address());
 
             // Accept a single bidirectional stream as per JAMNP-S
-            if let Ok(stream) = connection.accept_bi().await {
-                tokio::spawn(async move {
-                    if let Err(e) = handle_stream(stream).await {
-                        tracing::warn!("error handling stream: {}", e);
-                    }
-                });
+            match connection.accept_bi().await {
+                Ok(stream) => {
+                    handle_stream(stream).await?;
+                }
+                Err(e) => {
+                    tracing::warn!("error accepting stream: {}", e);
+                }
             }
+
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+            tracing::trace!("connection closed");
         }
     }
 }
@@ -65,6 +69,7 @@ async fn handle_stream((mut send, mut recv): (quinn::SendStream, quinn::RecvStre
 
     // Process the request and send response
     // TODO: Implement actual request handling according to JAMNP-S
+    tracing::trace!("request received, sending response");
     send.write_all(b"OK").await?;
     send.finish()?;
     Ok(())

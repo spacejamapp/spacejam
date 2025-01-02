@@ -55,6 +55,7 @@ quinn-proto = "0.11.5"
 quote = "1.0.33"
 rand = "0.8.5"
 rand_xoshiro = "0.6.0"
+rcgen = "0.13.2"
 reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
 rocksdb = "0.22.0"
 rustls = "0.23"

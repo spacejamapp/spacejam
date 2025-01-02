@@ -35,6 +35,8 @@ async fn test_handshake() {
                 .request(config.server.addr.into(), b"PING".into())
                 .await;
 
+            tracing::info!("response: {:?}", response);
+
             if response.is_ok() {
                 return response;
             }

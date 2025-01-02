@@ -56,8 +56,11 @@ impl Client {
         send.write_all(&request).await?;
         send.finish()?;
 
+        tracing::trace!("request sent, waiting for response");
+
         // Read the response
         let response = recv.read_to_end(64 * 1024).await?;
+        tracing::trace!("response received: {:?}", response);
         Ok(response)
     }
 }
