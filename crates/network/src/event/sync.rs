@@ -5,7 +5,7 @@ use litep2p::protocol::request_response::RequestResponseEvent;
 
 impl Network {
     /// Handle a sync event.
-    pub fn sync(&self, event: RequestResponseEvent) {
+    pub fn sync(&mut self, event: RequestResponseEvent) {
         tracing::info!("sync: {event:?}");
     }
 }

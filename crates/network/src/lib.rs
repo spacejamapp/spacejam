@@ -1,18 +1,19 @@
 //! Network implementation of Spacejam.
 
-use std::sync::Arc;
+use std::{pin::Pin, rc::Rc};
 
 pub use config::Config;
-use event::Event;
-use litep2p::{config::ConfigBuilder, protocol::libp2p::ping, Litep2p};
-use tokio::{
-    sync::{
-        mpsc::{self, Receiver},
-        Mutex, RwLock,
+use litep2p::{
+    config::ConfigBuilder,
+    protocol::{
+        libp2p::ping::{self, PingEvent},
+        notification::NotificationHandle,
+        request_response::RequestResponseHandle,
     },
-    task::JoinHandle,
+    Litep2p,
 };
-use tokio_stream::StreamExt;
+use tokio::sync::RwLock;
+use tokio_stream::Stream;
 
 pub mod config;
 mod event;
@@ -24,25 +25,31 @@ const STATE_SYNC_NAME: &str = "/sync/state/1";
 /// Network implementation of Spacejam.
 pub struct Network {
     /// P2P instance.
-    pub p2p: RwLock<Litep2p>,
+    pub p2p: Rc<RwLock<Litep2p>>,
 
-    /// Event receiver.
-    pub rx: Arc<Mutex<Receiver<Event>>>,
+    /// Block handle.
+    block: NotificationHandle,
 
-    /// Event handler.
-    pub task: JoinHandle<()>,
+    /// Sync handle.
+    sync: RequestResponseHandle,
+
+    /// State handle.
+    state: RequestResponseHandle,
+
+    /// Ping handle.
+    ping: Pin<Box<dyn Stream<Item = PingEvent>>>,
 }
 
 impl Network {
     /// Start the network.
     pub async fn new(config: Config) -> anyhow::Result<Self> {
-        let (block, mut block_handle) = config.block(BLOCK_NAME, &[]);
-        let (block_sync, mut block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
-        let (state_sync, mut state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
-        let (ping, mut ping_handle) = ping::ConfigBuilder::new().with_max_failure(10).build();
+        let (block, block_handle) = config.block(BLOCK_NAME, &[]);
+        let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
+        let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
+        let (ping, ping_handle) = ping::ConfigBuilder::new().with_max_failure(10).build();
 
         // Create the network instance
-        let p2p = RwLock::new(Litep2p::new(
+        let p2p = Rc::new(RwLock::new(Litep2p::new(
             ConfigBuilder::new()
                 .with_libp2p_ping(ping)
                 .with_quic(config.quic())
@@ -50,48 +57,24 @@ impl Network {
                 .with_request_response_protocol(block_sync)
                 .with_request_response_protocol(state_sync)
                 .build(),
-        )?);
+        )?));
 
-        // Create the event channel
-        let (tx, rx) = mpsc::channel(100);
-        let rx = Arc::new(Mutex::new(rx));
-
-        // Spawn the event handler
-        let task = tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    Some(event) = block_handle.next() => {
-                        if let Err(e) = tx.send(Event::Block(event)).await {
-                            tracing::error!("failed to send block announceevent: {e}");
-                        }
-                    }
-                    Some(event) = block_sync_handle.next() => {
-                        if let Err(e) = tx.send(Event::Sync(event)).await {
-                            tracing::error!("failed to send block sync event: {e}");
-                        }
-                    }
-                    Some(event) = state_sync_handle.next() => {
-                        if let Err(e) = tx.send(Event::State(event)).await {
-                            tracing::error!("failed to send state sync event: {e}");
-                        }
-                    }
-                    Some(event) = ping_handle.next() => {
-                        if let Err(e) = tx.send(Event::Ping(event)).await {
-                            tracing::error!("failed to send ping event: {e}");
-                        }
-                    }
-                }
-            }
-        });
-
-        Ok(Self { p2p, rx, task })
+        Ok(Self {
+            p2p,
+            block: block_handle,
+            sync: block_sync_handle,
+            state: state_sync_handle,
+            ping: Box::pin(ping_handle),
+        })
     }
 
     /// Start the network.
-    pub async fn start(&self) {
+    ///
+    /// TODO: dial registered addresses.
+    pub async fn start(&mut self) {
         tokio::select! {
+            _ = Self::spawn_litep2p(Rc::clone(&self.p2p)) => {}
             _ = self.spawn_events() => {}
-            _ = self.spawn_litep2p() => {}
         }
     }
 }

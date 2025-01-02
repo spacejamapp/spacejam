@@ -5,7 +5,7 @@ use litep2p::protocol::request_response::RequestResponseEvent;
 
 impl Network {
     /// Handle a state event.
-    pub fn state(&self, event: RequestResponseEvent) {
+    pub fn state(&mut self, event: RequestResponseEvent) {
         tracing::info!("state: {event:?}");
     }
 }
