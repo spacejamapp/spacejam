@@ -2231,9 +2231,11 @@ dependencies = [
  "quinn-proto",
  "rustls",
  "rustls-pemfile",
+ "serde",
  "spacejam-core",
  "spacejam-crypto",
  "tokio",
+ "toml",
  "tracing",
 ]
 

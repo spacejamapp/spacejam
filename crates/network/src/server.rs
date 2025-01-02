@@ -1,29 +1,31 @@
 //! Server implementation for SpaceJam with QUIC.
 
-use anyhow::Result;
+use crate::config::Config;
+use anyhow::{Context, Result};
 use quinn::{Endpoint, ServerConfig};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use std::{net::SocketAddr, sync::Arc};
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use std::sync::Arc;
 
+/// The server implementation for SpaceJam with QUIC
 pub struct Server {
     endpoint: Endpoint,
 }
 
 impl Server {
     /// Create a new QUIC server with the given configuration
-    pub async fn new(
-        addr: SocketAddr,
-        cert: impl Into<Vec<CertificateDer<'static>>>,
-        key: PrivateKeyDer<'static>,
-    ) -> Result<Self> {
-        let server_config = Self::configure_server(cert, key)?;
-        let endpoint = Endpoint::server(server_config, addr)?;
+    pub async fn new(config: &Config) -> Result<Self> {
+        let cert = CertificateDer::pem_file_iter(config.server.cert.clone())?
+            .map(|cert| cert.context("Failed to read certificate file"))
+            .collect::<Result<Vec<_>>>()?;
+        let key = PrivateKeyDer::from_pem_file(config.server.key.clone())?;
+        let server_config = Self::configure(cert, key)?;
+        let endpoint = Endpoint::server(server_config, config.server.addr.into())?;
 
         Ok(Self { endpoint })
     }
 
     /// Configure server with TLS certificates
-    fn configure_server(
+    fn configure(
         cert: impl Into<Vec<CertificateDer<'static>>>,
         key: PrivateKeyDer<'static>,
     ) -> Result<ServerConfig> {

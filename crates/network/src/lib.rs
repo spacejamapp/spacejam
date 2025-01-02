@@ -1,7 +1,7 @@
 //! SpaceJam networking implementation using QUIC protocol.
 
 mod client;
+mod config;
 mod server;
 
-pub use client::Client;
-pub use server::Server;
+pub use {client::Client, config::Config, server::Server};

@@ -1,5 +1,6 @@
 //! Client implementation for SpaceJam with QUIC.
 
+use crate::config::Config;
 use anyhow::Result;
 use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint, TransportConfig};
 use rustls::RootCertStore;
@@ -10,17 +11,17 @@ pub struct Client {
 }
 
 impl Client {
-    /// Create a new QUIC client
-    pub fn new() -> Result<Self> {
-        let client_config = Self::configure_client()?;
-        let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
+    /// Create a new QUIC client with the given configuration
+    pub fn new(config: &Config) -> Result<Self> {
+        let client_config = Self::configure()?;
+        let mut endpoint = Endpoint::client(config.client.addr.into())?;
         endpoint.set_default_client_config(client_config);
 
         Ok(Self { endpoint })
     }
 
     /// Configure client with TLS settings
-    fn configure_client() -> Result<ClientConfig> {
+    fn configure() -> Result<ClientConfig> {
         let crypto = rustls::ClientConfig::builder()
             .with_root_certificates(Arc::new(RootCertStore::empty()))
             .with_no_client_auth();
