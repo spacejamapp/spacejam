@@ -9,5 +9,7 @@ crypto.workspace = true
 quinn.workspace = true
 quinn-proto.workspace = true
 rustls.workspace = true
+rustls-pemfile.workspace = true
 score.workspace = true
+tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true

@@ -1,0 +1,55 @@
+//! Client implementation for SpaceJam with QUIC.
+
+use anyhow::Result;
+use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint, TransportConfig};
+use rustls::RootCertStore;
+use std::{net::SocketAddr, sync::Arc};
+
+pub struct Client {
+    endpoint: Endpoint,
+}
+
+impl Client {
+    /// Create a new QUIC client
+    pub fn new() -> Result<Self> {
+        let client_config = Self::configure_client()?;
+        let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
+        endpoint.set_default_client_config(client_config);
+
+        Ok(Self { endpoint })
+    }
+
+    /// Configure client with TLS settings
+    fn configure_client() -> Result<ClientConfig> {
+        let crypto = rustls::ClientConfig::builder()
+            .with_root_certificates(Arc::new(RootCertStore::empty()))
+            .with_no_client_auth();
+        let conf = QuicClientConfig::try_from(Arc::new(crypto))?;
+        let mut client_config = ClientConfig::new(Arc::new(conf));
+        let mut transport = TransportConfig::default();
+        transport
+            .max_concurrent_uni_streams(0_u8.into())
+            .max_concurrent_bidi_streams(1_u8.into());
+        client_config.transport_config(Arc::new(transport));
+
+        Ok(client_config)
+    }
+
+    /// Connect to a QUIC server and send a request
+    pub async fn request(&self, addr: SocketAddr, request: Vec<u8>) -> Result<Vec<u8>> {
+        tracing::info!("connecting to {}", addr);
+        let connection = self.endpoint.connect(addr, "spacejam")?.await?;
+
+        // Open a single bidirectional stream as per JAMNP-S
+        tracing::info!("connected to {}", connection.remote_address());
+        let (mut send, mut recv) = connection.open_bi().await?;
+
+        // Send the request
+        send.write_all(&request).await?;
+        send.finish()?;
+
+        // Read the response
+        let response = recv.read_to_end(64 * 1024).await?;
+        Ok(response)
+    }
+}
