@@ -7,5 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 serde.workspace = true
 score.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
 tracing.workspace = true
 litep2p = { workspace = true, features = ["quic"] }

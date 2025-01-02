@@ -11,10 +11,10 @@ use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    notification: NotificationConfig,
+    block_announce: NotifiConfig,
+    block_sync: SyncConfig,
     quic: QuicConfig,
-    #[serde(rename = "req-resp")]
-    req_resp: RequestResponseConfig,
+    state_sync: SyncConfig,
 }
 
 impl Config {
@@ -23,9 +23,49 @@ impl Config {
         self.quic.clone().into()
     }
 
+    /// Get the notification configuration.
+    pub fn block_announce(
+        &self,
+        name: &'static str,
+        fallback_names: &[&'static str],
+    ) -> (protocol::notification::Config, NotificationHandle) {
+        protocol::notification::Config::new(
+            name.into(),
+            self.block_announce.max_notification_size,
+            self.block_announce.handshake.clone(),
+            fallback_names
+                .into_iter()
+                .map(|s| ProtocolName::Static(s))
+                .collect(),
+            self.block_announce.auto_accept,
+            self.block_announce.sync_channel_size,
+            self.block_announce.async_channel_size,
+            self.block_announce.should_dial,
+        )
+    }
+
+    /// Get the request-response configuration.
+    pub fn block_sync(
+        &self,
+        name: &'static str,
+        fallback_names: &[&'static str],
+    ) -> (protocol::request_response::Config, RequestResponseHandle) {
+        self.req_resp(&self.block_sync, name, fallback_names)
+    }
+
+    /// Get the request-response configuration.
+    pub fn state_sync(
+        &self,
+        name: &'static str,
+        fallback_names: &[&'static str],
+    ) -> (protocol::request_response::Config, RequestResponseHandle) {
+        self.req_resp(&self.state_sync, name, fallback_names)
+    }
+
     /// Get the request-response configuration.
     pub fn req_resp(
         &self,
+        config: &SyncConfig,
         name: &'static str,
         fallback_names: &[&'static str],
     ) -> (protocol::request_response::Config, RequestResponseHandle) {
@@ -35,30 +75,9 @@ impl Config {
                 .into_iter()
                 .map(|s| ProtocolName::Static(s))
                 .collect(),
-            self.req_resp.max_message_size,
-            self.req_resp.timeout,
-            self.req_resp.max_concurrent_inbound_request,
-        )
-    }
-
-    /// Get the notification configuration.
-    pub fn notification(
-        &self,
-        name: &'static str,
-        fallback_names: &[&'static str],
-    ) -> (protocol::notification::Config, NotificationHandle) {
-        protocol::notification::Config::new(
-            name.into(),
-            self.notification.max_notification_size,
-            self.notification.handshake.clone(),
-            fallback_names
-                .into_iter()
-                .map(|s| ProtocolName::Static(s))
-                .collect(),
-            self.notification.auto_accept,
-            self.notification.sync_channel_size,
-            self.notification.async_channel_size,
-            self.notification.should_dial,
+            config.max_message_size,
+            config.timeout,
+            config.max_concurrent_inbound_request,
         )
     }
 }
@@ -82,7 +101,7 @@ impl From<QuicConfig> for quic::config::Config {
 
 /// Configuration for the notification protocol.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationConfig {
+pub struct NotifiConfig {
     /// The maximum size of a notification.
     pub max_notification_size: usize,
 
@@ -102,9 +121,22 @@ pub struct NotificationConfig {
     pub should_dial: bool,
 }
 
+impl Default for NotifiConfig {
+    fn default() -> Self {
+        Self {
+            max_notification_size: 1024 * 1024,
+            handshake: vec![42],
+            auto_accept: true,
+            sync_channel_size: 100,
+            async_channel_size: 100,
+            should_dial: true,
+        }
+    }
+}
+
 /// Configuration for the request-response protocol.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RequestResponseConfig {
+pub struct SyncConfig {
     /// The maximum size of a message.
     pub max_message_size: usize,
 
@@ -113,4 +145,14 @@ pub struct RequestResponseConfig {
 
     /// The maximum number of concurrent inbound requests.
     pub max_concurrent_inbound_request: Option<usize>,
+}
+
+impl Default for SyncConfig {
+    fn default() -> Self {
+        Self {
+            max_message_size: 1024 * 1024,
+            timeout: Duration::from_secs(60),
+            max_concurrent_inbound_request: None,
+        }
+    }
 }

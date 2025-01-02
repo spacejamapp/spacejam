@@ -2857,6 +2857,8 @@ dependencies = [
  "litep2p",
  "serde",
  "spacejam-core",
+ "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
