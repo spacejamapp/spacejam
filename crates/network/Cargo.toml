@@ -15,3 +15,4 @@ serde.workspace = true
 tokio = { workspace = true, features = ["full"] }
 toml.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true

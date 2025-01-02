@@ -1,0 +1,9 @@
+[server]
+addr = "127.0.0.1:4242"
+cert = ["tests/data/test.server.cert"]
+key = "tests/data/test.server.pkcs8.pem"
+
+[client]
+addr = "127.0.0.1:4243"
+cert = ["tests/data/test.server.cert"]
+key = "tests/data/test.server.pkcs8.pem"

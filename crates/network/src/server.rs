@@ -1,9 +1,8 @@
 //! Server implementation for SpaceJam with QUIC.
 
 use crate::config::Config;
-use anyhow::{Context, Result};
-use quinn::{Endpoint, ServerConfig};
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use anyhow::Result;
+use quinn::{crypto::rustls::QuicServerConfig, Endpoint, ServerConfig};
 use std::sync::Arc;
 
 /// The server implementation for SpaceJam with QUIC
@@ -13,34 +12,30 @@ pub struct Server {
 
 impl Server {
     /// Create a new QUIC server with the given configuration
-    pub async fn new(config: &Config) -> Result<Self> {
-        let cert = CertificateDer::pem_file_iter(config.server.cert.clone())?
-            .map(|cert| cert.context("Failed to read certificate file"))
-            .collect::<Result<Vec<_>>>()?;
-        let key = PrivateKeyDer::from_pem_file(config.server.key.clone())?;
-        let server_config = Self::configure(cert, key)?;
-        let endpoint = Endpoint::server(server_config, config.server.addr.into())?;
+    pub fn new(config: &Config) -> Result<Self> {
+        let (certs, key) = config.server.der.load()?;
+        let server_crypto = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)?;
 
-        Ok(Self { endpoint })
-    }
+        let mut server_config = ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(
+            Arc::new(server_crypto),
+        )?));
 
-    /// Configure server with TLS certificates
-    fn configure(
-        cert: impl Into<Vec<CertificateDer<'static>>>,
-        key: PrivateKeyDer<'static>,
-    ) -> Result<ServerConfig> {
-        let mut server_config = ServerConfig::with_single_cert(cert.into(), key)?;
-        Arc::get_mut(&mut server_config.transport)
-            .unwrap()
-            .max_concurrent_uni_streams(0_u8.into())
-            .max_concurrent_bidi_streams(1_u8.into());
+        if let Some(transport) = Arc::get_mut(&mut server_config.transport) {
+            transport
+                .max_concurrent_uni_streams(0_u8.into())
+                .max_concurrent_bidi_streams(1_u8.into());
+        }
 
-        Ok(server_config)
+        Ok(Self {
+            endpoint: Endpoint::server(server_config, config.server.addr.into())?,
+        })
     }
 
     /// Start listening for incoming connections
     pub async fn run(&self) -> Result<()> {
-        tracing::info!("listening on {}", self.endpoint.local_addr()?);
+        tracing::trace!("listening on {}", self.endpoint.local_addr()?);
 
         loop {
             let connection = self.endpoint.accept().await;
@@ -50,7 +45,7 @@ impl Server {
             };
 
             let connection = connection.await?;
-            tracing::info!("connection accepted from {}", connection.remote_address());
+            tracing::trace!("connection accepted from {}", connection.remote_address());
 
             // Accept a single bidirectional stream as per JAMNP-S
             if let Ok(stream) = connection.accept_bi().await {
