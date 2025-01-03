@@ -1,0 +1,25 @@
+[package]
+name = "spacejam-network"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "spacenet"
+path = "bin/spacenet.rs"
+required-features = ["bin"]
+
+[dependencies]
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"], optional = true }
+serde.workspace = true
+score.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, optional = true }
+litep2p = { workspace = true, features = ["quic"] }
+
+
+[features]
+default = ["bin"]
+bin = ["clap", "tracing-subscriber"]
