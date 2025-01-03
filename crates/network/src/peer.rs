@@ -23,7 +23,7 @@ impl PeerManager {
         self.conns.insert(peer, endpoint.connection_id());
         self.addrs
             .entry(peer)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(endpoint.address().clone());
     }
 
