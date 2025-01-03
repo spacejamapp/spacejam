@@ -7,11 +7,27 @@ use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 
 mod block;
+mod kad;
+mod mdns;
 mod ping;
 mod state;
 mod sync;
 
 impl Network {
+    /// Spawn the event handler.
+    pub async fn spawn_events(&mut self) {
+        loop {
+            tokio::select! {
+                Some(event) = self.block.next() => self.block(event),
+                Some(event) = self.sync.next() => self.sync(event),
+                Some(event) = self.state.next() => self.state(event),
+                Some(event) = self.ping.next() => self.ping(event).await,
+                Some(event) = self.kad.next() => self.kad(event).await,
+                Some(event) = self.mdns.next() => self.mdns(event).await,
+            }
+        }
+    }
+
     /// Start the network.
     pub async fn spawn_litep2p(litep2p: Rc<RwLock<Litep2p>>) {
         while let Some(event) = litep2p.write().await.next_event().await {
@@ -35,18 +51,6 @@ impl Network {
                     // TODO: remove the peers from the peer manager.
                     tracing::warn!("dial failures: {errors:?}");
                 }
-            }
-        }
-    }
-
-    /// Spawn the event handler.
-    pub async fn spawn_events(&mut self) {
-        loop {
-            tokio::select! {
-                Some(event) = self.block.next() => self.block(event),
-                Some(event) = self.sync.next() => self.sync(event),
-                Some(event) = self.state.next() => self.state(event),
-                Some(event) = self.ping.next() => self.ping(event).await,
             }
         }
     }

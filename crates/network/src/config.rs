@@ -23,6 +23,25 @@ pub struct Config {
 
     /// The state sync configuration.
     pub state_sync: SyncConfig,
+
+    /// The mDNS query interval.
+    pub mdns: Duration,
+
+    /// The bootstrap addresses.
+    pub bootstrap: Vec<Multiaddr>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            block: NotifiConfig::default(),
+            block_sync: SyncConfig::default(),
+            quic: QuicConfig::default(),
+            state_sync: SyncConfig::default(),
+            mdns: Duration::from_secs(10),
+            bootstrap: vec![],
+        }
+    }
 }
 
 impl Config {
@@ -90,10 +109,16 @@ impl Config {
     }
 }
 
+/// Configuration for the QUIC transport.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuicConfig {
-    addresses: Vec<Multiaddr>,
+    /// The addresses to listen on.
+    pub addresses: Vec<Multiaddr>,
+
+    /// The timeout for a connection.
     connection: Duration,
+
+    /// The timeout for a substream.
     substream: Duration,
 }
 

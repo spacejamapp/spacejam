@@ -2854,12 +2854,14 @@ name = "spacejam-network"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "clap",
  "litep2p",
  "serde",
  "spacejam-core",
  "tokio",
  "tokio-stream",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
