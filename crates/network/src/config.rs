@@ -3,11 +3,11 @@
 use litep2p::{
     protocol::{self, notification::NotificationHandle, request_response::RequestResponseHandle},
     transport::quic,
-    types::multiaddr::Multiaddr,
+    types::multiaddr::{Multiaddr, Protocol},
     ProtocolName,
 };
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{net::Ipv4Addr, time::Duration};
 
 /// Configuration for the network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,8 +124,13 @@ pub struct QuicConfig {
 
 impl Default for QuicConfig {
     fn default() -> Self {
+        let mut addr = Multiaddr::empty();
+        addr.push(Protocol::Ip4(Ipv4Addr::LOCALHOST));
+        addr.push(Protocol::Udp(0));
+        addr.push(Protocol::QuicV1);
+
         Self {
-            addresses: vec![],
+            addresses: vec![addr],
             connection: Duration::from_secs(10),
             substream: Duration::from_secs(10),
         }

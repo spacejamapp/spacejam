@@ -14,7 +14,9 @@ use litep2p::{
     },
     Litep2p,
 };
-use std::pin::Pin;
+use peer::PeerManager;
+use std::{pin::Pin, sync::Arc};
+use tokio::sync::RwLock;
 use tokio_stream::Stream;
 
 pub mod config;
@@ -47,6 +49,16 @@ pub struct Network {
 
     /// State handle.
     state: RequestResponseHandle,
+
+    /// Peer manager.
+    peer: PeerManager,
+
+    /// Context.
+    ///
+    /// currently just used for testing to check if the
+    /// network is ready, it will embed the storage interface
+    /// in the future.
+    pub context: Arc<RwLock<usize>>,
 }
 
 impl Network {
@@ -81,6 +93,8 @@ impl Network {
             mdns: Box::pin(mdns_handle),
             sync: block_sync_handle,
             state: state_sync_handle,
+            peer: PeerManager::default(),
+            context: Arc::new(RwLock::new(0)),
         };
 
         // Bootstrap the network

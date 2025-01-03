@@ -39,9 +39,12 @@ impl Network {
                 connection_id,
             } => {
                 tracing::trace!("connection {peer} closed: {connection_id:?}");
+                self.peer.remove(peer, connection_id);
             }
             Litep2pEvent::ConnectionEstablished { peer, endpoint } => {
                 tracing::trace!("connection {peer} established: {endpoint:?}");
+                *self.context.write().await += 1;
+                self.peer.add(peer, endpoint);
             }
             Litep2pEvent::DialFailure { address, error } => {
                 tracing::warn!("dial {address:?} failure: {error:?}");

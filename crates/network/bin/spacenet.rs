@@ -23,12 +23,6 @@ async fn main() {
 
     let args = Args::parse();
     let mut config = Config::default();
-    config.quic.addresses =
-        vec![
-            Multiaddr::from_str(&format!("/ip4/{}/udp/{}/quic-v1", args.ip, args.port))
-                .expect("invalid address"),
-        ];
-
     if let Some(dial) = args.dial {
         config
             .bootstrap

@@ -1,15 +1,42 @@
 //! Peer management.
 
-use crate::Network;
-use litep2p::types::multiaddr::Multiaddr;
+use litep2p::{
+    transport::Endpoint,
+    types::{multiaddr::Multiaddr, ConnectionId},
+    PeerId,
+};
+use std::collections::HashMap;
 
-impl Network {
+/// Peer manager.
+#[derive(Default, Clone, Debug)]
+pub struct PeerManager {
+    /// peer addresses.
+    addrs: HashMap<PeerId, Vec<Multiaddr>>,
+
+    /// connected peers.
+    conns: HashMap<PeerId, ConnectionId>,
+}
+
+impl PeerManager {
+    /// Add an endpoint.
+    pub fn add(&mut self, peer: PeerId, endpoint: Endpoint) {
+        self.conns.insert(peer, endpoint.connection_id());
+        self.addrs
+            .entry(peer)
+            .or_insert_with(Vec::new)
+            .push(endpoint.address().clone());
+    }
+
+    /// Remove a peer.
+    pub fn remove(&mut self, peer: PeerId, id: ConnectionId) {
+        if self.conns.get(&peer).copied() == Some(id) {
+            self.conns.remove(&peer);
+            self.addrs.remove(&peer);
+        }
+    }
+
     /// Check if a peer exists.
-    pub async fn address_exists(&mut self, address: &Multiaddr) -> bool {
-        self.p2p
-            .public_addresses()
-            .get_addresses()
-            .iter()
-            .any(|a| a.to_string() == address.to_string())
+    pub fn exists(&self, peer: &PeerId) -> bool {
+        self.conns.contains_key(peer)
     }
 }
