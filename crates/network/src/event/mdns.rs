@@ -2,32 +2,22 @@
 
 use crate::Network;
 use litep2p::protocol::mdns::MdnsEvent;
+use std::time::Duration;
 
 impl Network {
     /// Handle an mDNS event.
-    pub async fn mdns(&self, event: MdnsEvent) {
+    #[tracing::instrument(skip_all, level = "trace")]
+    pub async fn mdns(&mut self, event: MdnsEvent) {
         let MdnsEvent::Discovered(addresses) = event;
+        tracing::trace!("discovered {addresses:?}");
 
-        for address in addresses {
-            if self.address_exists(&address).await {
-                continue;
-            }
-
-            tracing::info!("dialing {address:?}");
-
-            // records an event outside of any span context:
-            tracing::event!(tracing::Level::INFO, "something happened");
-
-            let span = tracing::span!(tracing::Level::INFO, "my_span");
-            let _guard = span.enter();
-
-            // records an event within "my_span".
-            tracing::event!(tracing::Level::DEBUG, "dialing {address:?}");
-
-            // tracing::debug!("dialing {address:?}");
-            if let Err(e) = self.p2p.write().await.dial_address(address.clone()).await {
+        for address in addresses.clone() {
+            tracing::trace!("dialing peer {address:?}");
+            if let Err(e) = self.p2p.dial_address(address.clone()).await {
                 tracing::warn!("failed to dial {address:?}: {e:?}");
             }
         }
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 }

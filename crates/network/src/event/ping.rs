@@ -5,14 +5,12 @@ use litep2p::protocol::libp2p::ping::PingEvent;
 
 impl Network {
     /// Handle a ping event.
-    pub async fn ping(&self, event: PingEvent) {
+    pub async fn ping(&mut self, event: PingEvent) {
         let PingEvent::Ping { peer, ping } = event;
         tracing::trace!("ping from {peer:?}: {ping:?}");
 
-        // Dial the peer if it is not already connected.
-        //
-        // TODO: introduce peer manager.
-        if let Err(e) = self.p2p.write().await.dial(&peer).await {
+        
+        if let Err(e) = self.p2p.dial(&peer).await {
             tracing::warn!("dial {peer:?} failure: {e:?}");
         }
     }

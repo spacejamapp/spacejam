@@ -5,10 +5,8 @@ use litep2p::types::multiaddr::Multiaddr;
 
 impl Network {
     /// Check if a peer exists.
-    pub async fn address_exists(&self, address: &Multiaddr) -> bool {
+    pub async fn address_exists(&mut self, address: &Multiaddr) -> bool {
         self.p2p
-            .read()
-            .await
             .public_addresses()
             .get_addresses()
             .iter()

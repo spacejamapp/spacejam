@@ -38,5 +38,5 @@ async fn main() {
     let mut network = Network::new(config)
         .await
         .expect("failed to create network");
-    network.start().await;
+    network.spawn().await;
 }

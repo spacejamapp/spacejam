@@ -1,7 +1,5 @@
 //! Network implementation of Spacejam.
 
-use std::{pin::Pin, rc::Rc};
-
 pub use config::Config;
 use litep2p::{
     config::ConfigBuilder,
@@ -16,7 +14,7 @@ use litep2p::{
     },
     Litep2p,
 };
-use tokio::sync::RwLock;
+use std::pin::Pin;
 use tokio_stream::Stream;
 
 pub mod config;
@@ -30,7 +28,7 @@ const STATE_SYNC_NAME: &str = "/sync/state/1";
 /// Network implementation of Spacejam.
 pub struct Network {
     /// P2P instance.
-    pub p2p: Rc<RwLock<Litep2p>>,
+    pub p2p: Litep2p,
 
     /// Block handle.
     block: NotificationHandle,
@@ -52,7 +50,7 @@ pub struct Network {
 }
 
 impl Network {
-    /// Start the network.
+    /// Create a new network instance.
     pub async fn new(config: Config) -> anyhow::Result<Self> {
         let (block, block_handle) = config.block(BLOCK_NAME, &[]);
         let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
@@ -62,7 +60,7 @@ impl Network {
         let (mdns, mdns_handle) = mdns::Config::new(config.mdns);
 
         // Create the network instance
-        let p2p = Rc::new(RwLock::new(Litep2p::new(
+        let p2p = Litep2p::new(
             ConfigBuilder::new()
                 .with_libp2p_ping(ping)
                 .with_libp2p_kademlia(kad)
@@ -72,17 +70,10 @@ impl Network {
                 .with_request_response_protocol(block_sync)
                 .with_request_response_protocol(state_sync)
                 .build(),
-        )?));
+        )?;
 
-        let _ = tracing::span!(tracing::Level::INFO, "bootstrap").enter();
-        for address in config.bootstrap.iter() {
-            tracing::event!(tracing::Level::INFO, "dialing {address:?}");
-            if let Err(e) = p2p.write().await.dial_address(address.clone()).await {
-                tracing::warn!("failed to dial {address:?}: {e:?}");
-            }
-        }
-
-        Ok(Self {
+        // Create the network instance
+        let mut this = Self {
             p2p,
             block: block_handle,
             ping: Box::pin(ping_handle),
@@ -90,21 +81,20 @@ impl Network {
             mdns: Box::pin(mdns_handle),
             sync: block_sync_handle,
             state: state_sync_handle,
-        })
+        };
+
+        // Bootstrap the network
+        this.bootstrap(&config).await;
+        Ok(this)
     }
 
-    /// Start the network.
-    ///
-    /// TODO: dial registered addresses.
-    pub async fn start(&mut self) {
-        tracing::info!(
-            "listen addresses: {:?}",
-            self.p2p.read().await.listen_addresses().collect::<Vec<_>>()
-        );
-
-        tokio::select! {
-            _ = Self::spawn_litep2p(Rc::clone(&self.p2p)) => {}
-            _ = self.spawn_events() => {}
+    /// Bootstrap the network.
+    async fn bootstrap(&mut self, config: &Config) {
+        for address in config.bootstrap.iter() {
+            tracing::event!(tracing::Level::INFO, "dialing {address:?}");
+            if let Err(e) = self.p2p.dial_address(address.clone()).await {
+                tracing::warn!("failed to dial {address:?}: {e:?}");
+            }
         }
     }
 }
