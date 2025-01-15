@@ -1,6 +1,7 @@
 //! Spacejam testing library
 #![cfg(test)]
 
+use runner::Runner;
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
@@ -136,6 +137,39 @@ impl_all_tests! {
     safrole
 }
 
+/// This macro accepts a list of test names and generates a test for each of them
+#[macro_export]
+macro_rules! impl_tests {
+    (
+        $module:ident,
+        @scale
+        $($scale_tests:ident),* $(,)?
+    ) => {
+        paste::paste! {
+            $(
+                #[test]
+                fn [<$scale_tests _tiny>]() {
+                    let test = specjam::registry::tests::[<TEST_ $module:upper _ $scale_tests:upper _TINY>];
+                    crate::Runner::step(&test)
+                        .expect(&format!("could not run test {}::{}", &stringify!($module), &stringify!($scale_tests)));
+                }
+            )*
+        }
+    };
+    (
+        $($data_tests:ident),* $(,)?
+    ) => {
+            $(
+                #[test]
+                fn $data_tests() {
+                    let test = specjam::registry::tests::[<$data_tests:upper>];
+                    crate::Runner::step(&test)
+                        .expect(&format!("could not run test {}::{}", &stringify!($module), &stringify!($data_tests)));
+                }
+            )*
+    }
+}
+
 pub mod assurances;
 pub mod authorizations;
 pub mod codec;
@@ -144,6 +178,7 @@ pub mod history;
 pub mod preimage;
 pub mod pvm;
 pub mod reports;
+pub mod runner;
 pub mod safrole;
 pub mod shuffle;
 pub mod statistics;
