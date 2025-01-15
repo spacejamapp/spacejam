@@ -20,6 +20,19 @@ impl Runner {
                 assert_eq!(result, output.output);
                 assert_eq!(handler.post_state, output.post_state);
             }
+            Section::Authorizations => {
+                use crate::authorizations;
+
+                let input = authorizations::TestInput::from_json(test.input)?;
+                let output = authorizations::TestOutput::from_json(test.output)?;
+                let state = authorizations::TestState::from(input.pre_state);
+                let result = guarantee::auth::handle(
+                    state.into(),
+                    input.input.slot,
+                    input.input.auths.into_iter().map(|a| a.into()).collect(),
+                )?;
+                assert_eq!(result, output.post_state.into());
+            }
             _ => {}
         }
 

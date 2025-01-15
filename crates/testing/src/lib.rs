@@ -157,16 +157,19 @@ macro_rules! impl_tests {
         }
     };
     (
+        $module:ident,
         $($data_tests:ident),* $(,)?
     ) => {
+        paste::paste! {
             $(
                 #[test]
                 fn $data_tests() {
-                    let test = specjam::registry::tests::[<$data_tests:upper>];
+                    let test = specjam::registry::tests::[<TEST_ $module:upper _ $data_tests:upper>];
                     crate::Runner::step(&test)
                         .expect(&format!("could not run test {}::{}", &stringify!($module), &stringify!($data_tests)));
                 }
             )*
+        }
     }
 }
 
