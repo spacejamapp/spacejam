@@ -15,6 +15,7 @@ pub struct TestOutput {
 
 #[test]
 fn tests() -> anyhow::Result<()> {
+    // grab `shuffle_tests.json`
     let test = specjam::registry::tests::TEST_SHUFFLE_SHUFFLE_TESTS;
     let input: Vec<TestInput> = serde_json::from_str(&test.input)?;
     let output: Vec<TestOutput> = serde_json::from_str(&test.output)?;

@@ -2899,7 +2899,6 @@ name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "git2",
  "hex",
  "jamcodec",
  "paste",
@@ -2962,7 +2961,9 @@ dependencies = [
 
 [[package]]
 name = "specjam"
-version = "0.0.3"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b0989a26da43c92053f8ab361d79e61b7b7dabb152c34b15d4d9381fc3582a1"
 dependencies = [
  "anyhow",
  "clap",

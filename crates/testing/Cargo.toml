@@ -29,7 +29,8 @@ tracing-subscriber.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
-git2.workspace = true
+paste.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
+specjam.workspace = true
 syn.workspace = true

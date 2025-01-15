@@ -120,6 +120,7 @@ impl Runner {
             Section::Pvm => {
                 use crate::pvm;
 
+                println!("{}", test.input);
                 let input: pvm::TestInput = serde_json::from_str(&test.input)?;
                 let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
                 let mut registers = [0; 13];
