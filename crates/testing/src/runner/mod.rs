@@ -33,6 +33,16 @@ impl Runner {
                 )?;
                 assert_eq!(result, output.post_state.into());
             }
+            Section::Disputes => {
+                use crate::disputes;
+
+                let input = disputes::TestInput::from_json(test.input)?;
+                let output = disputes::TestOutput::from_json(test.output)?;
+                let mut handler = dispute::DisputesHandler::from(input.pre_state);
+                let result = handler.handle(input.input.disputes);
+                assert_eq!(result, output.output);
+                assert_eq!(handler.next_state, output.post_state);
+            }
             _ => {}
         }
 
