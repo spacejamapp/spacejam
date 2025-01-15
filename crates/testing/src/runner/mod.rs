@@ -84,6 +84,23 @@ impl Runner {
                 assert_eq!(result, output.output);
                 assert_eq!(handler.next, output.post_state);
             }
+            Section::Safrole => {
+                use crate::safrole;
+
+                let mut input = safrole::TestInput::from_json(test.input)?;
+                let output = safrole::TestOutput::from_json(test.output)?;
+
+                let result = input
+                    .pre_state
+                    .enact(
+                        input.input.slot,
+                        input.input.entropy,
+                        input.input.extrinsic.clone(),
+                    )
+                    .expect("could not enact epoch change");
+                assert_eq!(result, output.output);
+                assert_eq!(input.pre_state, output.post_state);
+            }
             _ => {}
         }
 
