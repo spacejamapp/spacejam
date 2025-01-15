@@ -73,6 +73,17 @@ impl Runner {
                         .unwrap_or(pre);
                 assert_eq!(result, post);
             }
+            Section::Reports => {
+                use crate::reports;
+
+                let input = reports::TestInput::from_json(test.input)?;
+                let output = reports::TestOutput::from_json(test.output)?;
+
+                let mut handler = guarantee::Handler::from(input.pre_state);
+                let result = handler.handle(input.input);
+                assert_eq!(result, output.output);
+                assert_eq!(handler.next, output.post_state);
+            }
             _ => {}
         }
 
