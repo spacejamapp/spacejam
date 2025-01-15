@@ -3,6 +3,7 @@
 use anyhow::Result;
 use score::block::BlocksHistory;
 use specjam::{Section, Test};
+use statistic::Stats;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -100,6 +101,21 @@ impl Runner {
                     .expect("could not enact epoch change");
                 assert_eq!(result, output.output);
                 assert_eq!(input.pre_state, output.post_state);
+            }
+            Section::Statistics => {
+                use crate::statistics;
+
+                let input = statistics::TestInput::from_json(test.input)?;
+                let output = statistics::TestOutput::from_json(test.output)?;
+
+                let mut stats = Stats::from(input.pre_state);
+                stats = stats.update(
+                    input.input.slot,
+                    input.input.author_index,
+                    input.input.extrinsic,
+                );
+
+                assert_eq!(stats.next_state, output.post_state);
             }
             _ => {}
         }
