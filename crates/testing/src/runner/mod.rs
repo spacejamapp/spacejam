@@ -117,6 +117,46 @@ impl Runner {
 
                 assert_eq!(stats.next_state, output.post_state);
             }
+            Section::Pvm => {
+                use crate::pvm;
+
+                let input: pvm::TestInput = serde_json::from_str(&test.input)?;
+                let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
+                let mut registers = [0; 13];
+                registers.copy_from_slice(&input.initial_regs);
+
+                // Initialize memory
+                let mut memory = pvmi::Memory::default();
+                for mem in input.initial_memory {
+                    memory.slots.insert(mem.address, mem.contents.clone());
+                }
+
+                // Initialize interpreter
+                let mut interpreter = pvmi::Interpreter::default()
+                    .gas(input.initial_gas)
+                    .registers(registers)
+                    .memory(memory);
+
+                interpreter
+                    .interp(&input.program)
+                    .expect("failed to run program");
+
+                let expected_memory = interpreter
+                    .memory
+                    .slots
+                    .iter()
+                    .map(|(k, v)| pvm::Memory {
+                        address: *k,
+                        contents: v.to_vec(),
+                    })
+                    .collect::<Vec<_>>();
+
+                assert_eq!(interpreter.pc, output.expected_pc);
+                assert_eq!(interpreter.status.to_string(), output.expected_status);
+                assert_eq!(interpreter.registers.to_vec(), output.expected_regs);
+                assert_eq!(interpreter.gas, output.expected_gas);
+                assert_eq!(expected_memory, output.expected_memory);
+            }
             _ => {}
         }
 
