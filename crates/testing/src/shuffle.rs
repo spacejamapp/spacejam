@@ -1,35 +1,37 @@
-#![cfg(test)]
+//! Shuffle tests
 
 use crypto::shuffle;
 use serde::{Deserialize, Serialize};
 
-const TESTS: &[u8] = include_bytes!("../jamtestvectors/shuffle/shuffle_tests.json");
-
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Test {
-    pub input: u32,
-    pub entropy: String,
-    pub output: Vec<u32>,
+pub struct TestInput {
+    input: u32,
+    entropy: String,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TestOutput {
+    output: Vec<u32>,
 }
 
 #[test]
 fn tests() -> anyhow::Result<()> {
-    let tests: Vec<Test> = serde_json::from_slice(TESTS)?;
+    let test = specjam::registry::tests::TEST_SHUFFLE_SHUFFLE_TESTS;
+    let input: Vec<TestInput> = serde_json::from_str(&test.input)?;
+    let output: Vec<TestOutput> = serde_json::from_str(&test.output)?;
 
-    for test in tests {
-        let mut input = vec![0; test.input as usize];
-        for i in 0..test.input as usize {
+    for (source, target) in input.into_iter().zip(output.into_iter()) {
+        let mut input = vec![0; source.input as usize];
+        for i in 0..source.input as usize {
             input[i] = i as u32;
         }
 
-        let entropy = hex::decode(test.entropy.trim_start_matches("0x"))
+        let entropy = hex::decode(source.entropy.trim_start_matches("0x"))
             .map_err(|e| anyhow::anyhow!("Failed to decode entropy: {e}"))?
             .try_into()
             .expect("entropy");
 
-        let output = test.output;
         let result = shuffle::eq331(&input, entropy);
-        assert_eq!(result, output, "Test {} failed", test.input);
+        assert_eq!(result, target.output, "Test {} failed", source.input);
     }
 
     Ok(())
