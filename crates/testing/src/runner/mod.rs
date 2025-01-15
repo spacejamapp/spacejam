@@ -1,6 +1,7 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
+use score::block::BlocksHistory;
 use specjam::{Section, Test};
 
 /// The `Runner` struct which is used to run the tests.
@@ -42,6 +43,22 @@ impl Runner {
                 let result = handler.handle(input.input.disputes);
                 assert_eq!(result, output.output);
                 assert_eq!(handler.next_state, output.post_state);
+            }
+            Section::History => {
+                use crate::history;
+
+                let input = history::TestInput::from_json(test.input)?;
+                let output = history::TestOutput::from_json(test.output)?;
+                let mut history = BlocksHistory {
+                    blocks: input.pre_state.beta,
+                };
+                history.import(
+                    input.input.header_hash,
+                    input.input.parent_state_root,
+                    input.input.accumulate_root,
+                    input.input.work_packages.clone(),
+                );
+                assert_eq!(history.blocks, output.post_state.beta);
             }
             _ => {}
         }
