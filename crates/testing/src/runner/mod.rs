@@ -60,6 +60,19 @@ impl Runner {
                 );
                 assert_eq!(history.blocks, output.post_state.beta);
             }
+            Section::Preimages => {
+                use crate::preimage;
+
+                let input = preimage::TestInput::from_json(test.input)?;
+                let output = preimage::TestOutput::from_json(test.output)?;
+                let pre = preimage::to_state(input.pre_state.accounts);
+                let post = preimage::to_state(output.post_state.accounts);
+
+                let result =
+                    ::preimage::handle(pre.clone(), input.input.slot, input.input.preimages)
+                        .unwrap_or(pre);
+                assert_eq!(result, post);
+            }
             _ => {}
         }
 
