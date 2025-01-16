@@ -33,7 +33,7 @@ pub struct Test {
 pub fn to_state(accs: Vec<types::Account>) -> State {
     let mut state = State::default();
     for acc in accs {
-        state.service_accounts.insert(acc.id, acc.info.into());
+        state.accounts.insert(acc.id, acc.info.into());
     }
     state
 }

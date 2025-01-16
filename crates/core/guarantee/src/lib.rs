@@ -1,26 +1,40 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 use crypto::shuffle;
-use score::{EPOCH_LENGTH, ROTATION_PERIOD};
+use dep::Dependencies;
+use score::{extrinsic::GuaranteesExtrinsic, Block, Ed25519Public, EPOCH_LENGTH, ROTATION_PERIOD};
+pub use state::{State, StateJson};
 use {
     error::{Error, Result},
     score::{
         extrinsic::ReportGuarantee,
         validator::ValidatorData,
-        work::{report::WorkExecResult, AvailabilityAssignment, ReportedWorkPackage},
+        work::{report::WorkExecResult, AvailabilityAssignment, SegmentRootLookupItem},
         OpaqueHash, TimeSlot, CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
         SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },
-    state::{Input, Output, ReportedPackage, State},
     std::collections::BTreeMap,
 };
 
 pub mod auth;
+mod dep;
 pub mod error;
-pub mod state;
+mod state;
 
-/// Handler of the reporting module.
-pub struct Handler {
+/// Validate the block
+pub fn validate(
+    state: &mut score::State,
+    block: &Block,
+) -> Result<(Vec<SegmentRootLookupItem>, Vec<Ed25519Public>)> {
+    let pstate = State::from(state.clone());
+    let mut context = Context::from(pstate);
+    let result = context.validate(block)?;
+    context.next.apply(state);
+    Ok(result)
+}
+
+/// Context of the reporting module.
+pub struct Context {
     pub prev: State,
     pub next: State,
     pub validators: Vec<ValidatorData>,
@@ -29,10 +43,15 @@ pub struct Handler {
     pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
 
-impl Handler {
-    /// Handle work reports according to the guarantees extrinsic
-    pub fn handle(&mut self, input: Input) -> Result<Output> {
-        self.init_deps(&input);
+impl Context {
+    /// Validate work reports according to the guarantees extrinsic
+    pub fn validate(
+        &mut self,
+        block: &Block,
+    ) -> Result<(Vec<SegmentRootLookupItem>, Vec<Ed25519Public>)> {
+        let guarantees = &block.extrinsic.guarantees;
+        let slot = block.header.slot;
+        self.init_deps(guarantees);
 
         // Prepare for reporting
         let mut reported = Vec::new();
@@ -42,13 +61,13 @@ impl Handler {
             .prev
             .services
             .iter()
-            .map(|s| s.info.code_hash)
+            .map(|s| s.info.code)
             .collect::<Vec<_>>();
 
         // Process each guarantee
-        for guarantee in input.guarantees.into_iter() {
-            self.validate_core(input.slot, &guarantee)?;
-            self.validate_rotation(input.slot, &guarantee)?;
+        for guarantee in guarantees.into_iter() {
+            self.validate_core(slot, &guarantee)?;
+            self.validate_rotation(slot, &guarantee)?;
             self.validate_results(&code_hashes, &service_ids, &guarantee)?;
             self.validate_block(&guarantee)?;
             self.validate_deps(&guarantee)?;
@@ -56,7 +75,7 @@ impl Handler {
             self.validate_guarantors(&guarantee)?;
 
             // Record reported package
-            reported.push(ReportedPackage {
+            reported.push(SegmentRootLookupItem {
                 work_package_hash: guarantee.report.package_spec.hash,
                 segment_tree_root: guarantee.report.package_spec.exports_root,
             });
@@ -64,8 +83,8 @@ impl Handler {
             // Update state
             let core_index = guarantee.report.core_index as usize;
             self.next.avail_assignments[core_index] = Some(AvailabilityAssignment {
-                report: guarantee.report,
-                timeout: input.slot,
+                report: guarantee.report.clone(),
+                timeout: slot,
             });
 
             // Record reporters (guarantors)
@@ -81,10 +100,7 @@ impl Handler {
         // storage directly, there was a similar problem in the `dispute` module.
         reporters.sort();
         reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
-        Ok(Output {
-            reported,
-            reporters,
-        })
+        Ok((reported, reporters))
     }
 
     /// Assign cores to validators based on the timeslot
@@ -114,15 +130,14 @@ impl Handler {
         self.core_assignments = assignments;
     }
 
-    fn init_deps(&mut self, input: &Input) {
+    fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
         let service = self
             .prev
             .services
             .iter()
-            .map(|s| s.info.code_hash)
+            .map(|s| s.info.code)
             .collect::<Vec<_>>();
-        let reported = input
-            .guarantees
+        let reported = guarantees
             .iter()
             .map(|g| g.report.package_spec.hash)
             .collect::<Vec<_>>();
@@ -295,6 +310,8 @@ impl Handler {
             }
 
             if !code_hashes.contains(&result.code_hash) {
+                println!("code_hashes: {:?}", code_hashes);
+                println!("result.code_hash: {:?}", result.code_hash);
                 return Err(Error::BadCodeHash);
             }
 
@@ -333,7 +350,7 @@ impl Handler {
     }
 }
 
-impl From<State> for Handler {
+impl From<State> for Context {
     fn from(state: State) -> Self {
         Self {
             validators: state.curr_validators.clone(),
@@ -343,48 +360,5 @@ impl From<State> for Handler {
             guarantors: BTreeMap::new(),
             deps: Dependencies::default(),
         }
-    }
-}
-
-/// Temp dependencies for validation
-#[derive(Default)]
-pub struct Dependencies {
-    pub service: Vec<OpaqueHash>,
-    pub recent: Vec<ReportedWorkPackage>,
-    pub reported: Vec<OpaqueHash>,
-}
-
-impl Dependencies {
-    fn contains(&self, hash: &OpaqueHash) -> bool {
-        self.service.contains(hash)
-            || self.recent.iter().any(|r| r.hash == *hash)
-            || self.reported.contains(hash)
-    }
-
-    // TODO: check if duplicated in service deps?
-    fn duplicated(&self, hash: &OpaqueHash) -> bool {
-        self.recent.iter().any(|r| r.hash == *hash)
-            || self.reported.iter().filter(|h| *h == hash).count() > 1
-    }
-
-    fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        for lookup in guarantee.report.segment_root_lookup.iter() {
-            if self.reported.contains(&lookup.work_package_hash) {
-                continue;
-            }
-
-            let Some(reported) = self
-                .recent
-                .iter()
-                .find(|r| r.hash == lookup.work_package_hash)
-            else {
-                return Err(Error::SegmentRootLookupInvalid);
-            };
-
-            if reported.exports_root != lookup.segment_tree_root {
-                return Err(Error::SegmentRootLookupInvalid);
-            }
-        }
-        Ok(())
     }
 }

@@ -82,13 +82,26 @@ impl Runner {
             Section::Reports => {
                 use crate::reports;
 
-                let input = reports::TestInput::from_json(test.input)?;
-                let output = reports::TestOutput::from_json(test.output)?;
+                let reports::TestInput { input, pre_state } =
+                    reports::TestInput::from_json(test.input)?;
+                let reports::TestOutput { output, post_state } =
+                    reports::TestOutput::from_json(test.output)?;
+                let mut context = pre_state.clone().into();
 
-                let mut handler = guarantee::Handler::from(input.pre_state);
-                let result = handler.handle(input.input);
-                assert_eq!(result, output.output);
-                assert_eq!(handler.next, output.post_state);
+                // Validate the output
+                let result = guarantee::validate(&mut context, &input.into());
+                assert_eq!(
+                    result.map(|(reported, reporters)| reports::Output {
+                        reported,
+                        reporters,
+                    }),
+                    output
+                );
+
+                // validate the post state
+                let mut state: guarantee::State = context.into();
+                state.services = pre_state.services;
+                assert_eq!(post_state, state);
             }
             Section::Safrole => {
                 use crate::safrole;

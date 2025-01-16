@@ -12,7 +12,7 @@ pub fn handle(
     let mut missing = Vec::new();
 
     // TODO: remove clone
-    for (id, acc) in state.service_accounts.clone().into_iter() {
+    for (id, acc) in state.accounts.clone().into_iter() {
         for ((hash, _), _) in acc.lookup.clone().into_iter() {
             if !acc.preimage.contains_key(&hash) {
                 missing.push((id, hash));
@@ -27,7 +27,7 @@ pub fn handle(
         }
 
         let account = state
-            .service_accounts
+            .accounts
             .get_mut(&preimage.requester)
             .ok_or(anyhow::anyhow!("Service account not found"))?;
 

@@ -55,13 +55,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
 
             if attr.path().is_ident("serde") {
-                if let Ok(serde_attr) = attr.parse_args::<syn::Ident>() {
-                    if serde_attr == *"default" {
-                        return true;
+                if let Ok(expr) = attr.parse_args::<syn::Expr>() {
+                    if expr.to_token_stream().to_string().contains("with") {
+                        return false;
                     }
                 }
-
-                return false;
             }
 
             true

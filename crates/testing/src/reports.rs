@@ -2,10 +2,11 @@
 
 use guarantee::{
     error::{Error, Result},
-    state::{Input, InputJson, Output, OutputJson, State, StateJson},
+    State, StateJson,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+pub use types::*;
 
 /// Test input.
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
@@ -65,4 +66,40 @@ crate::impl_tests! {
     too_high_work_report_gas_1,
     too_many_dependencies_1,
     wrong_assignment_1
+}
+
+mod types {
+    use score::{
+        extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
+        work::{SegmentRootLookupItem, SegmentRootLookupItemJson},
+        Block, Ed25519Public, TimeSlot,
+    };
+    use serde::{Deserialize, Serialize};
+    use spacejson::Json;
+
+    /// Input of the reporting module.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json)]
+    pub struct Input {
+        pub slot: TimeSlot,
+        #[json(Vec<ReportGuaranteeJson>)]
+        pub guarantees: GuaranteesExtrinsic,
+    }
+
+    impl From<Input> for Block {
+        fn from(value: Input) -> Self {
+            let mut block = Block::default();
+            block.header.slot = value.slot;
+            block.extrinsic.guarantees = value.guarantees;
+            block
+        }
+    }
+
+    /// Output of the reporting module.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct Output {
+        #[json(nested)]
+        pub reported: Vec<SegmentRootLookupItem>,
+        #[json(Vec<String>)]
+        pub reporters: Vec<Ed25519Public>,
+    }
 }

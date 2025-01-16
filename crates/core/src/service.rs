@@ -1,21 +1,7 @@
-use crate::{Gas, OpaqueHash, TimeSlot};
+use crate::{Gas, OpaqueHash, ServiceId, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
-
-/// Represents a service info.
-///
-/// TODO: replace this with the new struct while refactoring tests
-#[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
-pub struct ServiceInfo {
-    #[json(hex)]
-    pub code_hash: OpaqueHash,
-    pub balance: u64,
-    pub min_item_gas: Gas,
-    pub min_memo_gas: Gas,
-    pub bytes: u64,
-    pub items: u32,
-}
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -68,9 +54,11 @@ impl ServiceAccount {
 }
 
 /// The state of the service account
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json)]
 pub struct ServiceAccountState {
     /// The code hash of the service account (c)
+    #[json(hex)]
+    #[serde(alias = "code_hash")]
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
@@ -78,9 +66,11 @@ pub struct ServiceAccountState {
 
     /// The gas limits of the service account (g) and (m)
     #[serde(flatten)]
+    #[json(nested)]
     pub gas: GasLimit,
 
     /// The total number of octets used in storage (t)
+    #[serde(alias = "bytes")]
     pub total: u64,
 
     /// The number of items in storage (i)
@@ -88,13 +78,15 @@ pub struct ServiceAccountState {
 }
 
 /// The gas limits of the service account
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct GasLimit {
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
+    #[serde(alias = "min_memo_gas")]
     pub accumulate: Gas,
 
     /// The minimum required for the on transfer entry-point (m)
+    #[serde(alias = "min_item_gas")]
     pub transfer: Gas,
 }
 
@@ -115,4 +107,15 @@ pub struct ServiceIndex {
     /// in each block together with a basic amount of gas with
     /// which each accumulates.
     pub gas: BTreeMap<u32, Gas>,
+}
+
+/// Represents a service item.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ServiceItem {
+    /// The id of the service item
+    pub id: ServiceId,
+
+    /// The info of the service item
+    #[json(nested)]
+    pub info: ServiceAccountState,
 }

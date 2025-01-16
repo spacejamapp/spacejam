@@ -34,7 +34,7 @@ pub struct State {
     pub safrole: Safrole,
 
     /// The prior state of the service accounts (δ)
-    pub service_accounts: BTreeMap<u32, ServiceAccount>,
+    pub accounts: BTreeMap<u32, ServiceAccount>,
 
     /// The entropy accumulator and epochal randomness (η)
     pub entropy: EntropyBuffer,
