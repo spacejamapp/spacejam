@@ -1,6 +1,6 @@
 //! Core of SpaceJam
 
-pub use {config::Config, state::State};
+pub use {block::Block, config::Config, extrinsic::Extrinsic, state::State};
 
 pub mod block;
 pub mod config;

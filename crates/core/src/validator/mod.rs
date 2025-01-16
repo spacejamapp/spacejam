@@ -5,20 +5,17 @@ use crate::{
     extrinsic::TicketsOrKeys,
     state::{key, Storage},
     BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
-    Ed25519Public, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
+    Ed25519Public, State, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
 };
+use anyhow::Result;
 pub use {
-    context::{Context, Patch},
     extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
     public::{ValidatorData, ValidatorDataJson, Validators, ValidatorsData},
-    result::{Error, Result, ValidationError},
-    validate::ValidateExtrinsic,
+    validate::Patch,
 };
 
-mod context;
 mod extrinsic;
 mod public;
-mod result;
 mod validate;
 
 /// Validator interface
@@ -38,7 +35,7 @@ pub trait Validator: TryFrom<String> {
         keys: &[[u8; 32]],
         context: &[u8],
         message: &[u8],
-    ) -> anyhow::Result<BandersnatchVrfSignature>;
+    ) -> Result<BandersnatchVrfSignature>;
 
     /// Bandersnatch ring sign
     fn bandersnatch_ring_sign(
@@ -46,13 +43,13 @@ pub trait Validator: TryFrom<String> {
         keys: &[[u8; 32]],
         context: &[u8],
         message: &[u8],
-    ) -> anyhow::Result<BandersnatchRingVrfSignature>;
+    ) -> Result<BandersnatchRingVrfSignature>;
 
     /// Bandersnatch output
     fn bandersnatch_output(
         &self,
         sig: BandersnatchVrfSignature,
-    ) -> anyhow::Result<BandersnatchVrfSignature>;
+    ) -> Result<BandersnatchVrfSignature>;
 
     /// Metadata of the validator
     fn metadata(&self) -> ValidatorMetadata;
@@ -67,8 +64,14 @@ pub trait Validator: TryFrom<String> {
         }
     }
 
+    /// Validate block with the given state
+    fn validate(&self, _block: &Block, db: &impl Storage) -> Result<State> {
+        let _state = db.state()?;
+        todo!()
+    }
+
     /// Mines a block
-    fn mine(&self, block: BlockInfo, db: &impl Storage) -> anyhow::Result<Block> {
+    fn mine(&self, block: BlockInfo, db: &impl Storage) -> Result<Block> {
         let mut block = block.mine();
         let entropy = db.entropy()?.unwrap_or_default();
         let safrole = db.safrole()?.unwrap_or_default();
