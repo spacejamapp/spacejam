@@ -1,11 +1,9 @@
-#![cfg(test)]
+//! This module contains the tests for the assurance module.
 
-use assurance::{
-    error::{Error, Result},
-    state::*,
-};
+use assurance::{Error, Result, State, StateJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+use types::*;
 
 /// Test input for assurances
 #[derive(Debug, Json, Serialize, Deserialize)]
@@ -47,28 +45,13 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
-        validator::{ValidatorDataJson, ValidatorsData},
-        work::{
-            report::{WorkReport, WorkReportJson},
-            AvailabilityAssignmentJson, AvailabilityAssignments,
-        },
+        work::report::{WorkReport, WorkReportJson},
         HeaderHash, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-    pub struct State {
-        /// [ρ†] rho dagger, which is the pending reports (ϱ) after that any
-        /// work report judged as uncertain or invalid has been removed from it.
-        /// On success, mutated to get [ϱ‡].
-        #[json(Vec<Option<AvailabilityAssignmentJson>>)]
-        pub avail_assignments: AvailabilityAssignments,
-        /// [κ'] Posterior active validators.
-        #[json(Vec<ValidatorDataJson>)]
-        pub curr_validators: ValidatorsData,
-    }
-
+    /// The input to the assurance module.
     #[derive(Debug, Clone, Serialize, Deserialize, Json)]
     pub struct Input {
         /// [E_A] Assurances extrinsic.
@@ -83,6 +66,17 @@ mod types {
         pub parent: HeaderHash,
     }
 
+    impl From<Input> for score::Block {
+        fn from(input: Input) -> Self {
+            let mut block = score::Block::default();
+            block.header.slot = input.slot;
+            block.header.parent = input.parent;
+            block.extrinsic.assurances = input.assurances;
+            block
+        }
+    }
+
+    /// The output of the assurance module.
     #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct Output {
         #[json(Vec<WorkReportJson>)]

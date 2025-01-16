@@ -1,47 +1,54 @@
 use score::{
-    extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
     validator::{ValidatorDataJson, ValidatorsData},
-    work::{
-        report::{WorkReport, WorkReportJson},
-        AvailabilityAssignmentJson, AvailabilityAssignments,
-    },
-    HeaderHash, TimeSlot,
+    work::{AvailabilityAssignmentJson, AvailabilityAssignments},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
+/// The state of the assurance module.
 #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct State {
-    /// [ρ†] rho dagger, which is the pending reports (ϱ) after that any
+    /// (ρ†) rho dagger, which is the pending reports (ϱ) after that any
     /// work report judged as uncertain or invalid has been removed from it.
     /// On success, mutated to get [ϱ‡].
     #[json(Vec<Option<AvailabilityAssignmentJson>>)]
     pub avail_assignments: AvailabilityAssignments,
-    /// [κ'] Posterior active validators.
+    /// (κ') posterior active validators.
     #[json(Vec<ValidatorDataJson>)]
     pub curr_validators: ValidatorsData,
-    /// [ϱ‡] The reports that have been judged as available.
-    #[serde(default)]
-    #[json(Vec<WorkReportJson>)]
-    pub reported: Vec<WorkReport>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
-pub struct Input {
-    /// [E_A] Assurances extrinsic.
-    #[json(Vec<AvailAssuranceJson>)]
-    pub assurances: AssurancesExtrinsic,
-
-    /// [H_t] Block's timeslot.
-    pub slot: TimeSlot,
-
-    /// [H_p] Parent hash.
-    #[json(hex)]
-    pub parent: HeaderHash,
+impl State {
+    /// Apply the state to the given state
+    pub fn apply(self, state: &mut score::State) {
+        state.validators.current = self.curr_validators;
+        state.reports = self.avail_assignments;
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct Output {
-    #[json(Vec<WorkReportJson>)]
-    pub reported: Vec<WorkReport>,
+impl From<score::State> for State {
+    fn from(state: score::State) -> Self {
+        Self {
+            avail_assignments: state.reports,
+            curr_validators: state.validators.current,
+        }
+    }
+}
+
+impl From<&score::State> for State {
+    fn from(state: &score::State) -> Self {
+        Self {
+            avail_assignments: state.reports.clone(),
+            curr_validators: state.validators.current.clone(),
+        }
+    }
+}
+
+impl From<State> for score::State {
+    fn from(part: State) -> Self {
+        let mut state = score::State::default();
+        state.validators.current = part.curr_validators;
+        state.reports = part.avail_assignments;
+        state
+    }
 }
