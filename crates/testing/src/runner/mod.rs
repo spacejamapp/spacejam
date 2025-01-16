@@ -3,7 +3,6 @@
 use anyhow::Result;
 use score::block::BlocksHistory;
 use specjam::{Section, Test};
-use statistic::Stats;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -140,19 +139,20 @@ impl Runner {
                 let input = statistics::TestInput::from_json(test.input)?;
                 let output = statistics::TestOutput::from_json(test.output)?;
 
-                let mut stats = Stats::from(input.pre_state);
-                stats = stats.update(
-                    input.input.slot,
-                    input.input.author_index,
-                    input.input.extrinsic,
-                );
+                // construct inputs
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.header.author_index = input.input.author_index;
+                block.extrinsic = input.input.extrinsic.clone();
+                let mut context = input.pre_state.into();
 
-                assert_eq!(stats.next_state, output.post_state);
+                // validate
+                statistic::validate(&mut context, &block);
+                assert_eq!(context, output.post_state.into());
             }
             Section::Pvm => {
                 use crate::pvm;
 
-                println!("{}", test.input);
                 let input: pvm::TestInput = serde_json::from_str(&test.input)?;
                 let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
                 let mut registers = [0; 13];
