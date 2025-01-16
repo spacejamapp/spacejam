@@ -3,54 +3,31 @@
 use guarantee::{
     error::{Error, Result},
     state::{Input, InputJson, Output, OutputJson, State, StateJson},
-    Handler,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 
+/// Test input.
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
-struct Test {
+pub struct TestInput {
     #[json(nested)]
-    input: Input,
+    pub input: Input,
+    #[json(nested)]
+    pub pre_state: State,
+}
+
+/// Test output.
+#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+pub struct TestOutput {
     #[json(ResultJson<OutputJson, Error>)]
-    output: Result<Output>,
+    pub output: Result<Output>,
     #[json(nested)]
-    pre_state: State,
-    #[json(nested)]
-    post_state: State,
+    pub post_state: State,
 }
 
-impl Test {
-    fn run(self) {
-        let mut handler = Handler::from(self.pre_state);
-        let output = handler.handle(self.input);
-        assert_eq!(output, self.output);
-        assert_eq!(
-            handler.next.auth_pools, self.post_state.auth_pools,
-            "auth_pools"
-        );
-        assert_eq!(
-            handler.next.avail_assignments, self.post_state.avail_assignments,
-            "avail_assignments"
-        );
-        assert_eq!(
-            handler.next.curr_validators, self.post_state.curr_validators,
-            "curr_validators"
-        );
-        assert_eq!(
-            handler.next.prev_validators, self.post_state.prev_validators,
-            "prev_validators"
-        );
-        assert_eq!(handler.next.entropy, self.post_state.entropy, "entropy");
-        assert_eq!(handler.next.services, self.post_state.services, "services");
-        assert_eq!(
-            handler.next.offenders, self.post_state.offenders,
-            "offenders"
-        );
-    }
-}
-
-crate::impl_reports_tests! {
+crate::impl_tests! {
+    reports,
+    @scale
     anchor_not_recent_1,
     bad_beefy_mmr_1,
     bad_code_hash_1,

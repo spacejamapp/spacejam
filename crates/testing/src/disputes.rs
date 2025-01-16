@@ -1,53 +1,38 @@
 #![cfg(test)]
 
 use core::result::Result;
-use dispute::{error::Error, DisputesHandler, OffendersMark, OffendersMarkJson, State, StateJson};
+use dispute::{error::Error, OffendersMark, OffendersMarkJson, State, StateJson};
 use score::extrinsic::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 
-use crate::init_tracing;
-
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
     #[json(nested)]
-    disputes: DisputesExtrinsic,
+    pub disputes: DisputesExtrinsic,
 }
 
+/// Test input.
 #[derive(Debug, Json, Serialize, Deserialize)]
-pub struct Test {
+pub struct TestInput {
     #[json(nested)]
     pub input: Disputes,
     #[json(nested)]
     pub pre_state: State,
+}
+
+/// Test output.
+#[derive(Debug, Json, Serialize, Deserialize)]
+pub struct TestOutput {
     #[json(ResultJson<OffendersMarkJson, Error>)]
     pub output: Result<OffendersMark, Error>,
     #[json(nested)]
     pub post_state: State,
 }
 
-impl Test {
-    pub fn run(&mut self) {
-        init_tracing();
-        let mut handler = DisputesHandler::from(self.pre_state.clone());
-        let output = handler.handle(self.input.disputes.clone());
-
-        assert_eq!(output, self.output, "output mismatch");
-        assert_eq!(handler.next_state.psi, self.post_state.psi, "psi mismatch");
-        assert_eq!(handler.next_state.rho, self.post_state.rho, "rho mismatch");
-        assert_eq!(handler.next_state.tau, self.post_state.tau, "tau mismatch");
-        assert_eq!(
-            handler.next_state.kappa, self.post_state.kappa,
-            "kappa mismatch"
-        );
-        assert_eq!(
-            handler.next_state.lambda, self.post_state.lambda,
-            "lambda mismatch"
-        );
-    }
-}
-
-crate::impl_disputes_tests! {
+crate::impl_tests! {
+    disputes,
+    @scale
     progress_invalidates_avail_assignments_1,
     progress_with_bad_signatures_1,
     progress_with_bad_signatures_2,

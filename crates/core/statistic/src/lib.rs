@@ -79,8 +79,6 @@ impl Stats {
             }
         }
 
-        // Update timestamp
-        self.next_state.tau = slot;
         self
     }
 }

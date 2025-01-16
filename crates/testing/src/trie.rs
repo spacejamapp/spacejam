@@ -1,23 +1,33 @@
-#![cfg(test)]
+//! Trie tests
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize)]
-struct Test {
+pub struct TestInput {
     input: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TestOutput {
     output: String,
 }
 
 #[test]
 fn jam() {
-    let test = include_str!("../jamtestvectors/trie/trie.json");
-    let tests: Vec<Test> = serde_json::from_str(test).expect("failed to parse trie test");
+    let test = specjam::registry::tests::TEST_TRIE_TRIE;
+    let tests: Vec<TestInput> =
+        serde_json::from_str(&test.input).expect("failed to parse trie test input");
+    let output: Vec<TestOutput> =
+        serde_json::from_str(&test.output).expect("failed to parse trie test output");
 
-    for test in tests {
+    for (input, output) in tests
+        .into_iter()
+        .map(|i| i.input)
+        .zip(output.into_iter().map(|o| o.output))
+    {
         let root = merkle::trie(
-            &test
-                .input
+            &input
                 .into_iter()
                 .map(|(k, v)| {
                     (
@@ -31,6 +41,6 @@ fn jam() {
                 .collect::<Vec<_>>(),
             0,
         );
-        assert_eq!(hex::encode(root), test.output);
+        assert_eq!(hex::encode(root), output);
     }
 }

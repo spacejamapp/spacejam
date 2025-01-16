@@ -1,5 +1,4 @@
 //! Safrole vector tests
-#![cfg(test)]
 
 use score::{
     extrinsic::ticket::{TicketEnvelopeJson, TicketsExtrinsic},
@@ -9,74 +8,37 @@ use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 use ticket::{Error, Markers, MarkersJson, State, StateJson};
 
+/// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
-struct Input {
-    slot: u32,
+pub struct Input {
+    pub slot: u32,
     #[json(hex)]
-    entropy: OpaqueHash,
+    pub entropy: OpaqueHash,
     #[json(Vec<TicketEnvelopeJson>)]
-    extrinsic: TicketsExtrinsic,
+    pub extrinsic: TicketsExtrinsic,
 }
 
+/// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
-pub struct Test {
+pub struct TestInput {
     #[json(nested)]
-    input: Input,
+    pub input: Input,
     #[json(nested)]
-    pre_state: State,
+    pub pre_state: State,
+}
+
+/// Test output.
+#[derive(Deserialize, Serialize, Json, Debug)]
+pub struct TestOutput {
     #[json(ResultJson<MarkersJson, Error>)]
-    output: std::result::Result<Markers, Error>,
+    pub output: std::result::Result<Markers, Error>,
     #[json(nested)]
-    post_state: State,
+    pub post_state: State,
 }
 
-impl Test {
-    fn run(&self) {
-        crate::init_tracing();
-        let mut state = self.pre_state.clone();
-        let output = state
-            .enact(
-                self.input.slot,
-                self.input.entropy,
-                self.input.extrinsic.clone(),
-            )
-            .expect("could not enact epoch change");
-
-        assert_eq!(output, self.output, "Invalid output");
-        assert_eq!(state.tau, self.post_state.tau, "Invalid time slot");
-        assert_eq!(state.eta, self.post_state.eta, "Invalid entropy");
-        assert_eq!(
-            state.lambda, self.post_state.lambda,
-            "Invalid previous epoch validators: lambda"
-        );
-        assert_eq!(
-            state.kappa, self.post_state.kappa,
-            "Invalid current epoch validators: kappa"
-        );
-        assert_eq!(
-            state.iota, self.post_state.iota,
-            "Validators to be drawn from next"
-        );
-        assert_eq!(
-            state.gamma_k, self.post_state.gamma_k,
-            "Invalid next epoch validators: gamma_k"
-        );
-        assert_eq!(
-            state.gamma_z, self.post_state.gamma_z,
-            "Invalid bandersnatch ring commitment: gamma_z"
-        );
-        assert_eq!(
-            state.gamma_s, self.post_state.gamma_s,
-            "Invalid sealing-key series: gamma_s"
-        );
-        assert_eq!(
-            state.gamma_a, self.post_state.gamma_a,
-            "Invalid sealing-key contest ticket accumulator: gamma_a"
-        );
-    }
-}
-
-crate::impl_safrole_tests! {
+crate::impl_tests! {
+    safrole,
+    @scale
     enact_epoch_change_with_no_tickets_1,
     enact_epoch_change_with_no_tickets_2,
     enact_epoch_change_with_no_tickets_3,

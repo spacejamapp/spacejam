@@ -1,5 +1,4 @@
 //! Codec tests
-#![cfg(test)]
 
 use anyhow::Result;
 use codec::JamCodec;
@@ -16,11 +15,14 @@ use score::{
         RefineContext, WorkItem, WorkPackage,
     },
 };
+use specjam::registry::tests::*;
 
 macro_rules! impl_codec_tests {
     ($name:ident) => {{
-        let json = include_str!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".json"));
-        let data = include_bytes!(concat!("../jamtestvectors/codec/data/", stringify!($name), ".bin"));
+        let test = paste::paste!([< TEST_CODEC_ $name:upper >]);
+        let json = test.input.to_string();
+        let data = hex::decode(&test.output)?;
+
         (json, data)
     }};
     ($name:ident, $dest:ident) => {
@@ -31,7 +33,7 @@ macro_rules! impl_codec_tests {
                 let decoded: $dest = $dest::from_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
-                assert_eq!(decoded, $dest::decode(data)?);
+                assert_eq!(decoded, $dest::decode(&data)?);
                 Ok(())
             }
         }
@@ -44,7 +46,7 @@ macro_rules! impl_codec_tests {
                 let decoded: Vec<$dest> = $dest::load_json(json)?;
 
                 assert_eq!(decoded.encode()?, data);
-                assert_eq!(decoded, Vec::<$dest>::decode(data)?);
+                assert_eq!(decoded, Vec::<$dest>::decode(&data)?);
                 Ok(())
             }
         }

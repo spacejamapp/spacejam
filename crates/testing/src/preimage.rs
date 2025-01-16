@@ -1,9 +1,23 @@
-use paste::paste;
 use score::State;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::{fs, path::PathBuf};
 use types::*;
+
+/// Test input.
+#[derive(Debug, Serialize, Deserialize, Json)]
+pub struct TestInput {
+    #[json(nested)]
+    pub input: Input,
+    #[json(nested)]
+    pub pre_state: TState,
+}
+
+/// Test output.
+#[derive(Debug, Serialize, Deserialize, Json)]
+pub struct TestOutput {
+    #[json(nested)]
+    pub post_state: TState,
+}
 
 #[derive(Debug, Serialize, Deserialize, Json)]
 pub struct Test {
@@ -15,7 +29,8 @@ pub struct Test {
     pub post_state: TState,
 }
 
-fn to_state(accs: Vec<types::Account>) -> State {
+/// Convert test input to state.
+pub fn to_state(accs: Vec<types::Account>) -> State {
     let mut state = State::default();
     for acc in accs {
         state.service_accounts.insert(acc.id, acc.info.into());
@@ -23,48 +38,8 @@ fn to_state(accs: Vec<types::Account>) -> State {
     state
 }
 
-impl Test {
-    pub fn run(self) -> anyhow::Result<()> {
-        let pre: State = to_state(self.pre_state.accounts);
-        let post: State = to_state(self.post_state.accounts);
-
-        let result = preimage::handle(pre.clone(), self.input.slot, self.input.preimages)
-            .unwrap_or(pre.clone());
-        assert_eq!(result, post);
-        Ok(())
-    }
-}
-
-#[allow(unused_macros)]
-macro_rules! impl_preimage_tests {
-    ($name:ident) => {
-        paste! {
-            #[test]
-            fn [<$name:snake>]() -> anyhow::Result<()> {
-                let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-                root.extend(["jamtestvectors", "preimages", "data"]);
-
-                let pattern = stringify!($name).split("_").collect::<Vec<&str>>();
-                let mut name = pattern[..pattern.len() - 1].join("_");
-                name.push_str(&format!(
-                    "-{}",
-                    pattern.last().expect("pattern must have at least one element")
-                ));
-
-                root.push(name);
-                root.set_extension("json");
-
-                let json = fs::read_to_string(root)?;
-                Test::from_json(&json)?.run()
-            }
-        }
-    };
-    ($($name:ident),*) => {
-        $(impl_preimage_tests!($name);)*
-    };
-}
-
-impl_preimage_tests! {
+crate::impl_tests! {
+    preimages,
     preimage_needed_1,
     preimage_needed_2,
     preimage_not_needed_1,

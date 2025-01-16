@@ -46,32 +46,26 @@ pub struct Input {
     pub auths: Vec<Authorization>,
 }
 
+/// Test input for authorizations
 #[derive(Serialize, Deserialize, Json, Debug)]
-pub struct Test {
+pub struct TestInput {
     #[json(nested)]
     pub input: Input,
     #[json(nested)]
     pub pre_state: TestState,
+}
+
+/// Test output for authorizations
+#[derive(Serialize, Deserialize, Json, Debug)]
+pub struct TestOutput {
     #[json(nested)]
     pub post_state: TestState,
 }
 
-impl Test {
-    pub fn run(self) {
-        let pre: State = self.pre_state.into();
-        let post: State = self.post_state.into();
-        let result = guarantee::auth::handle(
-            pre,
-            self.input.slot,
-            self.input.auths.into_iter().map(|a| a.into()).collect(),
-        )
-        .expect("failed to handle authorizations");
-        assert_eq!(result, post);
-    }
-}
-
-crate::impl_authorizations_tests!(
+crate::impl_tests! {
+    authorizations,
+    @scale
     progress_authorizations_1,
     progress_authorizations_2,
     progress_authorizations_3
-);
+}

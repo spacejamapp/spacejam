@@ -3,7 +3,6 @@ name = "spacejam-testing"
 version = "0.0.0"
 edition = "2021"
 
-
 [dev-dependencies]
 anyhow.workspace = true
 assurance.workspace = true
@@ -17,6 +16,7 @@ paste.workspace = true
 preimage.workspace = true
 pvmi.workspace = true
 spacejam.workspace = true
+specjam.workspace = true
 score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -29,7 +29,8 @@ tracing-subscriber.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
-git2.workspace = true
+paste.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
+specjam.workspace = true
 syn.workspace = true

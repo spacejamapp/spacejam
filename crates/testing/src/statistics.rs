@@ -6,53 +6,35 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use statistic::{State, StateJson, Stats};
+use statistic::{State, StateJson};
 
 #[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
 pub struct Input {
-    slot: TimeSlot,
-    author_index: ValidatorIndex,
+    pub slot: TimeSlot,
+    pub author_index: ValidatorIndex,
     #[json(nested)]
-    extrinsic: Extrinsic,
+    pub extrinsic: Extrinsic,
 }
 
-#[derive(Json, Serialize, Deserialize, Debug)]
-struct Test {
+/// Test input.
+#[derive(Deserialize, Serialize, Json, Debug)]
+pub struct TestInput {
     #[json(nested)]
-    pre_state: State,
+    pub input: Input,
     #[json(nested)]
-    input: Input,
-    output: (),
-    #[json(nested)]
-    post_state: State,
+    pub pre_state: State,
 }
 
-impl Test {
-    fn run(self) {
-        let stats = Stats::from(self.pre_state);
-        let stats = stats.update(
-            self.input.slot,
-            self.input.author_index,
-            self.input.extrinsic,
-        );
-
-        assert_eq!(
-            stats.next_state.pi.current, self.post_state.pi.current,
-            "Invalid current pi"
-        );
-        assert_eq!(
-            stats.next_state.pi.last, self.post_state.pi.last,
-            "Invalid last pi"
-        );
-        assert_eq!(stats.state.tau, self.post_state.tau, "Invalid tau");
-        assert_eq!(
-            stats.state.kappa_prime, self.post_state.kappa_prime,
-            "Invalid kappa_prime"
-        );
-    }
+/// Test output.
+#[derive(Deserialize, Serialize, Json, Debug)]
+pub struct TestOutput {
+    #[json(nested)]
+    pub post_state: State,
 }
 
-crate::impl_statistics_tests! {
+crate::impl_tests! {
+    statistics,
+    @scale
     stats_with_empty_extrinsic_1,
     stats_with_epoch_change_1,
     stats_with_some_extrinsic_1
