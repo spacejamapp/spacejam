@@ -116,19 +116,23 @@ impl Runner {
             Section::Safrole => {
                 use crate::safrole;
 
-                let mut input = safrole::TestInput::from_json(test.input)?;
+                let input = safrole::TestInput::from_json(test.input)?;
                 let output = safrole::TestOutput::from_json(test.output)?;
 
-                let result = input
-                    .pre_state
-                    .enact(
-                        input.input.slot,
-                        input.input.entropy,
-                        input.input.extrinsic.clone(),
-                    )
-                    .expect("could not enact epoch change");
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.tickets = input.input.extrinsic.clone();
+
+                let mut context = input.pre_state.into();
+                let result = ticket::validate(&mut context, &block, input.input.entropy).map(
+                    |(epoch_mark, tickets_mark)| crate::safrole::Markers {
+                        epoch_mark,
+                        tickets_mark,
+                    },
+                );
+
                 assert_eq!(result, output.output);
-                assert_eq!(input.pre_state, output.post_state);
+                assert_eq!(context, output.post_state.into());
             }
             Section::Statistics => {
                 use crate::statistics;

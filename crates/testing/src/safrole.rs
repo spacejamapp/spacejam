@@ -1,12 +1,13 @@
 //! Safrole vector tests
 
 use score::{
-    extrinsic::ticket::{TicketEnvelopeJson, TicketsExtrinsic},
+    block::header::{EpochMark, EpochMarkJson, TicketsMark},
+    extrinsic::ticket::{TicketBodyJson, TicketEnvelopeJson, TicketsExtrinsic},
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use ticket::{Error, Markers, MarkersJson, State, StateJson};
+use ticket::{Error, State, StateJson};
 
 /// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
@@ -60,4 +61,15 @@ crate::impl_tests! {
     publish_tickets_with_mark_5,
     skip_epoch_tail_1,
     skip_epochs_1
+}
+
+/// Represents the Output marks
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]
+pub struct Markers {
+    /// New epoch marker
+    #[json(nested)]
+    pub epoch_mark: Option<EpochMark>,
+    /// New tickets marker
+    #[json(Option<Vec<TicketBodyJson>>)]
+    pub tickets_mark: Option<TicketsMark>,
 }
