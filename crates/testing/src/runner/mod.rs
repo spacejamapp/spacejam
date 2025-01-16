@@ -77,10 +77,17 @@ impl Runner {
                 let pre = preimage::to_state(input.pre_state.accounts);
                 let post = preimage::to_state(output.post_state.accounts);
 
-                let result =
-                    ::preimage::handle(pre.clone(), input.input.slot, input.input.preimages)
-                        .unwrap_or(pre);
-                assert_eq!(result, post);
+                let mut context = pre.clone();
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.preimages = input.input.preimages.clone();
+
+                // Validate post state
+                if ::preimage::validate(&mut context, &block).is_ok() {
+                    assert_eq!(context, post);
+                } else {
+                    assert_eq!(pre, post);
+                }
             }
             Section::Reports => {
                 use crate::reports;
