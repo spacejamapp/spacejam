@@ -3,7 +3,7 @@
 use {
     error::{Error, Result},
     score::{
-        extrinsic::AvailAssurance, OpaqueHash, CORES_COUNT, VALIDATORS_COUNT,
+        extrinsic::AvailAssurance, Block, OpaqueHash, CORES_COUNT, VALIDATORS_COUNT,
         VALIDATORS_SUPER_MAJORITY,
     },
     state::{Input, Output, State},
@@ -12,6 +12,24 @@ use {
 
 pub mod error;
 pub mod state;
+
+/// Validate assurances
+pub fn validate(state: &score::State, block: &Block) -> Result<State> {
+    let mut handler = Handler::from(State {
+        avail_assignments: state.reports.clone(),
+        curr_validators: state.validators.current.clone(),
+        reported: Vec::new(),
+    });
+
+    let reported = handler.handle(Input {
+        assurances: block.extrinsic.assurances.clone(),
+        slot: block.header.slot,
+        parent: block.header.parent,
+    })?;
+
+    handler.post_state.reported = reported.reported;
+    Ok(handler.post_state)
+}
 
 /// Handler processes assurances for work reports
 pub struct Handler {

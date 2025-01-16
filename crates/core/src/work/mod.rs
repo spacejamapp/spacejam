@@ -75,7 +75,7 @@ pub struct Authorizer {
 // Availability types
 // --------------------------------------------
 mod availability {
-    use crate::work::report::*;
+    use crate::{work::report::*, CORES_COUNT};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -86,5 +86,5 @@ mod availability {
         pub timeout: u32,
     }
     pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-    pub type AvailabilityAssignments = Vec<AvailabilityAssignmentsItem>;
+    pub type AvailabilityAssignments = [AvailabilityAssignmentsItem; CORES_COUNT];
 }

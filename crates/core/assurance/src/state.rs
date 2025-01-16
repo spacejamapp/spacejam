@@ -20,6 +20,10 @@ pub struct State {
     /// [κ'] Posterior active validators.
     #[json(Vec<ValidatorDataJson>)]
     pub curr_validators: ValidatorsData,
+    /// [ϱ‡] The reports that have been judged as available.
+    #[serde(default)]
+    #[json(Vec<WorkReportJson>)]
+    pub reported: Vec<WorkReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
