@@ -33,12 +33,15 @@ impl Runner {
                 let input = authorizations::TestInput::from_json(test.input)?;
                 let output = authorizations::TestOutput::from_json(test.output)?;
                 let state = authorizations::TestState::from(input.pre_state);
-                let result = guarantee::auth::handle(
-                    state.into(),
-                    input.input.slot,
-                    input.input.auths.into_iter().map(|a| a.into()).collect(),
-                )?;
-                assert_eq!(result, output.post_state.into());
+                let mut context = state.into();
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.guarantees =
+                    input.input.auths.into_iter().map(|a| a.into()).collect();
+
+                // Validate post state
+                guarantee::auth::validate(&mut context, &block)?;
+                assert_eq!(context, output.post_state.into());
             }
             Section::Disputes => {
                 use crate::disputes;

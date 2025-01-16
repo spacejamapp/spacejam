@@ -65,14 +65,14 @@ impl Context {
             .collect::<Vec<_>>();
 
         // Process each guarantee
-        for guarantee in guarantees.into_iter() {
-            self.validate_core(slot, &guarantee)?;
-            self.validate_rotation(slot, &guarantee)?;
-            self.validate_results(&code_hashes, &service_ids, &guarantee)?;
-            self.validate_block(&guarantee)?;
-            self.validate_deps(&guarantee)?;
-            self.validate_guarantees(&guarantee)?;
-            self.validate_guarantors(&guarantee)?;
+        for guarantee in guarantees.iter() {
+            self.validate_core(slot, guarantee)?;
+            self.validate_rotation(slot, guarantee)?;
+            self.validate_results(&code_hashes, &service_ids, guarantee)?;
+            self.validate_block(guarantee)?;
+            self.validate_deps(guarantee)?;
+            self.validate_guarantees(guarantee)?;
+            self.validate_guarantors(guarantee)?;
 
             // Record reported package
             reported.push(SegmentRootLookupItem {

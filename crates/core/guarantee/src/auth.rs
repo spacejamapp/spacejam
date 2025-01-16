@@ -1,12 +1,16 @@
 //! Authorization for the guarantees extrinsic.
 
 use anyhow::Result;
-use score::{extrinsic::GuaranteesExtrinsic, State};
+use score::{Block, State};
 
 /// Handle the guarantees extrinsic.
 ///
 /// TODO: check indices
-pub fn handle(mut state: State, slot: u32, guarantees: GuaranteesExtrinsic) -> Result<State> {
+pub fn validate(state: &mut State, block: &Block) -> Result<()> {
+    let slot = block.header.slot;
+    let guarantees = &block.extrinsic.guarantees;
+
+    // Process each guarantee
     let mut processed = Vec::new();
     for guarantee in guarantees {
         // Consume the authorizer from the pool
@@ -30,5 +34,5 @@ pub fn handle(mut state: State, slot: u32, guarantees: GuaranteesExtrinsic) -> R
         pool.push(state.authorization[core_index][slot as usize]);
     }
 
-    Ok(state)
+    Ok(())
 }
