@@ -1,18 +1,16 @@
 //! Preimage handler
 
 use anyhow::Result;
-use score::{extrinsic::PreimagesExtrinsic, State, TimeSlot};
+use score::{Block, State};
 
 /// handle preimage
-pub fn handle(
-    mut state: State,
-    slot: TimeSlot,
-    mut preimages: PreimagesExtrinsic,
-) -> Result<State> {
-    let mut missing = Vec::new();
+pub fn validate(state: &mut State, block: &Block) -> Result<()> {
+    let slot = block.header.slot;
+    let preimages = &block.extrinsic.preimages;
 
-    // TODO: remove clone
-    for (id, acc) in state.service_accounts.clone().into_iter() {
+    // validate preimages
+    let mut missing = Vec::new();
+    for (id, acc) in state.accounts.clone().into_iter() {
         for ((hash, _), _) in acc.lookup.clone().into_iter() {
             if !acc.preimage.contains_key(&hash) {
                 missing.push((id, hash));
@@ -20,6 +18,7 @@ pub fn handle(
         }
     }
 
+    let mut preimages = preimages.clone();
     while let Some(preimage) = preimages.pop() {
         let hash = crypto::blake2b(&preimage.blob);
         if !missing.contains(&(preimage.requester, hash)) {
@@ -27,14 +26,13 @@ pub fn handle(
         }
 
         let account = state
-            .service_accounts
+            .accounts
             .get_mut(&preimage.requester)
             .ok_or(anyhow::anyhow!("Service account not found"))?;
 
-        let blob = preimage.blob;
-        account.preimage.insert(hash, blob.clone());
-
+        let blob = preimage.blob.clone();
         let lookup = (hash, blob.len() as u32);
+        account.preimage.insert(hash, blob);
 
         let slots = account
             .lookup
@@ -49,5 +47,5 @@ pub fn handle(
     if !preimages.is_empty() {
         anyhow::bail!("Preimages not needed");
     }
-    Ok(state)
+    Ok(())
 }

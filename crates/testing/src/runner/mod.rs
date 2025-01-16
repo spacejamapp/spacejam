@@ -3,7 +3,6 @@
 use anyhow::Result;
 use score::block::BlocksHistory;
 use specjam::{Section, Test};
-use statistic::Stats;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -16,11 +15,16 @@ impl Runner {
                 use crate::assurances;
 
                 let input = assurances::TestInput::from_json(test.input)?;
-                let output = assurances::TestOutput::from_json(test.output)?;
-                let mut handler = assurance::Handler::from(input.pre_state);
-                let result = handler.handle(input.input);
-                assert_eq!(result, output.output);
-                assert_eq!(handler.post_state, output.post_state);
+                let assurances::TestOutput { output, post_state } =
+                    assurances::TestOutput::from_json(test.output)?;
+
+                // validate output
+                let mut context = input.pre_state.clone().into();
+                let result = assurance::validate(&mut context, &input.input.into());
+                assert_eq!(result, output.map(|s| s.reported));
+
+                // validate post state
+                assert_eq!(post_state, context.into());
             }
             Section::Authorizations => {
                 use crate::authorizations;
@@ -28,12 +32,15 @@ impl Runner {
                 let input = authorizations::TestInput::from_json(test.input)?;
                 let output = authorizations::TestOutput::from_json(test.output)?;
                 let state = authorizations::TestState::from(input.pre_state);
-                let result = guarantee::auth::handle(
-                    state.into(),
-                    input.input.slot,
-                    input.input.auths.into_iter().map(|a| a.into()).collect(),
-                )?;
-                assert_eq!(result, output.post_state.into());
+                let mut context = state.into();
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.guarantees =
+                    input.input.auths.into_iter().map(|a| a.into()).collect();
+
+                // Validate post state
+                guarantee::auth::validate(&mut context, &block)?;
+                assert_eq!(context, output.post_state.into());
             }
             Section::Disputes => {
                 use crate::disputes;
@@ -69,38 +76,62 @@ impl Runner {
                 let pre = preimage::to_state(input.pre_state.accounts);
                 let post = preimage::to_state(output.post_state.accounts);
 
-                let result =
-                    ::preimage::handle(pre.clone(), input.input.slot, input.input.preimages)
-                        .unwrap_or(pre);
-                assert_eq!(result, post);
+                let mut context = pre.clone();
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.preimages = input.input.preimages.clone();
+
+                // Validate post state
+                if ::preimage::validate(&mut context, &block).is_ok() {
+                    assert_eq!(context, post);
+                } else {
+                    assert_eq!(pre, post);
+                }
             }
             Section::Reports => {
                 use crate::reports;
 
-                let input = reports::TestInput::from_json(test.input)?;
-                let output = reports::TestOutput::from_json(test.output)?;
+                let reports::TestInput { input, pre_state } =
+                    reports::TestInput::from_json(test.input)?;
+                let reports::TestOutput { output, post_state } =
+                    reports::TestOutput::from_json(test.output)?;
+                let mut context = pre_state.clone().into();
 
-                let mut handler = guarantee::Handler::from(input.pre_state);
-                let result = handler.handle(input.input);
-                assert_eq!(result, output.output);
-                assert_eq!(handler.next, output.post_state);
+                // Validate the output
+                let result = guarantee::validate(&mut context, &input.into());
+                assert_eq!(
+                    result.map(|(reported, reporters)| reports::Output {
+                        reported,
+                        reporters,
+                    }),
+                    output
+                );
+
+                // validate the post state
+                let mut state: guarantee::State = context.into();
+                state.services = pre_state.services;
+                assert_eq!(post_state, state);
             }
             Section::Safrole => {
                 use crate::safrole;
 
-                let mut input = safrole::TestInput::from_json(test.input)?;
+                let input = safrole::TestInput::from_json(test.input)?;
                 let output = safrole::TestOutput::from_json(test.output)?;
 
-                let result = input
-                    .pre_state
-                    .enact(
-                        input.input.slot,
-                        input.input.entropy,
-                        input.input.extrinsic.clone(),
-                    )
-                    .expect("could not enact epoch change");
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.extrinsic.tickets = input.input.extrinsic.clone();
+
+                let mut context = input.pre_state.into();
+                let result = ticket::validate(&mut context, &block, input.input.entropy).map(
+                    |(epoch_mark, tickets_mark)| crate::safrole::Markers {
+                        epoch_mark,
+                        tickets_mark,
+                    },
+                );
+
                 assert_eq!(result, output.output);
-                assert_eq!(input.pre_state, output.post_state);
+                assert_eq!(context, output.post_state.into());
             }
             Section::Statistics => {
                 use crate::statistics;
@@ -108,19 +139,20 @@ impl Runner {
                 let input = statistics::TestInput::from_json(test.input)?;
                 let output = statistics::TestOutput::from_json(test.output)?;
 
-                let mut stats = Stats::from(input.pre_state);
-                stats = stats.update(
-                    input.input.slot,
-                    input.input.author_index,
-                    input.input.extrinsic,
-                );
+                // construct inputs
+                let mut block = score::Block::default();
+                block.header.slot = input.input.slot;
+                block.header.author_index = input.input.author_index;
+                block.extrinsic = input.input.extrinsic.clone();
+                let mut context = input.pre_state.into();
 
-                assert_eq!(stats.next_state, output.post_state);
+                // validate
+                statistic::validate(&mut context, &block);
+                assert_eq!(context, output.post_state.into());
             }
             Section::Pvm => {
                 use crate::pvm;
 
-                println!("{}", test.input);
                 let input: pvm::TestInput = serde_json::from_str(&test.input)?;
                 let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
                 let mut registers = [0; 13];

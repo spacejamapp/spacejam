@@ -1,4 +1,4 @@
-#![cfg(test)]
+//! Statistics tests
 
 use score::{
     extrinsic::{Extrinsic, ExtrinsicJson},

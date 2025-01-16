@@ -7,7 +7,7 @@ use crate::{
     service::{ServiceAccount, ServiceIndex},
     statistic::Statistics,
     validator::Validators,
-    work::report::WorkReport,
+    work::{report::WorkReport, AvailabilityAssignments},
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ pub struct State {
     pub safrole: Safrole,
 
     /// The prior state of the service accounts (δ)
-    pub service_accounts: BTreeMap<u32, ServiceAccount>,
+    pub accounts: BTreeMap<u32, ServiceAccount>,
 
     /// The entropy accumulator and epochal randomness (η)
     pub entropy: EntropyBuffer,
@@ -45,7 +45,7 @@ pub struct State {
 
     /// The pending reports, per core, which are being made available prior to
     /// accumulation. (ρ)
-    pub reports: [Option<(WorkReport, TimeSlot)>; CORES_COUNT],
+    pub reports: AvailabilityAssignments,
 
     /// The current timeslot (τ)
     pub timeslot: TimeSlot,

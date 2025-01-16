@@ -2,47 +2,39 @@
 
 use score::{
     block::{BlockInfo, BlockInfoJson},
-    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-    service::{ServiceInfo, ServiceInfoJson},
+    service::{ServiceItem, ServiceItemJson},
     validator::{ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignmentJson, AvailabilityAssignments},
-    Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT,
+    Ed25519Public, EntropyBuffer, OpaqueHash, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceItem {
-    pub id: ServiceId,
-    #[json(nested)]
-    pub info: ServiceInfo,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct State {
-    /// [ρ‡] Intermediate pending reports after that any work report judged as
+    /// (ρ‡) Intermediate pending reports after that any work report judged as
     /// uncertain or invalid has been removed from it (ϱ†), and the availability
     /// assurances are processed. Mutated to ϱ'.
     #[json(Vec<Option<AvailabilityAssignmentJson>>)]
     pub avail_assignments: AvailabilityAssignments,
 
-    /// [κ'] Posterior active validators.
+    /// (κ') Posterior active validators.
     #[json(Vec<ValidatorDataJson>)]
     pub curr_validators: ValidatorsData,
 
-    /// [λ'] Posterior previous validators.
+    /// (λ') Posterior previous validators.
     #[json(Vec<ValidatorDataJson>)]
     pub prev_validators: ValidatorsData,
 
-    /// [η'] Posterior entropy buffer.
+    /// (η') Posterior entropy buffer.
     #[json(Vec<String>)]
     pub entropy: EntropyBuffer,
 
-    /// [ψ'_o] Posterior offenders.
+    /// (ψ'_o) Posterior offenders.
     #[json(Vec<String>)]
     pub offenders: Vec<Ed25519Public>,
 
-    /// [β] Recent blocks.
+    /// (β) Recent blocks.
     #[json(Vec<BlockInfoJson>)]
     pub recent_blocks: Vec<BlockInfo>,
 
@@ -50,33 +42,58 @@ pub struct State {
     #[json(Vec<Vec<String>>)]
     pub auth_pools: [Vec<OpaqueHash>; CORES_COUNT],
 
-    /// [δ] Encoded services dictionary. Refer to T(σ) in Appendix D.
+    /// (δ) Encoded services dictionary. Refer to T(σ) in Appendix D.
     #[json(nested)]
     pub services: Vec<ServiceItem>,
 }
 
-/// A reported work package with its dependencies.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ReportedPackage {
-    #[json(hex)]
-    pub work_package_hash: OpaqueHash,
-    #[json(hex)]
-    pub segment_tree_root: OpaqueHash,
+impl State {
+    /// Apply the state to the score state
+    pub fn apply(self, state: &mut score::State) {
+        state.reports = self.avail_assignments;
+        state.validators.current = self.curr_validators;
+        state.validators.previous = self.prev_validators;
+        state.entropy = self.entropy;
+        state.disputes.offenders = self.offenders;
+        state.recent_blocks = self.recent_blocks;
+        state.authorization = self.auth_pools;
+
+        for ServiceItem { id, info } in self.services.into_iter() {
+            state.accounts.entry(id).or_default().code = info.code;
+            state.accounts.entry(id).and_modify(|account| {
+                account.balance = info.balance;
+                account.gas = info.gas;
+            });
+        }
+    }
 }
 
-/// Input of the reporting module.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
-pub struct Input {
-    pub slot: TimeSlot,
-    #[json(Vec<ReportGuaranteeJson>)]
-    pub guarantees: GuaranteesExtrinsic,
+impl From<State> for score::State {
+    fn from(value: State) -> Self {
+        let mut state = score::State::default();
+        value.apply(&mut state);
+        state
+    }
 }
 
-/// Output of the reporting module.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct Output {
-    #[json(nested)]
-    pub reported: Vec<ReportedPackage>,
-    #[json(Vec<String>)]
-    pub reporters: Vec<Ed25519Public>,
+impl From<score::State> for State {
+    fn from(value: score::State) -> Self {
+        Self {
+            avail_assignments: value.reports,
+            curr_validators: value.validators.current,
+            prev_validators: value.validators.previous,
+            entropy: value.entropy,
+            offenders: value.disputes.offenders,
+            recent_blocks: value.recent_blocks,
+            auth_pools: value.authorization,
+            services: value
+                .accounts
+                .into_iter()
+                .map(|(id, service)| ServiceItem {
+                    id,
+                    info: service.state(),
+                })
+                .collect(),
+        }
+    }
 }

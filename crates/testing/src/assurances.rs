@@ -1,11 +1,9 @@
-#![cfg(test)]
+//! This module contains the tests for the assurance module.
 
-use assurance::{
-    error::{Error, Result},
-    state::{Input, InputJson, Output, OutputJson, State, StateJson},
-};
+use assurance::{Error, Result, State, StateJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+use types::*;
 
 /// Test input for assurances
 #[derive(Debug, Json, Serialize, Deserialize)]
@@ -42,4 +40,46 @@ crate::impl_tests! {
     no_assurances_with_stale_report_1,
     no_assurances_1,
     some_assurances_1
+}
+
+mod types {
+    use score::{
+        extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
+        work::report::{WorkReport, WorkReportJson},
+        HeaderHash, TimeSlot,
+    };
+    use serde::{Deserialize, Serialize};
+    use spacejson::Json;
+
+    /// The input to the assurance module.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json)]
+    pub struct Input {
+        /// [E_A] Assurances extrinsic.
+        #[json(Vec<AvailAssuranceJson>)]
+        pub assurances: AssurancesExtrinsic,
+
+        /// [H_t] Block's timeslot.
+        pub slot: TimeSlot,
+
+        /// [H_p] Parent hash.
+        #[json(hex)]
+        pub parent: HeaderHash,
+    }
+
+    impl From<Input> for score::Block {
+        fn from(input: Input) -> Self {
+            let mut block = score::Block::default();
+            block.header.slot = input.slot;
+            block.header.parent = input.parent;
+            block.extrinsic.assurances = input.assurances;
+            block
+        }
+    }
+
+    /// The output of the assurance module.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct Output {
+        #[json(Vec<WorkReportJson>)]
+        pub reported: Vec<WorkReport>,
+    }
 }

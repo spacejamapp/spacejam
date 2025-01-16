@@ -13,11 +13,11 @@ pub struct SpaceJam<C: Config> {
     /// The blocks history of the SpaceJam
     pub history: BlocksHistory,
 
-    /// The database of SpaceJam
-    pub db: C::Db,
-
     /// The validator of SpaceJam
     pub validator: C::Validator,
+
+    /// The storage of SpaceJam
+    pub db: C::Db,
 }
 
 impl<C: Config> SpaceJam<C> {
@@ -25,8 +25,8 @@ impl<C: Config> SpaceJam<C> {
     pub fn new(db: C::Db, validator: C::Validator) -> Self {
         Self {
             history: BlocksHistory::default(),
-            db,
             validator,
+            db,
         }
     }
 

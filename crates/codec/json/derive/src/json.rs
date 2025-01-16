@@ -49,9 +49,21 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         // Clone the attribute to remove it from the field
         let attr = attr.clone();
-        field
-            .attrs
-            .retain(|attr| !attr.path().is_ident("json") && !attr.path().is_ident("serde"));
+        field.attrs.retain(|attr| {
+            if attr.path().is_ident("json") {
+                return false;
+            }
+
+            if attr.path().is_ident("serde") {
+                if let Ok(expr) = attr.parse_args::<syn::Expr>() {
+                    if expr.to_token_stream().to_string().contains("with") {
+                        return false;
+                    }
+                }
+            }
+
+            true
+        });
 
         // Parse the attribute
         let Ok(arg) = attr.parse_args::<syn::Ident>() else {
