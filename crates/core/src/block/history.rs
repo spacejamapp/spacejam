@@ -19,6 +19,9 @@ pub struct BlocksHistory {
 
 impl BlocksHistory {
     /// Import a new block into the chain according to graypaper section 7.1-7.4.
+    ///
+    /// NOTE: this is part of the vector tests, do not modify the logic if you
+    /// are not sure about it.
     pub fn import(
         &mut self,
         header_hash: OpaqueHash,

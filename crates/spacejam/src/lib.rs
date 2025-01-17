@@ -38,7 +38,7 @@ impl<C: Config> SpaceJam<C> {
             BlockInfo::default()
         };
 
-        let block = self.validator.mine(last_block.clone(), &self.db)?;
+        let block = self.validator.mine(&last_block, &self.db)?;
         self.history.import(
             block.hash()?,
             block.header.parent_state_root,
