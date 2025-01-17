@@ -1,8 +1,8 @@
 //! This module contains the tests for the assurance module.
 
-use assurance::{Error, Result, State, StateJson};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+use sync::assurance::{Error, Result, State, StateJson};
 use types::*;
 
 /// Test input for assurances

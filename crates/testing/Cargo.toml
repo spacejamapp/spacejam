@@ -5,15 +5,11 @@ edition = "2021"
 
 [dev-dependencies]
 anyhow.workspace = true
-assurance.workspace = true
 codec.workspace = true
 crypto.workspace = true
-dispute.workspace = true
-guarantee.workspace = true
 hex.workspace = true
 merkle.workspace = true
 paste.workspace = true
-preimage.workspace = true
 pvmi.workspace = true
 spacejam.workspace = true
 specjam.workspace = true
@@ -21,8 +17,7 @@ score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-statistic.workspace = true
-ticket.workspace = true
+sync.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
