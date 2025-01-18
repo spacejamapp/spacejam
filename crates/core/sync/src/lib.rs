@@ -1,7 +1,7 @@
 //! Block sync validation
 
 use anyhow::Result;
-use score::{Block, State};
+use score::{block::History, Block, State};
 
 pub mod assurance;
 pub mod dispute;
@@ -19,8 +19,9 @@ pub struct Sync;
 pub fn transit(block: &Block, state: &State, entropy: [u8; 32]) -> Result<Sync> {
     let mut next = state.clone();
 
-    let (_tickets, _epoch) = ticket::validate(&mut next, block, entropy)?;
-    // next.recent_blocks.push(block.header.clone());
-
+    // (4.5) τ' ≺ H
+    //
+    // The new timeslot index (τ') depends directly on the block header (H)
+    next.timeslot = block.header.slot;
     Ok(Sync)
 }
