@@ -108,7 +108,7 @@ impl State {
         &mut self,
         new_epoch: bool,
         tickets: &TicketsExtrinsic,
-    ) -> Result<crate::Result<()>> {
+    ) -> Result<Result<()>> {
         let verifier =
             crypto::ring::verifier(self.gamma_k.iter().map(|v| v.bandersnatch).collect());
 

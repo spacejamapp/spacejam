@@ -7,7 +7,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use ticket::{Error, State, StateJson};
+use sync::ticket::{Error, State, StateJson};
 
 /// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]

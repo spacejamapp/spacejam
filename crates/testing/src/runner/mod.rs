@@ -1,7 +1,7 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::block::BlocksHistory;
+use score::block::History;
 use specjam::{Section, Test};
 
 /// The `Runner` struct which is used to run the tests.
@@ -20,7 +20,7 @@ impl Runner {
 
                 // validate output
                 let mut context = input.pre_state.clone().into();
-                let result = assurance::validate(&mut context, &input.input.into());
+                let result = sync::assurance::validate(&mut context, &input.input.into());
                 assert_eq!(result, output.map(|s| s.reported));
 
                 // validate post state
@@ -39,7 +39,7 @@ impl Runner {
                     input.input.auths.into_iter().map(|a| a.into()).collect();
 
                 // Validate post state
-                guarantee::auth::validate(&mut context, &block)?;
+                sync::guarantee::auth::validate(&mut context, &block)?;
                 assert_eq!(context, output.post_state.into());
             }
             Section::Disputes => {
@@ -47,7 +47,7 @@ impl Runner {
 
                 let input = disputes::TestInput::from_json(test.input)?;
                 let output = disputes::TestOutput::from_json(test.output)?;
-                let mut handler = dispute::DisputesHandler::from(input.pre_state);
+                let mut handler = sync::dispute::DisputesHandler::from(input.pre_state);
                 let result = handler.handle(input.input.disputes);
                 assert_eq!(result, output.output);
                 assert_eq!(handler.next_state, output.post_state);
@@ -57,16 +57,14 @@ impl Runner {
 
                 let input = history::TestInput::from_json(test.input)?;
                 let output = history::TestOutput::from_json(test.output)?;
-                let mut history = BlocksHistory {
-                    blocks: input.pre_state.beta,
-                };
+                let mut history = input.pre_state.beta.clone();
                 history.import(
                     input.input.header_hash,
                     input.input.parent_state_root,
                     input.input.accumulate_root,
                     input.input.work_packages.clone(),
                 );
-                assert_eq!(history.blocks, output.post_state.beta);
+                assert_eq!(output.post_state.beta, history);
             }
             Section::Preimages => {
                 use crate::preimage;
@@ -82,7 +80,7 @@ impl Runner {
                 block.extrinsic.preimages = input.input.preimages.clone();
 
                 // Validate post state
-                if ::preimage::validate(&mut context, &block).is_ok() {
+                if sync::preimage::validate(&mut context, &block).is_ok() {
                     assert_eq!(context, post);
                 } else {
                     assert_eq!(pre, post);
@@ -98,7 +96,7 @@ impl Runner {
                 let mut context = pre_state.clone().into();
 
                 // Validate the output
-                let result = guarantee::validate(&mut context, &input.into());
+                let result = sync::guarantee::validate(&mut context, &input.into());
                 assert_eq!(
                     result.map(|(reported, reporters)| reports::Output {
                         reported,
@@ -108,7 +106,7 @@ impl Runner {
                 );
 
                 // validate the post state
-                let mut state: guarantee::State = context.into();
+                let mut state: sync::guarantee::State = context.into();
                 state.services = pre_state.services;
                 assert_eq!(post_state, state);
             }
@@ -123,7 +121,7 @@ impl Runner {
                 block.extrinsic.tickets = input.input.extrinsic.clone();
 
                 let mut context = input.pre_state.into();
-                let result = ticket::validate(&mut context, &block, input.input.entropy).map(
+                let result = sync::ticket::validate(&mut context, &block, input.input.entropy).map(
                     |(epoch_mark, tickets_mark)| crate::safrole::Markers {
                         epoch_mark,
                         tickets_mark,
@@ -147,7 +145,7 @@ impl Runner {
                 let mut context = input.pre_state.into();
 
                 // validate
-                statistic::validate(&mut context, &block);
+                sync::statistic::validate(&mut context, &block);
                 assert_eq!(context, output.post_state.into());
             }
             Section::Pvm => {

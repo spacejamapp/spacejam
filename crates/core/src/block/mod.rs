@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
     header::{Header, HeaderJson},
-    history::{BlocksHistory, BlocksHistoryJson},
+    history::History,
     info::{BlockInfo, BlockInfoJson},
 };
 

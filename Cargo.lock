@@ -2768,19 +2768,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-assurance"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejson",
- "tracing",
-]
-
-[[package]]
 name = "spacejam-core"
 version = "0.0.0"
 dependencies = [
@@ -2813,40 +2800,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-dispute"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hex",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
- "tracing",
-]
-
-[[package]]
 name = "spacejam-erasure"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "reed-solomon-simd",
-]
-
-[[package]]
-name = "spacejam-guarantee"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "hex",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
 ]
 
 [[package]]
@@ -2874,24 +2832,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-preimage"
+name = "spacejam-sync"
 version = "0.0.0"
-dependencies = [
- "anyhow",
- "spacejam-core",
- "spacejam-crypto",
-]
-
-[[package]]
-name = "spacejam-statistic"
-version = "0.1.0"
 dependencies = [
  "anyhow",
  "jamcodec",
  "serde",
  "serde_json",
  "spacejam-core",
+ "spacejam-crypto",
  "spacejson",
+ "tracing",
 ]
 
 [[package]]
@@ -2908,35 +2859,15 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam",
- "spacejam-assurance",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-dispute",
- "spacejam-guarantee",
  "spacejam-merkle",
- "spacejam-preimage",
- "spacejam-statistic",
- "spacejam-ticket",
+ "spacejam-sync",
  "spacejson",
  "specjam",
  "syn 2.0.96",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "spacejam-ticket"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "hex",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
- "tracing",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 #![cfg(test)]
 
-use guarantee::{
+use serde::{Deserialize, Serialize};
+use spacejson::{Json, ResultJson};
+use sync::guarantee::{
     error::{Error, Result},
     State, StateJson,
 };
-use serde::{Deserialize, Serialize};
-use spacejson::{Json, ResultJson};
 pub use types::*;
 
 /// Test input.

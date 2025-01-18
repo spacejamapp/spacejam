@@ -1,5 +1,5 @@
 //! The runtime of SpaceJam
-use score::block::{Block, BlockInfo, BlocksHistory};
+use score::block::{Block, BlockInfo, History};
 pub use score::{validator::Validator, Config};
 
 pub mod cmd;
@@ -11,7 +11,7 @@ pub mod validator;
 /// NOTE: need to get avoid of too many generic parameters...
 pub struct SpaceJam<C: Config> {
     /// The blocks history of the SpaceJam
-    pub history: BlocksHistory,
+    pub history: Vec<BlockInfo>,
 
     /// The validator of SpaceJam
     pub validator: C::Validator,
@@ -24,7 +24,7 @@ impl<C: Config> SpaceJam<C> {
     /// Initialize the chain with the given database.
     pub fn new(db: C::Db, validator: C::Validator) -> Self {
         Self {
-            history: BlocksHistory::default(),
+            history: Vec::new(),
             validator,
             db,
         }
@@ -32,15 +32,15 @@ impl<C: Config> SpaceJam<C> {
 
     /// Mine a new block
     pub fn mine(&mut self) -> anyhow::Result<Block> {
-        let last_block = if let Some(last_block) = self.history.blocks.last() {
+        let last_block = if let Some(last_block) = self.history.last() {
             last_block.clone()
         } else {
             BlockInfo::default()
         };
 
-        let block = self.validator.mine(last_block.clone(), &self.db)?;
+        let block = self.validator.mine(&last_block, &self.db)?;
         self.history.import(
-            block.hash()?,
+            block.header.hash()?,
             block.header.parent_state_root,
             Default::default(),
             Default::default(),

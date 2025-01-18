@@ -1,8 +1,6 @@
-use crate::{
-    block::{BlockInfo, BlockInfoJson},
-    work::ReportedWorkPackage,
-    OpaqueHash, MAX_BLOCKS_HISTORY,
-};
+//! Block history
+
+use crate::{block::BlockInfo, work::ReportedWorkPackage, OpaqueHash, MAX_BLOCKS_HISTORY};
 use merkle::mmr;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -10,24 +8,28 @@ use spacejson::Json;
 /// Represents a peak in the Merkle Mountain Range (MMR).
 pub type MmrPeak = Option<OpaqueHash>;
 
-/// Represents the history of blocks.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct BlocksHistory {
-    #[json(nested)]
-    pub blocks: Vec<BlockInfo>,
+/// Block history extension trait
+pub trait History {
+    /// Import a new block into the chain according to graypaper section 7.1-7.4.
+    fn import(
+        &mut self,
+        header_hash: OpaqueHash,
+        state_root: OpaqueHash,
+        accumulated_root: OpaqueHash,
+        reported: Vec<ReportedWorkPackage>,
+    );
 }
 
-impl BlocksHistory {
-    /// Import a new block into the chain according to graypaper section 7.1-7.4.
-    pub fn import(
+impl History for Vec<BlockInfo> {
+    fn import(
         &mut self,
         header_hash: OpaqueHash,
         state_root: OpaqueHash,
         accumulated_root: OpaqueHash,
         reported: Vec<ReportedWorkPackage>,
     ) {
-        let Some(last) = self.blocks.last_mut() else {
-            self.blocks.push(BlockInfo {
+        let Some(last) = self.last_mut() else {
+            self.push(BlockInfo {
                 header_hash,
                 mmr: Mmr {
                     peaks: vec![Some(accumulated_root)],
@@ -50,11 +52,11 @@ impl BlocksHistory {
             mmr,
             reported,
         };
-        self.blocks.push(new_block);
+        self.push(new_block);
 
         // Truncate to maintain history size limit
-        if self.blocks.len() > MAX_BLOCKS_HISTORY {
-            self.blocks.remove(0);
+        if self.len() > MAX_BLOCKS_HISTORY {
+            self.remove(0);
         }
     }
 }
