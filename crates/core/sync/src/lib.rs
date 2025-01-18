@@ -20,7 +20,7 @@ pub struct Sync;
 /// WARNING: DO NOT change the order of the state transition logic unless you
 ///          follow the dependency graph: GP 4.2.1
 ///
-/// TODO: keep spliting logic inside of validation logic
+/// TODO: keep splitting logic inside of validation logic
 pub fn transit(block: &Block, state: &State, entropy: [u8; 32]) -> Result<Sync> {
     let mut next = state.clone();
 
