@@ -1,7 +1,7 @@
 //! Validator abstraction
 
 use crate::{
-    block::{Block, BlockInfo},
+    block::{Block, BlockInfo, Header},
     extrinsic::TicketsOrKeys,
     state::{key, Storage},
     BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
@@ -44,10 +44,7 @@ pub trait Validator: TryFrom<String> {
     ) -> Result<BandersnatchRingVrfSignature>;
 
     /// Bandersnatch output
-    fn bandersnatch_output(
-        &self,
-        sig: BandersnatchVrfSignature,
-    ) -> Result<BandersnatchVrfSignature>;
+    fn bandersnatch_output(&self, message: &[u8]) -> Result<BandersnatchVrfSignature>;
 
     /// Metadata of the validator
     fn metadata(&self) -> ValidatorMetadata;
@@ -62,10 +59,12 @@ pub trait Validator: TryFrom<String> {
         }
     }
 
-    /// Validate block with the given state
-    fn validate(&self, _block: &Block, db: &impl Storage) -> Result<State> {
-        let _state = db.state()?;
-        todo!()
+    /// Generate entropy from the given block header GP: (6.22)
+    fn entropy(&self, state: &State, header: &Header) -> Result<[u8; 32]> {
+        let output = self.bandersnatch_output(&header.entropy_source)?;
+        let mut input = state.entropy[0].to_vec();
+        input.extend_from_slice(&output);
+        Ok(crypto::blake2b(&input))
     }
 
     /// Mines a block
@@ -112,7 +111,7 @@ pub trait Validator: TryFrom<String> {
 
         block.header.entropy_source = {
             let mut context = JAM_ENTROPY.to_vec();
-            context.extend_from_slice(&self.bandersnatch_output(block.header.seal)?);
+            context.extend_from_slice(&self.bandersnatch_output(&block.header.seal)?);
             self.bandersnatch_sign(&keys, &context, &[])?
         };
 

@@ -68,11 +68,8 @@ impl Validator for LocalValidator {
         self.banersnatch.ring_sign(keys.to_vec(), message, context)
     }
 
-    fn bandersnatch_output(
-        &self,
-        signature: BandersnatchVrfSignature,
-    ) -> Result<BandersnatchVrfSignature> {
-        self.banersnatch.output(&signature)
+    fn bandersnatch_output(&self, message: &[u8]) -> Result<BandersnatchVrfSignature> {
+        self.banersnatch.output(message)
     }
 
     fn metadata(&self) -> ValidatorMetadata {

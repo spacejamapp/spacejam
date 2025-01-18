@@ -30,11 +30,10 @@ pub fn transit(block: &Block, state: &State, entropy: [u8; 32]) -> Result<Sync> 
     // TODO: enable dispute validation interface
     //
     // dispute::validate(&mut next, block)?;
-    statistic::validate(&mut next, block);
-
     next.timeslot = block.header.slot;
     preimage::validate(&mut next, block)?;
     guarantee::validate(&mut next, block)
         .map_err(|_| anyhow::anyhow!("Failed to validate guarantee"))?;
+    statistic::validate(&mut next, block);
     Ok(Sync)
 }
