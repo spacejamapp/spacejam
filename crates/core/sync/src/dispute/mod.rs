@@ -72,7 +72,7 @@ impl DisputesHandler {
                     return Err(Error::VerdictsNotSortedUnique);
                 }
             } else {
-                last_verdict = Some(&verdict);
+                last_verdict = Some(verdict);
             }
 
             let mut aye = 0;
@@ -181,7 +181,7 @@ impl DisputesHandler {
                 }
             }
 
-            last_culprit = Some(&culprit);
+            last_culprit = Some(culprit);
             if self.next_state.psi.bad.contains(&culprit.target) {
                 if let Some(count) = bad_verdicts.get_mut(&culprit.target) {
                     *count += 1;
@@ -236,7 +236,7 @@ impl DisputesHandler {
                 }
             }
 
-            last_fault = Some(&fault);
+            last_fault = Some(fault);
 
             if (self.next_state.psi.wonky.contains(&fault.target)
                 && !self.state.psi.good.contains(&fault.target))

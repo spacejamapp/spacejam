@@ -31,7 +31,7 @@ impl Runner {
 
                 let input = authorizations::TestInput::from_json(test.input)?;
                 let output = authorizations::TestOutput::from_json(test.output)?;
-                let state = authorizations::TestState::from(input.pre_state);
+                let state = input.pre_state;
                 let mut context = state.into();
                 let mut block = score::Block::default();
                 block.header.slot = input.input.slot;
@@ -161,8 +161,8 @@ impl Runner {
             Section::Pvm => {
                 use crate::pvm;
 
-                let input: pvm::TestInput = serde_json::from_str(&test.input)?;
-                let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
+                let input: pvm::TestInput = serde_json::from_str(test.input)?;
+                let output: pvm::TestOutput = serde_json::from_str(test.output)?;
                 let mut registers = [0; 13];
                 registers.copy_from_slice(&input.initial_regs);
 

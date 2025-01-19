@@ -2,7 +2,7 @@
 
 use score::{
     extrinsic::dispute::{DisputesRecords, DisputesRecordsJson},
-    validator::{ValidatorDataJson, ValidatorsData},
+    validator::{ValidatorDataJson, Validators, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
     TimeSlot,
 };
@@ -41,14 +41,19 @@ impl From<score::State> for State {
 
 impl From<State> for score::State {
     fn from(state: State) -> Self {
-        let mut target = score::State::default();
-        target.disputes = state.psi;
+        let mut target = score::State {
+            timeslot: state.tau,
+            disputes: state.psi,
+            validators: Validators {
+                next: Default::default(),
+                current: state.kappa.into_iter().collect(),
+                previous: state.lambda.into_iter().collect(),
+            },
+            ..Default::default()
+        };
         for (i, assignment) in state.rho.iter().enumerate() {
             target.reports[i] = assignment.clone();
         }
-        target.timeslot = state.tau;
-        target.validators.current = state.kappa.into_iter().collect();
-        target.validators.previous = state.lambda.into_iter().collect();
         target
     }
 }
