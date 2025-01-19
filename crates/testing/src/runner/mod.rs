@@ -47,14 +47,17 @@ impl Runner {
 
                 let input = disputes::TestInput::from_json(test.input)?;
                 let output = disputes::TestOutput::from_json(test.output)?;
-                let mut handler = sync::dispute::DisputesHandler::from(input.pre_state.clone());
-                let result = handler.handle(input.input.disputes);
-                assert_eq!(result, output.output.map(|v| v.offenders_mark));
+                let mut state = input.pre_state.clone().into();
+                let mut block = score::Block::default();
+                block.extrinsic.disputes = input.input.disputes.clone();
+                let result = sync::dispute::transit(&block, &mut state);
+
+                assert_eq!(result, output.output.map(|v| { v.offenders_mark }));
                 assert_eq!(
-                    if result.is_ok() {
-                        handler.next_state
-                    } else {
+                    if result.is_err() {
                         input.pre_state
+                    } else {
+                        state.into()
                     },
                     output.post_state
                 );

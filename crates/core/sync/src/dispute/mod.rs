@@ -2,37 +2,26 @@
 //!
 //! 1. update judgements on work-reports and validators (ψ)
 //! 2. update pending reports (ρ)
-use error::{Error, Result};
 use score::{
-    extrinsic::dispute::{
-        Culprit, DisputesExtrinsic, DisputesRecords, DisputesRecordsJson, Fault, Verdict,
-    },
-    validator::{ValidatorDataJson, ValidatorsData},
-    work::{AvailabilityAssignment, AvailabilityAssignmentJson},
-    Block, Ed25519Public, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
+    Block, Ed25519Public, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
-use serde::{Deserialize, Serialize};
-use spacejson::Json;
 use std::collections::BTreeMap;
+pub use {
+    error::{Error, Result},
+    state::{State, StateJson},
+};
 
 pub mod error;
+mod state;
 
-#[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize, Clone)]
-pub struct State {
-    /// [ψ] Disputes verdicts and offenders
-    #[json(nested)]
-    pub psi: DisputesRecords,
-    /// [ρ] Availability cores assignments
-    #[json(Vec<Option<AvailabilityAssignmentJson>>)]
-    pub rho: Vec<Option<AvailabilityAssignment>>,
-    /// [τ] Timeslot
-    pub tau: TimeSlot,
-    /// [κ] Validators active in the current epoch
-    #[json(Vec<ValidatorDataJson>)]
-    pub kappa: ValidatorsData,
-    /// [λ] Validators active in the previous epoch
-    #[json(Vec<ValidatorDataJson>)]
-    pub lambda: ValidatorsData,
+/// Validate disputes and return offenders
+pub fn transit(block: &Block, state: &mut score::State) -> Result<Vec<Ed25519Public>> {
+    let pstate: State = state.clone().into();
+    let mut handler = DisputesHandler::from(pstate);
+    let mark = handler.handle(&block.extrinsic.disputes)?;
+    *state = handler.next_state.into();
+    Ok(mark)
 }
 
 /// Disputes handler
@@ -42,19 +31,14 @@ pub struct DisputesHandler {
     pub records: DisputesRecords,
 }
 
-/// Validate disputes and return offenders
-pub fn transit(_block: &Block, _state: &mut score::State) -> Result<Vec<Ed25519Public>> {
-    todo!()
-}
-
 impl DisputesHandler {
     /// Handle an extrinsic
-    pub fn handle(&mut self, extrinsic: DisputesExtrinsic) -> Result<Vec<Ed25519Public>> {
-        self.handle_verdicts(extrinsic.verdicts)?;
+    pub fn handle(&mut self, extrinsic: &DisputesExtrinsic) -> Result<Vec<Ed25519Public>> {
+        self.handle_verdicts(&extrinsic.verdicts)?;
 
         let mut offenders_mark = vec![];
-        self.handle_culprits(&mut offenders_mark, extrinsic.culprits)?;
-        self.handle_faults(&mut offenders_mark, extrinsic.faults)?;
+        self.handle_culprits(&mut offenders_mark, &extrinsic.culprits)?;
+        self.handle_faults(&mut offenders_mark, &extrinsic.faults)?;
 
         // Clear work-reports from rho if they were judged as uncertain or invalid
         // This implements equation (eq:removenonpositive) from the graypaper
@@ -76,7 +60,7 @@ impl DisputesHandler {
     }
 
     // Update goodset, badset, wonkyset based on verdicts
-    fn handle_verdicts(&mut self, verdicts: Vec<Verdict>) -> Result<()> {
+    fn handle_verdicts(&mut self, verdicts: &[Verdict]) -> Result<()> {
         let mut last_verdict = None;
         for verdict in verdicts {
             if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
@@ -88,7 +72,7 @@ impl DisputesHandler {
                     return Err(Error::VerdictsNotSortedUnique);
                 }
             } else {
-                last_verdict = Some(verdict.clone());
+                last_verdict = Some(&verdict);
             }
 
             let mut aye = 0;
@@ -159,7 +143,7 @@ impl DisputesHandler {
     fn handle_culprits(
         &mut self,
         offenders_mark: &mut Vec<Ed25519Public>,
-        culprits: Vec<Culprit>,
+        culprits: &[Culprit],
     ) -> Result<()> {
         let mut last_culprit = None;
         let mut bad_verdicts = self
@@ -197,7 +181,7 @@ impl DisputesHandler {
                 }
             }
 
-            last_culprit = Some(culprit.clone());
+            last_culprit = Some(&culprit);
             if self.next_state.psi.bad.contains(&culprit.target) {
                 if let Some(count) = bad_verdicts.get_mut(&culprit.target) {
                     *count += 1;
@@ -218,7 +202,7 @@ impl DisputesHandler {
     fn handle_faults(
         &mut self,
         offenders_mark: &mut Vec<Ed25519Public>,
-        faults: Vec<Fault>,
+        faults: &[Fault],
     ) -> Result<()> {
         let mut last_fault = None;
         let mut verdicts = self
@@ -252,7 +236,7 @@ impl DisputesHandler {
                 }
             }
 
-            last_fault = Some(fault.clone());
+            last_fault = Some(&fault);
 
             if (self.next_state.psi.wonky.contains(&fault.target)
                 && !self.state.psi.good.contains(&fault.target))

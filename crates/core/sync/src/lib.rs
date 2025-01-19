@@ -25,6 +25,7 @@ pub fn transit(block: &Block, state: &State, entropy: [u8; 32]) -> Result<Sync> 
     let mut next = state.clone();
 
     let (_epoch, _tickets) = ticket::validate(&mut next, block, entropy)?;
+    let _offenders = dispute::transit(block, &mut next)?;
     assurance::validate(&mut next, block)?;
 
     // TODO: enable dispute validation interface
