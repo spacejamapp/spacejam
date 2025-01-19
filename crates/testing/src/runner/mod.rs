@@ -47,10 +47,17 @@ impl Runner {
 
                 let input = disputes::TestInput::from_json(test.input)?;
                 let output = disputes::TestOutput::from_json(test.output)?;
-                let mut handler = sync::dispute::DisputesHandler::from(input.pre_state);
+                let mut handler = sync::dispute::DisputesHandler::from(input.pre_state.clone());
                 let result = handler.handle(input.input.disputes);
-                assert_eq!(result, output.output);
-                assert_eq!(handler.next_state, output.post_state);
+                assert_eq!(result, output.output.map(|v| v.offenders_mark));
+                assert_eq!(
+                    if result.is_ok() {
+                        handler.next_state
+                    } else {
+                        input.pre_state
+                    },
+                    output.post_state
+                );
             }
             Section::History => {
                 use crate::history;

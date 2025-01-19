@@ -1,10 +1,13 @@
 #![cfg(test)]
 
 use core::result::Result;
-use score::extrinsic::dispute::{DisputesExtrinsic, DisputesExtrinsicJson};
+use score::{
+    extrinsic::dispute::{DisputesExtrinsic, DisputesExtrinsicJson},
+    Ed25519Public,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::dispute::{error::Error, OffendersMark, OffendersMarkJson, State, StateJson};
+use sync::dispute::{error::Error, State, StateJson};
 
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
@@ -28,6 +31,13 @@ pub struct TestOutput {
     pub output: Result<OffendersMark, Error>,
     #[json(nested)]
     pub post_state: State,
+}
+
+#[derive(Json, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub struct OffendersMark {
+    /// [H_o] Offenders marker
+    #[json(Vec<String>)]
+    pub offenders_mark: Vec<Ed25519Public>,
 }
 
 crate::impl_tests! {

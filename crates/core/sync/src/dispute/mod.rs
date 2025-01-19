@@ -1,3 +1,7 @@
+//! Disputes extrinsic handler
+//!
+//! 1. update judgements on work-reports and validators (ψ)
+//! 2. update pending reports (ρ)
 use error::{Error, Result};
 use score::{
     extrinsic::dispute::{
@@ -5,7 +9,7 @@ use score::{
     },
     validator::{ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
-    Ed25519Public, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    Block, Ed25519Public, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -38,16 +42,14 @@ pub struct DisputesHandler {
     pub records: DisputesRecords,
 }
 
-#[derive(Json, Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub struct OffendersMark {
-    /// [H_o] Offenders marker
-    #[json(Vec<String>)]
-    pub offenders_mark: Vec<Ed25519Public>,
+/// Validate disputes and return offenders
+pub fn transit(_block: &Block, _state: &mut score::State) -> Result<Vec<Ed25519Public>> {
+    todo!()
 }
 
 impl DisputesHandler {
     /// Handle an extrinsic
-    pub fn handle(&mut self, extrinsic: DisputesExtrinsic) -> Result<OffendersMark> {
+    pub fn handle(&mut self, extrinsic: DisputesExtrinsic) -> Result<Vec<Ed25519Public>> {
         self.handle_verdicts(extrinsic.verdicts)?;
 
         let mut offenders_mark = vec![];
@@ -70,7 +72,7 @@ impl DisputesHandler {
         }
 
         self.next_state.psi.offenders.sort();
-        Ok(OffendersMark { offenders_mark })
+        Ok(offenders_mark)
     }
 
     // Update goodset, badset, wonkyset based on verdicts
@@ -81,13 +83,8 @@ impl DisputesHandler {
                 return Err(Error::NotEnoughValidators);
             }
 
-            /*  if verdict.age < self.state.tau {
-                return Err(Error::BadJudgementAge);
-            } */
-
             if let Some(last_verdict) = last_verdict.take() {
                 if verdict < last_verdict {
-                    self.next_state = self.state.clone();
                     return Err(Error::VerdictsNotSortedUnique);
                 }
             } else {
@@ -99,7 +96,6 @@ impl DisputesHandler {
             let nay_message = verdict.signature_message(false);
             for (index, judgement) in verdict.votes.iter().enumerate() {
                 if index != judgement.index as usize {
-                    self.next_state = self.state.clone();
                     return Err(Error::JudgementsNotSortedUnique);
                 }
 
@@ -109,7 +105,7 @@ impl DisputesHandler {
                     &nay_message
                 };
 
-                let current_epoch = self.state.tau / EPOCH_LENGTH;
+                let current_epoch = self.next_state.tau / EPOCH_LENGTH;
                 if verdict.age >= current_epoch {
                     if let Err(e) = crypto::ed25519::verify(
                         message,
@@ -117,7 +113,6 @@ impl DisputesHandler {
                         self.state.kappa[judgement.index as usize].ed25519,
                     ) {
                         tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                        self.next_state = self.state.clone();
                         return Err(Error::BadSignature);
                     }
                 } else if verdict.age == current_epoch.saturating_sub(1) {
@@ -127,7 +122,6 @@ impl DisputesHandler {
                         self.state.lambda[judgement.index as usize].ed25519,
                     ) {
                         tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                        self.next_state = self.state.clone();
                         return Err(Error::BadSignature);
                     }
                 } else {
@@ -154,7 +148,6 @@ impl DisputesHandler {
                 }
                 _ => {
                     tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
-                    self.next_state = self.state.clone();
                     return Err(Error::BadVoteSplit);
                 }
             }
@@ -180,7 +173,6 @@ impl DisputesHandler {
         for culprit in culprits {
             if let Err(e) = culprit.verify() {
                 tracing::error!("Invalid signature in culprit: {e}");
-                self.next_state = self.state.clone();
                 return Err(Error::BadSignature);
             }
 
@@ -188,23 +180,19 @@ impl DisputesHandler {
                 || self.state.psi.bad.contains(&culprit.target)
                 || self.state.psi.wonky.contains(&culprit.target)
             {
-                self.next_state = self.state.clone();
                 return Err(Error::AlreadyJudged);
             }
 
             if self.next_state.psi.offenders.contains(&culprit.key) {
-                self.next_state = self.state.clone();
                 return Err(Error::OffenderAlreadyReported);
             }
 
             if !self.next_state.psi.bad.contains(&culprit.target) {
-                self.next_state = self.state.clone();
                 return Err(Error::CulpritsVerdictNotBad);
             }
 
             if let Some(last_culprit) = last_culprit {
                 if culprit < last_culprit {
-                    self.next_state = self.state.clone();
                     return Err(Error::CulpritsNotSortedUnique);
                 }
             }
@@ -221,7 +209,6 @@ impl DisputesHandler {
         }
 
         if bad_verdicts.iter().any(|(_, count)| *count < 2) {
-            self.next_state = self.state.clone();
             return Err(Error::NotEnoughCulprits);
         }
 
@@ -247,24 +234,20 @@ impl DisputesHandler {
                 || self.state.psi.bad.contains(&fault.target)
                 || self.state.psi.wonky.contains(&fault.target)
             {
-                self.next_state = self.state.clone();
                 return Err(Error::AlreadyJudged);
             }
 
             if self.next_state.psi.offenders.contains(&fault.key) {
-                self.next_state = self.state.clone();
                 return Err(Error::OffenderAlreadyReported);
             }
 
             if let Err(e) = fault.verify() {
                 tracing::error!("Invalid signature in fault: {e}");
-                self.next_state = self.state.clone();
                 return Err(Error::BadSignature);
             }
 
             if let Some(last_fault) = last_fault {
                 if fault < last_fault {
-                    self.next_state = self.state.clone();
                     return Err(Error::FaultsNotSortedUnique);
                 }
             }
@@ -282,13 +265,11 @@ impl DisputesHandler {
                 self.next_state.psi.offenders.push(fault.key);
                 offenders_mark.push(fault.key);
             } else {
-                self.next_state = self.state.clone();
                 return Err(Error::FaultVerdictWrong);
             }
         }
 
         if verdicts.iter().any(|(_, count)| *count < 1) {
-            self.next_state = self.state.clone();
             return Err(Error::NotEnoughFaults);
         }
 
