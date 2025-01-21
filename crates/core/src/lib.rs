@@ -35,6 +35,9 @@ pub const MAX_DEPENDENCY_COUNT: usize = 8;
 /// FIXME: this number is extracted from the tests, I don't think it's correct.
 pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
 
+/// The period in timeslots after which reported but unavailable work may be replaced.
+pub const WORK_REPORT_TIMEOUT_PEIROD: u32 = 5;
+
 // Singing Contexts
 pub const JAM_AVAILABLE: [u8; 13] = *b"jam_available";
 pub const JAM_VALID: [u8; 9] = *b"jam_valid";

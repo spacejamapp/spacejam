@@ -3,6 +3,7 @@
 use score::{
     block::header::{EpochMark, TicketsMark},
     extrinsic::ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
+    validator::ValidatorData,
     Block, OpaqueHash,
 };
 pub use {
@@ -23,6 +24,54 @@ pub fn validate(
     let result = pstate.enact(block, entropy);
     pstate.apply(state);
     result
+}
+
+/// (η') Updates the entropy accumulator.
+///
+/// graypaper reference: 6.4
+pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [OpaqueHash; 4] {
+    let mut next = *eta;
+
+    // graypaper reference: 6.23
+    //
+    // eta'_e = H(eta_e || eta'_(e-1))
+    if new_epoch {
+        let historical_eta = eta;
+        next[1..].copy_from_slice(&historical_eta[..3]);
+    }
+
+    // graypaper reference: 6.22
+    //
+    // eta'_0 = H(eta_0 || Y(H_v))
+    let eta_0 = crypto::blake2b(&[eta[0], entropy].concat());
+    next[0] = eta_0;
+    next
+}
+
+/// (λ') Updates the previous epoch's validators.
+pub fn lambda(
+    new_epoch: bool,
+    lambda: &[ValidatorData],
+    kappa: &[ValidatorData],
+) -> Vec<ValidatorData> {
+    if new_epoch {
+        kappa.to_vec()
+    } else {
+        lambda.to_vec()
+    }
+}
+
+/// (κ') Updates the current epoch's validators.
+pub fn kappa(
+    new_epoch: bool,
+    gamma_k: &[ValidatorData],
+    kappa: &[ValidatorData],
+) -> Vec<ValidatorData> {
+    if new_epoch {
+        gamma_k.to_vec()
+    } else {
+        kappa.to_vec()
+    }
 }
 
 impl State {
@@ -46,8 +95,10 @@ impl State {
 
         let epoch = slot / score::EPOCH_LENGTH;
         let new_epoch: bool = epoch > (self.tau / score::EPOCH_LENGTH);
-        self.lambda = crate::lambda(new_epoch, &self.lambda, &self.kappa);
-        self.eta = crate::eta(new_epoch, &self.eta, entropy);
+        self.lambda = lambda(new_epoch, &self.lambda, &self.kappa);
+        self.eta = eta(new_epoch, &self.eta, entropy);
+        self.kappa = kappa(new_epoch, &self.gamma_k, &self.kappa);
+
         if new_epoch {
             self.rotate_keys();
         }
@@ -72,9 +123,6 @@ impl State {
     /// graypaper reference: 6.3
     /// graypaper formula: 6.13
     pub fn rotate_keys(&mut self) {
-        // update current epoch validators
-        self.kappa = self.gamma_k.clone();
-
         // update next epoch validators
         self.gamma_k = self
             .iota

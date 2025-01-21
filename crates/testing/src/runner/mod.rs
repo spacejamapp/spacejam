@@ -19,7 +19,7 @@ impl Runner {
                     assurances::TestOutput::from_json(test.output)?;
 
                 // validate output
-                let result = sync::assurance::reports(
+                let result = sync::assurance::available(
                     &input.pre_state.avail_assignments,
                     &input.pre_state.curr_validators,
                     input.input.slot,

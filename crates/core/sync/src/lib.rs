@@ -20,12 +20,12 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
 
     // The first round computation
     {
-        // (η') Update entropy
+        // (η') Update entropy (6.22)
         let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
-        state.entropy = crate::eta(new_epoch, &state.entropy, entropy);
+        state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
 
-        // (λ') Update validator state
-        state.validators.previous = crate::lambda(
+        // (λ') Update validator state (6.13)
+        state.validators.previous = ticket::lambda(
             new_epoch,
             &state.validators.previous,
             &state.validators.current,
@@ -41,20 +41,13 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         )?;
         state.disputes = disputes;
 
-        // (ρ†) Update availability assignments based on verdicts (V)
+        // (ρ†) Update availability assignments based on verdicts (V) (10.15)
         state.reports = dispute::reports(&marks, &state.reports);
 
-        // (ρ‡) Update availability assignments based on assurances
-        let (reports, _availiable) = crate::assurance::reports(
-            &state.reports,
-            &state.validators.current,
-            block.header.slot,
-            block.header.parent,
-            &block.extrinsic.assurances,
-        )?;
-        state.reports = reports;
+        // (ρ‡) Update availability assignments based on assurances (11.17)
+        state.reports = crate::assurance::reports(block.header.slot, state.reports);
 
-        // (ρ') Update availability assignments based on guarantees
+        // (ρ') Update availability assignments based on guarantees (11.43)
         state.reports = guarantee::reports(
             block.header.slot,
             &state.reports,
@@ -62,40 +55,37 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         )?;
     }
 
+    // Round 2 computation
+    {
+        // (W) the sequence of new available work reports (11.16)
+        //
+        // TODO: not sure why we still have mutation for `state.reports` here.
+        let (_assignments, _reports) = crate::assurance::available(
+            &state.reports,
+            &state.validators.current,
+            block.header.slot,
+            block.header.parent,
+            &block.extrinsic.assurances,
+        )?;
+
+        // (W*) The sequence of accumulatable work-reports (12.9)
+        //
+        // TODO: not yet implemented.
+
+        // (κ') Update current validators (6.13)
+        state.validators.current = ticket::kappa(
+            new_epoch,
+            &state.safrole.validators,
+            &state.validators.current,
+        );
+    }
+
+    // Round 3 computation
+    {
+        // (γ') Update the sealing-key series (12.10)
+        //
+        // TODO: not yet implemented.
+    }
+
     Ok(state)
-}
-
-/// (η') Updates the entropy accumulator.
-///
-/// graypaper reference: 6.4
-pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [OpaqueHash; 4] {
-    let mut next = *eta;
-
-    // graypaper reference: 6.23
-    //
-    // eta'_e = H(eta_e || eta'_(e-1))
-    if new_epoch {
-        let historical_eta = eta;
-        next[1..].copy_from_slice(&historical_eta[..3]);
-    }
-
-    // graypaper reference: 6.22
-    //
-    // eta'_0 = H(eta_0 || Y(H_v))
-    let eta_0 = crypto::blake2b(&[eta[0], entropy].concat());
-    next[0] = eta_0;
-    next
-}
-
-/// (λ') Updates the previous epoch's validators.
-pub fn lambda(
-    new_epoch: bool,
-    lambda: &[ValidatorData],
-    kappa: &[ValidatorData],
-) -> Vec<ValidatorData> {
-    if new_epoch {
-        kappa.to_vec()
-    } else {
-        lambda.to_vec()
-    }
 }

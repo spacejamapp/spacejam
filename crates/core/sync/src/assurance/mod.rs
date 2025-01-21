@@ -10,6 +10,7 @@ use {
         validator::ValidatorData,
         work::{AvailabilityAssignments, WorkReport},
         OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+        WORK_REPORT_TIMEOUT_PEIROD,
     },
     std::collections::BTreeMap,
 };
@@ -18,7 +19,20 @@ mod error;
 mod state;
 
 /// (ρ‡) Handle assurances input and return newly available reports
-pub fn reports(
+pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> AvailabilityAssignments {
+    for mb_report in reports.iter_mut() {
+        if let Some(report) = mb_report {
+            if report.timeout + WORK_REPORT_TIMEOUT_PEIROD > slot {
+                *mb_report = None;
+            }
+        }
+    }
+
+    reports
+}
+
+/// (ρ‡) Handle assurances input and return newly available reports
+pub fn available(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],
     slot: TimeSlot,
@@ -29,7 +43,7 @@ pub fn reports(
 
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
-    let mut availiable = Vec::new();
+    let mut available = Vec::new();
     let mut stale_reports = BTreeMap::new();
 
     // Check for stale reports
@@ -43,7 +57,7 @@ pub fn reports(
             stale_reports.insert(core_idx, ());
 
             if !assurances.is_empty() {
-                availiable.push(assignment.report.clone());
+                available.push(assignment.report.clone());
             }
         }
     }
@@ -72,12 +86,12 @@ pub fn reports(
     for (core_idx, &assurance_count) in core_assurance_counts.iter().enumerate() {
         if assurance_count >= VALIDATORS_SUPER_MAJORITY as u32 {
             if let Some(assignment) = assignments[core_idx].take() {
-                availiable.push(assignment.report);
+                available.push(assignment.report);
             }
         }
     }
 
-    Ok((assignments, availiable))
+    Ok((assignments, available))
 }
 
 /// Verifies the assurance
