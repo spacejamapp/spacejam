@@ -1,11 +1,11 @@
 //! Validator abstraction
 
 use crate::{
-    block::{Block, BlockInfo, Header},
+    block::{Block, BlockInfo},
     extrinsic::TicketsOrKeys,
     state::{key, Storage},
     BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
-    Ed25519Public, State, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
+    Ed25519Public, OpaqueHash, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
 };
 use anyhow::Result;
 pub use {
@@ -60,9 +60,9 @@ pub trait Validator: TryFrom<String> {
     }
 
     /// Generate entropy from the given block header GP: (6.22)
-    fn entropy(&self, state: &State, header: &Header) -> Result<[u8; 32]> {
-        let output = self.bandersnatch_output(&header.entropy_source)?;
-        let mut input = state.entropy[0].to_vec();
+    fn entropy(&self, entropy: OpaqueHash, source: &BandersnatchVrfSignature) -> Result<[u8; 32]> {
+        let output = self.bandersnatch_output(source.as_ref())?;
+        let mut input = entropy.to_vec();
         input.extend_from_slice(&output);
         Ok(crypto::blake2b(&input))
     }

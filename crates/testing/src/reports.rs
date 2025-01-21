@@ -71,7 +71,7 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-        work::{SegmentRootLookupItem, SegmentRootLookupItemJson},
+        work::{ReportedWorkPackage, ReportedWorkPackageJson},
         Block, Ed25519Public, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
@@ -98,7 +98,7 @@ mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct Output {
         #[json(nested)]
-        pub reported: Vec<SegmentRootLookupItem>,
+        pub reported: Vec<ReportedWorkPackage>,
         #[json(Vec<String>)]
         pub reporters: Vec<Ed25519Public>,
     }

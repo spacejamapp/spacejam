@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::assurance::{Error, Result, State, StateJson};
+use sync::assurance::{Error, Result};
 use types::*;
 
 /// Test input for assurances
@@ -45,11 +45,28 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
-        work::report::{WorkReport, WorkReportJson},
+        validator::{ValidatorDataJson, ValidatorsData},
+        work::{
+            report::{WorkReport, WorkReportJson},
+            AvailabilityAssignmentJson, AvailabilityAssignments,
+        },
         HeaderHash, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
+
+    /// The state of the assurance module.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct State {
+        /// (ρ†) rho dagger, which is the pending reports (ϱ) after that any
+        /// work report judged as uncertain or invalid has been removed from it.
+        /// On success, mutated to get [ϱ‡].
+        #[json(Vec<Option<AvailabilityAssignmentJson>>)]
+        pub avail_assignments: AvailabilityAssignments,
+        /// (κ') posterior active validators.
+        #[json(Vec<ValidatorDataJson>)]
+        pub curr_validators: ValidatorsData,
+    }
 
     /// The input to the assurance module.
     #[derive(Debug, Clone, Serialize, Deserialize, Json)]
@@ -64,16 +81,6 @@ mod types {
         /// [H_p] Parent hash.
         #[json(hex)]
         pub parent: HeaderHash,
-    }
-
-    impl From<Input> for score::Block {
-        fn from(input: Input) -> Self {
-            let mut block = score::Block::default();
-            block.header.slot = input.slot;
-            block.header.parent = input.parent;
-            block.extrinsic.assurances = input.assurances;
-            block
-        }
     }
 
     /// The output of the assurance module.

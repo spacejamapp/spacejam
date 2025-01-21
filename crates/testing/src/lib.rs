@@ -47,7 +47,7 @@ fn coverage() {
             continue;
         }
 
-        if !tests.contains(&test.name) {
+        if !tests.contains(test.name) {
             panic!("test {} not found", test.name);
         }
     }
@@ -66,7 +66,7 @@ macro_rules! impl_tests {
                 #[test]
                 fn [<$scale_tests _tiny>]() {
                     let test = specjam::registry::tests::[<TEST_ $module:upper _ $scale_tests:upper _TINY>];
-                    crate::Runner::step(&test)
+                    $crate::Runner::step(&test)
                         .expect(&format!("could not run test {}::{}", &stringify!($module), &stringify!($scale_tests)));
                 }
             )*
@@ -81,7 +81,7 @@ macro_rules! impl_tests {
                 #[test]
                 fn $data_tests() {
                     let test = specjam::registry::tests::[<TEST_ $module:upper _ $data_tests:upper>];
-                    crate::Runner::step(&test)
+                    $crate::Runner::step(&test)
                         .expect(&format!("could not run test {}::{}", &stringify!($module), &stringify!($data_tests)));
                 }
             )*

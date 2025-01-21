@@ -17,9 +17,9 @@ pub struct TestOutput {
 fn jam() {
     let test = specjam::registry::tests::TEST_TRIE_TRIE;
     let tests: Vec<TestInput> =
-        serde_json::from_str(&test.input).expect("failed to parse trie test input");
+        serde_json::from_str(test.input).expect("failed to parse trie test input");
     let output: Vec<TestOutput> =
-        serde_json::from_str(&test.output).expect("failed to parse trie test output");
+        serde_json::from_str(test.output).expect("failed to parse trie test output");
 
     for (input, output) in tests
         .into_iter()

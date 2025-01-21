@@ -1,4 +1,6 @@
-use score::State;
+use std::collections::BTreeMap;
+
+use score::service::ServiceAccount;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use types::*;
@@ -30,12 +32,12 @@ pub struct Test {
 }
 
 /// Convert test input to state.
-pub fn to_state(accs: Vec<types::Account>) -> State {
-    let mut state = State::default();
+pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
+    let mut accounts = BTreeMap::new();
     for acc in accs {
-        state.accounts.insert(acc.id, acc.info.into());
+        accounts.insert(acc.id, acc.info.into());
     }
-    state
+    accounts
 }
 
 crate::impl_tests! {
@@ -56,14 +58,14 @@ mod types {
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct Input {
         #[json(nested)]
         pub preimages: Vec<Preimage>,
         pub slot: u32,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct Account {
         /// Account ID
         pub id: u32,
@@ -73,7 +75,7 @@ mod types {
         pub info: AccountInfo,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct TPreimage {
         #[json(hex)]
         pub hash: OpaqueHash,
@@ -81,21 +83,21 @@ mod types {
         pub blob: Vec<u8>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct HistoryKey {
         #[json(hex)]
         pub hash: OpaqueHash,
         pub length: u32,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct History {
         #[json(nested)]
         pub key: HistoryKey,
         pub value: Vec<u32>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct AccountInfo {
         #[json(nested)]
         pub preimages: Vec<TPreimage>,
@@ -122,7 +124,7 @@ mod types {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
     pub struct TState {
         #[json(nested)]
         pub accounts: Vec<Account>,

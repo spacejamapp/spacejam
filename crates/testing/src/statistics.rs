@@ -2,11 +2,12 @@
 
 use score::{
     extrinsic::{Extrinsic, ExtrinsicJson},
+    statistic::{Statistics, StatisticsJson},
+    validator::{ValidatorDataJson, ValidatorsData},
     TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use sync::statistic::{State, StateJson};
 
 #[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
 pub struct Input {
@@ -30,6 +31,21 @@ pub struct TestInput {
 pub struct TestOutput {
     #[json(nested)]
     pub post_state: State,
+}
+
+/// State of the stats
+///
+/// NOTE: this should be moved to storage in the future
+#[derive(Json, Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+pub struct State {
+    /// The statistics state
+    #[json(nested)]
+    pub pi: Statistics,
+    /// The current time slot
+    pub tau: TimeSlot,
+    /// The current validators
+    #[json(Vec<ValidatorDataJson>)]
+    pub kappa_prime: ValidatorsData,
 }
 
 crate::impl_tests! {

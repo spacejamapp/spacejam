@@ -24,8 +24,10 @@ pub struct WorkPackage {
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct ReportedWorkPackage {
     #[json(hex)]
+    #[serde(alias = "work_package_hash")]
     pub hash: OpaqueHash,
     #[json(hex)]
+    #[serde(alias = "segment_tree_root")]
     pub exports_root: OpaqueHash,
 }
 

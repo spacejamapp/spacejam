@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents information about a block.
-/// Represents information about a block.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct BlockInfo {
     #[json(hex)]

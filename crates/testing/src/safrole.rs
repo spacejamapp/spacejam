@@ -2,12 +2,17 @@
 
 use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
-    extrinsic::ticket::{TicketBodyJson, TicketEnvelopeJson, TicketsExtrinsic},
-    OpaqueHash,
+    extrinsic::ticket::{
+        TicketBodyJson, TicketEnvelopeJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
+        TicketsOrKeysJson,
+    },
+    safrole::Safrole,
+    validator::{ValidatorDataJson, Validators, ValidatorsData},
+    BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::ticket::{Error, State, StateJson};
+use sync::ticket::Error;
 
 /// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
@@ -72,4 +77,94 @@ pub struct Markers {
     /// New tickets marker
     #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
+}
+
+/// Represents the State structure.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
+pub struct State {
+    /// Most recent block's timeslot.
+    pub tau: u32,
+    /// Entropy accumulator and epochal randomness.
+    ///
+    /// graypaper reference: 6.21
+    #[json(Vec<String>)]
+    pub eta: EntropyBuffer,
+    /// Previous epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
+    pub lambda: ValidatorsData,
+    /// Current epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
+    pub kappa: ValidatorsData,
+    /// Validators to be drawn from next
+    #[json(Vec<ValidatorDataJson>)]
+    pub iota: ValidatorsData,
+    /// Next epoch's validators
+    #[json(Vec<ValidatorDataJson>)]
+    pub gamma_k: ValidatorsData,
+    /// Bandersnatch ring commitment
+    #[serde(with = "codec::bytes")]
+    #[json(hex)]
+    pub gamma_z: BandersnatchRingCommitment,
+    /// Sealing-key series of the current epoch
+    #[json(nested)]
+    pub gamma_s: TicketsOrKeys,
+    /// Sealing-key contest ticket accumulator
+    #[json(Vec<TicketBodyJson>)]
+    pub gamma_a: TicketsAccumulator,
+    /// Offenders
+    #[json(Vec<String>)]
+    pub post_offenders: Vec<Ed25519Public>,
+}
+
+impl State {
+    /// Enacts the epoch change and updates the state.
+    pub fn enact(&mut self, input: &Input) -> Result<Markers, Error> {
+        let prev = self.clone();
+        let new_epoch = input.slot / score::EPOCH_LENGTH > self.tau / score::EPOCH_LENGTH;
+        let safrole = Safrole {
+            validators: self.gamma_k.clone(),
+            series: self.gamma_s.clone(),
+            ring_commitment: self.gamma_z.clone(),
+            accumulator: self.gamma_a.clone(),
+        };
+
+        let mut validators = Validators {
+            current: self.kappa.clone(),
+            next: self.iota.clone(),
+            previous: self.lambda.clone(),
+        };
+
+        validators = sync::ticket::validators(new_epoch, &safrole.validators, &validators);
+        self.eta = sync::ticket::eta(new_epoch, &self.eta, input.entropy);
+
+        let mut markers = Markers::default();
+        match sync::ticket::safrole(
+            self.tau,
+            input.slot,
+            self.eta,
+            &self.post_offenders,
+            &safrole,
+            &validators,
+            &input.extrinsic,
+        ) {
+            Ok(safrole) => {
+                markers.epoch_mark = safrole.epoch_mark(new_epoch, &self.eta);
+                markers.tickets_mark = safrole.tickets_mark(self.tau, input.slot);
+
+                self.gamma_a = safrole.accumulator;
+                self.gamma_k = safrole.validators;
+                self.gamma_s = safrole.series;
+                self.gamma_z = safrole.ring_commitment;
+                self.kappa = validators.current;
+                self.lambda = validators.previous;
+                self.tau = input.slot;
+            }
+            Err(e) => {
+                *self = prev;
+                return Err(e);
+            }
+        }
+
+        Ok(markers)
+    }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Test state for authorizations
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Json, Debug, Clone)]
 pub struct TestState {
     #[json(Vec<Vec<String>>)]
     pub auth_pools: Vec<Vec<OpaqueHash>>,
@@ -23,7 +23,7 @@ impl From<TestState> for State {
     }
 }
 
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Json, Debug, Clone)]
 pub struct Authorization {
     #[json(hex)]
     pub auth_hash: OpaqueHash,
@@ -39,7 +39,7 @@ impl From<Authorization> for ReportGuarantee {
     }
 }
 
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Json, Debug, Clone)]
 pub struct Input {
     pub slot: u32,
     #[json(nested)]

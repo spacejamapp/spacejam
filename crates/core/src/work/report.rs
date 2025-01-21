@@ -1,7 +1,10 @@
 //! Report types
 
 use crate::{
-    work::context::{RefineContext, RefineContextJson},
+    work::{
+        context::{RefineContext, RefineContextJson},
+        ReportedWorkPackage, ReportedWorkPackageJson,
+    },
     CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
 use serde::{Deserialize, Serialize};
@@ -43,15 +46,6 @@ pub struct WorkPackageSpec {
     pub exports_count: u16,
 }
 
-/// Represents an item in the segment root lookup.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-pub struct SegmentRootLookupItem {
-    #[json(hex)]
-    pub work_package_hash: WorkPackageHash,
-    #[json(hex)]
-    pub segment_tree_root: OpaqueHash,
-}
-
 /// Represents a work report.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkReport {
@@ -65,7 +59,8 @@ pub struct WorkReport {
     #[json(hex)]
     pub auth_output: Vec<u8>,
     #[json(nested)]
-    pub segment_root_lookup: Vec<SegmentRootLookupItem>,
+    #[serde(alias = "segment_root_lookup")]
+    pub reported: Vec<ReportedWorkPackage>,
     #[json(nested)]
     pub results: Vec<WorkResult>,
 }
