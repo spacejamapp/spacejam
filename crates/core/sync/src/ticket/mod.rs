@@ -39,7 +39,7 @@ pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validator
     }
 
     validators.previous = validators.previous(new_epoch);
-    validators.current = validators.current(new_epoch, &next);
+    validators.current = validators.current(new_epoch, next);
     validators
 }
 
@@ -72,7 +72,7 @@ pub fn safrole(
         &safrole.validators,
         tickets,
     )?;
-    safrole.validators = safrole.next(new_epoch, &validators.next, &offenders);
+    safrole.validators = safrole.next(new_epoch, &validators.next, offenders);
     safrole.ring_commitment = safrole.commitment(new_epoch);
     Ok(safrole)
 }

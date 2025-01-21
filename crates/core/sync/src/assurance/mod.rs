@@ -6,7 +6,7 @@ use score::{
     validator::ValidatorData,
     work::{AvailabilityAssignments, WorkReport},
     OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
-    WORK_REPORT_TIMEOUT_PEIROD,
+    WORK_REPORT_TIMEOUT_PERIOD,
 };
 use std::collections::BTreeMap;
 
@@ -16,7 +16,7 @@ mod error;
 pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> AvailabilityAssignments {
     for mb_report in reports.iter_mut() {
         if let Some(report) = mb_report {
-            if report.timeout + WORK_REPORT_TIMEOUT_PEIROD > slot {
+            if report.timeout + WORK_REPORT_TIMEOUT_PERIOD > slot {
                 *mb_report = None;
             }
         }

@@ -17,7 +17,7 @@ flowchart LR
    BETA_PRIME["β' (H, E_G)"]
 
    %% The updated authorization pool
-   OMEGA_PRIME["α' (E_P)"]
+   OMEGA_PRIME["α' (E_G)"]
 
    %% The updated entropy pool
    ETA_PRIME["η' (τ, η)"]

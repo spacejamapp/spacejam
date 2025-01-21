@@ -27,20 +27,16 @@ impl Dependencies {
 
     /// Validate segment lookup
     pub fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        for lookup in guarantee.report.segment_root_lookup.iter() {
-            if self.reported.contains(&lookup.work_package_hash) {
+        for lookup in guarantee.report.reported.iter() {
+            if self.reported.contains(&lookup.hash) {
                 continue;
             }
 
-            let Some(reported) = self
-                .recent
-                .iter()
-                .find(|r| r.hash == lookup.work_package_hash)
-            else {
+            let Some(reported) = self.recent.iter().find(|r| r.hash == lookup.hash) else {
                 return Err(Error::SegmentRootLookupInvalid);
             };
 
-            if reported.exports_root != lookup.segment_tree_root {
+            if reported.exports_root != lookup.exports_root {
                 return Err(Error::SegmentRootLookupInvalid);
             }
         }

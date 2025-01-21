@@ -40,16 +40,19 @@ impl Runner {
 
                 let input = authorizations::TestInput::from_json(test.input)?;
                 let output = authorizations::TestOutput::from_json(test.output)?;
-                let state = input.pre_state;
-                let mut context = state.into();
-                let mut block = score::Block::default();
-                block.header.slot = input.input.slot;
-                block.extrinsic.guarantees =
-                    input.input.auths.into_iter().map(|a| a.into()).collect();
+                let state: score::State = input.pre_state.clone().into();
+                let post: score::State = output.post_state.clone().into();
 
                 // Validate post state
-                sync::guarantee::auth::validate(&mut context, &block)?;
-                assert_eq!(context, output.post_state.into());
+                let result = sync::guarantee::pools(
+                    input.input.slot,
+                    &state.pools,
+                    &state.authorization,
+                    &input.input.auths.into_iter().map(|a| a.into()).collect(),
+                );
+
+                assert_eq!(result, post.pools);
+                assert_eq!(state.authorization, post.authorization);
             }
             Section::Disputes => {
                 use crate::disputes;
@@ -115,22 +118,41 @@ impl Runner {
                     reports::TestInput::from_json(test.input)?;
                 let reports::TestOutput { output, post_state } =
                     reports::TestOutput::from_json(test.output)?;
-                let mut context = pre_state.clone().into();
+
+                assert_eq!(pre_state.curr_validators, post_state.curr_validators);
+                assert_eq!(pre_state.prev_validators, post_state.prev_validators);
+                assert_eq!(pre_state.entropy, post_state.entropy);
+                assert_eq!(pre_state.offenders, post_state.offenders);
+                assert_eq!(pre_state.auth_pools, post_state.auth_pools);
+                assert_eq!(pre_state.services, post_state.services);
 
                 // Validate the output
-                let result = sync::guarantee::validate(&mut context, &input.into());
+                let state = pre_state.clone().into();
+                let result = sync::guarantee::reports(
+                    input.slot,
+                    &pre_state.avail_assignments,
+                    &input.guarantees,
+                )
+                .and_then(|assignments| {
+                    sync::guarantee::report(&state, input.slot, &input.guarantees)
+                        .map(|(reported, reporters)| (reported, reporters, assignments))
+                });
+
                 assert_eq!(
-                    result.map(|(reported, reporters)| reports::Output {
-                        reported,
-                        reporters,
-                    }),
+                    result
+                        .clone()
+                        .map(|(reported, reporters, _)| reports::Output {
+                            reported,
+                            reporters,
+                        }),
                     output
                 );
 
-                // validate the post state
-                let mut state: sync::guarantee::State = context.into();
-                state.services = pre_state.services;
-                assert_eq!(post_state, state);
+                if let Ok((_, _, assignments)) = result {
+                    assert_eq!(assignments, post_state.avail_assignments);
+                } else {
+                    assert_eq!(pre_state, post_state);
+                }
             }
             Section::Safrole => {
                 use crate::safrole;

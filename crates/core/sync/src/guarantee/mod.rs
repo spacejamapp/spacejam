@@ -3,8 +3,9 @@
 use crypto::shuffle;
 use dep::Dependencies;
 use score::{
-    extrinsic::GuaranteesExtrinsic, work::AvailabilityAssignments, Block, Ed25519Public,
-    EPOCH_LENGTH, ROTATION_PERIOD,
+    extrinsic::GuaranteesExtrinsic,
+    work::{AvailabilityAssignments, ReportedWorkPackage},
+    Ed25519Public, EPOCH_LENGTH, ROTATION_PERIOD,
 };
 pub use state::{State, StateJson};
 use {
@@ -12,29 +13,16 @@ use {
     score::{
         extrinsic::ReportGuarantee,
         validator::ValidatorData,
-        work::{report::WorkExecResult, AvailabilityAssignment, SegmentRootLookupItem},
+        work::{report::WorkExecResult, AvailabilityAssignment},
         OpaqueHash, TimeSlot, CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
         SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },
     std::collections::BTreeMap,
 };
 
-pub mod auth;
 mod dep;
 pub mod error;
 mod state;
-
-/// Validate the block
-pub fn validate(
-    state: &mut score::State,
-    block: &Block,
-) -> Result<(Vec<SegmentRootLookupItem>, Vec<Ed25519Public>)> {
-    let pstate = State::from(state.clone());
-    let mut context = Context::from(pstate);
-    let result = context.validate(block)?;
-    context.next.apply(state);
-    Ok(result)
-}
 
 /// (ρ') Update availability assignments based on guarantees
 pub fn reports(
@@ -64,39 +52,83 @@ pub fn reports(
     Ok(next)
 }
 
+/// (α') Update authorization pools.
+///
+/// TODO: check indices
+pub fn pools(
+    slot: TimeSlot,
+    pools: &[Vec<OpaqueHash>; score::CORES_COUNT],
+    authorizations: &[Vec<OpaqueHash>; score::CORES_COUNT],
+    guarantees: &GuaranteesExtrinsic,
+) -> [Vec<OpaqueHash>; score::CORES_COUNT] {
+    let mut pools = pools.clone();
+
+    // Process each guarantee
+    let mut processed = Vec::new();
+    for guarantee in guarantees {
+        // Consume the authorizer from the pool
+        pools[guarantee.report.core_index as usize] = pools[guarantee.report.core_index as usize]
+            .iter()
+            .filter(|pool| **pool != guarantee.report.authorizer_hash)
+            .cloned()
+            .collect();
+
+        // mark the core as processed
+        processed.push(guarantee.report.core_index as usize);
+    }
+
+    // add new authorizers from queue to the pools
+    for (core_index, pool) in pools.iter_mut().enumerate() {
+        if !processed.contains(&core_index) {
+            *pool = pool[1..].into();
+        }
+
+        pool.push(authorizations[core_index][slot as usize]);
+    }
+
+    pools
+}
+
+/// Report the work packages
+///
+/// TODO: refactor the state on connecting storage.
+pub fn report(
+    state: &score::State,
+    slot: TimeSlot,
+    guarantees: &GuaranteesExtrinsic,
+) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
+    let pstate = State::from(state.clone());
+    let mut context = Context::from(&pstate);
+    context.validate(slot, guarantees)
+}
+
 /// Context of the reporting module.
-pub struct Context {
-    pub prev: State,
-    pub next: State,
+pub struct Context<'s> {
+    pub state: &'s State,
     pub validators: Vec<ValidatorData>,
     pub deps: Dependencies,
     pub core_assignments: Vec<Vec<u16>>,
     pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
 
-impl Context {
+impl Context<'_> {
     /// Validate work reports according to the guarantees extrinsic
     pub fn validate(
         &mut self,
-        block: &Block,
-    ) -> Result<(Vec<SegmentRootLookupItem>, Vec<Ed25519Public>)> {
-        let guarantees = &block.extrinsic.guarantees;
-        let slot = block.header.slot;
+        slot: TimeSlot,
+        guarantees: &GuaranteesExtrinsic,
+    ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
         self.init_deps(guarantees);
 
         // Prepare for reporting
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
-        let service_ids = self.prev.services.iter().map(|s| s.id).collect::<Vec<_>>();
-        let code_hashes = self
-            .prev
+        let (service_ids, code_hashes): (Vec<_>, Vec<_>) = self
+            .state
             .services
             .iter()
-            .map(|s| s.info.code)
-            .collect::<Vec<_>>();
-
-        let assignments = reports(slot, &self.prev.avail_assignments, guarantees)?;
-        self.next.avail_assignments = assignments;
+            .map(|s| (s.id, s.info.code))
+            .unzip();
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
@@ -109,9 +141,9 @@ impl Context {
             self.validate_guarantors(guarantee)?;
 
             // Record reported package
-            reported.push(SegmentRootLookupItem {
-                work_package_hash: guarantee.report.package_spec.hash,
-                segment_tree_root: guarantee.report.package_spec.exports_root,
+            reported.push(ReportedWorkPackage {
+                hash: guarantee.report.package_spec.hash,
+                exports_root: guarantee.report.package_spec.exports_root,
             });
 
             // Record reporters (guarantors)
@@ -126,7 +158,7 @@ impl Context {
         // FIXME: not sure if we need to sort the reporters here since it's not related to
         // storage directly, there was a similar problem in the `dispute` module.
         reporters.sort();
-        reported.sort_by(|a, b| a.work_package_hash.cmp(&b.work_package_hash));
+        reported.sort_by(|a, b| a.hash.cmp(&b.hash));
         Ok((reported, reporters))
     }
 
@@ -159,7 +191,7 @@ impl Context {
 
     fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
         let service = self
-            .prev
+            .state
             .services
             .iter()
             .map(|s| s.info.code)
@@ -169,7 +201,7 @@ impl Context {
             .map(|g| g.report.package_spec.hash)
             .collect::<Vec<_>>();
         let recent = self
-            .prev
+            .state
             .recent_blocks
             .iter()
             .flat_map(|b| b.reported.clone())
@@ -184,7 +216,7 @@ impl Context {
 
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let Some(block) = self
-            .prev
+            .state
             .recent_blocks
             .iter()
             .find(|b| b.header_hash == guarantee.report.context.anchor)
@@ -211,7 +243,7 @@ impl Context {
         //     return Err(Error::BadCoreIndex);
         // }
 
-        if !self.prev.auth_pools[guarantee.report.core_index as usize]
+        if !self.state.auth_pools[guarantee.report.core_index as usize]
             .contains(&guarantee.report.authorizer_hash)
         {
             return Err(Error::CoreUnauthorized);
@@ -221,10 +253,9 @@ impl Context {
     }
 
     /// Validate work package
-    fn validate_deps(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_deps(&self, guarantee: &ReportGuarantee) -> Result<()> {
         for dep in guarantee.report.context.prerequisites.iter() {
             if !self.deps.contains(dep) {
-                self.next = self.prev.clone();
                 return Err(Error::DependencyMissing);
             }
         }
@@ -233,7 +264,7 @@ impl Context {
             return Err(Error::DuplicatePackage);
         }
 
-        if guarantee.report.context.prerequisites.len() + guarantee.report.segment_root_lookup.len()
+        if guarantee.report.context.prerequisites.len() + guarantee.report.reported.len()
             > MAX_DEPENDENCY_COUNT
         {
             return Err(Error::TooManyDependencies);
@@ -280,7 +311,6 @@ impl Context {
 
         let guaranteed = self.guarantors.values().flatten().collect::<Vec<_>>();
         if guarantors.iter().any(|g| guaranteed.contains(&g)) {
-            self.next = self.prev.clone();
             return Err(Error::OutOfOrderGuarantee);
         }
 
@@ -297,7 +327,6 @@ impl Context {
         };
 
         if guarantors.iter().any(|g| !assignments.contains(g)) {
-            self.next = self.prev.clone();
             return Err(Error::WrongAssignment);
         }
 
@@ -331,8 +360,6 @@ impl Context {
             }
 
             if !code_hashes.contains(&result.code_hash) {
-                println!("code_hashes: {:?}", code_hashes);
-                println!("result.code_hash: {:?}", result.code_hash);
                 return Err(Error::BadCodeHash);
             }
 
@@ -346,7 +373,6 @@ impl Context {
 
     fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
         if guarantee.slot > slot {
-            self.next = self.prev.clone();
             return Err(Error::FutureReportSlot);
         }
 
@@ -354,16 +380,15 @@ impl Context {
         //
         // The test case or the GP is not correct.
         if guarantee.slot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
-            self.validators = self.prev.curr_validators.clone();
-            self.assign_cores(slot, self.prev.entropy[2]);
+            self.validators = self.state.curr_validators.clone();
+            self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
         } else {
-            self.validators = self.prev.prev_validators.clone();
-            self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.prev.entropy[3]);
+            self.validators = self.state.prev_validators.clone();
+            self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.state.entropy[3]);
         }
 
         if guarantee.slot / ROTATION_PERIOD + 1 < slot / ROTATION_PERIOD {
-            self.next = self.prev.clone();
             return Err(Error::ReportEpochBeforeLast);
         }
 
@@ -371,12 +396,11 @@ impl Context {
     }
 }
 
-impl From<State> for Context {
-    fn from(state: State) -> Self {
+impl<'s> From<&'s State> for Context<'s> {
+    fn from(state: &'s State) -> Self {
         Self {
             validators: state.curr_validators.clone(),
-            prev: state.clone(),
-            next: state,
+            state,
             core_assignments: vec![],
             guarantors: BTreeMap::new(),
             deps: Dependencies::default(),

@@ -38,7 +38,7 @@ pub struct State {
     #[json(Vec<BlockInfoJson>)]
     pub recent_blocks: Vec<BlockInfo>,
 
-    /// Authorization pools.
+    /// (α') Authorization pools.
     #[json(Vec<Vec<String>>)]
     pub auth_pools: [Vec<OpaqueHash>; CORES_COUNT],
 
@@ -49,7 +49,7 @@ pub struct State {
 
 impl State {
     /// Apply the state to the score state
-    pub fn apply(self, state: &mut score::State) {
+    fn apply(self, state: &mut score::State) {
         state.reports = self.avail_assignments;
         state.validators.current = self.curr_validators;
         state.validators.previous = self.prev_validators;

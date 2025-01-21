@@ -36,7 +36,7 @@ pub const MAX_DEPENDENCY_COUNT: usize = 8;
 pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
 
 /// The period in timeslots after which reported but unavailable work may be replaced.
-pub const WORK_REPORT_TIMEOUT_PEIROD: u32 = 5;
+pub const WORK_REPORT_TIMEOUT_PERIOD: u32 = 5;
 
 // Singing Contexts
 pub const JAM_AVAILABLE: [u8; 13] = *b"jam_available";

@@ -33,7 +33,7 @@ impl Safrole {
         }
 
         drawn
-            .into_iter()
+            .iter()
             .map(|validator| {
                 if offenders.contains(&validator.ed25519) {
                     Default::default()

@@ -106,15 +106,23 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
             &state.accounts,
         )?;
 
+        // (α') Update the authorization pool
+        state.pools = guarantee::pools(
+            block.header.slot,
+            &state.pools,
+            &state.authorization,
+            &block.extrinsic.guarantees,
+        );
+
         // (β') Update the block history
+        let (reported, _) =
+            guarantee::report(&state, block.header.slot, &block.extrinsic.guarantees)?;
         state.recent_blocks.import(
             block.header.hash()?,
             block.header.parent_state_root,
             Default::default(), // TODO: connect storage to get this state
-            Default::default(), // TODO: ACCMUTATION 12
+            reported,
         );
-
-        // TODO: (α') Update the authorization pool
     }
 
     Ok(state)
