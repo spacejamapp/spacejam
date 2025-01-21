@@ -1,22 +1,16 @@
 //! Assurance is the process of ensuring that the results of a work-package are available to a super-majority of validators.
 
-pub use {
-    error::{Error, Result},
-    state::{State, StateJson},
+pub use error::{Error, Result};
+use score::{
+    extrinsic::AvailAssurance,
+    validator::ValidatorData,
+    work::{AvailabilityAssignments, WorkReport},
+    OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    WORK_REPORT_TIMEOUT_PEIROD,
 };
-use {
-    score::{
-        extrinsic::AvailAssurance,
-        validator::ValidatorData,
-        work::{AvailabilityAssignments, WorkReport},
-        OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
-        WORK_REPORT_TIMEOUT_PEIROD,
-    },
-    std::collections::BTreeMap,
-};
+use std::collections::BTreeMap;
 
 mod error;
-mod state;
 
 /// (ρ‡) Handle assurances input and return newly available reports
 pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> AvailabilityAssignments {

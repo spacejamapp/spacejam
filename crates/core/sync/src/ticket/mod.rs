@@ -1,5 +1,6 @@
 //! Spacejam's SAFRole prototype
 
+pub use error::{Error, Result};
 use score::{
     extrinsic::{
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
@@ -9,13 +10,8 @@ use score::{
     validator::{ValidatorData, Validators, ValidatorsData},
     Ed25519Public, OpaqueHash,
 };
-pub use {
-    error::{Error, Result},
-    state::{State, StateJson},
-};
 
 pub mod error;
-pub mod state;
 
 /// (η') Updates the entropy accumulator.
 ///
