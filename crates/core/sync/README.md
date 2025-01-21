@@ -10,8 +10,8 @@ This module contains the state transition logic for the Spacejam protocol.
 ```mermaid
 flowchart LR
    %% An intermediate value for block history
-   BETA_DAGGER["β† (H, β)"]
-   BETA_DAGGER --> BETA_PRIME
+   BETA_DAGGER(["β† (H, β)"])
+   BETA_DAGGER -.- BETA_PRIME
 
    %% The updated block history
    BETA_PRIME["β' (H, E_G)"]
@@ -76,7 +76,6 @@ flowchart LR
    LAMBDA_PRIME
    PSI_PRIME
    RHO_DAGGER
-   BETA_DAGGER
    ETA_PRIME
    end
 

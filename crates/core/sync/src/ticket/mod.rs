@@ -46,12 +46,12 @@ impl State {
 
         let epoch = slot / score::EPOCH_LENGTH;
         let new_epoch: bool = epoch > (self.tau / score::EPOCH_LENGTH);
-
+        self.lambda = crate::lambda(new_epoch, &self.lambda, &self.kappa);
+        self.eta = crate::eta(new_epoch, &self.eta, entropy);
         if new_epoch {
             self.rotate_keys();
         }
 
-        self.update_eta(new_epoch, entropy);
         self.update_sealing_key_series(slot);
         if let Err(e) = self.validate_tickets(new_epoch, tickets)? {
             *self = prev_state;
@@ -72,9 +72,6 @@ impl State {
     /// graypaper reference: 6.3
     /// graypaper formula: 6.13
     pub fn rotate_keys(&mut self) {
-        // update previous epoch validators
-        self.lambda = self.kappa.clone();
-
         // update current epoch validators
         self.kappa = self.gamma_k.clone();
 

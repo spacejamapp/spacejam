@@ -2,9 +2,12 @@
 //!
 //! 1. update judgements on work-reports and validators (ψ)
 //! 2. update pending reports (ρ)
+use crate::dispute;
 use score::{
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
-    Block, Ed25519Public, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    validator::ValidatorsData,
+    work::AvailabilityAssignment,
+    Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use std::collections::BTreeMap;
 pub use {
@@ -15,258 +18,250 @@ pub use {
 pub mod error;
 mod state;
 
-/// Validate disputes and return offenders
-pub fn transit(block: &Block, state: &mut score::State) -> Result<Vec<Ed25519Public>> {
-    let pstate: State = state.clone().into();
-    let mut handler = DisputesHandler::from(pstate);
-    let mark = handler.handle(&block.extrinsic.disputes)?;
-    *state = handler.next_state.into();
-    Ok(mark)
-}
+/// (ψ) Update disputes verdicts and offenders
+pub fn disputes(
+    timeslot: TimeSlot,
+    kappa: &ValidatorsData,
+    lambda: &ValidatorsData,
+    psi: &DisputesRecords,
+    extrinsic: &DisputesExtrinsic,
+) -> Result<(DisputesRecords, Vec<Ed25519Public>)> {
+    let mut next_psi = psi.clone();
+    let mut offenders_mark = vec![];
+    let records = dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
 
-/// Disputes handler
-pub struct DisputesHandler {
-    pub state: State,
-    pub next_state: State,
-    pub records: DisputesRecords,
-}
+    // handle culprits
+    let offenders = dispute::culprits(psi, &records.bad, &extrinsic.culprits)?;
+    offenders_mark.extend(&offenders);
 
-impl DisputesHandler {
-    /// Handle an extrinsic
-    pub fn handle(&mut self, extrinsic: &DisputesExtrinsic) -> Result<Vec<Ed25519Public>> {
-        self.handle_verdicts(&extrinsic.verdicts)?;
+    // handle faults
+    let offenders = dispute::faults(psi, &records.good, &extrinsic.faults)?;
+    offenders_mark.extend(&offenders);
 
-        let mut offenders_mark = vec![];
-        self.handle_culprits(&mut offenders_mark, &extrinsic.culprits)?;
-        self.handle_faults(&mut offenders_mark, &extrinsic.faults)?;
+    // update psi
+    {
+        next_psi.good.extend(&records.good);
+        next_psi.wonky.extend(&records.wonky);
+        next_psi.bad.extend(&records.bad);
 
-        // Clear work-reports from rho if they were judged as uncertain or invalid
-        // This implements equation (eq:removenonpositive) from the graypaper
-        for maybe_assignment in self.next_state.rho.iter_mut() {
-            if let Some(assignment) = maybe_assignment {
-                let hashed =
-                    crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
-                // Clear if the report is in bad or wonky sets (i.e., t < ⌊2/3V⌋)
-                if self.next_state.psi.bad.contains(&hashed)
-                    || self.next_state.psi.wonky.contains(&hashed)
-                {
-                    *maybe_assignment = None;
-                }
-            }
-        }
-
-        self.next_state.psi.offenders.sort();
-        Ok(offenders_mark)
+        // TODO: make offenders unique
+        next_psi.offenders.extend(&offenders_mark);
+        next_psi.offenders.sort();
     }
 
-    // Update goodset, badset, wonkyset based on verdicts
-    fn handle_verdicts(&mut self, verdicts: &[Verdict]) -> Result<()> {
-        let mut last_verdict = None;
-        for verdict in verdicts {
-            if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
-                return Err(Error::NotEnoughValidators);
+    Ok((next_psi, offenders_mark))
+}
+
+/// (ρ) Update availability assignments based on verdicts (ψ')
+pub fn reports(
+    records: &DisputesRecords,
+    assignments: &[Option<AvailabilityAssignment>],
+) -> Vec<Option<AvailabilityAssignment>> {
+    let mut next_assignments = assignments.to_vec();
+
+    // Clean work-reports from rho if they were judged as uncertain or invalid
+    // This implements equation (eq:removenonpositive) from the graypaper
+    for maybe_assignment in next_assignments.iter_mut() {
+        if let Some(assignment) = maybe_assignment {
+            let hashed =
+                crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
+
+            // Clear if the report is in bad or wonky sets (i.e., t < ⌊2/3V⌋)
+            if records.bad.contains(&hashed) || records.wonky.contains(&hashed) {
+                *maybe_assignment = None;
+            }
+        }
+    }
+    next_assignments.to_vec()
+}
+
+// Update goodset, badset, wonkyset based on verdicts
+fn verdicts(
+    timeslot: TimeSlot,
+    kappa: &ValidatorsData,
+    lambda: &ValidatorsData,
+    verdicts: &[Verdict],
+) -> Result<DisputesRecords> {
+    let mut records = DisputesRecords::default();
+    let mut last_verdict = None;
+    for verdict in verdicts {
+        if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
+            return Err(Error::NotEnoughValidators);
+        }
+
+        if let Some(last_verdict) = last_verdict.take() {
+            if verdict < last_verdict {
+                return Err(Error::VerdictsNotSortedUnique);
+            }
+        } else {
+            last_verdict = Some(verdict);
+        }
+
+        let mut aye = 0;
+        let aye_message = verdict.signature_message(true);
+        let nay_message = verdict.signature_message(false);
+        for (index, judgement) in verdict.votes.iter().enumerate() {
+            if index != judgement.index as usize {
+                return Err(Error::JudgementsNotSortedUnique);
             }
 
-            if let Some(last_verdict) = last_verdict.take() {
-                if verdict < last_verdict {
-                    return Err(Error::VerdictsNotSortedUnique);
+            let message = if judgement.vote {
+                &aye_message
+            } else {
+                &nay_message
+            };
+
+            let current_epoch = timeslot / EPOCH_LENGTH;
+            if verdict.age >= current_epoch {
+                if let Err(e) = crypto::ed25519::verify(
+                    message,
+                    judgement.signature,
+                    kappa[judgement.index as usize].ed25519,
+                ) {
+                    tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
+                    return Err(Error::BadSignature);
+                }
+            } else if verdict.age == current_epoch.saturating_sub(1) {
+                if let Err(e) = crypto::ed25519::verify(
+                    message,
+                    judgement.signature,
+                    lambda[judgement.index as usize].ed25519,
+                ) {
+                    tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
+                    return Err(Error::BadSignature);
                 }
             } else {
-                last_verdict = Some(verdict);
+                return Err(Error::BadJudgementAge);
             }
 
-            let mut aye = 0;
-            let aye_message = verdict.signature_message(true);
-            let nay_message = verdict.signature_message(false);
-            for (index, judgement) in verdict.votes.iter().enumerate() {
-                if index != judgement.index as usize {
-                    return Err(Error::JudgementsNotSortedUnique);
-                }
-
-                let message = if judgement.vote {
-                    &aye_message
-                } else {
-                    &nay_message
-                };
-
-                let current_epoch = self.next_state.tau / EPOCH_LENGTH;
-                if verdict.age >= current_epoch {
-                    if let Err(e) = crypto::ed25519::verify(
-                        message,
-                        judgement.signature,
-                        self.state.kappa[judgement.index as usize].ed25519,
-                    ) {
-                        tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                        return Err(Error::BadSignature);
-                    }
-                } else if verdict.age == current_epoch.saturating_sub(1) {
-                    if let Err(e) = crypto::ed25519::verify(
-                        message,
-                        judgement.signature,
-                        self.state.lambda[judgement.index as usize].ed25519,
-                    ) {
-                        tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                        return Err(Error::BadSignature);
-                    }
-                } else {
-                    return Err(Error::BadJudgementAge);
-                }
-
-                if judgement.vote {
-                    aye += 1;
-                }
-            }
-
-            match aye {
-                aye if aye == VALIDATORS_SUPER_MAJORITY => {
-                    self.records.good.push(verdict.target);
-                    self.next_state.psi.good.push(verdict.target);
-                }
-                aye if aye == VALIDATORS_COUNT / 3 => {
-                    self.records.wonky.push(verdict.target);
-                    self.next_state.psi.wonky.push(verdict.target);
-                }
-                0 => {
-                    self.records.bad.push(verdict.target);
-                    self.next_state.psi.bad.push(verdict.target);
-                }
-                _ => {
-                    tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
-                    return Err(Error::BadVoteSplit);
-                }
+            if judgement.vote {
+                aye += 1;
             }
         }
 
-        Ok(())
+        match aye {
+            aye if aye == VALIDATORS_SUPER_MAJORITY => {
+                records.good.push(verdict.target);
+            }
+            aye if aye == VALIDATORS_COUNT / 3 => {
+                records.wonky.push(verdict.target);
+            }
+            0 => {
+                records.bad.push(verdict.target);
+            }
+            _ => {
+                tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
+                return Err(Error::BadVoteSplit);
+            }
+        }
     }
 
-    fn handle_culprits(
-        &mut self,
-        offenders_mark: &mut Vec<Ed25519Public>,
-        culprits: &[Culprit],
-    ) -> Result<()> {
-        let mut last_culprit = None;
-        let mut bad_verdicts = self
-            .records
-            .bad
-            .clone()
-            .into_iter()
-            .map(|v| (v, 0))
-            .collect::<BTreeMap<_, _>>();
-
-        for culprit in culprits {
-            if let Err(e) = culprit.verify() {
-                tracing::error!("Invalid signature in culprit: {e}");
-                return Err(Error::BadSignature);
-            }
-
-            if self.state.psi.good.contains(&culprit.target)
-                || self.state.psi.bad.contains(&culprit.target)
-                || self.state.psi.wonky.contains(&culprit.target)
-            {
-                return Err(Error::AlreadyJudged);
-            }
-
-            if self.next_state.psi.offenders.contains(&culprit.key) {
-                return Err(Error::OffenderAlreadyReported);
-            }
-
-            if !self.next_state.psi.bad.contains(&culprit.target) {
-                return Err(Error::CulpritsVerdictNotBad);
-            }
-
-            if let Some(last_culprit) = last_culprit {
-                if culprit < last_culprit {
-                    return Err(Error::CulpritsNotSortedUnique);
-                }
-            }
-
-            last_culprit = Some(culprit);
-            if self.next_state.psi.bad.contains(&culprit.target) {
-                if let Some(count) = bad_verdicts.get_mut(&culprit.target) {
-                    *count += 1;
-                }
-
-                self.next_state.psi.offenders.push(culprit.key);
-                offenders_mark.push(culprit.key);
-            }
-        }
-
-        if bad_verdicts.iter().any(|(_, count)| *count < 2) {
-            return Err(Error::NotEnoughCulprits);
-        }
-
-        Ok(())
-    }
-
-    fn handle_faults(
-        &mut self,
-        offenders_mark: &mut Vec<Ed25519Public>,
-        faults: &[Fault],
-    ) -> Result<()> {
-        let mut last_fault = None;
-        let mut verdicts = self
-            .records
-            .good
-            .clone()
-            .into_iter()
-            .map(|v| (v, 0))
-            .collect::<BTreeMap<_, _>>();
-
-        for fault in faults {
-            if self.state.psi.good.contains(&fault.target)
-                || self.state.psi.bad.contains(&fault.target)
-                || self.state.psi.wonky.contains(&fault.target)
-            {
-                return Err(Error::AlreadyJudged);
-            }
-
-            if self.next_state.psi.offenders.contains(&fault.key) {
-                return Err(Error::OffenderAlreadyReported);
-            }
-
-            if let Err(e) = fault.verify() {
-                tracing::error!("Invalid signature in fault: {e}");
-                return Err(Error::BadSignature);
-            }
-
-            if let Some(last_fault) = last_fault {
-                if fault < last_fault {
-                    return Err(Error::FaultsNotSortedUnique);
-                }
-            }
-
-            last_fault = Some(fault);
-
-            if (self.next_state.psi.wonky.contains(&fault.target)
-                && !self.state.psi.good.contains(&fault.target))
-                == fault.vote
-            {
-                if let Some(count) = verdicts.get_mut(&fault.target) {
-                    *count += 1;
-                }
-
-                self.next_state.psi.offenders.push(fault.key);
-                offenders_mark.push(fault.key);
-            } else {
-                return Err(Error::FaultVerdictWrong);
-            }
-        }
-
-        if verdicts.iter().any(|(_, count)| *count < 1) {
-            return Err(Error::NotEnoughFaults);
-        }
-
-        Ok(())
-    }
+    Ok(records)
 }
 
-impl From<State> for DisputesHandler {
-    fn from(state: State) -> Self {
-        Self {
-            next_state: state.clone(),
-            state,
-            records: Default::default(),
+/// (ψ) Update offenders based on verdicts
+fn culprits(
+    records: &DisputesRecords,
+    bad: &[OpaqueHash],
+    culprits: &[Culprit],
+) -> Result<Vec<Ed25519Public>> {
+    let mut last_culprit = None;
+    let mut bad_verdicts = bad.iter().map(|v| (v, 0)).collect::<BTreeMap<_, _>>();
+    let mut offenders = vec![];
+
+    for culprit in culprits {
+        if let Err(e) = culprit.verify() {
+            tracing::error!("Invalid signature in culprit: {e}");
+            return Err(Error::BadSignature);
+        }
+
+        if records.good.contains(&culprit.target)
+            || records.bad.contains(&culprit.target)
+            || records.wonky.contains(&culprit.target)
+        {
+            return Err(Error::AlreadyJudged);
+        }
+
+        if records.offenders.contains(&culprit.key) {
+            return Err(Error::OffenderAlreadyReported);
+        }
+
+        if let Some(last_culprit) = last_culprit {
+            if culprit < last_culprit {
+                return Err(Error::CulpritsNotSortedUnique);
+            }
+        }
+
+        last_culprit = Some(culprit);
+        if bad.contains(&culprit.target) {
+            if let Some(count) = bad_verdicts.get_mut(&culprit.target) {
+                *count += 1;
+            }
+
+            offenders.push(culprit.key);
+        } else {
+            return Err(Error::CulpritsVerdictNotBad);
         }
     }
+
+    if bad_verdicts.iter().any(|(_, count)| *count < 2) {
+        return Err(Error::NotEnoughCulprits);
+    }
+
+    Ok(offenders)
+}
+
+/// (ψ) Update offenders based on verdicts
+fn faults(
+    records: &DisputesRecords,
+    good: &[OpaqueHash],
+    faults: &[Fault],
+) -> Result<Vec<Ed25519Public>> {
+    let mut last_fault = None;
+    let mut verdicts = good.iter().map(|v| (v, 0)).collect::<BTreeMap<_, _>>();
+    let mut new_offenders = vec![];
+
+    for fault in faults {
+        if records.good.contains(&fault.target)
+            || records.bad.contains(&fault.target)
+            || records.wonky.contains(&fault.target)
+        {
+            return Err(Error::AlreadyJudged);
+        }
+
+        if records.offenders.contains(&fault.key) {
+            return Err(Error::OffenderAlreadyReported);
+        }
+
+        if let Err(e) = fault.verify() {
+            tracing::error!("Invalid signature in fault: {e}");
+            return Err(Error::BadSignature);
+        }
+
+        if let Some(last_fault) = last_fault {
+            if fault < last_fault {
+                return Err(Error::FaultsNotSortedUnique);
+            }
+        }
+
+        last_fault = Some(fault);
+
+        if (records.wonky.contains(&fault.target) && !records.good.contains(&fault.target))
+            == fault.vote
+        {
+            if let Some(count) = verdicts.get_mut(&fault.target) {
+                *count += 1;
+            }
+
+            new_offenders.push(fault.key);
+        } else {
+            return Err(Error::FaultVerdictWrong);
+        }
+    }
+
+    if verdicts.iter().any(|(_, count)| *count < 1) {
+        return Err(Error::NotEnoughFaults);
+    }
+
+    Ok(new_offenders)
 }

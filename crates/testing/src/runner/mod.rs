@@ -45,22 +45,30 @@ impl Runner {
             Section::Disputes => {
                 use crate::disputes;
 
-                let input = disputes::TestInput::from_json(test.input)?;
+                let mut input = disputes::TestInput::from_json(test.input)?;
                 let output = disputes::TestOutput::from_json(test.output)?;
-                let mut state = input.pre_state.clone().into();
-                let mut block = score::Block::default();
-                block.extrinsic.disputes = input.input.disputes.clone();
-                let result = sync::dispute::transit(&block, &mut state);
-
-                assert_eq!(result, output.output.map(|v| { v.offenders_mark }));
-                assert_eq!(
-                    if result.is_err() {
-                        input.pre_state
-                    } else {
-                        state.into()
-                    },
-                    output.post_state
+                let result = sync::dispute::disputes(
+                    input.pre_state.tau,
+                    &input.pre_state.kappa,
+                    &input.pre_state.lambda,
+                    &input.pre_state.psi,
+                    &input.input.disputes,
                 );
+
+                // check offenders mark
+                assert_eq!(
+                    result.clone().map(|(_, mark)| mark),
+                    output.output.map(|v| { v.offenders_mark })
+                );
+
+                if let Ok((psi, _)) = result {
+                    input.pre_state.psi = psi;
+                    input.pre_state.rho =
+                        sync::dispute::reports(&input.pre_state.psi, &input.pre_state.rho);
+                }
+
+                // check post state
+                assert_eq!(input.pre_state, output.post_state);
             }
             Section::History => {
                 use crate::history;
