@@ -1,7 +1,7 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::block::History;
+use score::{block::History, safrole::Safrole, validator::Validators};
 use specjam::{Section, Test};
 
 /// The `Runner` struct which is used to run the tests.
@@ -142,20 +142,58 @@ impl Runner {
                 let input = safrole::TestInput::from_json(test.input)?;
                 let output = safrole::TestOutput::from_json(test.output)?;
 
-                let mut block = score::Block::default();
-                block.header.slot = input.input.slot;
-                block.extrinsic.tickets = input.input.extrinsic.clone();
+                let mut state = input.pre_state.clone();
+                let new_epoch = input.input.slot / score::EPOCH_LENGTH
+                    > input.pre_state.tau / score::EPOCH_LENGTH;
 
-                let mut context = input.pre_state.into();
-                let result = sync::ticket::validate(&mut context, &block, input.input.entropy).map(
-                    |(epoch_mark, tickets_mark)| crate::safrole::Markers {
-                        epoch_mark,
-                        tickets_mark,
-                    },
+                let safrole = Safrole {
+                    validators: state.gamma_k.clone(),
+                    series: state.gamma_s.clone(),
+                    ring_commitment: state.gamma_z.clone(),
+                    accumulator: state.gamma_a.clone(),
+                };
+
+                let mut validators = Validators {
+                    current: state.kappa.clone(),
+                    next: state.iota.clone(),
+                    previous: state.lambda.clone(),
+                };
+
+                validators = sync::ticket::validators(new_epoch, &safrole.validators, &validators);
+                state.eta = sync::ticket::eta(new_epoch, &input.pre_state.eta, input.input.entropy);
+                let result = sync::ticket::safrole(
+                    state.tau,
+                    input.input.slot,
+                    state.eta,
+                    &state.post_offenders,
+                    &safrole,
+                    &validators,
+                    &input.input.extrinsic,
                 );
 
-                assert_eq!(result, output.output);
-                assert_eq!(context, output.post_state.into());
+                assert_eq!(
+                    result.clone().map(|safrole| safrole::Markers {
+                        epoch_mark: safrole.epoch_mark(new_epoch, &state.eta),
+                        tickets_mark: safrole.tickets_mark(state.tau, input.input.slot),
+                    }),
+                    output.output
+                );
+                assert_eq!(
+                    output.post_state,
+                    if result.is_ok() {
+                        let safrole = result?;
+                        state.gamma_a = safrole.accumulator;
+                        state.gamma_k = safrole.validators;
+                        state.gamma_s = safrole.series;
+                        state.gamma_z = safrole.ring_commitment;
+                        state.kappa = validators.current;
+                        state.lambda = validators.previous;
+                        state.tau = input.input.slot;
+                        state
+                    } else {
+                        input.pre_state
+                    }
+                );
             }
             Section::Statistics => {
                 use crate::statistics;

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents the CustomErrorCode enumeration.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Error {
     /// Timeslot value must be strictly monotonic

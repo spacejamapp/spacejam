@@ -1,10 +1,7 @@
 //! Block sync validation
 
 use anyhow::Result;
-use score::{
-    validator::{Validator, ValidatorData},
-    Block, OpaqueHash, State,
-};
+use score::{validator::Validator, Block, State};
 
 pub mod assurance;
 pub mod dispute;
@@ -25,11 +22,7 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
 
         // (λ') Update validator state (6.13)
-        state.validators.previous = ticket::lambda(
-            new_epoch,
-            &state.validators.previous,
-            &state.validators.current,
-        );
+        state.validators.previous = state.validators.previous(new_epoch);
 
         // (ψ') Update disputes and get marks
         let (disputes, marks) = crate::dispute::disputes(
@@ -57,6 +50,11 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
 
     // Round 2 computation
     {
+        // (κ') Update current validators (6.13)
+        state.validators.current = state
+            .validators
+            .current(new_epoch, &state.safrole.validators);
+
         // (W) the sequence of new available work reports (11.16)
         //
         // TODO: not sure why we still have mutation for `state.reports` here.
@@ -71,20 +69,26 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         // (W*) The sequence of accumulatable work-reports (12.9)
         //
         // TODO: not yet implemented.
-
-        // (κ') Update current validators (6.13)
-        state.validators.current = ticket::kappa(
-            new_epoch,
-            &state.safrole.validators,
-            &state.validators.current,
-        );
     }
 
     // Round 3 computation
     {
         // (γ') Update the sealing-key series (12.10)
-        //
-        // TODO: not yet implemented.
+        state.safrole = ticket::safrole(
+            state.timeslot,
+            block.header.slot,
+            state.entropy,
+            &state.disputes.offenders,
+            &state.safrole,
+            &state.validators,
+            &block.extrinsic.tickets,
+        )?;
+
+        // (π') Update the statistic
+        // state.statistics =
+        //     statistic::update(&state.statistics, &state.validators.current, &state.safrole)?;
+
+        // TODO: ACCUMULATION 12
     }
 
     Ok(state)

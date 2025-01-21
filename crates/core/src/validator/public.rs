@@ -20,6 +20,26 @@ pub struct Validators {
     pub previous: ValidatorsData,
 }
 
+impl Validators {
+    /// (λ') Returns the validators for the previous epoch.
+    pub fn previous(&self, new_epoch: bool) -> ValidatorsData {
+        if new_epoch {
+            self.current.clone()
+        } else {
+            self.previous.clone()
+        }
+    }
+
+    /// (κ') Returns the validators for the current epoch.
+    pub fn current(&self, new_epoch: bool, next: &ValidatorsData) -> ValidatorsData {
+        if new_epoch {
+            next.clone()
+        } else {
+            self.current.clone()
+        }
+    }
+}
+
 /// Represents the ValidatorData structure from ASN.1
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct ValidatorData {
