@@ -201,16 +201,14 @@ impl Runner {
                 let input = statistics::TestInput::from_json(test.input)?;
                 let output = statistics::TestOutput::from_json(test.output)?;
 
-                // construct inputs
-                let mut block = score::Block::default();
-                block.header.slot = input.input.slot;
-                block.header.author_index = input.input.author_index;
-                block.extrinsic = input.input.extrinsic.clone();
-                let mut context = input.pre_state.into();
-
                 // validate
-                sync::statistic::validate(&mut context, &block);
-                assert_eq!(context, output.post_state.into());
+                let state = input.pre_state.pi.update(
+                    input.pre_state.tau,
+                    input.input.slot,
+                    input.input.author_index,
+                    &input.input.extrinsic,
+                );
+                assert_eq!(state, output.post_state.pi);
             }
             Section::Pvm => {
                 use crate::pvm;

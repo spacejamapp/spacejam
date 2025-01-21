@@ -7,7 +7,6 @@ pub mod assurance;
 pub mod dispute;
 pub mod guarantee;
 pub mod preimage;
-pub mod statistic;
 pub mod ticket;
 
 /// Transit state with new block
@@ -85,10 +84,17 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         )?;
 
         // (π') Update the statistic
-        // state.statistics =
-        //     statistic::update(&state.statistics, &state.validators.current, &state.safrole)?;
+        state.statistics = state.statistics.update(
+            state.timeslot,
+            block.header.slot,
+            block.header.author_index,
+            &block.extrinsic,
+        );
 
         // TODO: ACCUMULATION 12
+
+        // (τ') Update the timeslot
+        state.timeslot = block.header.slot;
     }
 
     Ok(state)
