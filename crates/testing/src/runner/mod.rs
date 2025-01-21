@@ -97,19 +97,15 @@ impl Runner {
 
                 let input = preimage::TestInput::from_json(test.input)?;
                 let output = preimage::TestOutput::from_json(test.output)?;
-                let pre = preimage::to_state(input.pre_state.accounts);
-                let post = preimage::to_state(output.post_state.accounts);
-
-                let mut context = pre.clone();
-                let mut block = score::Block::default();
-                block.header.slot = input.input.slot;
-                block.extrinsic.preimages = input.input.preimages.clone();
 
                 // Validate post state
-                if sync::preimage::validate(&mut context, &block).is_ok() {
-                    assert_eq!(context, post);
+                let accounts = preimage::to_accounts(input.pre_state.accounts.clone());
+                let result =
+                    sync::preimage::accounts(input.input.slot, &input.input.preimages, &accounts);
+                if let Ok(accounts) = result {
+                    assert_eq!(accounts, preimage::to_accounts(output.post_state.accounts));
                 } else {
-                    assert_eq!(pre, post);
+                    assert_eq!(input.pre_state, output.post_state);
                 }
             }
             Section::Reports => {

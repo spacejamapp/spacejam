@@ -1,32 +1,33 @@
 //! Preimage handler
 
 use anyhow::Result;
-use score::{Block, State};
+use score::{extrinsic::PreimagesExtrinsic, service::ServiceAccount, TimeSlot};
+use std::collections::BTreeMap;
 
 /// handle preimage
-pub fn validate(state: &mut State, block: &Block) -> Result<()> {
-    let slot = block.header.slot;
-    let preimages = &block.extrinsic.preimages;
-
-    // validate preimages
+pub fn accounts(
+    slot: TimeSlot,
+    preimages: &PreimagesExtrinsic,
+    accounts: &BTreeMap<u32, ServiceAccount>,
+) -> Result<BTreeMap<u32, ServiceAccount>> {
     let mut missing = Vec::new();
-    for (id, acc) in state.accounts.clone().into_iter() {
-        for ((hash, _), _) in acc.lookup.clone().into_iter() {
-            if !acc.preimage.contains_key(&hash) {
+    for (id, acc) in accounts.iter() {
+        for ((hash, _), _) in acc.lookup.iter() {
+            if !acc.preimage.contains_key(hash) {
                 missing.push((id, hash));
             }
         }
     }
 
+    let mut next = accounts.clone();
     let mut preimages = preimages.clone();
     while let Some(preimage) = preimages.pop() {
         let hash = crypto::blake2b(&preimage.blob);
-        if !missing.contains(&(preimage.requester, hash)) {
+        if !missing.contains(&(&preimage.requester, &hash)) {
             anyhow::bail!("Preimage not needed");
         }
 
-        let account = state
-            .accounts
+        let account = next
             .get_mut(&preimage.requester)
             .ok_or(anyhow::anyhow!("Service account not found"))?;
 
@@ -45,7 +46,7 @@ pub fn validate(state: &mut State, block: &Block) -> Result<()> {
     }
 
     if !preimages.is_empty() {
-        anyhow::bail!("Preimages not needed");
+        anyhow::bail!("Preimages not empty");
     }
-    Ok(())
+    Ok(next)
 }

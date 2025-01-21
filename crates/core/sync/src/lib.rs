@@ -1,7 +1,7 @@
 //! Block sync validation
 
 use anyhow::Result;
-use score::{validator::Validator, Block, State};
+use score::{block::History, validator::Validator, Block, State};
 
 pub mod assurance;
 pub mod dispute;
@@ -95,6 +95,26 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
+    }
+
+    // Round 4 computation
+    {
+        // (δ') Update the accounts
+        state.accounts = preimage::accounts(
+            block.header.slot,
+            &block.extrinsic.preimages,
+            &state.accounts,
+        )?;
+
+        // (β') Update the block history
+        state.recent_blocks.import(
+            block.header.hash()?,
+            block.header.parent_state_root,
+            Default::default(), // TODO: connect storage to get this state
+            Default::default(), // TODO: ACCMUTATION 12
+        );
+
+        // TODO: (α') Update the authorization pool
     }
 
     Ok(state)
