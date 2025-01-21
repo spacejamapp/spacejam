@@ -42,10 +42,10 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         state.disputes = disputes;
 
         // (ρ†) Update availability assignments based on verdicts (V)
-        state.reports = crate::dispute::reports(&marks, &state.reports);
+        state.reports = dispute::reports(&marks, &state.reports);
 
         // (ρ‡) Update availability assignments based on assurances
-        let (reports, _availiable) = crate::assurance::transit(
+        let (reports, _availiable) = crate::assurance::reports(
             &state.reports,
             &state.validators.current,
             block.header.slot,
@@ -55,6 +55,11 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         state.reports = reports;
 
         // (ρ') Update availability assignments based on guarantees
+        state.reports = guarantee::reports(
+            block.header.slot,
+            &state.reports,
+            &block.extrinsic.guarantees,
+        )?;
     }
 
     Ok(state)

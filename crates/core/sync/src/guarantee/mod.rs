@@ -2,7 +2,10 @@
 
 use crypto::shuffle;
 use dep::Dependencies;
-use score::{extrinsic::GuaranteesExtrinsic, Block, Ed25519Public, EPOCH_LENGTH, ROTATION_PERIOD};
+use score::{
+    extrinsic::GuaranteesExtrinsic, work::AvailabilityAssignments, Block, Ed25519Public,
+    EPOCH_LENGTH, ROTATION_PERIOD,
+};
 pub use state::{State, StateJson};
 use {
     error::{Error, Result},
@@ -31,6 +34,34 @@ pub fn validate(
     let result = context.validate(block)?;
     context.next.apply(state);
     Ok(result)
+}
+
+/// (ρ') Update availability assignments based on guarantees
+pub fn reports(
+    slot: TimeSlot,
+    prev: &AvailabilityAssignments,
+    guarantees: &GuaranteesExtrinsic,
+) -> Result<AvailabilityAssignments> {
+    let mut next = prev.clone();
+    for guarantee in guarantees.iter() {
+        let core_index = guarantee.report.core_index as usize;
+        if core_index >= CORES_COUNT {
+            return Err(Error::BadCoreIndex);
+        }
+
+        if let Some(Some(assignment)) = prev.get(core_index) {
+            if slot <= assignment.timeout + 1 {
+                return Err(Error::CoreEngaged);
+            }
+        }
+
+        next[core_index] = Some(AvailabilityAssignment {
+            report: guarantee.report.clone(),
+            timeout: slot,
+        });
+    }
+
+    Ok(next)
 }
 
 /// Context of the reporting module.
@@ -64,9 +95,12 @@ impl Context {
             .map(|s| s.info.code)
             .collect::<Vec<_>>();
 
+        let assignments = reports(slot, &self.prev.avail_assignments, guarantees)?;
+        self.next.avail_assignments = assignments;
+
         // Process each guarantee
         for guarantee in guarantees.iter() {
-            self.validate_core(slot, guarantee)?;
+            self.validate_core(guarantee)?;
             self.validate_rotation(slot, guarantee)?;
             self.validate_results(&code_hashes, &service_ids, guarantee)?;
             self.validate_block(guarantee)?;
@@ -78,13 +112,6 @@ impl Context {
             reported.push(SegmentRootLookupItem {
                 work_package_hash: guarantee.report.package_spec.hash,
                 segment_tree_root: guarantee.report.package_spec.exports_root,
-            });
-
-            // Update state
-            let core_index = guarantee.report.core_index as usize;
-            self.next.avail_assignments[core_index] = Some(AvailabilityAssignment {
-                report: guarantee.report.clone(),
-                timeout: slot,
             });
 
             // Record reporters (guarantors)
@@ -177,23 +204,17 @@ impl Context {
         Ok(())
     }
 
-    fn validate_core(&self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
-        let core_index = guarantee.report.core_index;
-        if guarantee.report.core_index >= CORES_COUNT as u16 {
-            return Err(Error::BadCoreIndex);
-        }
+    fn validate_core(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        // NOTE: This has already been checked in the [reports] function.
+        //
+        // if guarantee.report.core_index >= CORES_COUNT as u16 {
+        //     return Err(Error::BadCoreIndex);
+        // }
 
         if !self.prev.auth_pools[guarantee.report.core_index as usize]
             .contains(&guarantee.report.authorizer_hash)
         {
             return Err(Error::CoreUnauthorized);
-        }
-
-        // Check if core already has a pending report that hasn't timed out
-        if let Some(Some(assignment)) = self.prev.avail_assignments.get(core_index as usize) {
-            if slot <= assignment.timeout + 1 {
-                return Err(Error::CoreEngaged);
-            }
         }
 
         Ok(())

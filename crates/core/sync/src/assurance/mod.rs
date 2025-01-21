@@ -18,7 +18,7 @@ mod error;
 mod state;
 
 /// (ρ‡) Handle assurances input and return newly available reports
-pub fn transit(
+pub fn reports(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],
     slot: TimeSlot,
