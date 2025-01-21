@@ -1,6 +1,10 @@
 //! Block sync validation
 
-use score::{validator::ValidatorData, OpaqueHash};
+use anyhow::Result;
+use score::{
+    validator::{Validator, ValidatorData},
+    Block, OpaqueHash, State,
+};
 
 pub mod assurance;
 pub mod dispute;
@@ -9,7 +13,39 @@ pub mod preimage;
 pub mod statistic;
 pub mod ticket;
 
-/// Updates the entropy accumulator.
+/// Transit state with new block
+pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Result<State> {
+    let epoch = block.header.slot / score::EPOCH_LENGTH;
+    let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+
+    // (η') Update entropy
+    let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
+    state.entropy = crate::eta(new_epoch, &state.entropy, entropy);
+
+    // (λ') Update validator state
+    state.validators.previous = crate::lambda(
+        new_epoch,
+        &state.validators.previous,
+        &state.validators.current,
+    );
+
+    // (ψ') Update disputes and get marks
+    let (disputes, marks) = crate::dispute::disputes(
+        state.timeslot,
+        &state.validators.current,
+        &state.validators.previous,
+        &state.disputes,
+        &block.extrinsic.disputes,
+    )?;
+    state.disputes = disputes;
+
+    // (ρ†) Update availability assignments based on verdicts (V)
+    state.reports = crate::dispute::reports(&marks, &state.reports);
+
+    Ok(state)
+}
+
+/// (η') Updates the entropy accumulator.
 ///
 /// graypaper reference: 6.4
 pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [OpaqueHash; 4] {
@@ -31,7 +67,7 @@ pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [Opaq
     next
 }
 
-/// Updates the previous epoch's validators.
+/// (λ') Updates the previous epoch's validators.
 pub fn lambda(
     new_epoch: bool,
     lambda: &[ValidatorData],

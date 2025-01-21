@@ -3,20 +3,16 @@
 //! 1. update judgements on work-reports and validators (ψ)
 //! 2. update pending reports (ρ)
 use crate::dispute;
+pub use error::{Error, Result};
 use score::{
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
     validator::ValidatorsData,
-    work::AvailabilityAssignment,
+    work::AvailabilityAssignments,
     Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use std::collections::BTreeMap;
-pub use {
-    error::{Error, Result},
-    state::{State, StateJson},
-};
 
 pub mod error;
-mod state;
 
 /// (ψ) Update disputes verdicts and offenders
 pub fn disputes(
@@ -25,18 +21,17 @@ pub fn disputes(
     lambda: &ValidatorsData,
     psi: &DisputesRecords,
     extrinsic: &DisputesExtrinsic,
-) -> Result<(DisputesRecords, Vec<Ed25519Public>)> {
+) -> Result<(DisputesRecords, DisputesRecords)> {
     let mut next_psi = psi.clone();
-    let mut offenders_mark = vec![];
-    let records = dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
+    let mut records = dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
 
     // handle culprits
     let offenders = dispute::culprits(psi, &records.bad, &extrinsic.culprits)?;
-    offenders_mark.extend(&offenders);
+    records.offenders.extend(&offenders);
 
     // handle faults
     let offenders = dispute::faults(psi, &records.good, &extrinsic.faults)?;
-    offenders_mark.extend(&offenders);
+    records.offenders.extend(&offenders);
 
     // update psi
     {
@@ -45,19 +40,19 @@ pub fn disputes(
         next_psi.bad.extend(&records.bad);
 
         // TODO: make offenders unique
-        next_psi.offenders.extend(&offenders_mark);
+        next_psi.offenders.extend(&records.offenders);
         next_psi.offenders.sort();
     }
 
-    Ok((next_psi, offenders_mark))
+    Ok((next_psi, records))
 }
 
-/// (ρ) Update availability assignments based on verdicts (ψ')
+/// (ρ†) Update availability assignments based on verdicts (ψ')
 pub fn reports(
     records: &DisputesRecords,
-    assignments: &[Option<AvailabilityAssignment>],
-) -> Vec<Option<AvailabilityAssignment>> {
-    let mut next_assignments = assignments.to_vec();
+    assignments: &AvailabilityAssignments,
+) -> AvailabilityAssignments {
+    let mut next_assignments = assignments.clone();
 
     // Clean work-reports from rho if they were judged as uncertain or invalid
     // This implements equation (eq:removenonpositive) from the graypaper
@@ -72,7 +67,7 @@ pub fn reports(
             }
         }
     }
-    next_assignments.to_vec()
+    next_assignments
 }
 
 // Update goodset, badset, wonkyset based on verdicts
@@ -140,10 +135,10 @@ fn verdicts(
         }
 
         match aye {
-            aye if aye == VALIDATORS_SUPER_MAJORITY => {
+            aye if aye >= VALIDATORS_SUPER_MAJORITY => {
                 records.good.push(verdict.target);
             }
-            aye if aye == VALIDATORS_COUNT / 3 => {
+            aye if aye >= VALIDATORS_COUNT / 3 => {
                 records.wonky.push(verdict.target);
             }
             0 => {

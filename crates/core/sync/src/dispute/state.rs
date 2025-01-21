@@ -2,7 +2,7 @@
 
 use score::{
     extrinsic::dispute::{DisputesRecords, DisputesRecordsJson},
-    validator::{ValidatorDataJson, Validators, ValidatorsData},
+    validator::{ValidatorDataJson, ValidatorsData},
     work::{AvailabilityAssignment, AvailabilityAssignmentJson},
     TimeSlot,
 };
@@ -25,35 +25,4 @@ pub struct State {
     /// [λ] Validators active in the previous epoch
     #[json(Vec<ValidatorDataJson>)]
     pub lambda: ValidatorsData,
-}
-
-impl From<score::State> for State {
-    fn from(state: score::State) -> Self {
-        State {
-            psi: state.disputes,
-            rho: state.reports.to_vec(),
-            tau: state.timeslot,
-            kappa: state.validators.current.to_vec(),
-            lambda: state.validators.previous.to_vec(),
-        }
-    }
-}
-
-impl From<State> for score::State {
-    fn from(state: State) -> Self {
-        let mut target = score::State {
-            timeslot: state.tau,
-            disputes: state.psi,
-            validators: Validators {
-                next: Default::default(),
-                current: state.kappa.into_iter().collect(),
-                previous: state.lambda.into_iter().collect(),
-            },
-            ..Default::default()
-        };
-        for (i, assignment) in state.rho.iter().enumerate() {
-            target.reports[i] = assignment.clone();
-        }
-        target
-    }
 }

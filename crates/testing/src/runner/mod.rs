@@ -57,14 +57,13 @@ impl Runner {
 
                 // check offenders mark
                 assert_eq!(
-                    result.clone().map(|(_, mark)| mark),
+                    result.clone().map(|(_, mark)| mark.offenders),
                     output.output.map(|v| { v.offenders_mark })
                 );
 
-                if let Ok((psi, _)) = result {
+                if let Ok((psi, records)) = result {
                     input.pre_state.psi = psi;
-                    input.pre_state.rho =
-                        sync::dispute::reports(&input.pre_state.psi, &input.pre_state.rho);
+                    input.pre_state.rho = sync::dispute::reports(&records, &input.pre_state.rho);
                 }
 
                 // check post state

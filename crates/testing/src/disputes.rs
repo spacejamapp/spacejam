@@ -2,12 +2,16 @@
 
 use core::result::Result;
 use score::{
-    extrinsic::dispute::{DisputesExtrinsic, DisputesExtrinsicJson},
-    Ed25519Public,
+    extrinsic::dispute::{
+        DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
+    },
+    validator::{ValidatorDataJson, ValidatorsData},
+    work::{AvailabilityAssignmentJson, AvailabilityAssignments},
+    Ed25519Public, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::dispute::{error::Error, State, StateJson};
+use sync::dispute::error::Error;
 
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
@@ -38,6 +42,24 @@ pub struct OffendersMark {
     /// [H_o] Offenders marker
     #[json(Vec<String>)]
     pub offenders_mark: Vec<Ed25519Public>,
+}
+
+#[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize, Clone)]
+pub struct State {
+    /// [ψ] Disputes verdicts and offenders
+    #[json(nested)]
+    pub psi: DisputesRecords,
+    /// [ρ] Availability cores assignments
+    #[json(Vec<Option<AvailabilityAssignmentJson>>)]
+    pub rho: AvailabilityAssignments,
+    /// [τ] Timeslot
+    pub tau: TimeSlot,
+    /// [κ] Validators active in the current epoch
+    #[json(Vec<ValidatorDataJson>)]
+    pub kappa: ValidatorsData,
+    /// [λ] Validators active in the previous epoch
+    #[json(Vec<ValidatorDataJson>)]
+    pub lambda: ValidatorsData,
 }
 
 crate::impl_tests! {
