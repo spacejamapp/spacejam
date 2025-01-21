@@ -14,17 +14,26 @@ impl Runner {
             Section::Assurances => {
                 use crate::assurances;
 
-                let input = assurances::TestInput::from_json(test.input)?;
+                let mut input = assurances::TestInput::from_json(test.input)?;
                 let assurances::TestOutput { output, post_state } =
                     assurances::TestOutput::from_json(test.output)?;
 
                 // validate output
-                let mut context = input.pre_state.clone().into();
-                let result = sync::assurance::validate(&mut context, &input.input.into());
-                assert_eq!(result, output.map(|s| s.reported));
+                let result = sync::assurance::transit(
+                    &input.pre_state.avail_assignments,
+                    &input.pre_state.curr_validators,
+                    input.input.slot,
+                    input.input.parent,
+                    &input.input.assurances,
+                );
+                assert_eq!(result.clone().map(|(_, a)| a), output.map(|s| s.reported));
 
                 // validate post state
-                assert_eq!(post_state, context.into());
+                if let Ok((assignments, _)) = result {
+                    input.pre_state.avail_assignments = assignments;
+                }
+
+                assert_eq!(post_state, input.pre_state);
             }
             Section::Authorizations => {
                 use crate::authorizations;

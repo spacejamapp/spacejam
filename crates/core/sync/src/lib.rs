@@ -18,29 +18,44 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
 
-    // (η') Update entropy
-    let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
-    state.entropy = crate::eta(new_epoch, &state.entropy, entropy);
+    // The first round computation
+    {
+        // (η') Update entropy
+        let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
+        state.entropy = crate::eta(new_epoch, &state.entropy, entropy);
 
-    // (λ') Update validator state
-    state.validators.previous = crate::lambda(
-        new_epoch,
-        &state.validators.previous,
-        &state.validators.current,
-    );
+        // (λ') Update validator state
+        state.validators.previous = crate::lambda(
+            new_epoch,
+            &state.validators.previous,
+            &state.validators.current,
+        );
 
-    // (ψ') Update disputes and get marks
-    let (disputes, marks) = crate::dispute::disputes(
-        state.timeslot,
-        &state.validators.current,
-        &state.validators.previous,
-        &state.disputes,
-        &block.extrinsic.disputes,
-    )?;
-    state.disputes = disputes;
+        // (ψ') Update disputes and get marks
+        let (disputes, marks) = crate::dispute::disputes(
+            state.timeslot,
+            &state.validators.current,
+            &state.validators.previous,
+            &state.disputes,
+            &block.extrinsic.disputes,
+        )?;
+        state.disputes = disputes;
 
-    // (ρ†) Update availability assignments based on verdicts (V)
-    state.reports = crate::dispute::reports(&marks, &state.reports);
+        // (ρ†) Update availability assignments based on verdicts (V)
+        state.reports = crate::dispute::reports(&marks, &state.reports);
+
+        // (ρ‡) Update availability assignments based on assurances
+        let (reports, _availiable) = crate::assurance::transit(
+            &state.reports,
+            &state.validators.current,
+            block.header.slot,
+            block.header.parent,
+            &block.extrinsic.assurances,
+        )?;
+        state.reports = reports;
+
+        // (ρ') Update availability assignments based on guarantees
+    }
 
     Ok(state)
 }
