@@ -7,10 +7,17 @@ use spacejson::Json;
 /// Represents an assurance of availability.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct AvailAssurance {
+    /// The anchor of the assurance.
     #[json(hex)]
     pub anchor: OpaqueHash,
+
+    /// The bitfield of the assurance.
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
+
+    /// The index of the validator that signed the assurance.
     pub validator_index: ValidatorIndex,
+
+    /// The signature of the assurance.
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub signature: Ed25519Signature,

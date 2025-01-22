@@ -1,7 +1,7 @@
 //! Block sync validation
 
 use anyhow::Result;
-use score::{block::History, validator::Validator, Block, State};
+use score::{block::History, validator::Validator, work::WorkReport, Block, OpaqueHash, State};
 
 pub mod assurance;
 pub mod dispute;
@@ -48,30 +48,24 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
     }
 
     // Round 2 computation
-    {
+    let available = {
         // (κ') Update current validators (6.13)
         state.validators.current = state
             .validators
             .current(new_epoch, &state.safrole.validators);
 
-        // (W) the sequence of new available work reports (11.16)
-        //
-        // TODO: not sure why we still have mutation for `state.reports` here.
-        let (_assignments, _reports) = crate::assurance::available(
+        // (W*) the sequence of new available work reports (11.16)
+        crate::assurance::available(
             &state.reports,
             &state.validators.current,
             block.header.slot,
             block.header.parent,
             &block.extrinsic.assurances,
-        )?;
-
-        // (W*) The sequence of accumulatable work-reports (12.9)
-        //
-        // TODO: not yet implemented.
-    }
+        )?
+    };
 
     // Round 3 computation
-    {
+    let root = {
         // (γ') Update the sealing-key series (12.10)
         state.safrole = ticket::safrole(
             state.timeslot,
@@ -91,11 +85,11 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
             &block.extrinsic,
         );
 
-        // TODO: ACCUMULATION 12
-
-        // (τ') Update the timeslot
-        state.timeslot = block.header.slot;
-    }
+        // (..., C) Accumulate the available work reports
+        //
+        // TODO: 12
+        crate::accumulate(available)
+    };
 
     // Round 4 computation
     {
@@ -120,10 +114,20 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         state.recent_blocks.import(
             block.header.hash()?,
             block.header.parent_state_root,
-            Default::default(), // TODO: connect storage to get this state
+            root,
             reported,
         );
+
+        // (τ') Update the timeslot
+        state.timeslot = block.header.slot;
     }
 
     Ok(state)
+}
+
+/// (b) Accumulate the available work reports
+///
+/// TODO: 12
+fn accumulate(_available: Vec<WorkReport>) -> OpaqueHash {
+    Default::default()
 }
