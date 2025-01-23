@@ -39,11 +39,12 @@ impl Network {
                 connection_id,
             } => {
                 tracing::trace!("connection {peer} closed: {connection_id:?}");
+                self.metrics.close_connection(peer.to_string());
                 self.peer.remove(peer, connection_id);
             }
             Litep2pEvent::ConnectionEstablished { peer, endpoint } => {
                 tracing::trace!("connection {peer} established: {endpoint:?}");
-                *self.context.write().await += 1;
+                self.metrics.establish_connection(peer.to_string());
                 self.peer.add(peer, endpoint);
             }
             Litep2pEvent::DialFailure { address, error } => {

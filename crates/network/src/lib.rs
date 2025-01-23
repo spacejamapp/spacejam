@@ -1,6 +1,5 @@
 //! Network implementation of Spacejam.
 
-pub use config::Config;
 use litep2p::{
     config::ConfigBuilder,
     protocol::{
@@ -14,12 +13,14 @@ use litep2p::{
     },
     Litep2p,
 };
+use metrics::Metrics;
 use peer::PeerManager;
 use std::{pin::Pin, sync::Arc};
-use tokio::sync::RwLock;
 use tokio_stream::Stream;
+pub use {config::Config, context::Context};
 
 pub mod config;
+mod context;
 mod event;
 mod peer;
 
@@ -53,12 +54,8 @@ pub struct Network {
     /// Peer manager.
     peer: PeerManager,
 
-    /// Context.
-    ///
-    /// currently just used for testing to check if the
-    /// network is ready, it will embed the storage interface
-    /// in the future.
-    pub context: Arc<RwLock<usize>>,
+    /// Metrics.
+    pub metrics: Arc<Metrics>,
 }
 
 impl Network {
@@ -86,7 +83,6 @@ impl Network {
 
         // Create the network instance
         let mut this = Self {
-            p2p,
             block: block_handle,
             ping: Box::pin(ping_handle),
             kad: kad_handle,
@@ -94,7 +90,8 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
-            context: Arc::new(RwLock::new(0)),
+            metrics: Arc::new(Metrics::new(&p2p.local_peer_id().to_string())),
+            p2p,
         };
 
         // Bootstrap the network
