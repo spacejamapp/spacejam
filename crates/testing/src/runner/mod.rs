@@ -18,6 +18,8 @@ impl Runner {
                 let assurances::TestOutput { output, post_state } =
                     assurances::TestOutput::from_json(test.output)?;
 
+                assert_eq!(input.pre_state.curr_validators, post_state.curr_validators);
+
                 // validate output
                 let result = sync::assurance::available(
                     &input.pre_state.avail_assignments,
@@ -26,14 +28,27 @@ impl Runner {
                     input.input.parent,
                     &input.input.assurances,
                 );
-                assert_eq!(result.clone().map(|(_, a)| a), output.map(|s| s.reported));
+                assert_eq!(result, output.map(|s| s.reported));
 
                 // validate post state
-                if let Ok((assignments, _)) = result {
+                if let Ok(available) = result {
+                    let mut assignments = sync::assurance::reports(
+                        input.input.slot,
+                        input.pre_state.avail_assignments,
+                    );
+
+                    // remove the available work reports from the assignments
+                    // to get the mark for testing.
+                    for work in available {
+                        assignments[work.core_index as usize] = None;
+                    }
                     input.pre_state.avail_assignments = assignments;
                 }
 
-                assert_eq!(post_state, input.pre_state);
+                assert_eq!(
+                    input.pre_state.avail_assignments,
+                    post_state.avail_assignments,
+                );
             }
             Section::Authorizations => {
                 use crate::authorizations;

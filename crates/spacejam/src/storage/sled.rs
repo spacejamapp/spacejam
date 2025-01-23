@@ -2,7 +2,7 @@
 #![cfg(feature = "sled")]
 
 use anyhow::Result;
-use score::{state::Storage, OpaqueHash};
+use score::state::Storage;
 use sled::{Batch, Db};
 use std::path::Path;
 
@@ -22,10 +22,10 @@ impl Storage for Sled {
         Ok(())
     }
 
-    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
+    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
         let mut batch = Batch::default();
         for (key, value) in kvs {
-            batch.insert(key.as_ref(), value);
+            batch.insert(key, value);
         }
         self.db.apply_batch(batch)?;
         Ok(())
@@ -35,25 +35,20 @@ impl Storage for Sled {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>> {
-        let values = keys
-            .iter()
-            .map(|k| self.get(k).map(|v| v.unwrap_or_default()))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(values)
+    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
+        let _ = self.db.remove(key.as_ref())?;
+        Ok(())
     }
 
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>> {
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let iter = self.db.scan_prefix(prefix.as_ref());
 
         Ok(iter.map(|r| {
             let (k, v) = r?;
-            let key = OpaqueHash::try_from(k.to_vec())
-                .map_err(|e| anyhow::anyhow!("failed to decode key: {e:?}"))?;
-            Ok((key, v.to_vec()))
+            Ok((k.to_vec(), v.to_vec()))
         }))
     }
 }

@@ -1,7 +1,13 @@
 //! Block sync validation
 
 use anyhow::Result;
-use score::{block::History, validator::Validator, Block, State};
+use score::{
+    block::History,
+    state::{self, key, Storage},
+    validator::Validator,
+    work::WorkReport,
+    Block, OpaqueHash,
+};
 
 pub mod assurance;
 pub mod dispute;
@@ -10,7 +16,12 @@ pub mod preimage;
 pub mod ticket;
 
 /// Transit state with new block
-pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Result<State> {
+pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
+    let branch = storage.checkout(block.header.parent);
+    let mut state = branch.state()?;
+    let mut diff = branch.diff();
+
+    // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
 
@@ -19,9 +30,16 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         // (η') Update entropy (6.22)
         let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
+        diff.insert(key::ENTROPY, codec::encode(&state.entropy)?);
 
         // (λ') Update validator state (6.13)
         state.validators.previous = state.validators.previous(new_epoch);
+        if new_epoch {
+            diff.insert(
+                key::PREVIOUS_VALIDATORS,
+                codec::encode(&state.validators.previous)?,
+            );
+        }
 
         // (ψ') Update disputes and get marks
         let (disputes, marks) = crate::dispute::disputes(
@@ -31,47 +49,51 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
             &state.disputes,
             &block.extrinsic.disputes,
         )?;
-        state.disputes = disputes;
+        if disputes != state.disputes {
+            diff.insert(key::DISPUTES, codec::encode(&disputes)?);
+            state.disputes = disputes;
+        }
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
-        state.reports = dispute::reports(&marks, &state.reports);
+        let mut reports = dispute::reports(&marks, &state.reports);
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
-        state.reports = crate::assurance::reports(block.header.slot, state.reports);
+        reports = crate::assurance::reports(block.header.slot, reports.clone());
 
         // (ρ') Update availability assignments based on guarantees (11.43)
-        state.reports = guarantee::reports(
-            block.header.slot,
-            &state.reports,
-            &block.extrinsic.guarantees,
-        )?;
+        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
+
+        if reports != state.reports {
+            diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
+            state.reports = reports;
+        }
     }
 
     // Round 2 computation
-    {
+    let available = {
         // (κ') Update current validators (6.13)
         state.validators.current = state
             .validators
             .current(new_epoch, &state.safrole.validators);
+        if new_epoch {
+            diff.insert(
+                key::CURRENT_VALIDATORS,
+                codec::encode(&state.validators.current)?,
+            );
+        }
 
-        // (W) the sequence of new available work reports (11.16)
-        //
-        // TODO: not sure why we still have mutation for `state.reports` here.
-        let (_assignments, _reports) = crate::assurance::available(
+        // (W*) the sequence of new available work reports (11.16)
+        crate::assurance::available(
             &state.reports,
             &state.validators.current,
             block.header.slot,
             block.header.parent,
             &block.extrinsic.assurances,
-        )?;
-
-        // (W*) The sequence of accumulatable work-reports (12.9)
-        //
-        // TODO: not yet implemented.
-    }
+        )?
+    };
 
     // Round 3 computation
-    {
+    let root = {
         // (γ') Update the sealing-key series (12.10)
         state.safrole = ticket::safrole(
             state.timeslot,
@@ -82,6 +104,7 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
             &state.validators,
             &block.extrinsic.tickets,
         )?;
+        diff.insert(key::SAFROLE, codec::encode(&state.safrole)?);
 
         // (π') Update the statistic
         state.statistics = state.statistics.update(
@@ -90,29 +113,38 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
             block.header.author_index,
             &block.extrinsic,
         );
+        diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
-        // TODO: ACCUMULATION 12
-
-        // (τ') Update the timeslot
-        state.timeslot = block.header.slot;
-    }
+        // (..., C) Accumulate the available work reports
+        //
+        // TODO: 12
+        crate::accumulate(available)
+    };
 
     // Round 4 computation
     {
         // (δ') Update the accounts
-        state.accounts = preimage::accounts(
+        let accounts = preimage::accounts(
             block.header.slot,
             &block.extrinsic.preimages,
             &state.accounts,
         )?;
+        if accounts != state.accounts {
+            diff.extend(state::accounts(&accounts)?);
+            state.accounts = accounts;
+        }
 
         // (α') Update the authorization pool
-        state.pools = guarantee::pools(
+        let pools = guarantee::pools(
             block.header.slot,
             &state.pools,
             &state.authorization,
             &block.extrinsic.guarantees,
         );
+        if pools != state.pools {
+            diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
+            state.pools = pools;
+        }
 
         // (β') Update the block history
         let (reported, _) =
@@ -120,10 +152,22 @@ pub fn transit(block: &Block, mut state: State, validator: impl Validator) -> Re
         state.recent_blocks.import(
             block.header.hash()?,
             block.header.parent_state_root,
-            Default::default(), // TODO: connect storage to get this state
+            root,
             reported,
         );
+        diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+
+        // (τ') Update the timeslot
+        state.timeslot = block.header.slot;
+        diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }
 
-    Ok(state)
+    branch.commit(diff)
+}
+
+/// (b) Accumulate the available work reports
+///
+/// TODO: 12
+fn accumulate(_available: Vec<WorkReport>) -> OpaqueHash {
+    Default::default()
 }

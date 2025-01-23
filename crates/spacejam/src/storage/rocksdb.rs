@@ -2,7 +2,7 @@
 #![cfg(feature = "rocksdb")]
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
-use score::{state::Storage, OpaqueHash};
+use score::state::Storage;
 use std::path::Path;
 
 /// The RocksDB storage of SpaceJam
@@ -25,7 +25,7 @@ impl Storage for RocksDB {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
+    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
         let mut batch = WriteBatch::default();
         for (key, value) in kvs {
             batch.put(&key, &value);
@@ -34,22 +34,18 @@ impl Storage for RocksDB {
         Ok(())
     }
 
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>> {
-        let values = keys
-            .iter()
-            .map(|k| self.get(k).map(|v| v.unwrap_or_default()))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(values)
+    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
+        self.db.delete(key.as_ref()).map_err(Into::into)
     }
 
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>> {
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let iter = self.db.prefix_iterator(prefix.as_ref());
         Ok(iter.map(|r| {
             let (k, v) = r?;
-            Ok((OpaqueHash::try_from(k.to_vec()).unwrap(), v.to_vec()))
+            Ok((k.to_vec(), v.to_vec()))
         }))
     }
 }
