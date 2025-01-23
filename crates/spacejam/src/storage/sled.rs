@@ -31,10 +31,10 @@ impl Storage for Sled {
         Ok(())
     }
 
-    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
+    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
         let mut batch = Batch::default();
         for (key, value) in kvs {
-            batch.insert(key.as_ref(), value);
+            batch.insert(key, value);
         }
         self.db.apply_batch(batch)?;
         Ok(())
@@ -44,7 +44,7 @@ impl Storage for Sled {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_read(&self, keys: Vec<[u8; 32]>) -> Result<Vec<Vec<u8>>> {
+    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
         let values = keys
             .iter()
             .map(|k| self.get(k).map(|v| v.unwrap_or_default()))

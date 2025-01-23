@@ -36,13 +36,13 @@ pub trait Storage: Sized {
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
 
     /// Batch write a set of key-value pairs to the storage
-    fn batch_write(&self, kvs: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()>;
+    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()>;
 
     /// Get a value from the storage
     fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
 
     /// Batch read a set of key-value pairs from the storage
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>>;
+    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>>;
 
     /// Remove a key-value pair from the storage
     fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
@@ -145,23 +145,28 @@ pub trait Storage: Sized {
     /// We don't decode account data in this batch since it will be too large.
     fn state(&self) -> Result<State> {
         let mut state = State::default();
-        let data: Vec<Vec<u8>> = self.batch_read(vec![
-            key::AUTHORIZATION_POOLS,
-            key::AUTHORIZATION_QUEUE,
-            key::RECENT_BLOCKS,
-            key::SAFROLE,
-            key::DISPUTES,
-            key::ENTROPY,
-            key::NEXT_VALIDATORS,
-            key::CURRENT_VALIDATORS,
-            key::PREVIOUS_VALIDATORS,
-            key::PENDING_REPORTS,
-            key::TIMESLOT,
-            key::PRIVILEGED_SERVICE,
-            key::STATISTICS,
-            key::ACCUMULATION_QUEUE,
-            key::ACCUMULATION_HISTORY,
-        ])?;
+        let data: Vec<Vec<u8>> = self.batch_read(
+            vec![
+                key::AUTHORIZATION_POOLS,
+                key::AUTHORIZATION_QUEUE,
+                key::RECENT_BLOCKS,
+                key::SAFROLE,
+                key::DISPUTES,
+                key::ENTROPY,
+                key::NEXT_VALIDATORS,
+                key::CURRENT_VALIDATORS,
+                key::PREVIOUS_VALIDATORS,
+                key::PENDING_REPORTS,
+                key::TIMESLOT,
+                key::PRIVILEGED_SERVICE,
+                key::STATISTICS,
+                key::ACCUMULATION_QUEUE,
+                key::ACCUMULATION_HISTORY,
+            ]
+            .into_iter()
+            .map(|k| k.to_vec())
+            .collect::<Vec<_>>(),
+        )?;
 
         state.pools = codec::decode(data.get(1).unwrap_or(&vec![]))?;
         state.authorization = codec::decode(data.get(2).unwrap_or(&vec![]))?;
@@ -215,6 +220,16 @@ pub trait Storage: Sized {
         Ok(merkle::trie(&kvs, 0))
     }
 
+    /// Stash the state to the branch
+    fn stash(&self, branch: OpaqueHash, diff: Vec<(OpaqueHash, Vec<u8>)>) -> Result<()> {
+        let batch = diff
+            .into_iter()
+            .map(|(key, value)| (self.branch_key(branch, key).to_vec(), value))
+            .collect::<Vec<_>>();
+        self.batch_write(batch)?;
+        Ok(())
+    }
+
     /// Finalize a branch
     ///
     /// A branch contains the diff of the state introduced in a block, so we need to
@@ -223,7 +238,7 @@ pub trait Storage: Sized {
         let prefix = &self.branch_key(branch, Default::default())[..38];
         let mut storage_iter = self.prefix_iter(prefix)?;
 
-        // TODO: use batch write / transaction to reduce I/O & make this operations atomic.
+        // TODO: use transaction to reduce I/O & make this operations atomic.
         while let Some(Ok((key, value))) = storage_iter.next() {
             self.set(&key, value)?;
             self.remove(&key)?;
