@@ -41,9 +41,6 @@ pub trait Storage: Sized {
     /// Get a value from the storage
     fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
 
-    /// Batch read a set of key-value pairs from the storage
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
-
     /// Remove a key-value pair from the storage
     fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
 
@@ -52,6 +49,13 @@ pub trait Storage: Sized {
         &self,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
+
+    /// Batch read a set of key-value pairs from the storage
+    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        keys.iter()
+            .map(|key| self.get(key).map(|v| (key.to_vec(), v.unwrap_or_default())))
+            .collect::<Result<Vec<_>>>()
+    }
 
     /// Check if the storage is empty
     fn is_empty(&self) -> bool {
@@ -115,28 +119,23 @@ pub trait Storage: Sized {
     fn state(&self) -> Result<State> {
         let mut state = State::default();
         let data: Vec<Vec<u8>> = self
-            .batch_read(
-                vec![
-                    key::AUTHORIZATION_POOLS,
-                    key::AUTHORIZATION_QUEUE,
-                    key::RECENT_BLOCKS,
-                    key::SAFROLE,
-                    key::DISPUTES,
-                    key::ENTROPY,
-                    key::NEXT_VALIDATORS,
-                    key::CURRENT_VALIDATORS,
-                    key::PREVIOUS_VALIDATORS,
-                    key::PENDING_REPORTS,
-                    key::TIMESLOT,
-                    key::PRIVILEGED_SERVICE,
-                    key::STATISTICS,
-                    key::ACCUMULATION_QUEUE,
-                    key::ACCUMULATION_HISTORY,
-                ]
-                .into_iter()
-                .map(|k| k.to_vec())
-                .collect::<Vec<_>>(),
-            )?
+            .batch_read(vec![
+                key::AUTHORIZATION_POOLS,
+                key::AUTHORIZATION_QUEUE,
+                key::RECENT_BLOCKS,
+                key::SAFROLE,
+                key::DISPUTES,
+                key::ENTROPY,
+                key::NEXT_VALIDATORS,
+                key::CURRENT_VALIDATORS,
+                key::PREVIOUS_VALIDATORS,
+                key::PENDING_REPORTS,
+                key::TIMESLOT,
+                key::PRIVILEGED_SERVICE,
+                key::STATISTICS,
+                key::ACCUMULATION_QUEUE,
+                key::ACCUMULATION_HISTORY,
+            ])?
             .into_iter()
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
@@ -451,7 +450,7 @@ impl<S: Storage> Storage for Branch<'_, S> {
         self.storage.batch_write(kvs)
     }
 
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let mut kvs = self.storage.batch_read(keys)?;
         for (k, v) in kvs.iter_mut() {
             if let Ok(Some(value)) = self.get(k) {

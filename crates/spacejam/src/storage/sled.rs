@@ -35,14 +35,6 @@ impl Storage for Sled {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let values = keys
-            .iter()
-            .map(|k| self.get(k).map(|v| (k.to_vec(), v.unwrap_or_default())))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(values)
-    }
-
     fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
         let _ = self.db.remove(key.as_ref())?;
         Ok(())

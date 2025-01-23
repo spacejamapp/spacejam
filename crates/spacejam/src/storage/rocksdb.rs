@@ -38,14 +38,6 @@ impl Storage for RocksDB {
         self.db.delete(key.as_ref()).map_err(Into::into)
     }
 
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let values = keys
-            .iter()
-            .map(|k| self.get(k).map(|v| (k.to_vec(), v.unwrap_or_default())))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(values)
-    }
-
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
