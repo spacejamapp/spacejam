@@ -47,8 +47,8 @@ impl ServiceAccount {
             code: self.code,
             balance: self.balance,
             gas: self.gas.clone(),
-            items: self.items(),
             total: self.total(),
+            items: self.items(),
         }
     }
 }
@@ -69,7 +69,7 @@ pub struct ServiceAccountState {
     #[json(nested)]
     pub gas: GasLimit,
 
-    /// The total number of octets used in storage (t)
+    /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
     pub total: u64,
 

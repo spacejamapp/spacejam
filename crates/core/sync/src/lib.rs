@@ -16,26 +16,29 @@ pub mod preimage;
 pub mod ticket;
 
 /// Transit state with new block
-pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) -> Result<()> {
-    let mut state = storage.state()?;
+pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
+    let branch = storage.checkout(block.header.parent);
+    let mut state = branch.state()?;
+    let mut diff = branch.diff();
+
+    // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    let mut diff = vec![];
 
     // The first round computation
     {
         // (η') Update entropy (6.22)
         let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        diff.push((key::ENTROPY, codec::encode(&state.entropy)?));
+        diff.insert(key::ENTROPY, codec::encode(&state.entropy)?);
 
         // (λ') Update validator state (6.13)
         state.validators.previous = state.validators.previous(new_epoch);
         if new_epoch {
-            diff.push((
+            diff.insert(
                 key::PREVIOUS_VALIDATORS,
                 codec::encode(&state.validators.previous)?,
-            ));
+            );
         }
 
         // (ψ') Update disputes and get marks
@@ -47,7 +50,7 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             &block.extrinsic.disputes,
         )?;
         if disputes != state.disputes {
-            diff.push((key::DISPUTES, codec::encode(&disputes)?));
+            diff.insert(key::DISPUTES, codec::encode(&disputes)?);
             state.disputes = disputes;
         }
 
@@ -58,14 +61,10 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
         reports = crate::assurance::reports(block.header.slot, reports.clone());
 
         // (ρ') Update availability assignments based on guarantees (11.43)
-        reports = guarantee::reports(
-            block.header.slot,
-            &state.reports,
-            &block.extrinsic.guarantees,
-        )?;
+        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
 
         if reports != state.reports {
-            diff.push((key::PENDING_REPORTS, codec::encode(&reports)?));
+            diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
             state.reports = reports;
         }
     }
@@ -77,10 +76,10 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             .validators
             .current(new_epoch, &state.safrole.validators);
         if new_epoch {
-            diff.push((
+            diff.insert(
                 key::CURRENT_VALIDATORS,
                 codec::encode(&state.validators.current)?,
-            ));
+            );
         }
 
         // (W*) the sequence of new available work reports (11.16)
@@ -105,7 +104,7 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             &state.validators,
             &block.extrinsic.tickets,
         )?;
-        diff.push((key::SAFROLE, codec::encode(&state.safrole)?));
+        diff.insert(key::SAFROLE, codec::encode(&state.safrole)?);
 
         // (π') Update the statistic
         state.statistics = state.statistics.update(
@@ -114,7 +113,7 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             block.header.author_index,
             &block.extrinsic,
         );
-        diff.push((key::STATISTICS, codec::encode(&state.statistics)?));
+        diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
         //
@@ -143,7 +142,7 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             &block.extrinsic.guarantees,
         );
         if pools != state.pools {
-            diff.push((key::AUTHORIZATION_POOLS, codec::encode(&pools)?));
+            diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
             state.pools = pools;
         }
 
@@ -156,15 +155,14 @@ pub fn transit(block: &Block, validator: impl Validator, storage: impl Storage) 
             root,
             reported,
         );
-        diff.push((key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?));
+        diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
-        diff.push((key::TIMESLOT, codec::encode(&state.timeslot)?));
+        diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }
 
-    storage.stash(block.header.hash()?, diff)?;
-    Ok(())
+    branch.commit(diff)
 }
 
 /// (b) Accumulate the available work reports

@@ -2,28 +2,19 @@
 #![cfg(feature = "sled")]
 
 use anyhow::Result;
-use score::{state::Storage, OpaqueHash};
+use score::state::Storage;
 use sled::{Batch, Db};
 use std::path::Path;
 
 /// Sled storage
 pub struct Sled {
     db: Db,
-    branch: Option<OpaqueHash>,
 }
 
 impl Storage for Sled {
     fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::open(path)?;
-        Ok(Self { db, branch: None })
-    }
-
-    fn branch(&self) -> Option<OpaqueHash> {
-        self.branch
-    }
-
-    fn checkout(&mut self, branch: Option<OpaqueHash>) {
-        self.branch = branch;
+        Ok(Self { db })
     }
 
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
@@ -44,10 +35,10 @@ impl Storage for Sled {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
+    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let values = keys
             .iter()
-            .map(|k| self.get(k).map(|v| v.unwrap_or_default()))
+            .map(|k| self.get(k).map(|v| (k.to_vec(), v.unwrap_or_default())))
             .collect::<Result<Vec<_>>>()?;
         Ok(values)
     }

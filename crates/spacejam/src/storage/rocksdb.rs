@@ -2,27 +2,18 @@
 #![cfg(feature = "rocksdb")]
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
-use score::{state::Storage, OpaqueHash};
+use score::state::Storage;
 use std::path::Path;
 
 /// The RocksDB storage of SpaceJam
 pub struct RocksDB {
     db: DB,
-    branch: Option<OpaqueHash>,
 }
 
 impl Storage for RocksDB {
     fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = DB::open_default(path.as_ref())?;
-        Ok(Self { db, branch: None })
-    }
-
-    fn branch(&self) -> Option<OpaqueHash> {
-        self.branch
-    }
-
-    fn checkout(&mut self, branch: Option<OpaqueHash>) {
-        self.branch = branch;
+        Ok(Self { db })
     }
 
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
@@ -47,10 +38,10 @@ impl Storage for RocksDB {
         self.db.delete(key.as_ref()).map_err(Into::into)
     }
 
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>> {
+    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let values = keys
             .iter()
-            .map(|k| self.get(k).map(|v| v.unwrap_or_default()))
+            .map(|k| self.get(k).map(|v| (k.to_vec(), v.unwrap_or_default())))
             .collect::<Result<Vec<_>>>()?;
         Ok(values)
     }
