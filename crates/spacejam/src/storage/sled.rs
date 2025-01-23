@@ -9,12 +9,21 @@ use std::path::Path;
 /// Sled storage
 pub struct Sled {
     db: Db,
+    branch: Option<OpaqueHash>,
 }
 
 impl Storage for Sled {
     fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::open(path)?;
-        Ok(Self { db })
+        Ok(Self { db, branch: None })
+    }
+
+    fn branch(&self) -> Option<OpaqueHash> {
+        self.branch
+    }
+
+    fn checkout(&mut self, branch: Option<OpaqueHash>) {
+        self.branch = branch;
     }
 
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
@@ -35,12 +44,17 @@ impl Storage for Sled {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
     }
 
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>> {
+    fn batch_read(&self, keys: Vec<[u8; 32]>) -> Result<Vec<Vec<u8>>> {
         let values = keys
             .iter()
             .map(|k| self.get(k).map(|v| v.unwrap_or_default()))
             .collect::<Result<Vec<_>>>()?;
         Ok(values)
+    }
+
+    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
+        let _ = self.db.remove(key.as_ref())?;
+        Ok(())
     }
 
     fn prefix_iter(

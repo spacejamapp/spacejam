@@ -8,12 +8,21 @@ use std::path::Path;
 /// The RocksDB storage of SpaceJam
 pub struct RocksDB {
     db: DB,
+    branch: Option<OpaqueHash>,
 }
 
 impl Storage for RocksDB {
     fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = DB::open_default(path.as_ref())?;
-        Ok(Self { db })
+        Ok(Self { db, branch: None })
+    }
+
+    fn branch(&self) -> Option<OpaqueHash> {
+        self.branch
+    }
+
+    fn checkout(&mut self, branch: Option<OpaqueHash>) {
+        self.branch = branch;
     }
 
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
@@ -34,7 +43,11 @@ impl Storage for RocksDB {
         Ok(())
     }
 
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>> {
+    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
+        self.db.delete(key.as_ref()).map_err(Into::into)
+    }
+
+    fn batch_read(&self, keys: Vec<[u8; 32]>) -> Result<Vec<Vec<u8>>> {
         let values = keys
             .iter()
             .map(|k| self.get(k).map(|v| v.unwrap_or_default()))

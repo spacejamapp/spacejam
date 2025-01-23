@@ -14,21 +14,23 @@ use crate::{
 use anyhow::Result;
 use std::path::Path;
 
+/// The prefix of the branch key
+const BRANCH_PREFIX: [u8; 6] = *b"branch";
+
 /// Storage of the state of SpaceJam
 ///
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
 pub trait Storage: Sized {
-    /// Check if the storage is empty
-    fn is_empty(&self) -> bool {
-        self.get(key::CURRENT_VALIDATORS)
-            .map(|v| v.is_none())
-            .unwrap_or(true)
-    }
-
     /// Open the storage from path
     fn open(path: impl AsRef<Path>) -> Result<Self>;
+
+    /// Get the current branch of the storage
+    fn branch(&self) -> Option<OpaqueHash>;
+
+    /// Set the current branch of the storage
+    fn checkout(&mut self, _branch: Option<OpaqueHash>);
 
     /// Set a value in the storage
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
@@ -42,11 +44,67 @@ pub trait Storage: Sized {
     /// Batch read a set of key-value pairs from the storage
     fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<Vec<u8>>>;
 
+    /// Remove a key-value pair from the storage
+    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
+
     /// Iterate over the storage with a prefix
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>>;
+
+    /// Check if the storage is empty
+    fn is_empty(&self) -> bool {
+        self.get(key::TIMESLOT).map(|v| v.is_none()).unwrap_or(true)
+    }
+
+    /// Get the value of the branch
+    fn branch_get(&self, key: [u8; 32]) -> Result<Option<Vec<u8>>> {
+        let Some(bkey) = self.wrap_key(key) else {
+            return Ok(None);
+        };
+
+        self.get(bkey)
+    }
+
+    /// Drop the target branch of the storage
+    fn drop_branch(&mut self, branch: OpaqueHash) -> Result<()> {
+        let mut prefix = BRANCH_PREFIX.to_vec();
+        prefix.extend_from_slice(&branch[..8]);
+
+        while let Some(Ok((k, _))) = self.prefix_iter(&prefix)?.next() {
+            self.remove(k)?;
+        }
+        Ok(())
+    }
+
+    /// Wrap the key to the branch
+    fn wrap_key(&self, mut key: [u8; 32]) -> Option<[u8; 32]> {
+        let branch = self.branch()?;
+        key[0..6].copy_from_slice(&BRANCH_PREFIX);
+        key[7..16].copy_from_slice(&branch[..8]);
+        Some(key)
+    }
+
+    /// Wrap the key to the branch and get the value
+    fn wrap_get(&self, key: [u8; 32]) -> Result<Option<Vec<u8>>> {
+        if let Some(bkey) = self.wrap_key(key) {
+            if let Ok(Some(result)) = self.get(bkey) {
+                return Ok(Some(result));
+            }
+        }
+
+        self.get(key)
+    }
+
+    /// Wrap the key to the branch and set the value
+    fn wrap_set(&self, key: [u8; 32], value: impl AsRef<[u8]>) -> Result<()> {
+        if let Some(bkey) = self.wrap_key(key) {
+            self.set(bkey, value)
+        } else {
+            self.set(key, value)
+        }
+    }
 
     /// Batch read a set of key-value pairs from the storage
     fn prefix_collect(&self, prefix: [u8; 4]) -> Result<Vec<([u8; 32], Vec<u8>)>> {
@@ -56,6 +114,11 @@ pub trait Storage: Sized {
             let mut storage_iter = self.prefix_iter(key::prefix(service, &prefix))?;
             let mut count = 0;
             while let Some(Ok((key, value))) = storage_iter.next() {
+                let value = if let Some(bvalue) = self.branch_get(key)? {
+                    bvalue
+                } else {
+                    value
+                };
                 kvs.push((key, value));
                 count += 1;
             }
@@ -158,7 +221,7 @@ pub trait Storage: Sized {
 
     /// Fetch the authorization pools from the storage
     fn pools(&self) -> Result<Option<[Vec<OpaqueHash>; CORES_COUNT]>> {
-        self.get(key::AUTHORIZATION_POOLS)?
+        self.wrap_get(key::AUTHORIZATION_POOLS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode pools: {e}"))
@@ -166,7 +229,7 @@ pub trait Storage: Sized {
 
     /// Fetch the authorization queue from the storage
     fn authorization_queue(&self) -> Result<Option<[Vec<OpaqueHash>; CORES_COUNT]>> {
-        self.get(key::AUTHORIZATION_QUEUE)?
+        self.wrap_get(key::AUTHORIZATION_QUEUE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode authorization queue: {e}"))
@@ -174,7 +237,7 @@ pub trait Storage: Sized {
 
     /// Fetch the recent blocks from the storage
     fn recent_blocks(&self) -> Result<Option<Vec<BlockInfo>>> {
-        self.get(key::RECENT_BLOCKS)?
+        self.wrap_get(key::RECENT_BLOCKS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode recent blocks: {e}"))
@@ -182,7 +245,7 @@ pub trait Storage: Sized {
 
     /// Fetch the safrole state
     fn safrole(&self) -> Result<Option<Safrole>> {
-        self.get(key::SAFROLE)?
+        self.wrap_get(key::SAFROLE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode safrole: {e}"))
@@ -190,7 +253,7 @@ pub trait Storage: Sized {
 
     /// Fetch the judgements from the storage
     fn disputes(&self) -> Result<Option<DisputesRecords>> {
-        self.get(key::DISPUTES)?
+        self.wrap_get(key::DISPUTES)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode disputes: {e}"))
@@ -198,7 +261,7 @@ pub trait Storage: Sized {
 
     /// Fetch the entropy state
     fn entropy(&self) -> Result<Option<EntropyBuffer>> {
-        self.get(key::ENTROPY)?
+        self.wrap_get(key::ENTROPY)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode entropy: {e}"))
@@ -206,7 +269,7 @@ pub trait Storage: Sized {
 
     /// Fetch the next validators
     fn next_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::NEXT_VALIDATORS)?
+        self.wrap_get(key::NEXT_VALIDATORS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode next validators: {e}"))
@@ -214,7 +277,7 @@ pub trait Storage: Sized {
 
     /// Fetch the current validators
     fn current_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::CURRENT_VALIDATORS)?
+        self.wrap_get(key::CURRENT_VALIDATORS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode current validators: {e}"))
@@ -222,7 +285,7 @@ pub trait Storage: Sized {
 
     /// Fetch the previous validators
     fn previous_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::PREVIOUS_VALIDATORS)?
+        self.wrap_get(key::PREVIOUS_VALIDATORS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode previous validators: {e}"))
@@ -231,7 +294,7 @@ pub trait Storage: Sized {
     /// Fetch the pending reports
     #[allow(clippy::type_complexity)]
     fn pending_reports(&self) -> Result<Option<[Option<(WorkReport, TimeSlot)>; CORES_COUNT]>> {
-        self.get(key::PENDING_REPORTS)?
+        self.wrap_get(key::PENDING_REPORTS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode pending reports: {e}"))
@@ -239,7 +302,7 @@ pub trait Storage: Sized {
 
     /// Fetch the timeslot
     fn timeslot(&self) -> Result<Option<TimeSlot>> {
-        self.get(key::TIMESLOT)?
+        self.wrap_get(key::TIMESLOT)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode timeslot: {e}"))
@@ -247,7 +310,7 @@ pub trait Storage: Sized {
 
     /// Fetch the privileged service indices
     fn service(&self) -> Result<Option<ServiceIndex>> {
-        self.get(key::PRIVILEGED_SERVICE)?
+        self.wrap_get(key::PRIVILEGED_SERVICE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode privileged service: {e}"))
@@ -255,7 +318,7 @@ pub trait Storage: Sized {
 
     /// Fetch the activity statistics
     fn statistics(&self) -> Result<Option<Statistics>> {
-        self.get(key::STATISTICS)?
+        self.wrap_get(key::STATISTICS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode statistics: {e}"))
@@ -266,7 +329,7 @@ pub trait Storage: Sized {
     fn accumulation_queue(
         &self,
     ) -> Result<Option<[(Vec<WorkReport>, Vec<OpaqueHash>); EPOCH_LENGTH as usize]>> {
-        self.get(key::ACCUMULATION_QUEUE)?
+        self.wrap_get(key::ACCUMULATION_QUEUE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode accumulation queue: {e}"))
@@ -274,7 +337,7 @@ pub trait Storage: Sized {
 
     /// Fetch the accumulation history
     fn accumulation_history(&self) -> Result<Option<[Vec<OpaqueHash>; EPOCH_LENGTH as usize]>> {
-        self.get(key::ACCUMULATION_HISTORY)?
+        self.wrap_get(key::ACCUMULATION_HISTORY)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode accumulation history: {e}"))
@@ -282,7 +345,7 @@ pub trait Storage: Sized {
 
     /// Fetch the account state
     fn account_info(&self, service: u32) -> Result<Option<ServiceAccountState>> {
-        self.get(account::info(service))?
+        self.wrap_get(account::info(service))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account state: {e}"))
@@ -290,7 +353,7 @@ pub trait Storage: Sized {
 
     /// Fetch the account storage
     fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
-        self.get(account::storage(service, key))?
+        self.wrap_get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account storage: {e}"))
@@ -298,7 +361,7 @@ pub trait Storage: Sized {
 
     /// Fetch the account preimage
     fn account_preimage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
-        self.get(account::preimage(service, key))?
+        self.wrap_get(account::preimage(service, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
@@ -311,7 +374,7 @@ pub trait Storage: Sized {
         lookup: u32,
         key: OpaqueHash,
     ) -> Result<Option<[TimeSlot; 3]>> {
-        self.get(account::lookup(service, lookup, key))?
+        self.wrap_get(account::lookup(service, lookup, key))?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
@@ -328,17 +391,17 @@ pub trait Storage: Sized {
             &acc.total,
         ))?);
         value.extend_from_slice(&acc.items.to_le_bytes());
-        self.set(account::info(service), value)
+        self.wrap_set(account::info(service), value)
     }
 
     /// Set the service account storage
     fn set_storage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
-        self.set(account::storage(service, key), value)
+        self.wrap_set(account::storage(service, key), value)
     }
 
     /// Set the service account preimage
     fn set_preimage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
-        self.set(account::preimage(service, key), value)
+        self.wrap_set(account::preimage(service, key), value)
     }
 
     /// Set the service account lookup
@@ -349,7 +412,7 @@ pub trait Storage: Sized {
         key: OpaqueHash,
         slots: [TimeSlot; 3],
     ) -> Result<()> {
-        self.set(
+        self.wrap_set(
             account::lookup(service, lookup, key),
             slots
                 .iter()
