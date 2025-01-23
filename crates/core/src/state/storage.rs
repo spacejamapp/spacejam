@@ -421,7 +421,7 @@ pub struct Branch<'s, S: Storage> {
     branch: OpaqueHash,
 }
 
-impl<'s, S: Storage> Storage for Branch<'s, S> {
+impl<S: Storage> Storage for Branch<'_, S> {
     fn open(_: impl AsRef<Path>) -> Result<Self> {
         anyhow::bail!("Branch is not a real storage")
     }
