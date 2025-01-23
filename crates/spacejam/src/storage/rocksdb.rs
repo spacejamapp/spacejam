@@ -58,11 +58,11 @@ impl Storage for RocksDB {
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>> {
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let iter = self.db.prefix_iterator(prefix.as_ref());
         Ok(iter.map(|r| {
             let (k, v) = r?;
-            Ok((OpaqueHash::try_from(k.to_vec()).unwrap(), v.to_vec()))
+            Ok((k.to_vec(), v.to_vec()))
         }))
     }
 }

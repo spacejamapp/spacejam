@@ -51,11 +51,20 @@ pub trait Storage: Sized {
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>>;
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
 
     /// Check if the storage is empty
     fn is_empty(&self) -> bool {
         self.get(key::TIMESLOT).map(|v| v.is_none()).unwrap_or(true)
+    }
+
+    /// Get the branch key
+    fn branch_key(&self, branch: OpaqueHash, key: OpaqueHash) -> [u8; 70] {
+        let mut bkey = [0; 70];
+        bkey[0..6].copy_from_slice(&BRANCH_PREFIX);
+        bkey[6..38].copy_from_slice(&branch[..32]);
+        bkey[38..70].copy_from_slice(&key[..32]);
+        bkey
     }
 
     /// Get the value of the branch
@@ -79,11 +88,9 @@ pub trait Storage: Sized {
     }
 
     /// Wrap the key to the branch
-    fn wrap_key(&self, mut key: [u8; 32]) -> Option<[u8; 32]> {
+    fn wrap_key(&self, key: [u8; 32]) -> Option<[u8; 70]> {
         let branch = self.branch()?;
-        key[0..6].copy_from_slice(&BRANCH_PREFIX);
-        key[7..16].copy_from_slice(&branch[..8]);
-        Some(key)
+        Some(self.branch_key(branch, key))
     }
 
     /// Wrap the key to the branch and get the value
@@ -109,24 +116,25 @@ pub trait Storage: Sized {
     /// Batch read a set of key-value pairs from the storage
     fn prefix_collect(&self, prefix: [u8; 4]) -> Result<Vec<([u8; 32], Vec<u8>)>> {
         let mut kvs = vec![];
-        let mut service = 0;
+        let mut index = 0;
         loop {
-            let mut storage_iter = self.prefix_iter(key::prefix(service, &prefix))?;
+            let mut storage_iter = self.prefix_iter(key::prefix(index, &prefix))?;
             let mut count = 0;
-            while let Some(Ok((key, value))) = storage_iter.next() {
-                let value = if let Some(bvalue) = self.branch_get(key)? {
-                    bvalue
-                } else {
-                    value
-                };
-                kvs.push((key, value));
+            while let Some(Ok((key, mut value))) = storage_iter.next() {
+                let hkey = OpaqueHash::try_from(key)
+                    .map_err(|e| anyhow::anyhow!("invalid prefix key: {e:?}"))?;
+                if let Some(bvalue) = self.branch_get(hkey)? {
+                    value = bvalue;
+                }
+
+                kvs.push((hkey, value));
                 count += 1;
             }
 
             if count == 0 {
                 break;
             }
-            service += 1;
+            index += 1;
         }
 
         Ok(kvs)
@@ -207,15 +215,19 @@ pub trait Storage: Sized {
         Ok(merkle::trie(&kvs, 0))
     }
 
-    /// Finalize the state
+    /// Finalize a branch
     ///
-    /// It's not allowed to save state separately in our system atm for avoiding
-    /// uncontrollable dangorous operations, we only provide this method for state
-    /// transition, and this should only be called on block finalization.
-    ///
-    /// TODO: comparing with the current state, only write the updated state.
-    fn finalize(&self, _state: &State) -> Result<()> {
-        // self.batch_write(state.accumulate()?)
+    /// A branch contains the diff of the state introduced in a block, so we need to
+    /// apply it to the current state to get the final state.
+    fn finalize(&self, branch: OpaqueHash) -> Result<()> {
+        let prefix = &self.branch_key(branch, Default::default())[..38];
+        let mut storage_iter = self.prefix_iter(prefix)?;
+
+        // TODO: use batch write / transaction to reduce I/O & make this operations atomic.
+        while let Some(Ok((key, value))) = storage_iter.next() {
+            self.set(&key, value)?;
+            self.remove(&key)?;
+        }
         Ok(())
     }
 

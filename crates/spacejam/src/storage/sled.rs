@@ -60,14 +60,12 @@ impl Storage for Sled {
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(OpaqueHash, Vec<u8>)>>> {
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let iter = self.db.scan_prefix(prefix.as_ref());
 
         Ok(iter.map(|r| {
             let (k, v) = r?;
-            let key = OpaqueHash::try_from(k.to_vec())
-                .map_err(|e| anyhow::anyhow!("failed to decode key: {e:?}"))?;
-            Ok((key, v.to_vec()))
+            Ok((k.to_vec(), v.to_vec()))
         }))
     }
 }
