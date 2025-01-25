@@ -22,7 +22,7 @@ async fn handshake_locally() {
         _ = alice.spawn() => {}
         _ = bob.spawn() => {}
         _ = async {
-            if let (Some(aconn), Some(bconn)) = (ametrics.connections.get(&Peer { peer: alice_address }), bmetrics.connections.get(&Peer { peer: bob_address })) {
+            if let (Some(aconn), Some(bconn)) = (ametrics.conn.get(&Peer { peer: alice_address }), bmetrics.conn.get(&Peer { peer: bob_address })) {
                 if aconn.get() == Peer::established() && bconn.get() == Peer::established() {
                     return;
                 }

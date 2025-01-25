@@ -1,12 +1,9 @@
 //! Metrics implementation of Spacejam.
 
 use anyhow::Result;
+use network::Connection;
 pub use network::Peer;
-use prometheus::{
-    encoding::text,
-    metrics::{family::Family, gauge::Gauge},
-    registry::Registry,
-};
+use prometheus::{encoding::text, registry::Registry};
 use std::sync::Arc;
 
 mod network;
@@ -14,42 +11,29 @@ mod network;
 /// Metrics implementation of Spacejam.
 ///
 /// TODO: allow to disable / enable metrics from config.
+#[derive(Clone)]
 pub struct Metrics {
+    /// Registry.
     registry: Arc<Registry>,
 
     /// Connections.
-    pub connections: Family<Peer, Gauge>,
+    pub conn: Connection,
 }
 
 impl Metrics {
     /// Create a new metrics instance.
     pub fn new(peer: &str) -> Self {
         let mut registry = Registry::with_prefix(format!("spacejam::{peer}"));
-        let connections = Family::<Peer, Gauge>::default();
-        registry.register(
-            "conn",
-            "Connection status, 1: established, 0: closed",
-            connections.clone(),
-        );
 
+        // network metrics
+        let conn = Connection::default();
+        conn.register(&mut registry);
+
+        // wrap register in Arc
         Self {
             registry: Arc::new(registry),
-            connections,
+            conn,
         }
-    }
-
-    /// Increment the established connection counter.
-    pub fn establish_connection(&self, peer: String) {
-        self.connections
-            .get_or_create(&Peer { peer })
-            .set(Peer::established());
-    }
-
-    /// Decrement the connection counter.
-    pub fn close_connection(&self, peer: String) {
-        self.connections
-            .get_or_create(&Peer { peer })
-            .set(Peer::closed());
     }
 
     /// Get the metrics as a string.
@@ -58,4 +42,10 @@ impl Metrics {
         text::encode(&mut buffer, self.registry.as_ref())?;
         Ok(buffer)
     }
+}
+
+/// A trait for metrics.
+pub trait Metric {
+    /// Register the metric.
+    fn register(&self, registry: &mut Registry);
 }

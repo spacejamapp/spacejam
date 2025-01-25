@@ -1,5 +1,52 @@
+//! Metrics for the network.
+
+use crate::Metric;
 use prometheus as prometheus_client;
-use prometheus::encoding::EncodeLabelSet;
+use prometheus::{
+    encoding::EncodeLabelSet,
+    metrics::{family::Family, gauge::Gauge},
+    registry::Registry,
+};
+use std::ops::Deref;
+
+/// Connection metric.
+#[derive(Clone, Default)]
+pub struct Connection {
+    /// The inner metric.
+    inner: Family<Peer, Gauge>,
+}
+
+impl Connection {
+    /// Increment the established connection counter.
+    pub fn establish_connection(&self, peer: String) {
+        self.inner
+            .get_or_create(&Peer { peer })
+            .set(Peer::established());
+    }
+
+    /// Decrement the connection counter.
+    pub fn close_connection(&self, peer: String) {
+        self.inner.get_or_create(&Peer { peer }).set(Peer::closed());
+    }
+}
+
+impl Deref for Connection {
+    type Target = Family<Peer, Gauge>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl Metric for Connection {
+    fn register(&self, registry: &mut Registry) {
+        registry.register(
+            "conn",
+            "Connection status, 1: established, 0: closed",
+            self.inner.clone(),
+        );
+    }
+}
 
 /// Peer.
 #[derive(Default, PartialEq, Eq, Debug, Clone, EncodeLabelSet, Hash)]

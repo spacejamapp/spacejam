@@ -15,8 +15,8 @@ use litep2p::{
 };
 use metrics::Metrics;
 use peer::PeerManager;
-use std::{pin::Pin, sync::Arc};
-use tokio_stream::Stream;
+use std::pin::Pin;
+use tokio_stream::{Stream, StreamExt};
 pub use {config::Config, context::Context};
 
 pub mod config;
@@ -55,7 +55,7 @@ pub struct Network {
     peer: PeerManager,
 
     /// Metrics.
-    pub metrics: Arc<Metrics>,
+    pub metrics: Metrics,
 }
 
 impl Network {
@@ -90,13 +90,31 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
-            metrics: Arc::new(Metrics::new(&p2p.local_peer_id().to_string())),
+            metrics: Metrics::new(&p2p.local_peer_id().to_string()),
             p2p,
         };
 
         // Bootstrap the network
         this.bootstrap(&config).await;
         Ok(this)
+    }
+
+    /// Spawn the network.
+    pub async fn spawn(&mut self) {
+        let listen_addresses = self.p2p.listen_addresses().collect::<Vec<_>>();
+        tracing::info!("listen addresses: {listen_addresses:?}");
+
+        loop {
+            tokio::select! {
+                Some(event) = self.block.next() => self.block(event),
+                Some(event) = self.sync.next() => self.sync(event),
+                Some(event) = self.state.next() => self.state(event),
+                Some(event) = self.ping.next() => self.ping(event).await,
+                Some(event) = self.kad.next() => self.kad(event).await,
+                Some(event) = self.mdns.next() => self.mdns(event).await,
+                Some(event) = self.p2p.next_event() => self.litep2p(event).await,
+            }
+        }
     }
 
     /// Bootstrap the network.
