@@ -35,7 +35,7 @@ impl Spawn {
     /// Run the command
     pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
         // Parse the validator secret
-        let validator = if let Some(secret) = hex::decode(&self.validator.trim_start_matches("0x"))
+        let validator = if let Some(secret) = hex::decode(self.validator.trim_start_matches("0x"))
             .ok()
             .and_then(|s| s.try_into().ok())
         {
@@ -63,12 +63,12 @@ impl Spawn {
         // Initialize the network
         let mut network = Network::new(Default::default(), Box::new(spacejam)).await?;
         let metrics = network.metrics.clone();
-
         tokio::select! {
             _ = crate::metrics::serve(self.metrics, metrics) => {}
             _ = network.spawn() => {}
             _ = tokio::signal::ctrl_c() => {}
         }
+
         Ok(())
     }
 }

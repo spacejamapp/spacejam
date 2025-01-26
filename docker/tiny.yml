@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  spacejam-1:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 0
+    networks: ["spacenet"]
+  spacejam-2:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 1
+    networks: ["spacenet"]
+  spacejam-3:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 2
+    networks: ["spacenet"]
+  spacejam-4:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 3
+    networks: ["spacenet"]
+  spacejam-5:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 4
+    networks: ["spacenet"]
+  spacejam-6:
+    image: clearloop/spacejam:latest
+    command: spawn --validator 5
+    networks: ["spacenet"]
+
+networks:
+  spacenet:
+    driver: bridge
