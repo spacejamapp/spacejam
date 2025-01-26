@@ -20,10 +20,10 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub fn run<C: Config>(&self) -> anyhow::Result<()> {
+    pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
         match self {
             Command::Rand(rand) => rand.run(),
-            Command::Spawn(spawn) => spawn.run::<C>(),
+            Command::Spawn(spawn) => spawn.run::<C>().await,
         }
     }
 }

@@ -54,13 +54,16 @@ pub struct Network {
     /// Peer manager.
     peer: PeerManager,
 
+    /// Context.
+    pub context: Box<dyn Context>,
+
     /// Metrics.
     pub metrics: Metrics,
 }
 
 impl Network {
     /// Create a new network instance.
-    pub async fn new(config: Config) -> anyhow::Result<Self> {
+    pub async fn new(config: Config, context: Box<dyn Context>) -> anyhow::Result<Self> {
         let (block, block_handle) = config.block(BLOCK_NAME, &[]);
         let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
         let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
@@ -91,6 +94,7 @@ impl Network {
             state: state_sync_handle,
             peer: PeerManager::default(),
             metrics: Metrics::new(&p2p.local_peer_id().to_string()),
+            context,
             p2p,
         };
 

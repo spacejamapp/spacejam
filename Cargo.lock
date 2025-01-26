@@ -2883,6 +2883,8 @@ dependencies = [
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-metrics",
+ "spacejam-network",
+ "spacejam-sync",
  "spacejson",
  "tokio",
  "toml 0.8.19",

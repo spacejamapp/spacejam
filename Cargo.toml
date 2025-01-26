@@ -17,6 +17,7 @@ codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 merkle = { path = "crates/crypto/merkle", package = "spacejam-merkle" }
 metrics = { path = "crates/core/metrics", package = "spacejam-metrics" }
+network = { path = "crates/network", package = "spacejam-network" }
 parser = { path = "crates/pvm/parser", package = "pvm-parser" }
 pvmi = { path = "crates/pvm/interpreter" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }

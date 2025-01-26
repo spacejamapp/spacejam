@@ -5,11 +5,11 @@ use std::time::Duration;
 #[tokio::test]
 async fn handshake_locally() {
     let config = Config::default();
-    let mut alice = Network::new(config.clone())
+    let mut alice = Network::new(config.clone(), Box::new(()))
         .await
         .expect("failed to create alice network");
 
-    let mut bob = Network::new(config)
+    let mut bob = Network::new(config.clone(), Box::new(()))
         .await
         .expect("failed to create bob network");
 

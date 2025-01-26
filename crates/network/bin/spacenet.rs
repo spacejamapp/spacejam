@@ -29,7 +29,7 @@ async fn main() {
             .push(Multiaddr::from_str(&dial).expect("invalid address"));
     }
 
-    let mut network = Network::new(config)
+    let mut network = Network::new(config, Box::new(()))
         .await
         .expect("failed to create network");
     network.spawn().await;

@@ -2,12 +2,10 @@
 
 use crate::{Config, SpaceJam};
 use clap::Parser;
+use network::Network;
 use score::{
     config::Genesis,
-    state::{
-        key::{CURRENT_VALIDATORS, TIMESLOT},
-        Storage,
-    },
+    state::{key::CURRENT_VALIDATORS, Storage},
     validator::ValidatorData,
 };
 use spacejson::Json;
@@ -27,8 +25,8 @@ pub struct Spawn {
 
 impl Spawn {
     /// Run the command
-    pub fn run<C: Config>(&self) -> anyhow::Result<()> {
-        let mut spacejam: SpaceJam<C> =
+    pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
+        let spacejam: SpaceJam<C> =
             SpaceJam::new(C::Db::open(self.db.clone())?, C::Validator::default());
 
         if spacejam.db.is_empty() {
@@ -44,15 +42,10 @@ impl Spawn {
             spacejam.db.set(CURRENT_VALIDATORS, encoded)?;
         }
 
-        // TODO: confirm slot vs block.
-        let slot = spacejam.db.get(TIMESLOT)?.unwrap_or(vec![]);
-        let mut slot: u32 = codec::decode(&slot).unwrap_or(0);
-
-        loop {
-            let block = spacejam.mine()?;
-            slot += 1;
-            tracing::info!("mined block #{}: 0x{}", slot, hex::encode(block.hash()?));
-            std::thread::sleep(std::time::Duration::from_secs(5));
-        }
+        let mut network = Network::new(Default::default(), Box::new(spacejam))
+            .await
+            .expect("failed to create network");
+        network.spawn().await;
+        Ok(())
     }
 }
