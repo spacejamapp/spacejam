@@ -9,10 +9,10 @@ use score::{
     validator::ValidatorData,
 };
 use spacejson::Json;
-use std::{fs, path::PathBuf};
+use std::{fs, net::SocketAddr, path::PathBuf};
 
 /// Spawn the node
-#[derive(Default, Parser)]
+#[derive(Parser)]
 pub struct Spawn {
     /// Path to the database
     #[arg(short, long, default_value = "chain.db")]
@@ -21,13 +21,31 @@ pub struct Spawn {
     /// Path to the genesis file
     #[arg(short, long, default_value = "genesis.json")]
     pub genesis: PathBuf,
+
+    /// Metrics address
+    #[arg(short, long, default_value = "0.0.0.0:9090")]
+    pub metrics: SocketAddr,
+
+    /// Validator secret phrase, accepts a hex string or a number
+    #[arg(short, long)]
+    pub validator: String,
 }
 
 impl Spawn {
     /// Run the command
     pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
-        let spacejam: SpaceJam<C> =
-            SpaceJam::new(C::Db::open(self.db.clone())?, C::Validator::default());
+        // Parse the validator secret
+        let validator = if let Some(secret) = hex::decode(&self.validator.trim_start_matches("0x"))
+            .ok()
+            .and_then(|s| s.try_into().ok())
+        {
+            C::Validator::from(secret)
+        } else {
+            let num = self.validator.parse::<u8>()?;
+            C::Validator::from([num; 32])
+        };
+
+        let spacejam: SpaceJam<C> = SpaceJam::new(C::Db::open(self.db.clone())?, validator);
 
         // Initialize the database
         if spacejam.db.is_empty() {
@@ -47,7 +65,7 @@ impl Spawn {
         let metrics = network.metrics.clone();
 
         tokio::select! {
-            _ = crate::metrics::serve("0.0.0.0:9090".parse()?, metrics) => {}
+            _ = crate::metrics::serve(self.metrics, metrics) => {}
             _ = network.spawn() => {}
             _ = tokio::signal::ctrl_c() => {}
         }
