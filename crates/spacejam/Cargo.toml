@@ -14,6 +14,9 @@ clap = { workspace = true, features = ["derive"], optional = true }
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
+hyper = { workspace = true, optional = true, features = ["server", "http2"] }
+hyper-util = { workspace = true, optional = true, features = ["tokio"] }
+metrics = { workspace = true, optional = true }
 rocksdb = { workspace = true, optional = true }
 rand.workspace = true
 score = { workspace = true }
@@ -22,13 +25,14 @@ serde_json = { workspace = true, optional = true }
 sled = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["rt", "sync"] }
+tokio = { workspace = true, features = ["rt", "sync", "net", "macros"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
 
 [features]
 bin = ["node", "sled"]
 cmd = ["clap", "serde", "spacejson"]
-default = ["bin"]
+default = ["bin", "metrics"]
+metrics = ["hyper", "hyper-util", "dep:metrics"]
 node = ["cmd", "tracing-subscriber"]
 serde = ["dep:serde", "serde_json", "toml"]

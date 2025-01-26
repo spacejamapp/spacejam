@@ -1,6 +1,5 @@
 //! Metrics for the network.
 
-use crate::Metric;
 use prometheus as prometheus_client;
 use prometheus::{
     encoding::EncodeLabelSet,
@@ -28,6 +27,15 @@ impl Connection {
     pub fn close_connection(&self, peer: String) {
         self.inner.get_or_create(&Peer { peer }).set(Peer::closed());
     }
+
+    /// Register the metric.
+    pub fn register(&self, registry: &mut Registry) {
+        registry.register(
+            "conn",
+            "Connection status, 1: established, 0: closed",
+            self.inner.clone(),
+        );
+    }
 }
 
 impl Deref for Connection {
@@ -35,16 +43,6 @@ impl Deref for Connection {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-impl Metric for Connection {
-    fn register(&self, registry: &mut Registry) {
-        registry.register(
-            "conn",
-            "Connection status, 1: established, 0: closed",
-            self.inner.clone(),
-        );
     }
 }
 

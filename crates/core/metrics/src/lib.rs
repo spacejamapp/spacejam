@@ -43,9 +43,3 @@ impl Metrics {
         Ok(buffer)
     }
 }
-
-/// A trait for metrics.
-pub trait Metric {
-    /// Register the metric.
-    fn register(&self, registry: &mut Registry);
-}

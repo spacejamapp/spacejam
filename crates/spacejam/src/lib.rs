@@ -3,6 +3,7 @@ use score::block::{Block, BlockInfo, History};
 pub use score::{validator::Validator, Config};
 
 pub mod cmd;
+pub mod metrics;
 pub mod storage;
 pub mod validator;
 
