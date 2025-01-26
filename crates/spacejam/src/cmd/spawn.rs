@@ -29,6 +29,7 @@ impl Spawn {
         let spacejam: SpaceJam<C> =
             SpaceJam::new(C::Db::open(self.db.clone())?, C::Validator::default());
 
+        // Initialize the database
         if spacejam.db.is_empty() {
             let genesis = fs::read_to_string(self.genesis.clone())?;
             let genesis: Genesis = serde_json::from_str(&genesis)?;
@@ -38,14 +39,18 @@ impl Spawn {
                 .map(Json::from_json)
                 .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
             let encoded = codec::encode(&validators)?;
-
             spacejam.db.set(CURRENT_VALIDATORS, encoded)?;
         }
 
-        let mut network = Network::new(Default::default(), Box::new(spacejam))
-            .await
-            .expect("failed to create network");
-        network.spawn().await;
+        // Initialize the network
+        let mut network = Network::new(Default::default(), Box::new(spacejam)).await?;
+        let metrics = network.metrics.clone();
+
+        tokio::select! {
+            _ = crate::metrics::serve("0.0.0.0:9090".parse()?, metrics) => {}
+            _ = network.spawn() => {}
+            _ = tokio::signal::ctrl_c() => {}
+        }
         Ok(())
     }
 }
