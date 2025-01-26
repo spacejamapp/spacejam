@@ -2,7 +2,6 @@
 
 use crate::Network;
 use litep2p::Litep2pEvent;
-use tokio_stream::StreamExt;
 
 mod block;
 mod kad;
@@ -12,24 +11,6 @@ mod state;
 mod sync;
 
 impl Network {
-    /// Spawn the network.
-    pub async fn spawn(&mut self) {
-        let listen_addresses = self.p2p.listen_addresses().collect::<Vec<_>>();
-        tracing::info!("listen addresses: {listen_addresses:?}");
-
-        loop {
-            tokio::select! {
-                Some(event) = self.block.next() => self.block(event),
-                Some(event) = self.sync.next() => self.sync(event),
-                Some(event) = self.state.next() => self.state(event),
-                Some(event) = self.ping.next() => self.ping(event).await,
-                Some(event) = self.kad.next() => self.kad(event).await,
-                Some(event) = self.mdns.next() => self.mdns(event).await,
-                Some(event) = self.p2p.next_event() => self.litep2p(event).await,
-            }
-        }
-    }
-
     /// Handle Litep2p events.
     #[tracing::instrument(skip_all, level = "trace")]
     pub async fn litep2p(&mut self, event: Litep2pEvent) {
@@ -39,11 +20,12 @@ impl Network {
                 connection_id,
             } => {
                 tracing::trace!("connection {peer} closed: {connection_id:?}");
+                self.metrics.conn.close_connection(peer.to_string());
                 self.peer.remove(peer, connection_id);
             }
             Litep2pEvent::ConnectionEstablished { peer, endpoint } => {
                 tracing::trace!("connection {peer} established: {endpoint:?}");
-                *self.context.write().await += 1;
+                self.metrics.conn.establish_connection(peer.to_string());
                 self.peer.add(peer, endpoint);
             }
             Litep2pEvent::DialFailure { address, error } => {

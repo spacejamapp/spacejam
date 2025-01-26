@@ -23,7 +23,8 @@ struct App {
     verbose: u8,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let app = App::parse();
     let name = App::command().get_name().to_string();
     let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
@@ -40,7 +41,7 @@ fn main() {
         return;
     };
 
-    if let Err(e) = cmd.run::<Config>() {
+    if let Err(e) = cmd.run::<Config>().await {
         eprintln!("Failed to run spacejam: {e}");
 
         if cfg!(debug_assertions) {

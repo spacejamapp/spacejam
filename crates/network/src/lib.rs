@@ -1,6 +1,5 @@
 //! Network implementation of Spacejam.
 
-pub use config::Config;
 use litep2p::{
     config::ConfigBuilder,
     protocol::{
@@ -14,12 +13,14 @@ use litep2p::{
     },
     Litep2p,
 };
+use metrics::Metrics;
 use peer::PeerManager;
-use std::{pin::Pin, sync::Arc};
-use tokio::sync::RwLock;
-use tokio_stream::Stream;
+use std::pin::Pin;
+use tokio_stream::{Stream, StreamExt};
+pub use {config::Config, context::Context};
 
 pub mod config;
+mod context;
 mod event;
 mod peer;
 
@@ -54,16 +55,15 @@ pub struct Network {
     peer: PeerManager,
 
     /// Context.
-    ///
-    /// currently just used for testing to check if the
-    /// network is ready, it will embed the storage interface
-    /// in the future.
-    pub context: Arc<RwLock<usize>>,
+    pub context: Box<dyn Context>,
+
+    /// Metrics.
+    pub metrics: Metrics,
 }
 
 impl Network {
     /// Create a new network instance.
-    pub async fn new(config: Config) -> anyhow::Result<Self> {
+    pub async fn new(config: Config, context: Box<dyn Context>) -> anyhow::Result<Self> {
         let (block, block_handle) = config.block(BLOCK_NAME, &[]);
         let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
         let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
@@ -86,7 +86,6 @@ impl Network {
 
         // Create the network instance
         let mut this = Self {
-            p2p,
             block: block_handle,
             ping: Box::pin(ping_handle),
             kad: kad_handle,
@@ -94,12 +93,32 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
-            context: Arc::new(RwLock::new(0)),
+            metrics: Metrics::new(&p2p.local_peer_id().to_string()),
+            context,
+            p2p,
         };
 
         // Bootstrap the network
         this.bootstrap(&config).await;
         Ok(this)
+    }
+
+    /// Spawn the network.
+    pub async fn spawn(&mut self) {
+        let listen_addresses = self.p2p.listen_addresses().collect::<Vec<_>>();
+        tracing::info!("listen addresses: {listen_addresses:?}");
+
+        loop {
+            tokio::select! {
+                Some(event) = self.block.next() => self.block(event),
+                Some(event) = self.sync.next() => self.sync(event),
+                Some(event) = self.state.next() => self.state(event),
+                Some(event) = self.ping.next() => self.ping(event).await,
+                Some(event) = self.kad.next() => self.kad(event).await,
+                Some(event) = self.mdns.next() => self.mdns(event).await,
+                Some(event) = self.p2p.next_event() => self.litep2p(event).await,
+            }
+        }
     }
 
     /// Bootstrap the network.
