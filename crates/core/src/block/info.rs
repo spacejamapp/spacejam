@@ -1,3 +1,5 @@
+//! This module contains the block information.
+
 use crate::{
     block::{
         history::{Mmr, MmrJson},
@@ -25,15 +27,16 @@ pub struct BlockInfo {
 
 impl BlockInfo {
     /// Mines a block
-    pub fn mine(&self) -> Block {
+    pub fn mine(&self) -> anyhow::Result<Block> {
         let header = Header {
             parent: self.header_hash,
             parent_state_root: self.state_root,
+            slot: crate::block::timeslot()?,
             ..Default::default()
         };
 
         // TODO: mine the transaction pool.
         let extrinsic = Extrinsic::default();
-        Block { header, extrinsic }
+        Ok(Block { header, extrinsic })
     }
 }

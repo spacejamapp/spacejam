@@ -3,7 +3,7 @@
 use crate::{
     block::{Block, BlockInfo},
     extrinsic::TicketsOrKeys,
-    state::{key, Storage},
+    state::Storage,
     BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
     Ed25519Public, OpaqueHash, ValidatorMetadata, JAM_ENTROPY, JAM_FALLBACK_SEAL, JAM_TICKET_SEAL,
 };
@@ -69,7 +69,7 @@ pub trait Validator: TryFrom<String> {
 
     /// Mines a block
     fn mine(&self, block: &BlockInfo, db: &impl Storage) -> Result<Block> {
-        let mut block = block.mine();
+        let mut block = block.mine()?;
         let entropy = db.entropy()?.unwrap_or_default();
         let safrole = db.safrole()?.unwrap_or_default();
         let timeslot = db.timeslot()?.unwrap_or(0);
@@ -115,11 +115,6 @@ pub trait Validator: TryFrom<String> {
             self.bandersnatch_sign(&keys, &context, &[])?
         };
 
-        // write the new state to the database
-        //
-        // TODO: mb not, store it on finalization only.
-        tracing::trace!("Writing timeslot to database: {}", block.header.slot);
-        db.set(key::TIMESLOT, codec::encode(&block.header.slot)?)?;
         Ok(block)
     }
 }

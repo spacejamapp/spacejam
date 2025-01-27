@@ -29,6 +29,10 @@ pub struct Spawn {
     /// Validator secret phrase, accepts a hex string or a number
     #[arg(short, long)]
     pub validator: String,
+
+    /// If force this node authoring blocks
+    #[arg(short, long, default_value = "false")]
+    pub author: bool,
 }
 
 impl Spawn {

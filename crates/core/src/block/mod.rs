@@ -1,4 +1,8 @@
-use crate::{extrinsic::*, HeaderHash};
+//! This module contains the block and its related structures.
+
+use std::time::{Duration, UNIX_EPOCH};
+
+use crate::{extrinsic::*, HeaderHash, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -28,4 +32,14 @@ impl Block {
         let encoded = codec::encode(&self.header)?;
         Ok(crypto::blake2b(&encoded))
     }
+}
+
+/// Returns the current timeslot
+pub fn timeslot() -> anyhow::Result<TimeSlot> {
+    let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
+    let now = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH + era)?
+        .as_secs() as u32;
+
+    Ok(now / 6)
 }
