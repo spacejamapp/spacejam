@@ -1,12 +1,12 @@
 //! Spawn the node
 
-use crate::{Config, SpaceJam};
+use crate::Context;
 use clap::Parser;
 use network::Network;
 use score::{
-    config::Genesis,
+    genesis::Genesis,
     state::{key::CURRENT_VALIDATORS, Storage},
-    validator::ValidatorData,
+    validator::{Validator, ValidatorData},
 };
 use spacejson::Json;
 use std::{fs, net::SocketAddr, path::PathBuf};
@@ -37,19 +37,21 @@ pub struct Spawn {
 
 impl Spawn {
     /// Run the command
-    pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
+    pub async fn run<S: Storage + 'static, V: Validator + From<[u8; 32]> + 'static>(
+        &self,
+    ) -> anyhow::Result<()> {
         // Parse the validator secret
         let validator = if let Some(secret) = hex::decode(self.validator.trim_start_matches("0x"))
             .ok()
             .and_then(|s| s.try_into().ok())
         {
-            C::Validator::from(secret)
+            V::from(secret)
         } else {
             let num = self.validator.parse::<u8>()?;
-            C::Validator::from([num; 32])
+            V::from([num; 32])
         };
 
-        let spacejam: SpaceJam<C> = SpaceJam::new(C::Db::open(self.db.clone())?, validator);
+        let spacejam = Context::new(validator, S::open(self.db.clone())?);
 
         // Initialize the database
         if spacejam.db.is_empty() {
@@ -65,6 +67,8 @@ impl Spawn {
         }
 
         // Initialize the network
+        //
+        // TODO: initialize the network with the given config from input
         let mut network = Network::new(Default::default(), Box::new(spacejam)).await?;
         let metrics = network.metrics.clone();
         tokio::select! {

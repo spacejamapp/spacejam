@@ -1,7 +1,7 @@
 //! Command line interface for spacejam
 
-use crate::Config;
 use clap::Parser;
+use score::{state::Storage, validator::Validator};
 pub use {rand::Rand, spawn::Spawn};
 
 mod rand;
@@ -20,10 +20,12 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
+    pub async fn run<S: Storage + 'static, V: Validator + From<[u8; 32]> + 'static>(
+        &self,
+    ) -> anyhow::Result<()> {
         match self {
             Command::Rand(rand) => rand.run(),
-            Command::Spawn(spawn) => spawn.run::<C>().await,
+            Command::Spawn(spawn) => spawn.run::<S, V>().await,
         }
     }
 }

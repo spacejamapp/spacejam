@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use score::{config::Genesis, validator::Validator, VALIDATORS_COUNT};
+use score::{genesis::Genesis, validator::Validator, VALIDATORS_COUNT};
 use spacejson::Json;
 
 use crate::validator::LocalValidator;

@@ -5,18 +5,8 @@ use spacejson::Json;
 
 use crate::{
     block::{Block, BlockJson},
-    state::Storage,
-    validator::{Validator, ValidatorDataJson},
+    validator::ValidatorDataJson,
 };
-
-/// The configuration of SpaceJam
-pub trait Config {
-    /// The validator of SpaceJam
-    type Validator: Validator + Default + From<[u8; 32]>;
-
-    /// The database of SpaceJam
-    type Db: Storage;
-}
 
 /// The genesis configuration
 #[derive(Debug, Serialize, Deserialize)]

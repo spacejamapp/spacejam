@@ -1,10 +1,10 @@
 //! Core of SpaceJam
 
-pub use {block::Block, config::Config, extrinsic::Extrinsic, state::State};
+pub use {block::Block, extrinsic::Extrinsic, state::State};
 
 pub mod block;
-pub mod config;
 pub mod extrinsic;
+pub mod genesis;
 pub mod safrole;
 pub mod service;
 pub mod state;
