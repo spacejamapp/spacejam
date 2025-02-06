@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'spacejam'
+    static_configs:
+      - targets:
+        - 'spacejam-1:9091'
+        - 'spacejam-2:9092'
+        - 'spacejam-3:9093'
+        - 'spacejam-4:9094'
+        - 'spacejam-5:9095'
+        - 'spacejam-6:9096'
+    metrics_path: '/metrics'
+    scheme: 'http'
+

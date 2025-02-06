@@ -9,7 +9,7 @@ RUN  --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=type=cache,sharing=private,target=target \
     apt-get update && \
     apt-get install -y protobuf-compiler libclang-dev && \
-    cargo build -p spacejam --release --features rocksdb && \
+    cargo build -p spacejam --release && \
     cp target/release/spacejam /usr/local/bin/spacejam
 
 # Use a smaller image for the final output

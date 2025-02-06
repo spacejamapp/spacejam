@@ -12,10 +12,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     volumes:
-      - ../monitor/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ../monitor/prometheus-data:/prometheus
-      - ../monitor/rules:/etc/prometheus/rules
-      - ../monitor/logs:/var/log/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
   spacejam-1:
     image: spacejam:latest
     depends_on:
