@@ -2,9 +2,12 @@
 /crates/testing/jamtestvectors
 /crates/crypto/bandersnatch-vrfs-spec
 /crates/pvm/rvparser/riscv-opcodes
+/docker/node
+/monitor/data
+/monitor/logs
+/monitor/prometheus-data
 /res
 
 # misc
 chain.db
 genesis.json
-crates/network/tests/data/test.*

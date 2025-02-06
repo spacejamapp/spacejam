@@ -105,8 +105,11 @@ impl Network {
 
     /// Spawn the network.
     pub async fn spawn(&mut self) {
+        tracing::info!("peer id: {:?}", self.p2p.local_peer_id());
         let listen_addresses = self.p2p.listen_addresses().collect::<Vec<_>>();
-        tracing::info!("listen addresses: {listen_addresses:?}");
+        if !listen_addresses.is_empty() {
+            tracing::info!("listen addresses: {listen_addresses:?}");
+        }
 
         loop {
             tokio::select! {
@@ -123,6 +126,11 @@ impl Network {
 
     /// Bootstrap the network.
     async fn bootstrap(&mut self, config: &Config) {
+        if config.bootstrap.is_empty() {
+            return;
+        }
+
+        tracing::info!("bootstrap addresses: {:?}", config.bootstrap);
         for address in config.bootstrap.iter() {
             tracing::event!(tracing::Level::INFO, "dialing {address:?}");
             if let Err(e) = self.p2p.dial_address(address.clone()).await {
