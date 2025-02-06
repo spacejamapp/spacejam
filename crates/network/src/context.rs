@@ -1,9 +1,14 @@
 //! Context for the network.
 
 use anyhow::Result;
+use litep2p::crypto::ed25519;
 
 /// Context for the network.
 pub trait Context {
+    fn keypair(&self) -> Option<ed25519::Keypair> {
+        None
+    }
+
     /// Import a block.
     ///
     /// This method will be called when receiving a block
@@ -31,8 +36,6 @@ pub trait Context {
     fn subscribe_block(&self, _block: Vec<u8>) -> Result<()> {
         Ok(())
     }
-
-    
 }
 
 impl Context for () {

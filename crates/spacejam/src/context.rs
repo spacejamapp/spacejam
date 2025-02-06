@@ -1,5 +1,6 @@
 //! Context for SpaceJam
 
+use network::ed25519;
 use score::{state::Storage, validator::Validator};
 
 /// The context for SpaceJam
@@ -19,6 +20,18 @@ impl<S: Storage, V: Validator> Context<S, V> {
 }
 
 impl<S: Storage, V: Validator> network::Context for Context<S, V> {
+    fn keypair(&self) -> Option<ed25519::Keypair> {
+        let Some(kp) = self.validator.ed25519() else {
+            return None;
+        };
+
+        let Ok(sk) = ed25519::SecretKey::try_from_bytes(kp.signing.to_bytes()) else {
+            return None;
+        };
+
+        Some(ed25519::Keypair::from(sk))
+    }
+
     fn import_block(&self, block: Vec<u8>) -> anyhow::Result<()> {
         sync::transit(&codec::decode(&block)?, &self.db, &self.validator)
     }

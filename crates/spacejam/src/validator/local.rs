@@ -75,6 +75,10 @@ impl Validator for LocalValidator {
     fn metadata(&self) -> ValidatorMetadata {
         [0u8; 128]
     }
+
+    fn ed25519(&self) -> Option<ed25519::KeyPair> {
+        Some(self.ed25519.clone())
+    }
 }
 
 impl From<[u8; 32]> for LocalValidator {

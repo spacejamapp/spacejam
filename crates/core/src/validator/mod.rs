@@ -49,6 +49,11 @@ pub trait Validator: TryFrom<String> {
     /// Metadata of the validator
     fn metadata(&self) -> ValidatorMetadata;
 
+    /// Ed25519 key pair
+    fn ed25519(&self) -> Option<crypto::ed25519::KeyPair> {
+        None
+    }
+
     /// Data of the validator
     fn data(&self) -> ValidatorData {
         ValidatorData {

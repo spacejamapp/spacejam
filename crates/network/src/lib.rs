@@ -17,7 +17,7 @@ use metrics::Metrics;
 use peer::PeerManager;
 use std::{pin::Pin, time::Duration};
 use tokio_stream::{Stream, StreamExt};
-pub use {config::Config, context::Context};
+pub use {config::Config, context::Context, litep2p::crypto::ed25519};
 
 pub mod config;
 mod context;
@@ -72,17 +72,24 @@ impl Network {
         let (mdns, mdns_handle) = mdns::Config::new(Duration::from_secs(config.mdns));
 
         // Create the network instance
-        let p2p = Litep2p::new(
-            ConfigBuilder::new()
-                .with_libp2p_ping(ping)
-                .with_libp2p_kademlia(kad)
-                .with_mdns(mdns)
-                .with_quic(config.quic())
-                .with_notification_protocol(block)
-                .with_request_response_protocol(block_sync)
-                .with_request_response_protocol(state_sync)
-                .build(),
-        )?;
+        let p2p = {
+            let mut builder = ConfigBuilder::new();
+            if let Some(kp) = context.keypair() {
+                builder = builder.with_keypair(kp);
+            }
+
+            Litep2p::new(
+                builder
+                    .with_libp2p_ping(ping)
+                    .with_libp2p_kademlia(kad)
+                    .with_mdns(mdns)
+                    .with_quic(config.quic())
+                    .with_notification_protocol(block)
+                    .with_request_response_protocol(block_sync)
+                    .with_request_response_protocol(state_sync)
+                    .build(),
+            )?
+        };
 
         // Create the network instance
         let mut this = Self {
