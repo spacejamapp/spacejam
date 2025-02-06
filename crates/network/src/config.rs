@@ -27,7 +27,7 @@ pub struct Config {
 
     /// The state sync configuration.
     #[cfg_attr(feature = "cmd", command(flatten))]
-    pub state_sync: SyncConfig,
+    pub state_sync: StateSyncConfig,
 
     /// The mDNS query interval in seconds.
     #[cfg_attr(feature = "cmd", arg(long, default_value = "10"))]
@@ -44,7 +44,7 @@ impl Default for Config {
             block: NotifiConfig::default(),
             block_sync: SyncConfig::default(),
             quic: QuicConfig::default(),
-            state_sync: SyncConfig::default(),
+            state_sync: StateSyncConfig::default(),
             mdns: 10,
             bootstrap: vec![],
         }
@@ -93,7 +93,8 @@ impl Config {
         name: &'static str,
         fallback_names: &[&'static str],
     ) -> (protocol::request_response::Config, RequestResponseHandle) {
-        self.req_resp(&self.state_sync, name, fallback_names)
+        let config: SyncConfig = self.state_sync.clone().into();
+        self.req_resp(&config, name, fallback_names)
     }
 
     /// Get the request-response configuration.
@@ -223,6 +224,52 @@ impl Default for SyncConfig {
             max_message_size: 1024 * 1024,
             timeout: 60,
             max_concurrent_inbound_request: None,
+        }
+    }
+}
+
+/// Configuration for the request-response protocol.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
+pub struct StateSyncConfig {
+    /// The maximum size of a message.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, default_value = "1048576", name = "state-sync-max-message-size")
+    )]
+    pub max_message_size: usize,
+
+    /// The timeout for a request in seconds.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, default_value = "60", name = "state-sync-timeout")
+    )]
+    pub timeout: u64,
+
+    /// The maximum number of concurrent inbound requests.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, name = "state-sync-max-concurrent-inbound-request")
+    )]
+    pub max_concurrent_inbound_request: Option<usize>,
+}
+
+impl Default for StateSyncConfig {
+    fn default() -> Self {
+        Self {
+            max_message_size: 1024 * 1024,
+            timeout: 60,
+            max_concurrent_inbound_request: None,
+        }
+    }
+}
+
+impl From<StateSyncConfig> for SyncConfig {
+    fn from(config: StateSyncConfig) -> Self {
+        Self {
+            max_message_size: config.max_message_size,
+            timeout: config.timeout,
+            max_concurrent_inbound_request: config.max_concurrent_inbound_request,
         }
     }
 }

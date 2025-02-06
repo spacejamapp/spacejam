@@ -152,6 +152,11 @@ mod serde_config {
         type Error = anyhow::Error;
 
         fn try_from(seed: String) -> Result<Self> {
+            if let Ok(num) = seed.parse::<u8>() {
+                let seed: [u8; 32] = [num; 32];
+                return Ok(Self::from(seed));
+            }
+
             if let Ok(seed) = hex::decode(seed.trim_start_matches("0x")) {
                 let seed: [u8; 32] = seed
                     .try_into()

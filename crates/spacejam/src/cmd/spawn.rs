@@ -23,13 +23,13 @@ pub struct Spawn {
     pub genesis: PathBuf,
 
     /// Metrics address
-    #[arg(short, long, default_value = "0.0.0.0:9090")]
+    #[arg(short, long, default_value = "0.0.0.0:0")]
     pub metrics: SocketAddr,
 
     /// Validator secret phrase, accepts a hex string or a number
     ///
     /// TODO: if no validator is provided, the node will not author blocks
-    #[arg(short, long)]
+    #[arg(long)]
     pub validator: String,
 
     /// If force this node authoring blocks
@@ -43,26 +43,20 @@ pub struct Spawn {
 
 impl Spawn {
     /// Run the command
-    pub async fn run<S: Storage + 'static, V: Validator + From<[u8; 32]> + 'static>(
+    pub async fn run<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
         &self,
     ) -> anyhow::Result<()> {
         // Parse the validator secret
-        let validator = if let Some(secret) = hex::decode(self.validator.trim_start_matches("0x"))
-            .ok()
-            .and_then(|s| s.try_into().ok())
-        {
-            V::from(secret)
-        } else {
-            let num = self.validator.parse::<u8>()?;
-            V::from([num; 32])
-        };
-
+        let validator =
+            V::try_from(self.validator.clone()).map_err(|_| anyhow::anyhow!("Invalid seed"))?;
         let spacejam = Context::new(validator, S::open(self.db.clone())?);
 
         // Initialize the database
         if spacejam.db.is_empty() {
-            let genesis = fs::read_to_string(self.genesis.clone())?;
-            let genesis: Genesis = serde_json::from_str(&genesis)?;
+            let genesis = fs::read_to_string(self.genesis.clone())
+                .map_err(|_| anyhow::anyhow!("Failed to read genesis file {:?}", self.genesis))?;
+            let genesis: Genesis = serde_json::from_str(&genesis)
+                .map_err(|_| anyhow::anyhow!("Failed to parse genesis file {:?}", self.genesis))?;
             let validators = genesis
                 .validators
                 .into_iter()

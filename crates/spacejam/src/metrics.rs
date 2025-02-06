@@ -10,8 +10,8 @@ use tokio::net::TcpListener;
 
 /// Serve the metrics.
 pub async fn serve(addr: std::net::SocketAddr, metrics: Metrics) -> Result<()> {
-    tracing::info!("serving metrics on {}", addr);
     let listener = TcpListener::bind(addr).await?;
+    tracing::info!("metrics server listening on {}", listener.local_addr()?);
 
     loop {
         let (stream, _) = listener.accept().await?;

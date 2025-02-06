@@ -14,8 +14,6 @@ RUN  --mount=type=cache,target=/usr/local/cargo/registry \
 # Use a smaller image for the final output
 #
 # copy the binary from the builder stage
-FROM debian:bullseye-slim
-COPY --from=builder /lib/aarch64-linux-gnu/libc.so.1 /lib/aarch64-linux-gnu/libc.so.1
-COPY --from=builder /usr/lib/aarch64-linux-gnu/libstdc++.so.6 /usr/lib/aarch64-linux-gnu/libstdc++.so.6
+FROM debian:bookworm-slim
 COPY --from=builder /usr/src/spacejam/target/release/spacejam /usr/local/bin/spacejam
-CMD ["spacejam"]
+ENTRYPOINT ["spacejam"]
