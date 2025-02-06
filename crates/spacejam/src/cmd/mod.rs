@@ -15,7 +15,7 @@ pub enum Command {
     Rand(Rand),
 
     /// Start the SpaceJam node
-    Spawn(Spawn),
+    Spawn(Box<Spawn>),
 }
 
 impl Command {

@@ -15,7 +15,7 @@ use litep2p::{
 };
 use metrics::Metrics;
 use peer::PeerManager;
-use std::pin::Pin;
+use std::{pin::Pin, time::Duration};
 use tokio_stream::{Stream, StreamExt};
 pub use {config::Config, context::Context};
 
@@ -69,7 +69,7 @@ impl Network {
         let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
         let (ping, ping_handle) = ping::ConfigBuilder::new().with_max_failure(10).build();
         let (kad, kad_handle) = kademlia::ConfigBuilder::new().build();
-        let (mdns, mdns_handle) = mdns::Config::new(config.mdns);
+        let (mdns, mdns_handle) = mdns::Config::new(Duration::from_secs(config.mdns));
 
         // Create the network instance
         let p2p = Litep2p::new(

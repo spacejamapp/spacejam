@@ -39,7 +39,7 @@ tracing-subscriber = { workspace = true, optional = true }
 
 [features]
 bin = ["node", "sled"]
-cmd = ["clap", "serde", "spacejson"]
+cmd = ["clap", "serde", "spacejson", "network/cmd"]
 default = ["bin", "metrics"]
 metrics = ["hyper", "hyper-util", "dep:metrics"]
 node = ["cmd", "tracing-subscriber"]

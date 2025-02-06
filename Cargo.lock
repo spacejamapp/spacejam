@@ -2966,7 +2966,6 @@ dependencies = [
  "clap",
  "litep2p",
  "serde",
- "serde_json",
  "spacejam-metrics",
  "tokio",
  "tokio-stream",

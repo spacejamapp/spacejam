@@ -27,12 +27,18 @@ pub struct Spawn {
     pub metrics: SocketAddr,
 
     /// Validator secret phrase, accepts a hex string or a number
+    ///
+    /// TODO: if no validator is provided, the node will not author blocks
     #[arg(short, long)]
     pub validator: String,
 
     /// If force this node authoring blocks
     #[arg(short, long, default_value = "false")]
     pub author: bool,
+
+    /// The network configuration
+    #[command(flatten)]
+    pub network: network::Config,
 }
 
 impl Spawn {
@@ -69,7 +75,7 @@ impl Spawn {
         // Initialize the network
         //
         // TODO: initialize the network with the given config from input
-        let mut network = Network::new(Default::default(), Box::new(spacejam)).await?;
+        let mut network = Network::new(self.network.clone(), Box::new(spacejam)).await?;
         let metrics = network.metrics.clone();
         tokio::select! {
             _ = crate::metrics::serve(self.metrics, metrics) => {}
