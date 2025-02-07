@@ -1,11 +1,10 @@
 //! Command `rand` for spacejam
 
+use crate::{node::Genesis, validator::LocalValidator};
 use anyhow::Result;
 use clap::Parser;
-use score::{genesis::Genesis, validator::Validator, VALIDATORS_COUNT};
+use score::{validator::Validator, VALIDATORS_COUNT};
 use spacejson::Json;
-
-use crate::validator::LocalValidator;
 
 /// The `rand` command
 ///

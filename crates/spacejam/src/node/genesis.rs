@@ -1,12 +1,11 @@
 //! The configuration of SpaceJam
 
-use serde::{Deserialize, Serialize};
-use spacejson::Json;
-
-use crate::{
+use score::{
     block::{Block, BlockJson},
     validator::ValidatorDataJson,
 };
+use serde::{Deserialize, Serialize};
+use spacejson::Json;
 
 /// The genesis configuration
 #[derive(Debug, Serialize, Deserialize)]

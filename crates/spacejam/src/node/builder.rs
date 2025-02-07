@@ -1,9 +1,8 @@
 //! Configuration for the spacejam node
 
-use crate::{Context, Spacejam};
+use crate::{node::Genesis, Context, Spacejam};
 use network::{Context as _, Network};
 use score::{
-    genesis::Genesis,
     state::{key::CURRENT_VALIDATORS, Storage},
     validator::{Validator, ValidatorData},
 };

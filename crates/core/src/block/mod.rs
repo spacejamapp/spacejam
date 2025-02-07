@@ -1,19 +1,23 @@
 //! This module contains the block and its related structures.
 
-use std::time::{Duration, UNIX_EPOCH};
-
-use crate::{extrinsic::*, HeaderHash, TimeSlot};
+use crate::{
+    extrinsic::*,
+    work::{ReportedWorkPackage, ReportedWorkPackageJson},
+    HeaderHash, OpaqueHash, TimeSlot,
+};
+use history::{Mmr, MmrJson};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::time::{Duration, UNIX_EPOCH};
 pub use {
+    builder::Builder,
     header::{Header, HeaderJson},
     history::History,
-    info::{BlockInfo, BlockInfoJson},
 };
 
+mod builder;
 pub mod header;
 pub mod history;
-mod info;
 
 /// Represents a block in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
@@ -27,11 +31,29 @@ pub struct Block {
 }
 
 impl Block {
+    /// Returns a builder for the block
+    pub fn builder() -> Builder {
+        Builder::default()
+    }
+
     /// Returns the hash of the block
     pub fn hash(&self) -> anyhow::Result<HeaderHash> {
         let encoded = codec::encode(&self.header)?;
         Ok(crypto::blake2b(&encoded))
     }
+}
+
+/// Represents information about a block.
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+pub struct BlockInfo {
+    #[json(hex)]
+    pub header_hash: OpaqueHash,
+    #[json(nested)]
+    pub mmr: Mmr,
+    #[json(hex)]
+    pub state_root: OpaqueHash,
+    #[json(nested)]
+    pub reported: Vec<ReportedWorkPackage>,
 }
 
 /// Returns the current timeslot

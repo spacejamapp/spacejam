@@ -4,10 +4,11 @@ use ::metrics::Metrics;
 use network::Network;
 use score::{state::Storage, validator::Validator};
 use std::{net::SocketAddr, sync::Arc};
-pub use {builder::Builder, context::Context};
+pub use {builder::Builder, context::Context, genesis::Genesis};
 
 mod builder;
 mod context;
+mod genesis;
 pub mod metrics;
 
 /// The node for SpaceJam

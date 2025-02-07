@@ -4,7 +4,6 @@ pub use {block::Block, extrinsic::Extrinsic, state::State};
 
 pub mod block;
 pub mod extrinsic;
-pub mod genesis;
 pub mod safrole;
 pub mod service;
 pub mod state;
