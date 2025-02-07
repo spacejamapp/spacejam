@@ -4,6 +4,8 @@ use network::ed25519;
 use score::{state::Storage, validator::Validator};
 
 /// The context for SpaceJam
+///
+/// TODO: maybe move this to the core library...
 pub struct Context<S: Storage, V: Validator> {
     /// The validator of SpaceJam
     pub validator: V,
@@ -21,14 +23,8 @@ impl<S: Storage, V: Validator> Context<S, V> {
 
 impl<S: Storage, V: Validator> network::Context for Context<S, V> {
     fn keypair(&self) -> Option<ed25519::Keypair> {
-        let Some(kp) = self.validator.ed25519() else {
-            return None;
-        };
-
-        let Ok(sk) = ed25519::SecretKey::try_from_bytes(kp.signing.to_bytes()) else {
-            return None;
-        };
-
+        let kp = self.validator.ed25519()?;
+        let sk = ed25519::SecretKey::try_from_bytes(kp.signing.to_bytes()).ok()?;
         Some(ed25519::Keypair::from(sk))
     }
 

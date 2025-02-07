@@ -5,11 +5,11 @@ use anyhow::Result;
 use hyper::{body::Incoming, header, server::conn::http1, service::service_fn, Request, Response};
 use hyper_util::rt::TokioIo;
 use metrics::Metrics;
-use std::convert::Infallible;
+use std::{convert::Infallible, sync::Arc};
 use tokio::net::TcpListener;
 
 /// Serve the metrics.
-pub async fn serve(addr: std::net::SocketAddr, metrics: Metrics) -> Result<()> {
+pub async fn serve(addr: std::net::SocketAddr, metrics: Arc<Metrics>) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     tracing::info!("metrics server listening on {}", listener.local_addr()?);
 
@@ -35,7 +35,7 @@ pub async fn serve(addr: std::net::SocketAddr, metrics: Metrics) -> Result<()> {
 /// Handle metrics requests
 async fn handle_request(
     req: Request<Incoming>,
-    metrics: Metrics,
+    metrics: Arc<Metrics>,
 ) -> Result<Response<String>, Infallible> {
     if req.uri().path() == "/metrics" {
         let metrics_str = metrics

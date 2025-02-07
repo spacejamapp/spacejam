@@ -15,7 +15,7 @@ use litep2p::{
 };
 use metrics::Metrics;
 use peer::PeerManager;
-use std::{pin::Pin, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio_stream::{Stream, StreamExt};
 pub use {config::Config, context::Context, litep2p::crypto::ed25519};
 
@@ -58,7 +58,7 @@ pub struct Network {
     pub context: Box<dyn Context>,
 
     /// Metrics.
-    pub metrics: Metrics,
+    pub metrics: Arc<Metrics>,
 }
 
 impl Network {
@@ -72,7 +72,7 @@ impl Network {
         let (mdns, mdns_handle) = mdns::Config::new(Duration::from_secs(config.mdns));
 
         // Create the network instance
-        let p2p = {
+        let mut p2p = {
             let mut builder = ConfigBuilder::new();
             if let Some(kp) = context.keypair() {
                 builder = builder.with_keypair(kp);
@@ -91,8 +91,24 @@ impl Network {
             )?
         };
 
-        // Create the network instance
-        let mut this = Self {
+        // Logging addresses
+        //
+        // TODO: quic port dispatch (default value && port occupied)
+        if config.quic.addresses.len() == 1 {
+            tracing::info!("listen on: {}", config.quic.addresses[0]);
+        } else if !config.quic.addresses.is_empty() {
+            tracing::info!("listen on: {:?}", config.quic.addresses);
+        }
+
+        // Dial the bootstrap addresses
+        for address in config.bootstrap.iter() {
+            tracing::event!(tracing::Level::INFO, "dialing {address:?}");
+            if let Err(e) = p2p.dial_address(address.clone()).await {
+                tracing::warn!("failed to dial {address:?}: {e:?}");
+            }
+        }
+
+        Ok(Self {
             block: block_handle,
             ping: Box::pin(ping_handle),
             kad: kad_handle,
@@ -100,24 +116,14 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
-            metrics: Metrics::new(&p2p.local_peer_id().to_string()),
+            metrics: Arc::new(Metrics::new(&p2p.local_peer_id().to_string())),
             context,
             p2p,
-        };
-
-        // Bootstrap the network
-        this.bootstrap(&config).await;
-        Ok(this)
+        })
     }
 
     /// Spawn the network.
     pub async fn spawn(&mut self) {
-        tracing::info!("peer id: {:?}", self.p2p.local_peer_id());
-        let listen_addresses = self.p2p.listen_addresses().collect::<Vec<_>>();
-        if !listen_addresses.is_empty() {
-            tracing::info!("listen addresses: {listen_addresses:?}");
-        }
-
         loop {
             tokio::select! {
                 Some(event) = self.block.next() => self.block(event),
@@ -127,21 +133,6 @@ impl Network {
                 Some(event) = self.kad.next() => self.kad(event).await,
                 Some(event) = self.mdns.next() => self.mdns(event).await,
                 Some(event) = self.p2p.next_event() => self.litep2p(event).await,
-            }
-        }
-    }
-
-    /// Bootstrap the network.
-    async fn bootstrap(&mut self, config: &Config) {
-        if config.bootstrap.is_empty() {
-            return;
-        }
-
-        tracing::info!("bootstrap addresses: {:?}", config.bootstrap);
-        for address in config.bootstrap.iter() {
-            tracing::event!(tracing::Level::INFO, "dialing {address:?}");
-            if let Err(e) = self.p2p.dial_address(address.clone()).await {
-                tracing::warn!("failed to dial {address:?}: {e:?}");
             }
         }
     }
