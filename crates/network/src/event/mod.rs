@@ -18,6 +18,19 @@ pub enum Event {
 }
 
 impl Network {
+    /// Handle Spacejam events.
+    pub async fn spacejam(&mut self, context: &impl Context) {
+        while let Some(event) = self.rx.recv().await {
+            match event {
+                Event::SubscribeBlock(block) => {
+                    if let Err(e) = context.subscribe_block(block) {
+                        tracing::error!("failed to subscribe to block: {e}");
+                    }
+                }
+            }
+        }
+    }
+
     /// Handle Litep2p events.
     #[tracing::instrument(skip_all, level = "trace")]
     pub async fn litep2p(&mut self, event: Litep2pEvent, context: &impl Context) {

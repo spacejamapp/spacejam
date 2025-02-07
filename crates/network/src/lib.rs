@@ -18,6 +18,7 @@ use litep2p::{
 };
 use peer::PeerManager;
 use std::{pin::Pin, time::Duration};
+use tokio::sync::mpsc;
 use tokio_stream::Stream;
 pub use {
     config::Config,
@@ -60,11 +61,18 @@ pub struct Network {
 
     /// Peer manager.
     peer: PeerManager,
+
+    /// spacejam event receiver.
+    rx: mpsc::Receiver<Event>,
 }
 
 impl Network {
     /// Create a new network instance.
-    pub async fn new(config: Config, keypair: Option<Keypair>) -> anyhow::Result<Self> {
+    pub async fn new(
+        config: Config,
+        rx: mpsc::Receiver<Event>,
+        keypair: Option<Keypair>,
+    ) -> anyhow::Result<Self> {
         let (block, block_handle) = config.block(BLOCK_NAME, &[]);
         let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
         let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
@@ -117,6 +125,7 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
+            rx,
             p2p,
         })
     }

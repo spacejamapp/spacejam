@@ -8,6 +8,7 @@ use score::{
 };
 use spacejson::Json;
 use std::{fs, path::PathBuf};
+use tokio::sync::mpsc;
 
 /// Spacejam node builder
 #[derive(Clone, Default)]
@@ -60,12 +61,16 @@ impl Builder {
         }
 
         // Initialize the network
-        let network = Network::new(self.network, context.keypair()).await?;
+        //
+        // TODO: add config to the inner channel
+        let (tx, rx) = mpsc::channel(100);
+        let network = Network::new(self.network, rx, context.keypair()).await?;
         Ok(Spacejam {
             metrics: context.metrics.clone(),
             context,
             network,
             authoring: self.authoring,
+            tx,
         })
     }
 }

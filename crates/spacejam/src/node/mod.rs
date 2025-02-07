@@ -1,9 +1,10 @@
 //! Node for SpaceJam
 
 use ::metrics::Metrics;
-use network::Network;
+use network::{Event, Network};
 use score::{state::Storage, validator::Validator};
 use std::net::SocketAddr;
+use tokio::sync::mpsc;
 pub use {builder::Builder, context::Context, genesis::Genesis};
 
 mod builder;
@@ -27,7 +28,10 @@ pub struct Spacejam<S: Storage, V: Validator> {
     /// If the node is authoring blocks
     ///
     /// TODO: remove this after implementing validator selection.
-    pub authoring: bool,
+    pub(crate) authoring: bool,
+
+    /// The event sender
+    tx: mpsc::Sender<Event>,
 }
 
 impl<S: Storage, V: Validator> Spacejam<S, V> {

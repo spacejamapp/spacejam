@@ -1,15 +1,18 @@
 use metrics::{Metrics, Peer};
 use spacejam_network::{Config, Network};
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 #[tokio::test]
 async fn handshake_locally() {
     let config = Config::default();
-    let mut alice = Network::new(config.clone(), None)
+    let (_, rx) = mpsc::channel(100);
+    let (_, rx2) = mpsc::channel(100);
+    let mut alice = Network::new(config.clone(), rx, None)
         .await
         .expect("failed to create alice network");
 
-    let mut bob = Network::new(config.clone(), None)
+    let mut bob = Network::new(config.clone(), rx2, None)
         .await
         .expect("failed to create bob network");
 
