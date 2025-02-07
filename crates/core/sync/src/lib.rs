@@ -162,6 +162,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }
 
+    // TODO: longest chain stuffs. history.merge?
     branch.commit(diff)
 }
 

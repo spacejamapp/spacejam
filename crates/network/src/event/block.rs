@@ -6,7 +6,7 @@ use litep2p::protocol::notification::NotificationEvent;
 impl Network {
     /// Handle a block announce event.
     pub fn block(&mut self, event: NotificationEvent, context: &impl Context) {
-        tracing::info!("block announce: {event:?}");
+        tracing::info!("block announced: {event:?}");
         if let NotificationEvent::NotificationReceived {
             peer: _,
             notification,

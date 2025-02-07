@@ -3,8 +3,10 @@
 use crate::{node::Genesis, Context, Spacejam};
 use network::{Context as _, Network};
 use score::{
+    block::BlockInfo,
     state::{key::CURRENT_VALIDATORS, Storage},
     validator::{Validator, ValidatorData},
+    Block,
 };
 use spacejson::Json;
 use std::{fs, path::PathBuf};
@@ -40,9 +42,10 @@ impl Builder {
     pub async fn build<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
         self,
     ) -> anyhow::Result<Spacejam<S, V>> {
+        let (tx, rx) = mpsc::channel(100);
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
-        let context = Context::new(validator, S::open(self.db.clone())?);
+        let context = Context::new(validator, S::open(self.db.clone())?, tx);
 
         // Initialize the database
         if context.db.is_empty() {
@@ -51,6 +54,14 @@ impl Builder {
             let genesis: Genesis = serde_json::from_str(&genesis)
                 .map_err(|_| anyhow::anyhow!("Failed to parse genesis file {:?}", self.genesis))?;
 
+            // insert the genesis block into database
+            let block: Block = genesis.block.try_into()?;
+            let recent: Vec<BlockInfo> = vec![block.header.into()];
+            context
+                .db
+                .set(score::state::key::RECENT_BLOCKS, codec::encode(&recent)?)?;
+
+            // set up initial validators
             let validators = genesis
                 .validators
                 .into_iter()
@@ -63,14 +74,11 @@ impl Builder {
         // Initialize the network
         //
         // TODO: add config to the inner channel
-        let (tx, rx) = mpsc::channel(100);
         let network = Network::new(self.network, rx, context.keypair()).await?;
         Ok(Spacejam {
-            metrics: context.metrics.clone(),
             context,
             network,
             authoring: self.authoring,
-            tx,
         })
     }
 }

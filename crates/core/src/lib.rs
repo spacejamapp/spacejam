@@ -63,6 +63,9 @@ pub const WORK_REPORT_TIMEOUT_PERIOD: u32 = 5;
 /// (1_735_689_600) after the unix epoch
 pub const JAM_COMMON_ERA_AFTER_UNIX_EPOCH: u32 = 1_735_689_600;
 
+/// The period of a timeslot in seconds
+pub const SLOT_PERIOD: u32 = 6;
+
 // Singing Contexts
 
 /// The signing context for the jam available key

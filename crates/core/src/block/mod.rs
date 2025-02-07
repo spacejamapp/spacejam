@@ -56,6 +56,17 @@ pub struct BlockInfo {
     pub reported: Vec<ReportedWorkPackage>,
 }
 
+impl From<Header> for BlockInfo {
+    fn from(header: Header) -> Self {
+        Self {
+            header_hash: header.hash().unwrap(),
+            mmr: Mmr::default(),
+            state_root: header.parent_state_root,
+            reported: vec![],
+        }
+    }
+}
+
 /// Returns the current timeslot
 pub fn timeslot() -> anyhow::Result<TimeSlot> {
     let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
@@ -63,5 +74,5 @@ pub fn timeslot() -> anyhow::Result<TimeSlot> {
         .duration_since(UNIX_EPOCH + era)?
         .as_secs() as u32;
 
-    Ok(now / 6)
+    Ok(now / crate::SLOT_PERIOD)
 }
