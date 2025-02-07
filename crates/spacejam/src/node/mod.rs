@@ -2,6 +2,7 @@
 
 use ::metrics::Metrics;
 use network::Network;
+use score::{state::Storage, validator::Validator};
 use std::{net::SocketAddr, sync::Arc};
 pub use {builder::Builder, context::Context};
 
@@ -10,7 +11,10 @@ mod context;
 pub mod metrics;
 
 /// The node for SpaceJam
-pub struct Spacejam {
+pub struct Spacejam<S: Storage, V: Validator> {
+    /// The context of the node
+    pub context: Context<S, V>,
+
     /// The metrics of the node
     ///
     /// TODO: handle feature metrics
@@ -25,7 +29,7 @@ pub struct Spacejam {
     pub authoring: bool,
 }
 
-impl Spacejam {
+impl<S: Storage, V: Validator> Spacejam<S, V> {
     /// Create a new builder
     pub fn builder() -> Builder {
         Builder::default()
@@ -37,7 +41,7 @@ impl Spacejam {
     pub async fn start(mut self, metrics: SocketAddr) -> anyhow::Result<()> {
         tokio::select! {
             _ = metrics::serve(metrics, self.metrics.clone()) => {}
-            _ = self.network.spawn() => {}
+            _ = self.network.spawn(&self.context) => {}
             _ = tokio::signal::ctrl_c() => {}
         }
 

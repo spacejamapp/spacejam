@@ -1,7 +1,7 @@
 //! Configuration for the spacejam node
 
 use crate::{Context, Spacejam};
-use network::Network;
+use network::{Context as _, Network};
 use score::{
     genesis::Genesis,
     state::{key::CURRENT_VALIDATORS, Storage},
@@ -39,7 +39,7 @@ impl Builder {
     /// Build the node
     pub async fn build<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
         self,
-    ) -> anyhow::Result<Spacejam> {
+    ) -> anyhow::Result<Spacejam<S, V>> {
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
         let context = Context::new(validator, S::open(self.db.clone())?);
@@ -61,8 +61,9 @@ impl Builder {
         }
 
         // Initialize the network
-        let network = Network::new(self.network, Box::new(context)).await?;
+        let network = Network::new(self.network, context.keypair()).await?;
         Ok(Spacejam {
+            context,
             metrics: network.metrics.clone(),
             network,
             authoring: self.authoring,

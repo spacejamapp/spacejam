@@ -2,6 +2,7 @@
 
 use litep2p::{
     config::ConfigBuilder,
+    crypto::ed25519::Keypair,
     protocol::{
         libp2p::{
             kademlia::{self, KademliaHandle},
@@ -54,16 +55,13 @@ pub struct Network {
     /// Peer manager.
     peer: PeerManager,
 
-    /// Context.
-    pub context: Box<dyn Context>,
-
     /// Metrics.
     pub metrics: Arc<Metrics>,
 }
 
 impl Network {
     /// Create a new network instance.
-    pub async fn new(config: Config, context: Box<dyn Context>) -> anyhow::Result<Self> {
+    pub async fn new(config: Config, keypair: Option<Keypair>) -> anyhow::Result<Self> {
         let (block, block_handle) = config.block(BLOCK_NAME, &[]);
         let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
         let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
@@ -74,7 +72,7 @@ impl Network {
         // Create the network instance
         let mut p2p = {
             let mut builder = ConfigBuilder::new();
-            if let Some(kp) = context.keypair() {
+            if let Some(kp) = keypair {
                 builder = builder.with_keypair(kp);
             }
 
@@ -117,16 +115,15 @@ impl Network {
             state: state_sync_handle,
             peer: PeerManager::default(),
             metrics: Arc::new(Metrics::new(&p2p.local_peer_id().to_string())),
-            context,
             p2p,
         })
     }
 
     /// Spawn the network.
-    pub async fn spawn(&mut self) {
+    pub async fn spawn(&mut self, context: &impl Context) {
         loop {
             tokio::select! {
-                Some(event) = self.block.next() => self.block(event),
+                Some(event) = self.block.next() => self.block(event, context),
                 Some(event) = self.sync.next() => self.sync(event),
                 Some(event) = self.state.next() => self.state(event),
                 Some(event) = self.ping.next() => self.ping(event).await,

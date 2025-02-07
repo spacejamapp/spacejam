@@ -1,5 +1,7 @@
 //! Storage APIs of the state of SpaceJam
 
+use std::path::Path;
+
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
@@ -12,7 +14,6 @@ use crate::{
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;
-use std::path::Path;
 
 /// The prefix of the branch key
 const BRANCH_PREFIX: [u8; 6] = *b"branch";
@@ -29,8 +30,8 @@ const BRANCH_KEY_LENGTH: usize = 70;
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
 pub trait Storage: Sized {
-    /// Open the storage from path
-    fn open(path: impl AsRef<Path>) -> Result<Self>;
+    /// Open a storage
+    fn open(_: impl AsRef<Path>) -> Result<Self>;
 
     /// Set a value in the storage
     fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;

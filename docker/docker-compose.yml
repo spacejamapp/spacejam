@@ -39,6 +39,7 @@ services:
       --genesis ./data/genesis.json
       --metrics 0.0.0.0:9092
       --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
+      --authoring
     ports: [9092:9092]
     volumes: [./node/1:/data]
   spacejam-3:

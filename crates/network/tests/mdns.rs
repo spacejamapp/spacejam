@@ -5,11 +5,11 @@ use std::time::Duration;
 #[tokio::test]
 async fn handshake_locally() {
     let config = Config::default();
-    let mut alice = Network::new(config.clone(), Box::new(()))
+    let mut alice = Network::new(config.clone(), None)
         .await
         .expect("failed to create alice network");
 
-    let mut bob = Network::new(config.clone(), Box::new(()))
+    let mut bob = Network::new(config.clone(), None)
         .await
         .expect("failed to create bob network");
 
@@ -19,8 +19,8 @@ async fn handshake_locally() {
     let bob_address = bob.p2p.local_peer_id().to_string();
 
     tokio::select! {
-        _ = alice.spawn() => {}
-        _ = bob.spawn() => {}
+        _ = alice.spawn(&()) => {}
+        _ = bob.spawn(&()) => {}
         _ = async {
             if let (Some(aconn), Some(bconn)) = (ametrics.conn.get(&Peer { peer: alice_address }), bmetrics.conn.get(&Peer { peer: bob_address })) {
                 if aconn.get() == Peer::established() && bconn.get() == Peer::established() {

@@ -5,6 +5,7 @@ use litep2p::crypto::ed25519;
 
 /// Context for the network.
 pub trait Context {
+    /// Get the keypair of the p2p network.
     fn keypair(&self) -> Option<ed25519::Keypair> {
         None
     }

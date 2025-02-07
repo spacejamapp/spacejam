@@ -3,11 +3,6 @@ name = "spacejam-network"
 version = "0.0.0"
 edition = "2021"
 
-[[bin]]
-name = "spacenet"
-path = "bin/spacenet.rs"
-required-features = ["bin"]
-
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
