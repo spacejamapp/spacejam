@@ -1,4 +1,6 @@
 //! Network implementation of Spacejam.
+//!
+//! TODO: we actually can remove mDNS since the network will run globally and it could be useless.
 
 use litep2p::{
     config::ConfigBuilder,
@@ -14,11 +16,15 @@ use litep2p::{
     },
     Litep2p,
 };
-use metrics::Metrics;
 use peer::PeerManager;
-use std::{pin::Pin, sync::Arc, time::Duration};
-use tokio_stream::{Stream, StreamExt};
-pub use {config::Config, context::Context, litep2p::crypto::ed25519};
+use std::{pin::Pin, time::Duration};
+use tokio_stream::Stream;
+pub use {
+    config::Config,
+    context::Context,
+    event::Event,
+    litep2p::{crypto::ed25519, PeerId},
+};
 
 pub mod config;
 mod context;
@@ -54,9 +60,6 @@ pub struct Network {
 
     /// Peer manager.
     peer: PeerManager,
-
-    /// Metrics.
-    pub metrics: Arc<Metrics>,
 }
 
 impl Network {
@@ -114,23 +117,7 @@ impl Network {
             sync: block_sync_handle,
             state: state_sync_handle,
             peer: PeerManager::default(),
-            metrics: Arc::new(Metrics::new(&p2p.local_peer_id().to_string())),
             p2p,
         })
-    }
-
-    /// Spawn the network.
-    pub async fn spawn(&mut self, context: &impl Context) {
-        loop {
-            tokio::select! {
-                Some(event) = self.block.next() => self.block(event, context),
-                Some(event) = self.sync.next() => self.sync(event),
-                Some(event) = self.state.next() => self.state(event),
-                Some(event) = self.ping.next() => self.ping(event).await,
-                Some(event) = self.kad.next() => self.kad(event).await,
-                Some(event) = self.mdns.next() => self.mdns(event).await,
-                Some(event) = self.p2p.next_event() => self.litep2p(event).await,
-            }
-        }
     }
 }

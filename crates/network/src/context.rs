@@ -2,9 +2,13 @@
 
 use anyhow::Result;
 use litep2p::crypto::ed25519;
+use metrics::Metrics;
 
 /// Context for the network.
 pub trait Context {
+    /// Get the metrics of the node.
+    fn metrics(&self) -> &Metrics;
+
     /// Get the keypair of the p2p network.
     fn keypair(&self) -> Option<ed25519::Keypair> {
         None
@@ -14,7 +18,9 @@ pub trait Context {
     ///
     /// This method will be called when receiving a block
     /// announcement from a peer.
-    fn import_block(&self, block: Vec<u8>) -> Result<()>;
+    fn import_block(&self, _: Vec<u8>) -> Result<()> {
+        Ok(())
+    }
 
     /// Finalize a block.
     ///
@@ -39,8 +45,8 @@ pub trait Context {
     }
 }
 
-impl Context for () {
-    fn import_block(&self, _block: Vec<u8>) -> Result<()> {
-        Ok(())
+impl Context for Metrics {
+    fn metrics(&self) -> &Metrics {
+        self
     }
 }

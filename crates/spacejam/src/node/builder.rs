@@ -62,8 +62,8 @@ impl Builder {
         // Initialize the network
         let network = Network::new(self.network, context.keypair()).await?;
         Ok(Spacejam {
+            metrics: context.metrics.clone(),
             context,
-            metrics: network.metrics.clone(),
             network,
             authoring: self.authoring,
         })

@@ -3,7 +3,7 @@
 use ::metrics::Metrics;
 use network::Network;
 use score::{state::Storage, validator::Validator};
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 pub use {builder::Builder, context::Context, genesis::Genesis};
 
 mod builder;
@@ -19,7 +19,7 @@ pub struct Spacejam<S: Storage, V: Validator> {
     /// The metrics of the node
     ///
     /// TODO: handle feature metrics
-    pub metrics: Arc<Metrics>,
+    pub metrics: Metrics,
 
     /// The network of the node
     pub network: Network,
