@@ -1,26 +1,29 @@
-use metrics::Peer;
+use metrics::{Metrics, Peer};
 use spacejam_network::{Config, Network};
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 #[tokio::test]
 async fn handshake_locally() {
     let config = Config::default();
-    let mut alice = Network::new(config.clone(), Box::new(()))
+    let (_, rx) = mpsc::channel(100);
+    let (_, rx2) = mpsc::channel(100);
+    let mut alice = Network::new(config.clone(), rx, None)
         .await
         .expect("failed to create alice network");
 
-    let mut bob = Network::new(config.clone(), Box::new(()))
+    let mut bob = Network::new(config.clone(), rx2, None)
         .await
         .expect("failed to create bob network");
 
-    let ametrics = alice.metrics.clone();
-    let bmetrics = bob.metrics.clone();
+    let ametrics = Metrics::new("alice");
+    let bmetrics = Metrics::new("bob");
     let alice_address = alice.p2p.local_peer_id().to_string();
     let bob_address = bob.p2p.local_peer_id().to_string();
 
     tokio::select! {
-        _ = alice.spawn() => {}
-        _ = bob.spawn() => {}
+        _ = alice.spawn(&ametrics) => {}
+        _ = bob.spawn(&bmetrics) => {}
         _ = async {
             if let (Some(aconn), Some(bconn)) = (ametrics.conn.get(&Peer { peer: alice_address }), bmetrics.conn.get(&Peer { peer: bob_address })) {
                 if aconn.get() == Peer::established() && bconn.get() == Peer::established() {

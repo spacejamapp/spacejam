@@ -1,9 +1,8 @@
 //! Core of SpaceJam
 
-pub use {block::Block, config::Config, extrinsic::Extrinsic, state::State};
+pub use {block::Block, extrinsic::Extrinsic, state::State};
 
 pub mod block;
-pub mod config;
 pub mod extrinsic;
 pub mod safrole;
 pub mod service;
@@ -56,6 +55,16 @@ pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
 
 /// The period in timeslots after which reported but unavailable work may be replaced.
 pub const WORK_REPORT_TIMEOUT_PERIOD: u32 = 5;
+
+/// The common era of the jam (4.4)
+///
+/// The beginning of the jam common era, 1200 UTC on Jan 1, 2025
+///
+/// (1_735_689_600) after the unix epoch
+pub const JAM_COMMON_ERA_AFTER_UNIX_EPOCH: u32 = 1_735_689_600;
+
+/// The period of a timeslot in seconds
+pub const SLOT_PERIOD: u32 = 6;
 
 // Singing Contexts
 

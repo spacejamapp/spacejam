@@ -1,18 +1,18 @@
 //! Event handling for the block announceprotocol.
 
-use crate::Network;
+use crate::{Context, Network};
 use litep2p::protocol::notification::NotificationEvent;
 
 impl Network {
     /// Handle a block announce event.
-    pub fn block(&mut self, event: NotificationEvent) {
-        tracing::info!("block announce: {event:?}");
+    pub fn block(&mut self, event: NotificationEvent, context: &impl Context) {
+        tracing::info!("block announced: {event:?}");
         if let NotificationEvent::NotificationReceived {
             peer: _,
             notification,
         } = event
         {
-            if let Err(e) = self.context.import_block(notification.to_vec()) {
+            if let Err(e) = context.import_block(notification.to_vec()) {
                 tracing::error!("failed to import block: {e}");
             }
         }

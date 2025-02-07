@@ -11,23 +11,30 @@ use std::{net::Ipv4Addr, time::Duration};
 
 /// Configuration for the network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Config {
     /// The block announce configuration.
+    #[cfg_attr(feature = "cmd", command(flatten))]
     pub block: NotifiConfig,
 
     /// The block sync configuration.
+    #[cfg_attr(feature = "cmd", command(flatten))]
     pub block_sync: SyncConfig,
 
     /// The QUIC configuration.
+    #[cfg_attr(feature = "cmd", command(flatten))]
     pub quic: QuicConfig,
 
     /// The state sync configuration.
-    pub state_sync: SyncConfig,
+    #[cfg_attr(feature = "cmd", command(flatten))]
+    pub state_sync: StateSyncConfig,
 
-    /// The mDNS query interval.
-    pub mdns: Duration,
+    /// The mDNS query interval in seconds.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "10"))]
+    pub mdns: u64,
 
     /// The bootstrap addresses.
+    #[cfg_attr(feature = "cmd", arg(long))]
     pub bootstrap: Vec<Multiaddr>,
 }
 
@@ -37,8 +44,8 @@ impl Default for Config {
             block: NotifiConfig::default(),
             block_sync: SyncConfig::default(),
             quic: QuicConfig::default(),
-            state_sync: SyncConfig::default(),
-            mdns: Duration::from_secs(10),
+            state_sync: StateSyncConfig::default(),
+            mdns: 10,
             bootstrap: vec![],
         }
     }
@@ -86,7 +93,8 @@ impl Config {
         name: &'static str,
         fallback_names: &[&'static str],
     ) -> (protocol::request_response::Config, RequestResponseHandle) {
-        self.req_resp(&self.state_sync, name, fallback_names)
+        let config: SyncConfig = self.state_sync.clone().into();
+        self.req_resp(&config, name, fallback_names)
     }
 
     /// Get the request-response configuration.
@@ -103,7 +111,7 @@ impl Config {
                 .map(|s| ProtocolName::Static(s))
                 .collect(),
             config.max_message_size,
-            config.timeout,
+            Duration::from_secs(config.timeout),
             config.max_concurrent_inbound_request,
         )
     }
@@ -111,15 +119,19 @@ impl Config {
 
 /// Configuration for the QUIC transport.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct QuicConfig {
     /// The addresses to listen on.
+    #[cfg_attr(feature = "cmd", arg(long))]
     pub addresses: Vec<Multiaddr>,
 
-    /// The timeout for a connection.
-    connection: Duration,
+    /// The timeout for a connection in seconds.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "10"))]
+    connection: u64,
 
-    /// The timeout for a substream.
-    substream: Duration,
+    /// The timeout for a substream in seconds.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "10"))]
+    substream: u64,
 }
 
 impl Default for QuicConfig {
@@ -131,8 +143,8 @@ impl Default for QuicConfig {
 
         Self {
             addresses: vec![addr],
-            connection: Duration::from_secs(10),
-            substream: Duration::from_secs(10),
+            connection: 10,
+            substream: 10,
         }
     }
 }
@@ -141,31 +153,38 @@ impl From<QuicConfig> for quic::config::Config {
     fn from(config: QuicConfig) -> Self {
         Self {
             listen_addresses: config.addresses,
-            connection_open_timeout: config.connection,
-            substream_open_timeout: config.substream,
+            connection_open_timeout: Duration::from_secs(config.connection),
+            substream_open_timeout: Duration::from_secs(config.substream),
         }
     }
 }
 
 /// Configuration for the notification protocol.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct NotifiConfig {
     /// The maximum size of a notification.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "1048576"))]
     pub max_notification_size: usize,
 
     /// The handshake message.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "42"))]
     pub handshake: Vec<u8>,
 
     /// Whether to automatically accept notifications.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "true"))]
     pub auto_accept: bool,
 
     /// The size of the sync channel.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "100"))]
     pub sync_channel_size: usize,
 
     /// The size of the async channel.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "100"))]
     pub async_channel_size: usize,
 
     /// Whether to dial to the peer.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "true"))]
     pub should_dial: bool,
 }
 
@@ -184,14 +203,18 @@ impl Default for NotifiConfig {
 
 /// Configuration for the request-response protocol.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct SyncConfig {
     /// The maximum size of a message.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "1048576"))]
     pub max_message_size: usize,
 
-    /// The timeout for a request.
-    pub timeout: Duration,
+    /// The timeout for a request in seconds.
+    #[cfg_attr(feature = "cmd", arg(long, default_value = "60"))]
+    pub timeout: u64,
 
     /// The maximum number of concurrent inbound requests.
+    #[cfg_attr(feature = "cmd", arg(long))]
     pub max_concurrent_inbound_request: Option<usize>,
 }
 
@@ -199,8 +222,54 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             max_message_size: 1024 * 1024,
-            timeout: Duration::from_secs(60),
+            timeout: 60,
             max_concurrent_inbound_request: None,
+        }
+    }
+}
+
+/// Configuration for the request-response protocol.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "cmd", derive(clap::Parser))]
+pub struct StateSyncConfig {
+    /// The maximum size of a message.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, default_value = "1048576", name = "state-sync-max-message-size")
+    )]
+    pub max_message_size: usize,
+
+    /// The timeout for a request in seconds.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, default_value = "60", name = "state-sync-timeout")
+    )]
+    pub timeout: u64,
+
+    /// The maximum number of concurrent inbound requests.
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, name = "state-sync-max-concurrent-inbound-request")
+    )]
+    pub max_concurrent_inbound_request: Option<usize>,
+}
+
+impl Default for StateSyncConfig {
+    fn default() -> Self {
+        Self {
+            max_message_size: 1024 * 1024,
+            timeout: 60,
+            max_concurrent_inbound_request: None,
+        }
+    }
+}
+
+impl From<StateSyncConfig> for SyncConfig {
+    fn from(config: StateSyncConfig) -> Self {
+        Self {
+            max_message_size: config.max_message_size,
+            timeout: config.timeout,
+            max_concurrent_inbound_request: config.max_concurrent_inbound_request,
         }
     }
 }

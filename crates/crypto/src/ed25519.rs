@@ -3,6 +3,7 @@
 pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 /// Ed25519 key pair.
+#[derive(Clone)]
 pub struct KeyPair {
     /// Signing key.
     pub signing: SigningKey,

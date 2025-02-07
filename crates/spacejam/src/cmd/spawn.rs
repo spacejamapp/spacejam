@@ -1,74 +1,28 @@
 //! Spawn the node
 
-use crate::{Config, SpaceJam};
+use crate::node::Builder;
 use clap::Parser;
-use network::Network;
-use score::{
-    config::Genesis,
-    state::{key::CURRENT_VALIDATORS, Storage},
-    validator::ValidatorData,
-};
-use spacejson::Json;
-use std::{fs, net::SocketAddr, path::PathBuf};
+use score::{state::Storage, validator::Validator};
+use std::net::SocketAddr;
 
 /// Spawn the node
 #[derive(Parser)]
 pub struct Spawn {
-    /// Path to the database
-    #[arg(short, long, default_value = "chain.db")]
-    pub db: PathBuf,
-
-    /// Path to the genesis file
-    #[arg(short, long, default_value = "genesis.json")]
-    pub genesis: PathBuf,
-
     /// Metrics address
-    #[arg(short, long, default_value = "0.0.0.0:9090")]
+    #[arg(short, long, default_value = "0.0.0.0:0")]
     pub metrics: SocketAddr,
 
-    /// Validator secret phrase, accepts a hex string or a number
-    #[arg(short, long)]
-    pub validator: String,
+    /// The configuration
+    #[command(flatten)]
+    pub config: Builder,
 }
 
 impl Spawn {
     /// Run the command
-    pub async fn run<C: Config + 'static>(&self) -> anyhow::Result<()> {
-        // Parse the validator secret
-        let validator = if let Some(secret) = hex::decode(self.validator.trim_start_matches("0x"))
-            .ok()
-            .and_then(|s| s.try_into().ok())
-        {
-            C::Validator::from(secret)
-        } else {
-            let num = self.validator.parse::<u8>()?;
-            C::Validator::from([num; 32])
-        };
-
-        let spacejam: SpaceJam<C> = SpaceJam::new(C::Db::open(self.db.clone())?, validator);
-
-        // Initialize the database
-        if spacejam.db.is_empty() {
-            let genesis = fs::read_to_string(self.genesis.clone())?;
-            let genesis: Genesis = serde_json::from_str(&genesis)?;
-            let validators = genesis
-                .validators
-                .into_iter()
-                .map(Json::from_json)
-                .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
-            let encoded = codec::encode(&validators)?;
-            spacejam.db.set(CURRENT_VALIDATORS, encoded)?;
-        }
-
-        // Initialize the network
-        let mut network = Network::new(Default::default(), Box::new(spacejam)).await?;
-        let metrics = network.metrics.clone();
-        tokio::select! {
-            _ = crate::metrics::serve(self.metrics, metrics) => {}
-            _ = network.spawn() => {}
-            _ = tokio::signal::ctrl_c() => {}
-        }
-
-        Ok(())
+    pub async fn run<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
+        &self,
+    ) -> anyhow::Result<()> {
+        let node = self.config.clone().build::<S, V>().await?;
+        node.start(self.metrics).await
     }
 }
