@@ -1,7 +1,7 @@
 //! Node for SpaceJam
 
 use network::Network;
-use score::{state::Storage, runtime::Validator};
+use score::runtime::{Storage, Validator};
 use std::{net::SocketAddr, time::Duration};
 pub use {builder::Builder, context::Context, genesis::Genesis};
 

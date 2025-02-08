@@ -2,7 +2,10 @@
 
 use metrics::Metrics;
 use network::{ed25519, Event, PeerId};
-use score::{state::Storage, runtime::Validator, Block};
+use score::{
+    block::Block,
+    runtime::{Storage, Validator},
+};
 use tokio::sync::mpsc;
 
 /// The context for SpaceJam

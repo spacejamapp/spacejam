@@ -3,9 +3,9 @@
 use anyhow::Result;
 use score::{
     block::History,
-    state::{self, key, Storage},
-    runtime::Validator,
+    runtime::{Storage, Validator},
     service::WorkReport,
+    state::{self, key},
     Block, OpaqueHash,
 };
 

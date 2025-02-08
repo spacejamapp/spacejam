@@ -1,8 +1,10 @@
 //! Block builder
 
 use crate::{
-    block::BlockInfo, extrinsic::TicketsOrKeys, state::Storage, runtime::Validator, Block,
-    Extrinsic,
+    block::BlockInfo,
+    extrinsic::TicketsOrKeys,
+    runtime::{Storage, Validator},
+    Block, Extrinsic,
 };
 use std::ops::{Deref, DerefMut};
 

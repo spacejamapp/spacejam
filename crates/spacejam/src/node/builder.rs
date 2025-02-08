@@ -4,9 +4,9 @@ use crate::{node::Genesis, Context, Spacejam};
 use network::{Context as _, Network};
 use score::{
     block::BlockInfo,
-    runtime::Validator,
+    runtime::{Storage, Validator},
     safrole::ValidatorData,
-    state::{key::CURRENT_VALIDATORS, Storage},
+    state::key::CURRENT_VALIDATORS,
     Block,
 };
 use spacejson::Json;
