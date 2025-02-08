@@ -372,4 +372,3 @@ pub trait Storage: KVStorage + Sized {
         )
     }
 }
-
