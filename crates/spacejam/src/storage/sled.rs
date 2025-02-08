@@ -1,22 +1,18 @@
 //! Storage interface with sled
 #![cfg(feature = "sled")]
 
+use std::path::PathBuf;
+
 use anyhow::Result;
-use score::runtime::Storage;
+use score::runtime::storage::KVStorage;
 use sled::{Batch, Db};
-use std::path::Path;
 
 /// Sled storage
 pub struct Sled {
     db: Db,
 }
 
-impl Storage for Sled {
-    fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let db = sled::open(path)?;
-        Ok(Self { db })
-    }
-
+impl KVStorage for Sled {
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.db.insert(key.as_ref(), value.as_ref())?;
         Ok(())
@@ -50,5 +46,14 @@ impl Storage for Sled {
             let (k, v) = r?;
             Ok((k.to_vec(), v.to_vec()))
         }))
+    }
+}
+
+impl TryFrom<PathBuf> for Sled {
+    type Error = anyhow::Error;
+
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+        let db = sled::open(path)?;
+        Ok(Self { db })
     }
 }

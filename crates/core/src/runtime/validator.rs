@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 
 /// Validator interface
-pub trait Validator: TryFrom<String> {
+pub trait Validator {
     /// BLS public key
     fn bls_public_key(&self) -> BlsPublic;
 

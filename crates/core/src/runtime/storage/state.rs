@@ -3,65 +3,21 @@
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
-    safrole::Safrole,
-    safrole::ValidatorData,
-    service::WorkReport,
-    service::{ServiceAccountState, ServiceIndex},
+    runtime::storage::{branch, Branch, KVStorage},
+    safrole::{Safrole, ValidatorData},
+    service::{ServiceAccountState, ServiceIndex, WorkReport},
     state::{account, key, State},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;
-use std::path::Path;
-
-/// The prefix of the branch key
-const BRANCH_PREFIX: [u8; 6] = *b"branch";
-
-/// The storage key length on main branch
-const MAIN_KEY_LENGTH: usize = 32;
-
-/// The storage key length on branch
-const BRANCH_KEY_LENGTH: usize = 70;
 
 /// Storage of the state of SpaceJam
 ///
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage: Sized {
-    /// Open a storage
-    fn open(_: impl AsRef<Path>) -> Result<Self>;
-
-    /// Set a value in the storage
-    fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
-
-    /// Batch write a set of key-value pairs to the storage
-    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()>;
-
-    /// Get a value from the storage
-    fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
-
-    /// Remove a key-value pair from the storage
-    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
-
-    /// Iterate over the storage with a prefix
-    fn prefix_iter(
-        &self,
-        prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
-
-    /// Batch read a set of key-value pairs from the storage
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        keys.iter()
-            .map(|key| self.get(key).map(|v| (key.to_vec(), v.unwrap_or_default())))
-            .collect::<Result<Vec<_>>>()
-    }
-
-    /// Check if the storage is empty
-    fn is_empty(&self) -> bool {
-        self.get(key::TIMESLOT).map(|v| v.is_none()).unwrap_or(true)
-    }
-
+pub trait Storage: KVStorage + Sized {
     /// Set the current branch of the storage
     ///
     /// TODO: support jump block, validate history blocks before
@@ -74,7 +30,7 @@ pub trait Storage: Sized {
 
     /// Drop the target branch of the storage
     fn drop_branch(&mut self, branch: OpaqueHash) -> Result<()> {
-        let mut prefix = BRANCH_PREFIX.to_vec();
+        let mut prefix = branch::BRANCH_PREFIX.to_vec();
         prefix.extend_from_slice(&branch);
 
         while let Some(Ok((k, _))) = self.prefix_iter(&prefix)?.next() {
@@ -84,6 +40,9 @@ pub trait Storage: Sized {
     }
 
     /// Batch read a set of key-value pairs from the storage
+    ///
+    /// TODO: rename this method to something else since this for
+    /// fetching jam specified prefix data only.
     fn prefix_collect(&self, prefix: [u8; 4]) -> Result<Vec<([u8; 32], Vec<u8>)>> {
         let mut kvs = vec![];
         let mut index = 0;
@@ -92,9 +51,9 @@ pub trait Storage: Sized {
             let mut count = 0;
             while let Some(Ok((key, value))) = storage_iter.next() {
                 let mut hkey = [0; 32];
-                if key.len() == MAIN_KEY_LENGTH {
+                if key.len() == branch::MAIN_KEY_LENGTH {
                     hkey.copy_from_slice(&key);
-                } else if key.len() == BRANCH_KEY_LENGTH {
+                } else if key.len() == branch::BRANCH_KEY_LENGTH {
                     hkey.copy_from_slice(&key[6..38]);
                 } else {
                     anyhow::bail!("invalid key length: {}", key.len());
@@ -197,7 +156,7 @@ pub trait Storage: Sized {
     /// A branch contains the diff of the state introduced in a block, so we need to
     /// apply it to the current state to get the final state.
     fn finalize(&self, branch: OpaqueHash) -> Result<()> {
-        let mut prefix = BRANCH_PREFIX.to_vec();
+        let mut prefix = branch::BRANCH_PREFIX.to_vec();
         prefix.extend_from_slice(&branch);
 
         // TODO: use transaction to reduce I/O & make this operations atomic.
@@ -414,121 +373,3 @@ pub trait Storage: Sized {
     }
 }
 
-/// A branch of the storage
-pub struct Branch<'s, S: Storage> {
-    storage: &'s S,
-    branch: OpaqueHash,
-}
-
-impl<S: Storage> Storage for Branch<'_, S> {
-    fn open(_: impl AsRef<Path>) -> Result<Self> {
-        anyhow::bail!("Branch is not a real storage")
-    }
-
-    fn remove(&self, _key: impl AsRef<[u8]>) -> Result<()> {
-        anyhow::bail!("remove is not supported on branch")
-    }
-
-    // TODO: ban set on branch
-    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
-        self.storage.set(self.key(key)?, value)
-    }
-
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
-        let key: &[u8] = key.as_ref();
-        let Ok(Some(value)) = self.storage.get(self.key(key)?) else {
-            return self.storage.get(key);
-        };
-
-        Ok(Some(value))
-    }
-
-    fn batch_write(&self, mut kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
-        for (k, _) in kvs.iter_mut() {
-            *k = self.key(&k)?;
-        }
-        self.storage.batch_write(kvs)
-    }
-
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let mut kvs = self.storage.batch_read(keys)?;
-        for (k, v) in kvs.iter_mut() {
-            if let Ok(Some(value)) = self.get(k) {
-                *v = value;
-            }
-        }
-        Ok(kvs)
-    }
-
-    fn prefix_iter(
-        &self,
-        prefix: impl AsRef<[u8]>,
-    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
-        self.storage.prefix_iter(self.key(prefix)?)
-    }
-}
-
-impl<'s, S: Storage> Branch<'s, S> {
-    /// Create a new branch
-    pub fn new(storage: &'s S, branch: OpaqueHash) -> Self {
-        Self { storage, branch }
-    }
-
-    /// Initialize a diff of the storage
-    pub fn diff(&self) -> Diff {
-        Diff::default()
-    }
-
-    /// Commit the diff to the storage
-    ///
-    /// The instance should be dropped after commitment.
-    pub fn commit(self, diff: Diff) -> Result<()> {
-        self.storage.batch_write(diff.collect())
-    }
-
-    /// Get the branch key
-    ///
-    /// This interface also supports branch of branch.
-    fn key(&self, key: impl AsRef<[u8]>) -> Result<Vec<u8>> {
-        let key = key.as_ref();
-        if key.len() == BRANCH_KEY_LENGTH {
-            let mut bkey = key.to_vec();
-            bkey[6..38].copy_from_slice(&self.branch);
-            return Ok(bkey);
-        }
-
-        if !key.len() == MAIN_KEY_LENGTH {
-            anyhow::bail!("invalid key length in branch: {}", key.len());
-        }
-
-        let mut bkey = [0; BRANCH_KEY_LENGTH];
-        bkey[..6].copy_from_slice(&BRANCH_PREFIX);
-        bkey[6..38].copy_from_slice(&self.branch);
-        bkey[38..].copy_from_slice(key.as_ref());
-        Ok(bkey.to_vec())
-    }
-}
-
-/// A diff of the state
-#[derive(Default)]
-pub struct Diff {
-    diff: Vec<(Vec<u8>, Vec<u8>)>,
-}
-
-impl Diff {
-    /// Insert a key-value pair into the diff
-    pub fn insert(&mut self, key: OpaqueHash, value: impl AsRef<[u8]>) {
-        self.diff.push((key.to_vec(), value.as_ref().to_vec()));
-    }
-
-    /// Extend the diff with a set of key-value pairs
-    pub fn extend(&mut self, kvs: Vec<(OpaqueHash, Vec<u8>)>) {
-        self.diff
-            .extend(kvs.into_iter().map(|(key, value)| (key.to_vec(), value)));
-    }
-
-    /// Collect the diff
-    pub fn collect(self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.diff
-    }
-}

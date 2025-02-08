@@ -1,6 +1,9 @@
 //! Configuration for the spacejam node
 
-use crate::{node::Genesis, Context, Spacejam};
+use crate::{
+    node::{Context, Genesis},
+    Spacejam,
+};
 use network::{Context as _, Network};
 use score::{
     block::BlockInfo,
@@ -40,36 +43,20 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
+    pub async fn build<
+        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + TryFrom<String> + 'static,
+    >(
         self,
     ) -> anyhow::Result<Spacejam<S, V>> {
         let (tx, rx) = mpsc::channel(100);
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
-        let context = Context::new(validator, S::open(self.db.clone())?, tx);
+        let context = Context::new(validator, S::try_from(self.db.clone())?, tx);
 
         // Initialize the database
-        if context.db.is_empty() {
-            let genesis = fs::read_to_string(self.genesis.clone())
-                .map_err(|_| anyhow::anyhow!("Failed to read genesis file {:?}", self.genesis))?;
-            let genesis: Genesis = serde_json::from_str(&genesis)
-                .map_err(|_| anyhow::anyhow!("Failed to parse genesis file {:?}", self.genesis))?;
-
-            // insert the genesis block into database
-            let block: Block = genesis.block.try_into()?;
-            let recent: Vec<BlockInfo> = vec![block.header.into()];
-            context
-                .db
-                .set(score::state::key::RECENT_BLOCKS, codec::encode(&recent)?)?;
-
-            // set up initial validators
-            let validators = genesis
-                .validators
-                .into_iter()
-                .map(Json::from_json)
-                .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
-            let encoded = codec::encode(&validators)?;
-            context.db.set(CURRENT_VALIDATORS, encoded)?;
+        if context.runtime.storage.is_empty() {
+            Self::init_storage(&self, &context)?;
         }
 
         // Initialize the network
@@ -81,5 +68,32 @@ impl Builder {
             network,
             authoring: self.authoring,
         })
+    }
+
+    fn init_storage<S: Storage, V: Validator>(
+        &self,
+        context: &Context<S, V>,
+    ) -> anyhow::Result<()> {
+        let genesis = fs::read_to_string(self.genesis.clone())
+            .map_err(|_| anyhow::anyhow!("Failed to read genesis file {:?}", self.genesis))?;
+        let genesis: Genesis = serde_json::from_str(&genesis)
+            .map_err(|_| anyhow::anyhow!("Failed to parse genesis file {:?}", self.genesis))?;
+
+        // insert the genesis block into database
+        let block: Block = genesis.block.try_into()?;
+        let recent: Vec<BlockInfo> = vec![block.header.into()];
+        context
+            .runtime
+            .storage
+            .set(score::state::key::RECENT_BLOCKS, codec::encode(&recent)?)?;
+
+        // set up initial validators
+        let validators = genesis
+            .validators
+            .into_iter()
+            .map(Json::from_json)
+            .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
+        let encoded = codec::encode(&validators)?;
+        context.runtime.storage.set(CURRENT_VALIDATORS, encoded)
     }
 }
