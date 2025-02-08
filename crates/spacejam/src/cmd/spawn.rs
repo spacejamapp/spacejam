@@ -2,7 +2,7 @@
 
 use crate::node::Builder;
 use clap::Parser;
-use score::{state::Storage, validator::Validator};
+use score::{state::Storage, runtime::Validator};
 use std::net::SocketAddr;
 
 /// Spawn the node

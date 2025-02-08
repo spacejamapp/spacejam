@@ -71,7 +71,7 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-        work::{ReportedWorkPackage, ReportedWorkPackageJson},
+        service::{ReportedWorkPackage, ReportedWorkPackageJson},
         Block, Ed25519Public, TimeSlot,
     };
     use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 //! Temporary dependencies for validation
 
 use crate::guarantee::{Error, Result};
-use score::{extrinsic::ReportGuarantee, work::ReportedWorkPackage, OpaqueHash};
+use score::{extrinsic::ReportGuarantee, service::ReportedWorkPackage, OpaqueHash};
 
 /// Temp dependencies for validation
 #[derive(Default)]

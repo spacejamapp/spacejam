@@ -4,10 +4,10 @@ use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::Safrole,
+    safrole::Validators,
+    service::{AvailabilityAssignments, WorkReport},
     service::{ServiceAccount, ServiceIndex},
     statistic::Statistics,
-    validator::Validators,
-    work::{report::WorkReport, AvailabilityAssignments},
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use serde::{Deserialize, Serialize};

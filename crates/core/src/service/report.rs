@@ -1,9 +1,9 @@
 //! Report types
 
 use crate::{
-    work::{
-        context::{RefineContext, RefineContextJson},
-        ReportedWorkPackage, ReportedWorkPackageJson,
+    service::{
+        work::{ReportedWorkPackage, ReportedWorkPackageJson},
+        RefineContext, RefineContextJson,
     },
     CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };

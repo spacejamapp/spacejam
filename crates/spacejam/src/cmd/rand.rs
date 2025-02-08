@@ -3,7 +3,7 @@
 use crate::{node::Genesis, validator::LocalValidator};
 use anyhow::Result;
 use clap::Parser;
-use score::{validator::Validator, VALIDATORS_COUNT};
+use score::{runtime::Validator, VALIDATORS_COUNT};
 use spacejson::Json;
 
 /// The `rand` command

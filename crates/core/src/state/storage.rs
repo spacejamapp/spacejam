@@ -6,11 +6,11 @@ use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::Safrole,
+    safrole::ValidatorData,
+    service::WorkReport,
     service::{ServiceAccountState, ServiceIndex},
     state::{account, key, State},
     statistic::Statistics,
-    validator::ValidatorData,
-    work::report::WorkReport,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;

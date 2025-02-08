@@ -7,7 +7,7 @@ use score::{
         TicketsOrKeysJson,
     },
     safrole::Safrole,
-    validator::{ValidatorDataJson, Validators, ValidatorsData},
+    safrole::{ValidatorDataJson, Validators, ValidatorsData},
     BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};

@@ -7,7 +7,7 @@ use score::{
         TicketsAccumulator,
     },
     safrole::Safrole,
-    validator::{ValidatorData, Validators, ValidatorsData},
+    safrole::{ValidatorData, Validators, ValidatorsData},
     Ed25519Public, OpaqueHash,
 };
 

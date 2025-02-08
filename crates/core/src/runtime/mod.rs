@@ -1,17 +1,10 @@
 //! Validator abstraction
 
 use crate::{
-    BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
-    Ed25519Public, OpaqueHash, ValidatorMetadata,
+    safrole::ValidatorData, BandersnatchPublic, BandersnatchRingVrfSignature,
+    BandersnatchVrfSignature, BlsPublic, Ed25519Public, OpaqueHash, ValidatorMetadata,
 };
 use anyhow::Result;
-pub use {
-    extrinsic::{ExtrinsicInMem, ExtrinsicInPool},
-    public::{ValidatorData, ValidatorDataJson, Validators, ValidatorsData},
-};
-
-mod extrinsic;
-mod public;
 
 /// Validator interface
 pub trait Validator: TryFrom<String> {

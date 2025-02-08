@@ -56,14 +56,13 @@ pub struct ValidatorData {
 }
 
 impl ValidatorData {
-    /// Returns the bitsmap of the validator.
+    /// Verify the input assurance.
     pub fn verify_assurance(&self, assurance: &AvailAssurance) -> anyhow::Result<()> {
         crypto::ed25519::verify(
             &assurance.singing_message(),
             assurance.signature,
             self.ed25519,
-        )?;
-        Ok(())
+        )
     }
 }
 

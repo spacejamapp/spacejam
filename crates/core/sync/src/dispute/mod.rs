@@ -6,8 +6,8 @@ use crate::dispute;
 pub use error::{Error, Result};
 use score::{
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
-    validator::ValidatorsData,
-    work::AvailabilityAssignments,
+    safrole::ValidatorsData,
+    service::AvailabilityAssignments,
     Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use std::collections::BTreeMap;

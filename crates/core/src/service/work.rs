@@ -1,10 +1,9 @@
-use crate::{Gas, OpaqueHash, ServiceId};
+use crate::{
+    service::{RefineContext, RefineContextJson},
+    Gas, OpaqueHash, ServiceId,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-pub use {availability::*, context::*, report::*};
-
-pub mod context;
-pub mod report;
 
 /// Represents a work package in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
@@ -71,22 +70,4 @@ pub struct Authorizer {
     pub code_hash: OpaqueHash,
     #[json(hex)]
     pub params: Vec<u8>,
-}
-
-// --------------------------------------------
-// Availability types
-// --------------------------------------------
-mod availability {
-    use crate::{work::report::*, CORES_COUNT};
-    use serde::{Deserialize, Serialize};
-    use spacejson::Json;
-
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-    pub struct AvailabilityAssignment {
-        #[json(nested)]
-        pub report: WorkReport,
-        pub timeout: u32,
-    }
-    pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-    pub type AvailabilityAssignments = [AvailabilityAssignmentsItem; CORES_COUNT];
 }

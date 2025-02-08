@@ -1,7 +1,14 @@
-use crate::{Gas, OpaqueHash, ServiceId, TimeSlot};
+use crate::{BeefyRoot, Gas, HeaderHash, OpaqueHash, ServiceId, StateRoot, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
+pub use {
+    report::{WorkExecResult, WorkExecResultJson, WorkReport, WorkReportJson, WorkResult},
+    work::{ReportedWorkPackage, ReportedWorkPackageJson, WorkItem, WorkPackage},
+};
+
+mod report;
+mod work;
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -119,3 +126,29 @@ pub struct ServiceItem {
     #[json(nested)]
     pub info: ServiceAccountState,
 }
+
+/// Represents the RefineContext structure from ASN.1
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+pub struct RefineContext {
+    #[json(hex)]
+    pub anchor: HeaderHash,
+    #[json(hex)]
+    pub state_root: StateRoot,
+    #[json(hex)]
+    pub beefy_root: BeefyRoot,
+    #[json(hex)]
+    pub lookup_anchor: HeaderHash,
+    pub lookup_anchor_slot: TimeSlot,
+    #[json(hex)]
+    pub prerequisites: Vec<OpaqueHash>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+pub struct AvailabilityAssignment {
+    #[json(nested)]
+    pub report: WorkReport,
+    pub timeout: u32,
+}
+
+pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
+pub type AvailabilityAssignments = [AvailabilityAssignmentsItem; crate::CORES_COUNT];

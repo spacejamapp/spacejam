@@ -4,7 +4,7 @@ use crypto::shuffle;
 use dep::Dependencies;
 use score::{
     extrinsic::GuaranteesExtrinsic,
-    work::{AvailabilityAssignments, ReportedWorkPackage},
+    service::{AvailabilityAssignments, ReportedWorkPackage},
     Ed25519Public, EPOCH_LENGTH, ROTATION_PERIOD,
 };
 pub use state::{State, StateJson};
@@ -12,8 +12,8 @@ use {
     error::{Error, Result},
     score::{
         extrinsic::ReportGuarantee,
-        validator::ValidatorData,
-        work::{report::WorkExecResult, AvailabilityAssignment},
+        safrole::ValidatorData,
+        service::{AvailabilityAssignment, WorkExecResult},
         OpaqueHash, TimeSlot, CORES_COUNT, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
         SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     },

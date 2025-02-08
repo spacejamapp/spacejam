@@ -5,8 +5,8 @@ use score::{
     extrinsic::dispute::{
         DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
     },
-    validator::{ValidatorDataJson, ValidatorsData},
-    work::{AvailabilityAssignmentJson, AvailabilityAssignments},
+    safrole::{ValidatorDataJson, ValidatorsData},
+    service::{AvailabilityAssignmentJson, AvailabilityAssignments},
     Ed25519Public, TimeSlot,
 };
 use serde::{Deserialize, Serialize};

@@ -4,7 +4,7 @@ use anyhow::Result;
 use crypto::{bls, ed25519, vrf};
 use rand::Rng;
 use score::{
-    validator::Validator, BandersnatchPublic, BandersnatchRingVrfSignature,
+    runtime::Validator, BandersnatchPublic, BandersnatchRingVrfSignature,
     BandersnatchVrfSignature, BlsPublic, Ed25519Public, ValidatorMetadata,
 };
 

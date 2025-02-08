@@ -2,8 +2,8 @@
 
 use score::{
     extrinsic::{Extrinsic, ExtrinsicJson},
+    safrole::{ValidatorDataJson, ValidatorsData},
     statistic::{Statistics, StatisticsJson},
-    validator::{ValidatorDataJson, ValidatorsData},
     TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};

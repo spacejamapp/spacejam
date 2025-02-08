@@ -3,8 +3,8 @@
 pub use error::{Error, Result};
 use score::{
     extrinsic::AvailAssurance,
-    validator::ValidatorData,
-    work::{AvailabilityAssignments, WorkReport},
+    safrole::ValidatorData,
+    service::{AvailabilityAssignments, WorkReport},
     OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
     WORK_REPORT_TIMEOUT_PERIOD,
 };

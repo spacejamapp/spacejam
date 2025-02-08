@@ -1,10 +1,12 @@
 use crate::{
     block::header::{EpochMark, TicketsMark},
     extrinsic::{TicketBody, TicketsAccumulator, TicketsOrKeys},
-    validator::ValidatorsData,
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
+pub use validator::{ValidatorData, ValidatorDataJson, Validators, ValidatorsData};
+
+mod validator;
 
 /// Safrole consensus state
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]

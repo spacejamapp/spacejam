@@ -1,7 +1,7 @@
 //! Block builder
 
 use crate::{
-    block::BlockInfo, extrinsic::TicketsOrKeys, state::Storage, validator::Validator, Block,
+    block::BlockInfo, extrinsic::TicketsOrKeys, state::Storage, runtime::Validator, Block,
     Extrinsic,
 };
 use std::ops::{Deref, DerefMut};
@@ -27,7 +27,7 @@ impl Builder {
     }
 
     /// Seal the block
-    pub fn seal(mut self, validator: &impl Validator, db: &impl Storage) -> anyhow::Result<Self> {
+    pub fn seal(mut self, validator: &impl Validator, db: &impl Storage) -> anyhow::Result<Block> {
         let keys: Vec<[u8; 32]> = db
             .current_validators()?
             .unwrap_or_default()
@@ -64,7 +64,7 @@ impl Builder {
             validator.bandersnatch_sign(&keys, &context, &[])?
         };
 
-        Ok(self)
+        Ok(self.into())
     }
 }
 

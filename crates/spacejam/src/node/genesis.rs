@@ -2,7 +2,7 @@
 
 use score::{
     block::{Block, BlockJson},
-    validator::ValidatorDataJson,
+    safrole::ValidatorDataJson,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

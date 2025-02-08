@@ -45,10 +45,9 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
-        validator::{ValidatorDataJson, ValidatorsData},
-        work::{
-            report::{WorkReport, WorkReportJson},
-            AvailabilityAssignmentJson, AvailabilityAssignments,
+        safrole::{ValidatorDataJson, ValidatorsData},
+        service::{
+            AvailabilityAssignmentJson, AvailabilityAssignments, WorkReport, WorkReportJson,
         },
         HeaderHash, TimeSlot,
     };

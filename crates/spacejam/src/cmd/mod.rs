@@ -1,7 +1,7 @@
 //! Command line interface for spacejam
 
 use clap::Parser;
-use score::{state::Storage, validator::Validator};
+use score::{state::Storage, runtime::Validator};
 pub use {rand::Rand, spawn::Spawn};
 
 mod rand;

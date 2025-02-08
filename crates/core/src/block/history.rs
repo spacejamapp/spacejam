@@ -1,6 +1,6 @@
 //! Block history
 
-use crate::{block::BlockInfo, work::ReportedWorkPackage, OpaqueHash, MAX_BLOCKS_HISTORY};
+use crate::{block::BlockInfo, service::ReportedWorkPackage, OpaqueHash, MAX_BLOCKS_HISTORY};
 use merkle::mmr;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

@@ -2,7 +2,7 @@
 
 use metrics::Metrics;
 use network::{ed25519, Event, PeerId};
-use score::{state::Storage, validator::Validator, Block};
+use score::{state::Storage, runtime::Validator, Block};
 use tokio::sync::mpsc;
 
 /// The context for SpaceJam
@@ -49,10 +49,9 @@ impl<S: Storage, V: Validator> Context<S, V> {
             return Ok(());
         };
 
-        let block: Block = Block::builder()
+        let block = Block::builder()
             .parent(&block)?
-            .seal(&self.validator, &self.db)?
-            .into();
+            .seal(&self.validator, &self.db)?;
 
         tracing::info!(
             "subscribing block@{}: {}",
@@ -76,6 +75,7 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         Some(ed25519::Keypair::from(sk))
     }
 
+    // TODO: longest chain selection.
     fn import_block(&self, block: Vec<u8>) -> anyhow::Result<()> {
         sync::transit(&codec::decode(&block)?, &self.db, &self.validator)
     }

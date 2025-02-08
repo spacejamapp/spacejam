@@ -2,9 +2,9 @@
 
 use score::{
     block::{BlockInfo, BlockInfoJson},
+    safrole::{ValidatorDataJson, ValidatorsData},
     service::{ServiceItem, ServiceItemJson},
-    validator::{ValidatorDataJson, ValidatorsData},
-    work::{AvailabilityAssignmentJson, AvailabilityAssignments},
+    service::{AvailabilityAssignmentJson, AvailabilityAssignments},
     Ed25519Public, EntropyBuffer, OpaqueHash, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};

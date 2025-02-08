@@ -10,10 +10,7 @@ use score::{
         dispute::DisputesExtrinsic, ticket::TicketEnvelope, AvailAssurance, Preimage,
         ReportGuarantee,
     },
-    work::{
-        report::{WorkReport, WorkResult},
-        RefineContext, WorkItem, WorkPackage,
-    },
+    service::{RefineContext, WorkItem, WorkPackage, WorkReport, WorkResult},
 };
 use specjam::registry::tests::*;
 
