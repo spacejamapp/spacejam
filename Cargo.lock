@@ -2918,7 +2918,6 @@ dependencies = [
  "serde",
  "serde_json",
  "spacejam-crypto",
- "spacejam-merkle",
  "spacejson",
  "tracing",
 ]
@@ -2946,15 +2945,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "reed-solomon-simd",
-]
-
-[[package]]
-name = "spacejam-merkle"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "hex",
- "spacejam-crypto",
 ]
 
 [[package]]
@@ -2996,7 +2986,6 @@ dependencies = [
  "spacejam",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-merkle",
  "spacejson",
  "specjam",
  "syn 2.0.96",

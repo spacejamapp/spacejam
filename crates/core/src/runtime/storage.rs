@@ -189,7 +189,7 @@ pub trait Storage: Sized {
             service += 1;
         }
 
-        Ok(merkle::trie(&kvs, 0))
+        Ok(crypto::merkle::trie(&kvs, 0))
     }
 
     /// Finalize a branch

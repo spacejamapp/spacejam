@@ -28,7 +28,7 @@ pub fn append(
             break;
         };
 
-        root = Some(crypto::keccak(&[next_peak, next_root].concat()));
+        root = Some(crate::keccak(&[next_peak, next_root].concat()));
     }
 
     peaks
@@ -54,7 +54,7 @@ pub fn root(peaks: &[Option<[u8; 32]>]) -> Option<[u8; 32]> {
         to_hash.extend_from_slice(&current);
         to_hash.extend_from_slice(peak);
 
-        current = crypto::keccak(&to_hash);
+        current = crate::keccak(&to_hash);
     }
 
     Some(current)

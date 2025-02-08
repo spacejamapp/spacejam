@@ -1,6 +1,6 @@
 //! A space-efficient trie for storing key-value pairs.
 
-use crypto::blake2b;
+use crate::blake2b;
 
 /// Compute the Merkle root of a set of key-value pairs.
 pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {

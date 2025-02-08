@@ -1,6 +1,6 @@
 //! Merkle proof related utilities
 
-use crypto::blake2b;
+use crate::blake2b;
 use std::collections::HashMap;
 
 // Binary Merkle Tree with 16-bit `ChunkIndex` has depth at most 17.

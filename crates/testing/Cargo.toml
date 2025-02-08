@@ -8,7 +8,6 @@ anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
-merkle.workspace = true
 paste.workspace = true
 pvmi.workspace = true
 spacejam.workspace = true
