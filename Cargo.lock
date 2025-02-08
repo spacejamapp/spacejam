@@ -2901,7 +2901,6 @@ dependencies = [
  "spacejam-crypto",
  "spacejam-metrics",
  "spacejam-network",
- "spacejam-sync",
  "spacejson",
  "tokio",
  "toml 0.8.19",
@@ -2982,20 +2981,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-sync"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "jamcodec",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
- "tracing",
-]
-
-[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
@@ -3012,7 +2997,6 @@ dependencies = [
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-merkle",
- "spacejam-sync",
  "spacejson",
  "specjam",
  "syn 2.0.96",

@@ -1,13 +1,13 @@
 //! Block sync validation
 
-use anyhow::Result;
-use score::{
+use crate::{
     block::History,
     runtime::{Storage, Validator},
     service::WorkReport,
     state::{self, key},
     Block, OpaqueHash,
 };
+use anyhow::Result;
 
 pub mod assurance;
 pub mod dispute;
@@ -22,8 +22,8 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
     let mut diff = branch.diff();
 
     // prepare epoch information
-    let epoch = block.header.slot / score::EPOCH_LENGTH;
-    let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+    let epoch = block.header.slot / crate::EPOCH_LENGTH;
+    let new_epoch: bool = epoch > (state.timeslot / crate::EPOCH_LENGTH);
 
     // The first round computation
     {
@@ -42,7 +42,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (ψ') Update disputes and get marks
-        let (disputes, marks) = crate::dispute::disputes(
+        let (disputes, marks) = self::dispute::disputes(
             state.timeslot,
             &state.validators.current,
             &state.validators.previous,
@@ -58,7 +58,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         let mut reports = dispute::reports(&marks, &state.reports);
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
-        reports = crate::assurance::reports(block.header.slot, reports.clone());
+        reports = self::assurance::reports(block.header.slot, reports.clone());
 
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
@@ -83,7 +83,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (W*) the sequence of new available work reports (11.16)
-        crate::assurance::available(
+        self::assurance::available(
             &state.reports,
             &state.validators.current,
             block.header.slot,
@@ -118,7 +118,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         // (..., C) Accumulate the available work reports
         //
         // TODO: 12
-        crate::accumulate(available)
+        self::accumulate(available)
     };
 
     // Round 4 computation

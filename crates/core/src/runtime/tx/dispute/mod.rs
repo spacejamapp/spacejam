@@ -2,14 +2,14 @@
 //!
 //! 1. update judgements on work-reports and validators (ψ)
 //! 2. update pending reports (ρ)
-use crate::dispute;
-pub use error::{Error, Result};
-use score::{
+use super::dispute;
+use crate::{
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
     safrole::ValidatorsData,
     service::AvailabilityAssignments,
     Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
+pub use error::{Error, Result};
 use std::collections::BTreeMap;
 
 pub mod error;

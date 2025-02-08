@@ -1,7 +1,6 @@
 //! Spacejam's SAFRole prototype
 
-pub use error::{Error, Result};
-use score::{
+use crate::{
     extrinsic::{
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
@@ -10,6 +9,7 @@ use score::{
     safrole::{ValidatorData, Validators, ValidatorsData},
     Ed25519Public, OpaqueHash,
 };
+pub use error::{Error, Result};
 
 pub mod error;
 
@@ -57,12 +57,12 @@ pub fn safrole(
         return Err(Error::BadSlot);
     }
 
-    if slot % score::CONTEST_DURATION == 0 && !tickets.is_empty() {
+    if slot % crate::CONTEST_DURATION == 0 && !tickets.is_empty() {
         return Err(Error::UnexpectedTicket);
     }
 
-    let epoch = slot / score::EPOCH_LENGTH;
-    let new_epoch: bool = epoch > (tau / score::EPOCH_LENGTH);
+    let epoch = slot / crate::EPOCH_LENGTH;
+    let new_epoch: bool = epoch > (tau / crate::EPOCH_LENGTH);
     let mut safrole = safrole.clone();
     safrole.series = sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
     safrole.accumulator = accumulator(
@@ -94,13 +94,13 @@ pub fn accumulator(
     let mut new_tickets = Vec::new();
     for envelope in tickets {
         // 1. Verify ticket attempt (6.29)
-        if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR {
+        if envelope.attempt > crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Err(Error::BadTicketAttempt);
         }
 
         // 2. Construct ring VRF input data (6.29)
         let input_data = [
-            &score::JAM_TICKET_SEAL,         // X_T token
+            &crate::JAM_TICKET_SEAL,         // X_T token
             entropy[2].as_slice(),           // η'_2 (second-oldest entropy)
             &envelope.attempt.to_le_bytes(), // r (attempt number)
         ]
@@ -152,7 +152,7 @@ pub fn accumulator(
     //
     // Take only the first E tickets (formula 6.35: truncate to E)
     accumulator.sort_by(|a, b| a.id.cmp(&b.id));
-    accumulator.truncate(score::EPOCH_LENGTH as usize);
+    accumulator.truncate(crate::EPOCH_LENGTH as usize);
     Ok(accumulator)
 }
 
@@ -165,22 +165,22 @@ pub fn sealing_key_series(
     curr_validators: &[ValidatorData],
 ) -> TicketsOrKeys {
     let mut next = safrole.series.clone();
-    let curr_epoch = slot / score::EPOCH_LENGTH;
-    let prev_epoch = tau / score::EPOCH_LENGTH;
-    let prev_slot_phase = tau % score::EPOCH_LENGTH;
+    let curr_epoch = slot / crate::EPOCH_LENGTH;
+    let prev_epoch = tau / crate::EPOCH_LENGTH;
+    let prev_slot_phase = tau % crate::EPOCH_LENGTH;
 
     if curr_epoch == prev_epoch {
         return next;
     }
 
     if curr_epoch == prev_epoch + 1
-        && prev_slot_phase >= score::CONTEST_DURATION
-        && safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+        && prev_slot_phase >= crate::CONTEST_DURATION
+        && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
     {
         next = TicketsOrKeys::Tickets(safrole.tickets());
     } else {
-        let mut fallback_keys = Vec::with_capacity(score::EPOCH_LENGTH as usize);
-        for i in 0..score::EPOCH_LENGTH {
+        let mut fallback_keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
+        for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
             let hash = crypto::blake2b(&input);
             let index =

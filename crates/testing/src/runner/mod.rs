@@ -1,7 +1,7 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::block::History;
+use score::{block::History, runtime::tx};
 use specjam::{Section, Test};
 
 /// The `Runner` struct which is used to run the tests.
@@ -21,7 +21,7 @@ impl Runner {
                 assert_eq!(input.pre_state.curr_validators, post_state.curr_validators);
 
                 // validate output
-                let result = sync::assurance::available(
+                let result = tx::assurance::available(
                     &input.pre_state.avail_assignments,
                     &input.pre_state.curr_validators,
                     input.input.slot,
@@ -32,10 +32,8 @@ impl Runner {
 
                 // validate post state
                 if let Ok(available) = result {
-                    let mut assignments = sync::assurance::reports(
-                        input.input.slot,
-                        input.pre_state.avail_assignments,
-                    );
+                    let mut assignments =
+                        tx::assurance::reports(input.input.slot, input.pre_state.avail_assignments);
 
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
@@ -59,7 +57,7 @@ impl Runner {
                 let post: score::State = output.post_state.clone().into();
 
                 // Validate post state
-                let result = sync::guarantee::pools(
+                let result = tx::guarantee::pools(
                     input.input.slot,
                     &state.pools,
                     &state.authorization,
@@ -74,7 +72,7 @@ impl Runner {
 
                 let mut input = disputes::TestInput::from_json(test.input)?;
                 let output = disputes::TestOutput::from_json(test.output)?;
-                let result = sync::dispute::disputes(
+                let result = tx::dispute::disputes(
                     input.pre_state.tau,
                     &input.pre_state.kappa,
                     &input.pre_state.lambda,
@@ -90,7 +88,7 @@ impl Runner {
 
                 if let Ok((psi, records)) = result {
                     input.pre_state.psi = psi;
-                    input.pre_state.rho = sync::dispute::reports(&records, &input.pre_state.rho);
+                    input.pre_state.rho = tx::dispute::reports(&records, &input.pre_state.rho);
                 }
 
                 // check post state
@@ -119,7 +117,7 @@ impl Runner {
                 // Validate post state
                 let accounts = preimage::to_accounts(input.pre_state.accounts.clone());
                 let result =
-                    sync::preimage::accounts(input.input.slot, &input.input.preimages, &accounts);
+                    tx::preimage::accounts(input.input.slot, &input.input.preimages, &accounts);
                 if let Ok(accounts) = result {
                     assert_eq!(accounts, preimage::to_accounts(output.post_state.accounts));
                 } else {
@@ -143,13 +141,13 @@ impl Runner {
 
                 // Validate the output
                 let state = pre_state.clone().into();
-                let result = sync::guarantee::reports(
+                let result = tx::guarantee::reports(
                     input.slot,
                     &pre_state.avail_assignments,
                     &input.guarantees,
                 )
                 .and_then(|assignments| {
-                    sync::guarantee::report(&state, input.slot, &input.guarantees)
+                    tx::guarantee::report(&state, input.slot, &input.guarantees)
                         .map(|(reported, reporters)| (reported, reporters, assignments))
                 });
 

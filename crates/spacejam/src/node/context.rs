@@ -4,7 +4,7 @@ use metrics::Metrics;
 use network::{ed25519, Event, PeerId};
 use score::{
     block::Block,
-    runtime::{Storage, Validator},
+    runtime::{tx, Storage, Validator},
 };
 use tokio::sync::mpsc;
 
@@ -80,6 +80,6 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
 
     // TODO: longest chain selection.
     fn import_block(&self, block: Vec<u8>) -> anyhow::Result<()> {
-        sync::transit(&codec::decode(&block)?, &self.db, &self.validator)
+        tx::transit(&codec::decode(&block)?, &self.db, &self.validator)
     }
 }

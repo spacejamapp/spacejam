@@ -1,10 +1,10 @@
 //! The state of the reporting portion of the protocol.
 
-use score::{
+use crate::{
     block::{BlockInfo, BlockInfoJson},
     safrole::{ValidatorDataJson, ValidatorsData},
-    service::{ServiceItem, ServiceItemJson},
     service::{AvailabilityAssignmentJson, AvailabilityAssignments},
+    service::{ServiceItem, ServiceItemJson},
     Ed25519Public, EntropyBuffer, OpaqueHash, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub struct State {
 
 impl State {
     /// Apply the state to the score state
-    fn apply(self, state: &mut score::State) {
+    fn apply(self, state: &mut crate::State) {
         state.reports = self.avail_assignments;
         state.validators.current = self.curr_validators;
         state.validators.previous = self.prev_validators;
@@ -68,16 +68,16 @@ impl State {
     }
 }
 
-impl From<State> for score::State {
+impl From<State> for crate::State {
     fn from(value: State) -> Self {
-        let mut state = score::State::default();
+        let mut state = crate::State::default();
         value.apply(&mut state);
         state
     }
 }
 
-impl From<score::State> for State {
-    fn from(value: score::State) -> Self {
+impl From<crate::State> for State {
+    fn from(value: crate::State) -> Self {
         Self {
             avail_assignments: value.reports,
             curr_validators: value.validators.current,

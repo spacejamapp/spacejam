@@ -1,13 +1,13 @@
 //! Assurance is the process of ensuring that the results of a work-package are available to a super-majority of validators.
 
-pub use error::{Error, Result};
-use score::{
+use crate::{
     extrinsic::AvailAssurance,
     safrole::ValidatorData,
     service::{AvailabilityAssignments, WorkReport},
     OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
     WORK_REPORT_TIMEOUT_PERIOD,
 };
+pub use error::{Error, Result};
 use std::collections::HashSet;
 
 mod error;

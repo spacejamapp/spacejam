@@ -1,7 +1,7 @@
 //! Preimage handler
 
+use crate::{extrinsic::PreimagesExtrinsic, service::ServiceAccount, TimeSlot};
 use anyhow::Result;
-use score::{extrinsic::PreimagesExtrinsic, service::ServiceAccount, TimeSlot};
 use std::collections::BTreeMap;
 
 /// handle preimage

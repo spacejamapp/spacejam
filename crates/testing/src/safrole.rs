@@ -6,13 +6,12 @@ use score::{
         TicketBodyJson, TicketEnvelopeJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
         TicketsOrKeysJson,
     },
-    safrole::Safrole,
-    safrole::{ValidatorDataJson, Validators, ValidatorsData},
+    runtime::tx::{self, ticket::Error},
+    safrole::{Safrole, ValidatorDataJson, Validators, ValidatorsData},
     BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::ticket::Error;
 
 /// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
@@ -134,11 +133,11 @@ impl State {
             previous: self.lambda.clone(),
         };
 
-        validators = sync::ticket::validators(new_epoch, &safrole.validators, &validators);
-        self.eta = sync::ticket::eta(new_epoch, &self.eta, input.entropy);
+        validators = tx::ticket::validators(new_epoch, &safrole.validators, &validators);
+        self.eta = tx::ticket::eta(new_epoch, &self.eta, input.entropy);
 
         let mut markers = Markers::default();
-        match sync::ticket::safrole(
+        match tx::ticket::safrole(
             self.tau,
             input.slot,
             self.eta,

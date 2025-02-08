@@ -1,7 +1,11 @@
 //! Temporary dependencies for validation
 
-use crate::guarantee::{Error, Result};
-use score::{extrinsic::ReportGuarantee, service::ReportedWorkPackage, OpaqueHash};
+use crate::{
+    extrinsic::ReportGuarantee,
+    runtime::tx::guarantee::error::{Error, Result},
+    service::ReportedWorkPackage,
+    OpaqueHash,
+};
 
 /// Temp dependencies for validation
 #[derive(Default)]

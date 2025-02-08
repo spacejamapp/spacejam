@@ -1,7 +1,5 @@
 //! Storage APIs of the state of SpaceJam
 
-use std::path::Path;
-
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
@@ -14,6 +12,7 @@ use crate::{
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 use anyhow::Result;
+use std::path::Path;
 
 /// The prefix of the branch key
 const BRANCH_PREFIX: [u8; 6] = *b"branch";
