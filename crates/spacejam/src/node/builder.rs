@@ -7,9 +7,10 @@ use crate::{
 use network::{Context as _, Network};
 use score::{
     block::BlockInfo,
+    extrinsic::TicketsOrKeys,
     runtime::{Storage, Validator},
-    safrole::ValidatorData,
-    state::key::CURRENT_VALIDATORS,
+    safrole::{Safrole, ValidatorData},
+    state::key,
     Block,
 };
 use spacejson::Json;
@@ -21,6 +22,8 @@ use tokio::sync::mpsc;
 #[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Builder {
     /// The seed of the validator
+    ///
+    /// TODO: make this field optional, if not provided, the node will not be a validator.
     #[cfg_attr(feature = "cmd", arg(long))]
     validator: String,
 
@@ -31,10 +34,6 @@ pub struct Builder {
     /// The genesis path
     #[cfg_attr(feature = "cmd", arg(long, default_value = "genesis.json"))]
     genesis: PathBuf,
-
-    /// If force the node authoring blocks
-    #[cfg_attr(feature = "cmd", arg(long, default_value = "false"))]
-    authoring: bool,
 
     /// The network configuration
     #[cfg_attr(feature = "cmd", command(flatten))]
@@ -63,11 +62,7 @@ impl Builder {
         //
         // TODO: add config to the inner channel
         let network = Network::new(self.network, rx, context.keypair()).await?;
-        Ok(Spacejam {
-            context,
-            network,
-            authoring: self.authoring,
-        })
+        Ok(Spacejam { context, network })
     }
 
     fn init_storage<S: Storage, V: Validator>(
@@ -85,7 +80,7 @@ impl Builder {
         context
             .runtime
             .storage
-            .set(score::state::key::RECENT_BLOCKS, codec::encode(&recent)?)?;
+            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
 
         // set up initial validators
         let validators = genesis
@@ -94,6 +89,20 @@ impl Builder {
             .map(Json::from_json)
             .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
         let encoded = codec::encode(&validators)?;
-        context.runtime.storage.set(CURRENT_VALIDATORS, encoded)
+        context
+            .runtime
+            .storage
+            .set(key::CURRENT_VALIDATORS, encoded)?;
+
+        // set up initial safrole state
+        let safrole = Safrole {
+            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
+            ..Default::default()
+        };
+        context
+            .runtime
+            .storage
+            .set(key::SAFROLE, codec::encode(&safrole)?)?;
+        Ok(())
     }
 }

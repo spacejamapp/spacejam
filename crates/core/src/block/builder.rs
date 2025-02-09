@@ -38,7 +38,7 @@ impl Builder {
             .collect();
 
         let entropy = db.entropy()?.unwrap_or_default();
-        let safrole = db.safrole()?.unwrap_or_default();
+        let safrole = db.safrole()?;
         let message = codec::encode(&self.0)?;
         self.header.seal = match safrole.series {
             TicketsOrKeys::Tickets(tickets) => {

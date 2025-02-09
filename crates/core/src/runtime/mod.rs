@@ -8,6 +8,8 @@ pub mod tx;
 mod validator;
 
 /// Runtime of SpaceJam
+///
+/// TODO: maybe holds the latest state in memory?
 pub struct Runtime<S: Storage, V: Validator> {
     /// The validator of SpaceJam
     pub validator: V,
@@ -23,7 +25,19 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
     }
 
     /// Author a block
-    pub async fn author(&self) -> anyhow::Result<Block> {
+    ///
+    /// detect if the current validator is in the safrole series keys, if so, do authoring
+    /// otherwise, do nothing.
+    pub async fn try_author(&self) -> anyhow::Result<Option<Block>> {
+        let safrole = self.storage.safrole()?;
+        if !safrole
+            .series
+            .keys()
+            .contains(&self.validator.bandersnatch_public_key())
+        {
+            return Ok(None);
+        }
+
         let block = self.storage.recent_blocks()?;
         let Some(block) = block.and_then(|b| b.last().cloned()) else {
             anyhow::bail!("genesis block not found");
@@ -32,6 +46,7 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
         Block::builder()
             .parent(&block)?
             .seal(&self.validator, &self.storage)
+            .map(Some)
     }
 
     /// Import a block

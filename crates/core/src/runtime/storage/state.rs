@@ -10,7 +10,7 @@ use crate::{
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 /// Storage of the state of SpaceJam
 ///
@@ -198,11 +198,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the safrole state
-    fn safrole(&self) -> Result<Option<Safrole>> {
-        self.get(key::SAFROLE)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode safrole: {e}"))
+    fn safrole(&self) -> Result<Safrole> {
+        codec::decode(
+            &self
+                .get(key::SAFROLE)?
+                .ok_or(anyhow::anyhow!("safrole not found"))?,
+        )
+        .context("failed to decode safrole")
     }
 
     /// Fetch the judgements from the storage
@@ -255,11 +257,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the timeslot
-    fn timeslot(&self) -> Result<Option<TimeSlot>> {
-        self.get(key::TIMESLOT)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode timeslot: {e}"))
+    fn timeslot(&self) -> Result<TimeSlot> {
+        codec::decode(
+            &self
+                .get(key::TIMESLOT)?
+                .ok_or(anyhow::anyhow!("timeslot not found"))?,
+        )
+        .context("failed to decode timeslot")
     }
 
     /// Fetch the privileged service indices

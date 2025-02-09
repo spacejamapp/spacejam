@@ -49,12 +49,24 @@ pub enum TicketsOrKeys {
     Keys(Vec<BandersnatchPublic>),
 }
 
+impl TicketsOrKeys {
+    /// Returns the keys of the tickets or keys.
+    ///
+    /// TODO: filter keys with timeslot
+    pub fn keys(&self) -> Vec<BandersnatchPublic> {
+        match self {
+            Self::Tickets(tickets) => tickets.iter().map(|t| t.id).collect(),
+            Self::Keys(keys) => keys.clone(),
+        }
+    }
+}
 impl Default for TicketsOrKeys {
     fn default() -> Self {
         Self::Tickets(Default::default())
     }
 }
 
+/// Represents the JSON representation of either tickets or keys.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TicketsOrKeysJson {
     tickets: Option<Vec<TicketBodyJson>>,
