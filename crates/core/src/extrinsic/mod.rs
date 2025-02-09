@@ -13,6 +13,8 @@ pub mod ticket;
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Default, Clone)]
 pub struct Extrinsic {
     /// The tickets
+    ///
+    /// Note that the maximum number of tickets is `K = 16`.
     #[json(Vec<TicketEnvelopeJson>)]
     pub tickets: TicketsExtrinsic,
     /// The preimages

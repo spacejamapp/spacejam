@@ -57,7 +57,7 @@ pub fn safrole(
         return Err(Error::BadSlot);
     }
 
-    if slot % crate::CONTEST_DURATION == 0 && !tickets.is_empty() {
+    if slot % crate::TICKET_SUBMISSION_PERIOD == 0 && !tickets.is_empty() {
         return Err(Error::UnexpectedTicket);
     }
 
@@ -165,7 +165,7 @@ pub fn sealing_key_series(
     }
 
     if curr_epoch == prev_epoch + 1
-        && prev_slot_phase >= crate::CONTEST_DURATION
+        && prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
     {
         next = TicketsOrKeys::Tickets(safrole.tickets());
