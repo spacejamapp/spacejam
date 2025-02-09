@@ -8,7 +8,6 @@ anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
-merkle.workspace = true
 paste.workspace = true
 pvmi.workspace = true
 spacejam.workspace = true
@@ -17,7 +16,6 @@ score.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-sync.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

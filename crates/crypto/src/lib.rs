@@ -5,6 +5,7 @@ use tiny_keccak::{Hasher, Keccak};
 
 pub mod bls;
 pub mod ed25519;
+pub mod merkle;
 pub mod ring;
 pub mod shuffle;
 pub mod vrf;

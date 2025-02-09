@@ -1,7 +1,8 @@
 //! Command line interface for spacejam
 
 use clap::Parser;
-use score::{state::Storage, validator::Validator};
+use score::runtime::{Storage, Validator};
+use std::path::PathBuf;
 pub use {rand::Rand, spawn::Spawn};
 
 mod rand;
@@ -20,7 +21,10 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub async fn run<S: Storage + 'static, V: Validator + From<[u8; 32]> + 'static>(
+    pub async fn run<
+        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + From<[u8; 32]> + TryFrom<String> + 'static,
+    >(
         &self,
     ) -> anyhow::Result<()> {
         match self {

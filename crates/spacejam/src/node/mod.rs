@@ -1,7 +1,7 @@
 //! Node for SpaceJam
 
 use network::Network;
-use score::{state::Storage, validator::Validator};
+use score::runtime::{Storage, Validator};
 use std::{net::SocketAddr, time::Duration};
 pub use {builder::Builder, context::Context, genesis::Genesis};
 
@@ -47,9 +47,20 @@ impl<S: Storage, V: Validator> Spacejam<S, V> {
 
 /// Author blocks (mocked)
 async fn authoring<S: Storage, V: Validator>(context: &Context<S, V>) {
+    let do_author = || async move {
+        let block = context.runtime.author().await?;
+        tracing::info!(
+            "subscribing block@{}: {}",
+            block.header.slot,
+            hex::encode(block.hash()?)
+        );
+
+        Ok::<_, anyhow::Error>(())
+    };
+
     loop {
         tokio::time::sleep(Duration::from_secs(6)).await;
-        if let Err(e) = context.author().await {
+        if let Err(e) = do_author().await {
             tracing::error!("failed to author block: {e}");
         }
     }

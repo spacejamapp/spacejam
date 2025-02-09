@@ -1,8 +1,8 @@
 //! This module contains the tests for the assurance module.
 
+use score::runtime::tx::assurance::{Error, Result};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::assurance::{Error, Result};
 use types::*;
 
 /// Test input for assurances
@@ -45,10 +45,9 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
-        validator::{ValidatorDataJson, ValidatorsData},
-        work::{
-            report::{WorkReport, WorkReportJson},
-            AvailabilityAssignmentJson, AvailabilityAssignments,
+        safrole::{ValidatorDataJson, ValidatorsData},
+        service::{
+            AvailabilityAssignmentJson, AvailabilityAssignments, WorkReport, WorkReportJson,
         },
         HeaderHash, TimeSlot,
     };

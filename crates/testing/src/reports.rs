@@ -1,11 +1,11 @@
 #![cfg(test)]
 
-use serde::{Deserialize, Serialize};
-use spacejson::{Json, ResultJson};
-use sync::guarantee::{
+use score::runtime::tx::guarantee::{
     error::{Error, Result},
     State, StateJson,
 };
+use serde::{Deserialize, Serialize};
+use spacejson::{Json, ResultJson};
 pub use types::*;
 
 /// Test input.
@@ -71,7 +71,7 @@ crate::impl_tests! {
 mod types {
     use score::{
         extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-        work::{ReportedWorkPackage, ReportedWorkPackageJson},
+        service::{ReportedWorkPackage, ReportedWorkPackageJson},
         Block, Ed25519Public, TimeSlot,
     };
     use serde::{Deserialize, Serialize};

@@ -5,13 +5,13 @@ use score::{
     extrinsic::dispute::{
         DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
     },
-    validator::{ValidatorDataJson, ValidatorsData},
-    work::{AvailabilityAssignmentJson, AvailabilityAssignments},
+    runtime::tx::dispute::error::Error,
+    safrole::{ValidatorDataJson, ValidatorsData},
+    service::{AvailabilityAssignmentJson, AvailabilityAssignments},
     Ed25519Public, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use sync::dispute::error::Error;
 
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {

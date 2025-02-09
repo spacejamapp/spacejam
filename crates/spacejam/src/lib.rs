@@ -2,7 +2,7 @@
 
 pub use {
     node::{Context, Spacejam},
-    score::{state::Storage, validator::Validator},
+    score::runtime::{Storage, Validator},
 };
 
 pub mod cmd;

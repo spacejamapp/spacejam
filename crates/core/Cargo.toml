@@ -8,7 +8,6 @@ anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
-merkle.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true

@@ -2,8 +2,8 @@
 
 use crate::node::Builder;
 use clap::Parser;
-use score::{state::Storage, validator::Validator};
-use std::net::SocketAddr;
+use score::runtime::{Storage, Validator};
+use std::{net::SocketAddr, path::PathBuf};
 
 /// Spawn the node
 #[derive(Parser)]
@@ -19,7 +19,10 @@ pub struct Spawn {
 
 impl Spawn {
     /// Run the command
-    pub async fn run<S: Storage + 'static, V: Validator + TryFrom<String> + 'static>(
+    pub async fn run<
+        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + TryFrom<String> + 'static,
+    >(
         &self,
     ) -> anyhow::Result<()> {
         let node = self.config.clone().build::<S, V>().await?;

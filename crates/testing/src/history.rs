@@ -2,7 +2,7 @@
 
 use score::{
     block::{BlockInfo, BlockInfoJson},
-    work::{ReportedWorkPackage, ReportedWorkPackageJson},
+    service::{ReportedWorkPackage, ReportedWorkPackageJson},
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};

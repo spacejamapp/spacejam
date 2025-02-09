@@ -2,7 +2,7 @@
 
 use crate::{
     extrinsic::*,
-    work::{ReportedWorkPackage, ReportedWorkPackageJson},
+    service::{ReportedWorkPackage, ReportedWorkPackageJson},
     HeaderHash, OpaqueHash, TimeSlot,
 };
 use history::{Mmr, MmrJson};

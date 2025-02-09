@@ -2,20 +2,14 @@
 #![cfg(feature = "rocksdb")]
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
-use score::state::Storage;
-use std::path::Path;
+use score::runtime::storage::KVStorage;
 
 /// The RocksDB storage of SpaceJam
 pub struct RocksDB {
     db: DB,
 }
 
-impl Storage for RocksDB {
-    fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let db = DB::open_default(path.as_ref())?;
-        Ok(Self { db })
-    }
-
+impl KVStorage for RocksDB {
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.db.put(key.as_ref(), value.as_ref())?;
         Ok(())
