@@ -216,11 +216,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the entropy state
-    fn entropy(&self) -> Result<Option<EntropyBuffer>> {
-        self.get(key::ENTROPY)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode entropy: {e}"))
+    fn entropy(&self) -> Result<EntropyBuffer> {
+        codec::decode(
+            &self
+                .get(key::ENTROPY)?
+                .ok_or(anyhow::anyhow!("entropy not found"))?,
+        )
+        .context("failed to decode entropy")
     }
 
     /// Fetch the next validators
@@ -232,11 +234,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the current validators
-    fn current_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::CURRENT_VALIDATORS)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode current validators: {e}"))
+    fn current_validators(&self) -> Result<Vec<ValidatorData>> {
+        codec::decode(
+            &self
+                .get(key::CURRENT_VALIDATORS)?
+                .ok_or(anyhow::anyhow!("current validators not found"))?,
+        )
+        .context("failed to decode current validators")
     }
 
     /// Fetch the previous validators

@@ -26,10 +26,14 @@ impl Rand {
 
     fn genesis(&self) -> Result<()> {
         let mut genesis = Genesis::default();
+
+        // generate validators
         for i in 0..VALIDATORS_COUNT {
             let validator = LocalValidator::from([i as u8; 32]);
             genesis.validators.push(validator.data().to_json());
         }
+
+        // print the genesis block
         println!("{}", serde_json::to_string_pretty(&genesis)?);
         Ok(())
     }

@@ -32,12 +32,11 @@ impl Builder {
     pub fn seal(mut self, validator: &impl Validator, db: &impl Storage) -> anyhow::Result<Block> {
         let keys: Vec<[u8; 32]> = db
             .current_validators()?
-            .unwrap_or_default()
             .into_iter()
             .map(|v| v.bandersnatch)
             .collect();
 
-        let entropy = db.entropy()?.unwrap_or_default();
+        let entropy = db.entropy()?;
         let safrole = db.safrole()?;
         let message = codec::encode(&self.0)?;
         self.header.seal = match safrole.series {

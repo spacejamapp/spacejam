@@ -11,7 +11,7 @@ use score::{
     runtime::{Storage, Validator},
     safrole::{Safrole, ValidatorData},
     state::key,
-    Block,
+    Block, EntropyBuffer,
 };
 use spacejson::Json;
 use std::{fs, path::PathBuf};
@@ -65,6 +65,7 @@ impl Builder {
         Ok(Spacejam { context, network })
     }
 
+    /// Initialize the storage with genesis data
     fn init_storage<S: Storage, V: Validator>(
         &self,
         context: &Context<S, V>,
@@ -103,6 +104,16 @@ impl Builder {
             .runtime
             .storage
             .set(key::SAFROLE, codec::encode(&safrole)?)?;
+
+        // set up initial entropy
+        //
+        // TODO: get entropy from the genesis file
+        let entropy = EntropyBuffer::default();
+        context
+            .runtime
+            .storage
+            .set(key::ENTROPY, codec::encode(&entropy)?)?;
+
         Ok(())
     }
 }

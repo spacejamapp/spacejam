@@ -34,6 +34,9 @@ pub const MAX_TICKETS_PER_BLOCK: usize = 16;
 /// The number of ticket entries per validator
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 
+/// The ticket submission period
+pub const TICKET_SUBMISSION_PERIOD: u32 = 10;
+
 /// The duration of a contest
 pub const CONTEST_DURATION: u32 = 10;
 

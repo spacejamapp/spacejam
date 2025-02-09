@@ -98,25 +98,16 @@ pub fn accumulator(
             return Err(Error::BadTicketAttempt);
         }
 
-        // 2. Construct ring VRF input data (6.29)
-        let input_data = [
-            &crate::JAM_TICKET_SEAL,         // X_T token
-            entropy[2].as_slice(),           // η'_2 (second-oldest entropy)
-            &envelope.attempt.to_le_bytes(), // r (attempt number)
-        ]
-        .concat();
+        // 2. Verify ring VRF signature and get ticket identifier
+        let id = verifier
+            .ring_vrf_verify(
+                &TicketBody::message(envelope.attempt, &entropy[2]),
+                &[],
+                &envelope.signature,
+            )
+            .map_err(|_| Error::BadTicketProof)?;
 
-        // 3. Verify ring VRF signature and get ticket identifier
-        let id = match verifier.ring_vrf_verify(
-            &input_data, // message data
-            &[],         // transcript (empty in this case)
-            &envelope.signature,
-        ) {
-            Ok(id) => id,
-            Err(_) => return Err(Error::BadTicketProof),
-        };
-
-        // 4. Store ticket for accumulation
+        // 3. Store ticket for accumulation
         new_tickets.push(TicketBody {
             id,
             attempt: envelope.attempt,
