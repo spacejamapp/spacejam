@@ -15,6 +15,9 @@ mod sync;
 pub enum Event {
     /// Subscribe a new block.
     SubscribeBlock(Vec<u8>),
+
+    /// Subscribe a new ticket.
+    SubscribeTicket(Vec<u8>),
 }
 
 impl Network {
@@ -26,6 +29,9 @@ impl Network {
                     if let Err(e) = context.subscribe_block(block) {
                         tracing::error!("failed to subscribe to block: {e}");
                     }
+                }
+                Event::SubscribeTicket(_ticket) => {
+                    // TODO: subscribe ticket to the network
                 }
             }
         }

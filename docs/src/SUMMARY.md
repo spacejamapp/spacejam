@@ -5,3 +5,4 @@
   - [Block Author](./milestones/author.md)
 - [Appendix](./appendix/README.md)
   - [A - Graypaper](./appendix/graypaper.md)
+  - [B - State Transition](./appendix/state.md)

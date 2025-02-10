@@ -12,8 +12,6 @@ pub mod tx;
 mod validator;
 
 /// Runtime of SpaceJam
-///
-/// TODO: maybe holds the latest state in memory?
 pub struct Runtime<S: Storage, V: Validator> {
     /// The validator of SpaceJam
     pub validator: V,
@@ -35,10 +33,17 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
         }
     }
 
+    /// Get the next runtime package
+    ///
+    /// TODO: optimize shared data once we have tests for authoring blocks.
+    pub fn next(&self) -> anyhow::Result<(Option<Block>, Option<TicketEnvelope>)> {
+        Ok((self.author()?, self.ticket()?))
+    }
+
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
-    pub async fn try_author(&self) -> anyhow::Result<Option<Block>> {
+    pub fn author(&self) -> anyhow::Result<Option<Block>> {
         let safrole = self.storage.safrole()?;
         if !safrole
             .series
@@ -64,8 +69,8 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
     /// returns `None` if:
     /// - exceed the ticket submission period
     /// - exceed the ticket limit
-    pub async fn ticket(&self) -> anyhow::Result<Option<TicketEnvelope>> {
-        let timeslot = crate::block::timeslot()? + 1;
+    pub fn ticket(&self) -> anyhow::Result<Option<TicketEnvelope>> {
+        let timeslot = crate::block::timeslot()?;
 
         // check the ticket submission period
         let slot = timeslot % crate::EPOCH_LENGTH;
@@ -74,10 +79,14 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
         }
 
         // check if the sealing series still have seats
-        //
-        // TODO: this could be cached in memory or sort of cache db.
         let safrole = self.storage.safrole()?;
         if safrole.series.keys().len() > crate::EPOCH_LENGTH as usize {
+            return Ok(None);
+        }
+
+        // check if the current validator has exceeded the ticket limit
+        let mut attempt = self.attempt.load(Ordering::Relaxed);
+        if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Ok(None);
         }
 
@@ -93,8 +102,8 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
         .collect::<Vec<_>>();
 
         // generate a ticket
-        self.attempt.fetch_add(1, Ordering::Relaxed);
-        let attempt = self.attempt.load(Ordering::Relaxed);
+        attempt += 1;
+        self.attempt.store(attempt, Ordering::Relaxed);
         Ok(Some(TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
