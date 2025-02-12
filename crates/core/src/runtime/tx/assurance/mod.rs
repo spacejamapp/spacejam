@@ -49,7 +49,7 @@ pub fn available(
 
     // Check for engaged reports
     for (index, assurance) in assurances.iter().enumerate() {
-        verify_assurance(validators, index as u16, assurance, parent)?;
+        self::verify_assurance(validators, index as u16, assurance, parent)?;
 
         // Count assurances per core
         let bitsmap = assurance.bitsmap();
@@ -83,7 +83,7 @@ pub fn available(
 }
 
 /// Verifies the assurance
-fn verify_assurance(
+pub fn verify_assurance(
     validators: &[ValidatorData],
     index: u16,
     assurance: &AvailAssurance,

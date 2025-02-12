@@ -11,6 +11,7 @@ hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
 
 [features]

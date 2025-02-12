@@ -30,8 +30,10 @@ impl Network {
                         tracing::error!("failed to subscribe to block: {e}");
                     }
                 }
-                Event::SubscribeTicket(_ticket) => {
-                    // TODO: subscribe ticket to the network
+                Event::SubscribeTicket(ticket) => {
+                    if let Err(e) = context.subscribe_ticket(ticket) {
+                        tracing::error!("failed to subscribe to ticket: {e}");
+                    }
                 }
             }
         }

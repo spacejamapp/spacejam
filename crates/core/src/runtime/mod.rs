@@ -4,9 +4,11 @@ use crate::{
     extrinsic::{TicketBody, TicketEnvelope},
     Block,
 };
+use pool::Pool;
 use std::sync::atomic::{AtomicU8, Ordering};
 pub use {storage::Storage, validator::Validator};
 
+mod pool;
 pub mod storage;
 pub mod tx;
 mod validator;
@@ -19,6 +21,9 @@ pub struct Runtime<S: Storage, V: Validator> {
     /// The storage of SpaceJam
     pub storage: S,
 
+    /// The extrinsic pool of SpaceJam
+    pub pool: Pool,
+
     /// The attempt number of the current epoch
     attempt: AtomicU8,
 }
@@ -29,6 +34,7 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
         Self {
             validator,
             storage,
+            pool: Default::default(),
             attempt: AtomicU8::new(0),
         }
     }
@@ -58,8 +64,10 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
             anyhow::bail!("genesis block not found");
         };
 
+        let extrinsic = self.pool.collect()?;
         Block::builder()
             .parent(&block)?
+            .extrinsic(extrinsic)?
             .seal(&self.validator, &self.storage)
             .map(Some)
     }

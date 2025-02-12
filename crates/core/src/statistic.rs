@@ -1,3 +1,5 @@
+//! Statistics
+
 use crate::{Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
