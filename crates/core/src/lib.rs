@@ -28,14 +28,14 @@ pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;
 /// The number of bytes in the avail bitfield
 pub const AVAIL_BITFIELD_BYTES: usize = 1;
 
-/// The maximum number of tickets per block
-pub const MAX_TICKETS_PER_BLOCK: usize = 16;
-
 /// The number of ticket entries per validator
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 
-/// The duration of a contest
-pub const CONTEST_DURATION: u32 = 10;
+/// (Y) The number of slots into an epoch at which ticket-submission ends.
+pub const TICKET_SUBMISSION_PERIOD: u32 = 10;
+
+/// The maximum number of tickets which may be submitted in a single extrinsic.
+pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 
 /// The maximum size of a work report output
 pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;

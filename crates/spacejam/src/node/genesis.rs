@@ -3,6 +3,7 @@
 use score::{
     block::{Block, BlockJson},
     safrole::ValidatorDataJson,
+    Entropy,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -15,13 +16,18 @@ pub struct Genesis {
 
     /// The current validators
     pub validators: Vec<ValidatorDataJson>,
+
+    /// The entropy
+    pub entropy: [String; 4],
 }
 
 impl Default for Genesis {
     fn default() -> Self {
+        let empty = format!("0x{}", hex::encode(Entropy::default()));
         Self {
             block: Block::default().to_json(),
             validators: vec![],
+            entropy: [empty.clone(), empty.clone(), empty.clone(), empty],
         }
     }
 }

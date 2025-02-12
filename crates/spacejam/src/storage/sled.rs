@@ -1,11 +1,10 @@
 //! Storage interface with sled
 #![cfg(feature = "sled")]
 
-use std::path::PathBuf;
-
 use anyhow::Result;
 use score::runtime::storage::KVStorage;
 use sled::{Batch, Db};
+use std::path::PathBuf;
 
 /// Sled storage
 pub struct Sled {

@@ -1,6 +1,4 @@
-# Appendix A - Graypaper
-
-## Letters in Greek Alphabet
+# Appendix A - Letters in Greek Alphabet
 
 | Letter Upper, Lower | Name    | Pronounced  | When Speaking, Sounds Like        |
 | ------------------- | ------- | ----------- | --------------------------------- |

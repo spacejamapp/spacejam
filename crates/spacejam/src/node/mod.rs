@@ -1,10 +1,11 @@
 //! Node for SpaceJam
 
-use network::Network;
+use network::{Event, Network};
 use score::runtime::{Storage, Validator};
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 pub use {builder::Builder, context::Context, genesis::Genesis};
 
+mod author;
 mod builder;
 mod context;
 mod genesis;
@@ -17,11 +18,6 @@ pub struct Spacejam<S: Storage, V: Validator> {
 
     /// The network of the node
     pub network: Network,
-
-    /// If the node is authoring blocks
-    ///
-    /// TODO: remove this after implementing validator selection.
-    pub(crate) authoring: bool,
 }
 
 impl<S: Storage, V: Validator> Spacejam<S, V> {
@@ -36,32 +32,11 @@ impl<S: Storage, V: Validator> Spacejam<S, V> {
     pub async fn start(mut self, metrics: SocketAddr) -> anyhow::Result<()> {
         tokio::select! {
             _ = metrics::serve(metrics, self.context.metrics.clone()) => {}
-            _ = authoring(&self.context), if self.authoring => {}
+            _ = author::run(&self.context) => {}
             _ = self.network.spawn(&self.context) => {}
             _ = tokio::signal::ctrl_c() => {}
         }
 
         Ok(())
-    }
-}
-
-/// Author blocks (mocked)
-async fn authoring<S: Storage, V: Validator>(context: &Context<S, V>) {
-    let do_author = || async move {
-        let block = context.runtime.author().await?;
-        tracing::info!(
-            "subscribing block@{}: {}",
-            block.header.slot,
-            hex::encode(block.hash()?)
-        );
-
-        Ok::<_, anyhow::Error>(())
-    };
-
-    loop {
-        tokio::time::sleep(Duration::from_secs(6)).await;
-        if let Err(e) = do_author().await {
-            tracing::error!("failed to author block: {e}");
-        }
     }
 }

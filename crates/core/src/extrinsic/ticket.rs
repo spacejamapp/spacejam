@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents a unique identifier for a ticket.
-pub type TicketId = OpaqueHash; // Corresponds to OpaqueHash
+pub type TicketId = OpaqueHash;
 
 /// Represents an attempt to use a ticket.
-pub type TicketAttempt = u8; // Corresponds to U8
+pub type TicketAttempt = u8;
 
 /// Represents a ticket envelope containing an attempt and a signature.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
@@ -39,6 +39,23 @@ pub struct TicketBody {
     pub attempt: TicketAttempt,
 }
 
+impl TicketBody {
+    /// Returns the message for the ticket
+    ///
+    /// ring VRF input data (6.29)
+    /// - X_T token
+    /// - η'_2 (second-oldest entropy)
+    /// - r (attempt number)
+    pub fn message(attempt: TicketAttempt, entropy: &[u8; 32]) -> Vec<u8> {
+        [
+            &crate::JAM_TICKET_SEAL,
+            entropy.as_slice(),
+            [attempt].as_slice(),
+        ]
+        .concat()
+    }
+}
+
 /// Represents an accumulator of tickets.
 pub type TicketsAccumulator = Vec<TicketBody>;
 
@@ -49,12 +66,23 @@ pub enum TicketsOrKeys {
     Keys(Vec<BandersnatchPublic>),
 }
 
+impl TicketsOrKeys {
+    /// Returns the keys of the tickets or keys.
+    pub fn keys(&self) -> Vec<BandersnatchPublic> {
+        match self {
+            Self::Tickets(tickets) => tickets.iter().map(|t| t.id).collect(),
+            Self::Keys(keys) => keys.clone(),
+        }
+    }
+}
+
 impl Default for TicketsOrKeys {
     fn default() -> Self {
         Self::Tickets(Default::default())
     }
 }
 
+/// Represents the JSON representation of either tickets or keys.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TicketsOrKeysJson {
     tickets: Option<Vec<TicketBodyJson>>,

@@ -1,5 +1,6 @@
 //! The RocksDB storage of SpaceJam
 #![cfg(feature = "rocksdb")]
+
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
 use score::runtime::storage::KVStorage;

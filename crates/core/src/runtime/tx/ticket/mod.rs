@@ -57,7 +57,7 @@ pub fn safrole(
         return Err(Error::BadSlot);
     }
 
-    if slot % crate::CONTEST_DURATION == 0 && !tickets.is_empty() {
+    if slot % crate::TICKET_SUBMISSION_PERIOD == 0 && !tickets.is_empty() {
         return Err(Error::UnexpectedTicket);
     }
 
@@ -98,25 +98,16 @@ pub fn accumulator(
             return Err(Error::BadTicketAttempt);
         }
 
-        // 2. Construct ring VRF input data (6.29)
-        let input_data = [
-            &crate::JAM_TICKET_SEAL,         // X_T token
-            entropy[2].as_slice(),           // η'_2 (second-oldest entropy)
-            &envelope.attempt.to_le_bytes(), // r (attempt number)
-        ]
-        .concat();
+        // 2. Verify ring VRF signature and get ticket identifier
+        let id = verifier
+            .ring_vrf_verify(
+                &TicketBody::message(envelope.attempt, &entropy[2]),
+                &[],
+                &envelope.signature,
+            )
+            .map_err(|_| Error::BadTicketProof)?;
 
-        // 3. Verify ring VRF signature and get ticket identifier
-        let id = match verifier.ring_vrf_verify(
-            &input_data, // message data
-            &[],         // transcript (empty in this case)
-            &envelope.signature,
-        ) {
-            Ok(id) => id,
-            Err(_) => return Err(Error::BadTicketProof),
-        };
-
-        // 4. Store ticket for accumulation
+        // 3. Store ticket for accumulation
         new_tickets.push(TicketBody {
             id,
             attempt: envelope.attempt,
@@ -174,7 +165,7 @@ pub fn sealing_key_series(
     }
 
     if curr_epoch == prev_epoch + 1
-        && prev_slot_phase >= crate::CONTEST_DURATION
+        && prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
     {
         next = TicketsOrKeys::Tickets(safrole.tickets());

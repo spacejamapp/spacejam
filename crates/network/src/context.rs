@@ -43,6 +43,13 @@ pub trait Context {
     fn subscribe_block(&self, _block: Vec<u8>) -> Result<()> {
         Ok(())
     }
+
+    /// Subscribe a ticket.
+    ///
+    /// NOTE: This should be called outside from the network module.
+    fn subscribe_ticket(&self, _ticket: Vec<u8>) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl Context for Metrics {

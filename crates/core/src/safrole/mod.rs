@@ -95,8 +95,8 @@ impl Safrole {
         // 3. Current slot not after submission period (m' < Y)
         // 4. Accumulator not full (|gamma_a| ≠ E)
         if curr_epoch != prev_epoch
-            || prev_slot_phase >= crate::CONTEST_DURATION
-            || curr_slot_phase < crate::CONTEST_DURATION
+            || prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
+            || curr_slot_phase < crate::TICKET_SUBMISSION_PERIOD
             || self.accumulator.len() != crate::EPOCH_LENGTH as usize
         {
             return None;
