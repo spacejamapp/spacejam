@@ -39,7 +39,7 @@ The maximum number of tickets can be submitted in a single extrinsic is 16(`K = 
 
 ### 1.2. Guarantees
 
-No explict limits on the number of guarantees, in spacejam, we temporarily limit it within `1024`,
+No explicit limits on the number of guarantees, in spacejam, we temporarily limit it within `1024`,
 and it will be lifted in the future.
 
 ### 1.3. Disputes
