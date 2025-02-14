@@ -16,7 +16,7 @@ use litep2p::{
     },
     Litep2p,
 };
-use peer::PeerManager;
+use manager::PeerManager;
 use std::{pin::Pin, time::Duration};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
@@ -25,12 +25,15 @@ pub use {
     context::Context,
     event::Event,
     litep2p::{crypto::ed25519, PeerId},
+    transport::{Builder as TransportBuilder, Transport},
 };
 
 pub mod config;
 mod context;
 mod event;
-mod peer;
+mod manager;
+mod protocol;
+mod transport;
 
 const BLOCK_NAME: &str = "/notif/block/1";
 const BLOCK_SYNC_NAME: &str = "/sync/block/1";

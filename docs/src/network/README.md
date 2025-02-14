@@ -8,4 +8,4 @@ The network implementation follows [JAM-NP](https://github.com/zdave-parity/jam-
 - Both the client and the server must present `X.509` certificates.
   - `ed25519` as signature algorithm.
   - if the peer is a validator, this `ed25519` key must be published on chain.
-  - base-32 encoded using the aplhabet `abcdefghijklmnopqrstuvwxyz234567`
+  - base-32 encoded using the alphabet `abcdefghijklmnopqrstuvwxyz234567`

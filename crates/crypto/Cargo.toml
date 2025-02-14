@@ -10,6 +10,7 @@ blake2.workspace = true
 ed25519-dalek.workspace = true
 hex.workspace = true
 once_cell.workspace = true
+rcgen.workspace = true
 ring.workspace = true
 tiny-keccak.workspace = true
 tracing.workspace = true
