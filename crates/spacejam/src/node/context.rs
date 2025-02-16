@@ -1,7 +1,8 @@
 //! Context for SpaceJam
 
+use crypto::ed25519;
 use metrics::Metrics;
-use network::{ed25519, Event, PeerId};
+use network::Event;
 use score::runtime::{Runtime, Storage, Validator};
 use tokio::sync::mpsc;
 
@@ -25,11 +26,8 @@ pub struct Context<S: Storage, V: Validator> {
 impl<S: Storage, V: Validator> Context<S, V> {
     /// Create a new context
     pub fn new(validator: V, db: S, tx: mpsc::Sender<Event>) -> Self {
-        let peer_id = PeerId::from_bytes(&validator.ed25519_public_key())
-            .ok()
-            .map(|peer_id| peer_id.to_string())
-            .unwrap_or_else(|| "unknown".to_string());
-
+        // TODO: use base32.
+        let peer_id = hex::encode(validator.ed25519_public_key());
         Self {
             runtime: Runtime::new(validator, db),
             metrics: Metrics::new(&peer_id),
@@ -43,10 +41,8 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         &self.metrics
     }
 
-    fn keypair(&self) -> Option<ed25519::Keypair> {
-        let kp = self.runtime.validator.ed25519()?;
-        let sk = ed25519::SecretKey::try_from_bytes(kp.signing.to_bytes()).ok()?;
-        Some(ed25519::Keypair::from(sk))
+    fn keypair(&self) -> Option<ed25519::KeyPair> {
+        self.runtime.validator.ed25519()
     }
 
     // TODO: longest chain selection.

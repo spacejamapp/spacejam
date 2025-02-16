@@ -2,13 +2,15 @@
 
 use crate::transport::Verifier;
 use crypto::ed25519;
-use quinn::Endpoint;
+use quinn::{crypto::rustls::QuicServerConfig, Endpoint};
 use rcgen::CertificateParams;
 use rustls::pki_types::PrivatePkcs8KeyDer;
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
+
+use super::Transport;
 
 /// Network builder.
 pub struct Builder {
@@ -55,7 +57,7 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(self) -> anyhow::Result<Endpoint> {
+    pub fn build(self) -> anyhow::Result<Transport> {
         let dns = format!(
             "e{}",
             base32::encode(
@@ -67,13 +69,15 @@ impl Builder {
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519))?;
         let cert = CertificateParams::new(vec![dns])?.self_signed(&keypair)?;
         let key = PrivatePkcs8KeyDer::from(keypair.serialize_der());
-        let _crypto =
+        let crypto =
             rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_client_cert_verifier(Arc::new(Verifier))
                 .with_single_cert(vec![cert.into()], key.into())?;
 
-        // let cert = rcgen::Certificate::from_keypair(keypair);
-
-        todo!();
+        let server =
+            quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
+        Ok(Transport {
+            endpoint: Endpoint::server(server, self.addr)?,
+        })
     }
 }

@@ -8,7 +8,6 @@ anyhow.workspace = true
 base32.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
 crypto.workspace = true
-litep2p = { workspace = true, features = ["quic"] }
 metrics.workspace = true
 once_cell.workspace = true
 quinn.workspace = true

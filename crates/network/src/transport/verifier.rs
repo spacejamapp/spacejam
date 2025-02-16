@@ -27,22 +27,21 @@ impl ClientCertVerifier for Verifier {
     ) -> Result<ClientCertVerified, rustls::Error> {
         let cert = EndEntityCert::try_from(end_entity).map_err(pki_error)?;
 
-        // parse the public key
-        let mut bytes = [0; 32];
-        bytes.copy_from_slice(&cert.subject_public_key_info());
-        let encoded = base32::encode(base32::Alphabet::Rfc4648Lower { padding: false }, &bytes);
-
         // parse the DNS name
         let Some(alt) = cert.valid_dns_names().next() else {
             return Err(rustls::Error::InvalidCertificate(
-                rustls::CertificateError::ApplicationVerificationFailure,
+                rustls::CertificateError::NotValidForName,
             ));
         };
 
         // check the DNS name
+        let mut bytes = [0; 32];
+        bytes.copy_from_slice(&cert.subject_public_key_info());
+
+        let encoded = base32::encode(base32::Alphabet::Rfc4648Lower { padding: false }, &bytes);
         if alt.len() != 53 || !alt.starts_with("e") || alt[1..] != encoded {
             return Err(rustls::Error::InvalidCertificate(
-                rustls::CertificateError::ApplicationVerificationFailure,
+                rustls::CertificateError::NotValidForName,
             ));
         }
 

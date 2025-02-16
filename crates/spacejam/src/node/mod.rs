@@ -1,6 +1,6 @@
 //! Node for SpaceJam
 
-use network::{Event, Network};
+use network::Network;
 use score::runtime::{Storage, Validator};
 use std::net::SocketAddr;
 pub use {builder::Builder, context::Context, genesis::Genesis};
@@ -29,7 +29,7 @@ impl<S: Storage, V: Validator> Spacejam<S, V> {
     /// Start the node
     ///
     /// TODO: make metrics service out of this function?
-    pub async fn start(mut self, metrics: SocketAddr) -> anyhow::Result<()> {
+    pub async fn start(self, metrics: SocketAddr) -> anyhow::Result<()> {
         tokio::select! {
             _ = metrics::serve(metrics, self.context.metrics.clone()) => {}
             _ = author::run(&self.context) => {}

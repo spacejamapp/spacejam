@@ -1,6 +1,6 @@
 //! Authoring service
 
-use crate::node::{Context, Event};
+use crate::node::Context;
 use score::runtime::{Storage, Validator};
 use std::time::Duration;
 
@@ -23,10 +23,10 @@ async fn inner<S: Storage, V: Validator>(context: &Context<S, V>) -> anyhow::Res
             hex::encode(block.hash()?)
         );
 
-        context
-            .tx
-            .send(Event::SubscribeBlock(codec::encode(&block)?))
-            .await?;
+        // context
+        //     .tx
+        //     .send(Event::SubscribeBlock(codec::encode(&block)?))
+        //     .await?;
     }
 
     if let Some(ticket) = ticket {
@@ -36,10 +36,10 @@ async fn inner<S: Storage, V: Validator>(context: &Context<S, V>) -> anyhow::Res
             hex::encode(ticket.signature)
         );
 
-        context
-            .tx
-            .send(Event::SubscribeTicket(codec::encode(&ticket)?))
-            .await?;
+        // context
+        //     .tx
+        //     .send(Event::SubscribeTicket(codec::encode(&ticket)?))
+        //     .await?;
     }
 
     Ok(())

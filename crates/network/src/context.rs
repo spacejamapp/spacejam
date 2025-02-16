@@ -1,7 +1,7 @@
 //! Context for the network.
 
 use anyhow::Result;
-use litep2p::crypto::ed25519;
+use crypto::ed25519;
 use metrics::Metrics;
 
 /// Context for the network.
@@ -10,7 +10,7 @@ pub trait Context {
     fn metrics(&self) -> &Metrics;
 
     /// Get the keypair of the p2p network.
-    fn keypair(&self) -> Option<ed25519::Keypair> {
+    fn keypair(&self) -> Option<ed25519::KeyPair> {
         None
     }
 
