@@ -110,11 +110,9 @@ fn pki_error(error: webpki::Error) -> rustls::Error {
         UnknownRevocationStatus => CertificateError::UnknownRevocationStatus.into(),
         CrlExpired => CertificateError::ExpiredRevocationList.into(),
         IssuerNotCrlSigner => CertRevocationListError::IssuerInvalidForCrl.into(),
-
         InvalidSignatureForPublicKey
         | UnsupportedSignatureAlgorithm
         | UnsupportedSignatureAlgorithmForPublicKey => CertificateError::BadSignature.into(),
-
         InvalidCrlSignatureForPublicKey
         | UnsupportedCrlSignatureAlgorithm
         | UnsupportedCrlSignatureAlgorithmForPublicKey => {

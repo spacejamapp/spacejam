@@ -15,6 +15,9 @@ mod context;
 mod event;
 mod transport;
 
+/// The network protocol name of Spacejam.
+pub const PROTOCOL: &str = "jamnp-s";
+
 /// Network implementation of Spacejam.
 pub struct Network {
     transport: Transport,
@@ -27,9 +30,10 @@ impl Network {
         _rx: mpsc::Receiver<Event>,
         keypair: Option<ed25519::KeyPair>,
     ) -> anyhow::Result<Self> {
-        let transport = Transport::builder(keypair.expect("keypair is required"))
-            .build()
-            .unwrap();
+        let transport =
+            Transport::builder(keypair.ok_or_else(|| anyhow::anyhow!("keypair is required"))?)
+                .build()?;
+
         Ok(Self { transport })
     }
 

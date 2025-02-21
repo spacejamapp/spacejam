@@ -1,6 +1,6 @@
 //! network builder.
 
-use crate::transport::Verifier;
+use crate::transport::{Transport, Verifier};
 use crypto::ed25519;
 use quinn::{crypto::rustls::QuicServerConfig, Endpoint};
 use rcgen::CertificateParams;
@@ -9,8 +9,6 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-
-use super::Transport;
 
 /// Network builder.
 pub struct Builder {
@@ -76,8 +74,6 @@ impl Builder {
 
         let server =
             quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
-        Ok(Transport {
-            endpoint: Endpoint::server(server, self.addr)?,
-        })
+        Ok(Transport::new(Endpoint::server(server, self.addr)?))
     }
 }
