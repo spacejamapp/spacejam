@@ -59,11 +59,7 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(
-        self,
-        tx: mpsc::UnboundedSender<Event>,
-        rx: mpsc::UnboundedReceiver<Action>,
-    ) -> anyhow::Result<Transport> {
+    pub fn build(self, tx: mpsc::UnboundedSender<Event>) -> anyhow::Result<Transport> {
         let dns = format!(
             "e{}",
             base32::encode(
@@ -86,7 +82,6 @@ impl Builder {
         Ok(Transport {
             endpoint: Endpoint::server(server, self.address)?,
             tx,
-            rx,
         })
     }
 }

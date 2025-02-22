@@ -1,6 +1,8 @@
 //! Network implementation of Spacejam.
 #![allow(unused)]
 
+use std::sync::Arc;
+
 use crypto::ed25519;
 use tokio::sync::mpsc;
 pub use {
@@ -13,6 +15,7 @@ pub use {
 mod config;
 mod context;
 mod event;
+mod stream;
 mod transport;
 
 /// The network protocol name of Spacejam.
@@ -21,7 +24,12 @@ pub const PROTOCOL: &str = "jamnp-s";
 /// Network implementation of Spacejam.
 pub struct Network {
     transport: Transport,
-    rx: mpsc::UnboundedReceiver<Event>,
+
+    /// Event receiver
+    erx: mpsc::UnboundedReceiver<Event>,
+
+    /// Action receiver
+    arx: mpsc::UnboundedReceiver<Action>,
 }
 
 impl Network {
@@ -38,21 +46,36 @@ impl Network {
         let transport = Transport::builder(keypair.unwrap_or_default())
             .address(config.address)
             .genesis(config.genesis)
-            .build(etx, arx)?;
+            .build(etx)?;
 
-        Ok(Self { transport, rx: erx })
+        // Dial bootstrap peers.
+
+        Ok(Self {
+            transport,
+            erx,
+            arx,
+        })
     }
 
     /// Spawn the network
     pub async fn spawn(&mut self, context: &impl Context) -> anyhow::Result<()> {
         loop {
             match tokio::select! {
-                e = self.transport.accept() => e,
-                act = self.rx.recv() => act.ok_or_else(|| anyhow::anyhow!("Local channel closed")),
+                act = self.arx.recv() => act.map(Into::into).ok_or_else(|| anyhow::anyhow!("Local action channel closed")),
+                ev = self.erx.recv() => ev.ok_or_else(|| anyhow::anyhow!("Local event channel closed")),
             } {
                 Ok(e) => e.handle(context)?,
                 Err(e) => tracing::error!("{e:?}"),
             }
         }
     }
+}
+
+/// Pick a random port.
+pub fn pick() -> std::io::Result<u16> {
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("0.0.0.0")?;
+    let addr = listener.local_addr()?;
+    Ok(addr.port())
 }

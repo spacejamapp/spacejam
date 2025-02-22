@@ -1,6 +1,7 @@
 //! Events for peers.
 
 use crate::Context;
+use std::sync::Arc;
 
 /// Events for peers.
 pub enum Event {

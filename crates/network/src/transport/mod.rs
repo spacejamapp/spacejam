@@ -1,9 +1,13 @@
 //! Transport implementation for Spacejam.
 
-use crate::event::{peer, Action, Event};
+use crate::{
+    event::{peer, Action, Event},
+    Context,
+};
 use crypto::ed25519;
-use quinn::{crypto::rustls::HandshakeData, Endpoint};
+use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
 use rcgen::Certificate;
+use std::net::SocketAddr;
 use tokio::sync::mpsc;
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
@@ -18,9 +22,6 @@ pub struct Transport {
 
     /// Event sender.
     pub(crate) tx: mpsc::UnboundedSender<Event>,
-
-    /// Action receiver.
-    pub(crate) rx: mpsc::UnboundedReceiver<Action>,
 }
 
 impl Transport {
@@ -29,22 +30,69 @@ impl Transport {
         builder::Builder::new(keypair)
     }
 
+    /// Dial a new connection.
+    pub async fn dial(&self, addr: SocketAddr) -> anyhow::Result<Connection> {
+        self.endpoint
+            .connect(addr, "")?
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
+    }
+
     /// Accept a new connection.
     ///
     /// TODO: verify all of usages of downcasts in the process. this reuqires tests
-    pub async fn accept(&self) -> anyhow::Result<Event> {
-        let conn = self
-            .endpoint
+    async fn accept(&self) -> anyhow::Result<Connection> {
+        self.endpoint
             .accept()
             .await
             .ok_or_else(|| anyhow::anyhow!("endpoint is closed"))?
-            .await?;
-
-        self::alpn(&conn)?;
-
-        let peer = self::peer(&conn)?;
-        Ok(peer::Event::ConnectionEstablished { peer }.into())
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to accept: {e:?}"))
     }
+
+    /// Spawn a new connection.
+    pub async fn spawn(&self, ctx: &impl Context) -> anyhow::Result<()> {
+        loop {
+            match self.accept().await {
+                Ok(conn) => {
+                    tokio::spawn(async move {
+                        // self.handle(conn, ctx).await;
+                    });
+                }
+                Err(e) => tracing::warn!("failed to accept new connection: {e:?}"),
+            }
+        }
+    }
+
+    /// Handle a new connection.
+    ///
+    /// note that all communication happens over bidirectional QUIC streams.
+    pub async fn handle(&self, conn: quinn::Connection, ctx: &impl Context) -> anyhow::Result<()> {
+        self::alpn(&conn)?;
+        let peer = self::verify(&conn)?;
+        self.tx
+            .send(peer::Event::ConnectionEstablished { peer }.into());
+
+        while let Ok((send, mut recv)) = conn.accept_bi().await {
+            let stream_id = send.id();
+
+            // Read stream type byte.
+            //
+            // e.g. after opening a stream, the stream initiator must send a single
+            // byte identifying the stream kind.
+            let mut buf = [0u8; 1];
+            recv.read_exact(&mut buf).await?;
+            // let stream_type = StreamType::from(buf[0]);
+        }
+
+        Ok(())
+    }
+}
+
+/// Verify connection
+pub fn verify(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+    self::alpn(conn)?;
+    self::peer(conn)
 }
 
 /// Get the peer from the Connection
