@@ -2528,6 +2528,7 @@ dependencies = [
  "git2",
  "hex",
  "once_cell",
+ "rand",
  "rcgen",
  "ring 0.1.0",
  "tiny-keccak",

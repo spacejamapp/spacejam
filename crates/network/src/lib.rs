@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 pub use {
     config::Config,
     context::Context,
-    event::Event,
+    event::{Action, Event},
     transport::{Builder as TransportBuilder, Transport},
 };
 
@@ -21,24 +21,38 @@ pub const PROTOCOL: &str = "jamnp-s";
 /// Network implementation of Spacejam.
 pub struct Network {
     transport: Transport,
+    rx: mpsc::UnboundedReceiver<Event>,
 }
 
 impl Network {
     /// Create a new network.
+    ///
+    /// If the provided keypair is not provided, the node will not
+    /// be a validator.
     pub async fn new(
-        _config: Config,
-        _rx: mpsc::Receiver<Event>,
+        config: Config,
+        arx: mpsc::UnboundedReceiver<Action>,
         keypair: Option<ed25519::KeyPair>,
     ) -> anyhow::Result<Self> {
-        let transport =
-            Transport::builder(keypair.ok_or_else(|| anyhow::anyhow!("keypair is required"))?)
-                .build()?;
+        let (etx, erx) = mpsc::unbounded_channel();
+        let transport = Transport::builder(keypair.unwrap_or_default())
+            .address(config.address)
+            .genesis(config.genesis)
+            .build(etx, arx)?;
 
-        Ok(Self { transport })
+        Ok(Self { transport, rx: erx })
     }
 
     /// Spawn the network
-    pub async fn spawn(&self, context: &impl Context) -> anyhow::Result<()> {
-        Ok(())
+    pub async fn spawn(&mut self, context: &impl Context) -> anyhow::Result<()> {
+        loop {
+            match tokio::select! {
+                e = self.transport.accept() => e,
+                act = self.rx.recv() => act.ok_or_else(|| anyhow::anyhow!("Local channel closed")),
+            } {
+                Ok(e) => e.handle(context)?,
+                Err(e) => tracing::error!("{e:?}"),
+            }
+        }
     }
 }

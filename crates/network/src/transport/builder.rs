@@ -1,6 +1,9 @@
 //! network builder.
 
-use crate::transport::{Transport, Verifier};
+use crate::{
+    transport::{Transport, Verifier},
+    Action, Event,
+};
 use crypto::ed25519;
 use quinn::{crypto::rustls::QuicServerConfig, Endpoint};
 use rcgen::CertificateParams;
@@ -9,11 +12,12 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
+use tokio::sync::mpsc;
 
 /// Network builder.
 pub struct Builder {
     /// Socket address.
-    addr: SocketAddr,
+    address: SocketAddr,
 
     /// Ed25519 key pair.
     ed25519: ed25519::KeyPair,
@@ -30,15 +34,15 @@ impl Builder {
     pub fn new(ed25519: ed25519::KeyPair) -> Self {
         Self {
             ed25519,
-            addr: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
+            address: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
             genesis: [0; 32],
             version: "0".to_string(),
         }
     }
 
     /// Set the socket address.
-    pub fn addr(mut self, addr: SocketAddr) -> Self {
-        self.addr = addr;
+    pub fn address(mut self, address: SocketAddr) -> Self {
+        self.address = address;
         self
     }
 
@@ -55,7 +59,11 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(self) -> anyhow::Result<Transport> {
+    pub fn build(
+        self,
+        tx: mpsc::UnboundedSender<Event>,
+        rx: mpsc::UnboundedReceiver<Action>,
+    ) -> anyhow::Result<Transport> {
         let dns = format!(
             "e{}",
             base32::encode(
@@ -74,6 +82,11 @@ impl Builder {
 
         let server =
             quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
-        Ok(Transport::new(Endpoint::server(server, self.addr)?))
+
+        Ok(Transport {
+            endpoint: Endpoint::server(server, self.address)?,
+            tx,
+            rx,
+        })
     }
 }

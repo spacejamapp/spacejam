@@ -1,6 +1,6 @@
 //! Transport implementation for Spacejam.
 
-use crate::{event::peer, Event};
+use crate::event::{peer, Action, Event};
 use crypto::ed25519;
 use quinn::{crypto::rustls::HandshakeData, Endpoint};
 use rcgen::Certificate;
@@ -14,25 +14,19 @@ mod verifier;
 /// Transport implementation for Spacejam.
 pub struct Transport {
     /// QUIC endpoint.
-    endpoint: Endpoint,
+    pub(crate) endpoint: Endpoint,
 
     /// Event sender.
-    tx: mpsc::UnboundedSender<Event>,
+    pub(crate) tx: mpsc::UnboundedSender<Event>,
 
-    /// Event receiver.
-    rx: mpsc::UnboundedReceiver<Event>,
+    /// Action receiver.
+    pub(crate) rx: mpsc::UnboundedReceiver<Action>,
 }
 
 impl Transport {
     /// Create a new builder.
     pub fn builder(keypair: ed25519::KeyPair) -> builder::Builder {
         builder::Builder::new(keypair)
-    }
-
-    /// Create a new transport.
-    pub fn new(endpoint: Endpoint) -> Self {
-        let (tx, rx) = mpsc::unbounded_channel();
-        Self { endpoint, tx, rx }
     }
 
     /// Accept a new connection.

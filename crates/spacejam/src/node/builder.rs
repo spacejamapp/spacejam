@@ -48,7 +48,7 @@ impl Builder {
     >(
         self,
     ) -> anyhow::Result<Spacejam<S, V>> {
-        let (tx, rx) = mpsc::channel(100);
+        let (tx, rx) = mpsc::unbounded_channel();
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
         let context = Context::new(validator, S::try_from(self.db.clone())?, tx);

@@ -2,6 +2,7 @@
 
 use ed25519_dalek::Signer;
 pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
+use rand::Rng;
 use rcgen::RemoteKeyPair;
 
 /// Ed25519 key pair.
@@ -12,6 +13,13 @@ pub struct KeyPair {
 
     /// Verifying key.
     pub verifying: VerifyingKey,
+}
+
+impl Default for KeyPair {
+    fn default() -> Self {
+        let seed = rand::thread_rng().gen::<[u8; 32]>();
+        Self::from(seed)
+    }
 }
 
 impl From<[u8; 32]> for KeyPair {
