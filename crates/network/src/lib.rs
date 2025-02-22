@@ -58,13 +58,20 @@ impl Network {
     }
 
     /// Spawn the network
-    pub async fn spawn(&mut self, context: &impl Context) -> anyhow::Result<()> {
+    pub async fn spawn<C: Context + Send + Sync + 'static>(mut self, context: Arc<C>) {
+        self.transport.spawn(context.clone());
+
         loop {
+            let ctx = context.clone();
             match tokio::select! {
                 act = self.arx.recv() => act.map(Into::into).ok_or_else(|| anyhow::anyhow!("Local action channel closed")),
                 ev = self.erx.recv() => ev.ok_or_else(|| anyhow::anyhow!("Local event channel closed")),
             } {
-                Ok(e) => e.handle(context)?,
+                Ok(e) => {
+                    if let Err(e) = e.handle(ctx) {
+                        tracing::error!("{e:?}");
+                    }
+                }
                 Err(e) => tracing::error!("{e:?}"),
             }
         }

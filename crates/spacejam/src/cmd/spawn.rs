@@ -20,8 +20,8 @@ pub struct Spawn {
 impl Spawn {
     /// Run the command
     pub async fn run<
-        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
-        V: Validator + TryFrom<String> + 'static,
+        S: Storage + Send + Sync + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + Send + Sync + 'static + TryFrom<String> + 'static,
     >(
         &self,
     ) -> anyhow::Result<()> {

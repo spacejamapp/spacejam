@@ -7,7 +7,7 @@ use crate::{
 use crypto::ed25519;
 use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
 use rcgen::Certificate;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::mpsc;
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
@@ -16,6 +16,7 @@ mod builder;
 mod verifier;
 
 /// Transport implementation for Spacejam.
+#[derive(Clone)]
 pub struct Transport {
     /// QUIC endpoint.
     pub(crate) endpoint: Endpoint,
@@ -51,23 +52,34 @@ impl Transport {
     }
 
     /// Spawn a new connection.
-    pub async fn spawn(&self, ctx: &impl Context) -> anyhow::Result<()> {
-        loop {
-            match self.accept().await {
-                Ok(conn) => {
-                    tokio::spawn(async move {
-                        // self.handle(conn, ctx).await;
-                    });
+    pub fn spawn<C: Context + Send + Sync + 'static>(self, ctx: Arc<C>) {
+        let transport = self.clone();
+        let ctx = ctx.clone();
+
+        tokio::spawn(async move {
+            loop {
+                match transport.accept().await {
+                    Ok(conn) => {
+                        let transport = transport.clone();
+                        let ctx = ctx.clone();
+                        tokio::spawn(async move {
+                            transport.handle(conn, ctx).await;
+                        });
+                    }
+                    Err(e) => tracing::warn!("failed to accept new connection: {e:?}"),
                 }
-                Err(e) => tracing::warn!("failed to accept new connection: {e:?}"),
             }
-        }
+        });
     }
 
     /// Handle a new connection.
     ///
     /// note that all communication happens over bidirectional QUIC streams.
-    pub async fn handle(&self, conn: quinn::Connection, ctx: &impl Context) -> anyhow::Result<()> {
+    pub async fn handle<C: Context>(
+        self,
+        conn: quinn::Connection,
+        ctx: Arc<C>,
+    ) -> anyhow::Result<()> {
         self::alpn(&conn)?;
         let peer = self::verify(&conn)?;
         self.tx

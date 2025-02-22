@@ -26,7 +26,7 @@ impl From<Event> for crate::Event {
 
 impl Event {
     /// Handle the event.
-    pub fn handle(&self, context: &impl Context) -> anyhow::Result<()> {
+    pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
         match self {
             Self::ConnectionEstablished { peer } => {
                 // context.on_connection_established(peer);
