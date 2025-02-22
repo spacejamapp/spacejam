@@ -32,42 +32,35 @@ impl Transport {
     }
 
     /// Dial a new connection.
-    pub async fn dial(&self, addr: SocketAddr) -> anyhow::Result<Connection> {
+    pub async fn dial(&self, addr: SocketAddr, name: &str) -> anyhow::Result<Connection> {
         self.endpoint
-            .connect(addr, "")?
+            .connect(addr, name)?
             .await
             .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
     }
 
-    /// Accept a new connection.
-    ///
-    /// TODO: verify all of usages of downcasts in the process. this reuqires tests
-    async fn accept(&self) -> anyhow::Result<Connection> {
-        self.endpoint
-            .accept()
-            .await
-            .ok_or_else(|| anyhow::anyhow!("endpoint is closed"))?
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to accept: {e:?}"))
-    }
-
     /// Spawn a new connection.
     pub fn spawn<C: Context + Send + Sync + 'static>(self, ctx: Arc<C>) {
-        let transport = self.clone();
-        let ctx = ctx.clone();
-
         tokio::spawn(async move {
-            loop {
-                match transport.accept().await {
-                    Ok(conn) => {
-                        let transport = transport.clone();
-                        let ctx = ctx.clone();
-                        tokio::spawn(async move {
-                            transport.handle(conn, ctx).await;
-                        });
+            while let Some(conn) = self.accept().await {
+                tracing::trace!("accepted connection");
+                let Ok(peer) = self::alpn(&conn).map_err(|e| {
+                    tracing::warn!("failed to verify ALPN: {e:?}");
+                }) else {
+                    continue;
+                };
+
+                self.tx.send(peer::Event::Connected { peer }.into());
+
+                // handle connection
+                let this = self.clone();
+                let ctx = ctx.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = this.handle(conn, ctx.clone()).await {
+                        tracing::warn!("failed to handle connection: {e:?}");
+                        this.tx.send(peer::Event::Closed { peer }.into());
                     }
-                    Err(e) => tracing::warn!("failed to accept new connection: {e:?}"),
-                }
+                });
             }
         });
     }
@@ -75,16 +68,7 @@ impl Transport {
     /// Handle a new connection.
     ///
     /// note that all communication happens over bidirectional QUIC streams.
-    pub async fn handle<C: Context>(
-        self,
-        conn: quinn::Connection,
-        ctx: Arc<C>,
-    ) -> anyhow::Result<()> {
-        self::alpn(&conn)?;
-        let peer = self::verify(&conn)?;
-        self.tx
-            .send(peer::Event::ConnectionEstablished { peer }.into());
-
+    async fn handle<C: Context>(&self, conn: quinn::Connection, ctx: Arc<C>) -> anyhow::Result<()> {
         while let Ok((send, mut recv)) = conn.accept_bi().await {
             let stream_id = send.id();
 
@@ -99,40 +83,23 @@ impl Transport {
 
         Ok(())
     }
-}
 
-/// Verify connection
-pub fn verify(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
-    self::alpn(conn)?;
-    self::peer(conn)
-}
-
-/// Get the peer from the Connection
-///
-/// Note that the DNS name should be verified by the Verifier.
-pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
-    let Some(identity) = conn.peer_identity() else {
-        anyhow::bail!("no peer identity");
-    };
-
-    let certs: Box<Vec<CertificateDer<'_>>> = identity
-        .downcast()
-        .map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
-
-    let cert = certs
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("no certs found from identity"))?;
-
-    let cert =
-        EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
-
-    let mut bytes = [0; 32];
-    bytes.copy_from_slice(&cert.subject_public_key_info());
-    Ok(bytes)
+    /// Accept a new connection.
+    ///
+    /// TODO: handle retrying from incoming.
+    async fn accept(&self) -> Option<Connection> {
+        match self.endpoint.accept().await?.await {
+            Ok(conn) => Some(conn),
+            Err(e) => {
+                tracing::warn!("failed to accept connection: {e:?}");
+                None
+            }
+        }
+    }
 }
 
 /// Verify ALPN after accepting a connection.
-pub fn alpn(conn: &quinn::Connection) -> anyhow::Result<()> {
+fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     let data: Box<HandshakeData> = conn
         .handshake_data()
         .ok_or_else(|| rustls::Error::HandshakeNotComplete)?
@@ -167,5 +134,29 @@ pub fn alpn(conn: &quinn::Connection) -> anyhow::Result<()> {
         anyhow::bail!("invalid builder pattern");
     }
 
-    Ok(())
+    self::peer(conn)
+}
+
+/// Get the peer from the Connection
+///
+/// Note that the DNS name should be verified by the Verifier.
+fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+    let Some(identity) = conn.peer_identity() else {
+        anyhow::bail!("no peer identity");
+    };
+
+    let certs: Box<Vec<CertificateDer<'_>>> = identity
+        .downcast()
+        .map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
+
+    let cert = certs
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("no certs found from identity"))?;
+
+    let cert =
+        EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
+
+    let mut bytes = [0; 32];
+    bytes.copy_from_slice(&cert.subject_public_key_info());
+    Ok(bytes)
 }

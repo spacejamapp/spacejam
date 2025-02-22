@@ -6,13 +6,13 @@ use std::sync::Arc;
 /// Events for peers.
 pub enum Event {
     /// A new peer has connected.
-    ConnectionEstablished {
+    Connected {
         /// The peer's public key.
         peer: [u8; 32],
     },
 
     /// A peer has disconnected.
-    ConnectionClosed {
+    Closed {
         /// The peer's public key.
         peer: [u8; 32],
     },
@@ -28,10 +28,10 @@ impl Event {
     /// Handle the event.
     pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
         match self {
-            Self::ConnectionEstablished { peer } => {
+            Self::Connected { peer } => {
                 // context.on_connection_established(peer);
             }
-            Self::ConnectionClosed { peer } => {
+            Self::Closed { peer } => {
                 // context.on_connection_closed(peer);
             }
         }

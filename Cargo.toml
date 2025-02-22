@@ -32,7 +32,7 @@ ark-std = "0.5.0"
 base32 = "0.5.1"
 blake2 = "0.10.6"
 clap = "4.5.23"
-ed25519-dalek = "2.1.1"
+ed25519-dalek = { version = "2.1.1", features = ["pkcs8"] }
 git2 = "0.19.0"
 heck = "0.5.0"
 hex = "0.4.3"

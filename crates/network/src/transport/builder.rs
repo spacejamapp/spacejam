@@ -5,14 +5,21 @@ use crate::{
     Action, Event,
 };
 use crypto::ed25519;
-use quinn::{crypto::rustls::QuicServerConfig, Endpoint};
+use quinn::{
+    crypto::rustls::{QuicClientConfig, QuicServerConfig},
+    Endpoint,
+};
 use rcgen::CertificateParams;
-use rustls::pki_types::PrivatePkcs8KeyDer;
+use rustls::{
+    pki_types::PrivatePkcs8KeyDer,
+    sign::{CertifiedKey, SingleCertAndKey},
+};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
 use tokio::sync::mpsc;
+use webpki::types::pem::PemObject;
 
 /// Network builder.
 pub struct Builder {
@@ -68,20 +75,48 @@ impl Builder {
             )
         );
 
+        // setup provider
+        let provider = rustls::crypto::ring::default_provider();
+        let provider = match provider.clone().install_default() {
+            Ok(_) => Arc::new(provider),
+            Err(e) => e,
+        };
+
+        // setup cert
+        let key = PrivatePkcs8KeyDer::from(self.ed25519.private_pkcs8_der()?);
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519))?;
         let cert = CertificateParams::new(vec![dns])?.self_signed(&keypair)?;
-        let key = PrivatePkcs8KeyDer::from(keypair.serialize_der());
-        let crypto =
-            rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-                .with_client_cert_verifier(Arc::new(Verifier))
-                .with_single_cert(vec![cert.into()], key.into())?;
+        let cert_der = cert.der().clone();
 
-        let server =
-            quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
+        // server config setup
+        let server = {
+            let crypto =
+                rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+                    .with_client_cert_verifier(Arc::new(Verifier))
+                    .with_single_cert(vec![cert.into()], key.clone_key().into())?;
 
-        Ok(Transport {
-            endpoint: Endpoint::server(server, self.address)?,
-            tx,
-        })
+            quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?))
+        };
+
+        // client config setup
+        let client = {
+            let single = SingleCertAndKey::from(CertifiedKey::from_der(
+                vec![cert_der],
+                key.into(),
+                &provider,
+            )?);
+
+            let crypto =
+                rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+                    .with_root_certificates(rustls::RootCertStore::empty())
+                    .with_client_cert_resolver(Arc::new(single));
+
+            quinn::ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto)?))
+        };
+
+        // setup endpoint
+        let mut endpoint = Endpoint::server(server, self.address)?;
+        endpoint.set_default_client_config(client);
+        Ok(Transport { endpoint, tx })
     }
 }

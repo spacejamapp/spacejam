@@ -1,9 +1,8 @@
 //! Network implementation of Spacejam.
 #![allow(unused)]
 
-use std::sync::Arc;
-
 use crypto::ed25519;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 pub use {
     config::Config,
@@ -49,6 +48,13 @@ impl Network {
             .build(etx)?;
 
         // Dial bootstrap peers.
+        //
+        // TODO: dial bootstrap peers with names, the bootstrap peers should be
+        // able found from the genesis config.
+        for peer in config.bootstrap {
+            tracing::trace!("dialing bootstrap peer: {peer}");
+            transport.dial(peer, "spacejam").await?;
+        }
 
         Ok(Self {
             transport,
@@ -67,11 +73,7 @@ impl Network {
                 act = self.arx.recv() => act.map(Into::into).ok_or_else(|| anyhow::anyhow!("Local action channel closed")),
                 ev = self.erx.recv() => ev.ok_or_else(|| anyhow::anyhow!("Local event channel closed")),
             } {
-                Ok(e) => {
-                    if let Err(e) = e.handle(ctx) {
-                        tracing::error!("{e:?}");
-                    }
-                }
+                Ok(e) => e.handle_unchecked(ctx),
                 Err(e) => tracing::error!("{e:?}"),
             }
         }
@@ -80,9 +82,9 @@ impl Network {
 
 /// Pick a random port.
 pub fn pick() -> std::io::Result<u16> {
-    use std::net::TcpListener;
+    use std::net::UdpSocket;
 
-    let listener = TcpListener::bind("0.0.0.0")?;
-    let addr = listener.local_addr()?;
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    let addr = socket.local_addr()?;
     Ok(addr.port())
 }
