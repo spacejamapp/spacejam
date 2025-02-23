@@ -28,7 +28,7 @@ impl AvailAssurance {
     pub fn bitsmap(&self) -> [u8; CORES_COUNT] {
         let mut bitsmap = [0u8; CORES_COUNT];
         for (core_idx, bit) in bitsmap.iter_mut().enumerate() {
-            *bit = self.bitfield[core_idx / 8] >> (core_idx % 8) & 1;
+            *bit = (self.bitfield[core_idx / 8] >> (core_idx % 8)) & 1;
         }
         bitsmap
     }
