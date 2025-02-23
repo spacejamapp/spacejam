@@ -2,10 +2,7 @@
 
 use crate::peer::Address;
 use serde::{Deserialize, Serialize};
-use std::{
-    net::{Ipv4Addr, SocketAddr},
-    time::Duration,
-};
+use std::net::{Ipv4Addr, SocketAddr};
 
 /// Configuration for the network.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,15 +1,12 @@
 //! Transport implementation for Spacejam.
 
 use crate::{
-    event::{peer, Action, Event},
+    event::{peer, Event},
     peer::Address,
     stream::Stream,
-    Context,
 };
 use crypto::ed25519;
 use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
-use rcgen::Certificate;
-use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
@@ -34,11 +31,10 @@ impl Transport {
     }
 
     /// Dial a new connection.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(peer = addr.peer_id.to_string()))]
     pub async fn dial(&self, addr: Address) -> anyhow::Result<Connection> {
-        tracing::debug!("dialing {addr}");
         let connecting = self.endpoint.connect(addr.addr, addr.peer_id.as_ref())?;
-        tracing::debug!(
+        tracing::trace!(
             "initiated connection to {}, waiting for completion",
             addr.addr
         );
@@ -51,7 +47,10 @@ impl Transport {
     pub async fn spawn(self) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
         tokio::spawn(async move {
-            tx.send(());
+            if let Err(e) = tx.send(()) {
+                tracing::warn!("failed to send spawn signal: {e:?}");
+            }
+
             while let Some(conn) = self.accept().await {
                 tracing::debug!("accepted connection from {:?}", conn.remote_address());
                 let Ok(peer) = self::alpn(&conn).map_err(|e| {
@@ -60,14 +59,18 @@ impl Transport {
                     continue;
                 };
 
-                self.tx.send(peer::Event::Connected { peer }.into());
+                if let Err(e) = self.tx.send(peer::Event::Connected { peer }.into()) {
+                    tracing::warn!("failed to send connected event: {e:?}");
+                }
 
                 // handle connection
                 let this = self.clone();
                 tokio::spawn(async move {
                     if let Err(e) = this.handle(conn).await {
                         tracing::warn!("failed to handle connection: {e:?}");
-                        this.tx.send(peer::Event::Closed { peer }.into());
+                        if let Err(e) = this.tx.send(peer::Event::Closed { peer }.into()) {
+                            tracing::warn!("failed to send closed event: {e:?}");
+                        }
                     }
                 });
             }
@@ -104,11 +107,12 @@ impl Transport {
     /// Accept a new connection.
     ///
     /// TODO: handle retrying from incoming.
+    #[tracing::instrument(skip_all)]
     async fn accept(&self) -> Option<Connection> {
-        tracing::debug!("waiting for incoming connection");
+        tracing::trace!("waiting for incoming connection");
         let incoming = match self.endpoint.accept().await {
             Some(conn) => {
-                tracing::debug!("received incoming connection request");
+                tracing::trace!("received incoming connection request");
                 conn
             }
             None => {
@@ -117,15 +121,9 @@ impl Transport {
             }
         };
 
-        tracing::debug!("waiting for connection completion");
+        tracing::trace!("waiting for connection completion");
         match incoming.await {
-            Ok(conn) => {
-                tracing::debug!(
-                    "connection accepted successfully from {:?}",
-                    conn.remote_address()
-                );
-                Some(conn)
-            }
+            Ok(conn) => Some(conn),
             Err(e) => {
                 tracing::warn!("failed to accept connection: {e:?}");
                 None
@@ -153,28 +151,23 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     )
     .map_err(|_| anyhow::anyhow!("could not parse protocol"))?;
 
-    tracing::debug!("verifying ALPN protocol: {}", protocol);
     let patts = protocol.split('/').collect::<Vec<&str>>();
     let patts_len = patts.len();
 
     // jamnp-s/V/H
     // jamnp-s/V/H/builder
     if !(2..=4).contains(&patts_len) {
-        tracing::warn!("invalid protocol pattern length: {}", patts_len);
-        anyhow::bail!("invalid protocol patterns")
+        anyhow::bail!("invalid protocol pattern length: {patts_len}")
     }
 
     if patts[0] != crate::PROTOCOL {
-        tracing::warn!("invalid protocol name: {}", patts[0]);
-        anyhow::bail!("invalid protocol name");
+        anyhow::bail!("invalid protocol name: {}", patts[0]);
     }
 
     if patts_len != 3 && patts[patts_len.saturating_sub(1)] != "builder" {
-        tracing::warn!("invalid builder pattern");
         anyhow::bail!("invalid builder pattern");
     }
 
-    tracing::debug!("ALPN protocol verified successfully");
     self::peer(conn)
 }
 

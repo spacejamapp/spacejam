@@ -49,13 +49,10 @@ async fn connections() -> anyhow::Result<()> {
 
     let apeer = PeerId::from(akey.verifying.as_bytes());
     let bpeer = PeerId::from(bkey.verifying.as_bytes());
-
     tokio::select! {
-        _ = alice.spawn(Arc::new(Metrics::new(&apeer.to_string()))) => {}
-        _ = bob.spawn(Arc::new(Metrics::new(&bpeer.to_string()))) => {}
-    }
+        r = alice.spawn(Arc::new(Metrics::new(&apeer.to_string()))) => r,
+        r = bob.spawn(Arc::new(Metrics::new(&bpeer.to_string()))) => r,
+    };
 
-    // TODO: test connections with metrics
-    // loop {}
     Ok(())
 }

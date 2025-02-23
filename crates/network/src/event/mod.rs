@@ -21,7 +21,7 @@ impl Event {
     pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
         match self {
             Self::Peer(e) => e.handle(context),
-            Self::Action(a) => Ok(()),
+            Self::Action(_a) => Ok(()),
         }
     }
 

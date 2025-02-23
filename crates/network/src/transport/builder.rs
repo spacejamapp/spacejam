@@ -3,7 +3,7 @@
 use crate::{
     peer::PeerId,
     transport::{Transport, Verifier},
-    Action, Event,
+    Event,
 };
 use crypto::ed25519;
 use quinn::{
@@ -22,7 +22,7 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::mpsc;
-use webpki::types::{pem::PemObject, CertificateDer};
+use webpki::types::CertificateDer;
 
 static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
     all: &[webpki::ring::ED25519],
@@ -76,15 +76,23 @@ impl Builder {
     /// Build the QUIC server.
     pub fn build(self, tx: mpsc::UnboundedSender<Event>) -> anyhow::Result<Transport> {
         let dns = PeerId::from(self.ed25519.verifying.as_bytes()).to_string();
-        tracing::info!("dns_name: {dns}");
-
-        // setup provider
         let provider = Self::provider();
 
         // setup cert
         let key = PrivatePkcs8KeyDer::from(self.ed25519.private_pkcs8_der()?);
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519.clone()))?;
-        let params = CertificateParams::new(vec![dns])?;
+        let mut params = CertificateParams::new(vec![dns])?;
+
+        // Set key usages for client and server auth
+        params.key_usages = vec![
+            rcgen::KeyUsagePurpose::KeyCertSign,
+            rcgen::KeyUsagePurpose::DigitalSignature,
+        ];
+        params.extended_key_usages = vec![
+            rcgen::ExtendedKeyUsagePurpose::ClientAuth,
+            rcgen::ExtendedKeyUsagePurpose::ServerAuth,
+        ];
+
         let cert = params.self_signed(&keypair)?;
         let cert_der = cert.der().clone();
 
@@ -121,24 +129,29 @@ impl Builder {
         provider: Arc<CryptoProvider>,
         transport_config: Arc<quinn::TransportConfig>,
     ) -> anyhow::Result<quinn::ClientConfig> {
+        // Create our client certificate
         let single = SingleCertAndKey::from(CertifiedKey::from_der(
             vec![cert_der.clone()],
             key.clone_key().into(),
             &provider,
         )?);
 
-        // Set up root certificate store with our certificate
+        // Set up root certificate store - we trust all peer certificates
         let mut root_store = rustls::RootCertStore::empty();
         root_store.add(cert_der.clone())?;
 
+        // Create client config with our root store and client cert
         let mut crypto =
             rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_root_certificates(root_store)
                 .with_client_cert_resolver(Arc::new(single));
 
-        // Configure client to use ED25519
+        // Configure client to use ED25519 and our custom verifier
         crypto.alpn_protocols = vec![b"spacejam".to_vec()];
         crypto.enable_early_data = true;
+        crypto
+            .dangerous()
+            .set_certificate_verifier(Arc::new(Verifier));
 
         // Configure QUIC transport parameters for client
         let mut config = quinn::ClientConfig::new(Arc::new(QuicClientConfig::try_from(crypto)?));
@@ -151,6 +164,7 @@ impl Builder {
         key: PrivatePkcs8KeyDer,
         transport_config: Arc<quinn::TransportConfig>,
     ) -> anyhow::Result<quinn::ServerConfig> {
+        // Create server config with our certificate and verifier
         let mut crypto =
             rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_client_cert_verifier(Arc::new(Verifier))
@@ -159,20 +173,11 @@ impl Builder {
         // Configure server to use ED25519
         crypto.alpn_protocols = vec![b"spacejam".to_vec()];
         crypto.ignore_client_order = true;
-
-        let mut config =
-            quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
+        crypto.key_log = Arc::new(rustls::KeyLogFile::new());
 
         // Configure QUIC transport parameters for server
-        let transport_config = Arc::new({
-            let mut transport = quinn::TransportConfig::default();
-            transport.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
-            transport.max_idle_timeout(Some(quinn::IdleTimeout::from(quinn::VarInt::from_u32(
-                10_000,
-            ))));
-            transport
-        });
-
+        let mut config =
+            quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(crypto)?));
         config.transport_config(transport_config.clone());
         Ok(config)
     }

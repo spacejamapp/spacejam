@@ -1,8 +1,6 @@
 //! Network implementation of Spacejam.
-#![allow(unused)]
 
 use crypto::ed25519;
-use rustls::crypto::hpke::EncapsulatedSecret;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 pub use {
@@ -26,7 +24,7 @@ pub const PROTOCOL: &str = "jamnp-s";
 /// Network implementation of Spacejam.
 pub struct Network {
     /// QUIC transport.
-    transport: Transport,
+    _transport: Transport,
 
     /// Event receiver
     erx: mpsc::UnboundedReceiver<Event>,
@@ -67,14 +65,14 @@ impl Network {
 
         transport.clone().spawn().await?;
         Ok(Self {
-            transport,
+            _transport: transport,
             erx,
             arx,
         })
     }
 
     /// Spawn the network
-    pub async fn spawn<C: Context + Send + Sync + 'static>(mut self, context: Arc<C>) {
+    pub async fn spawn<C: Context + Send + Sync + 'static>(self, context: Arc<C>) {
         // Spawn the event handling loop
         let mut arx = self.arx;
         let mut erx = self.erx;

@@ -26,12 +26,12 @@ impl From<Event> for crate::Event {
 
 impl Event {
     /// Handle the event.
-    pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
+    pub fn handle<C: Context>(&self, _context: Arc<C>) -> anyhow::Result<()> {
         match self {
-            Self::Connected { peer } => {
+            Self::Connected { peer: _ } => {
                 // context.on_connection_established(peer);
             }
-            Self::Closed { peer } => {
+            Self::Closed { peer: _ } => {
                 // context.on_connection_closed(peer);
             }
         }
