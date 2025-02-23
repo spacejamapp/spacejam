@@ -25,6 +25,7 @@ pub const PROTOCOL: &str = "jamnp-s";
 
 /// Network implementation of Spacejam.
 pub struct Network {
+    /// QUIC transport.
     transport: Transport,
 
     /// Event receiver
@@ -32,9 +33,6 @@ pub struct Network {
 
     /// Action receiver
     arx: mpsc::UnboundedReceiver<Action>,
-
-    /// Bootstrap peers
-    bootstrap: Vec<Address>,
 }
 
 impl Network {
@@ -53,59 +51,51 @@ impl Network {
             .genesis(config.genesis)
             .build(etx)?;
 
+        // Spawn a task to handle bootstrap dialing
+        let bootstrap = config.bootstrap;
+        if !bootstrap.is_empty() {
+            tracing::debug!("dialing bootstrap peers: {:?}", bootstrap);
+            for peer in bootstrap {
+                tracing::debug!("dialing bootstrap peer: {peer}");
+                if let Err(e) = transport.dial(peer).await {
+                    tracing::warn!("failed to dial bootstrap peer: {e}");
+                }
+            }
+        } else {
+            tracing::debug!("no bootstrap peers, skipping");
+        }
+
+        transport.clone().spawn().await?;
         Ok(Self {
             transport,
             erx,
             arx,
-            bootstrap: config.bootstrap,
         })
     }
 
     /// Spawn the network
     pub async fn spawn<C: Context + Send + Sync + 'static>(mut self, context: Arc<C>) {
-        let transport_spawn = self.transport.clone();
-        let transport_bootstrap = self.transport.clone();
-        let bootstrap = self.bootstrap.clone();
-        transport_spawn.spawn(context.clone());
-
         // Spawn the event handling loop
-        tokio::spawn(async move {
-            let mut arx = self.arx;
-            let mut erx = self.erx;
+        let mut arx = self.arx;
+        let mut erx = self.erx;
 
-            loop {
-                let ctx = context.clone();
-                match tokio::select! {
-                    Some(act) = arx.recv() => {
-                        Ok::<Event, anyhow::Error>(Event::Action(act))
-                    }
-                    Some(ev) = erx.recv() => {
-                        Ok::<Event, anyhow::Error>(ev)
-                    }
-                    else => {
-                        tracing::debug!("all channels closed, terminating event loop");
-                        break;
-                    }
-                } {
-                    Ok(e) => e.handle_unchecked(ctx),
-                    Err(e) => tracing::error!("event handling error: {e:?}"),
+        loop {
+            let ctx = context.clone();
+            match tokio::select! {
+                Some(act) = arx.recv() => {
+                    Ok::<Event, anyhow::Error>(Event::Action(act))
                 }
+                Some(ev) = erx.recv() => {
+                    Ok::<Event, anyhow::Error>(ev)
+                }
+                else => {
+                    tracing::debug!("all channels closed, terminating event loop");
+                    break;
+                }
+            } {
+                Ok(e) => e.handle_unchecked(ctx),
+                Err(e) => tracing::error!("event handling error: {e:?}"),
             }
-        });
-
-        // Spawn a task to handle bootstrap dialing
-        if !bootstrap.is_empty() {
-            tokio::spawn(async move {
-                tracing::debug!("dialing bootstrap peers: {:?}", bootstrap);
-                for peer in bootstrap {
-                    tracing::debug!("dialing bootstrap peer: {peer}");
-                    if let Err(e) = transport_bootstrap.dial(peer).await {
-                        tracing::warn!("failed to dial bootstrap peer: {e}");
-                    }
-                }
-            });
-        } else {
-            tracing::debug!("no bootstrap peers, skipping");
         }
     }
 }

@@ -10,7 +10,7 @@ use crypto::ed25519;
 use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
 use rcgen::Certificate;
 use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
 
@@ -48,8 +48,10 @@ impl Transport {
     }
 
     /// Spawn a new connection.
-    pub fn spawn<C: Context + Send + Sync + 'static>(self, ctx: Arc<C>) {
+    pub async fn spawn(self) -> anyhow::Result<()> {
+        let (tx, rx) = oneshot::channel();
         tokio::spawn(async move {
+            tx.send(());
             while let Some(conn) = self.accept().await {
                 tracing::debug!("accepted connection from {:?}", conn.remote_address());
                 let Ok(peer) = self::alpn(&conn).map_err(|e| {
@@ -62,9 +64,8 @@ impl Transport {
 
                 // handle connection
                 let this = self.clone();
-                let ctx = ctx.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = this.handle(conn, ctx.clone()).await {
+                    if let Err(e) = this.handle(conn).await {
                         tracing::warn!("failed to handle connection: {e:?}");
                         this.tx.send(peer::Event::Closed { peer }.into());
                     }
@@ -73,12 +74,15 @@ impl Transport {
 
             tracing::warn!("transport handler exited");
         });
+
+        rx.await
+            .map_err(|_| anyhow::anyhow!("failed to spawn transport handler"))
     }
 
     /// Handle a new connection.
     ///
     /// note that all communication happens over bidirectional QUIC streams.
-    async fn handle<C: Context>(&self, conn: quinn::Connection, ctx: Arc<C>) -> anyhow::Result<()> {
+    async fn handle(&self, conn: quinn::Connection) -> anyhow::Result<()> {
         tracing::debug!("handling connection from {:?}", conn.remote_address());
         while let Ok((send, mut recv)) = conn.accept_bi().await {
             let stream_id = send.id();
