@@ -5,6 +5,7 @@ use crate::{
     peer::{Address, PeerId},
     stream::Stream,
 };
+use anyhow::Context;
 use crypto::ed25519;
 use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
 use tokio::sync::{mpsc, oneshot};
@@ -32,14 +33,45 @@ impl Transport {
 
     /// Dial a new connection.
     #[tracing::instrument(skip_all, fields(peer = addr.peer_id.to_string()))]
-    pub async fn dial(&self, addr: Address) -> anyhow::Result<Connection> {
-        let connecting = self.endpoint.connect(addr.addr, addr.peer_id.as_ref())?;
-        connecting
+    pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
+        let conn = self
+            .endpoint
+            .connect(addr.addr, addr.peer_id.as_ref())?
             .await
-            .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
+            .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
+
+        self.establish(conn)
     }
 
-    /// Spawn a new connection.
+    /// Establish a new connection.
+    pub fn establish(&self, conn: quinn::Connection) -> anyhow::Result<()> {
+        let peer = self::alpn(&conn).context("failed to verify alpn")?;
+        let address = Address::new(conn.remote_address(), &peer);
+
+        self.tx
+            .send(
+                peer::Event::Connected {
+                    address: address.clone(),
+                }
+                .into(),
+            )
+            .context("failed to send connected event")?;
+
+        // handle connection
+        let this = self.clone();
+        tokio::spawn(async move {
+            if let Err(e) = this.handle(conn).await {
+                tracing::warn!("failed to handle connection: {e:?}");
+                if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
+                    tracing::warn!("failed to send closed event: {e:?}");
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Spawn new connections.
     pub async fn spawn(self) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
         tokio::spawn(async move {
@@ -48,32 +80,9 @@ impl Transport {
             }
 
             while let Some(conn) = self.accept().await {
-                let Ok(peer) = self::alpn(&conn).map_err(|e| {
-                    tracing::warn!("failed to verify ALPN: {e:?}");
-                }) else {
-                    continue;
-                };
-
-                let address = Address::new(conn.remote_address(), &peer);
-                if let Err(e) = self.tx.send(
-                    peer::Event::Connected {
-                        address: address.clone(),
-                    }
-                    .into(),
-                ) {
-                    tracing::warn!("failed to send connected event: {e:?}");
+                if let Err(e) = self.establish(conn) {
+                    tracing::warn!("failed to establish connection: {e:?}");
                 }
-
-                // handle connection
-                let this = self.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = this.handle(conn).await {
-                        tracing::warn!("failed to handle connection: {e:?}");
-                        if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
-                            tracing::warn!("failed to send closed event: {e:?}");
-                        }
-                    }
-                });
             }
 
             tracing::warn!("transport handler exited");
