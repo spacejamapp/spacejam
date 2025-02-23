@@ -1,6 +1,7 @@
 //! Streams for the network.
 
 /// The stream types in JAM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stream {
     /// The stream type for the block announcement.
     BlockAnnouncement,

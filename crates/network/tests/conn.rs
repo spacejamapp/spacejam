@@ -16,8 +16,9 @@ async fn connections() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let (_, arx) = mpsc::unbounded_channel();
-    let (_, brx) = mpsc::unbounded_channel();
+    // Create channels with proper senders to keep them alive
+    let (_atx, arx) = mpsc::unbounded_channel();
+    let (_btx, brx) = mpsc::unbounded_channel();
     let aport = network::pick()?;
     let localhost = Ipv4Addr::new(127, 0, 0, 1);
     let address = SocketAddr::new(localhost.into(), aport);
@@ -30,10 +31,11 @@ async fn connections() -> anyhow::Result<()> {
             ..Default::default()
         },
         arx,
-        Some(akey),
+        Some(akey.clone()),
     )
     .await?;
 
+    let bkey = ed25519::KeyPair::from([1; 32]);
     let bob = Network::new(
         Config {
             address: SocketAddr::new(localhost.into(), network::pick()?),
@@ -41,16 +43,19 @@ async fn connections() -> anyhow::Result<()> {
             genesis: [0; 32],
         },
         brx,
-        Some(ed25519::KeyPair::from([1; 32])),
+        Some(bkey.clone()),
     )
     .await?;
 
-    let apeer = base32::encode(base32::Alphabet::Rfc4648Lower { padding: false }, &[0; 32]);
-    let bpeer = base32::encode(base32::Alphabet::Rfc4648Lower { padding: false }, &[1; 32]);
+    let apeer = PeerId::from(akey.verifying.as_bytes());
+    let bpeer = PeerId::from(bkey.verifying.as_bytes());
 
     tokio::select! {
-        _ = alice.spawn(Arc::new(Metrics::new(apeer.as_str()))) => {}
-        _ = bob.spawn(Arc::new(Metrics::new(bpeer.as_str()))) => {}
+        _ = alice.spawn(Arc::new(Metrics::new(&apeer.to_string()))) => {}
+        _ = bob.spawn(Arc::new(Metrics::new(&bpeer.to_string()))) => {}
     }
+
+    // TODO: test connections with metrics
+    // loop {}
     Ok(())
 }

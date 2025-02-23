@@ -3,6 +3,7 @@
 use crate::{
     event::{peer, Action, Event},
     peer::Address,
+    stream::Stream,
     Context,
 };
 use crypto::ed25519;
@@ -33,10 +34,15 @@ impl Transport {
     }
 
     /// Dial a new connection.
+    #[tracing::instrument(skip(self))]
     pub async fn dial(&self, addr: Address) -> anyhow::Result<Connection> {
         tracing::debug!("dialing {addr}");
-        self.endpoint
-            .connect(addr.addr, addr.peer_id.as_ref())?
+        let connecting = self.endpoint.connect(addr.addr, addr.peer_id.as_ref())?;
+        tracing::debug!(
+            "initiated connection to {}, waiting for completion",
+            addr.addr
+        );
+        connecting
             .await
             .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
     }
@@ -45,7 +51,7 @@ impl Transport {
     pub fn spawn<C: Context + Send + Sync + 'static>(self, ctx: Arc<C>) {
         tokio::spawn(async move {
             while let Some(conn) = self.accept().await {
-                tracing::trace!("accepted connection");
+                tracing::debug!("accepted connection from {:?}", conn.remote_address());
                 let Ok(peer) = self::alpn(&conn).map_err(|e| {
                     tracing::warn!("failed to verify ALPN: {e:?}");
                 }) else {
@@ -64,6 +70,8 @@ impl Transport {
                     }
                 });
             }
+
+            tracing::warn!("transport handler exited");
         });
     }
 
@@ -71,8 +79,10 @@ impl Transport {
     ///
     /// note that all communication happens over bidirectional QUIC streams.
     async fn handle<C: Context>(&self, conn: quinn::Connection, ctx: Arc<C>) -> anyhow::Result<()> {
+        tracing::debug!("handling connection from {:?}", conn.remote_address());
         while let Ok((send, mut recv)) = conn.accept_bi().await {
             let stream_id = send.id();
+            tracing::debug!("accepted bi-directional stream {}", stream_id);
 
             // Read stream type byte.
             //
@@ -80,7 +90,8 @@ impl Transport {
             // byte identifying the stream kind.
             let mut buf = [0u8; 1];
             recv.read_exact(&mut buf).await?;
-            // let stream_type = StreamType::from(buf[0]);
+            let stream_type = Stream::from(buf[0]);
+            tracing::debug!("received stream type: {:?}", stream_type);
         }
 
         Ok(())
@@ -90,8 +101,27 @@ impl Transport {
     ///
     /// TODO: handle retrying from incoming.
     async fn accept(&self) -> Option<Connection> {
-        match self.endpoint.accept().await?.await {
-            Ok(conn) => Some(conn),
+        tracing::debug!("waiting for incoming connection");
+        let incoming = match self.endpoint.accept().await {
+            Some(conn) => {
+                tracing::debug!("received incoming connection request");
+                conn
+            }
+            None => {
+                tracing::warn!("endpoint.accept() returned None");
+                return None;
+            }
+        };
+
+        tracing::debug!("waiting for connection completion");
+        match incoming.await {
+            Ok(conn) => {
+                tracing::debug!(
+                    "connection accepted successfully from {:?}",
+                    conn.remote_address()
+                );
+                Some(conn)
+            }
             Err(e) => {
                 tracing::warn!("failed to accept connection: {e:?}");
                 None
@@ -110,7 +140,7 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
 
     // TODO: identify what exactly the server name is.
     if let Some(server_name) = data.server_name {
-        tracing::trace!("handshake from: {:?}", server_name);
+        tracing::debug!("handshake from server name: {:?}", server_name);
     }
 
     let protocol = String::from_utf8(
@@ -119,23 +149,28 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     )
     .map_err(|_| anyhow::anyhow!("could not parse protocol"))?;
 
+    tracing::debug!("verifying ALPN protocol: {}", protocol);
     let patts = protocol.split('/').collect::<Vec<&str>>();
     let patts_len = patts.len();
 
     // jamnp-s/V/H
     // jamnp-s/V/H/builder
     if !(2..=4).contains(&patts_len) {
+        tracing::warn!("invalid protocol pattern length: {}", patts_len);
         anyhow::bail!("invalid protocol patterns")
     }
 
     if patts[0] != crate::PROTOCOL {
+        tracing::warn!("invalid protocol name: {}", patts[0]);
         anyhow::bail!("invalid protocol name");
     }
 
     if patts_len != 3 && patts[patts_len.saturating_sub(1)] != "builder" {
+        tracing::warn!("invalid builder pattern");
         anyhow::bail!("invalid builder pattern");
     }
 
+    tracing::debug!("ALPN protocol verified successfully");
     self::peer(conn)
 }
 

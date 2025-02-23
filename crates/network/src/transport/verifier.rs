@@ -25,7 +25,6 @@ impl ClientCertVerifier for Verifier {
         intermediates: &[CertificateDer<'_>],
         now: UnixTime,
     ) -> Result<ClientCertVerified, rustls::Error> {
-        tracing::trace!("verifying client cert");
         let cert = EndEntityCert::try_from(end_entity).map_err(pki_error)?;
 
         // parse the DNS name
@@ -76,7 +75,6 @@ impl ClientCertVerifier for Verifier {
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        tracing::trace!("verifying TLS 1.3 signature");
         if dss.scheme != SignatureScheme::ED25519 {
             return Err(rustls::Error::PeerIncompatible(
                 rustls::PeerIncompatible::NoCertificateRequestSignatureSchemesInCommon,
@@ -84,6 +82,7 @@ impl ClientCertVerifier for Verifier {
         }
 
         let cert = EndEntityCert::try_from(cert).map_err(pki_error)?;
+        let pubkey = cert.subject_public_key_info();
         cert.verify_signature(ring::ED25519, message, dss.signature())
             .map_err(pki_error)
             .map(|_| HandshakeSignatureValid::assertion())
