@@ -22,8 +22,8 @@ pub enum Command {
 impl Command {
     /// Run the command
     pub async fn run<
-        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
-        V: Validator + From<[u8; 32]> + TryFrom<String> + 'static,
+        S: Storage + Send + Sync + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + Send + Sync + 'static + From<[u8; 32]> + TryFrom<String> + 'static,
     >(
         &self,
     ) -> anyhow::Result<()> {

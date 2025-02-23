@@ -1,132 +1,105 @@
 //! Network implementation of Spacejam.
-//!
-//! TODO: we actually can remove mDNS since the network will run globally and it could be useless.
 
-use litep2p::{
-    config::ConfigBuilder,
-    crypto::ed25519::Keypair,
-    protocol::{
-        libp2p::{
-            kademlia::{self, KademliaHandle},
-            ping::{self, PingEvent},
-        },
-        mdns::{self, MdnsEvent},
-        notification::NotificationHandle,
-        request_response::RequestResponseHandle,
-    },
-    Litep2p,
-};
-use peer::PeerManager;
-use std::{pin::Pin, time::Duration};
+use crypto::ed25519;
+use std::sync::Arc;
 use tokio::sync::mpsc;
-use tokio_stream::Stream;
 pub use {
     config::Config,
     context::Context,
-    event::Event,
-    litep2p::{crypto::ed25519, PeerId},
+    event::{Action, Event},
+    peer::Address,
+    transport::{Builder as TransportBuilder, Transport},
 };
 
-pub mod config;
+mod config;
 mod context;
 mod event;
-mod peer;
+pub mod peer;
+mod stream;
+mod transport;
 
-const BLOCK_NAME: &str = "/notif/block/1";
-const BLOCK_SYNC_NAME: &str = "/sync/block/1";
-const STATE_SYNC_NAME: &str = "/sync/state/1";
+/// The network protocol name of Spacejam.
+pub const PROTOCOL: &str = "jamnp-s";
 
 /// Network implementation of Spacejam.
 pub struct Network {
-    /// P2P instance.
-    pub p2p: Litep2p,
+    /// QUIC transport.
+    _transport: Transport,
 
-    /// Block handle.
-    block: NotificationHandle,
+    /// Event receiver
+    erx: mpsc::UnboundedReceiver<Event>,
 
-    /// Ping handle.
-    ping: Pin<Box<dyn Stream<Item = PingEvent>>>,
-
-    /// Kademlia handle.
-    kad: KademliaHandle,
-
-    /// mDNS handle.
-    mdns: Pin<Box<dyn Stream<Item = MdnsEvent>>>,
-
-    /// Sync handle.
-    sync: RequestResponseHandle,
-
-    /// State handle.
-    state: RequestResponseHandle,
-
-    /// Peer manager.
-    peer: PeerManager,
-
-    /// spacejam event receiver.
-    rx: mpsc::Receiver<Event>,
+    /// Action receiver
+    arx: mpsc::UnboundedReceiver<Action>,
 }
 
 impl Network {
-    /// Create a new network instance.
+    /// Create a new network.
+    ///
+    /// If the provided keypair is not provided, the node will not
+    /// be a validator.
     pub async fn new(
         config: Config,
-        rx: mpsc::Receiver<Event>,
-        keypair: Option<Keypair>,
+        arx: mpsc::UnboundedReceiver<Action>,
+        keypair: Option<ed25519::KeyPair>,
     ) -> anyhow::Result<Self> {
-        let (block, block_handle) = config.block(BLOCK_NAME, &[]);
-        let (block_sync, block_sync_handle) = config.block_sync(BLOCK_SYNC_NAME, &[]);
-        let (state_sync, state_sync_handle) = config.state_sync(STATE_SYNC_NAME, &[]);
-        let (ping, ping_handle) = ping::ConfigBuilder::new().with_max_failure(10).build();
-        let (kad, kad_handle) = kademlia::ConfigBuilder::new().build();
-        let (mdns, mdns_handle) = mdns::Config::new(Duration::from_secs(config.mdns));
+        let (etx, erx) = mpsc::unbounded_channel();
+        let transport = Transport::builder(keypair.unwrap_or_default())
+            .address(config.address)
+            .genesis(config.genesis)
+            .build(etx)?;
 
-        // Create the network instance
-        let mut p2p = {
-            let mut builder = ConfigBuilder::new();
-            if let Some(kp) = keypair {
-                builder = builder.with_keypair(kp);
-            }
-
-            Litep2p::new(
-                builder
-                    .with_libp2p_ping(ping)
-                    .with_libp2p_kademlia(kad)
-                    .with_mdns(mdns)
-                    .with_quic(config.quic())
-                    .with_notification_protocol(block)
-                    .with_request_response_protocol(block_sync)
-                    .with_request_response_protocol(state_sync)
-                    .build(),
-            )?
-        };
-
-        // Logging addresses
-        //
-        // TODO: quic port dispatch (default value && port occupied)
-        if config.quic.addresses.len() == 1 {
-            tracing::info!("listen on: {}", config.quic.addresses[0]);
-        } else if !config.quic.addresses.is_empty() {
-            tracing::info!("listen on: {:?}", config.quic.addresses);
-        }
-
-        // Dial the bootstrap addresses
-        for address in config.bootstrap.iter() {
-            tracing::event!(tracing::Level::INFO, "dialing {address:?}");
-            if let Err(e) = p2p.dial_address(address.clone()).await {
-                tracing::warn!("failed to dial {address:?}: {e:?}");
+        // Spawn a task to handle bootstrap dialing
+        let bootstrap = config.bootstrap;
+        if !bootstrap.is_empty() {
+            for peer in bootstrap {
+                tracing::debug!("dialing bootstrap peer: {peer}");
+                if let Err(e) = transport.dial(peer).await {
+                    tracing::warn!("failed to dial bootstrap peer: {e}");
+                }
             }
         }
 
+        transport.clone().spawn().await?;
         Ok(Self {
-            block: block_handle,
-            ping: Box::pin(ping_handle),
-            kad: kad_handle,
-            mdns: Box::pin(mdns_handle),
-            sync: block_sync_handle,
-            state: state_sync_handle,
-            peer: PeerManager::default(),
-            rx,
-            p2p,
+            _transport: transport,
+            erx,
+            arx,
         })
     }
+
+    /// Spawn the network
+    pub async fn spawn<C: Context + Send + Sync + 'static>(self, context: Arc<C>) {
+        // Spawn the event handling loop
+        let mut arx = self.arx;
+        let mut erx = self.erx;
+
+        loop {
+            let ctx = context.clone();
+            match tokio::select! {
+                Some(act) = arx.recv() => {
+                    Ok::<Event, anyhow::Error>(Event::Action(act))
+                }
+                Some(ev) = erx.recv() => {
+                    Ok::<Event, anyhow::Error>(ev)
+                }
+                else => {
+                    tracing::debug!("all channels closed, terminating event loop");
+                    break;
+                }
+            } {
+                Ok(e) => e.handle_unchecked(ctx),
+                Err(e) => tracing::error!("event handling error: {e:?}"),
+            }
+        }
+    }
+}
+
+/// Pick a random port.
+pub fn pick() -> std::io::Result<u16> {
+    use std::net::UdpSocket;
+
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    let addr = socket.local_addr()?;
+    Ok(addr.port())
 }

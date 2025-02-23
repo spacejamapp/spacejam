@@ -14,7 +14,7 @@ use score::{
     Block, EntropyBuffer,
 };
 use spacejson::Json;
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, sync::Arc};
 use tokio::sync::mpsc;
 
 /// Spacejam node builder
@@ -43,12 +43,12 @@ pub struct Builder {
 impl Builder {
     /// Build the node
     pub async fn build<
-        S: Storage + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
-        V: Validator + TryFrom<String> + 'static,
+        S: Storage + Send + Sync + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
+        V: Validator + Send + Sync + 'static + TryFrom<String> + 'static,
     >(
         self,
     ) -> anyhow::Result<Spacejam<S, V>> {
-        let (tx, rx) = mpsc::channel(100);
+        let (tx, rx) = mpsc::unbounded_channel();
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
         let context = Context::new(validator, S::try_from(self.db.clone())?, tx);
@@ -62,7 +62,10 @@ impl Builder {
         //
         // TODO: add config to the inner channel
         let network = Network::new(self.network, rx, context.keypair()).await?;
-        Ok(Spacejam { context, network })
+        Ok(Spacejam {
+            context: Arc::new(context),
+            network,
+        })
     }
 
     /// Initialize the storage with genesis data

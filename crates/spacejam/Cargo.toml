@@ -28,6 +28,7 @@ spacejson = { workspace = true, optional = true }
 toml = { workspace = true, optional = true }
 tokio = { workspace = true, features = [
     "rt",
+    "rt-multi-thread",
     "sync",
     "net",
     "macros",

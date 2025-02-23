@@ -1,6 +1,9 @@
 //! Ed25519 signatures.
 
+use ed25519_dalek::{pkcs8::EncodePrivateKey, Signer};
 pub use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
+use rand::Rng;
+use rcgen::RemoteKeyPair;
 
 /// Ed25519 key pair.
 #[derive(Clone)]
@@ -12,11 +15,41 @@ pub struct KeyPair {
     pub verifying: VerifyingKey,
 }
 
+impl KeyPair {
+    /// Create a new key pair.
+    pub fn private_pkcs8_der(&self) -> Result<Vec<u8>, anyhow::Error> {
+        let der = self.signing.to_pkcs8_der()?;
+        Ok(der.to_bytes().to_vec())
+    }
+}
+
+impl Default for KeyPair {
+    fn default() -> Self {
+        let seed = rand::thread_rng().gen::<[u8; 32]>();
+        Self::from(seed)
+    }
+}
+
 impl From<[u8; 32]> for KeyPair {
     fn from(seed: [u8; 32]) -> Self {
         let signing = SigningKey::from_bytes(&seed);
         let verifying = VerifyingKey::from(&signing);
         Self { signing, verifying }
+    }
+}
+
+impl RemoteKeyPair for KeyPair {
+    fn public_key(&self) -> &[u8] {
+        self.verifying.as_bytes().as_ref()
+    }
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, rcgen::Error> {
+        let signature = self.signing.sign(message);
+        Ok(signature.to_bytes().to_vec())
+    }
+
+    fn algorithm(&self) -> &'static rcgen::SignatureAlgorithm {
+        &rcgen::PKCS_ED25519
     }
 }
 

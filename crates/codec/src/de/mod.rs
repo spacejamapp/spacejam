@@ -245,9 +245,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor
-            .visit_seq(access::SeqAccess::new(self, len))
-            .map_err(Into::into)
+        visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
     fn deserialize_tuple_struct<V>(
