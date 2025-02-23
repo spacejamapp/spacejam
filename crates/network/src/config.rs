@@ -18,7 +18,7 @@ pub struct Config {
 
     /// The genesis hash.
     ///
-    /// This should be overriden by the genesis file.
+    /// This should be overridden by the genesis file.
     #[cfg_attr(feature = "cmd", clap(skip))]
     pub genesis: [u8; 32],
     // TODO: some other network configs.

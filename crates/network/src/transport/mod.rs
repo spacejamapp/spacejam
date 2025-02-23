@@ -2,7 +2,7 @@
 
 use crate::{
     event::{peer, Event},
-    peer::Address,
+    peer::{Address, PeerId},
     stream::Stream,
 };
 use crypto::ed25519;
@@ -34,10 +34,6 @@ impl Transport {
     #[tracing::instrument(skip_all, fields(peer = addr.peer_id.to_string()))]
     pub async fn dial(&self, addr: Address) -> anyhow::Result<Connection> {
         let connecting = self.endpoint.connect(addr.addr, addr.peer_id.as_ref())?;
-        tracing::trace!(
-            "initiated connection to {}, waiting for completion",
-            addr.addr
-        );
         connecting
             .await
             .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
@@ -52,14 +48,19 @@ impl Transport {
             }
 
             while let Some(conn) = self.accept().await {
-                tracing::debug!("accepted connection from {:?}", conn.remote_address());
                 let Ok(peer) = self::alpn(&conn).map_err(|e| {
                     tracing::warn!("failed to verify ALPN: {e:?}");
                 }) else {
                     continue;
                 };
 
-                if let Err(e) = self.tx.send(peer::Event::Connected { peer }.into()) {
+                let address = Address::new(conn.remote_address(), &peer);
+                if let Err(e) = self.tx.send(
+                    peer::Event::Connected {
+                        address: address.clone(),
+                    }
+                    .into(),
+                ) {
                     tracing::warn!("failed to send connected event: {e:?}");
                 }
 
@@ -68,7 +69,7 @@ impl Transport {
                 tokio::spawn(async move {
                     if let Err(e) = this.handle(conn).await {
                         tracing::warn!("failed to handle connection: {e:?}");
-                        if let Err(e) = this.tx.send(peer::Event::Closed { peer }.into()) {
+                        if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
                             tracing::warn!("failed to send closed event: {e:?}");
                         }
                     }
@@ -86,7 +87,6 @@ impl Transport {
     ///
     /// note that all communication happens over bidirectional QUIC streams.
     async fn handle(&self, conn: quinn::Connection) -> anyhow::Result<()> {
-        tracing::debug!("handling connection from {:?}", conn.remote_address());
         while let Ok((send, mut recv)) = conn.accept_bi().await {
             let stream_id = send.id();
             tracing::debug!("accepted bi-directional stream {}", stream_id);
@@ -109,19 +109,7 @@ impl Transport {
     /// TODO: handle retrying from incoming.
     #[tracing::instrument(skip_all)]
     async fn accept(&self) -> Option<Connection> {
-        tracing::trace!("waiting for incoming connection");
-        let incoming = match self.endpoint.accept().await {
-            Some(conn) => {
-                tracing::trace!("received incoming connection request");
-                conn
-            }
-            None => {
-                tracing::warn!("endpoint.accept() returned None");
-                return None;
-            }
-        };
-
-        tracing::trace!("waiting for connection completion");
+        let incoming = self.endpoint.accept().await?;
         match incoming.await {
             Ok(conn) => Some(conn),
             Err(e) => {
@@ -140,9 +128,9 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
         .downcast()
         .map_err(|_| anyhow::anyhow!("invalid handshake data"))?;
 
-    // TODO: identify what exactly the server name is.
-    if let Some(server_name) = data.server_name {
-        tracing::debug!("handshake from server name: {:?}", server_name);
+    // validate the server name
+    if let Some(alt) = data.server_name {
+        let _ = PeerId::verify(&alt)?;
     }
 
     let protocol = String::from_utf8(
@@ -190,7 +178,5 @@ fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     let cert =
         EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
 
-    let mut bytes = [0; 32];
-    bytes.copy_from_slice(&cert.subject_public_key_info());
-    Ok(bytes)
+    Verifier::extract_public_key(&cert).map_err(|e| anyhow::anyhow!("{e:?}"))
 }

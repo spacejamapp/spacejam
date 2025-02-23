@@ -2559,6 +2559,7 @@ dependencies = [
  "anyhow",
  "base32",
  "clap",
+ "hex",
  "once_cell",
  "quinn",
  "rcgen",

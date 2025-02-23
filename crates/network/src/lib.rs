@@ -52,15 +52,12 @@ impl Network {
         // Spawn a task to handle bootstrap dialing
         let bootstrap = config.bootstrap;
         if !bootstrap.is_empty() {
-            tracing::debug!("dialing bootstrap peers: {:?}", bootstrap);
             for peer in bootstrap {
                 tracing::debug!("dialing bootstrap peer: {peer}");
                 if let Err(e) = transport.dial(peer).await {
                     tracing::warn!("failed to dial bootstrap peer: {e}");
                 }
             }
-        } else {
-            tracing::debug!("no bootstrap peers, skipping");
         }
 
         transport.clone().spawn().await?;

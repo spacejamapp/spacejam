@@ -24,6 +24,7 @@ use std::{
 use tokio::sync::mpsc;
 use webpki::types::CertificateDer;
 
+/// Supported signature algorithms.
 static SUPPORTED_SIG_ALGS: WebPkiSupportedAlgorithms = WebPkiSupportedAlgorithms {
     all: &[webpki::ring::ED25519],
     mapping: &[(SignatureScheme::ED25519, &[webpki::ring::ED25519])],
@@ -106,9 +107,24 @@ impl Builder {
             transport
         });
 
+        // setup ALPN protocol
+        let alpn = format!(
+            "jamnp-s/{}/{}",
+            self.version,
+            &hex::encode(self.genesis)[..8]
+        )
+        .as_bytes()
+        .to_vec();
+
         // client and server config setup
-        let server = Self::server(cert_der.to_vec(), key.clone_key(), transport_config.clone())?;
+        let server = Self::server(
+            alpn.clone(),
+            cert_der.to_vec(),
+            key.clone_key(),
+            transport_config.clone(),
+        )?;
         let client = Self::client(
+            alpn,
             cert_der,
             key.clone_key(),
             provider,
@@ -124,6 +140,7 @@ impl Builder {
     }
 
     fn client(
+        alpn: Vec<u8>,
         cert_der: CertificateDer<'static>,
         key: PrivatePkcs8KeyDer,
         provider: Arc<CryptoProvider>,
@@ -147,7 +164,7 @@ impl Builder {
                 .with_client_cert_resolver(Arc::new(single));
 
         // Configure client to use ED25519 and our custom verifier
-        crypto.alpn_protocols = vec![b"spacejam".to_vec()];
+        crypto.alpn_protocols = vec![alpn];
         crypto.enable_early_data = true;
         crypto
             .dangerous()
@@ -160,6 +177,7 @@ impl Builder {
     }
 
     fn server(
+        alpn: Vec<u8>,
         cert_der: Vec<u8>,
         key: PrivatePkcs8KeyDer,
         transport_config: Arc<quinn::TransportConfig>,
@@ -171,7 +189,7 @@ impl Builder {
                 .with_single_cert(vec![cert_der.clone().into()], key.clone_key().into())?;
 
         // Configure server to use ED25519
-        crypto.alpn_protocols = vec![b"spacejam".to_vec()];
+        crypto.alpn_protocols = vec![alpn];
         crypto.ignore_client_order = true;
         crypto.key_log = Arc::new(rustls::KeyLogFile::new());
 

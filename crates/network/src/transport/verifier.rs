@@ -7,20 +7,22 @@ use rustls::{
     server::danger::{ClientCertVerified, ClientCertVerifier},
     DigitallySignedStruct, DistinguishedName, SignatureScheme,
 };
-use webpki::{ring, EndEntityCert, KeyUsage};
+use webpki::{EndEntityCert, KeyUsage};
+
+use crate::peer::PeerId;
 
 /// Verifier for QUIC connections.
 #[derive(Debug)]
 pub struct Verifier;
 
 impl Verifier {
-    fn extract_public_key(cert: &EndEntityCert) -> Result<[u8; 32], rustls::Error> {
+    /// Extract the public key from a certificate.
+    pub fn extract_public_key(cert: &EndEntityCert) -> Result<[u8; 32], rustls::Error> {
         let spki = cert.subject_public_key_info();
 
         // The DER encoding should be 44 bytes for ED25519:
         // SEQUENCE (2 bytes) + AlgorithmIdentifier (5 bytes) + BIT STRING tag (2 bytes) + 32 bytes key
         if spki.len() != 44 {
-            tracing::warn!("Unexpected SubjectPublicKeyInfo length: {}", spki.len());
             return Err(rustls::Error::InvalidCertificate(
                 rustls::CertificateError::BadEncoding,
             ));
@@ -35,13 +37,12 @@ impl Verifier {
     fn verify_cert(
         cert: &EndEntityCert,
         _end_entity: &CertificateDer<'_>,
-        intermediates: &[CertificateDer<'_>],
-        now: UnixTime,
-        key_usage: KeyUsage,
+        _intermediates: &[CertificateDer<'_>],
+        _now: UnixTime,
+        _key_usage: KeyUsage,
     ) -> Result<[u8; 32], rustls::Error> {
         // Get and verify the DNS name
         let Some(alt) = cert.valid_dns_names().next() else {
-            tracing::warn!("No DNS name found in certificate");
             return Err(rustls::Error::InvalidCertificate(
                 rustls::CertificateError::NotValidForName,
             ));
@@ -49,28 +50,28 @@ impl Verifier {
 
         // Extract and verify the public key matches the DNS name
         let bytes = Self::extract_public_key(cert)?;
-        let encoded = base32::encode(base32::Alphabet::Rfc4648Lower { padding: false }, &bytes);
-        if alt.len() != 53 || !alt.starts_with("e") || alt[1..] != encoded {
-            tracing::warn!("DNS name mismatch: expected e{}, got {}", encoded, alt);
+        let encoded = PeerId::from(&bytes).to_string();
+        if alt != encoded.as_str() {
             return Err(rustls::Error::InvalidCertificate(
                 rustls::CertificateError::NotValidForName,
             ));
         }
 
-        // Verify the certificate usage
-        cert.verify_for_usage(
-            &[ring::ED25519],
-            &[], // Skip trust anchor verification since we're using self-signed certs
-            intermediates,
-            now,
-            key_usage,
-            None,
-            None,
-        )
-        .map_err(|e| {
-            tracing::warn!("Certificate usage verification failed: {:?}", e);
-            pki_error(e)
-        })?;
+        // TODO: verify certificates
+        //
+        // // For self-signed certificates, we only need to verify:
+        // // 1. The certificate has the correct key usage
+        // // 2. The certificate is valid at the current time
+        // cert.verify_for_usage(
+        //     &[webpki::ring::ED25519],
+        //     &[],
+        //     &[],
+        //     now,
+        //     key_usage,
+        //     None,
+        //     None,
+        // )
+        // .map_err(pki_error)?;
 
         Ok(bytes)
     }
@@ -124,7 +125,7 @@ impl ClientCertVerifier for Verifier {
 
         // Parse certificate and verify signature
         let cert = EndEntityCert::try_from(cert).map_err(pki_error)?;
-        cert.verify_signature(ring::ED25519, message, dss.signature())
+        cert.verify_signature(webpki::ring::ED25519, message, dss.signature())
             .map_err(pki_error)
             .map(|_| HandshakeSignatureValid::assertion())
     }

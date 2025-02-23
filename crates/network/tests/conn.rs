@@ -1,9 +1,9 @@
 //! Tests for connections.
 
 use crypto::ed25519;
-use metrics::Metrics;
+use metrics::{Metrics, Peer};
 use network::{peer::PeerId, Config, Network};
-use spacejam_network as network;
+use spacejam_network::{self as network, Address};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
@@ -11,7 +11,7 @@ use std::{
 use tokio::sync::mpsc;
 
 #[tokio::test]
-async fn connections() -> anyhow::Result<()> {
+async fn connections() {
     tracing_subscriber::fmt::Subscriber::builder()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
@@ -19,40 +19,68 @@ async fn connections() -> anyhow::Result<()> {
     // Create channels with proper senders to keep them alive
     let (_atx, arx) = mpsc::unbounded_channel();
     let (_btx, brx) = mpsc::unbounded_channel();
-    let aport = network::pick()?;
     let localhost = Ipv4Addr::new(127, 0, 0, 1);
-    let address = SocketAddr::new(localhost.into(), aport);
 
-    let akey = ed25519::KeyPair::from([0; 32]);
-    let maddress = (address, PeerId::from(akey.verifying.as_bytes())).into();
+    let [akey, bkey] = [
+        ed25519::KeyPair::from([0; 32]),
+        ed25519::KeyPair::from([1; 32]),
+    ];
+    let [aaddress, baddress] = [akey.clone(), bkey.clone()].map(|key| {
+        Address::new(
+            SocketAddr::new(
+                localhost.into(),
+                network::pick().expect("failed to pick port"),
+            ),
+            PeerId::from(key.verifying.as_bytes()),
+        )
+    });
+
     let alice = Network::new(
         Config {
-            address,
+            address: aaddress.addr.clone(),
             ..Default::default()
         },
         arx,
         Some(akey.clone()),
     )
-    .await?;
+    .await
+    .expect("failed to create alice");
 
-    let bkey = ed25519::KeyPair::from([1; 32]);
     let bob = Network::new(
         Config {
-            address: SocketAddr::new(localhost.into(), network::pick()?),
-            bootstrap: vec![maddress],
+            address: baddress.addr,
+            bootstrap: vec![aaddress],
             genesis: [0; 32],
         },
         brx,
         Some(bkey.clone()),
     )
-    .await?;
+    .await
+    .expect("failed to create bob");
 
-    let apeer = PeerId::from(akey.verifying.as_bytes());
-    let bpeer = PeerId::from(bkey.verifying.as_bytes());
+    // set up metrics
+    let [actx, bctx] = [
+        Arc::new(Metrics::new("Alice")),
+        Arc::new(Metrics::new("Bob")),
+    ];
+
     tokio::select! {
-        r = alice.spawn(Arc::new(Metrics::new(&apeer.to_string()))) => r,
-        r = bob.spawn(Arc::new(Metrics::new(&bpeer.to_string()))) => r,
-    };
+        r = alice.spawn(actx.clone()) => r,
+        r = bob.spawn(bctx.clone()) => r,
+        _ = async {
+            let peer_ref = Peer {
+                peer: baddress.to_string(),
+            };
 
-    Ok(())
+            loop {
+                if let Some(conn) = actx.conn.get(&peer_ref) {
+                    if conn.get() == Peer::established() {
+                        break;
+                    }
+                }
+
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
+        } => {},
+    }
 }
