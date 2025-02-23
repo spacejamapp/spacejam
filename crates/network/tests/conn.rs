@@ -1,17 +1,15 @@
 //! Tests for connections.
 
+use crypto::ed25519;
+use metrics::Metrics;
+use network::{peer::PeerId, Config, Network};
+use spacejam_network as network;
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-
-use crypto::ed25519;
-use metrics::Metrics;
-use network::{Config, Network};
-use spacejam_network as network;
 use tokio::sync::mpsc;
 
-#[ignore]
 #[tokio::test]
 async fn connections() -> anyhow::Result<()> {
     tracing_subscriber::fmt::Subscriber::builder()
@@ -24,20 +22,22 @@ async fn connections() -> anyhow::Result<()> {
     let localhost = Ipv4Addr::new(127, 0, 0, 1);
     let address = SocketAddr::new(localhost.into(), aport);
 
+    let akey = ed25519::KeyPair::from([0; 32]);
+    let maddress = (address, PeerId::from(akey.verifying.as_bytes())).into();
     let alice = Network::new(
         Config {
             address,
             ..Default::default()
         },
         arx,
-        Some(ed25519::KeyPair::from([0; 32])),
+        Some(akey),
     )
     .await?;
 
     let bob = Network::new(
         Config {
             address: SocketAddr::new(localhost.into(), network::pick()?),
-            bootstrap: vec![address],
+            bootstrap: vec![maddress],
             genesis: [0; 32],
         },
         brx,

@@ -1,5 +1,6 @@
 //! Configuration for the network.
 
+use crate::peer::Address;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -16,7 +17,7 @@ pub struct Config {
 
     /// The bootstrap addresses.
     #[cfg_attr(feature = "cmd", arg(long))]
-    pub bootstrap: Vec<SocketAddr>,
+    pub bootstrap: Vec<Address>,
 
     /// The genesis hash.
     ///

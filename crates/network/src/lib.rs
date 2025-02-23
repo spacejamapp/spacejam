@@ -14,6 +14,7 @@ pub use {
 mod config;
 mod context;
 mod event;
+pub mod peer;
 mod stream;
 mod transport;
 
@@ -53,7 +54,7 @@ impl Network {
         // able found from the genesis config.
         for peer in config.bootstrap {
             tracing::trace!("dialing bootstrap peer: {peer}");
-            transport.dial(peer, "spacejam").await?;
+            transport.dial(peer).await?;
         }
 
         Ok(Self {

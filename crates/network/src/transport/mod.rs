@@ -2,6 +2,7 @@
 
 use crate::{
     event::{peer, Action, Event},
+    peer::Address,
     Context,
 };
 use crypto::ed25519;
@@ -32,9 +33,10 @@ impl Transport {
     }
 
     /// Dial a new connection.
-    pub async fn dial(&self, addr: SocketAddr, name: &str) -> anyhow::Result<Connection> {
+    pub async fn dial(&self, addr: Address) -> anyhow::Result<Connection> {
+        tracing::debug!("dialing {addr}");
         self.endpoint
-            .connect(addr, name)?
+            .connect(addr.addr, addr.peer_id.as_ref())?
             .await
             .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e:?}"))
     }

@@ -74,6 +74,7 @@ impl Builder {
                 self.ed25519.verifying.as_bytes(),
             )
         );
+        tracing::info!("dns_name: {dns}");
 
         // setup provider
         let provider = rustls::crypto::ring::default_provider();
@@ -117,6 +118,8 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
+
+        tracing::info!("listening on {}:{}", self.address.ip(), self.address.port());
         Ok(Transport { endpoint, tx })
     }
 }
