@@ -3,11 +3,10 @@
 use crate::{
     event::{peer, Event},
     peer::{Address, PeerId},
-    stream::Stream,
 };
 use anyhow::Context;
 use crypto::ed25519;
-use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
+use quinn::{crypto::rustls::HandshakeData, Endpoint};
 use tokio::sync::{mpsc, oneshot};
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
@@ -43,8 +42,38 @@ impl Transport {
         self.establish(conn)
     }
 
+    /// Spawn new connections.
+    pub fn spawn(self) -> oneshot::Receiver<()> {
+        let (tx, rx) = oneshot::channel();
+        tokio::spawn(async move {
+            if let Err(e) = tx.send(()) {
+                tracing::warn!("failed to send spawn signal: {e:?}");
+            }
+
+            loop {
+                let Some(conn) = self.endpoint.accept().await else {
+                    tracing::warn!("failed to accept connection");
+                    continue;
+                };
+
+                let Ok(conn) = conn
+                    .await
+                    .map_err(|e| anyhow::anyhow!("failed to accept connection: {e:?}"))
+                else {
+                    continue;
+                };
+
+                if let Err(e) = self.establish(conn) {
+                    tracing::warn!("failed to establish connection: {e:?}");
+                }
+            }
+        });
+
+        rx
+    }
+
     /// Establish a new connection.
-    pub fn establish(&self, conn: quinn::Connection) -> anyhow::Result<()> {
+    fn establish(&self, conn: quinn::Connection) -> anyhow::Result<()> {
         let peer = self::alpn(&conn).context("failed to verify alpn")?;
         let address = Address::new(conn.remote_address(), &peer);
 
@@ -60,72 +89,16 @@ impl Transport {
         // handle connection
         let this = self.clone();
         tokio::spawn(async move {
-            if let Err(e) = this.handle(conn).await {
-                tracing::warn!("failed to handle connection: {e:?}");
-                if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
-                    tracing::warn!("failed to send closed event: {e:?}");
-                }
+            while let Ok((mut _send, mut _recv)) = conn.accept_bi().await {
+                // TODO: handle the stream
+            }
+
+            if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
+                tracing::warn!("failed to send closed event: {e:?}");
             }
         });
 
         Ok(())
-    }
-
-    /// Spawn new connections.
-    pub async fn spawn(self) -> anyhow::Result<()> {
-        let (tx, rx) = oneshot::channel();
-        tokio::spawn(async move {
-            if let Err(e) = tx.send(()) {
-                tracing::warn!("failed to send spawn signal: {e:?}");
-            }
-
-            while let Some(conn) = self.accept().await {
-                if let Err(e) = self.establish(conn) {
-                    tracing::warn!("failed to establish connection: {e:?}");
-                }
-            }
-
-            tracing::warn!("transport handler exited");
-        });
-
-        rx.await
-            .map_err(|_| anyhow::anyhow!("failed to spawn transport handler"))
-    }
-
-    /// Handle a new connection.
-    ///
-    /// note that all communication happens over bidirectional QUIC streams.
-    async fn handle(&self, conn: quinn::Connection) -> anyhow::Result<()> {
-        while let Ok((send, mut recv)) = conn.accept_bi().await {
-            let stream_id = send.id();
-            tracing::debug!("accepted bi-directional stream {}", stream_id);
-
-            // Read stream type byte.
-            //
-            // e.g. after opening a stream, the stream initiator must send a single
-            // byte identifying the stream kind.
-            let mut buf = [0u8; 1];
-            recv.read_exact(&mut buf).await?;
-            let stream_type = Stream::from(buf[0]);
-            tracing::debug!("received stream type: {:?}", stream_type);
-        }
-
-        Ok(())
-    }
-
-    /// Accept a new connection.
-    ///
-    /// TODO: handle retrying from incoming.
-    #[tracing::instrument(skip_all)]
-    async fn accept(&self) -> Option<Connection> {
-        let incoming = self.endpoint.accept().await?;
-        match incoming.await {
-            Ok(conn) => Some(conn),
-            Err(e) => {
-                tracing::warn!("failed to accept connection: {e:?}");
-                None
-            }
-        }
     }
 }
 
