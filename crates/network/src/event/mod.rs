@@ -1,7 +1,6 @@
 //! Events for the network.
 
 use crate::Context;
-pub use action::Action;
 use std::sync::Arc;
 
 pub mod action;
@@ -13,7 +12,7 @@ pub enum Event {
     Peer(peer::Event),
 
     /// An action.
-    Action(Action),
+    Action(action::Event),
 }
 
 impl Event {

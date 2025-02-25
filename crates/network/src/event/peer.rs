@@ -1,6 +1,7 @@
 //! Events for peers.
 
 use crate::{peer::Address, Context};
+use quinn::Connection;
 use std::sync::Arc;
 
 /// Events for peers.
@@ -9,6 +10,9 @@ pub enum Event {
     Connected {
         /// The peer's public key.
         address: Address,
+
+        /// The connection.
+        connection: Connection,
     },
 
     /// A peer has disconnected.
@@ -28,7 +32,10 @@ impl Event {
     /// Handle the event.
     pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
         match self {
-            Self::Connected { address } => {
+            Self::Connected {
+                address,
+                connection: _conn,
+            } => {
                 tracing::debug!("connected to {}", address);
                 context
                     .metrics()

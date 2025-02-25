@@ -6,14 +6,14 @@ use tokio::sync::mpsc;
 pub use {
     config::Config,
     context::Context,
-    event::{Action, Event},
+    event::{action, Event},
     peer::Address,
     transport::{Builder as TransportBuilder, Transport},
 };
 
 mod config;
 mod context;
-mod event;
+pub mod event;
 pub mod peer;
 mod stream;
 mod transport;
@@ -30,7 +30,7 @@ pub struct Network {
     erx: mpsc::UnboundedReceiver<Event>,
 
     /// Action receiver
-    arx: mpsc::UnboundedReceiver<Action>,
+    arx: mpsc::UnboundedReceiver<action::Event>,
 }
 
 impl Network {
@@ -40,7 +40,7 @@ impl Network {
     /// be a validator.
     pub async fn new(
         config: Config,
-        arx: mpsc::UnboundedReceiver<Action>,
+        arx: mpsc::UnboundedReceiver<action::Event>,
         keypair: Option<ed25519::KeyPair>,
     ) -> anyhow::Result<Self> {
         let (etx, erx) = mpsc::unbounded_channel();

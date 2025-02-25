@@ -52,8 +52,8 @@ impl Transport {
 
             loop {
                 let Some(conn) = self.endpoint.accept().await else {
-                    tracing::warn!("failed to accept connection");
-                    continue;
+                    tracing::error!("endpoint is closed");
+                    break;
                 };
 
                 let Ok(conn) = conn
@@ -80,25 +80,12 @@ impl Transport {
         self.tx
             .send(
                 peer::Event::Connected {
-                    address: address.clone(),
+                    address,
+                    connection: conn,
                 }
                 .into(),
             )
-            .context("failed to send connected event")?;
-
-        // handle connection
-        let this = self.clone();
-        tokio::spawn(async move {
-            while let Ok((mut _send, mut _recv)) = conn.accept_bi().await {
-                // TODO: handle the stream
-            }
-
-            if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
-                tracing::warn!("failed to send closed event: {e:?}");
-            }
-        });
-
-        Ok(())
+            .context("failed to send connected event")
     }
 }
 

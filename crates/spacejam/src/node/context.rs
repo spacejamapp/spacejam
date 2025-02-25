@@ -2,7 +2,7 @@
 
 use crypto::ed25519;
 use metrics::Metrics;
-use network::Action;
+use network::event::action;
 use score::runtime::{Runtime, Storage, Validator};
 use tokio::sync::mpsc;
 
@@ -17,7 +17,7 @@ pub struct Context<S: Storage, V: Validator> {
     pub metrics: Metrics,
 
     /// The event sender
-    pub tx: mpsc::UnboundedSender<Action>,
+    pub tx: mpsc::UnboundedSender<action::Event>,
 }
 
 /// Create a new context
@@ -25,7 +25,7 @@ pub struct Context<S: Storage, V: Validator> {
 /// TODO: longest chain selection.
 impl<S: Storage, V: Validator> Context<S, V> {
     /// Create a new context
-    pub fn new(validator: V, db: S, tx: mpsc::UnboundedSender<Action>) -> Self {
+    pub fn new(validator: V, db: S, tx: mpsc::UnboundedSender<action::Event>) -> Self {
         // TODO: use base32.
         let peer_id = hex::encode(validator.ed25519_public_key());
         Self {

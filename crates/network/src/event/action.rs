@@ -1,17 +1,15 @@
 //! Internal actions for the network.
 
-use crate::Event;
-
 /// Internal actions for the network.
 ///
 /// This is a special event in the network which is only for internal use.
-pub enum Action {
+pub enum Event {
     /// Subscribe a block.
     SubscribeBlock(Vec<u8>),
 }
 
-impl From<Action> for Event {
-    fn from(action: Action) -> Self {
-        Event::Action(action)
+impl From<Event> for crate::Event {
+    fn from(event: Event) -> Self {
+        crate::Event::Action(event)
     }
 }
