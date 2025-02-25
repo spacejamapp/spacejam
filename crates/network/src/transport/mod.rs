@@ -39,7 +39,12 @@ impl Transport {
             .await
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
-        self.establish(conn)
+        self.tx
+            .send(Event::Peer(peer::Event::Connected {
+                peer: self::alpn(&conn).context("failed to verify alpn")?,
+                connection: conn,
+            }))
+            .context("failed to send connected event")
     }
 
     /// Spawn new connections.
@@ -58,34 +63,27 @@ impl Transport {
 
                 let Ok(conn) = conn
                     .await
-                    .map_err(|e| anyhow::anyhow!("failed to accept connection: {e:?}"))
+                    .map_err(|e| tracing::warn!("failed to accept connection: {e:?}"))
                 else {
                     continue;
                 };
 
-                if let Err(e) = self.establish(conn) {
-                    tracing::warn!("failed to establish connection: {e:?}");
+                let Ok(peer) = self::alpn(&conn).map_err(|e| {
+                    tracing::warn!("failed to verify alpn: {e:?}");
+                }) else {
+                    continue;
+                };
+
+                if let Err(e) = self.tx.send(Event::Peer(peer::Event::Connected {
+                    peer,
+                    connection: conn,
+                })) {
+                    tracing::warn!("failed to send connected event: {e:?}");
                 }
             }
         });
 
         rx
-    }
-
-    /// Establish a new connection.
-    fn establish(&self, conn: quinn::Connection) -> anyhow::Result<()> {
-        let peer = self::alpn(&conn).context("failed to verify alpn")?;
-        let address = Address::new(conn.remote_address(), &peer);
-
-        self.tx
-            .send(
-                peer::Event::Connected {
-                    address,
-                    connection: conn,
-                }
-                .into(),
-            )
-            .context("failed to send connected event")
     }
 }
 

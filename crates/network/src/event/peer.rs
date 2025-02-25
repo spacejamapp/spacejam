@@ -9,7 +9,7 @@ pub enum Event {
     /// A new peer has connected.
     Connected {
         /// The peer's public key.
-        address: Address,
+        peer: [u8; 32],
 
         /// The connection.
         connection: Connection,
@@ -32,10 +32,8 @@ impl Event {
     /// Handle the event.
     pub fn handle<C: Context>(&self, context: Arc<C>) -> anyhow::Result<()> {
         match self {
-            Self::Connected {
-                address,
-                connection: _conn,
-            } => {
+            Self::Connected { peer, connection } => {
+                let address = Address::new(connection.remote_address(), peer);
                 tracing::debug!("connected to {}", address);
                 context
                     .metrics()
