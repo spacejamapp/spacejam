@@ -1,10 +1,11 @@
 //! Peer related stuffs
 
-pub use address::Address;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
+pub use {address::Address, manager::Manager};
 
 mod address;
+mod manager;
 
 /// Peer ID, also known as the DNS name of the peer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -53,23 +54,7 @@ impl FromStr for PeerId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let len = s.len();
-        if len != 53 {
-            anyhow::bail!("invalid peer id length, should be 53, got {len}");
-        }
-
-        if !s.starts_with("e") {
-            anyhow::bail!(
-                "invalid peer id prefix, should be 'e', got '{:?}'",
-                s.chars().next()
-            );
-        }
-
-        // Check if the peer id is valid base32
-        let base32 = s.split_at(2).1;
-        let _ = base32::decode(base32::Alphabet::Rfc4648Lower { padding: false }, base32)
-            .ok_or_else(|| anyhow::anyhow!("peer id is not valid base32"))?;
-
+        let _ = Self::verify(s)?;
         Ok(Self(s.to_string()))
     }
 }

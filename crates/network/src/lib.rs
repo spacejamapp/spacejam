@@ -6,8 +6,8 @@ use tokio::sync::mpsc;
 pub use {
     config::Config,
     context::Context,
-    event::{action, Event},
-    peer::Address,
+    event::Event,
+    peer::{Address, Manager},
     transport::{Builder as TransportBuilder, Transport},
 };
 
@@ -27,10 +27,10 @@ pub struct Network {
     _transport: Transport,
 
     /// Event receiver
-    erx: mpsc::UnboundedReceiver<Event>,
+    erx: mpsc::UnboundedReceiver<event::peer::Event>,
 
     /// Action receiver
-    arx: mpsc::UnboundedReceiver<action::Event>,
+    arx: mpsc::UnboundedReceiver<event::action::Event>,
 }
 
 impl Network {
@@ -40,7 +40,7 @@ impl Network {
     /// be a validator.
     pub async fn new(
         config: Config,
-        arx: mpsc::UnboundedReceiver<action::Event>,
+        arx: mpsc::UnboundedReceiver<event::action::Event>,
         keypair: Option<ed25519::KeyPair>,
     ) -> anyhow::Result<Self> {
         let (etx, erx) = mpsc::unbounded_channel();
@@ -76,21 +76,16 @@ impl Network {
 
         loop {
             let ctx = context.clone();
-            match tokio::select! {
-                Some(act) = arx.recv() => {
-                    Ok::<Event, anyhow::Error>(Event::Action(act))
-                }
-                Some(ev) = erx.recv() => {
-                    Ok::<Event, anyhow::Error>(ev)
-                }
+            let e = tokio::select! {
+                Some(act) = arx.recv() => Event::Action(act),
+                Some(ev) = erx.recv() => Event::Peer(ev),
                 else => {
-                    tracing::debug!("all channels closed, terminating event loop");
+                    tracing::error!("all channels closed, terminating event loop");
                     break;
                 }
-            } {
-                Ok(e) => e.handle_unchecked(ctx),
-                Err(e) => tracing::error!("event handling error: {e:?}"),
-            }
+            };
+
+            e.handle_unchecked(ctx);
         }
     }
 }

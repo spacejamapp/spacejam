@@ -44,9 +44,4 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
     fn keypair(&self) -> Option<ed25519::KeyPair> {
         self.runtime.validator.ed25519()
     }
-
-    // TODO: longest chain selection.
-    fn import_block(&self, block: Vec<u8>) -> anyhow::Result<()> {
-        self.runtime.import(block)
-    }
 }
