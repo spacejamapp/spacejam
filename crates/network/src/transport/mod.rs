@@ -42,7 +42,8 @@ impl Transport {
         self.tx
             .send(peer::Event::Connected {
                 peer: self::alpn(&conn).context("failed to verify alpn")?,
-                connection: conn,
+                connection: conn.clone(),
+                open_up0: true,
             })
             .context("failed to send connected event")
     }
@@ -77,6 +78,7 @@ impl Transport {
                 if let Err(e) = self.tx.send(peer::Event::Connected {
                     peer,
                     connection: conn,
+                    open_up0: false,
                 }) {
                     tracing::warn!("failed to send connected event: {e:?}");
                 }

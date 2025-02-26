@@ -1,8 +1,7 @@
 //! Network implementation of Spacejam.
 
-use crypto::ed25519;
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::mpsc;
 pub use {
     config::Config,
     context::Context,
@@ -23,14 +22,8 @@ pub const PROTOCOL: &str = "jamnp-s";
 
 /// Network implementation of Spacejam.
 pub struct Network {
-    /// QUIC transport.
-    _transport: Transport,
-
-    /// Peer manager.
-    manager: Arc<RwLock<Manager>>,
-
     /// Event receiver
-    erx: mpsc::UnboundedReceiver<event::peer::Event>,
+    prx: mpsc::UnboundedReceiver<event::peer::Event>,
 
     /// Action receiver
     arx: mpsc::UnboundedReceiver<event::action::Event>,
@@ -41,16 +34,16 @@ impl Network {
     ///
     /// If the provided keypair is not provided, the node will not
     /// be a validator.
-    pub async fn new(
+    pub async fn new<C: Context + Send + Sync + 'static>(
         config: Config,
+        context: Arc<C>,
         arx: mpsc::UnboundedReceiver<event::action::Event>,
-        keypair: Option<ed25519::KeyPair>,
+        prx: mpsc::UnboundedReceiver<event::peer::Event>,
     ) -> anyhow::Result<Self> {
-        let (etx, erx) = mpsc::unbounded_channel();
-        let transport = Transport::builder(keypair.unwrap_or_default())
+        let transport = Transport::builder(context.keypair().unwrap_or_default())
             .address(config.address)
             .genesis(config.genesis)
-            .build(etx.clone())?;
+            .build(context.manager().read().await.ptx.clone())?;
 
         // Spawn a task to handle bootstrap dialing
         let bootstrap = config.bootstrap;
@@ -63,35 +56,28 @@ impl Network {
             }
         }
 
-        // TODO: make the buffer size configurable
-        let (btx, _) = broadcast::channel(256);
-        transport.clone().spawn().await?;
-        Ok(Self {
-            _transport: transport,
-            manager: Arc::new(RwLock::new(Manager::new(btx, etx))),
-            erx,
-            arx,
-        })
+        transport.spawn().await?;
+        Ok(Self { arx, prx })
     }
 
     /// Spawn the network
     pub async fn spawn<C: Context + Send + Sync + 'static>(self, context: Arc<C>) {
         // Spawn the event handling loop
         let mut arx = self.arx;
-        let mut erx = self.erx;
+        let mut prx = self.prx;
 
         loop {
             let ctx = context.clone();
             let e = tokio::select! {
                 Some(act) = arx.recv() => Event::Action(act),
-                Some(ev) = erx.recv() => Event::Peer(ev),
+                Some(ev) = prx.recv() => Event::Peer(ev),
                 else => {
                     tracing::error!("all channels closed, terminating event loop");
                     break;
                 }
             };
 
-            e.handle_unchecked(ctx, self.manager.clone()).await;
+            e.handle_unchecked(ctx).await;
         }
     }
 }

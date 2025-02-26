@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 base32.workspace = true
+codec.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
 crypto.workspace = true
 hex.workspace = true

@@ -14,7 +14,7 @@ pub struct Manager {
     /// Block announcement sender.
     pub btx: broadcast::Sender<Vec<u8>>,
 
-    /// Peer event sender.
+    /// Action sender.
     pub ptx: mpsc::UnboundedSender<peer::Event>,
 }
 

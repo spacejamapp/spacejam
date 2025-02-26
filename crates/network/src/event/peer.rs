@@ -17,6 +17,9 @@ pub enum Event {
 
         /// The connection.
         connection: Connection,
+
+        /// Whether we should open the up0 stream.
+        open_up0: bool,
     },
 
     /// A peer has disconnected.
@@ -37,10 +40,15 @@ impl Event {
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
         context: Arc<C>,
-        manager: Arc<RwLock<Manager>>,
     ) -> anyhow::Result<()> {
+        let manager = context.manager();
+
         match self {
-            Self::Connected { peer, connection } => {
+            Self::Connected {
+                peer,
+                connection,
+                open_up0,
+            } => {
                 let address = Address::new(connection.remote_address(), peer);
                 tracing::debug!("connected to {}", address);
 
@@ -62,6 +70,16 @@ impl Event {
                     context.clone(),
                     manager.clone(),
                 ));
+
+                // 4. open the up0 stream if needed
+                if *open_up0 {
+                    let (send, recv) = connection.open_bi().await?;
+                    tokio::spawn(async move {
+                        if let Err(e) = stream::up0::send(send, recv, context, manager).await {
+                            tracing::warn!("failed to send up0 stream: {e:?} for {address}");
+                        }
+                    });
+                }
             }
             Self::Closed { peer } => {
                 // 1. remove the connection from the manager

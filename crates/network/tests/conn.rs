@@ -35,34 +35,34 @@ async fn connections() {
         )
     });
 
+    let (_ptx, prx) = mpsc::unbounded_channel();
+    let actx = Arc::new(Metrics::new("Alice"));
     let alice = Network::new(
         Config {
             address: aaddress.addr.clone(),
             ..Default::default()
         },
+        actx.clone(),
         arx,
-        Some(akey.clone()),
+        prx,
     )
     .await
     .expect("failed to create alice");
 
+    let (_ptx, prx) = mpsc::unbounded_channel();
+    let bctx = Arc::new(Metrics::new("Bob"));
     let bob = Network::new(
         Config {
             address: baddress.addr,
             bootstrap: vec![aaddress],
             genesis: [0; 32],
         },
+        bctx.clone(),
         brx,
-        Some(bkey.clone()),
+        prx,
     )
     .await
     .expect("failed to create bob");
-
-    // set up metrics
-    let [actx, bctx] = [
-        Arc::new(Metrics::new("Alice")),
-        Arc::new(Metrics::new("Bob")),
-    ];
 
     tokio::select! {
         r = alice.spawn(actx.clone()) => r,

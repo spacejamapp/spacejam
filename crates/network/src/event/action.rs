@@ -1,8 +1,7 @@
 //! Internal actions for the network.
 
-use crate::{context::Context, peer::Manager};
+use crate::context::Context;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Internal actions for the network.
 ///
@@ -25,9 +24,10 @@ impl Event {
     /// Handle the action event.
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
-        _context: Arc<C>,
-        manager: Arc<RwLock<Manager>>,
+        context: Arc<C>,
     ) -> anyhow::Result<()> {
+        let manager = context.manager();
+
         match self {
             Self::AnnounceBlock(announce) => {
                 let count = manager.write().await.btx.send(announce.clone())?;

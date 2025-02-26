@@ -4,7 +4,7 @@ use crate::{
     node::{Context, Genesis},
     Spacejam,
 };
-use network::{Context as _, Network};
+use network::Network;
 use score::{
     block::BlockInfo,
     extrinsic::TicketsOrKeys,
@@ -48,10 +48,11 @@ impl Builder {
     >(
         self,
     ) -> anyhow::Result<Spacejam<S, V>> {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (atx, arx) = mpsc::unbounded_channel();
+        let (ptx, prx) = mpsc::unbounded_channel();
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
-        let context = Context::new(validator, S::try_from(self.db.clone())?, tx);
+        let context = Context::new(validator, S::try_from(self.db.clone())?, atx, ptx.clone());
 
         // Initialize the database
         if context.runtime.storage.is_empty() {
@@ -61,11 +62,9 @@ impl Builder {
         // Initialize the network
         //
         // TODO: add config to the inner channel
-        let network = Network::new(self.network, rx, context.keypair()).await?;
-        Ok(Spacejam {
-            context: Arc::new(context),
-            network,
-        })
+        let context = Arc::new(context);
+        let network = Network::new(self.network, context.clone(), arx, prx).await?;
+        Ok(Spacejam { context, network })
     }
 
     /// Initialize the storage with genesis data

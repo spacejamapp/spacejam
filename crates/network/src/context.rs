@@ -1,8 +1,11 @@
 //! Context for the network.
 
-use anyhow::Result;
+use crate::peer::Manager;
 use crypto::ed25519;
 use metrics::Metrics;
+use score::runtime::Grandpa;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 
 /// Context for the network.
 #[allow(async_fn_in_trait)]
@@ -16,7 +19,10 @@ pub trait Context {
     }
 
     /// Announce the handshake message.
-    async fn up0_handshake(&self) -> Result<Vec<u8>>;
+    fn grandpa(&self) -> Grandpa;
+
+    /// Get the manager of the network.
+    fn manager(&self) -> Arc<RwLock<Manager>>;
 }
 
 impl Context for Metrics {
@@ -24,7 +30,15 @@ impl Context for Metrics {
         self
     }
 
-    async fn up0_handshake(&self) -> Result<Vec<u8>> {
-        Ok(vec![])
+    fn grandpa(&self) -> Grandpa {
+        Arc::new(RwLock::new(Default::default()))
+    }
+
+    fn manager(&self) -> Arc<RwLock<Manager>> {
+        Arc::new(RwLock::new(Manager {
+            conns: HashMap::new(),
+            btx: broadcast::channel(256).0,
+            ptx: mpsc::unbounded_channel().0,
+        }))
     }
 }

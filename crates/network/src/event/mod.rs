@@ -1,8 +1,7 @@
 //! Events for the network.
 
-use crate::{peer::Manager, Context};
+use crate::Context;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub mod action;
 pub mod peer;
@@ -21,21 +20,16 @@ impl Event {
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
         context: Arc<C>,
-        manager: Arc<RwLock<Manager>>,
     ) -> anyhow::Result<()> {
         match self {
-            Self::Peer(e) => e.handle(context, manager).await,
-            Self::Action(a) => a.handle(context, manager).await,
+            Self::Peer(e) => e.handle(context).await,
+            Self::Action(a) => a.handle(context).await,
         }
     }
 
     /// Handle the event without checking for errors.
-    pub async fn handle_unchecked<C: Context + Send + Sync + 'static>(
-        &self,
-        context: Arc<C>,
-        manager: Arc<RwLock<Manager>>,
-    ) {
-        if let Err(e) = self.handle(context, manager).await {
+    pub async fn handle_unchecked<C: Context + Send + Sync + 'static>(&self, context: Arc<C>) {
+        if let Err(e) = self.handle(context).await {
             tracing::error!("{e:?}");
         }
     }

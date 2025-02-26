@@ -1,11 +1,15 @@
 //! Context for SpaceJam
 
-use anyhow::Result;
 use crypto::ed25519;
 use metrics::Metrics;
-use network::{event::action, peer::PeerId};
+use network::{
+    event::{action, peer},
+    peer::PeerId,
+    Manager,
+};
 use score::runtime::{Runtime, Storage, Validator};
-use tokio::sync::mpsc;
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc, RwLock};
 
 /// The context for SpaceJam
 ///
@@ -17,8 +21,11 @@ pub struct Context<S: Storage, V: Validator> {
     /// The metrics of SpaceJam
     pub metrics: Metrics,
 
+    /// The manager of the network
+    pub manager: Arc<RwLock<Manager>>,
+
     /// The event sender
-    pub tx: mpsc::UnboundedSender<action::Event>,
+    pub atx: mpsc::UnboundedSender<action::Event>,
 }
 
 /// Create a new context
@@ -26,12 +33,21 @@ pub struct Context<S: Storage, V: Validator> {
 /// TODO: longest chain selection.
 impl<S: Storage, V: Validator> Context<S, V> {
     /// Create a new context
-    pub fn new(validator: V, db: S, tx: mpsc::UnboundedSender<action::Event>) -> Self {
+    pub fn new(
+        validator: V,
+        db: S,
+        atx: mpsc::UnboundedSender<action::Event>,
+        ptx: mpsc::UnboundedSender<peer::Event>,
+    ) -> Self {
         let peer_id = PeerId::from(&validator.ed25519_public_key());
+
+        // TODO: make the buffer size configurable
+        let manager = Arc::new(RwLock::new(Manager::new(broadcast::channel(256).0, ptx)));
         Self {
             runtime: Runtime::new(validator, db),
             metrics: Metrics::new(peer_id.as_ref()),
-            tx,
+            manager,
+            atx,
         }
     }
 }
@@ -45,17 +61,11 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         self.runtime.validator.ed25519()
     }
 
-    async fn up0_handshake(&self) -> Result<Vec<u8>> {
-        let grandpa = self.runtime.grandpa.clone().read().await.clone();
-        let mut handshake = vec![];
-        handshake.extend_from_slice(grandpa.head.hash()?.as_ref());
-        handshake.extend_from_slice(&grandpa.head.slot.to_le_bytes());
-        handshake.extend_from_slice(&grandpa.leaves.len().to_le_bytes());
-        for leaf in grandpa.leaves.iter() {
-            handshake.extend_from_slice(leaf.hash()?.as_ref());
-            handshake.extend_from_slice(&leaf.slot.to_le_bytes());
-        }
+    fn grandpa(&self) -> score::runtime::Grandpa {
+        self.runtime.grandpa.clone()
+    }
 
-        Ok(handshake)
+    fn manager(&self) -> Arc<RwLock<Manager>> {
+        self.manager.clone()
     }
 }

@@ -25,7 +25,7 @@ mod ce142;
 mod ce143;
 mod ce144;
 mod ce145;
-mod up0;
+pub mod up0;
 
 /// Handle an incoming stream.
 pub async fn recv<C: Context>(
