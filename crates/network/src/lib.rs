@@ -2,7 +2,7 @@
 
 use crypto::ed25519;
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 pub use {
     config::Config,
     context::Context,
@@ -26,6 +26,9 @@ pub struct Network {
     /// QUIC transport.
     _transport: Transport,
 
+    /// Peer manager.
+    manager: Arc<RwLock<Manager>>,
+
     /// Event receiver
     erx: mpsc::UnboundedReceiver<event::peer::Event>,
 
@@ -47,7 +50,7 @@ impl Network {
         let transport = Transport::builder(keypair.unwrap_or_default())
             .address(config.address)
             .genesis(config.genesis)
-            .build(etx)?;
+            .build(etx.clone())?;
 
         // Spawn a task to handle bootstrap dialing
         let bootstrap = config.bootstrap;
@@ -63,6 +66,7 @@ impl Network {
         transport.clone().spawn().await?;
         Ok(Self {
             _transport: transport,
+            manager: Arc::new(RwLock::new(Manager::new(etx))),
             erx,
             arx,
         })
@@ -85,7 +89,7 @@ impl Network {
                 }
             };
 
-            e.handle_unchecked(ctx);
+            e.handle_unchecked(ctx, self.manager.clone()).await;
         }
     }
 }

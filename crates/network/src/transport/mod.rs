@@ -129,7 +129,7 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
 /// Get the peer from the Connection
 ///
 /// Note that the DNS name should be verified by the Verifier.
-fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     let Some(identity) = conn.peer_identity() else {
         anyhow::bail!("no peer identity");
     };
