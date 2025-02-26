@@ -2,7 +2,7 @@
 
 use crypto::ed25519;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
     config::Config,
     context::Context,
@@ -63,10 +63,12 @@ impl Network {
             }
         }
 
+        // TODO: make the buffer size configurable
+        let (btx, _) = broadcast::channel(256);
         transport.clone().spawn().await?;
         Ok(Self {
             _transport: transport,
-            manager: Arc::new(RwLock::new(Manager::new(etx))),
+            manager: Arc::new(RwLock::new(Manager::new(btx, etx))),
             erx,
             arx,
         })

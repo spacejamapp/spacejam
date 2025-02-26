@@ -25,7 +25,7 @@ impl Event {
     ) -> anyhow::Result<()> {
         match self {
             Self::Peer(e) => e.handle(context, manager).await,
-            Self::Action(_a) => Ok(()),
+            Self::Action(a) => a.handle(context, manager).await,
         }
     }
 

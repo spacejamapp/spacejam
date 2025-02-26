@@ -3,9 +3,10 @@
 //! Functional handlers for streams.
 #![allow(unused)]
 
-use crate::Context;
+use crate::{peer::Manager, Context};
 use quinn::{RecvStream, SendStream};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 mod ce128;
 mod ce129;
@@ -31,13 +32,14 @@ pub async fn recv<C: Context>(
     send: SendStream,
     mut recv: RecvStream,
     context: Arc<C>,
+    manager: Arc<RwLock<Manager>>,
 ) -> anyhow::Result<()> {
     let mut buf = [0u8; 1];
     recv.read_exact(&mut buf).await?;
 
     // Handle the stream.
     match buf[0] {
-        0 => up0::recv(send, recv, context).await,
+        0 => up0::recv(send, recv, context, manager).await,
         128 => ce128::recv(send, recv, context).await,
         129 => ce129::recv(send, recv, context).await,
         131 => ce131::recv(send, recv, context).await,

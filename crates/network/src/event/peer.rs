@@ -45,11 +45,7 @@ impl Event {
                 tracing::debug!("connected to {}", address);
 
                 // 1. insert the connection into the manager
-                manager
-                    .write()
-                    .await
-                    .conns
-                    .insert(*peer, connection.clone());
+                manager.write().await.insert(*peer, connection.clone());
 
                 // 2. establish the connection in the metrics
                 context
@@ -64,6 +60,7 @@ impl Event {
                     connection.clone(),
                     ptx,
                     context.clone(),
+                    manager.clone(),
                 ));
             }
             Self::Closed { peer } => {
@@ -90,9 +87,10 @@ impl Event {
         conn: Connection,
         ptx: mpsc::UnboundedSender<Event>,
         context: Arc<C>,
+        manager: Arc<RwLock<Manager>>,
     ) {
         while let Ok((send, recv)) = conn.accept_bi().await {
-            if let Err(e) = stream::recv(send, recv, context.clone()).await {
+            if let Err(e) = stream::recv(send, recv, context.clone(), manager.clone()).await {
                 tracing::warn!("failed to handle stream: {e:?}");
                 continue;
             }

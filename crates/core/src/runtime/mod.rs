@@ -4,10 +4,12 @@ use crate::{
     extrinsic::{TicketBody, TicketEnvelope},
     Block,
 };
+use grandpa::Grandpa;
 use pool::Pool;
 use std::sync::atomic::{AtomicU8, Ordering};
 pub use {storage::Storage, validator::Validator};
 
+mod grandpa;
 mod pool;
 pub mod storage;
 pub mod tx;
@@ -24,6 +26,9 @@ pub struct Runtime<S: Storage, V: Validator> {
     /// The extrinsic pool of SpaceJam
     pub pool: Pool,
 
+    /// The head of the chain
+    pub grandpa: Grandpa,
+
     /// The attempt number of the current epoch
     attempt: AtomicU8,
 }
@@ -35,6 +40,7 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
             validator,
             storage,
             pool: Default::default(),
+            grandpa: Default::default(),
             attempt: AtomicU8::new(0),
         }
     }

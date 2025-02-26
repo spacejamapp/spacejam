@@ -1,7 +1,8 @@
 //! Authoring service
 
 use crate::node::Context;
-use score::runtime::{Storage, Validator};
+use network::event::action::Event;
+use score::runtime::{storage::BlockStorage, Storage, Validator};
 use std::time::Duration;
 
 /// Author blocks (mocked)
@@ -23,10 +24,19 @@ async fn inner<S: Storage, V: Validator>(context: &Context<S, V>) -> anyhow::Res
             hex::encode(block.hash()?)
         );
 
-        // context
-        //     .tx
-        //     .send(Event::SubscribeBlock(codec::encode(&block)?))
-        //     .await?;
+        // 1. save the block to the storage
+        context.runtime.storage.save_block(&block)?;
+
+        // 2. announce the block to the network
+        let mut announcement = codec::encode(&block.header)?;
+        announcement.extend_from_slice(&block.header.hash()?);
+        announcement.extend_from_slice(&block.header.slot.to_le_bytes());
+        context.tx.send(Event::AnnounceBlock(announcement))?;
+
+        // TODO: currently we don't have a way to get the finalized header
+        // from the runtime. so we update the newly produced block as the
+        // finalized header of the chain.
+        context.runtime.grandpa.write().await.update(block.header);
     }
 
     if let Some(ticket) = ticket {
