@@ -5,8 +5,12 @@ use crate::{
     Block,
 };
 use std::sync::atomic::{AtomicU8, Ordering};
-pub use {grandpa::Grandpa, pool::Pool};
-pub use {storage::Storage, validator::Validator};
+pub use {
+    grandpa::{Grandpa, Head},
+    pool::Pool,
+    storage::Storage,
+    validator::Validator,
+};
 
 mod grandpa;
 mod pool;

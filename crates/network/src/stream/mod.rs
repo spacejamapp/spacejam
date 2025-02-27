@@ -35,6 +35,7 @@ pub async fn recv<C: Context>(
 ) -> anyhow::Result<()> {
     let mut buf = [0; 1];
     recv.read_exact(&mut buf).await?;
+    tracing::trace!("recv stream type: {buf:?}");
 
     match buf[0] {
         0 => up0::recv(send, recv, context).await,

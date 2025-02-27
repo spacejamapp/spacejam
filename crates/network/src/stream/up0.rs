@@ -17,13 +17,13 @@ pub async fn send<C: Context>(
 ) -> anyhow::Result<()> {
     // 1. send the handshake
     let handshake = self::handshake(context.clone()).await?;
-    send.write_all(&handshake).await?;
+    let mut buf = vec![0];
+    buf.extend_from_slice(&handshake);
+    send.write_all(&buf).await?;
 
     // 2. verify that we can receive handshake
-    //
-    // TODO: verify the received hanshake
-    let mut buf = vec![];
-    recv.read(&mut buf).await?;
+    let mut reader = GrandpaReader::new(&mut recv);
+    reader.read().await?;
 
     // 3. announcement loop
     let manager = context.manager();
@@ -37,13 +37,15 @@ pub async fn recv<C: Context>(
     mut recv: RecvStream,
     context: Arc<C>,
 ) -> anyhow::Result<()> {
-    // TODO: check the the buf presents handshake data.
-    let mut buf = vec![];
-    recv.read(&mut buf).await?;
+    // 1. read the grandpa data
+    let mut reader = GrandpaReader::new(&mut recv);
+    reader.read().await?;
 
     // 2. send the handshake data.
     let handshake = self::handshake(context.clone()).await?;
-    send.write_all(&handshake).await?;
+    let mut buf = vec![0];
+    buf.extend_from_slice(&handshake);
+    send.write_all(&buf).await?;
 
     // 3. announcement loop.
     let manager = context.manager();
@@ -76,6 +78,8 @@ async fn import<C: Context>(peer: [u8; 32], mut recv: RecvStream, context: Arc<C
         // we have a calculation on a new block.
         if context.grandpa().read().await.child(header, hash, slot) {
             // TODO: do sth here depend on the current node configuration.
+            //
+            // - import to the recent history
         } else {
             tracing::warn!("invalid block with up0");
         }
@@ -94,6 +98,7 @@ async fn announce(mut send: SendStream, manager: Arc<RwLock<Manager>>) {
     });
 }
 
+/// Fetch the handshake data from the context.
 async fn handshake<C: Context>(context: Arc<C>) -> anyhow::Result<Vec<u8>> {
     let grandpa = context.grandpa();
     let grandpa = grandpa.read().await;
@@ -101,10 +106,50 @@ async fn handshake<C: Context>(context: Arc<C>) -> anyhow::Result<Vec<u8>> {
     handshake.extend_from_slice(grandpa.head.hash()?.as_ref());
     handshake.extend_from_slice(&grandpa.head.slot.to_le_bytes());
     handshake.extend_from_slice(&grandpa.leaves.len().to_le_bytes());
+
     for leaf in grandpa.leaves.iter() {
         handshake.extend_from_slice(leaf.hash()?.as_ref());
         handshake.extend_from_slice(&leaf.slot.to_le_bytes());
     }
 
     Ok(handshake)
+}
+
+/// Grandpa reader
+struct GrandpaReader<'r> {
+    finalized: OpaqueHash,
+    leaves: Vec<OpaqueHash>,
+    reader: &'r mut RecvStream,
+}
+
+impl<'r> GrandpaReader<'r> {
+    pub fn new(reader: &'r mut RecvStream) -> Self {
+        Self {
+            finalized: Default::default(),
+            leaves: Default::default(),
+            reader,
+        }
+    }
+
+    /// Read the grandpa data
+    pub async fn read(&mut self) -> anyhow::Result<()> {
+        // 1. read the finalized hash
+        let mut hash = [0; 32];
+        self.reader.read(&mut hash).await?;
+        self.finalized = hash;
+
+        // 2. read the leaves len
+        let mut len = [0; 4];
+        self.reader.read(&mut len).await?;
+
+        // 3. read the leaves
+        let leaves_len = u32::from_le_bytes(len) as usize * 32;
+        for _ in 0..leaves_len {
+            let mut hash = [0; 32];
+            self.reader.read(&mut hash).await?;
+            self.leaves.push(hash);
+        }
+
+        Ok(())
+    }
 }

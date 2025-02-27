@@ -121,7 +121,7 @@ async fn connections() {
             loop {
                 if let Some(conn) = alice.metrics().conn.get(&peer_ref) {
                     if conn.get() == Peer::established() {
-                        break;
+                        // break;
                     }
                 }
 
