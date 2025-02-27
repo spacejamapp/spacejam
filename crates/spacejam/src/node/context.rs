@@ -3,7 +3,7 @@
 use crate::node::Builder;
 use crypto::ed25519;
 use metrics::Metrics;
-use network::{event::Event, peer::PeerId, Manager};
+use network::{event::Event, peer::PeerId, Manager, RuntimeApi};
 use score::runtime::{Runtime, Storage, Validator};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -66,3 +66,5 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         self.tx.clone()
     }
 }
+
+impl<S: Storage, V: Validator> RuntimeApi for Context<S, V> {}

@@ -1,7 +1,6 @@
 //! Internal actions for the network.
 
 use crate::{context::Context, Network};
-use score::OpaqueHash;
 
 /// Internal actions for the network.
 ///
@@ -9,14 +8,6 @@ use score::OpaqueHash;
 pub enum Event {
     /// Announce a block.
     AnnounceBlock(Vec<u8>),
-
-    /// Request a block.
-    RequestBlock {
-        peer: [u8; 32],
-        hash: OpaqueHash,
-        direction: u8,
-        maximum: u32,
-    },
 }
 
 impl From<Event> for crate::Event {
@@ -37,15 +28,6 @@ impl Event {
             Self::AnnounceBlock(announce) => {
                 let count = tx.send(announce.clone())?;
                 tracing::trace!("Announced block to {count} peers");
-                Ok(())
-            }
-            Self::RequestBlock {
-                peer,
-                hash,
-                direction: _,
-                maximum: _,
-            } => {
-                tracing::trace!("Requesting block from {peer:?} with hash {hash:?}");
                 Ok(())
             }
         }

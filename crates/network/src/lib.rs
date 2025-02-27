@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 pub use {
     config::Config,
-    context::Context,
+    context::{Context, RuntimeApi},
     event::Event,
     peer::{Address, Manager},
     transport::{Builder as TransportBuilder, Transport},

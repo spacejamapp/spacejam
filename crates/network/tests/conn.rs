@@ -2,7 +2,7 @@
 
 use crypto::ed25519;
 use metrics::{Metrics, Peer};
-use network::{peer::PeerId, transport, Address, Config, Context, Event, Network};
+use network::{peer::PeerId, transport, Address, Config, Context, Event, Network, RuntimeApi};
 use spacejam_network::{self as network};
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -34,6 +34,8 @@ impl Context for Node {
         self.tx.clone()
     }
 }
+
+impl RuntimeApi for Node {}
 
 impl Node {
     /// Create a new node

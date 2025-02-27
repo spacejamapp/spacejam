@@ -6,23 +6,23 @@
 use crate::{Context, Network};
 use quinn::{RecvStream, SendStream};
 
-mod ce128;
-mod ce129;
-mod ce131;
-mod ce132;
-mod ce133;
-mod ce134;
-mod ce135;
-mod ce136;
-mod ce137;
-mod ce138;
-mod ce139;
-mod ce140;
-mod ce141;
-mod ce142;
-mod ce143;
-mod ce144;
-mod ce145;
+pub mod ce128;
+pub mod ce129;
+pub mod ce131;
+pub mod ce132;
+pub mod ce133;
+pub mod ce134;
+pub mod ce135;
+pub mod ce136;
+pub mod ce137;
+pub mod ce138;
+pub mod ce139;
+pub mod ce140;
+pub mod ce141;
+pub mod ce142;
+pub mod ce143;
+pub mod ce144;
+pub mod ce145;
 pub mod up0;
 
 /// Handle an incoming stream.
