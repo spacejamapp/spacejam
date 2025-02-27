@@ -58,7 +58,7 @@ impl Event {
                     .establish_connection(address.to_string());
 
                 // 3. spawn the connection
-                tokio::spawn(Self::spawn_conn(*peer, connection.clone(), context.clone()));
+                tokio::spawn(Self::serve(*peer, connection.clone(), context.clone()));
 
                 // 4. open the up0 stream if needed
                 if *open_up0 {
@@ -89,9 +89,9 @@ impl Event {
         Ok(())
     }
 
-    /// Spawn a connection.
-    async fn spawn_conn<C: Context>(peer: [u8; 32], conn: Connection, context: Arc<C>) {
-        let ptx = context.manager().read().await.ptx.clone();
+    /// Serve a connection.
+    async fn serve<C: Context>(peer: [u8; 32], conn: Connection, context: Arc<C>) {
+        let tx = context.manager().read().await.tx.clone();
         while let Ok((send, recv)) = conn.accept_bi().await {
             if let Err(e) = stream::recv(peer, send, recv, context.clone()).await {
                 tracing::warn!("failed to handle stream: {e:?}");
@@ -99,7 +99,7 @@ impl Event {
             }
         }
 
-        if let Err(e) = ptx.send(Event::Closed { peer }) {
+        if let Err(e) = tx.send(Event::Closed { peer }.into()) {
             tracing::warn!("failed to send closed event: {e:?}");
         }
     }

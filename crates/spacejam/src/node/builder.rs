@@ -45,11 +45,10 @@ impl Builder {
     >(
         self,
     ) -> anyhow::Result<Handle<Context<S, V>>> {
-        let (atx, arx) = mpsc::unbounded_channel();
-        let (ptx, prx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::unbounded_channel();
         let validator = V::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
-        let context = Context::new(validator, S::try_from(self.db.clone())?, atx, ptx.clone());
+        let context = Context::new(validator, S::try_from(self.db.clone())?, tx.clone());
 
         // Initialize the database
         if context.runtime.storage.is_empty() {
@@ -61,7 +60,7 @@ impl Builder {
         // TODO: add config to the inner channel
         let context = Arc::new(context);
         network::init(self.network, context.clone()).await?;
-        Ok(Handle { arx, prx, context })
+        Ok(Handle { rx, context })
     }
 
     /// Initialize the storage with genesis data

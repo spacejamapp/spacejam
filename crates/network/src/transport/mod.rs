@@ -1,7 +1,7 @@
 //! Transport implementation for Spacejam.
 
 use crate::{
-    event::peer,
+    event::{conn, Event},
     peer::{Address, PeerId},
 };
 use anyhow::Context;
@@ -21,7 +21,7 @@ pub struct Transport {
     pub(crate) endpoint: Endpoint,
 
     /// Event sender.
-    pub(crate) tx: mpsc::UnboundedSender<peer::Event>,
+    pub(crate) tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Transport {
@@ -40,11 +40,14 @@ impl Transport {
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
         self.tx
-            .send(peer::Event::Connected {
-                peer: self::alpn(&conn).context("failed to verify alpn")?,
-                connection: conn.clone(),
-                open_up0: true,
-            })
+            .send(
+                conn::Event::Connected {
+                    peer: self::alpn(&conn).context("failed to verify alpn")?,
+                    connection: conn.clone(),
+                    open_up0: true,
+                }
+                .into(),
+            )
             .context("failed to send connected event")
     }
 
@@ -75,11 +78,14 @@ impl Transport {
                     continue;
                 };
 
-                if let Err(e) = self.tx.send(peer::Event::Connected {
-                    peer,
-                    connection: conn,
-                    open_up0: false,
-                }) {
+                if let Err(e) = self.tx.send(
+                    conn::Event::Connected {
+                        peer,
+                        connection: conn,
+                        open_up0: false,
+                    }
+                    .into(),
+                ) {
                     tracing::warn!("failed to send connected event: {e:?}");
                 }
             }

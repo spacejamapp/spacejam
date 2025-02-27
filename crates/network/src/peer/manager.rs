@@ -1,6 +1,6 @@
 //! Peer manager.
 
-use crate::event::{action, peer};
+use crate::event::Event;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 
@@ -15,24 +15,16 @@ pub struct Manager {
     pub btx: broadcast::Sender<Vec<u8>>,
 
     /// Action sender.
-    pub atx: mpsc::UnboundedSender<action::Event>,
-
-    /// Action sender.
-    pub ptx: mpsc::UnboundedSender<peer::Event>,
+    pub tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Manager {
     /// Create a new manager.
-    pub fn new(
-        btx: broadcast::Sender<Vec<u8>>,
-        atx: mpsc::UnboundedSender<action::Event>,
-        ptx: mpsc::UnboundedSender<peer::Event>,
-    ) -> Self {
+    pub fn new(tx: mpsc::UnboundedSender<Event>) -> Self {
         Self {
             conns: HashMap::new(),
-            btx,
-            atx,
-            ptx,
+            btx: broadcast::channel(256).0,
+            tx,
         }
     }
 

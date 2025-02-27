@@ -43,9 +43,7 @@ pub async fn recv<C: Context>(
 
     // 2. send the handshake data.
     let handshake = self::handshake(context.clone()).await?;
-    let mut buf = vec![0];
-    buf.extend_from_slice(&handshake);
-    send.write_all(&buf).await?;
+    send.write_all(&handshake).await?;
 
     // 3. announcement loop.
     let manager = context.manager();

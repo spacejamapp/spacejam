@@ -1,17 +1,12 @@
 //! Context for SpaceJam
 
+use crate::node::Builder;
 use crypto::ed25519;
 use metrics::Metrics;
-use network::{
-    event::{action, peer},
-    peer::PeerId,
-    Manager,
-};
+use network::{event::Event, peer::PeerId, Manager};
 use score::runtime::{Runtime, Storage, Validator};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
-
-use super::Builder;
 
 /// The context for SpaceJam
 ///
@@ -27,7 +22,7 @@ pub struct Context<S: Storage, V: Validator> {
     pub manager: Arc<RwLock<Manager>>,
 
     /// The event sender
-    pub atx: mpsc::UnboundedSender<action::Event>,
+    pub tx: mpsc::UnboundedSender<Event>,
 }
 
 /// Create a new context
@@ -40,25 +35,16 @@ impl<S: Storage, V: Validator> Context<S, V> {
     }
 
     /// Create a new context
-    pub fn new(
-        validator: V,
-        db: S,
-        atx: mpsc::UnboundedSender<action::Event>,
-        ptx: mpsc::UnboundedSender<peer::Event>,
-    ) -> Self {
+    pub fn new(validator: V, db: S, tx: mpsc::UnboundedSender<Event>) -> Self {
         let peer_id = PeerId::from(&validator.ed25519_public_key());
 
         // TODO: make the buffer size configurable
-        let manager = Arc::new(RwLock::new(Manager::new(
-            broadcast::channel(256).0,
-            atx.clone(),
-            ptx,
-        )));
+        let manager = Arc::new(RwLock::new(Manager::new(tx.clone())));
         Self {
             runtime: Runtime::new(validator, db),
             metrics: Metrics::new(peer_id.as_ref()),
             manager,
-            atx,
+            tx,
         }
     }
 }

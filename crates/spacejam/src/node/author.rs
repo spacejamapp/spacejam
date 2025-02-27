@@ -31,7 +31,7 @@ async fn inner<S: Storage, V: Validator>(context: &Context<S, V>) -> anyhow::Res
         let mut announcement = codec::encode(&block.header)?;
         announcement.extend_from_slice(&block.header.hash()?);
         announcement.extend_from_slice(&block.header.slot.to_le_bytes());
-        context.atx.send(Event::AnnounceBlock(announcement))?;
+        context.tx.send(Event::AnnounceBlock(announcement).into())?;
 
         // TODO: currently we don't have a way to get the finalized header
         // from the runtime. so we update the newly produced block as the

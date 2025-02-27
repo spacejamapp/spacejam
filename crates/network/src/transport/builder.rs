@@ -75,7 +75,7 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(self, tx: mpsc::UnboundedSender<event::peer::Event>) -> anyhow::Result<Transport> {
+    pub fn build(self, tx: mpsc::UnboundedSender<event::Event>) -> anyhow::Result<Transport> {
         let dns = PeerId::from(self.ed25519.verifying.as_bytes()).to_string();
         let provider = Self::provider();
 

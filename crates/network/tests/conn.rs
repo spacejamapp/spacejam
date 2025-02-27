@@ -8,7 +8,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{mpsc, RwLock};
 
 /// Test Node
 pub struct Node {
@@ -42,21 +42,15 @@ impl Node {
         metrics: Metrics,
         keypair: ed25519::KeyPair,
     ) -> (Arc<Self>, Handle<Self>) {
-        let (atx, arx) = mpsc::unbounded_channel();
-        let (ptx, prx) = mpsc::unbounded_channel();
-        let manager = Arc::new(RwLock::new(Manager::new(
-            broadcast::channel(256).0,
-            atx,
-            ptx,
-        )));
+        let (tx, rx) = mpsc::unbounded_channel();
+        let manager = Arc::new(RwLock::new(Manager::new(tx)));
         let node = Arc::new(Self {
             metrics,
             manager,
             keypair,
         });
         let handle = Handle {
-            arx,
-            prx,
+            rx,
             context: node.clone(),
         };
 
@@ -121,7 +115,7 @@ async fn connections() {
             loop {
                 if let Some(conn) = alice.metrics().conn.get(&peer_ref) {
                     if conn.get() == Peer::established() {
-                        // break;
+                        break;
                     }
                 }
 

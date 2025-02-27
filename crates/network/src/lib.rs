@@ -29,7 +29,7 @@ pub async fn init<C: Context + Send + Sync + 'static>(
     let transport = Transport::builder(context.keypair().unwrap_or_default())
         .address(config.address)
         .genesis(config.genesis)
-        .build(context.manager().read().await.ptx.clone())?;
+        .build(context.manager().read().await.tx.clone())?;
 
     // Spawn a task to handle bootstrap dialing
     let bootstrap = config.bootstrap;

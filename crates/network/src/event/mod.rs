@@ -4,12 +4,12 @@ use crate::Context;
 use std::sync::Arc;
 
 pub mod action;
-pub mod peer;
+pub mod conn;
 
 /// Events for the network.
 pub enum Event {
     /// A peer event.
-    Peer(peer::Event),
+    Peer(conn::Event),
 
     /// An action.
     Action(action::Event),
