@@ -1,6 +1,6 @@
 //! Block announcement stream.
 
-use crate::{event::action, peer::Manager, Context};
+use crate::{event::action, peer::Manager, Context, Network};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, OpaqueHash, TimeSlot};
 use std::sync::Arc;
@@ -9,14 +9,14 @@ use tokio::sync::RwLock;
 /// Send a block announcement.
 ///
 /// TODO: considering timedout?
-pub async fn send<C: Context>(
+pub async fn send<C: Context + Send + Sync + 'static>(
     peer: [u8; 32],
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     // 1. send the handshake
-    let handshake = self::handshake(context.clone()).await?;
+    let handshake = self::handshake(context.context.clone()).await?;
     let mut buf = vec![0];
     buf.extend_from_slice(&handshake);
     send.write_all(&buf).await?;
@@ -26,36 +26,38 @@ pub async fn send<C: Context>(
     reader.read().await?;
 
     // 3. announcement loop
-    let manager = context.manager();
-    self::announce(send, manager).await;
+    self::announce(send, context.manager.clone()).await;
     Ok(())
 }
 
 /// Receive a block announcement
-pub async fn recv<C: Context>(
+pub async fn recv<C: Context + Send + Sync + 'static>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     // 1. read the grandpa data
     let mut reader = GrandpaReader::new(&mut recv);
     reader.read().await?;
 
     // 2. send the handshake data.
-    let handshake = self::handshake(context.clone()).await?;
+    let handshake = self::handshake(context.context.clone()).await?;
     send.write_all(&handshake).await?;
 
     // 3. announcement loop.
-    let manager = context.manager();
-    self::announce(send, manager).await;
+    self::announce(send, context.manager.clone()).await;
     Ok(())
 }
 
 /// handle received blocks
 ///
 /// TODO: we need to peer id here to do the audit as well
-async fn import<C: Context>(peer: [u8; 32], mut recv: RecvStream, context: Arc<C>) {
-    let manager = context.manager();
+async fn import<C: Context + Send + Sync + 'static>(
+    peer: [u8; 32],
+    mut recv: RecvStream,
+    context: Network<C>,
+) {
+    let manager = context.manager.read().await;
     loop {
         let mut buf = vec![];
         if let Err(e) = recv.read(&mut buf).await {
@@ -74,7 +76,13 @@ async fn import<C: Context>(peer: [u8; 32], mut recv: RecvStream, context: Arc<C
         // - or import the requested blocks and calculate the states locally?
         // - maybe this should be configurable? or we need to double check the state each time
         // we have a calculation on a new block.
-        if context.grandpa().read().await.child(header, hash, slot) {
+        if context
+            .context
+            .grandpa()
+            .read()
+            .await
+            .child(header, hash, slot)
+        {
             // TODO: do sth here depend on the current node configuration.
             //
             // - import to the recent history

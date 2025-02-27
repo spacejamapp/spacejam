@@ -25,7 +25,7 @@ impl Spawn {
     >(
         &self,
     ) -> anyhow::Result<()> {
-        let handle = self.config.clone().build::<S, V>().await?;
-        node::start(handle, self.metrics).await
+        let (network, rx) = self.config.clone().build::<S, V>().await?;
+        node::start(network, rx, self.metrics).await
     }
 }

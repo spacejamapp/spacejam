@@ -1,8 +1,7 @@
 //! Events for peers.
 
-use crate::{peer::Address, stream, Context};
+use crate::{peer::Address, stream, Context, Network};
 use quinn::Connection;
-use std::sync::Arc;
 
 /// Events for peers.
 pub enum Event {
@@ -35,9 +34,9 @@ impl Event {
     /// Handle the event.
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
-        context: Arc<C>,
+        context: Network<C>,
     ) -> anyhow::Result<()> {
-        let manager = context.manager();
+        let manager = context.manager.clone();
 
         match self {
             Self::Connected {
@@ -53,6 +52,7 @@ impl Event {
 
                 // 2. establish the connection in the metrics
                 context
+                    .context
                     .metrics()
                     .conn
                     .establish_connection(address.to_string());
@@ -82,7 +82,11 @@ impl Event {
                 tracing::debug!("disconnected from {}", address);
 
                 // 2. close the connection in the metrics
-                context.metrics().conn.close_connection(address.to_string());
+                context
+                    .context
+                    .metrics()
+                    .conn
+                    .close_connection(address.to_string());
             }
         }
 
@@ -90,8 +94,12 @@ impl Event {
     }
 
     /// Serve a connection.
-    async fn serve<C: Context>(peer: [u8; 32], conn: Connection, context: Arc<C>) {
-        let tx = context.manager().read().await.tx.clone();
+    async fn serve<C: Context + Send + Sync + 'static>(
+        peer: [u8; 32],
+        conn: Connection,
+        context: Network<C>,
+    ) {
+        let tx = context.context.tx().clone();
         while let Ok((send, recv)) = conn.accept_bi().await {
             if let Err(e) = stream::recv(peer, send, recv, context.clone()).await {
                 tracing::warn!("failed to handle stream: {e:?}");

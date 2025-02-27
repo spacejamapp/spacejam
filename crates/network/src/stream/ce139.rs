@@ -1,23 +1,22 @@
 //! Segment shard request stream.
 
-use crate::Context;
+use crate::{Context, Network};
 use quinn::{RecvStream, SendStream};
-use std::sync::Arc;
 
 /// Send a segment shard request.
-pub async fn send<C: Context>(
+pub async fn send<C: Context + Send + Sync + 'static>(
     send: SendStream,
     recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }
 
 /// Receive a segment shard request.
-pub async fn recv<C: Context>(
+pub async fn recv<C: Context + Send + Sync + 'static>(
     send: SendStream,
     recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }

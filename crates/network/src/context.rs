@@ -1,11 +1,11 @@
 //! Context for the network.
 
-use crate::peer::Manager;
 use crypto::ed25519;
 use metrics::Metrics;
 use score::runtime::Grandpa;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::mpsc;
+
+use crate::Event;
 
 /// Context for the network.
 #[allow(async_fn_in_trait)]
@@ -21,6 +21,6 @@ pub trait Context {
     /// Announce the handshake message.
     fn grandpa(&self) -> Grandpa;
 
-    /// Get the manager of the network.
-    fn manager(&self) -> Arc<RwLock<Manager>>;
+    /// Get the event sender of the network.
+    fn tx(&self) -> mpsc::UnboundedSender<Event>;
 }

@@ -2,19 +2,19 @@
 
 use crypto::ed25519;
 use metrics::{Metrics, Peer};
-use network::{peer::PeerId, Config};
-use spacejam_network::{self as network, Address, Context, Handle, Manager};
+use network::{peer::PeerId, transport, Address, Config, Context, Event, Network};
+use spacejam_network::{self as network};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc;
 
 /// Test Node
 pub struct Node {
-    manager: Arc<RwLock<Manager>>,
     metrics: Metrics,
     keypair: ed25519::KeyPair,
+    tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Context for Node {
@@ -30,8 +30,8 @@ impl Context for Node {
         Arc::new(Default::default())
     }
 
-    fn manager(&self) -> Arc<tokio::sync::RwLock<spacejam_network::Manager>> {
-        self.manager.clone()
+    fn tx(&self) -> mpsc::UnboundedSender<Event> {
+        self.tx.clone()
     }
 }
 
@@ -41,23 +41,20 @@ impl Node {
         config: Config,
         metrics: Metrics,
         keypair: ed25519::KeyPair,
-    ) -> (Arc<Self>, Handle<Self>) {
+    ) -> (Network<Self>, mpsc::UnboundedReceiver<Event>) {
         let (tx, rx) = mpsc::unbounded_channel();
-        let manager = Arc::new(RwLock::new(Manager::new(tx)));
         let node = Arc::new(Self {
             metrics,
-            manager,
             keypair,
+            tx,
         });
-        let handle = Handle {
-            rx,
-            context: node.clone(),
-        };
 
-        network::init(config, node.clone())
-            .await
-            .expect("failed to init network");
-        (node, handle)
+        (
+            Network::new(config, node.clone())
+                .await
+                .expect("failed to init network"),
+            rx,
+        )
     }
 }
 
@@ -77,14 +74,15 @@ async fn connections() {
         Address::new(
             SocketAddr::new(
                 localhost.into(),
-                network::pick().expect("failed to pick port"),
+                transport::pick().expect("failed to pick port"),
             ),
             PeerId::from(key.verifying.as_bytes()),
         )
     });
 
     // create nodes
-    let (alice, ahandle) = Node::new(
+
+    let (alice, alice_rx) = Node::new(
         Config {
             address: aaddress.addr.clone(),
             ..Default::default()
@@ -93,7 +91,7 @@ async fn connections() {
         akey,
     )
     .await;
-    let (_, bhandle) = Node::new(
+    let (bob, bob_rx) = Node::new(
         Config {
             address: baddress.addr.clone(),
             bootstrap: vec![aaddress],
@@ -104,16 +102,17 @@ async fn connections() {
     )
     .await;
 
+    let actx = alice.context.clone();
     tokio::select! {
-        r = ahandle.spawn() => r,
-        r = bhandle.spawn() => r,
+        r = alice.spawn(alice_rx) => r,
+        r = bob.spawn(bob_rx) => r,
         _ = async {
             let peer_ref = Peer {
                 peer: baddress.to_string(),
             };
 
             loop {
-                if let Some(conn) = alice.metrics().conn.get(&peer_ref) {
+                if let Some(conn) = actx.metrics().conn.get(&peer_ref) {
                     if conn.get() == Peer::established() {
                         break;
                     }

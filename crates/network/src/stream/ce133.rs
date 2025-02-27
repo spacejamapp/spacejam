@@ -1,23 +1,22 @@
 //! Work package submission stream.
 
-use crate::Context;
+use crate::{Context, Network};
 use quinn::{RecvStream, SendStream};
-use std::sync::Arc;
 
 /// Send a work package submission.
-pub async fn send<C: Context>(
+pub async fn send<C: Context + Send + Sync + 'static>(
     send: SendStream,
     recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }
 
 /// Receive a work package submission.
-pub async fn recv<C: Context>(
+pub async fn recv<C: Context + Send + Sync + 'static>(
     send: SendStream,
     recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }

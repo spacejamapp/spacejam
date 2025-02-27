@@ -1,8 +1,7 @@
 //! Internal actions for the network.
 
-use crate::context::Context;
+use crate::{context::Context, Network};
 use score::OpaqueHash;
-use std::sync::Arc;
 
 /// Internal actions for the network.
 ///
@@ -30,13 +29,13 @@ impl Event {
     /// Handle the action event.
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
-        context: Arc<C>,
+        context: Network<C>,
     ) -> anyhow::Result<()> {
-        let manager = context.manager();
+        let tx = context.manager.read().await.btx.clone();
 
         match self {
             Self::AnnounceBlock(announce) => {
-                let count = manager.write().await.btx.send(announce.clone())?;
+                let count = tx.send(announce.clone())?;
                 tracing::trace!("Announced block to {count} peers");
                 Ok(())
             }

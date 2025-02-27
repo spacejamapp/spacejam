@@ -1,8 +1,9 @@
 //! Node for SpaceJam
 
-use network::Handle;
+use network::{Event, Network};
 use score::runtime::{Storage, Validator};
 use std::net::SocketAddr;
+use tokio::sync::mpsc;
 pub use {builder::Builder, context::Context, genesis::Genesis};
 
 mod author;
@@ -15,15 +16,16 @@ pub mod metrics;
 ///
 /// TODO: make metrics service out of this function?
 pub async fn start<S: Storage + Send + Sync + 'static, V: Validator + Send + Sync + 'static>(
-    handle: Handle<Context<S, V>>,
+    network: Network<Context<S, V>>,
+    rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
 ) -> anyhow::Result<()> {
-    let context = handle.context.clone();
+    let context = network.context.clone();
 
     tokio::select! {
         _ = metrics::serve(metrics, context.metrics.clone()) => {}
         _ = author::run(&context) => {}
-        _ = handle.spawn() => {}
+        _ = network.spawn(rx) => {}
         _ = tokio::signal::ctrl_c() => {}
     }
 

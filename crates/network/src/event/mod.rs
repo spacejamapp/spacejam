@@ -1,7 +1,6 @@
 //! Events for the network.
 
-use crate::Context;
-use std::sync::Arc;
+use crate::{Context, Network};
 
 pub mod action;
 pub mod conn;
@@ -19,18 +18,11 @@ impl Event {
     /// Handle the event.
     pub async fn handle<C: Context + Send + Sync + 'static>(
         &self,
-        context: Arc<C>,
+        context: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
             Self::Peer(e) => e.handle(context).await,
             Self::Action(a) => a.handle(context).await,
-        }
-    }
-
-    /// Handle the event without checking for errors.
-    pub async fn handle_unchecked<C: Context + Send + Sync + 'static>(&self, context: Arc<C>) {
-        if let Err(e) = self.handle(context).await {
-            tracing::error!("{e:?}");
         }
     }
 }

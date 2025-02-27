@@ -6,7 +6,7 @@ use metrics::Metrics;
 use network::{event::Event, peer::PeerId, Manager};
 use score::runtime::{Runtime, Storage, Validator};
 use std::sync::Arc;
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{mpsc, RwLock};
 
 /// The context for SpaceJam
 ///
@@ -62,7 +62,7 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         self.runtime.grandpa.clone()
     }
 
-    fn manager(&self) -> Arc<RwLock<Manager>> {
-        self.manager.clone()
+    fn tx(&self) -> mpsc::UnboundedSender<Event> {
+        self.tx.clone()
     }
 }

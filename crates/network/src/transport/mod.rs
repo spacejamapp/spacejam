@@ -155,3 +155,12 @@ pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
 
     Verifier::extract_public_key(&cert).map_err(|e| anyhow::anyhow!("{e:?}"))
 }
+
+/// Pick a random port.
+pub fn pick() -> std::io::Result<u16> {
+    use std::net::UdpSocket;
+
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    let addr = socket.local_addr()?;
+    Ok(addr.port())
+}

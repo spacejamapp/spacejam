@@ -3,9 +3,8 @@
 //! Functional handlers for streams.
 #![allow(unused)]
 
-use crate::Context;
+use crate::{Context, Network};
 use quinn::{RecvStream, SendStream};
-use std::sync::Arc;
 
 mod ce128;
 mod ce129;
@@ -27,11 +26,11 @@ mod ce145;
 pub mod up0;
 
 /// Handle an incoming stream.
-pub async fn recv<C: Context>(
+pub async fn recv<C: Context + Send + Sync + 'static>(
     peer: [u8; 32],
     send: SendStream,
     mut recv: RecvStream,
-    context: Arc<C>,
+    context: Network<C>,
 ) -> anyhow::Result<()> {
     let mut buf = [0; 1];
     recv.read_exact(&mut buf).await?;
