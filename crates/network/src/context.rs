@@ -10,13 +10,13 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 /// Context for the network.
 #[allow(async_fn_in_trait)]
 pub trait Context {
-    /// Get the metrics of the node.
-    fn metrics(&self) -> &Metrics;
-
     /// Get the keypair of the p2p network.
     fn keypair(&self) -> Option<ed25519::KeyPair> {
         None
     }
+
+    /// Get the metrics of the node.
+    fn metrics(&self) -> &Metrics;
 
     /// Announce the handshake message.
     fn grandpa(&self) -> Grandpa;
@@ -38,6 +38,7 @@ impl Context for Metrics {
         Arc::new(RwLock::new(Manager {
             conns: HashMap::new(),
             btx: broadcast::channel(256).0,
+            atx: mpsc::unbounded_channel().0,
             ptx: mpsc::unbounded_channel().0,
         }))
     }

@@ -1,6 +1,6 @@
 //! Block announcement stream.
 
-use crate::{peer::Manager, Context};
+use crate::{event::action, peer::Manager, Context};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, OpaqueHash, TimeSlot};
 use std::sync::Arc;
@@ -10,10 +10,10 @@ use tokio::sync::RwLock;
 ///
 /// TODO: considering timedout?
 pub async fn send<C: Context>(
+    peer: [u8; 32],
     mut send: SendStream,
     mut recv: RecvStream,
     context: Arc<C>,
-    manager: Arc<RwLock<Manager>>,
 ) -> anyhow::Result<()> {
     // 1. send the handshake
     let handshake = self::handshake(context.clone()).await?;
@@ -26,7 +26,8 @@ pub async fn send<C: Context>(
     recv.read(&mut buf).await?;
 
     // 3. announcement loop
-    self::announce(send, manager.clone()).await;
+    let manager = context.manager();
+    self::announce(send, manager).await;
     Ok(())
 }
 
@@ -35,7 +36,6 @@ pub async fn recv<C: Context>(
     mut send: SendStream,
     mut recv: RecvStream,
     context: Arc<C>,
-    manager: Arc<RwLock<Manager>>,
 ) -> anyhow::Result<()> {
     // TODO: check the the buf presents handshake data.
     let mut buf = vec![];
@@ -46,14 +46,16 @@ pub async fn recv<C: Context>(
     send.write_all(&handshake).await?;
 
     // 3. announcement loop.
-    self::announce(send, manager.clone()).await;
+    let manager = context.manager();
+    self::announce(send, manager).await;
     Ok(())
 }
 
 /// handle received blocks
 ///
 /// TODO: we need to peer id here to do the audit as well
-async fn import<C: Context>(mut recv: RecvStream, context: Arc<C>) {
+async fn import<C: Context>(peer: [u8; 32], mut recv: RecvStream, context: Arc<C>) {
+    let manager = context.manager();
     loop {
         let mut buf = vec![];
         if let Err(e) = recv.read(&mut buf).await {
@@ -66,8 +68,17 @@ async fn import<C: Context>(mut recv: RecvStream, context: Arc<C>) {
             continue;
         };
 
-        // TODO: verify the header and then send a
-        // request for the block if needed.
+        // TODO:
+        // - consider adding to recent blocks?
+        // - when to request the following states directly?
+        // - or import the requested blocks and calculate the states locally?
+        // - maybe this should be configurable? or we need to double check the state each time
+        // we have a calculation on a new block.
+        if context.grandpa().read().await.child(header, hash, slot) {
+            // TODO: do sth here depend on the current node configuration.
+        } else {
+            tracing::warn!("invalid block with up0");
+        }
     }
 }
 

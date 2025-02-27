@@ -11,6 +11,8 @@ use score::runtime::{Runtime, Storage, Validator};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
 
+use super::Builder;
+
 /// The context for SpaceJam
 ///
 /// TODO: maybe move this to the core library...
@@ -32,6 +34,11 @@ pub struct Context<S: Storage, V: Validator> {
 ///
 /// TODO: longest chain selection.
 impl<S: Storage, V: Validator> Context<S, V> {
+    /// Create a new context builder
+    pub fn builder() -> Builder {
+        Builder::default()
+    }
+
     /// Create a new context
     pub fn new(
         validator: V,
@@ -42,7 +49,11 @@ impl<S: Storage, V: Validator> Context<S, V> {
         let peer_id = PeerId::from(&validator.ed25519_public_key());
 
         // TODO: make the buffer size configurable
-        let manager = Arc::new(RwLock::new(Manager::new(broadcast::channel(256).0, ptx)));
+        let manager = Arc::new(RwLock::new(Manager::new(
+            broadcast::channel(256).0,
+            atx.clone(),
+            ptx,
+        )));
         Self {
             runtime: Runtime::new(validator, db),
             metrics: Metrics::new(peer_id.as_ref()),

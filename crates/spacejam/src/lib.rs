@@ -1,7 +1,7 @@
 //! The runtime of SpaceJam
 
 pub use {
-    node::{Context, Spacejam},
+    node::Context,
     score::runtime::{Storage, Validator},
 };
 

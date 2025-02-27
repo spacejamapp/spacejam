@@ -1,12 +1,8 @@
 //! Events for peers.
 
-use crate::{
-    peer::{Address, Manager},
-    stream, Context,
-};
+use crate::{peer::Address, stream, Context};
 use quinn::Connection;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
 
 /// Events for peers.
 pub enum Event {
@@ -62,20 +58,14 @@ impl Event {
                     .establish_connection(address.to_string());
 
                 // 3. spawn the connection
-                let ptx = manager.read().await.ptx.clone();
-                tokio::spawn(Self::spawn_conn(
-                    *peer,
-                    connection.clone(),
-                    ptx,
-                    context.clone(),
-                    manager.clone(),
-                ));
+                tokio::spawn(Self::spawn_conn(*peer, connection.clone(), context.clone()));
 
                 // 4. open the up0 stream if needed
                 if *open_up0 {
                     let (send, recv) = connection.open_bi().await?;
+                    let peer = *peer;
                     tokio::spawn(async move {
-                        if let Err(e) = stream::up0::send(send, recv, context, manager).await {
+                        if let Err(e) = stream::up0::send(peer, send, recv, context).await {
                             tracing::warn!("failed to send up0 stream: {e:?} for {address}");
                         }
                     });
@@ -100,15 +90,10 @@ impl Event {
     }
 
     /// Spawn a connection.
-    async fn spawn_conn<C: Context>(
-        peer: [u8; 32],
-        conn: Connection,
-        ptx: mpsc::UnboundedSender<Event>,
-        context: Arc<C>,
-        manager: Arc<RwLock<Manager>>,
-    ) {
+    async fn spawn_conn<C: Context>(peer: [u8; 32], conn: Connection, context: Arc<C>) {
+        let ptx = context.manager().read().await.ptx.clone();
         while let Ok((send, recv)) = conn.accept_bi().await {
-            if let Err(e) = stream::recv(send, recv, context.clone(), manager.clone()).await {
+            if let Err(e) = stream::recv(peer, send, recv, context.clone()).await {
                 tracing::warn!("failed to handle stream: {e:?}");
                 continue;
             }

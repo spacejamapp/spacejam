@@ -2509,6 +2509,7 @@ dependencies = [
  "base32",
  "clap",
  "hex",
+ "jamcodec",
  "quinn",
  "rcgen",
  "rustls",

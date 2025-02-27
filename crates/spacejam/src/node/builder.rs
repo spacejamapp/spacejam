@@ -1,10 +1,7 @@
 //! Configuration for the spacejam node
 
-use crate::{
-    node::{Context, Genesis},
-    Spacejam,
-};
-use network::Network;
+use crate::node::{Context, Genesis};
+use network::Handle;
 use score::{
     block::BlockInfo,
     extrinsic::TicketsOrKeys,
@@ -47,7 +44,7 @@ impl Builder {
         V: Validator + Send + Sync + 'static + TryFrom<String> + 'static,
     >(
         self,
-    ) -> anyhow::Result<Spacejam<S, V>> {
+    ) -> anyhow::Result<Handle<Context<S, V>>> {
         let (atx, arx) = mpsc::unbounded_channel();
         let (ptx, prx) = mpsc::unbounded_channel();
         let validator = V::try_from(self.validator.clone())
@@ -63,8 +60,8 @@ impl Builder {
         //
         // TODO: add config to the inner channel
         let context = Arc::new(context);
-        let network = Network::new(self.network, context.clone(), arx, prx).await?;
-        Ok(Spacejam { context, network })
+        network::init(self.network, context.clone()).await?;
+        Ok(Handle { arx, prx, context })
     }
 
     /// Initialize the storage with genesis data

@@ -1,6 +1,6 @@
 //! Spawn the node
 
-use crate::node::Builder;
+use crate::node::{self, Builder};
 use clap::Parser;
 use score::runtime::{Storage, Validator};
 use std::{net::SocketAddr, path::PathBuf};
@@ -25,7 +25,7 @@ impl Spawn {
     >(
         &self,
     ) -> anyhow::Result<()> {
-        let node = self.config.clone().build::<S, V>().await?;
-        node.start(self.metrics).await
+        let handle = self.config.clone().build::<S, V>().await?;
+        node::start(handle, self.metrics).await
     }
 }

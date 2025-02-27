@@ -2,13 +2,70 @@
 
 use crypto::ed25519;
 use metrics::{Metrics, Peer};
-use network::{peer::PeerId, Config, Network};
-use spacejam_network::{self as network, Address};
+use network::{peer::PeerId, Config};
+use spacejam_network::{self as network, Address, Context, Handle, Manager};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc, RwLock};
+
+/// Test Node
+pub struct Node {
+    manager: Arc<RwLock<Manager>>,
+    metrics: Metrics,
+    keypair: ed25519::KeyPair,
+}
+
+impl Context for Node {
+    fn keypair(&self) -> Option<ed25519::KeyPair> {
+        Some(self.keypair.clone())
+    }
+
+    fn metrics(&self) -> &Metrics {
+        &self.metrics
+    }
+
+    fn grandpa(&self) -> score::runtime::Grandpa {
+        Arc::new(Default::default())
+    }
+
+    fn manager(&self) -> Arc<tokio::sync::RwLock<spacejam_network::Manager>> {
+        self.manager.clone()
+    }
+}
+
+impl Node {
+    /// Create a new node
+    pub async fn new(
+        config: Config,
+        metrics: Metrics,
+        keypair: ed25519::KeyPair,
+    ) -> (Arc<Self>, Handle<Self>) {
+        let (atx, arx) = mpsc::unbounded_channel();
+        let (ptx, prx) = mpsc::unbounded_channel();
+        let manager = Arc::new(RwLock::new(Manager::new(
+            broadcast::channel(256).0,
+            atx,
+            ptx,
+        )));
+        let node = Arc::new(Self {
+            metrics,
+            manager,
+            keypair,
+        });
+        let handle = Handle {
+            arx,
+            prx,
+            context: node.clone(),
+        };
+
+        network::init(config, node.clone())
+            .await
+            .expect("failed to init network");
+        (node, handle)
+    }
+}
 
 #[tokio::test]
 async fn connections() {
@@ -17,10 +74,7 @@ async fn connections() {
         .init();
 
     // Create channels with proper senders to keep them alive
-    let (_atx, arx) = mpsc::unbounded_channel();
-    let (_btx, brx) = mpsc::unbounded_channel();
     let localhost = Ipv4Addr::new(127, 0, 0, 1);
-
     let [akey, bkey] = [
         ed25519::KeyPair::from([0; 32]),
         ed25519::KeyPair::from([1; 32]),
@@ -35,45 +89,37 @@ async fn connections() {
         )
     });
 
-    let (_ptx, prx) = mpsc::unbounded_channel();
-    let actx = Arc::new(Metrics::new("Alice"));
-    let alice = Network::new(
+    // create nodes
+    let (alice, ahandle) = Node::new(
         Config {
             address: aaddress.addr.clone(),
             ..Default::default()
         },
-        actx.clone(),
-        arx,
-        prx,
+        Metrics::new("Alice"),
+        akey,
     )
-    .await
-    .expect("failed to create alice");
-
-    let (_ptx, prx) = mpsc::unbounded_channel();
-    let bctx = Arc::new(Metrics::new("Bob"));
-    let bob = Network::new(
+    .await;
+    let (_, bhandle) = Node::new(
         Config {
-            address: baddress.addr,
+            address: baddress.addr.clone(),
             bootstrap: vec![aaddress],
-            genesis: [0; 32],
+            ..Default::default()
         },
-        bctx.clone(),
-        brx,
-        prx,
+        Metrics::new("Bob"),
+        bkey,
     )
-    .await
-    .expect("failed to create bob");
+    .await;
 
     tokio::select! {
-        r = alice.spawn(actx.clone()) => r,
-        r = bob.spawn(bctx.clone()) => r,
+        r = ahandle.spawn() => r,
+        r = bhandle.spawn() => r,
         _ = async {
             let peer_ref = Peer {
                 peer: baddress.to_string(),
             };
 
             loop {
-                if let Some(conn) = actx.conn.get(&peer_ref) {
+                if let Some(conn) = alice.metrics().conn.get(&peer_ref) {
                     if conn.get() == Peer::established() {
                         break;
                     }
