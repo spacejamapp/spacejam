@@ -1,22 +1,22 @@
 //! Audit announcement stream.
 
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 
 /// Send an audit announcement.
-pub async fn send<C: Context + Send + Sync + 'static>(
+pub async fn send<C: score::runtime::Config>(
     send: SendStream,
     recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }
 
 /// Receive an audit announcement.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     send: SendStream,
     recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }

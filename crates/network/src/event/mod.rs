@@ -1,6 +1,6 @@
 //! Events for the network.
 
-use crate::{Context, Network};
+use crate::Network;
 
 pub mod action;
 pub mod conn;
@@ -16,13 +16,13 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
-    pub async fn handle<C: Context + Send + Sync + 'static>(
+    pub async fn handle<C: score::runtime::Config>(
         &self,
-        context: Network<C>,
+        runtime: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
-            Self::Peer(e) => e.handle(context).await,
-            Self::Action(a) => a.handle(context).await,
+            Self::Peer(e) => e.handle(runtime).await,
+            Self::Action(a) => a.handle(runtime).await,
         }
     }
 }

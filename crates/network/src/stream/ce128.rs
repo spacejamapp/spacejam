@@ -2,7 +2,7 @@
 
 use std::mem;
 
-use crate::{Context, Network, RuntimeApi};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 use score::{Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
@@ -26,10 +26,10 @@ pub async fn send(
 }
 
 /// Receive a block request.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let buf = mem::size_of::<Request>();
     let mut buf = vec![0; buf];
@@ -37,7 +37,10 @@ pub async fn recv<C: Context + Send + Sync + 'static>(
 
     // TODO: verify if mem::size_of works here
     let request: Request = codec::decode(&buf[..])?;
-    let blocks = context.context.fetch_blocks(request)?;
+    // let blocks = runtime.runtime.storage.fetch_blocks(request)?;
+    //
+    // TODO: fetch the blocks from the storage
+    let blocks: Vec<Block> = vec![];
     send.write_all(&codec::encode(&blocks)?).await?;
     send.finish();
     Ok(())

@@ -2,11 +2,10 @@
 //!
 //! TODO: implement this after grandpa.
 
-use std::mem;
-
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 /// Send a state request.
 pub async fn send(
@@ -27,16 +26,19 @@ pub async fn send(
 }
 
 /// Receive a state request.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let size = mem::size_of::<Request>();
     let mut buf = vec![0; size];
     recv.read_exact(&mut buf).await?;
     let request: Request = codec::decode(&buf[..])?;
-    let response = context.context.fetch_state(request)?;
+    // let response = runtime.runtime.storage.fetch_state(request)?;
+    //
+    // TODO: fetch the state from the storage
+    let response = Response::default();
     send.write_all(&codec::encode(&response)?).await?;
     send.finish();
     Ok(())

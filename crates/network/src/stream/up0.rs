@@ -1,22 +1,22 @@
 //! Block announcement stream.
 
-use crate::{event::action, peer::Manager, Context, Network};
+use crate::{event::action, peer::Manager, Network};
 use quinn::{RecvStream, SendStream};
-use score::{block::Header, OpaqueHash, TimeSlot};
+use score::{block::Header, runtime::Runtime, OpaqueHash, TimeSlot};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Send a block announcement.
 ///
 /// TODO: considering timedout?
-pub async fn send<C: Context + Send + Sync + 'static>(
+pub async fn send<C: score::runtime::Config>(
     peer: [u8; 32],
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     // 1. send the handshake
-    let handshake = self::handshake(context.context.clone()).await?;
+    let handshake = self::handshake(runtime.runtime.clone()).await?;
     let mut buf = vec![0];
     buf.extend_from_slice(&handshake);
     send.write_all(&buf).await?;
@@ -26,38 +26,38 @@ pub async fn send<C: Context + Send + Sync + 'static>(
     reader.read().await?;
 
     // 3. announcement loop
-    self::announce(send, context.manager.clone()).await;
+    self::announce(send, runtime.manager.clone()).await;
     Ok(())
 }
 
 /// Receive a block announcement
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     // 1. read the grandpa data
     let mut reader = GrandpaReader::new(&mut recv);
     reader.read().await?;
 
     // 2. send the handshake data.
-    let handshake = self::handshake(context.context.clone()).await?;
+    let handshake = self::handshake(runtime.runtime.clone()).await?;
     send.write_all(&handshake).await?;
 
     // 3. announcement loop.
-    self::announce(send, context.manager.clone()).await;
+    self::announce(send, runtime.manager.clone()).await;
     Ok(())
 }
 
 /// handle received blocks
 ///
 /// TODO: we need to peer id here to do the audit as well
-async fn import<C: Context + Send + Sync + 'static>(
+async fn import<C: score::runtime::Config>(
     peer: [u8; 32],
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) {
-    let manager = context.manager.read().await;
+    let manager = runtime.manager.read().await;
     loop {
         let mut buf = vec![];
         if let Err(e) = recv.read(&mut buf).await {
@@ -99,8 +99,8 @@ async fn announce(mut send: SendStream, manager: Arc<RwLock<Manager>>) {
 }
 
 /// Fetch the handshake data from the context.
-async fn handshake<C: Context>(context: Arc<C>) -> anyhow::Result<Vec<u8>> {
-    let grandpa = context.grandpa();
+async fn handshake<C: score::runtime::Config>(runtime: Arc<Runtime<C>>) -> anyhow::Result<Vec<u8>> {
+    let grandpa = runtime.grandpa.read().await;
     let mut handshake = vec![];
     handshake.extend_from_slice(grandpa.head.hash()?.as_ref());
     handshake.extend_from_slice(&grandpa.head.slot.to_le_bytes());

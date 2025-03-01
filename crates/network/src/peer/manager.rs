@@ -1,8 +1,7 @@
 //! Peer manager.
 
-use crate::event::Event;
 use std::collections::HashMap;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 
 /// Peer manager
 pub struct Manager {
@@ -13,23 +12,25 @@ pub struct Manager {
 
     /// Block announcement sender.
     pub btx: broadcast::Sender<Vec<u8>>,
-
-    /// Action sender.
-    pub tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Manager {
     /// Create a new manager.
-    pub fn new(tx: mpsc::UnboundedSender<Event>) -> Self {
+    pub fn new() -> Self {
         Self {
-            conns: HashMap::new(),
+            conns: Default::default(),
             btx: broadcast::channel(256).0,
-            tx,
         }
     }
 
     /// Insert a new connection.
     pub fn insert(&mut self, peer: [u8; 32], conn: quinn::Connection) {
         self.conns.insert(peer, conn);
+    }
+}
+
+impl Default for Manager {
+    fn default() -> Self {
+        Self::new()
     }
 }

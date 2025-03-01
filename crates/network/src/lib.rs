@@ -1,17 +1,18 @@
 //! Network implementation of Spacejam.
 
-use std::sync::Arc;
+use metrics::Metrics;
+use peer::PeerId;
+use score::runtime::{Runtime, Validator};
+use std::{ops::Deref, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 pub use {
     config::Config,
-    context::{Context, RuntimeApi},
     event::Event,
     peer::{Address, Manager},
     transport::{Builder as TransportBuilder, Transport},
 };
 
 mod config;
-mod context;
 pub mod event;
 pub mod peer;
 mod stream;
@@ -21,34 +22,45 @@ pub mod transport;
 pub const PROTOCOL: &str = "jamnp-s";
 
 /// The network of Spacejam.
-pub struct Network<C: Context + Send + Sync + 'static> {
+pub struct Network<C: score::runtime::Config> {
     /// The transport of the network
     pub transport: Transport,
 
     /// The context of the network
-    pub context: Arc<C>,
+    pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
     pub manager: Arc<RwLock<Manager>>,
+
+    /// The metrics of the network
+    pub metrics: Metrics,
 }
 
-impl<C: Context + Send + Sync + 'static> Clone for Network<C> {
+impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
     fn clone(&self) -> Self {
         Self {
             transport: self.transport.clone(),
-            context: self.context.clone(),
+            runtime: self.runtime.clone(),
             manager: self.manager.clone(),
+            metrics: self.metrics.clone(),
         }
     }
 }
 
-impl<C: Context + Send + Sync + 'static> Network<C> {
+impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     /// Create a new network
-    pub async fn new(config: Config, context: Arc<C>) -> anyhow::Result<Self> {
-        let transport = Transport::builder(context.keypair().unwrap_or_default())
+    pub async fn new(
+        config: Config,
+        runtime: Arc<Runtime<C>>,
+        tx: mpsc::UnboundedSender<Event>,
+    ) -> anyhow::Result<Self> {
+        let keypair = runtime.validator.ed25519().unwrap_or_default();
+        let peer_id = PeerId::from(&keypair.verifying.to_bytes());
+        let address = Address::new(config.address, peer_id);
+        let transport = Transport::builder(keypair)
             .address(config.address)
             .genesis(config.genesis)
-            .build(context.tx().clone())?;
+            .build(tx.clone())?;
 
         // Spawn a task to handle bootstrap dialing
         let bootstrap = config.bootstrap;
@@ -66,8 +78,9 @@ impl<C: Context + Send + Sync + 'static> Network<C> {
         transport.clone().spawn().await?;
         Ok(Self {
             transport,
-            manager: Arc::new(RwLock::new(Manager::new(context.tx().clone()))),
-            context,
+            runtime,
+            manager: Arc::new(RwLock::new(Default::default())),
+            metrics: Metrics::new(address.to_string().as_str()),
         })
     }
 
@@ -78,5 +91,13 @@ impl<C: Context + Send + Sync + 'static> Network<C> {
                 tracing::error!("failed to handle event: {e}");
             }
         }
+    }
+}
+
+impl<C: score::runtime::Config> Deref for Network<C> {
+    type Target = Runtime<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.runtime
     }
 }

@@ -1,5 +1,5 @@
 use clap::{ArgAction, CommandFactory, Parser};
-use spacejam::{cmd::Command, storage::sled::Sled, validator::LocalValidator};
+use spacejam::{cmd::Command, Development};
 use tracing_subscriber::EnvFilter;
 
 /// The command line interface for SpaceJam
@@ -34,7 +34,7 @@ async fn main() {
         return;
     };
 
-    if let Err(e) = cmd.run::<Sled, LocalValidator>().await {
+    if let Err(e) = cmd.run::<Development>().await {
         eprintln!("Failed to run spacejam: {e}");
 
         if cfg!(debug_assertions) {

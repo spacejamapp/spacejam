@@ -21,7 +21,7 @@ pub struct Transport {
     pub(crate) endpoint: Endpoint,
 
     /// Event sender.
-    pub(crate) tx: mpsc::UnboundedSender<Event>,
+    pub tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Transport {

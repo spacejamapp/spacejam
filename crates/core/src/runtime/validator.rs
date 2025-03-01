@@ -62,3 +62,47 @@ pub trait Validator {
         Ok(crypto::blake2b(&input))
     }
 }
+
+impl Validator for crypto::ed25519::KeyPair {
+    fn ed25519_public_key(&self) -> Ed25519Public {
+        *self.verifying.as_bytes()
+    }
+
+    fn bls_public_key(&self) -> BlsPublic {
+        [0; 144]
+    }
+
+    fn bandersnatch_public_key(&self) -> BandersnatchPublic {
+        [0; 32]
+    }
+
+    fn bandersnatch_sign(
+        &self,
+        _keys: &[[u8; 32]],
+        _context: &[u8],
+        _message: &[u8],
+    ) -> Result<BandersnatchVrfSignature> {
+        Ok([0; 96])
+    }
+
+    fn bandersnatch_ring_sign(
+        &self,
+        _keys: &[[u8; 32]],
+        _context: &[u8],
+        _message: &[u8],
+    ) -> Result<BandersnatchRingVrfSignature> {
+        Ok([0; 784])
+    }
+
+    fn bandersnatch_output(&self, _message: &[u8]) -> Result<BandersnatchVrfSignature> {
+        Ok([0; 96])
+    }
+
+    fn metadata(&self) -> ValidatorMetadata {
+        [0; 128]
+    }
+
+    fn ed25519(&self) -> Option<crypto::ed25519::KeyPair> {
+        Some(self.clone())
+    }
+}

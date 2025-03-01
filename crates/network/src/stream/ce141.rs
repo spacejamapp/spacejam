@@ -1,6 +1,6 @@
 //! Shard distribution stream.
 
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 use score::{Ed25519Signature, OpaqueHash};
 use serde::{Deserialize, Serialize};
@@ -15,10 +15,10 @@ pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> 
 }
 
 /// Receive a shard distribution.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let request: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
     send.finish();

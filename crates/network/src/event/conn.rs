@@ -1,6 +1,6 @@
 //! Events for peers.
 
-use crate::{peer::Address, stream, Context, Network};
+use crate::{peer::Address, stream, Network};
 use quinn::Connection;
 
 /// Events for peers.
@@ -32,11 +32,11 @@ impl From<Event> for crate::Event {
 
 impl Event {
     /// Handle the event.
-    pub async fn handle<C: Context + Send + Sync + 'static>(
+    pub async fn handle<C: score::runtime::Config>(
         &self,
-        context: Network<C>,
+        runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        let manager = context.manager.clone();
+        let manager = runtime.manager.clone();
 
         match self {
             Self::Connected {
@@ -51,21 +51,20 @@ impl Event {
                 manager.write().await.insert(*peer, connection.clone());
 
                 // 2. establish the connection in the metrics
-                context
-                    .context
-                    .metrics()
+                runtime
+                    .metrics
                     .conn
                     .establish_connection(address.to_string());
 
                 // 3. spawn the connection
-                tokio::spawn(Self::serve(*peer, connection.clone(), context.clone()));
+                tokio::spawn(Self::serve(*peer, connection.clone(), runtime.clone()));
 
                 // 4. open the up0 stream if needed
                 if *open_up0 {
                     let (send, recv) = connection.open_bi().await?;
                     let peer = *peer;
                     tokio::spawn(async move {
-                        if let Err(e) = stream::up0::send(peer, send, recv, context).await {
+                        if let Err(e) = stream::up0::send(peer, send, recv, runtime.clone()).await {
                             tracing::warn!("failed to send up0 stream: {e:?} for {address}");
                         }
                     });
@@ -82,11 +81,7 @@ impl Event {
                 tracing::debug!("disconnected from {}", address);
 
                 // 2. close the connection in the metrics
-                context
-                    .context
-                    .metrics()
-                    .conn
-                    .close_connection(address.to_string());
+                runtime.metrics.conn.close_connection(address.to_string());
             }
         }
 
@@ -94,14 +89,14 @@ impl Event {
     }
 
     /// Serve a connection.
-    async fn serve<C: Context + Send + Sync + 'static>(
+    async fn serve<C: score::runtime::Config>(
         peer: [u8; 32],
         conn: Connection,
-        context: Network<C>,
+        runtime: Network<C>,
     ) {
-        let tx = context.context.tx().clone();
+        let tx = runtime.transport.tx.clone();
         while let Ok((send, recv)) = conn.accept_bi().await {
-            if let Err(e) = stream::recv(peer, send, recv, context.clone()).await {
+            if let Err(e) = stream::recv(peer, send, recv, runtime.clone()).await {
                 tracing::warn!("failed to handle stream: {e:?}");
                 continue;
             }

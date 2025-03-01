@@ -1,6 +1,6 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{stream::ce131, Context, Network};
+use crate::{stream::ce131, Network};
 pub use ce131::Request;
 use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
@@ -22,10 +22,10 @@ pub async fn send(
 }
 
 /// Receive a safrole ticket distribution.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let size = mem::size_of::<Request>();
     let mut buf = vec![0; size];

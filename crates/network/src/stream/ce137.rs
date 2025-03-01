@@ -1,22 +1,22 @@
 //! Shard distribution stream.
 
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 
 /// Send a shard distribution.
-pub async fn send<C: Context + Send + Sync + 'static>(
+pub async fn send<C: score::runtime::Config>(
     send: SendStream,
     recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }
 
 /// Receive a shard distribution.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     send: SendStream,
     recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }

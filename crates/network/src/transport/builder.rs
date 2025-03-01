@@ -134,12 +134,6 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
-
-        let address = crate::Address::new(
-            self.address,
-            PeerId::from(self.ed25519.verifying.as_bytes()),
-        );
-        tracing::info!("listening on {address}");
         Ok(Transport { endpoint, tx })
     }
 

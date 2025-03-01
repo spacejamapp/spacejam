@@ -1,6 +1,6 @@
 //! Work package submission stream.
 
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
 use score::{extrinsic::GuaranteesExtrinsic, service::WorkPackage};
 use serde::{Deserialize, Serialize};
@@ -20,10 +20,10 @@ pub async fn send(
 }
 
 /// Receive a work package submission.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     send: SendStream,
     recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     todo!("decode the extrinsic data of work packages.");
     Ok(())

@@ -1,6 +1,6 @@
 //! Internal actions for the network.
 
-use crate::{context::Context, Network};
+use crate::Network;
 
 /// Internal actions for the network.
 ///
@@ -18,11 +18,11 @@ impl From<Event> for crate::Event {
 
 impl Event {
     /// Handle the action event.
-    pub async fn handle<C: Context + Send + Sync + 'static>(
+    pub async fn handle<C: score::runtime::Config>(
         &self,
-        context: Network<C>,
+        runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        let tx = context.manager.read().await.btx.clone();
+        let tx = runtime.manager.read().await.btx.clone();
 
         match self {
             Self::AnnounceBlock(announce) => {

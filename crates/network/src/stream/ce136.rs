@@ -1,8 +1,8 @@
 //! Work report request stream.
 
-use crate::{Context, Network};
+use crate::Network;
 use quinn::{RecvStream, SendStream};
-use score::OpaqueHash;
+use score::{service::WorkReport, OpaqueHash};
 
 /// Send a work report request.
 pub async fn send(mut send: SendStream, recv: RecvStream, hash: OpaqueHash) -> anyhow::Result<()> {
@@ -14,13 +14,16 @@ pub async fn send(mut send: SendStream, recv: RecvStream, hash: OpaqueHash) -> a
 }
 
 /// Receive a work report request.
-pub async fn recv<C: Context + Send + Sync + 'static>(
+pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
-    context: Network<C>,
+    runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let hash: OpaqueHash = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-    let work_report = context.context.fetch_work_report(hash)?;
+    // let work_report = runtime.runtime.fetch_work_report(hash)?;
+    //
+    // TODO: fetch the work report from the storage
+    let work_report = WorkReport::default();
 
     // send the work report
     let mut buf = vec![];

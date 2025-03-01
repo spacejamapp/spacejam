@@ -1,8 +1,9 @@
 //! Tests for connections.
 
 use crypto::ed25519;
-use metrics::{Metrics, Peer};
-use network::{peer::PeerId, transport, Address, Config, Context, Event, Network, RuntimeApi};
+use metrics::Peer;
+use network::{peer::PeerId, transport, Address, Config, Event, Network};
+use score::runtime;
 use spacejam_network::{self as network};
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -12,43 +13,24 @@ use tokio::sync::mpsc;
 
 /// Test Node
 pub struct Node {
-    metrics: Metrics,
     keypair: ed25519::KeyPair,
-    tx: mpsc::UnboundedSender<Event>,
 }
-
-impl Context for Node {
-    fn keypair(&self) -> Option<ed25519::KeyPair> {
-        Some(self.keypair.clone())
-    }
-
-    fn metrics(&self) -> &Metrics {
-        &self.metrics
-    }
-
-    fn tx(&self) -> mpsc::UnboundedSender<Event> {
-        self.tx.clone()
-    }
-}
-
-impl RuntimeApi for Node {}
 
 impl Node {
     /// Create a new node
     pub async fn new(
         config: Config,
-        metrics: Metrics,
         keypair: ed25519::KeyPair,
-    ) -> (Network<Self>, mpsc::UnboundedReceiver<Event>) {
+    ) -> (Network<()>, mpsc::UnboundedReceiver<Event>) {
         let (tx, rx) = mpsc::unbounded_channel();
-        let node = Arc::new(Self {
-            metrics,
-            keypair,
-            tx,
-        });
+        let node = Arc::new(Self { keypair });
+        let runtime = Arc::new(runtime::Runtime::new(
+            node.keypair.clone(),
+            runtime::storage::MemoryDb::default(),
+        ));
 
         (
-            Network::new(config, node.clone())
+            Network::new(config, runtime, tx)
                 .await
                 .expect("failed to init network"),
             rx,
@@ -85,7 +67,6 @@ async fn connections() {
             address: aaddress.addr.clone(),
             ..Default::default()
         },
-        Metrics::new("Alice"),
         akey,
     )
     .await;
@@ -95,12 +76,11 @@ async fn connections() {
             bootstrap: vec![aaddress],
             ..Default::default()
         },
-        Metrics::new("Bob"),
         bkey,
     )
     .await;
 
-    let actx = alice.context.clone();
+    let ametrics = alice.metrics.clone();
     tokio::select! {
         r = alice.spawn(alice_rx) => r,
         r = bob.spawn(bob_rx) => r,
@@ -110,7 +90,7 @@ async fn connections() {
             };
 
             loop {
-                if let Some(conn) = actx.metrics().conn.get(&peer_ref) {
+                if let Some(conn) = ametrics.conn.get(&peer_ref) {
                     if conn.get() == Peer::established() {
                         break;
                     }
