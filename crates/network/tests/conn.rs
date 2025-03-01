@@ -26,10 +26,6 @@ impl Context for Node {
         &self.metrics
     }
 
-    fn grandpa(&self) -> score::runtime::Grandpa {
-        Arc::new(Default::default())
-    }
-
     fn tx(&self) -> mpsc::UnboundedSender<Event> {
         self.tx.clone()
     }

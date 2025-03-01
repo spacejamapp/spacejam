@@ -17,15 +17,17 @@ pub trait Context: RuntimeApi {
     /// Get the metrics of the node.
     fn metrics(&self) -> &Metrics;
 
-    /// Announce the handshake message.
-    fn grandpa(&self) -> Grandpa;
-
     /// Get the event sender of the network.
     fn tx(&self) -> mpsc::UnboundedSender<Event>;
 }
 
 /// API for the network.
 pub trait RuntimeApi {
+    /// Get the next head of the chain.
+    fn grandpa(&self) -> Grandpa {
+        Default::default()
+    }
+
     /// Fetch blocks from storage.
     fn fetch_blocks(&self, _request: stream::ce128::Request) -> Result<Vec<Block>> {
         Ok(Default::default())

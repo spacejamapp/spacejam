@@ -1,6 +1,11 @@
 //! Spacejam storage interfaces
 
-pub use {block::BlockStorage, branch::Branch, kv::KVStorage, state::Storage};
+pub use {
+    block::BlockStorage,
+    branch::Branch,
+    kv::{KVStorage, MemoryDb},
+    state::Storage,
+};
 
 mod block;
 mod branch;

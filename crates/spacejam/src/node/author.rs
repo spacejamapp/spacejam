@@ -36,7 +36,6 @@ async fn inner<S: Storage, V: Validator>(context: &Context<S, V>) -> anyhow::Res
         // TODO: currently we don't have a way to get the finalized header
         // from the runtime. so we update the newly produced block as the
         // finalized header of the chain.
-        context.runtime.grandpa.write().await.update(block.header);
     }
 
     if let Some(ticket) = ticket {

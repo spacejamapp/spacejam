@@ -5,12 +5,7 @@ use crate::{
     Block,
 };
 use std::sync::atomic::{AtomicU8, Ordering};
-pub use {
-    grandpa::{Grandpa, Head},
-    pool::Pool,
-    storage::Storage,
-    validator::Validator,
-};
+pub use {grandpa::Grandpa, pool::Pool, storage::Storage, validator::Validator};
 
 mod grandpa;
 mod pool;
@@ -29,9 +24,6 @@ pub struct Runtime<S: Storage, V: Validator> {
     /// The extrinsic pool of SpaceJam
     pub pool: Pool,
 
-    /// The head of the chain
-    pub grandpa: Grandpa,
-
     /// The attempt number of the current epoch
     attempt: AtomicU8,
 }
@@ -43,7 +35,6 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
             validator,
             storage,
             pool: Default::default(),
-            grandpa: Default::default(),
             attempt: AtomicU8::new(0),
         }
     }

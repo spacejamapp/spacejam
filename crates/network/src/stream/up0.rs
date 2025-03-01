@@ -76,19 +76,13 @@ async fn import<C: Context + Send + Sync + 'static>(
         // - or import the requested blocks and calculate the states locally?
         // - maybe this should be configurable? or we need to double check the state each time
         // we have a calculation on a new block.
-        if context
-            .context
-            .grandpa()
-            .read()
-            .await
-            .child(header, hash, slot)
-        {
+        /* if context.context.grandpa().child(header, hash, slot) {
             // TODO: do sth here depend on the current node configuration.
             //
             // - import to the recent history
         } else {
             tracing::warn!("invalid block with up0");
-        }
+        } */
     }
 }
 
@@ -107,14 +101,13 @@ async fn announce(mut send: SendStream, manager: Arc<RwLock<Manager>>) {
 /// Fetch the handshake data from the context.
 async fn handshake<C: Context>(context: Arc<C>) -> anyhow::Result<Vec<u8>> {
     let grandpa = context.grandpa();
-    let grandpa = grandpa.read().await;
     let mut handshake = vec![];
     handshake.extend_from_slice(grandpa.head.hash()?.as_ref());
     handshake.extend_from_slice(&grandpa.head.slot.to_le_bytes());
     handshake.extend_from_slice(&grandpa.leaves.len().to_le_bytes());
 
     for leaf in grandpa.leaves.iter() {
-        handshake.extend_from_slice(leaf.hash()?.as_ref());
+        handshake.extend_from_slice(leaf.hash.as_ref());
         handshake.extend_from_slice(&leaf.slot.to_le_bytes());
     }
 

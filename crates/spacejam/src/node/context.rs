@@ -58,10 +58,6 @@ impl<S: Storage, V: Validator> network::Context for Context<S, V> {
         self.runtime.validator.ed25519()
     }
 
-    fn grandpa(&self) -> score::runtime::Grandpa {
-        self.runtime.grandpa.clone()
-    }
-
     fn tx(&self) -> mpsc::UnboundedSender<Event> {
         self.tx.clone()
     }
