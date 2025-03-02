@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents a work package in the system.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackage {
     #[json(hex)]
     pub authorization: Vec<u8>,
@@ -64,7 +64,7 @@ pub struct ExtrinsicSpec {
 }
 
 /// Represents an authorizer for a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct Authorizer {
     #[json(hex)]
     pub code_hash: OpaqueHash,

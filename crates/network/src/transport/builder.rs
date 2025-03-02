@@ -1,9 +1,9 @@
 //! network builder.
 
 use crate::{
+    event,
     peer::PeerId,
     transport::{Transport, Verifier},
-    Event,
 };
 use crypto::ed25519;
 use quinn::{
@@ -75,7 +75,7 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(self, tx: mpsc::UnboundedSender<Event>) -> anyhow::Result<Transport> {
+    pub fn build(self, tx: mpsc::UnboundedSender<event::Event>) -> anyhow::Result<Transport> {
         let dns = PeerId::from(self.ed25519.verifying.as_bytes()).to_string();
         let provider = Self::provider();
 
@@ -134,8 +134,6 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
-
-        tracing::info!("listening on {}:{}", self.address.ip(), self.address.port());
         Ok(Transport { endpoint, tx })
     }
 

@@ -1,13 +1,12 @@
 //! Transport implementation for Spacejam.
 
 use crate::{
-    event::{peer, Event},
+    event::{conn, Event},
     peer::{Address, PeerId},
-    stream::Stream,
 };
 use anyhow::Context;
 use crypto::ed25519;
-use quinn::{crypto::rustls::HandshakeData, Connection, Endpoint};
+use quinn::{crypto::rustls::HandshakeData, Endpoint};
 use tokio::sync::{mpsc, oneshot};
 use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
@@ -22,7 +21,7 @@ pub struct Transport {
     pub(crate) endpoint: Endpoint,
 
     /// Event sender.
-    pub(crate) tx: mpsc::UnboundedSender<Event>,
+    pub tx: mpsc::UnboundedSender<Event>,
 }
 
 impl Transport {
@@ -40,92 +39,59 @@ impl Transport {
             .await
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
-        self.establish(conn)
-    }
-
-    /// Establish a new connection.
-    pub fn establish(&self, conn: quinn::Connection) -> anyhow::Result<()> {
-        let peer = self::alpn(&conn).context("failed to verify alpn")?;
-        let address = Address::new(conn.remote_address(), &peer);
-
         self.tx
             .send(
-                peer::Event::Connected {
-                    address: address.clone(),
+                conn::Event::Connected {
+                    peer: self::alpn(&conn).context("failed to verify alpn")?,
+                    connection: conn.clone(),
+                    open_up0: true,
                 }
                 .into(),
             )
-            .context("failed to send connected event")?;
-
-        // handle connection
-        let this = self.clone();
-        tokio::spawn(async move {
-            if let Err(e) = this.handle(conn).await {
-                tracing::warn!("failed to handle connection: {e:?}");
-                if let Err(e) = this.tx.send(peer::Event::Closed { address }.into()) {
-                    tracing::warn!("failed to send closed event: {e:?}");
-                }
-            }
-        });
-
-        Ok(())
+            .context("failed to send connected event")
     }
 
     /// Spawn new connections.
-    pub async fn spawn(self) -> anyhow::Result<()> {
+    pub fn spawn(self) -> oneshot::Receiver<()> {
         let (tx, rx) = oneshot::channel();
         tokio::spawn(async move {
             if let Err(e) = tx.send(()) {
                 tracing::warn!("failed to send spawn signal: {e:?}");
             }
 
-            while let Some(conn) = self.accept().await {
-                if let Err(e) = self.establish(conn) {
-                    tracing::warn!("failed to establish connection: {e:?}");
+            loop {
+                let Some(conn) = self.endpoint.accept().await else {
+                    tracing::error!("endpoint is closed");
+                    break;
+                };
+
+                let Ok(conn) = conn
+                    .await
+                    .map_err(|e| tracing::warn!("failed to accept connection: {e:?}"))
+                else {
+                    continue;
+                };
+
+                let Ok(peer) = self::alpn(&conn).map_err(|e| {
+                    tracing::warn!("failed to verify alpn: {e:?}");
+                }) else {
+                    continue;
+                };
+
+                if let Err(e) = self.tx.send(
+                    conn::Event::Connected {
+                        peer,
+                        connection: conn,
+                        open_up0: false,
+                    }
+                    .into(),
+                ) {
+                    tracing::warn!("failed to send connected event: {e:?}");
                 }
             }
-
-            tracing::warn!("transport handler exited");
         });
 
-        rx.await
-            .map_err(|_| anyhow::anyhow!("failed to spawn transport handler"))
-    }
-
-    /// Handle a new connection.
-    ///
-    /// note that all communication happens over bidirectional QUIC streams.
-    async fn handle(&self, conn: quinn::Connection) -> anyhow::Result<()> {
-        while let Ok((send, mut recv)) = conn.accept_bi().await {
-            let stream_id = send.id();
-            tracing::debug!("accepted bi-directional stream {}", stream_id);
-
-            // Read stream type byte.
-            //
-            // e.g. after opening a stream, the stream initiator must send a single
-            // byte identifying the stream kind.
-            let mut buf = [0u8; 1];
-            recv.read_exact(&mut buf).await?;
-            let stream_type = Stream::from(buf[0]);
-            tracing::debug!("received stream type: {:?}", stream_type);
-        }
-
-        Ok(())
-    }
-
-    /// Accept a new connection.
-    ///
-    /// TODO: handle retrying from incoming.
-    #[tracing::instrument(skip_all)]
-    async fn accept(&self) -> Option<Connection> {
-        let incoming = self.endpoint.accept().await?;
-        match incoming.await {
-            Ok(conn) => Some(conn),
-            Err(e) => {
-                tracing::warn!("failed to accept connection: {e:?}");
-                None
-            }
-        }
+        rx
     }
 }
 
@@ -171,7 +137,7 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
 /// Get the peer from the Connection
 ///
 /// Note that the DNS name should be verified by the Verifier.
-fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     let Some(identity) = conn.peer_identity() else {
         anyhow::bail!("no peer identity");
     };
@@ -188,4 +154,13 @@ fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
         EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
 
     Verifier::extract_public_key(&cert).map_err(|e| anyhow::anyhow!("{e:?}"))
+}
+
+/// Pick a random port.
+pub fn pick() -> std::io::Result<u16> {
+    use std::net::UdpSocket;
+
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    let addr = socket.local_addr()?;
+    Ok(addr.port())
 }

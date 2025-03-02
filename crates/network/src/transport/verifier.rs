@@ -1,5 +1,6 @@
 //! QUIC client certificate verifier.
 
+use crate::peer::PeerId;
 use rustls::{
     client::danger::HandshakeSignatureValid,
     client::danger::{ServerCertVerified, ServerCertVerifier},
@@ -8,8 +9,6 @@ use rustls::{
     DigitallySignedStruct, DistinguishedName, SignatureScheme,
 };
 use webpki::{EndEntityCert, KeyUsage};
-
-use crate::peer::PeerId;
 
 /// Verifier for QUIC connections.
 #[derive(Debug)]

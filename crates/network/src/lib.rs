@@ -1,53 +1,66 @@
 //! Network implementation of Spacejam.
 
-use crypto::ed25519;
-use std::sync::Arc;
-use tokio::sync::mpsc;
+use metrics::Metrics;
+use peer::PeerId;
+use score::runtime::{Runtime, Validator};
+use std::{ops::Deref, sync::Arc};
+use tokio::sync::{mpsc, RwLock};
 pub use {
     config::Config,
-    context::Context,
-    event::{Action, Event},
-    peer::Address,
+    event::Event,
+    peer::{Address, Manager},
     transport::{Builder as TransportBuilder, Transport},
 };
 
 mod config;
-mod context;
-mod event;
+pub mod event;
 pub mod peer;
 mod stream;
-mod transport;
+pub mod transport;
 
 /// The network protocol name of Spacejam.
 pub const PROTOCOL: &str = "jamnp-s";
 
-/// Network implementation of Spacejam.
-pub struct Network {
-    /// QUIC transport.
-    _transport: Transport,
+/// The network of Spacejam.
+pub struct Network<C: score::runtime::Config> {
+    /// The transport of the network
+    pub transport: Transport,
 
-    /// Event receiver
-    erx: mpsc::UnboundedReceiver<Event>,
+    /// The context of the network
+    pub runtime: Arc<Runtime<C>>,
 
-    /// Action receiver
-    arx: mpsc::UnboundedReceiver<Action>,
+    /// The manager of the network
+    pub manager: Arc<RwLock<Manager>>,
+
+    /// The metrics of the network
+    pub metrics: Metrics,
 }
 
-impl Network {
-    /// Create a new network.
-    ///
-    /// If the provided keypair is not provided, the node will not
-    /// be a validator.
+impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
+    fn clone(&self) -> Self {
+        Self {
+            transport: self.transport.clone(),
+            runtime: self.runtime.clone(),
+            manager: self.manager.clone(),
+            metrics: self.metrics.clone(),
+        }
+    }
+}
+
+impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
+    /// Create a new network
     pub async fn new(
         config: Config,
-        arx: mpsc::UnboundedReceiver<Action>,
-        keypair: Option<ed25519::KeyPair>,
+        runtime: Arc<Runtime<C>>,
+        tx: mpsc::UnboundedSender<Event>,
     ) -> anyhow::Result<Self> {
-        let (etx, erx) = mpsc::unbounded_channel();
-        let transport = Transport::builder(keypair.unwrap_or_default())
+        let keypair = runtime.validator.ed25519().unwrap_or_default();
+        let peer_id = PeerId::from(&keypair.verifying.to_bytes());
+        let address = Address::new(config.address, peer_id);
+        let transport = Transport::builder(keypair)
             .address(config.address)
             .genesis(config.genesis)
-            .build(etx)?;
+            .build(tx.clone())?;
 
         // Spawn a task to handle bootstrap dialing
         let bootstrap = config.bootstrap;
@@ -58,48 +71,33 @@ impl Network {
                     tracing::warn!("failed to dial bootstrap peer: {e}");
                 }
             }
+        } else {
+            tracing::debug!("no bootstrap peers, skipping");
         }
 
         transport.clone().spawn().await?;
         Ok(Self {
-            _transport: transport,
-            erx,
-            arx,
+            transport,
+            runtime,
+            manager: Arc::new(RwLock::new(Default::default())),
+            metrics: Metrics::new(address.to_string().as_str()),
         })
     }
 
-    /// Spawn the network
-    pub async fn spawn<C: Context + Send + Sync + 'static>(self, context: Arc<C>) {
-        // Spawn the event handling loop
-        let mut arx = self.arx;
-        let mut erx = self.erx;
-
-        loop {
-            let ctx = context.clone();
-            match tokio::select! {
-                Some(act) = arx.recv() => {
-                    Ok::<Event, anyhow::Error>(Event::Action(act))
-                }
-                Some(ev) = erx.recv() => {
-                    Ok::<Event, anyhow::Error>(ev)
-                }
-                else => {
-                    tracing::debug!("all channels closed, terminating event loop");
-                    break;
-                }
-            } {
-                Ok(e) => e.handle_unchecked(ctx),
-                Err(e) => tracing::error!("event handling error: {e:?}"),
+    /// Spawn a task to handle events
+    pub async fn spawn(&self, mut rx: mpsc::UnboundedReceiver<Event>) {
+        while let Some(event) = rx.recv().await {
+            if let Err(e) = event.handle(self.clone()).await {
+                tracing::error!("failed to handle event: {e}");
             }
         }
     }
 }
 
-/// Pick a random port.
-pub fn pick() -> std::io::Result<u16> {
-    use std::net::UdpSocket;
+impl<C: score::runtime::Config> Deref for Network<C> {
+    type Target = Runtime<C>;
 
-    let socket = UdpSocket::bind("0.0.0.0:0")?;
-    let addr = socket.local_addr()?;
-    Ok(addr.port())
+    fn deref(&self) -> &Self::Target {
+        &self.runtime
+    }
 }

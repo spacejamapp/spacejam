@@ -4,38 +4,48 @@ use crate::{
     extrinsic::{TicketBody, TicketEnvelope},
     Block,
 };
-use pool::Pool;
-use std::sync::atomic::{AtomicU8, Ordering};
-pub use {storage::Storage, validator::Validator};
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    Arc,
+};
+use tokio::sync::RwLock;
+pub use {grandpa::Grandpa, pool::Pool, storage::Storage, validator::Validator};
 
+mod grandpa;
 mod pool;
 pub mod storage;
 pub mod tx;
 mod validator;
 
 /// Runtime of SpaceJam
-pub struct Runtime<S: Storage, V: Validator> {
+#[derive(Clone)]
+pub struct Runtime<C: Config> {
     /// The validator of SpaceJam
-    pub validator: V,
+    pub validator: C::Validator,
 
     /// The storage of SpaceJam
-    pub storage: S,
+    pub storage: C::Storage,
 
     /// The extrinsic pool of SpaceJam
     pub pool: Pool,
 
+    /// The grandpa of SpaceJam
+    pub grandpa: Arc<RwLock<Grandpa>>,
+
+    // pub metrics:
     /// The attempt number of the current epoch
-    attempt: AtomicU8,
+    attempt: Arc<AtomicU8>,
 }
 
-impl<S: Storage, V: Validator> Runtime<S, V> {
+impl<C: Config> Runtime<C> {
     /// Create a new runtime
-    pub fn new(validator: V, storage: S) -> Self {
+    pub fn new(validator: C::Validator, storage: C::Storage) -> Self {
         Self {
             validator,
             storage,
             pool: Default::default(),
-            attempt: AtomicU8::new(0),
+            grandpa: Arc::new(RwLock::new(Default::default())),
+            attempt: Arc::new(AtomicU8::new(0)),
         }
     }
 
@@ -126,4 +136,18 @@ impl<S: Storage, V: Validator> Runtime<S, V> {
     pub fn import(&self, block: Vec<u8>) -> anyhow::Result<()> {
         tx::transit(&codec::decode(&block)?, &self.storage, &self.validator)
     }
+}
+
+/// The configuration of the runtime
+pub trait Config: Send + Sync + 'static {
+    /// The storage of the runtime
+    type Storage: Storage + Send + Sync + 'static;
+
+    /// The validator of the runtime
+    type Validator: Validator + Send + Sync + 'static;
+}
+
+impl Config for () {
+    type Storage = storage::MemoryDb;
+    type Validator = crypto::ed25519::KeyPair;
 }

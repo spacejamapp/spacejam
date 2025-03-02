@@ -1,8 +1,7 @@
 //! Peer address.
 
-use serde::{Deserialize, Serialize};
-
 use crate::peer::PeerId;
+use serde::{Deserialize, Serialize};
 use std::{fmt, net::SocketAddr, str::FromStr};
 
 /// Peer address.

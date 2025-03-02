@@ -1,14 +1,11 @@
 //! Configuration for the spacejam node
 
-use crate::{
-    node::{Context, Genesis},
-    Spacejam,
-};
-use network::{Context as _, Network};
+use crate::node::Genesis;
+use network::{Event, Network};
 use score::{
     block::BlockInfo,
     extrinsic::TicketsOrKeys,
-    runtime::{Storage, Validator},
+    runtime::{storage::KVStorage, Runtime},
     safrole::{Safrole, ValidatorData},
     state::key,
     Block, EntropyBuffer,
@@ -42,37 +39,33 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<
-        S: Storage + Send + Sync + 'static + TryFrom<PathBuf, Error = anyhow::Error>,
-        V: Validator + Send + Sync + 'static + TryFrom<String> + 'static,
-    >(
-        self,
-    ) -> anyhow::Result<Spacejam<S, V>> {
+    pub async fn build<C>(self) -> anyhow::Result<(Network<C>, mpsc::UnboundedReceiver<Event>)>
+    where
+        C: score::runtime::Config,
+        C::Validator: TryFrom<String>,
+        C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
+    {
         let (tx, rx) = mpsc::unbounded_channel();
-        let validator = V::try_from(self.validator.clone())
+        let validator = C::Validator::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
-        let context = Context::new(validator, S::try_from(self.db.clone())?, tx);
+        let runtime = Arc::new(Runtime::new(
+            validator,
+            C::Storage::try_from(self.db.clone())?,
+        ));
 
         // Initialize the database
-        if context.runtime.storage.is_empty() {
-            Self::init_storage(&self, &context)?;
+        if KVStorage::is_empty(&runtime.storage) {
+            Self::init_storage(&self, &runtime)?;
         }
 
         // Initialize the network
         //
         // TODO: add config to the inner channel
-        let network = Network::new(self.network, rx, context.keypair()).await?;
-        Ok(Spacejam {
-            context: Arc::new(context),
-            network,
-        })
+        Ok((network::Network::new(self.network, runtime, tx).await?, rx))
     }
 
     /// Initialize the storage with genesis data
-    fn init_storage<S: Storage, V: Validator>(
-        &self,
-        context: &Context<S, V>,
-    ) -> anyhow::Result<()> {
+    fn init_storage<C: score::runtime::Config>(&self, runtime: &Runtime<C>) -> anyhow::Result<()> {
         let genesis = fs::read_to_string(self.genesis.clone())
             .map_err(|_| anyhow::anyhow!("Failed to read genesis file {:?}", self.genesis))?;
         let genesis: Genesis = serde_json::from_str(&genesis)
@@ -81,8 +74,7 @@ impl Builder {
         // insert the genesis block into database
         let block: Block = genesis.block.try_into()?;
         let recent: Vec<BlockInfo> = vec![block.header.into()];
-        context
-            .runtime
+        runtime
             .storage
             .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
 
@@ -93,18 +85,14 @@ impl Builder {
             .map(Json::from_json)
             .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
         let encoded = codec::encode(&validators)?;
-        context
-            .runtime
-            .storage
-            .set(key::CURRENT_VALIDATORS, encoded)?;
+        runtime.storage.set(key::CURRENT_VALIDATORS, encoded)?;
 
         // set up initial safrole state
         let safrole = Safrole {
             series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
             ..Default::default()
         };
-        context
-            .runtime
+        runtime
             .storage
             .set(key::SAFROLE, codec::encode(&safrole)?)?;
 
@@ -112,8 +100,7 @@ impl Builder {
         //
         // TODO: get entropy from the genesis file
         let entropy = EntropyBuffer::default();
-        context
-            .runtime
+        runtime
             .storage
             .set(key::ENTROPY, codec::encode(&entropy)?)?;
 

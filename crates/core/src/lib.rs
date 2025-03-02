@@ -160,3 +160,6 @@ pub type EntropyBuffer = [Entropy; 4];
 
 /// The type for a validator metadata
 pub type ValidatorMetadata = [u8; 128];
+
+/// The config of development
+pub struct Development;
