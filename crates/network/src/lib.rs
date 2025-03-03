@@ -2,10 +2,10 @@
 
 use event::conn;
 use metrics::Metrics;
-use peer::{Connection, PeerId, Pool};
+use peer::PeerId;
 use score::runtime::{Runtime, Validator};
-use std::{ops::Deref, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
     config::Config,
     event::Event,
@@ -31,10 +31,13 @@ pub struct Network<C: score::runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
-    pub pool: Pool,
+    pub pool: Arc<RwLock<HashMap<[u8; 32], quinn::Connection>>>,
 
     /// The metrics of the network
     pub metrics: Metrics,
+
+    /// The announce channel of the network
+    pub announce: broadcast::Sender<Vec<u8>>,
 }
 
 impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
@@ -44,6 +47,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             runtime: self.runtime.clone(),
             pool: self.pool.clone(),
             metrics: self.metrics.clone(),
+            announce: self.announce.clone(),
         }
     }
 }
@@ -82,6 +86,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
             metrics: Metrics::new(address.to_string().as_str()),
+            announce: broadcast::channel(256).0,
         })
     }
 
@@ -95,11 +100,14 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Get a connection from the pool
-    pub(crate) async fn get_conn(&self, peer: [u8; 32]) -> anyhow::Result<Arc<RwLock<Connection>>> {
-        let Some(conn) = self.pool.read().await.get(&peer).map(Clone::clone) else {
+    pub(crate) async fn get_conn(&self, peer: [u8; 32]) -> anyhow::Result<quinn::Connection> {
+        let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
             self.transport
                 .tx
-                .send(crate::Event::Peer(conn::Event::Closed { peer }))?;
+                .send(crate::Event::Peer(conn::Event::Closed {
+                    peer,
+                    reason: "No connection found".to_string(),
+                }))?;
             return Err(anyhow::anyhow!("no connection found for peer: {:?}", peer));
         };
 

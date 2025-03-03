@@ -2,8 +2,6 @@
 
 use crate::{peer::Address, stream, Network};
 use quinn::VarInt;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Events for peers.
 pub enum Event {
@@ -23,6 +21,9 @@ pub enum Event {
     Closed {
         /// The peer id
         peer: [u8; 32],
+
+        /// The reason for the disconnect.
+        reason: String,
     },
 }
 
@@ -50,9 +51,7 @@ impl Event {
                 tracing::debug!("connected to {}", address);
 
                 // 1. insert the connection into the manager
-                pool.write()
-                    .await
-                    .insert(*peer, Arc::new(RwLock::new(connection.clone().into())));
+                pool.write().await.insert(*peer, connection.clone());
 
                 // 2. establish the connection in the metrics
                 runtime
@@ -73,19 +72,18 @@ impl Event {
                     });
                 }
             }
-            Self::Closed { peer } => {
+            Self::Closed { peer, reason } => {
                 // 1. remove the connection from the manager
                 let Some(conn) = pool.write().await.remove(peer) else {
                     tracing::warn!("connection already closed");
                     return Ok(());
                 };
 
-                let address = Address::new(conn.read().await.conn.remote_address(), peer);
+                let address = Address::new(conn.remote_address(), peer);
                 tracing::debug!("disconnected from {}", address);
 
-                let conn = conn.write().await;
                 // TODO: close connection with reason.
-                conn.close(VarInt::from(0_u8), "disconnected".as_bytes());
+                conn.close(VarInt::from(0_u8), reason.as_bytes());
 
                 // 2. close the connection in the metrics
                 runtime.metrics.conn.close_connection(address.to_string());
@@ -101,16 +99,11 @@ impl Event {
         conn: quinn::Connection,
         runtime: Network<C>,
     ) {
-        let tx = runtime.transport.tx.clone();
         while let Ok((send, recv)) = conn.accept_bi().await {
             if let Err(e) = stream::recv(peer, send, recv, runtime.clone()).await {
-                tracing::warn!("failed to handle stream: {e:?}");
+                runtime.transport.close(peer, e.to_string()).await;
                 continue;
             }
-        }
-
-        if let Err(e) = tx.send(Event::Closed { peer }.into()) {
-            tracing::warn!("failed to send closed event: {e:?}");
         }
     }
 }

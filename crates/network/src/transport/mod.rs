@@ -93,6 +93,19 @@ impl Transport {
 
         rx
     }
+
+    /// Close a connection
+    pub async fn close(&self, peer: [u8; 32], reason: String) {
+        if let Err(e) = self
+            .tx
+            .send(crate::Event::Peer(conn::Event::Closed { peer, reason }))
+        {
+            tracing::error!(
+                "failed to send closed event to {}: {e}",
+                PeerId::from(&peer)
+            );
+        }
+    }
 }
 
 /// Verify ALPN after accepting a connection.

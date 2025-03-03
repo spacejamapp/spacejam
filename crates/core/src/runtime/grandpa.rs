@@ -7,6 +7,7 @@
 
 use crate::{block::Header, runtime, Ed25519Public, OpaqueHash, TimeSlot};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use super::Runtime;
@@ -47,7 +48,7 @@ impl Grandpa {
 }
 
 /// The head of the chain
-#[derive(Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Head {
     /// The hash of the head of the chain.
     pub hash: OpaqueHash,
