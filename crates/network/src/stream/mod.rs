@@ -37,7 +37,7 @@ pub async fn recv<C: score::runtime::Config>(
     tracing::trace!("recv stream type: {buf:?}");
 
     match buf[0] {
-        0 => up0::recv(send, recv, runtime).await,
+        0 => up0::recv(peer, send, recv, runtime).await,
         128 => ce128::recv(send, recv, runtime).await,
         129 => ce129::recv(send, recv, runtime).await,
         131 => ce131::recv(send, recv, runtime).await,

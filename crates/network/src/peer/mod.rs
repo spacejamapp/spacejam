@@ -2,10 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
-pub use {address::Address, manager::Manager};
+pub use {
+    address::Address,
+    pool::{Connection, Pool},
+    sync::Sync,
+};
 
 mod address;
-mod manager;
+mod pool;
+mod sync;
 
 /// Peer ID, also known as the DNS name of the peer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

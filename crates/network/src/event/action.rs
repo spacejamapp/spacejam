@@ -20,16 +20,8 @@ impl Event {
     /// Handle the action event.
     pub async fn handle<C: score::runtime::Config>(
         &self,
-        runtime: Network<C>,
+        _runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        let tx = runtime.manager.read().await.btx.clone();
-
-        match self {
-            Self::AnnounceBlock(announce) => {
-                let count = tx.send(announce.clone())?;
-                tracing::trace!("Announced block to {count} peers");
-                Ok(())
-            }
-        }
+        Ok(())
     }
 }

@@ -1,14 +1,15 @@
 //! Network implementation of Spacejam.
 
+use event::conn;
 use metrics::Metrics;
-use peer::PeerId;
+use peer::{Connection, PeerId, Pool};
 use score::runtime::{Runtime, Validator};
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 pub use {
     config::Config,
     event::Event,
-    peer::{Address, Manager},
+    peer::Address,
     transport::{Builder as TransportBuilder, Transport},
 };
 
@@ -30,7 +31,7 @@ pub struct Network<C: score::runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
-    pub manager: Arc<RwLock<Manager>>,
+    pub pool: Pool,
 
     /// The metrics of the network
     pub metrics: Metrics,
@@ -41,7 +42,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
         Self {
             transport: self.transport.clone(),
             runtime: self.runtime.clone(),
-            manager: self.manager.clone(),
+            pool: self.pool.clone(),
             metrics: self.metrics.clone(),
         }
     }
@@ -79,7 +80,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         Ok(Self {
             transport,
             runtime,
-            manager: Arc::new(RwLock::new(Default::default())),
+            pool: Arc::new(RwLock::new(Default::default())),
             metrics: Metrics::new(address.to_string().as_str()),
         })
     }
@@ -91,6 +92,18 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
                 tracing::error!("failed to handle event: {e}");
             }
         }
+    }
+
+    /// Get a connection from the pool
+    pub(crate) async fn get_conn(&self, peer: [u8; 32]) -> anyhow::Result<Arc<RwLock<Connection>>> {
+        let Some(conn) = self.pool.read().await.get(&peer).map(Clone::clone) else {
+            self.transport
+                .tx
+                .send(crate::Event::Peer(conn::Event::Closed { peer }))?;
+            return Err(anyhow::anyhow!("no connection found for peer: {:?}", peer));
+        };
+
+        Ok(conn)
     }
 }
 

@@ -1,7 +1,9 @@
 //! Events for peers.
 
 use crate::{peer::Address, stream, Network};
-use quinn::Connection;
+use quinn::VarInt;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Events for peers.
 pub enum Event {
@@ -11,7 +13,7 @@ pub enum Event {
         peer: [u8; 32],
 
         /// The connection.
-        connection: Connection,
+        connection: quinn::Connection,
 
         /// Whether we should open the up0 stream.
         open_up0: bool,
@@ -36,7 +38,7 @@ impl Event {
         &self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        let manager = runtime.manager.clone();
+        let pool = runtime.pool.clone();
 
         match self {
             Self::Connected {
@@ -48,7 +50,9 @@ impl Event {
                 tracing::debug!("connected to {}", address);
 
                 // 1. insert the connection into the manager
-                manager.write().await.insert(*peer, connection.clone());
+                pool.write()
+                    .await
+                    .insert(*peer, Arc::new(RwLock::new(connection.clone().into())));
 
                 // 2. establish the connection in the metrics
                 runtime
@@ -61,10 +65,9 @@ impl Event {
 
                 // 4. open the up0 stream if needed
                 if *open_up0 {
-                    let (send, recv) = connection.open_bi().await?;
                     let peer = *peer;
                     tokio::spawn(async move {
-                        if let Err(e) = stream::up0::send(peer, send, recv, runtime.clone()).await {
+                        if let Err(e) = stream::up0::send(runtime.clone(), peer).await {
                             tracing::warn!("failed to send up0 stream: {e:?} for {address}");
                         }
                     });
@@ -72,13 +75,17 @@ impl Event {
             }
             Self::Closed { peer } => {
                 // 1. remove the connection from the manager
-                let Some(conn) = manager.write().await.conns.remove(peer) else {
+                let Some(conn) = pool.write().await.remove(peer) else {
                     tracing::warn!("connection already closed");
                     return Ok(());
                 };
 
-                let address = Address::new(conn.remote_address(), peer);
+                let address = Address::new(conn.read().await.conn.remote_address(), peer);
                 tracing::debug!("disconnected from {}", address);
+
+                let conn = conn.write().await;
+                // TODO: close connection with reason.
+                conn.close(VarInt::from(0_u8), "disconnected".as_bytes());
 
                 // 2. close the connection in the metrics
                 runtime.metrics.conn.close_connection(address.to_string());
@@ -91,7 +98,7 @@ impl Event {
     /// Serve a connection.
     async fn serve<C: score::runtime::Config>(
         peer: [u8; 32],
-        conn: Connection,
+        conn: quinn::Connection,
         runtime: Network<C>,
     ) {
         let tx = runtime.transport.tx.clone();

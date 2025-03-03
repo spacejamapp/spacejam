@@ -9,7 +9,12 @@ use std::sync::{
     Arc,
 };
 use tokio::sync::RwLock;
-pub use {grandpa::Grandpa, pool::Pool, storage::Storage, validator::Validator};
+pub use {
+    grandpa::{Grandpa, Head},
+    pool::Pool,
+    storage::Storage,
+    validator::Validator,
+};
 
 mod grandpa;
 mod pool;
