@@ -154,9 +154,15 @@ impl<C: Config> Runtime<C> {
         }))
     }
 
-    /// Import a block
-    pub fn import(&self, block: Vec<u8>) -> anyhow::Result<()> {
-        tx::transit(&codec::decode(&block)?, &self.storage, &self.validator)
+    /// Finalize blocks
+    pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
+        // 1. transit the global state
+        tx::transit(block, &self.storage, &self.validator)?;
+
+        // 2. update the grandpa state
+        *self.grandpa.write().await = Grandpa::new(&self.storage)?;
+
+        Ok(())
     }
 }
 

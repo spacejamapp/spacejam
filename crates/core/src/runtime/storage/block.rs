@@ -28,6 +28,19 @@ pub trait BlockStorage: KVStorage {
         Ok(())
     }
 
+    /// Fetch the blocks
+    fn fetch_blocks(&self, slots: &[TimeSlot]) -> Result<Vec<Block>> {
+        let keys = slots
+            .iter()
+            .map(|slot| [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat())
+            .collect::<Vec<_>>();
+
+        self.batch_read(keys)?
+            .into_iter()
+            .map(|(_, value)| codec::decode(&value).map_err(Into::into))
+            .collect::<Result<Vec<_>>>()
+    }
+
     /// Drop the blocks
     fn drop_blocks(&self, hashes: &[OpaqueHash]) -> Result<()> {
         for hash in hashes {

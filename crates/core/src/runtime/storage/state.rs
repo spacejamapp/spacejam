@@ -3,7 +3,7 @@
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
-    runtime::storage::{branch, Branch, KVStorage},
+    runtime::storage::KVStorage,
     safrole::{Safrole, ValidatorData},
     service::{ServiceAccountState, ServiceIndex, WorkReport},
     state::{account, key, State},
@@ -17,28 +17,7 @@ use anyhow::{Context, Result};
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage: KVStorage + Sized {
-    /// Set the current branch of the storage
-    ///
-    /// TODO: support jump block, validate history blocks before
-    /// switching to a new branch, if the target branch doesn not
-    /// exists, we iter the history branch to find the parent of
-    /// the target branch and checkout.
-    fn checkout(&self, branch: OpaqueHash) -> Branch<Self> {
-        Branch::new(self, branch)
-    }
-
-    /// Drop the target branch of the storage
-    fn drop_branch(&mut self, branch: OpaqueHash) -> Result<()> {
-        let mut prefix = branch::BRANCH_PREFIX.to_vec();
-        prefix.extend_from_slice(&branch);
-
-        while let Some(Ok((k, _))) = self.prefix_iter(&prefix)?.next() {
-            self.remove(k)?;
-        }
-        Ok(())
-    }
-
+pub trait Storage: KVStorage {
     /// Batch read a set of key-value pairs from the storage
     ///
     /// TODO: rename this method to something else since this for
@@ -51,14 +30,7 @@ pub trait Storage: KVStorage + Sized {
             let mut count = 0;
             while let Some(Ok((key, value))) = storage_iter.next() {
                 let mut hkey = [0; 32];
-                if key.len() == branch::MAIN_KEY_LENGTH {
-                    hkey.copy_from_slice(&key);
-                } else if key.len() == branch::BRANCH_KEY_LENGTH {
-                    hkey.copy_from_slice(&key[6..38]);
-                } else {
-                    anyhow::bail!("invalid key length: {}", key.len());
-                }
-
+                hkey.copy_from_slice(&key);
                 kvs.push((hkey, value));
                 count += 1;
             }
@@ -78,23 +50,28 @@ pub trait Storage: KVStorage + Sized {
     fn state(&self) -> Result<State> {
         let mut state = State::default();
         let data: Vec<Vec<u8>> = self
-            .batch_read(vec![
-                key::AUTHORIZATION_POOLS,
-                key::AUTHORIZATION_QUEUE,
-                key::RECENT_BLOCKS,
-                key::SAFROLE,
-                key::DISPUTES,
-                key::ENTROPY,
-                key::NEXT_VALIDATORS,
-                key::CURRENT_VALIDATORS,
-                key::PREVIOUS_VALIDATORS,
-                key::PENDING_REPORTS,
-                key::TIMESLOT,
-                key::PRIVILEGED_SERVICE,
-                key::STATISTICS,
-                key::ACCUMULATION_QUEUE,
-                key::ACCUMULATION_HISTORY,
-            ])?
+            .batch_read(
+                vec![
+                    key::AUTHORIZATION_POOLS,
+                    key::AUTHORIZATION_QUEUE,
+                    key::RECENT_BLOCKS,
+                    key::SAFROLE,
+                    key::DISPUTES,
+                    key::ENTROPY,
+                    key::NEXT_VALIDATORS,
+                    key::CURRENT_VALIDATORS,
+                    key::PREVIOUS_VALIDATORS,
+                    key::PENDING_REPORTS,
+                    key::TIMESLOT,
+                    key::PRIVILEGED_SERVICE,
+                    key::STATISTICS,
+                    key::ACCUMULATION_QUEUE,
+                    key::ACCUMULATION_HISTORY,
+                ]
+                .into_iter()
+                .map(|k| k.to_vec())
+                .collect::<Vec<_>>(),
+            )?
             .into_iter()
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
@@ -149,28 +126,6 @@ pub trait Storage: KVStorage + Sized {
         }
 
         Ok(crypto::merkle::trie(&kvs, 0))
-    }
-
-    /// Finalize a branch
-    ///
-    /// A branch contains the diff of the state introduced in a block, so we need to
-    /// apply it to the current state to get the final state.
-    fn finalize(&self, branch: OpaqueHash) -> Result<()> {
-        let mut prefix = branch::BRANCH_PREFIX.to_vec();
-        prefix.extend_from_slice(&branch);
-
-        // TODO: use transaction to reduce I/O & make this operations atomic.
-        let mut storage_iter = self.prefix_iter(&prefix)?;
-        while let Some(Ok((key, value))) = storage_iter.next() {
-            if key.len() != 70 {
-                anyhow::bail!("invalid key length: {}", key.len());
-            }
-
-            self.set(&key[38..], value)?;
-
-            // TODO: maybe we can remove the diff after 15 blocks?
-        }
-        Ok(())
     }
 
     /// Fetch the authorization pools from the storage

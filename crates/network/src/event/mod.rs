@@ -1,14 +1,22 @@
 //! Events for peers.
 
-use crate::Network;
+use crate::{stream, Network};
 
-mod peer;
+mod conn;
 
 /// Events for peers.
 pub enum Event {
     /// Announce a block.
     AnnounceBlock(Vec<u8>),
 
+    /// Request blocks.
+    RequestBlock {
+        /// The connection.
+        conn: quinn::Connection,
+
+        /// The data.
+        data: stream::ce128::Request,
+    },
     /// A new peer has connected.
     Connected {
         /// The peer's public key.
@@ -20,7 +28,6 @@ pub enum Event {
         /// Whether the connection is outgoing.
         outgoing: bool,
     },
-
     /// A peer has disconnected.
     Closed {
         /// The peer id
@@ -41,15 +48,24 @@ impl Event {
             Self::AnnounceBlock(announcement) => {
                 runtime.announce.send(announcement.clone())?;
             }
+            Self::RequestBlock { conn, data } => {
+                let blocks = stream::ce128::send(conn.clone(), data.clone()).await?;
+                for block in blocks {
+                    if let Err(e) = runtime.finalize(&block).await {
+                        tracing::error!("failed to finalize block#{}: {}", block.header.slot, e);
+                        break;
+                    }
+                }
+            }
             Self::Connected {
                 peer,
                 connection,
                 outgoing,
             } => {
-                peer::connected(runtime, *peer, connection, *outgoing).await;
+                conn::connected(runtime, *peer, connection, *outgoing).await;
             }
             Self::Closed { peer, reason } => {
-                peer::closed(runtime, *peer, reason.clone()).await?;
+                conn::closed(runtime, *peer, reason.clone()).await?;
             }
         }
 

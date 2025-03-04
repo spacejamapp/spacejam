@@ -1,6 +1,6 @@
 //! Handshake handler
 
-use crate::Network;
+use crate::{stream::ce128, Event, Network};
 use quinn::{RecvStream, SendStream};
 use score::{
     runtime::{storage::BlockStorage, Config, Head, Storage},
@@ -55,7 +55,10 @@ impl Handshake {
     /// Verify the sync information.
     ///
     /// Mainly for verifying if the remote peer is on the same chain.
-    pub async fn verify<C: Config>(&self, network: &Network<C>) -> anyhow::Result<()> {
+    pub async fn verify<C: Config>(
+        &self,
+        network: &Network<C>,
+    ) -> anyhow::Result<Option<ce128::Request>> {
         let finalized = network.storage.get_finalized()?;
 
         // verify if the remote peer is on the same chain.
@@ -82,9 +85,14 @@ impl Handshake {
 
         // request the missing blocks
         if finalized.slot < self.head.slot {
-            // TODO: queue the missing blocks
+            let request = ce128::Request {
+                hash: finalized.hash,
+                direction: 0,
+                maximum: self.head.slot - finalized.slot,
+            };
+            return Ok(Some(request));
         }
 
-        Ok(())
+        Ok(None)
     }
 }

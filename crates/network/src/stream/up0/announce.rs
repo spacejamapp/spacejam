@@ -38,15 +38,11 @@ pub async fn send<C: score::runtime::Config>(
         let handshake = handshake.read().await;
 
         // 1. A descendant of the block is announced instead of the block itself.
-        //
-        // TODO: grandchild, etc. should also be handled.
         if handshake.head.slot > head.slot {
             continue;
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        //
-        // TODO: grandchild, etc. should also be handled.
         if header.parent != handshake.head.hash {
             continue;
         }

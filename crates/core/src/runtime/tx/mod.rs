@@ -1,5 +1,7 @@
 //! Block sync validation
 
+use std::collections::HashMap;
+
 use crate::{
     block::History,
     runtime::{Storage, Validator},
@@ -17,9 +19,8 @@ pub mod ticket;
 
 /// Transit state with new block
 pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
-    let branch = storage.checkout(block.header.parent);
-    let mut state = branch.state()?;
-    let mut diff = branch.diff();
+    let mut state = storage.state()?;
+    let mut diff = HashMap::new();
 
     // prepare epoch information
     let epoch = block.header.slot / crate::EPOCH_LENGTH;
@@ -162,8 +163,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }
 
-    // TODO: longest chain stuffs. history.merge?
-    branch.commit(diff)
+    storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
 }
 
 /// (b) Accumulate the available work reports
