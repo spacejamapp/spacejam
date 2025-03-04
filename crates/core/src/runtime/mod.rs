@@ -91,14 +91,14 @@ impl<C: Config> Runtime<C> {
             return Ok(None);
         }
 
-        let block = self.storage.recent_blocks()?;
-        let Some(block) = block.and_then(|b| b.last().cloned()) else {
-            anyhow::bail!("genesis block not found");
-        };
+        let blocks = self.storage.recent_blocks()?;
+        let block = blocks
+            .last()
+            .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
         let extrinsic = self.pool.collect()?;
         Block::builder()
-            .parent(&block)?
+            .parent(block)?
             .extrinsic(extrinsic)?
             .seal(&self.validator, &self.storage)
             .map(Some)

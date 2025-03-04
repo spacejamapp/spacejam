@@ -1,7 +1,7 @@
 //! Block announcement stream.
 
 use crate::{peer::PeerId, Network};
-use handshake::Sync;
+use handshake::Handshake;
 use quinn::{RecvStream, SendStream};
 use score::{
     block::Header,
@@ -30,15 +30,13 @@ pub async fn send<C: score::runtime::Config>(
     send.write_all(&buf).await?;
 
     // 2. verify that we can receive handshake
-    let sync = Sync::read(&mut recv).await?;
-    if !sync.verify(&runtime) {
-        return Err(anyhow::anyhow!("invalid handshake data"));
-    }
+    let handshake = Handshake::read(&mut recv).await?;
+    handshake.verify(&runtime).await?;
 
     // 3. announcement loop
     let runtime = runtime.clone();
     tokio::spawn(async move {
-        announce::unchecked(peer, runtime.clone(), send, recv, sync).await;
+        announce::unchecked(peer, runtime.clone(), send, recv, handshake).await;
     });
     Ok(())
 }
@@ -51,20 +49,17 @@ pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
 ) -> anyhow::Result<()> {
     // 1. read the grandpa data
-    let sync = Sync::read(&mut recv).await?;
-    if !sync.verify(&runtime) {
-        return Err(anyhow::anyhow!("invalid handshake data"));
-    }
+    let handshake = Handshake::read(&mut recv).await?;
+    handshake.verify(&runtime).await?;
 
     // 2. send the handshake data.
     let grandpa = runtime.runtime.grandpa.read().await;
-    let handshake = grandpa.handshake();
-    send.write_all(&handshake).await?;
+    send.write_all(&grandpa.handshake()).await?;
 
     // 3. announcement loop.
     let runtime = runtime.clone();
     tokio::spawn(async move {
-        announce::unchecked(peer, runtime.clone(), send, recv, sync).await;
+        announce::unchecked(peer, runtime.clone(), send, recv, handshake).await;
     });
 
     Ok(())

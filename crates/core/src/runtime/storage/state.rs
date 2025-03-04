@@ -190,11 +190,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the recent blocks from the storage
-    fn recent_blocks(&self) -> Result<Option<Vec<BlockInfo>>> {
-        self.get(key::RECENT_BLOCKS)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode recent blocks: {e}"))
+    fn recent_blocks(&self) -> Result<Vec<BlockInfo>> {
+        codec::decode(
+            &self
+                .get(key::RECENT_BLOCKS)?
+                .ok_or(anyhow::anyhow!("recent blocks not found"))?,
+        )
+        .context("failed to decode recent blocks")
     }
 
     /// Fetch the safrole state

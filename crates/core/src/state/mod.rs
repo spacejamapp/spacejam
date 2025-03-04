@@ -3,10 +3,8 @@
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
-    safrole::Safrole,
-    safrole::Validators,
-    service::{AvailabilityAssignments, WorkReport},
-    service::{ServiceAccount, ServiceIndex},
+    safrole::{Safrole, Validators},
+    service::{AvailabilityAssignments, ServiceAccount, ServiceIndex, WorkReport},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };

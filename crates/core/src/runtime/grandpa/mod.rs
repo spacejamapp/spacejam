@@ -38,7 +38,7 @@ pub struct Grandpa {
 impl Grandpa {
     /// Create a new grandpa instance.
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
-        let head = storage.get_finalized_head()?;
+        let head = storage.get_finalized()?;
         let curr = storage.current_validators()?;
         let prev = storage.previous_validators()?;
         let next = storage.next_validators()?;

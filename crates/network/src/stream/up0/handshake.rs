@@ -3,14 +3,14 @@
 use crate::Network;
 use quinn::{RecvStream, SendStream};
 use score::{
-    runtime::{Config, Head},
+    runtime::{storage::BlockStorage, Config, Head, Storage},
     OpaqueHash, TimeSlot,
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 /// Sync information.
-pub struct Sync {
+pub struct Handshake {
     /// The finalized head.
     pub head: Head,
 
@@ -18,7 +18,7 @@ pub struct Sync {
     pub leaves: Vec<Head>,
 }
 
-impl Sync {
+impl Handshake {
     /// Create a new sync information from the receiver stream.
     pub async fn read(recv: &mut quinn::RecvStream) -> anyhow::Result<Self> {
         // 1. read the finalized hash
@@ -53,7 +53,38 @@ impl Sync {
     }
 
     /// Verify the sync information.
-    pub fn verify<C: Config>(&self, network: &Network<C>) -> bool {
-        true
+    ///
+    /// Mainly for verifying if the remote peer is on the same chain.
+    pub async fn verify<C: Config>(&self, network: &Network<C>) -> anyhow::Result<()> {
+        let finalized = network.storage.get_finalized()?;
+
+        // verify if the remote peer is on the same chain.
+        if finalized.slot > self.head.slot {
+            let hash = network.storage.get_hash(self.head.slot)?;
+            if hash != self.head.hash {
+                anyhow::bail!("head hash mismatched");
+            }
+        }
+
+        // append the leaves to grandpa
+        if finalized.hash == self.head.hash {
+            let grandpa = network.runtime.grandpa.read().await.clone();
+            let gptr = network.runtime.grandpa.clone();
+
+            let leaves = self
+                .leaves
+                .iter()
+                .filter(|leaf| !grandpa.leaves.contains_key(leaf))
+                .map(|leaf| (leaf.clone(), vec![]));
+
+            gptr.write().await.leaves.extend(leaves);
+        }
+
+        // request the missing blocks
+        if finalized.slot < self.head.slot {
+            // TODO: queue the missing blocks
+        }
+
+        Ok(())
     }
 }

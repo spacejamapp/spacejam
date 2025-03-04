@@ -1,6 +1,6 @@
 //! Announcement handler
 
-use crate::{stream::up0::Sync, Network};
+use crate::{stream::up0::Handshake, Network};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
 use std::sync::Arc;
@@ -12,12 +12,12 @@ pub async fn unchecked<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
-    sync: Sync,
+    handshake: Handshake,
 ) {
-    let sync = Arc::new(RwLock::new(sync));
+    let handshake = Arc::new(RwLock::new(handshake));
     let r = tokio::select! {
-        r = self::send(runtime.clone(), send, sync.clone()) => r,
-        r = self::recv(runtime.clone(), recv, sync) => r,
+        r = self::send(runtime.clone(), send, handshake.clone()) => r,
+        r = self::recv(runtime.clone(), recv, handshake) => r,
     };
 
     if let Err(e) = r {
@@ -29,30 +29,30 @@ pub async fn unchecked<C: score::runtime::Config>(
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
-    mut sync: Arc<RwLock<Sync>>,
+    mut handshake: Arc<RwLock<Handshake>>,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
     while let Ok(announce) = rx.recv().await {
         let (header, head): (Header, Head) = codec::decode(&announce)?;
         let grandpa = runtime.runtime.grandpa.read().await;
-        let sync = sync.read().await;
+        let handshake = handshake.read().await;
 
         // 1. A descendant of the block is announced instead of the block itself.
         //
         // TODO: grandchild, etc. should also be handled.
-        if sync.head.slot > head.slot {
+        if handshake.head.slot > head.slot {
             continue;
         }
 
         // 2. The block is not a descendant of the latest finalized block.
         //
         // TODO: grandchild, etc. should also be handled.
-        if header.parent != sync.head.hash {
+        if header.parent != handshake.head.hash {
             continue;
         }
 
         // 3. The block, or a descendant of the block, has been announced by the other side of the stream.
-        if sync.leaves.iter().any(|leaf| leaf.hash == head.hash) {
+        if handshake.leaves.iter().any(|leaf| leaf.hash == head.hash) {
             continue;
         }
 
@@ -68,7 +68,7 @@ pub async fn send<C: score::runtime::Config>(
 pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
-    mut sync: Arc<RwLock<Sync>>,
+    mut handshake: Arc<RwLock<Handshake>>,
 ) -> anyhow::Result<()> {
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;
@@ -76,7 +76,7 @@ pub async fn recv<C: score::runtime::Config>(
 
         // 1. we are receiving a new leaf.
         if grandpa.head == head && header.parent == grandpa.head.hash {
-            sync.write().await.leaves.push(Head {
+            handshake.write().await.leaves.push(Head {
                 hash: header.hash()?,
                 slot: header.slot,
             });

@@ -2,12 +2,14 @@
 
 use crate::{
     runtime::{storage::KVStorage, Head},
-    Block, OpaqueHash,
+    Block, OpaqueHash, TimeSlot,
 };
 use anyhow::Result;
 
 const PREFIX: &[u8] = b"block";
 const FINALIZED_KEY: &[u8] = b"finalized";
+const BLOCK_HASH_KEY: &[u8] = b"block_hash";
+const BLOCK_SLOT_KEY: &[u8] = b"block_slot";
 
 /// Block storage
 pub trait BlockStorage: KVStorage {
@@ -36,21 +38,44 @@ pub trait BlockStorage: KVStorage {
     }
 
     /// Get the finalized head
-    fn get_finalized_head(&self) -> Result<Head> {
+    fn get_finalized(&self) -> Result<Head> {
         self.get(FINALIZED_KEY)?
             .ok_or_else(|| anyhow::anyhow!("Finalized head not found"))
             .and_then(|value| Ok(codec::decode(&value)?))
     }
 
     /// Set the finalized head
-    fn set_finalized_head(&self, head: &Head) -> Result<()> {
+    fn set_finalized(&self, head: &Head) -> Result<()> {
         self.set(FINALIZED_KEY, &codec::encode(head)?)?;
+
+        // set block hash indexed by slot
+        {
+            let key = [BLOCK_HASH_KEY, &head.slot.to_le_bytes()].concat();
+            self.set(&key, &codec::encode(&head.hash)?)?;
+        }
+
+        // set block slot indexed by hash
+        {
+            let key = [BLOCK_SLOT_KEY, head.hash.as_ref()].concat();
+            self.set(&key, &codec::encode(&head.slot)?)?;
+        }
+
         Ok(())
     }
 
-    /// Check if a block exists in storage
-    fn block_exists(&self, hash: &OpaqueHash) -> Result<bool> {
-        let key = [PREFIX, hash.as_ref()].concat();
-        Ok(self.get(&key)?.is_some())
+    /// Get the block hash by slot
+    fn get_hash(&self, slot: TimeSlot) -> Result<OpaqueHash> {
+        let key = [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat();
+        self.get(&key)?
+            .ok_or(anyhow::anyhow!("Block hash not found"))
+            .and_then(|value| Ok(codec::decode(&value)?))
+    }
+
+    /// Get the block slot by hash
+    fn get_slot(&self, hash: &OpaqueHash) -> Result<TimeSlot> {
+        let key = [BLOCK_SLOT_KEY, hash.as_ref()].concat();
+        self.get(&key)?
+            .ok_or(anyhow::anyhow!("Block slot not found"))
+            .and_then(|value| Ok(codec::decode(&value)?))
     }
 }
