@@ -80,6 +80,9 @@ pub async fn recv<C: score::runtime::Config>(
         }
 
         // TODO: handle other cases.
+        //
+        // we should also verify the header to see if it could be
+        // finalized, if not, we remove it from the leaves.
     }
     Ok(())
 }

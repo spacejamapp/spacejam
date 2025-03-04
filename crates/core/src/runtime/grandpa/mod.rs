@@ -10,7 +10,7 @@ use crate::{
 };
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 mod grid;
 
@@ -29,7 +29,7 @@ pub struct Grandpa {
     ///
     /// These are the tips of all known forks that could potentially become finalized.
     /// Kept in memory for efficiency due to short block time.
-    pub leaves: HashMap<Head, Vec<Ed25519Public>>,
+    pub leaves: HashMap<Head, HashSet<Ed25519Public>>,
 
     /// The grid of the network.
     pub grid: Grid,

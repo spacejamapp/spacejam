@@ -3,6 +3,7 @@
 use crate::{stream, Network};
 
 mod conn;
+mod request;
 
 /// Events for peers.
 pub enum Event {
@@ -11,11 +12,17 @@ pub enum Event {
 
     /// Request blocks.
     RequestBlock {
+        /// The peer's public key.
+        peer: [u8; 32],
+
         /// The connection.
         conn: quinn::Connection,
 
         /// The data.
         data: stream::ce128::Request,
+
+        /// Whether finalize the block on receiving.
+        finalize: bool,
     },
     /// A new peer has connected.
     Connected {
@@ -48,15 +55,22 @@ impl Event {
             Self::AnnounceBlock(announcement) => {
                 runtime.announce.send(announcement.clone())?;
             }
-            Self::RequestBlock { conn, data } => {
-                let blocks = stream::ce128::send(conn.clone(), data.clone()).await?;
-                for block in blocks {
-                    if let Err(e) = runtime.finalize(&block).await {
-                        tracing::error!("failed to finalize block#{}: {}", block.header.slot, e);
-                        break;
-                    }
-                }
+            Self::RequestBlock {
+                peer,
+                conn,
+                data,
+                finalize,
+            } => {
+                request::blocks(
+                    runtime.clone(),
+                    *peer,
+                    conn.clone(),
+                    data.clone(),
+                    *finalize,
+                )
+                .await?;
             }
+
             Self::Connected {
                 peer,
                 connection,

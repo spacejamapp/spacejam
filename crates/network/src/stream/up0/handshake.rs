@@ -6,7 +6,10 @@ use score::{
     runtime::{storage::BlockStorage, Config, Head, Storage},
     OpaqueHash, TimeSlot,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::RwLock;
 
 /// Sync information.
@@ -78,7 +81,7 @@ impl Handshake {
                 .leaves
                 .iter()
                 .filter(|leaf| !grandpa.leaves.contains_key(leaf))
-                .map(|leaf| (leaf.clone(), vec![]));
+                .map(|leaf| (leaf.clone(), HashSet::new()));
 
             gptr.write().await.leaves.extend(leaves);
         }

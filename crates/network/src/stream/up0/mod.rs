@@ -33,8 +33,10 @@ pub async fn send<C: score::runtime::Config>(
     let handshake = Handshake::read(&mut recv).await?;
     if let Some(request) = handshake.verify(&runtime).await? {
         runtime.transport.tx.send(Event::RequestBlock {
+            peer,
             conn: runtime.get_conn(peer).await?,
             data: request,
+            finalize: true,
         })?;
     }
 
@@ -57,8 +59,10 @@ pub async fn recv<C: score::runtime::Config>(
     let handshake = Handshake::read(&mut recv).await?;
     if let Some(request) = handshake.verify(&runtime).await? {
         runtime.transport.tx.send(Event::RequestBlock {
+            peer,
             conn: runtime.get_conn(peer).await?,
             data: request,
+            finalize: true,
         })?;
     }
 
