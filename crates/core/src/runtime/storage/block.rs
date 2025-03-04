@@ -1,6 +1,9 @@
 //! Block storage
 
-use crate::{runtime::storage::KVStorage, Block, OpaqueHash};
+use crate::{
+    runtime::{storage::KVStorage, Head},
+    Block, OpaqueHash,
+};
 use anyhow::Result;
 
 const PREFIX: &[u8] = b"block";
@@ -32,19 +35,16 @@ pub trait BlockStorage: KVStorage {
         Ok(())
     }
 
-    /// Get the hash of the latest finalized block
-    ///
-    /// Returns None if no block has been finalized yet
-    fn get_finalized_block_hash(&self) -> Result<Option<OpaqueHash>> {
-        match self.get(FINALIZED_KEY)? {
-            Some(value) => Ok(Some(codec::decode(&value)?)),
-            None => Ok(None),
-        }
+    /// Get the finalized head
+    fn get_finalized_head(&self) -> Result<Head> {
+        self.get(FINALIZED_KEY)?
+            .ok_or_else(|| anyhow::anyhow!("Finalized head not found"))
+            .and_then(|value| Ok(codec::decode(&value)?))
     }
 
-    /// Set the hash of the latest finalized block
-    fn set_finalized_block_hash(&self, hash: &OpaqueHash) -> Result<()> {
-        self.set(FINALIZED_KEY, &codec::encode(hash)?)?;
+    /// Set the finalized head
+    fn set_finalized_head(&self, head: &Head) -> Result<()> {
+        self.set(FINALIZED_KEY, &codec::encode(head)?)?;
         Ok(())
     }
 

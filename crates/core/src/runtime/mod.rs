@@ -37,6 +37,9 @@ pub struct Runtime<C: Config> {
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa>>,
 
+    /// Whether self is a validator.
+    pub is_validator: bool,
+
     // pub metrics:
     /// The attempt number of the current epoch
     attempt: Arc<AtomicU8>,
@@ -44,16 +47,30 @@ pub struct Runtime<C: Config> {
 
 impl<C: Config> Runtime<C> {
     /// Create a new runtime
-    pub fn new(validator: C::Validator, storage: C::Storage) -> Self {
+    pub fn new(validator: C::Validator, storage: C::Storage) -> anyhow::Result<Self> {
+        let grandpa = Grandpa::new(&storage)?;
+        Ok(Self::new_with_grandpa(validator, storage, grandpa))
+    }
+
+    /// Create a new runtime with a grandpa instance
+    pub fn new_with_grandpa(
+        validator: C::Validator,
+        storage: C::Storage,
+        grandpa: Grandpa,
+    ) -> Self {
+        let is_validator = !grandpa
+            .grid
+            .neighbours(validator.ed25519_public_key())
+            .is_empty();
         Self {
             validator,
             storage,
             pool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Default::default())),
+            grandpa: Arc::new(RwLock::new(grandpa)),
             attempt: Arc::new(AtomicU8::new(0)),
+            is_validator,
         }
     }
-
     /// Get the next runtime package
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.

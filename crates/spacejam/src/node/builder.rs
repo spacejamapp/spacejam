@@ -51,7 +51,7 @@ impl Builder {
         let runtime = Arc::new(Runtime::new(
             validator,
             C::Storage::try_from(self.db.clone())?,
-        ));
+        )?);
 
         // Initialize the database
         if KVStorage::is_empty(&runtime.storage) {

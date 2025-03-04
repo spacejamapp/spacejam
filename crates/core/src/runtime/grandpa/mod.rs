@@ -3,22 +3,22 @@
 //! The GRANDPA (GHOST-based Recursive ANcestor Deriving Prefix Agreement) finality
 //! protocol implementation for SpaceJam. This module manages chain head finalization
 //! and tracks chain state for consensus.
-#![allow(unused)]
 
-use crate::{block::Header, runtime, Ed25519Public, OpaqueHash, TimeSlot};
-use anyhow::Result;
+use crate::{
+    runtime::{storage::BlockStorage, Storage},
+    Ed25519Public, OpaqueHash, TimeSlot,
+};
+use grid::Grid;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use super::Runtime;
+mod grid;
 
 /// Chain head cache of SpaceJam
 ///
 /// GRANDPA is responsible for managing the finalized chain head and tracking leaf blocks
-/// in the current fork choice tree. It implements SpaceJam's finality protocol that allows
-/// validators to vote on chains rather than individual blocks. The implementation follows
-/// the graypaper specifications for block finalization and best chain selection.
-#[derive(Default, Clone)]
+/// in the current fork choice tree.
+#[derive(Clone, Default)]
 pub struct Grandpa {
     /// The hash of the head of the chain, e.g. the finalized header.
     ///
@@ -30,9 +30,30 @@ pub struct Grandpa {
     /// These are the tips of all known forks that could potentially become finalized.
     /// Kept in memory for efficiency due to short block time.
     pub leaves: HashMap<Head, Vec<Ed25519Public>>,
+
+    /// The grid of the network.
+    pub grid: Grid,
 }
 
 impl Grandpa {
+    /// Create a new grandpa instance.
+    pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
+        let head = storage.get_finalized_head()?;
+        let curr = storage.current_validators()?;
+        let prev = storage.previous_validators()?;
+        let next = storage.next_validators()?;
+
+        Ok(Self {
+            head,
+            leaves: Default::default(),
+            grid: Grid::try_from((
+                prev.iter().map(|v| v.ed25519).collect(),
+                curr.iter().map(|v| v.ed25519).collect(),
+                next.iter().map(|v| v.ed25519).collect(),
+            ))?,
+        })
+    }
+
     /// Create a handshake message for the grandpa protocol.
     pub fn handshake(&self) -> Vec<u8> {
         let mut handshake = vec![];

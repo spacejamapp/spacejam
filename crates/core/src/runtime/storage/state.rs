@@ -226,11 +226,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the next validators
-    fn next_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::NEXT_VALIDATORS)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode next validators: {e}"))
+    fn next_validators(&self) -> Result<Vec<ValidatorData>> {
+        codec::decode(
+            &self
+                .get(key::NEXT_VALIDATORS)?
+                .ok_or(anyhow::anyhow!("next validators not found"))?,
+        )
+        .context("failed to decode next validators")
     }
 
     /// Fetch the current validators
@@ -244,11 +246,13 @@ pub trait Storage: KVStorage + Sized {
     }
 
     /// Fetch the previous validators
-    fn previous_validators(&self) -> Result<Option<Vec<ValidatorData>>> {
-        self.get(key::PREVIOUS_VALIDATORS)?
-            .map(|value| codec::decode(&value))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("failed to decode previous validators: {e}"))
+    fn previous_validators(&self) -> Result<Vec<ValidatorData>> {
+        codec::decode(
+            &self
+                .get(key::PREVIOUS_VALIDATORS)?
+                .ok_or(anyhow::anyhow!("previous validators not found"))?,
+        )
+        .context("failed to decode previous validators")
     }
 
     /// Fetch the pending reports

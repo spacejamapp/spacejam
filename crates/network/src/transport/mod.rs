@@ -39,15 +39,11 @@ impl Transport {
             .await
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
-        // up0 stream should be opened if either:
-        //
-        // 1. Both nodes are validators, and are neighbours in the grid structure.
-        // 2. At least one of the nodes is not a validator.
         self.tx
             .send(Event::Connected {
                 peer: self::alpn(&conn).context("failed to verify alpn")?,
                 connection: conn.clone(),
-                open_up0: true,
+                outgoing: true,
             })
             .context("failed to send connected event")
     }
@@ -82,7 +78,7 @@ impl Transport {
                 if let Err(e) = self.tx.send(Event::Connected {
                     peer,
                     connection: conn,
-                    open_up0: false,
+                    outgoing: false,
                 }) {
                     tracing::warn!("failed to send connected event: {e:?}");
                 }
