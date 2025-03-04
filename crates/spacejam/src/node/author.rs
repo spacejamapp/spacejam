@@ -1,6 +1,6 @@
 //! Authoring service
 
-use network::{event::action::Event, Network};
+use network::{Event, Network};
 use score::runtime::storage::BlockStorage;
 use std::time::Duration;
 
@@ -33,7 +33,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
         runtime
             .transport
             .tx
-            .send(Event::AnnounceBlock(announcement).into())?;
+            .send(Event::AnnounceBlock(announcement))?;
 
         // TODO: currently we don't have a way to get the finalized header
         // from the runtime. so we update the newly produced block as the
