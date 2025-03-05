@@ -12,17 +12,11 @@ pub enum Event {
 
     /// Request blocks.
     RequestBlock {
-        /// The peer's public key.
-        peer: [u8; 32],
-
         /// The connection.
         conn: quinn::Connection,
 
         /// The data.
         data: stream::ce128::Request,
-
-        /// Whether finalize the block on receiving.
-        finalize: bool,
     },
     /// A new peer has connected.
     Connected {
@@ -55,20 +49,8 @@ impl Event {
             Self::AnnounceBlock(announcement) => {
                 runtime.announce.send(announcement.clone())?;
             }
-            Self::RequestBlock {
-                peer,
-                conn,
-                data,
-                finalize,
-            } => {
-                request::blocks(
-                    runtime.clone(),
-                    *peer,
-                    conn.clone(),
-                    data.clone(),
-                    *finalize,
-                )
-                .await?;
+            Self::RequestBlock { conn, data } => {
+                request::blocks(runtime.clone(), conn.clone(), data.clone()).await?;
             }
 
             Self::Connected {

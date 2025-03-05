@@ -54,6 +54,8 @@ pub struct Request {
     pub hash: OpaqueHash,
 
     /// The direction of the block.
+    ///
+    /// 0 for ascending exclusive, 1 for descending inclusive.
     pub direction: u8,
 
     /// The maximum number of blocks to request.

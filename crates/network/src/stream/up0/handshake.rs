@@ -61,11 +61,12 @@ impl Handshake {
     pub async fn verify<C: Config>(
         &self,
         network: &Network<C>,
+        peer: [u8; 32],
     ) -> anyhow::Result<Option<ce128::Request>> {
-        let finalized = network.storage.get_finalized()?;
+        let grandpa = network.runtime.grandpa.read().await.clone();
 
         // verify if the remote peer is on the same chain.
-        if finalized.slot > self.head.slot {
+        if grandpa.head.slot > self.head.slot {
             let hash = network.storage.get_hash(self.head.slot)?;
             if hash != self.head.hash {
                 anyhow::bail!("head hash mismatched");
@@ -73,26 +74,31 @@ impl Handshake {
         }
 
         // append the leaves to grandpa
-        if finalized.hash == self.head.hash {
-            let grandpa = network.runtime.grandpa.read().await.clone();
+        if grandpa.head.hash == self.head.hash {
             let gptr = network.runtime.grandpa.clone();
+            for leaf in self.leaves.iter() {
+                gptr.write()
+                    .await
+                    .leaves
+                    .entry(leaf.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(peer);
+            }
 
-            let leaves = self
-                .leaves
-                .iter()
-                .filter(|leaf| !grandpa.leaves.contains_key(leaf))
-                .map(|leaf| (leaf.clone(), HashSet::new()));
-
-            gptr.write().await.leaves.extend(leaves);
+            return Ok(None);
         }
 
+        // We're assuming that we need to sync blocks from
+        // the remote peer.
+        //
         // request the missing blocks
-        if finalized.slot < self.head.slot {
+        if let Some(maximum) = self.head.slot.checked_sub(grandpa.head.slot) {
             let request = ce128::Request {
-                hash: finalized.hash,
+                hash: grandpa.head.hash,
                 direction: 0,
-                maximum: self.head.slot - finalized.slot,
+                maximum,
             };
+
             return Ok(Some(request));
         }
 
