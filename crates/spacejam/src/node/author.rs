@@ -1,6 +1,6 @@
 //! Authoring service
 
-use network::{Event, Network};
+use network::Network;
 use score::runtime::storage::BlockStorage;
 use std::time::Duration;
 
@@ -23,21 +23,14 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
             hex::encode(block.hash()?)
         );
 
-        // 1. save the block to the storage
+        // save the block to the storage
         runtime.runtime.storage.save_block(&block)?;
 
-        // 2. announce the block to the network
-        let mut announcement = codec::encode(&block.header)?;
-        announcement.extend_from_slice(&block.header.hash()?);
-        announcement.extend_from_slice(&block.header.slot.to_le_bytes());
-        runtime
-            .transport
-            .tx
-            .send(Event::AnnounceBlock(announcement))?;
-
-        // TODO: currently we don't have a way to get the finalized header
-        // from the runtime. so we update the newly produced block as the
-        // finalized header of the chain.
+        // announce the block to the network
+        runtime.announce.send((
+            block.header.clone(),
+            runtime.runtime.grandpa.read().await.head.clone(),
+        ))?;
     }
 
     if let Some(ticket) = ticket {

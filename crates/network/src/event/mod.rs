@@ -7,9 +7,6 @@ mod request;
 
 /// Events for peers.
 pub enum Event {
-    /// Announce a block.
-    AnnounceBlock(Vec<u8>),
-
     /// Request blocks.
     RequestBlock {
         /// The connection.
@@ -46,9 +43,6 @@ impl Event {
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
-            Self::AnnounceBlock(announcement) => {
-                runtime.announce.send(announcement.clone())?;
-            }
             Self::RequestBlock { conn, data } => {
                 request::blocks(runtime.clone(), conn.clone(), data.clone()).await?;
             }

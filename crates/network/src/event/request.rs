@@ -32,7 +32,7 @@ pub async fn blocks<C: score::runtime::Config>(
         let head = runtime.grandpa.read().await.head.clone();
         runtime
             .announce
-            .send(codec::encode(&(block.header.clone(), head.clone()))?)?;
+            .send((block.header.clone(), head.clone()))?;
     }
 
     Ok(())

@@ -32,13 +32,16 @@ pub async fn send<C: score::runtime::Config>(
     mut handshake: Arc<RwLock<Handshake>>,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
-    while let Ok(announce) = rx.recv().await {
-        let (header, head): (Header, Head) = codec::decode(&announce)?;
+    while let Ok((header, head)) = rx.recv().await {
         let grandpa = runtime.runtime.grandpa.read().await;
         let handshake = handshake.read().await;
+        let leaf = Head {
+            slot: header.slot,
+            hash: header.hash()?,
+        };
 
         // 1. A descendant of the block is announced instead of the block itself.
-        if grandpa.leaves.contains_key(&head) {
+        if grandpa.leaves.contains_key(&leaf) {
             continue;
         }
 
@@ -48,11 +51,11 @@ pub async fn send<C: score::runtime::Config>(
         }
 
         // 3. The block, or a descendant of the block, has been announced by the other side of the stream.
-        if handshake.leaves.iter().any(|leaf| leaf.hash == head.hash) {
+        if handshake.leaves.contains(&leaf) {
             continue;
         }
 
-        send.write_all(&announce).await?;
+        send.write_all(&codec::encode(&(header, leaf))?).await?;
     }
 
     Ok(())
@@ -67,10 +70,6 @@ pub async fn recv<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     // TODO: we should verify the header first to see if it
     // could be finalized, (fallback keys stuff).
-
-    // TODO: also, if we can detect the received header is on
-    // a fork, we should close the connection with it or generate
-    // audits for it.
 
     // TODO: if the votes of a specific leaf is enough, we should
     // request the full block and see if it could be finalized.
@@ -93,16 +92,19 @@ pub async fn recv<C: score::runtime::Config>(
 
         // The block has already been announced in the remote peer.
         let remote = handshake.read().await;
-        if remote.leaves.iter().any(|leaf| leaf.hash == head.hash) {
+        if remote.leaves.contains(&head) {
             continue;
         }
 
-        // Add this block to the remote info.
+        // Add this header to the remote info.
         handshake.write().await.leaves.push(Head {
             hash: header.hash()?,
             slot: header.slot,
         });
 
+        // TODO: verify the header.
+
+        // Add this header to local leaves
         let mut grandpa = runtime.grandpa.write().await;
         grandpa
             .leaves

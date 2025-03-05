@@ -2,7 +2,10 @@
 
 use metrics::Metrics;
 use peer::PeerId;
-use score::runtime::{Runtime, Validator};
+use score::{
+    block::Header,
+    runtime::{Head, Runtime, Validator},
+};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
@@ -36,7 +39,7 @@ pub struct Network<C: score::runtime::Config> {
     pub metrics: Metrics,
 
     /// The announce channel of the network
-    pub announce: broadcast::Sender<Vec<u8>>,
+    pub announce: broadcast::Sender<(Header, Head)>,
 }
 
 impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
