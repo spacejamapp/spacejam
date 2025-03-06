@@ -1,10 +1,9 @@
 //! Events for peers.
 
-use crate::{stream, Network};
+use crate::Network;
 use score::{block::Header, runtime::Head, TimeSlot};
 
 mod conn;
-mod request;
 mod sync;
 
 /// Events for peers.
@@ -19,14 +18,7 @@ pub enum Event {
     },
     /// Select the best chain.
     SelectBestChain { slot: TimeSlot },
-    /// Request blocks.
-    RequestBlock {
-        /// The connection.
-        conn: quinn::Connection,
 
-        /// The data.
-        data: stream::ce128::Request,
-    },
     /// A new peer has connected.
     Connected {
         /// The peer's public key.
@@ -60,9 +52,6 @@ impl Event {
             }
             Self::SelectBestChain { slot } => {
                 sync::select_best_chain(runtime, slot).await?;
-            }
-            Self::RequestBlock { conn, data } => {
-                request::blocks(runtime.clone(), conn.clone(), data.clone()).await?;
             }
             Self::Connected {
                 peer,
