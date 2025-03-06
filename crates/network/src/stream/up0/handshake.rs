@@ -18,7 +18,7 @@ pub struct Handshake {
     pub head: Head,
 
     /// The leaves.
-    pub leaves: Vec<Head>,
+    pub leaves: HashSet<Head>,
 }
 
 impl Handshake {
@@ -39,14 +39,14 @@ impl Handshake {
         recv.read(&mut len).await?;
 
         // 3. read the leaves
-        let mut leaves = Vec::new();
+        let mut leaves = HashSet::new();
         let leaves_len = u32::from_le_bytes(len) as usize * 32;
         for _ in 0..leaves_len {
             let mut hash = [0; 32];
             recv.read(&mut hash).await?;
             let mut slot = [0; 4];
             recv.read(&mut slot).await?;
-            leaves.push(Head {
+            leaves.insert(Head {
                 hash: OpaqueHash::from(hash),
                 slot: TimeSlot::from_le_bytes(slot),
             });

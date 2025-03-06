@@ -1,7 +1,7 @@
 //! Events for peers.
 
 use crate::{stream, Network};
-use score::{block::Header, runtime::Head};
+use score::{block::Header, runtime::Head, TimeSlot};
 
 mod conn;
 mod request;
@@ -9,6 +9,7 @@ mod sync;
 
 /// Events for peers.
 pub enum Event {
+    /// Announce a block.
     AnnounceBlock {
         /// The block.
         header: Box<Header>,
@@ -16,6 +17,8 @@ pub enum Event {
         /// The head.
         head: Head,
     },
+    /// Select the best chain.
+    SelectBestChain { slot: TimeSlot },
     /// Request blocks.
     RequestBlock {
         /// The connection.
@@ -54,6 +57,9 @@ impl Event {
         match self {
             Self::AnnounceBlock { header, head } => {
                 sync::announce(runtime, header, head).await?;
+            }
+            Self::SelectBestChain { slot } => {
+                sync::select_best_chain(runtime, slot).await?;
             }
             Self::RequestBlock { conn, data } => {
                 request::blocks(runtime.clone(), conn.clone(), data.clone()).await?;

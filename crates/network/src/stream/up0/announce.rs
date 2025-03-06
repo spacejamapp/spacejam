@@ -3,7 +3,7 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{stream::up0::Handshake, Network};
+use crate::{stream::up0::Handshake, Event, Network};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
 use std::{collections::HashSet, sync::Arc};
@@ -32,7 +32,7 @@ pub async fn unchecked<C: score::runtime::Config>(
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
-    mut handshake: Arc<RwLock<Handshake>>,
+    handshake: Arc<RwLock<Handshake>>,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
     while let Ok((header, head)) = rx.recv().await {
@@ -59,12 +59,16 @@ pub async fn send<C: score::runtime::Config>(
 pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
-    mut handshake: Arc<RwLock<Handshake>>,
+    handshake: Arc<RwLock<Handshake>>,
     peer: [u8; 32],
 ) -> anyhow::Result<()> {
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;
         let (header, head): (Header, Head) = codec::decode(chunk.bytes.as_ref())?;
+        let leaf = Head {
+            hash: header.hash()?,
+            slot: head.slot,
+        };
 
         // verify if the header is invalid with the local finalized head.
         if let Err(e) = grandpa.verify(&header).await {
@@ -73,20 +77,23 @@ pub async fn recv<C: score::runtime::Config>(
         }
 
         // Add this header to local leaves
-        runtime.grandpa.write().await.leaves.insert(head);
+        runtime.grandpa.write().await.add_leave(leaf.clone());
+        runtime.grandpa.write().await.save_header(header);
 
-        // TODO: Check if the head is on a finalized chain:
+        // update the remote peer's handshake data.
+        {
+            let mut handshake = handshake.write().await;
+            handshake.head = head.clone();
+            handshake.leaves.insert(leaf.clone());
+        }
+
+        // Indicates that we need to select the best chain.
         //
-        // 1. has the finliazed block as an ancestor. (checked above)
-        // 2. contains no unfinalized blocks where we see an equivocation
-        //    (two valid blocks at the same timeslot).
-        // 3. is considered audited (as defined in the auditing section,
-        //    where either there are no negative judgments and a tranche
-        //    shows positive judgments from required validators, or there
-        //    are positive judgments from >2/3 of validators)
-
-        // TODO: if we have enough votes on the given leaf (best chain), we
-        // should request the block and make the finalization.
+        // Try to select the best chain if the remote peer's finalized
+        // head is greater than the local finalized head.
+        if head.slot > grandpa.head.slot {
+            runtime.send(Event::SelectBestChain { slot: head.slot });
+        }
     }
     Ok(())
 }

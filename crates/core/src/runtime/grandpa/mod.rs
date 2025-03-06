@@ -13,7 +13,7 @@ use ancestry::Ancestry;
 use grid::Grid;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     ops::{Deref, DerefMut},
 };
 
@@ -66,6 +66,54 @@ impl Grandpa {
                 next.iter().map(|v| v.ed25519).collect(),
             ))?,
         })
+    }
+
+    /// Add a leave to the grandpa.
+    ///
+    /// If there are ancestors of the leaf in the leaves,
+    /// we should remove the ancestors.
+    pub fn add_leave(&mut self, head: Head) {
+        let ancestors = self
+            .ancestors(&head.hash, self.head.hash)
+            .iter()
+            .filter_map(|h| h.hash().ok())
+            .collect::<HashSet<_>>();
+
+        // remove the ancestors from the leaves
+        let mut leaves = self.leaves.clone();
+        leaves.insert(head);
+        leaves.retain(|l| !ancestors.contains(&l.hash));
+
+        // update the leaves
+        self.leaves = leaves;
+    }
+
+    /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
+    pub fn select_best_head(&self) -> Option<Head> {
+        let mut votes = BTreeMap::<usize, (Head, Vec<Header>)>::new();
+
+        for leaf in self.leaves.iter() {
+            let ancestors = self.ancestors(&leaf.hash, self.head.hash);
+            votes.insert(ancestors.len(), (leaf.clone(), ancestors));
+        }
+
+        // select the best head from the chains with most valid ancestors, skipping
+        // the chains with equivocating ancestors.
+        while let Some((_, (head, ancestors))) = votes.pop_last() {
+            if ancestors.iter().any(|a| {
+                let Some(entry) = self.ancestry.slots.get(&(a.slot, a.parent)) else {
+                    return false;
+                };
+
+                entry.len() > 1
+            }) {
+                continue;
+            }
+
+            return Some(head);
+        }
+
+        None
     }
 
     /// Create a handshake message for the grandpa protocol.
