@@ -39,7 +39,7 @@ pub struct Network<C: score::runtime::Config> {
     pub metrics: Metrics,
 
     /// The announce channel of the network
-    pub announce: broadcast::Sender<(Header, Head)>,
+    announce: broadcast::Sender<(Header, Head)>,
 }
 
 impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
@@ -90,6 +90,12 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
             metrics: Metrics::new(address.to_string().as_str()),
             announce: broadcast::channel(256).0,
         })
+    }
+
+    /// Send an event to the network
+    pub fn send(&self, event: Event) -> anyhow::Result<()> {
+        self.transport.tx.send(event)?;
+        Ok(())
     }
 
     /// Spawn a task to handle events

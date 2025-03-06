@@ -5,13 +5,19 @@
 //! and tracks chain state for consensus.
 
 use crate::{
+    block::Header,
     runtime::{storage::BlockStorage, Storage},
-    Ed25519Public, OpaqueHash, TimeSlot,
+    OpaqueHash, TimeSlot,
 };
+use ancestry::Ancestry;
 use grid::Grid;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::HashSet,
+    ops::{Deref, DerefMut},
+};
 
+mod ancestry;
 mod grid;
 
 /// Chain head cache of SpaceJam
@@ -25,11 +31,18 @@ pub struct Grandpa {
     /// This represents the latest block that has been finalized by the GRANDPA protocol.
     pub head: Head,
 
-    /// The leaves of the chain.
+    /// The leaves of the best finalized head.
     ///
-    /// These are the tips of all known forks that could potentially become finalized.
-    /// Kept in memory for efficiency due to short block time.
-    pub leaves: HashMap<Head, HashSet<Ed25519Public>>,
+    /// Descendants of the latest finalized block with no known children.
+    pub leaves: HashSet<Head>,
+
+    /// The ancestry of the chain.
+    ///
+    /// This is a map of block hashes to the set of block hashes that are their ancestors.
+    ///
+    /// TODO: in production, we should store ancestor blocks in storage, see the header section
+    /// from the graypaper for more details.
+    pub ancestry: Ancestry,
 
     /// The grid of the network.
     pub grid: Grid,
@@ -46,6 +59,7 @@ impl Grandpa {
         Ok(Self {
             head,
             leaves: Default::default(),
+            ancestry: Default::default(),
             grid: Grid::try_from((
                 prev.iter().map(|v| v.ed25519).collect(),
                 curr.iter().map(|v| v.ed25519).collect(),
@@ -59,12 +73,53 @@ impl Grandpa {
         let mut handshake = vec![];
         handshake.extend_from_slice(self.head.hash.as_ref());
         handshake.extend_from_slice(&self.head.slot.to_le_bytes());
-        for (head, _) in self.leaves.iter() {
+        for head in self.leaves.iter() {
             handshake.extend_from_slice(head.hash.as_ref());
             handshake.extend_from_slice(&head.slot.to_le_bytes());
         }
 
         handshake
+    }
+
+    /// Verify a header with ancestry
+    pub async fn verify(&self, header: &Header) -> anyhow::Result<()> {
+        let hash = header.hash()?;
+
+        // 1. A descendant of the block is announced instead of the block itself.
+        let leaves = self.leaves.iter().filter(|l| l.slot > header.slot);
+        for leaf in leaves {
+            if !self.is_descendant_of(&leaf.hash, hash) {
+                anyhow::bail!(
+                    "A descendant of the block is announced instead of the block itself."
+                );
+            }
+        }
+
+        // 2. The block is not a descendant of the latest finalized block.
+        if !self.is_descendant_of(&hash, self.head.hash) {
+            anyhow::bail!("The block is not a descendant of the latest finalized block.");
+        }
+
+        // 3. if the header is ticket sealed.
+        if header.tickets_mark.is_none() {
+            anyhow::bail!("The block is not ticket sealed.");
+        }
+
+        Ok(())
+    }
+}
+
+impl Deref for Grandpa {
+    type Target = Ancestry;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ancestry
+    }
+}
+
+impl DerefMut for Grandpa {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ancestry
     }
 }
 

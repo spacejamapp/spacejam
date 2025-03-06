@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 
-const PREFIX: &[u8] = b"block";
+const BLOCK_KEY: &[u8] = b"block";
 const FINALIZED_KEY: &[u8] = b"finalized";
 const BLOCK_HASH_KEY: &[u8] = b"block_hash";
 const BLOCK_SLOT_KEY: &[u8] = b"block_slot";
@@ -15,7 +15,7 @@ const BLOCK_SLOT_KEY: &[u8] = b"block_slot";
 pub trait BlockStorage: KVStorage {
     /// Get the block by hash
     fn get_block(&self, hash: &OpaqueHash) -> Result<Block> {
-        let key = [PREFIX, hash.as_ref()].concat();
+        let key = [BLOCK_KEY, hash.as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Block not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -23,7 +23,7 @@ pub trait BlockStorage: KVStorage {
     /// Save the block
     fn save_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
-        let key = [PREFIX, hash.as_ref()].concat();
+        let key = [BLOCK_KEY, hash.as_ref()].concat();
         self.set(&key, &codec::encode(block)?)?;
         Ok(())
     }
@@ -44,7 +44,7 @@ pub trait BlockStorage: KVStorage {
     /// Drop the blocks
     fn drop_blocks(&self, hashes: &[OpaqueHash]) -> Result<()> {
         for hash in hashes {
-            let key = [PREFIX, hash.as_ref()].concat();
+            let key = [BLOCK_KEY, hash.as_ref()].concat();
             self.remove(&key)?;
         }
         Ok(())

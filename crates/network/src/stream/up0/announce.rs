@@ -1,4 +1,7 @@
 //! Announcement handler
+//!
+//! Maintain the known leaves of the chain (descendants of the latest
+//! finalized block with no known children).
 
 use crate::{stream::up0::Handshake, Network};
 use quinn::{RecvStream, SendStream};
@@ -35,27 +38,18 @@ pub async fn send<C: score::runtime::Config>(
     while let Ok((header, head)) = rx.recv().await {
         let grandpa = runtime.runtime.grandpa.read().await;
         let handshake = handshake.read().await;
-        let leaf = Head {
-            slot: header.slot,
-            hash: header.hash()?,
-        };
+        let hash = header.hash()?;
 
-        // 1. A descendant of the block is announced instead of the block itself.
-        if grandpa.leaves.contains_key(&leaf) {
-            continue;
+        // Skip if the block, or a descendant of the block, has been
+        // announced by the other side of the stream.
+        let leaves = handshake.leaves.iter().filter(|l| l.slot > header.slot);
+        for leaf in leaves {
+            if !grandpa.is_descendant_of(&leaf.hash, hash) {
+                continue;
+            }
         }
 
-        // 2. The block is not a descendant of the latest finalized block.
-        if header.parent != handshake.head.hash {
-            continue;
-        }
-
-        // 3. The block, or a descendant of the block, has been announced by the other side of the stream.
-        if handshake.leaves.contains(&leaf) {
-            continue;
-        }
-
-        send.write_all(&codec::encode(&(header, leaf))?).await?;
+        send.write_all(&codec::encode(&(header, head))?).await?;
     }
 
     Ok(())
@@ -68,49 +62,31 @@ pub async fn recv<C: score::runtime::Config>(
     mut handshake: Arc<RwLock<Handshake>>,
     peer: [u8; 32],
 ) -> anyhow::Result<()> {
-    // TODO: we should verify the header first to see if it
-    // could be finalized, (fallback keys stuff).
-
-    // TODO: if the votes of a specific leaf is enough, we should
-    // request the full block and see if it could be finalized.
-
-    // TODO: if the newly received header is confirmed as the best chain,
-    // we should request the ancestor of the given block.
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;
         let (header, head): (Header, Head) = codec::decode(chunk.bytes.as_ref())?;
 
-        // This block has already been announced.
-        if grandpa.leaves.contains_key(&head) {
+        // verify if the header is invalid with the local finalized head.
+        if let Err(e) = grandpa.verify(&header).await {
+            tracing::warn!("header invalid: {}", e);
             continue;
         }
-
-        // The block is not a descendant of the latest finalized block.
-        if grandpa.head.hash != header.parent {
-            continue;
-        }
-
-        // The block has already been announced in the remote peer.
-        let remote = handshake.read().await;
-        if remote.leaves.contains(&head) {
-            continue;
-        }
-
-        // Add this header to the remote info.
-        handshake.write().await.leaves.push(Head {
-            hash: header.hash()?,
-            slot: header.slot,
-        });
-
-        // TODO: verify the header.
 
         // Add this header to local leaves
-        let mut grandpa = runtime.grandpa.write().await;
-        grandpa
-            .leaves
-            .entry(head)
-            .or_insert_with(HashSet::new)
-            .insert(peer);
+        runtime.grandpa.write().await.leaves.insert(head);
+
+        // TODO: Check if the head is on a finalized chain:
+        //
+        // 1. has the finliazed block as an ancestor. (checked above)
+        // 2. contains no unfinalized blocks where we see an equivocation
+        //    (two valid blocks at the same timeslot).
+        // 3. is considered audited (as defined in the auditing section,
+        //    where either there are no negative judgments and a tranche
+        //    shows positive judgments from required validators, or there
+        //    are positive judgments from >2/3 of validators)
+
+        // TODO: if we have enough votes on the given leaf (best chain), we
+        // should request the block and make the finalization.
     }
     Ok(())
 }

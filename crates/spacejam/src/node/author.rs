@@ -1,6 +1,6 @@
 //! Authoring service
 
-use network::Network;
+use network::{Event, Network};
 use score::runtime::storage::BlockStorage;
 use std::time::Duration;
 
@@ -15,7 +15,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 }
 
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
-    let (block, ticket) = runtime.runtime.next()?;
+    let (block, ticket) = runtime.next()?;
     if let Some(block) = block {
         tracing::info!(
             "subscribing block@{}: {}",
@@ -24,13 +24,18 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
         );
 
         // save the block to the storage
-        runtime.runtime.storage.save_block(&block)?;
+        runtime.storage.save_block(&block)?;
+        runtime
+            .grandpa
+            .write()
+            .await
+            .save_header(block.header.clone())?;
 
         // announce the block to the network
-        runtime.announce.send((
-            block.header.clone(),
-            runtime.runtime.grandpa.read().await.head.clone(),
-        ))?;
+        runtime.send(Event::AnnounceBlock {
+            header: Box::new(block.header.clone()),
+            head: runtime.grandpa.read().await.head.clone(),
+        })?;
     }
 
     if let Some(ticket) = ticket {

@@ -17,6 +17,15 @@ pub struct Grid {
 }
 
 impl Grid {
+    /// Check if the given peer is a validator.
+    pub fn is_validator(&self, peer: [u8; 32]) -> bool {
+        self.prev
+            .iter()
+            .chain(&self.curr)
+            .chain(&self.next)
+            .any(|v| v.as_ref() == peer)
+    }
+
     /// Get the neighbours of the given validator.
     ///
     /// Primarily for the purpose of block announcements, the previous, current, and next validator sets are conceptually arranged

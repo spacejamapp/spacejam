@@ -1,12 +1,21 @@
 //! Events for peers.
 
 use crate::{stream, Network};
+use score::{block::Header, runtime::Head};
 
 mod conn;
 mod request;
+mod sync;
 
 /// Events for peers.
 pub enum Event {
+    AnnounceBlock {
+        /// The block.
+        header: Box<Header>,
+
+        /// The head.
+        head: Head,
+    },
     /// Request blocks.
     RequestBlock {
         /// The connection.
@@ -39,23 +48,25 @@ pub enum Event {
 impl Event {
     /// Handle the event.
     pub async fn handle<C: score::runtime::Config>(
-        &self,
+        self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
+            Self::AnnounceBlock { header, head } => {
+                sync::announce(runtime, header, head).await?;
+            }
             Self::RequestBlock { conn, data } => {
                 request::blocks(runtime.clone(), conn.clone(), data.clone()).await?;
             }
-
             Self::Connected {
                 peer,
                 connection,
                 outgoing,
             } => {
-                conn::connected(runtime, *peer, connection, *outgoing).await;
+                conn::connected(runtime, peer, &connection, outgoing).await;
             }
             Self::Closed { peer, reason } => {
-                conn::closed(runtime, *peer, reason.clone()).await?;
+                conn::closed(runtime, peer, reason.clone()).await?;
             }
         }
 

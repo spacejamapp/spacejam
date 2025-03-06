@@ -28,11 +28,19 @@ pub async fn blocks<C: score::runtime::Config>(
             break;
         }
 
+        // Skip announcing blocks if descendant of the block is announced.
+        let grandpa = runtime.runtime.grandpa.read().await;
+        let hash = block.header.hash()?;
+        for leaf in grandpa.leaves.iter() {
+            if !grandpa.is_descendant_of(&leaf.hash, hash) {
+                continue;
+            }
+        }
+
         // Announce the valid block.
-        let head = runtime.grandpa.read().await.head.clone();
         runtime
             .announce
-            .send((block.header.clone(), head.clone()))?;
+            .send((block.header.clone(), grandpa.head.clone()))?;
     }
 
     Ok(())
