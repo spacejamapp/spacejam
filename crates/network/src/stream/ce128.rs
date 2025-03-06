@@ -1,18 +1,15 @@
 //! Block request stream.
 
-use std::mem;
-
 use crate::Network;
 use quinn::{RecvStream, SendStream};
-use score::{Block, OpaqueHash};
+use score::{runtime::storage::BlockStorage, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 /// Send a block request.
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<Vec<Block>> {
+pub async fn send(conn: quinn::Connection, request: Request) -> anyhow::Result<Vec<Block>> {
+    let (mut send, mut recv) = conn.open_bi().await?;
+
     let mut buf = vec![0];
     buf.extend_from_slice(request.hash.as_ref());
     buf.extend_from_slice(&request.direction.to_le_bytes());
@@ -31,16 +28,20 @@ pub async fn recv<C: score::runtime::Config>(
     mut recv: RecvStream,
     runtime: Network<C>,
 ) -> anyhow::Result<()> {
-    let buf = mem::size_of::<Request>();
-    let mut buf = vec![0; buf];
-    recv.read_exact(&mut buf).await?;
+    let Some(request) = recv.read_chunk(1, true).await? else {
+        return Err(anyhow::anyhow!("failed to receive block request"));
+    };
 
-    // TODO: verify if mem::size_of works here
-    let request: Request = codec::decode(&buf[..])?;
-    // let blocks = runtime.runtime.storage.fetch_blocks(request)?;
-    //
-    // TODO: fetch the blocks from the storage
-    let blocks: Vec<Block> = vec![];
+    let request: Request = codec::decode(&request.bytes)?;
+    let current = runtime.storage.get_slot(&request.hash)?;
+    let slots = if request.direction == 0 {
+        (current..current + request.maximum)
+    } else {
+        (current - request.maximum..current)
+    }
+    .collect::<Vec<_>>();
+
+    let blocks = runtime.storage.fetch_blocks(&slots)?;
     send.write_all(&codec::encode(&blocks)?).await?;
     send.finish();
     Ok(())
@@ -53,6 +54,8 @@ pub struct Request {
     pub hash: OpaqueHash,
 
     /// The direction of the block.
+    ///
+    /// 0 for ascending exclusive, 1 for descending inclusive.
     pub direction: u8,
 
     /// The maximum number of blocks to request.

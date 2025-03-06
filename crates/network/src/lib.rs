@@ -2,13 +2,16 @@
 
 use metrics::Metrics;
 use peer::PeerId;
-use score::runtime::{Runtime, Validator};
-use std::{ops::Deref, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use score::{
+    block::Header,
+    runtime::{Head, Runtime, Validator},
+};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
+use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
     config::Config,
     event::Event,
-    peer::{Address, Manager},
+    peer::Address,
     transport::{Builder as TransportBuilder, Transport},
 };
 
@@ -30,10 +33,13 @@ pub struct Network<C: score::runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
-    pub manager: Arc<RwLock<Manager>>,
+    pub pool: Arc<RwLock<HashMap<[u8; 32], quinn::Connection>>>,
 
     /// The metrics of the network
     pub metrics: Metrics,
+
+    /// The announce channel of the network
+    announce: broadcast::Sender<(Header, Head)>,
 }
 
 impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
@@ -41,8 +47,9 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
         Self {
             transport: self.transport.clone(),
             runtime: self.runtime.clone(),
-            manager: self.manager.clone(),
+            pool: self.pool.clone(),
             metrics: self.metrics.clone(),
+            announce: self.announce.clone(),
         }
     }
 }
@@ -79,9 +86,16 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         Ok(Self {
             transport,
             runtime,
-            manager: Arc::new(RwLock::new(Default::default())),
+            pool: Arc::new(RwLock::new(Default::default())),
             metrics: Metrics::new(address.to_string().as_str()),
+            announce: broadcast::channel(256).0,
         })
+    }
+
+    /// Send an event to the network
+    pub fn send(&self, event: Event) -> anyhow::Result<()> {
+        self.transport.tx.send(event)?;
+        Ok(())
     }
 
     /// Spawn a task to handle events
@@ -91,6 +105,19 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
                 tracing::error!("failed to handle event: {e}");
             }
         }
+    }
+
+    /// Get a connection from the pool
+    pub(crate) async fn get_conn(&self, peer: [u8; 32]) -> anyhow::Result<quinn::Connection> {
+        let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
+            self.transport.tx.send(Event::Closed {
+                peer,
+                reason: "No connection found".to_string(),
+            })?;
+            return Err(anyhow::anyhow!("no connection found for peer: {:?}", peer));
+        };
+
+        Ok(conn)
     }
 }
 

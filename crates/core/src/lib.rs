@@ -40,6 +40,9 @@ pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 /// The maximum size of a work report output
 pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;
 
+/// The maximum age of a lookup anchor (24 hrs)
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD;
+
 /// The rotation period of validator core assignments, in timeslots.
 pub const ROTATION_PERIOD: u32 = 4;
 
@@ -160,6 +163,3 @@ pub type EntropyBuffer = [Entropy; 4];
 
 /// The type for a validator metadata
 pub type ValidatorMetadata = [u8; 128];
-
-/// The config of development
-pub struct Development;

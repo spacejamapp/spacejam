@@ -9,7 +9,12 @@ use std::sync::{
     Arc,
 };
 use tokio::sync::RwLock;
-pub use {grandpa::Grandpa, pool::Pool, storage::Storage, validator::Validator};
+pub use {
+    grandpa::{Grandpa, Head},
+    pool::Pool,
+    storage::Storage,
+    validator::Validator,
+};
 
 mod grandpa;
 mod pool;
@@ -32,6 +37,9 @@ pub struct Runtime<C: Config> {
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa>>,
 
+    /// Whether self is a validator.
+    pub is_validator: bool,
+
     // pub metrics:
     /// The attempt number of the current epoch
     attempt: Arc<AtomicU8>,
@@ -39,16 +47,30 @@ pub struct Runtime<C: Config> {
 
 impl<C: Config> Runtime<C> {
     /// Create a new runtime
-    pub fn new(validator: C::Validator, storage: C::Storage) -> Self {
+    pub fn new(validator: C::Validator, storage: C::Storage) -> anyhow::Result<Self> {
+        let grandpa = Grandpa::new(&storage)?;
+        Ok(Self::new_with_grandpa(validator, storage, grandpa))
+    }
+
+    /// Create a new runtime with a grandpa instance
+    pub fn new_with_grandpa(
+        validator: C::Validator,
+        storage: C::Storage,
+        grandpa: Grandpa,
+    ) -> Self {
+        let is_validator = !grandpa
+            .grid
+            .neighbours(validator.ed25519_public_key())
+            .is_empty();
         Self {
             validator,
             storage,
             pool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Default::default())),
+            grandpa: Arc::new(RwLock::new(grandpa)),
             attempt: Arc::new(AtomicU8::new(0)),
+            is_validator,
         }
     }
-
     /// Get the next runtime package
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.
@@ -69,14 +91,14 @@ impl<C: Config> Runtime<C> {
             return Ok(None);
         }
 
-        let block = self.storage.recent_blocks()?;
-        let Some(block) = block.and_then(|b| b.last().cloned()) else {
-            anyhow::bail!("genesis block not found");
-        };
+        let blocks = self.storage.recent_blocks()?;
+        let block = blocks
+            .last()
+            .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
         let extrinsic = self.pool.collect()?;
         Block::builder()
-            .parent(&block)?
+            .parent(block)?
             .extrinsic(extrinsic)?
             .seal(&self.validator, &self.storage)
             .map(Some)
@@ -132,9 +154,15 @@ impl<C: Config> Runtime<C> {
         }))
     }
 
-    /// Import a block
-    pub fn import(&self, block: Vec<u8>) -> anyhow::Result<()> {
-        tx::transit(&codec::decode(&block)?, &self.storage, &self.validator)
+    /// Finalize blocks
+    pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
+        // 1. transit the global state
+        tx::transit(block, &self.storage, &self.validator)?;
+
+        // 2. update the grandpa state
+        *self.grandpa.write().await = Grandpa::new(&self.storage)?;
+
+        Ok(())
     }
 }
 

@@ -1,6 +1,6 @@
 //! Key-value storage abstraction
 
-use crate::{state::key, OpaqueHash};
+use crate::state::key;
 use anyhow::Result;
 use std::{
     collections::HashMap,
@@ -28,7 +28,7 @@ pub trait KVStorage {
     ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
 
     /// Batch read a set of key-value pairs from the storage
-    fn batch_read(&self, keys: Vec<OpaqueHash>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         keys.iter()
             .map(|key| self.get(key).map(|v| (key.to_vec(), v.unwrap_or_default())))
             .collect::<Result<Vec<_>>>()
