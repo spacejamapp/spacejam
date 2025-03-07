@@ -13,6 +13,7 @@ use std::{
 use tokio::sync::RwLock;
 
 /// Sync information.
+#[derive(Debug, Default)]
 pub struct Handshake {
     /// The finalized head.
     pub head: Head,

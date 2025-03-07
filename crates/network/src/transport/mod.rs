@@ -2,13 +2,12 @@
 
 use crate::{
     event::Event,
-    peer::{Address, PeerId},
+    peer::{Address, Connection, PeerId},
 };
 use anyhow::Context;
 use crypto::ed25519;
-use quinn::{crypto::rustls::HandshakeData, Endpoint};
+use quinn::Endpoint;
 use tokio::sync::{mpsc, oneshot};
-use webpki::{types::CertificateDer, EndEntityCert};
 pub use {builder::Builder, verifier::Verifier};
 
 mod builder;
@@ -39,12 +38,15 @@ impl Transport {
             .await
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
-        let peer = self::alpn(&conn).context("failed to verify alpn")?;
+        // we need to verify the peer id before sending the connected event
+        let Ok(conn) = Connection::new(conn.clone()) else {
+            conn.close(1u32.into(), "failed to verify alpn".as_bytes());
+            anyhow::bail!("failed to verify alpn of {addr}");
+        };
 
         self.tx
             .send(Event::Connected {
-                peer,
-                connection: conn.clone(),
+                conn,
                 outgoing: true,
             })
             .context("failed to send connected event")
@@ -71,15 +73,14 @@ impl Transport {
                     continue;
                 };
 
-                let Ok(peer) = self::alpn(&conn).map_err(|e| {
+                let Ok(conn) = Connection::new(conn).map_err(|e| {
                     tracing::warn!("failed to verify alpn: {e:?}");
                 }) else {
                     continue;
                 };
 
                 if let Err(e) = self.tx.send(Event::Connected {
-                    peer,
-                    connection: conn,
+                    conn,
                     outgoing: false,
                 }) {
                     tracing::warn!("failed to send connected event: {e:?}");
@@ -96,69 +97,6 @@ impl Transport {
             tracing::error!("failed to send closed event to {}: {e}", peer);
         }
     }
-}
-
-/// Verify ALPN after accepting a connection.
-fn alpn(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
-    let data: Box<HandshakeData> = conn
-        .handshake_data()
-        .ok_or_else(|| rustls::Error::HandshakeNotComplete)?
-        .downcast()
-        .map_err(|_| anyhow::anyhow!("invalid handshake data"))?;
-
-    // validate the server name
-    if let Some(alt) = data.server_name {
-        let _ = PeerId::verify(&alt)?;
-    }
-
-    let protocol = String::from_utf8(
-        data.protocol
-            .ok_or_else(|| anyhow::anyhow!("none protocol in handshake data"))?,
-    )
-    .map_err(|_| anyhow::anyhow!("could not parse protocol"))?;
-
-    let patts = protocol.split('/').collect::<Vec<&str>>();
-    let patts_len = patts.len();
-
-    // jamnp-s/V/H
-    // jamnp-s/V/H/builder
-    if !(2..=4).contains(&patts_len) {
-        anyhow::bail!("invalid protocol pattern length: {patts_len}")
-    }
-
-    if patts[0] != crate::PROTOCOL {
-        anyhow::bail!("invalid protocol name: {}", patts[0]);
-    }
-
-    if patts_len != 3 && patts[patts_len.saturating_sub(1)] != "builder" {
-        anyhow::bail!("invalid builder pattern");
-    }
-
-    self::peer(conn)
-}
-
-/// Get the peer from the Connection
-///
-/// Note that the DNS name should be verified by the Verifier.
-pub fn peer(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
-    let Some(identity) = conn.peer_identity() else {
-        anyhow::bail!("no peer identity");
-    };
-
-    let certs: Box<Vec<CertificateDer<'_>>> = identity
-        .downcast()
-        .map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
-
-    let cert = certs
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("no certs found from identity"))?;
-
-    let cert =
-        EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
-
-    Verifier::extract_public_key(&cert)
-        .map_err(|e| anyhow::anyhow!("{e:?}"))
-        .map(Into::into)
 }
 
 /// Pick a random port.

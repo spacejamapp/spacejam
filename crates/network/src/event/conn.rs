@@ -1,22 +1,24 @@
 //! Peer events handler
 
-use crate::{peer::PeerId, stream, Address, Network};
+use crate::{
+    peer::{Connection, PeerId},
+    stream, Address, Network,
+};
 use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
 pub async fn connected<C: score::runtime::Config>(
     runtime: Network<C>,
-    peer: PeerId,
-    connection: &quinn::Connection,
+    conn: Connection,
     outgoing: bool,
 ) {
     let pool = runtime.pool.clone();
-    let address = Address::new(connection.remote_address(), peer);
+    let address = conn.address.clone();
     tracing::debug!("connected to {}", address);
 
     // 1. insert the connection into the manager
-    pool.write().await.insert(peer, connection.clone());
+    pool.write().await.insert(address.peer_id, conn.clone());
 
     // 2. establish the connection in the metrics
     runtime
@@ -25,13 +27,13 @@ pub async fn connected<C: score::runtime::Config>(
         .establish_connection(address.to_string());
 
     // 3. spawn the connection
-    tokio::spawn(self::serve(peer, connection.clone(), runtime.clone()));
+    tokio::spawn(self::serve(conn, runtime.clone()));
 
     // 4. open the up0 stream if needed
     if outgoing {
         let is_validator = runtime.is_validator;
         let grandpa = runtime.grandpa.read().await.clone();
-        let neighbours = grandpa.grid.neighbours(peer.into());
+        let neighbours = grandpa.grid.neighbours(address.peer_id.into());
 
         if is_validator && !neighbours.contains(&runtime.validator.ed25519_public_key()) {
             tracing::warn!("peer is not a neighbour, skipping up0 stream");
@@ -39,7 +41,7 @@ pub async fn connected<C: score::runtime::Config>(
         }
 
         tokio::spawn(async move {
-            if let Err(e) = stream::up0::send(runtime.clone(), peer).await {
+            if let Err(e) = stream::up0::send(runtime.clone(), address.peer_id).await {
                 tracing::warn!("failed to send up0 stream: {e:?} for {address}");
             }
         });
@@ -69,14 +71,13 @@ pub async fn closed<C: score::runtime::Config>(
 }
 
 /// Serve a connection.
-async fn serve<C: score::runtime::Config>(
-    peer: PeerId,
-    conn: quinn::Connection,
-    runtime: Network<C>,
-) {
+async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
     while let Ok((send, recv)) = conn.accept_bi().await {
-        if let Err(e) = stream::recv(peer, send, recv, runtime.clone()).await {
-            runtime.transport.close(peer, e.to_string()).await;
+        if let Err(e) = stream::recv(conn.address.peer_id, send, recv, runtime.clone()).await {
+            runtime
+                .transport
+                .close(conn.address.peer_id, e.to_string())
+                .await;
             continue;
         }
     }

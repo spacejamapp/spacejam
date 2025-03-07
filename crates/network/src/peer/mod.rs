@@ -1,11 +1,12 @@
 //! Peer related stuffs
 
-pub use address::Address;
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
+pub use {address::Address, conn::Connection};
 
 mod address;
+mod conn;
 
 /// Peer ID, also known as the DNS name of the peer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Copy)]

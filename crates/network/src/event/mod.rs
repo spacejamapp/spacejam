@@ -1,6 +1,9 @@
 //! Events for peers.
 
-use crate::{peer::PeerId, Network};
+use crate::{
+    peer::{Connection, PeerId},
+    Network,
+};
 use score::{block::Header, runtime::Head, TimeSlot};
 
 mod conn;
@@ -21,11 +24,8 @@ pub enum Event {
 
     /// A new peer has connected.
     Connected {
-        /// The peer's public key.
-        peer: PeerId,
-
         /// The connection.
-        connection: quinn::Connection,
+        conn: Connection,
 
         /// Whether the connection is outgoing.
         outgoing: bool,
@@ -53,12 +53,8 @@ impl Event {
             Self::SelectBestChain { slot } => {
                 sync::select_best_chain(runtime, slot).await?;
             }
-            Self::Connected {
-                peer,
-                connection,
-                outgoing,
-            } => {
-                conn::connected(runtime, peer, &connection, outgoing).await;
+            Self::Connected { conn, outgoing } => {
+                conn::connected(runtime, conn, outgoing).await;
             }
             Self::Closed { peer, reason } => {
                 conn::closed(runtime, peer, reason.clone()).await?;

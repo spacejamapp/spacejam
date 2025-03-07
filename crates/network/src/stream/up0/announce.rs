@@ -3,7 +3,11 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{peer::PeerId, stream::up0::Handshake, Event, Network};
+use crate::{
+    peer::{Connection, PeerId},
+    stream::up0::Handshake,
+    Event, Network,
+};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
 use std::{collections::HashSet, sync::Arc};
@@ -11,20 +15,21 @@ use tokio::sync::RwLock;
 
 /// Announce the block to the peer.
 pub async fn unchecked<C: score::runtime::Config>(
-    peer: PeerId,
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
-    handshake: Handshake,
+    conn: Connection,
 ) {
-    let handshake = Arc::new(RwLock::new(handshake));
     let r = tokio::select! {
-        r = self::send(runtime.clone(), send, handshake.clone()) => r,
-        r = self::recv(runtime.clone(), recv, handshake, peer) => r,
+        r = self::send(runtime.clone(), send, conn.clone()) => r,
+        r = self::recv(runtime.clone(), recv, conn.clone()) => r,
     };
 
     if let Err(e) = r {
-        runtime.transport.close(peer, e.to_string()).await;
+        runtime
+            .transport
+            .close(conn.address.peer_id, e.to_string())
+            .await;
     }
 }
 
@@ -32,12 +37,12 @@ pub async fn unchecked<C: score::runtime::Config>(
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
-    handshake: Arc<RwLock<Handshake>>,
+    conn: Connection,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
     while let Ok((header, head)) = rx.recv().await {
         let grandpa = runtime.runtime.grandpa.read().await;
-        let handshake = handshake.read().await;
+        let handshake = conn.handshake.read().await;
         let hash = header.hash()?;
 
         // Skip if the block, or a descendant of the block, has been
@@ -59,8 +64,7 @@ pub async fn send<C: score::runtime::Config>(
 pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
-    handshake: Arc<RwLock<Handshake>>,
-    peer: PeerId,
+    conn: Connection,
 ) -> anyhow::Result<()> {
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;
@@ -82,7 +86,7 @@ pub async fn recv<C: score::runtime::Config>(
 
         // update the remote peer's handshake data.
         {
-            let mut handshake = handshake.write().await;
+            let mut handshake = conn.handshake.write().await;
             handshake.head = head.clone();
             handshake.leaves.insert(leaf.clone());
         }

@@ -11,7 +11,7 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
     config::Config,
     event::Event,
-    peer::Address,
+    peer::{Address, Connection},
     transport::{Builder as TransportBuilder, Transport},
 };
 
@@ -33,7 +33,7 @@ pub struct Network<C: score::runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
-    pub pool: Arc<RwLock<HashMap<PeerId, quinn::Connection>>>,
+    pub pool: Arc<RwLock<HashMap<PeerId, Connection>>>,
 
     /// The metrics of the network
     pub metrics: Metrics,
@@ -108,7 +108,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Get a connection from the pool
-    pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<quinn::Connection> {
+    pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
         let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
             self.transport.tx.send(Event::Closed {
                 peer,
