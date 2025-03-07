@@ -6,7 +6,7 @@ use crate::{
     transport::Verifier,
 };
 use quinn::crypto::rustls::HandshakeData;
-use std::{ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use webpki::{types::CertificateDer, EndEntityCert};
 
@@ -21,6 +21,9 @@ pub struct Connection {
 
     /// Handshake data.
     pub handshake: Arc<RwLock<Handshake>>,
+
+    /// Latency.
+    pub latency: Duration,
 }
 
 impl Connection {
@@ -33,6 +36,7 @@ impl Connection {
             address,
             conn,
             handshake: Arc::new(RwLock::new(Handshake::default())),
+            latency: Duration::from_secs(0),
         })
     }
 }
@@ -87,7 +91,7 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
 /// Get the peer from the Connection
 ///
 /// Note that the DNS name should be verified by the Verifier.
-pub fn peer(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
+fn peer(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
     let Some(identity) = conn.peer_identity() else {
         anyhow::bail!("no peer identity");
     };

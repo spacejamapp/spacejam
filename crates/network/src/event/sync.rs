@@ -1,7 +1,7 @@
 //! Handler of sync events
 
-use crate::Network;
-use score::{block::Header, runtime::Head, TimeSlot};
+use crate::{stream::ce128, Network};
+use score::{block::Header, runtime::Head, Block, TimeSlot};
 
 /// Announce a block to the network
 pub async fn announce<C: score::runtime::Config>(
@@ -19,6 +19,10 @@ pub async fn announce<C: score::runtime::Config>(
 }
 
 /// Select the best chain.
+///
+/// This happens on:
+/// - receving new block announcements
+/// - before authoring blocks
 pub async fn select_best_chain<C: score::runtime::Config>(
     runtime: Network<C>,
     slot: TimeSlot,
@@ -29,18 +33,54 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     }
 
     // select the best head from the grandpa.
-    let Some(_best) = grandpa.select_best_head() else {
+    let Some(best) = grandpa.select_best_head() else {
         return Ok(());
     };
 
-    // shall we request the missing blocks here?
+    let mut feeds = Vec::new();
+    for conn in runtime.pool.read().await.values() {
+        let head = conn.handshake.read().await.head.clone();
+        if head.hash == best.hash
+            || head.slot > best.slot && grandpa.is_descendant_of(&head.hash, best.hash)
+        {
+            feeds.push(conn.clone());
+        }
+    }
+
+    // we trust the feeds since
     //
-    // 1. we get the best head from grandpa.
-    // 2. according to the author of best head, we get the address of the peer.?
-    // 3. once we got the address of the peer, we create a new connection to the peer.
-    // 4. request the missing blocks from the peer.
-    // 5. finliaze the best chain.
-    // 6. on finalizing blocks, we update the grandpa state.
+    // - they are peers that we've connected to (validators)
+    // - the best head is at least a descendant of their finalized heads
+    //
+    // so we can directly fetch the missing blocks from the feeds.
+    feeds.sort_by_key(|conn| conn.latency);
+    let Some(feed) = feeds.first() else {
+        tracing::warn!(
+            "no peers found for syncing to the best head block#{}@{}",
+            best.slot,
+            hex::encode(best.hash)
+        );
+        return Ok(());
+    };
+
+    // send the request to the feed.
+    let mut recv = ce128::send(
+        feed.clone(),
+        ce128::Request {
+            hash: grandpa.head.hash,
+            direction: 0,
+            maximum: best.slot.saturating_sub(grandpa.head.slot),
+        },
+    )
+    .await?;
+
+    // receive the blocks from the feed.
+    if let Some(blocks) = recv.read_chunk(10, true).await? {
+        let blocks: Vec<Block> = codec::decode(&blocks.bytes)?;
+        for block in blocks {
+            runtime.finalize(&block).await?;
+        }
+    }
 
     Ok(())
 }

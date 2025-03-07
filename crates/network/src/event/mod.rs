@@ -21,7 +21,6 @@ pub enum Event {
     },
     /// Select the best chain.
     SelectBestChain { slot: TimeSlot },
-
     /// A new peer has connected.
     Connected {
         /// The connection.

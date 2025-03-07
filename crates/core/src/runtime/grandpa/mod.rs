@@ -110,7 +110,9 @@ impl Grandpa {
                 continue;
             }
 
-            return Some(head);
+            if head.slot > self.head.slot {
+                return Some(head);
+            }
         }
 
         None

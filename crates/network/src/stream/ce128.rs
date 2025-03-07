@@ -1,14 +1,14 @@
 //! Block request stream.
 
-use crate::Network;
+use crate::{Connection, Network};
 use quinn::{RecvStream, SendStream};
 use score::{runtime::storage::BlockStorage, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Send a block request.
-pub async fn send(conn: quinn::Connection, request: Request) -> anyhow::Result<Vec<Block>> {
-    let (mut send, mut recv) = conn.open_bi().await?;
+pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStream> {
+    let (mut send, recv) = conn.open_bi().await?;
 
     let mut buf = vec![0];
     buf.extend_from_slice(request.hash.as_ref());
@@ -17,9 +17,8 @@ pub async fn send(conn: quinn::Connection, request: Request) -> anyhow::Result<V
     send.write_all(&buf).await?;
     send.finish();
 
-    // 2. receive the response
-    let blocks = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-    Ok(blocks)
+    // returns the recv stream
+    Ok(recv)
 }
 
 /// Receive a block request.
@@ -41,8 +40,15 @@ pub async fn recv<C: score::runtime::Config>(
     }
     .collect::<Vec<_>>();
 
-    let blocks = runtime.storage.fetch_blocks(&slots)?;
-    send.write_all(&codec::encode(&blocks)?).await?;
+    // Fetch blocks in batches of 10.
+    let batch_size = 10;
+    for chunk in slots.chunks(batch_size) {
+        let blocks = runtime.storage.fetch_blocks(chunk)?;
+        for block in blocks {
+            send.write(&codec::encode(&block)?).await?;
+        }
+    }
+
     send.finish();
     Ok(())
 }
