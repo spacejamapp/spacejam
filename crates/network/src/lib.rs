@@ -92,6 +92,15 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         })
     }
 
+    /// Whether self is a validator.
+    pub async fn is_validator(&self) -> bool {
+        let grandpa = self.runtime.grandpa.read().await.clone();
+        grandpa
+            .grid
+            .curr
+            .contains(&self.runtime.validator.ed25519_public_key())
+    }
+
     /// Send an event to the network
     pub fn send(&self, event: Event) -> anyhow::Result<()> {
         self.transport.tx.send(event)?;

@@ -31,7 +31,11 @@ pub async fn connected<C: score::runtime::Config>(
 
     // 4. open the up0 stream if needed
     if outgoing {
-        let is_validator = runtime.is_validator;
+        let grandpa = runtime.grandpa.read().await.clone();
+        let is_validator = !grandpa
+            .grid
+            .neighbours(runtime.validator.ed25519_public_key())
+            .is_empty();
         let grandpa = runtime.grandpa.read().await.clone();
         let neighbours = grandpa.grid.neighbours(address.peer_id.into());
 

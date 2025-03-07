@@ -4,8 +4,9 @@ use crate::{
     peer::{Connection, PeerId},
     Network,
 };
-use score::{block::Header, runtime::Head, TimeSlot};
+use score::{block::Header, extrinsic::TicketEnvelope, runtime::Head, TimeSlot};
 
+mod broadcast;
 mod conn;
 mod sync;
 
@@ -18,6 +19,14 @@ pub enum Event {
 
         /// The head.
         head: Head,
+    },
+    /// Distribute a ticket.
+    DistributeTicket {
+        /// The epoch.
+        epoch: u32,
+
+        /// The ticket.
+        ticket: Box<TicketEnvelope>,
     },
     /// Select the best chain.
     SelectBestChain { slot: TimeSlot },
@@ -46,17 +55,21 @@ impl Event {
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
-            Self::AnnounceBlock { header, head } => {
-                sync::announce(runtime, header, head).await?;
-            }
-            Self::SelectBestChain { slot } => {
-                sync::select_best_chain(runtime, slot).await?;
+            Self::DistributeTicket { epoch, ticket } => {
+                broadcast::ticket(runtime, epoch, *ticket).await?;
             }
             Self::Connected { conn, outgoing } => {
                 conn::connected(runtime, conn, outgoing).await;
             }
             Self::Closed { peer, reason } => {
                 conn::closed(runtime, peer, reason.clone()).await?;
+            }
+            Self::AnnounceBlock { header, head } => {
+                sync::announce(runtime, header, head).await?;
+            }
+
+            Self::SelectBestChain { slot } => {
+                sync::select_best_chain(runtime, slot).await?;
             }
         }
 

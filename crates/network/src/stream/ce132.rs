@@ -18,6 +18,9 @@ pub async fn send(
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
     send.finish();
+
+    // just wait for the response
+    let _ = recv.read_to_end(0).await;
     Ok(())
 }
 

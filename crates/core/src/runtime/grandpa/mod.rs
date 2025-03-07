@@ -52,19 +52,12 @@ impl Grandpa {
     /// Create a new grandpa instance.
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
         let head = storage.get_finalized()?;
-        let curr = storage.current_validators()?;
-        let prev = storage.previous_validators()?;
-        let next = storage.next_validators()?;
 
         Ok(Self {
             head,
             leaves: Default::default(),
             ancestry: Default::default(),
-            grid: Grid::try_from((
-                prev.iter().map(|v| v.ed25519).collect(),
-                curr.iter().map(|v| v.ed25519).collect(),
-                next.iter().map(|v| v.ed25519).collect(),
-            ))?,
+            grid: Grid::new(storage)?,
         })
     }
 
@@ -86,6 +79,26 @@ impl Grandpa {
 
         // update the leaves
         self.leaves = leaves;
+    }
+
+    /// Finalize a head.
+    pub fn finalize(&mut self, header: Header) -> anyhow::Result<()> {
+        let head = Head {
+            hash: header.hash()?,
+            slot: header.slot,
+        };
+
+        self.head = head.clone();
+        self.leaves = self
+            .leaves
+            .iter()
+            .filter(|l| l.hash != head.hash)
+            .cloned()
+            .collect();
+
+        // TODO: update the grid.
+
+        Ok(())
     }
 
     /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           

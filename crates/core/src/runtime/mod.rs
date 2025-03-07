@@ -37,10 +37,6 @@ pub struct Runtime<C: Config> {
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa>>,
 
-    /// Whether self is a validator.
-    pub is_validator: bool,
-
-    // pub metrics:
     /// The attempt number of the current epoch
     attempt: Arc<AtomicU8>,
 }
@@ -58,37 +54,33 @@ impl<C: Config> Runtime<C> {
         storage: C::Storage,
         grandpa: Grandpa,
     ) -> Self {
-        let is_validator = !grandpa
-            .grid
-            .neighbours(validator.ed25519_public_key())
-            .is_empty();
         Self {
             validator,
             storage,
             pool: Default::default(),
             grandpa: Arc::new(RwLock::new(grandpa)),
             attempt: Arc::new(AtomicU8::new(0)),
-            is_validator,
         }
     }
+
     /// Get the next runtime package
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.
-    pub fn next(&self) -> anyhow::Result<(Option<Block>, Option<TicketEnvelope>)> {
+    pub fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         Ok((self.author()?, self.ticket()?))
     }
 
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
-    pub fn author(&self) -> anyhow::Result<Option<Block>> {
+    pub fn author(&self) -> anyhow::Result<Block> {
         let safrole = self.storage.safrole()?;
         if !safrole
             .series
             .keys()
             .contains(&self.validator.bandersnatch_public_key())
         {
-            return Ok(None);
+            anyhow::bail!("not in the safrole series keys");
         }
 
         let blocks = self.storage.recent_blocks()?;
@@ -101,7 +93,6 @@ impl<C: Config> Runtime<C> {
             .parent(block)?
             .extrinsic(extrinsic)?
             .seal(&self.validator, &self.storage)
-            .map(Some)
     }
 
     /// Generate a ticket for the next block (using next timeslot).
@@ -155,14 +146,15 @@ impl<C: Config> Runtime<C> {
     }
 
     /// Finalize blocks
+    ///
+    /// Note that we only store finalized blocks and the blocks authored
+    /// by ourselves in our storage.
     pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
         // 1. transit the global state
         tx::transit(block, &self.storage, &self.validator)?;
 
         // 2. update the grandpa state
-        *self.grandpa.write().await = Grandpa::new(&self.storage)?;
-
-        Ok(())
+        self.grandpa.write().await.finalize(block.header.clone())
     }
 }
 

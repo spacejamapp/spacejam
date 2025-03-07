@@ -1,6 +1,6 @@
 //! The grid of the network.
 
-use crate::{Ed25519Public, VALIDATORS_COUNT};
+use crate::{runtime::Storage, Ed25519Public, VALIDATORS_COUNT};
 use std::collections::HashSet;
 
 /// The grid of the network.
@@ -17,6 +17,29 @@ pub struct Grid {
 }
 
 impl Grid {
+    /// Create a new grid from the storage.
+    pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
+        let prev = storage.previous_validators()?;
+        let curr = storage.current_validators()?;
+        let next = storage.next_validators()?;
+
+        Self::try_from((
+            prev.iter().map(|v| v.ed25519).collect(),
+            curr.iter().map(|v| v.ed25519).collect(),
+            next.iter().map(|v| v.ed25519).collect(),
+        ))
+    }
+
+    /// Get the validators of the grid.
+    pub fn validators(&self) -> HashSet<Ed25519Public> {
+        self.prev
+            .iter()
+            .chain(&self.curr)
+            .chain(&self.next)
+            .copied()
+            .collect()
+    }
+
     /// Check if the given peer is a validator.
     pub fn is_validator(&self, peer: [u8; 32]) -> bool {
         self.prev
