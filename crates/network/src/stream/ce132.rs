@@ -35,7 +35,8 @@ pub async fn recv<C: score::runtime::Config>(
     recv.read_exact(&mut buf).await?;
 
     // TODO: verify the proof, handle the ticket, etc.
-    let _request: Request = codec::decode(&buf[..])?;
+    let request: Request = codec::decode(&buf[..])?;
+    runtime.expool.insert_ticket(request.epoch, request.ticket);
     send.finish();
     Ok(())
 }

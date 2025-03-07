@@ -32,7 +32,7 @@ pub struct Runtime<C: Config> {
     pub storage: C::Storage,
 
     /// The extrinsic pool of SpaceJam
-    pub pool: Pool,
+    pub expool: Pool,
 
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa>>,
@@ -57,7 +57,7 @@ impl<C: Config> Runtime<C> {
         Self {
             validator,
             storage,
-            pool: Default::default(),
+            expool: Default::default(),
             grandpa: Arc::new(RwLock::new(grandpa)),
             attempt: Arc::new(AtomicU8::new(0)),
         }
@@ -66,14 +66,14 @@ impl<C: Config> Runtime<C> {
     /// Get the next runtime package
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.
-    pub fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
-        Ok((self.author()?, self.ticket()?))
+    pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
+        Ok((self.author().await?, self.ticket()?))
     }
 
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
-    pub fn author(&self) -> anyhow::Result<Block> {
+    pub async fn author(&self) -> anyhow::Result<Block> {
         let safrole = self.storage.safrole()?;
         if !safrole
             .series
@@ -88,7 +88,7 @@ impl<C: Config> Runtime<C> {
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
-        let extrinsic = self.pool.collect()?;
+        let extrinsic = self.expool.collect().await?;
         Block::builder()
             .parent(block)?
             .extrinsic(extrinsic)?

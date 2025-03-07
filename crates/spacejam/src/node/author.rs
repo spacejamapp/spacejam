@@ -29,7 +29,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 }
 
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
-    let (block, ticket) = runtime.next()?;
+    let (block, ticket) = runtime.next().await?;
     tracing::info!(
         "subscribing block@{}: {}",
         block.header.slot,
