@@ -1,6 +1,6 @@
 //! Events for peers.
 
-use crate::Network;
+use crate::{peer::PeerId, Network};
 use score::{block::Header, runtime::Head, TimeSlot};
 
 mod conn;
@@ -22,7 +22,7 @@ pub enum Event {
     /// A new peer has connected.
     Connected {
         /// The peer's public key.
-        peer: [u8; 32],
+        peer: PeerId,
 
         /// The connection.
         connection: quinn::Connection,
@@ -33,7 +33,7 @@ pub enum Event {
     /// A peer has disconnected.
     Closed {
         /// The peer id
-        peer: [u8; 32],
+        peer: PeerId,
 
         /// The reason for the disconnect.
         reason: String,

@@ -3,7 +3,7 @@
 //! Functional handlers for streams.
 #![allow(unused)]
 
-use crate::Network;
+use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
 
 pub mod ce128;
@@ -27,7 +27,7 @@ pub mod up0;
 
 /// Handle an incoming stream.
 pub async fn recv<C: score::runtime::Config>(
-    peer: [u8; 32],
+    peer: PeerId,
     send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

@@ -31,17 +31,19 @@ impl Transport {
     }
 
     /// Dial a new connection.
-    #[tracing::instrument(skip_all, fields(peer = addr.peer_id.to_string()))]
+    #[tracing::instrument(skip_all, fields(peer = %addr.peer_id))]
     pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
         let conn = self
             .endpoint
-            .connect(addr.addr, addr.peer_id.as_ref())?
+            .connect(addr.addr, addr.peer_id.to_string().as_str())?
             .await
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
+        let peer = self::alpn(&conn).context("failed to verify alpn")?;
+
         self.tx
             .send(Event::Connected {
-                peer: self::alpn(&conn).context("failed to verify alpn")?,
+                peer,
                 connection: conn.clone(),
                 outgoing: true,
             })
@@ -89,18 +91,15 @@ impl Transport {
     }
 
     /// Close a connection
-    pub async fn close(&self, peer: [u8; 32], reason: String) {
+    pub async fn close(&self, peer: PeerId, reason: String) {
         if let Err(e) = self.tx.send(Event::Closed { peer, reason }) {
-            tracing::error!(
-                "failed to send closed event to {}: {e}",
-                PeerId::from(&peer)
-            );
+            tracing::error!("failed to send closed event to {}: {e}", peer);
         }
     }
 }
 
 /// Verify ALPN after accepting a connection.
-fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+fn alpn(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
     let data: Box<HandshakeData> = conn
         .handshake_data()
         .ok_or_else(|| rustls::Error::HandshakeNotComplete)?
@@ -141,7 +140,7 @@ fn alpn(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
 /// Get the peer from the Connection
 ///
 /// Note that the DNS name should be verified by the Verifier.
-pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
+pub fn peer(conn: &quinn::Connection) -> anyhow::Result<PeerId> {
     let Some(identity) = conn.peer_identity() else {
         anyhow::bail!("no peer identity");
     };
@@ -157,7 +156,9 @@ pub fn peer(conn: &quinn::Connection) -> anyhow::Result<[u8; 32]> {
     let cert =
         EndEntityCert::try_from(cert).map_err(|_| anyhow::anyhow!("invalid peer identity"))?;
 
-    Verifier::extract_public_key(&cert).map_err(|e| anyhow::anyhow!("{e:?}"))
+    Verifier::extract_public_key(&cert)
+        .map_err(|e| anyhow::anyhow!("{e:?}"))
+        .map(Into::into)
 }
 
 /// Pick a random port.

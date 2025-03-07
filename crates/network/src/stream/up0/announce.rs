@@ -3,7 +3,7 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{stream::up0::Handshake, Event, Network};
+use crate::{peer::PeerId, stream::up0::Handshake, Event, Network};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
 use std::{collections::HashSet, sync::Arc};
@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 /// Announce the block to the peer.
 pub async fn unchecked<C: score::runtime::Config>(
-    peer: [u8; 32],
+    peer: PeerId,
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
@@ -60,7 +60,7 @@ pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
     handshake: Arc<RwLock<Handshake>>,
-    peer: [u8; 32],
+    peer: PeerId,
 ) -> anyhow::Result<()> {
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;

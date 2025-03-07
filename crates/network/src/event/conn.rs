@@ -1,18 +1,18 @@
 //! Peer events handler
 
-use crate::{stream, Address, Network};
+use crate::{peer::PeerId, stream, Address, Network};
 use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
 pub async fn connected<C: score::runtime::Config>(
     runtime: Network<C>,
-    peer: [u8; 32],
+    peer: PeerId,
     connection: &quinn::Connection,
     outgoing: bool,
 ) {
     let pool = runtime.pool.clone();
-    let address = Address::new(connection.remote_address(), &peer);
+    let address = Address::new(connection.remote_address(), peer);
     tracing::debug!("connected to {}", address);
 
     // 1. insert the connection into the manager
@@ -31,7 +31,7 @@ pub async fn connected<C: score::runtime::Config>(
     if outgoing {
         let is_validator = runtime.is_validator;
         let grandpa = runtime.grandpa.read().await.clone();
-        let neighbours = grandpa.grid.neighbours(peer);
+        let neighbours = grandpa.grid.neighbours(peer.into());
 
         if is_validator && !neighbours.contains(&runtime.validator.ed25519_public_key()) {
             tracing::warn!("peer is not a neighbour, skipping up0 stream");
@@ -49,7 +49,7 @@ pub async fn connected<C: score::runtime::Config>(
 /// Handle the closed event.
 pub async fn closed<C: score::runtime::Config>(
     runtime: Network<C>,
-    peer: [u8; 32],
+    peer: PeerId,
     reason: String,
 ) -> anyhow::Result<()> {
     let pool = runtime.pool.clone();
@@ -58,7 +58,7 @@ pub async fn closed<C: score::runtime::Config>(
         return Ok(());
     };
 
-    let address = Address::new(conn.remote_address(), &peer);
+    let address = Address::new(conn.remote_address(), peer);
     tracing::warn!("closing connection {address} with reason: {reason}");
 
     // close the connection in the pool and metrics
@@ -70,7 +70,7 @@ pub async fn closed<C: score::runtime::Config>(
 
 /// Serve a connection.
 async fn serve<C: score::runtime::Config>(
-    peer: [u8; 32],
+    peer: PeerId,
     conn: quinn::Connection,
     runtime: Network<C>,
 ) {

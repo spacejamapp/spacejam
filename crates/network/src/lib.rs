@@ -33,7 +33,7 @@ pub struct Network<C: score::runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
-    pub pool: Arc<RwLock<HashMap<[u8; 32], quinn::Connection>>>,
+    pub pool: Arc<RwLock<HashMap<PeerId, quinn::Connection>>>,
 
     /// The metrics of the network
     pub metrics: Metrics,
@@ -62,7 +62,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         tx: mpsc::UnboundedSender<Event>,
     ) -> anyhow::Result<Self> {
         let keypair = runtime.validator.ed25519().unwrap_or_default();
-        let peer_id = PeerId::from(&keypair.verifying.to_bytes());
+        let peer_id = PeerId::from(keypair.verifying.to_bytes());
         let address = Address::new(config.address, peer_id);
         let transport = Transport::builder(keypair)
             .address(config.address)
@@ -108,13 +108,13 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Get a connection from the pool
-    pub(crate) async fn get_conn(&self, peer: [u8; 32]) -> anyhow::Result<quinn::Connection> {
+    pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<quinn::Connection> {
         let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
             self.transport.tx.send(Event::Closed {
                 peer,
                 reason: "No connection found".to_string(),
             })?;
-            return Err(anyhow::anyhow!("no connection found for peer: {:?}", peer));
+            return Err(anyhow::anyhow!("no connection found for peer: {peer}"));
         };
 
         Ok(conn)

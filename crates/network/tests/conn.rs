@@ -57,7 +57,7 @@ async fn connections() {
                 localhost.into(),
                 transport::pick().expect("failed to pick port"),
             ),
-            PeerId::from(key.verifying.as_bytes()),
+            PeerId::from(key.verifying.to_bytes()),
         )
     });
 

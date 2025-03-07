@@ -17,7 +17,7 @@ mod handshake;
 /// Send a block announcement.
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
-    peer: [u8; 32],
+    peer: PeerId,
 ) -> anyhow::Result<()> {
     let conn = runtime.get_conn(peer).await?;
     let (mut send, mut recv) = conn.open_bi().await?;
@@ -42,7 +42,7 @@ pub async fn send<C: score::runtime::Config>(
 
 /// Receive a block announcement
 pub async fn recv<C: score::runtime::Config>(
-    peer: [u8; 32],
+    peer: PeerId,
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,
