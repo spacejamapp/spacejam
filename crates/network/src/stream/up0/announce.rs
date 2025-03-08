@@ -49,7 +49,7 @@ pub async fn send<C: score::runtime::Config>(
         // announced by the other side of the stream.
         let leaves = handshake.leaves.iter().filter(|l| l.slot > header.slot);
         for leaf in leaves {
-            if !grandpa.is_descendant_of(&leaf.hash, hash) {
+            if !grandpa.is_descendant_of(leaf.hash, hash) {
                 continue;
             }
         }

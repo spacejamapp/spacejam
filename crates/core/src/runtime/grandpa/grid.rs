@@ -19,9 +19,9 @@ pub struct Grid {
 impl Grid {
     /// Create a new grid from the storage.
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
-        let prev = storage.previous_validators()?;
-        let curr = storage.current_validators()?;
-        let next = storage.next_validators()?;
+        let prev = storage.previous_validators().unwrap_or_default();
+        let curr = storage.current_validators().unwrap_or_default();
+        let next = storage.next_validators().unwrap_or_default();
 
         Self::try_from((
             prev.iter().map(|v| v.ed25519).collect(),

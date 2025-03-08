@@ -1,6 +1,6 @@
 //! Key-value storage abstraction
 
-use crate::state::key;
+use crate::{state::key, TimeSlot};
 use anyhow::Result;
 use std::{
     collections::HashMap,
@@ -36,7 +36,16 @@ pub trait KVStorage {
 
     /// Check if the storage is empty
     fn is_empty(&self) -> bool {
-        self.get(key::TIMESLOT).map(|v| v.is_none()).unwrap_or(true)
+        let timeslot = self.get(key::TIMESLOT);
+        if let Ok(Some(timeslot)) = timeslot {
+            let Ok(timeslot) = codec::decode::<TimeSlot>(timeslot.as_ref()) else {
+                return true;
+            };
+            tracing::debug!("current timeslot in storage: {timeslot}");
+            false
+        } else {
+            true
+        }
     }
 }
 

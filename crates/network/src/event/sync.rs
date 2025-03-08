@@ -10,18 +10,26 @@ pub async fn announce<C: score::runtime::Config>(
     head: Head,
 ) -> anyhow::Result<()> {
     if let Err(e) = runtime.grandpa.read().await.verify(&header).await {
-        anyhow::bail!(e);
+        tracing::warn!(
+            "block#{}@0x{} verification failed: {e}",
+            header.slot,
+            hex::encode(header.hash()?)
+        );
+        return Ok(());
     }
 
     // broadcast the block to the network
-    runtime.announce.send((*header, head))?;
+    if let Err(e) = runtime.announce.send((*header, head)) {
+        tracing::warn!("failed to broadcast block: {e}");
+    }
+
     Ok(())
 }
 
 /// Select the best chain.
 ///
 /// This happens on:
-/// - receving new block announcements
+/// - receiving new block announcements
 /// - before authoring blocks
 pub async fn select_best_chain<C: score::runtime::Config>(
     runtime: Network<C>,
@@ -41,7 +49,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     for conn in runtime.pool.read().await.values() {
         let head = conn.handshake.read().await.head.clone();
         if head.hash == best.hash
-            || head.slot > best.slot && grandpa.is_descendant_of(&head.hash, best.hash)
+            || head.slot > best.slot && grandpa.is_descendant_of(head.hash, best.hash)
         {
             feeds.push(conn.clone());
         }

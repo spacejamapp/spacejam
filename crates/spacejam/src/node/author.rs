@@ -1,13 +1,21 @@
 //! Authoring service
 
 use network::{Event, Network};
-use score::{block, runtime::storage::BlockStorage};
+use score::{
+    block,
+    runtime::{storage::BlockStorage, Validator},
+};
 use std::time::Duration;
 
-/// Author blocks (mocked)
+/// Author blocks
+///
+/// we should only start authoring if we have 2/3 validators connected.
 pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
     loop {
-        if !runtime.is_validator().await {
+        let validators = runtime.grandpa.read().await.grid.curr;
+
+        // if we are not a validator, we should not author blocks
+        if !validators.contains(&runtime.validator.ed25519_public_key()) {
             let Ok(timeslot) = block::timeslot() else {
                 tracing::error!("failed to get timeslot");
                 break;
@@ -16,6 +24,23 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
             let dur = timeslot - (timeslot % score::EPOCH_LENGTH);
             tokio::time::sleep(Duration::from_secs(dur as u64)).await;
             continue;
+        }
+
+        // if we haven't seen 2/3 of the validators, we should not author blocks
+        {
+            let pool = runtime.pool.read().await;
+            let peers = pool.keys().collect::<Vec<_>>().clone();
+            let mut connected = 0u16;
+            for peer in peers {
+                if validators.contains(peer.as_ref()) {
+                    connected += 1;
+                }
+            }
+
+            if connected < score::VALIDATORS_SUPER_MAJORITY {
+                tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
+                continue;
+            }
         }
 
         // author a block
@@ -31,7 +56,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
     let (block, ticket) = runtime.next().await?;
     tracing::info!(
-        "subscribing block@{}: {}",
+        "subscribing block#{}: 0x{}",
         block.header.slot,
         hex::encode(block.hash()?)
     );
@@ -51,13 +76,9 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     })?;
 
     if let Some(ticket) = ticket {
-        tracing::info!(
-            "subscribing ticket@{}: {}",
-            ticket.attempt,
-            hex::encode(ticket.signature)
-        );
-
         let epoch = block.header.slot / score::EPOCH_LENGTH;
+        tracing::info!("subscribing ticket#{} on epoch {}", ticket.attempt, epoch);
+
         runtime.send(Event::DistributeTicket {
             epoch,
             ticket: Box::new(ticket),

@@ -36,9 +36,5 @@ async fn main() {
 
     if let Err(e) = cmd.run::<Development>().await {
         eprintln!("Failed to run spacejam: {e}");
-
-        if cfg!(debug_assertions) {
-            eprintln!("backtrace: {:#?}", e.backtrace());
-        }
     }
 }

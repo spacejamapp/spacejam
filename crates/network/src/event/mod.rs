@@ -5,12 +5,14 @@ use crate::{
     Network,
 };
 use score::{block::Header, extrinsic::TicketEnvelope, runtime::Head, TimeSlot};
+use std::fmt;
 
 mod broadcast;
 mod conn;
 mod sync;
 
 /// Events for peers.
+#[derive(Debug, Clone)]
 pub enum Event {
     /// Announce a block.
     AnnounceBlock {
@@ -74,5 +76,27 @@ impl Event {
         }
 
         Ok(())
+    }
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AnnounceBlock { header, head: _ } => {
+                write!(f, "AnnounceBlock({})", header.slot,)
+            }
+            Self::DistributeTicket { epoch, ticket: _ } => {
+                write!(f, "DistributeTicket({})", epoch)
+            }
+            Self::SelectBestChain { slot } => {
+                write!(f, "SelectBestChain({})", slot)
+            }
+            Self::Connected { conn, outgoing: _ } => {
+                write!(f, "Connected({})", conn.address.peer_id)
+            }
+            Self::Closed { peer, reason: _ } => {
+                write!(f, "Closed({})", peer)
+            }
+        }
     }
 }

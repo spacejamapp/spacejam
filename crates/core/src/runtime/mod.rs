@@ -116,8 +116,8 @@ impl<C: Config> Runtime<C> {
         }
 
         // check if the current validator has exceeded the ticket limit
-        let mut attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
+        let attempt = self.attempt.load(Ordering::Relaxed);
+        if attempt > crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Ok(None);
         }
 
@@ -133,16 +133,16 @@ impl<C: Config> Runtime<C> {
         .collect::<Vec<_>>();
 
         // generate a ticket
-        attempt += 1;
-        self.attempt.store(attempt, Ordering::Relaxed);
-        Ok(Some(TicketEnvelope {
+        let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
                 &keys,
                 &[],
                 &TicketBody::message(attempt, &entropy[2]),
             )?,
-        }))
+        };
+        self.attempt.fetch_add(1, Ordering::Relaxed);
+        Ok(Some(envelope))
     }
 
     /// Finalize blocks

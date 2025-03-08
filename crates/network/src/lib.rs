@@ -92,15 +92,6 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         })
     }
 
-    /// Whether self is a validator.
-    pub async fn is_validator(&self) -> bool {
-        let grandpa = self.runtime.grandpa.read().await.clone();
-        grandpa
-            .grid
-            .curr
-            .contains(&self.runtime.validator.ed25519_public_key())
-    }
-
     /// Send an event to the network
     pub fn send(&self, event: Event) -> anyhow::Result<()> {
         self.transport.tx.send(event)?;
@@ -110,8 +101,8 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     /// Spawn a task to handle events
     pub async fn spawn(&self, mut rx: mpsc::UnboundedReceiver<Event>) {
         while let Some(event) = rx.recv().await {
-            if let Err(e) = event.handle(self.clone()).await {
-                tracing::error!("failed to handle event: {e}");
+            if let Err(e) = event.clone().handle(self.clone()).await {
+                tracing::error!("failed to handle event {event}: {e}");
             }
         }
     }

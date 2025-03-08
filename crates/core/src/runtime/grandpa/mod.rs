@@ -52,11 +52,18 @@ impl Grandpa {
     /// Create a new grandpa instance.
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
         let head = storage.get_finalized()?;
+        let finalized = storage.get_block(&head.hash)?;
+
+        // save finalized block to the ancestry
+        //
+        // TODO: load all finalized blocks in 24hrs to the ancestry.
+        let mut ancestry = Ancestry::default();
+        ancestry.save_header(finalized.header)?;
 
         Ok(Self {
             head,
             leaves: Default::default(),
-            ancestry: Default::default(),
+            ancestry,
             grid: Grid::new(storage)?,
         })
     }
@@ -151,7 +158,7 @@ impl Grandpa {
         // 1. A descendant of the block is announced instead of the block itself.
         let leaves = self.leaves.iter().filter(|l| l.slot > header.slot);
         for leaf in leaves {
-            if !self.is_descendant_of(&leaf.hash, hash) {
+            if !self.is_descendant_of(leaf.hash, hash) {
                 anyhow::bail!(
                     "A descendant of the block is announced instead of the block itself."
                 );
@@ -159,13 +166,14 @@ impl Grandpa {
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        if !self.is_descendant_of(&hash, self.head.hash) {
-            anyhow::bail!("The block is not a descendant of the latest finalized block.");
-        }
-
-        // 3. if the header is ticket sealed.
-        if header.tickets_mark.is_none() {
-            anyhow::bail!("The block is not ticket sealed.");
+        if !self.is_descendant_of(hash, self.head.hash) {
+            anyhow::bail!(
+                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}.",
+                header.slot,
+                hex::encode(hash.as_ref()),
+                self.head.slot,
+                hex::encode(self.head.hash.as_ref()),
+            );
         }
 
         Ok(())
