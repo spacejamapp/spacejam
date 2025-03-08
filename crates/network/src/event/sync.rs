@@ -10,7 +10,7 @@ pub async fn announce<C: score::runtime::Config>(
     head: Head,
 ) -> anyhow::Result<()> {
     if let Err(e) = runtime.grandpa.read().await.verify(&header).await {
-        tracing::warn!(
+        tracing::trace!(
             "block#{}@0x{} verification failed: {e}",
             header.slot,
             hex::encode(header.hash()?)
@@ -87,6 +87,11 @@ pub async fn select_best_chain<C: score::runtime::Config>(
         let blocks: Vec<Block> = codec::decode(&blocks.bytes)?;
         for block in blocks {
             runtime.finalize(&block).await?;
+            tracing::info!(
+                "finalized block#{}@0x{}",
+                block.header.slot,
+                hex::encode(block.hash()?)
+            );
         }
     }
 

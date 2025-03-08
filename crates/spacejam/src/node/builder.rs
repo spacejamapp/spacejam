@@ -48,7 +48,6 @@ impl Builder {
         C::Validator: TryFrom<String>,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
     {
-        tracing::debug!("building node with validator: {:?}", self.validator);
         let (tx, rx) = mpsc::unbounded_channel();
         let validator = C::Validator::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;

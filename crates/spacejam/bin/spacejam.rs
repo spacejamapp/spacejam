@@ -28,7 +28,15 @@ async fn main() {
     }));
 
     // Initialize tracing
-    tracing_subscriber::fmt().with_env_filter(env).init();
+    let mut subscriber = tracing_subscriber::fmt()
+        .with_env_filter(env)
+        .with_target(false);
+
+    if app.verbose > 0 {
+        subscriber = subscriber.with_target(true);
+    }
+
+    subscriber.init();
 
     let Some(cmd) = app.cmd else {
         return;

@@ -79,7 +79,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
                 }
             }
         } else {
-            tracing::debug!("no bootstrap peers, skipping");
+            tracing::debug!("no bootstrap peers, skip dialing ...");
         }
 
         transport.clone().spawn().await?;

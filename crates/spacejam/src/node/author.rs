@@ -30,15 +30,20 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
         {
             let pool = runtime.pool.read().await;
             let peers = pool.keys().collect::<Vec<_>>().clone();
-            let mut connected = 0u16;
+            let mut connected = 1u16;
             for peer in peers {
                 if validators.contains(peer.as_ref()) {
                     connected += 1;
                 }
             }
 
+            tracing::info!(
+                "connected validators: [{}/{}]",
+                connected,
+                score::VALIDATORS_COUNT
+            );
             if connected < score::VALIDATORS_SUPER_MAJORITY {
-                tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
+                tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64 * 10)).await;
                 continue;
             }
         }

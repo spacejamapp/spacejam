@@ -134,6 +134,7 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
+        tracing::info!("transport listening on {:?}", endpoint.local_addr()?);
         Ok(Transport { endpoint, tx })
     }
 
