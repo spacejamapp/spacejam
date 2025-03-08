@@ -36,12 +36,14 @@ impl Handshake {
         };
 
         // 2. read the leaves len
-        let mut len = [0; 4];
+        //
+        // NOTE: we only support leaves less than u8::MAX atm
+        let mut len = [0; 1];
         recv.read(&mut len).await?;
 
         // 3. read the leaves
         let mut leaves = HashSet::new();
-        let leaves_len = u32::from_le_bytes(len) as usize * 32;
+        let leaves_len = len[0] as usize;
         for _ in 0..leaves_len {
             let mut hash = [0; 32];
             recv.read(&mut hash).await?;

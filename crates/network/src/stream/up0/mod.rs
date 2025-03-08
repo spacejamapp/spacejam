@@ -27,7 +27,7 @@ pub async fn send<C: score::runtime::Config>(
     let handshake = grandpa.handshake();
     let mut buf = vec![0];
     buf.extend_from_slice(&handshake);
-    send.write_all(&buf).await?;
+    send.write(&buf).await?;
 
     // 2. verify that we can receive handshake
     let handshake = Handshake::read(&mut recv).await?;
@@ -38,6 +38,7 @@ pub async fn send<C: score::runtime::Config>(
     tokio::spawn(async move {
         announce::unchecked(runtime.clone(), send, recv, conn).await;
     });
+
     Ok(())
 }
 
@@ -56,7 +57,7 @@ pub async fn recv<C: score::runtime::Config>(
 
     // 2. send the handshake data.
     let grandpa = runtime.runtime.grandpa.read().await;
-    send.write_all(&grandpa.handshake()).await?;
+    send.write(&grandpa.handshake()).await?;
 
     // 3. announcement loop.
     let runtime = runtime.clone();

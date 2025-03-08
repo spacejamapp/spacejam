@@ -41,6 +41,7 @@ pub async fn send<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
+    tracing::trace!("block announcement sender stream opened with peer: {peer}");
     while let Ok((header, head)) = rx.recv().await {
         let grandpa = runtime.runtime.grandpa.read().await;
         let handshake = conn.handshake.read().await;
@@ -67,6 +68,10 @@ pub async fn recv<C: score::runtime::Config>(
     mut recv: RecvStream,
     conn: Connection,
 ) -> anyhow::Result<()> {
+    tracing::trace!(
+        "block announcement receiver stream opened with peer: {}",
+        conn.address.peer_id
+    );
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         let grandpa = runtime.grandpa.read().await;
         let (header, head): (Header, Head) = codec::decode(chunk.bytes.as_ref())?;
@@ -107,5 +112,10 @@ pub async fn recv<C: score::runtime::Config>(
             runtime.send(Event::SelectBestChain { slot: head.slot });
         }
     }
+
+    tracing::error!(
+        "block announcement receiver stream closed with peer: {}",
+        conn.address.peer_id
+    );
     Ok(())
 }

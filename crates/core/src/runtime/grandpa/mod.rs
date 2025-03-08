@@ -143,6 +143,8 @@ impl Grandpa {
         let mut handshake = vec![];
         handshake.extend_from_slice(self.head.hash.as_ref());
         handshake.extend_from_slice(&self.head.slot.to_le_bytes());
+        handshake.push(self.leaves.len() as u8);
+
         for head in self.leaves.iter() {
             handshake.extend_from_slice(head.hash.as_ref());
             handshake.extend_from_slice(&head.slot.to_le_bytes());
