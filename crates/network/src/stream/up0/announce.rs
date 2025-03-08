@@ -39,6 +39,7 @@ pub async fn send<C: score::runtime::Config>(
     mut send: SendStream,
     conn: Connection,
 ) -> anyhow::Result<()> {
+    let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
     while let Ok((header, head)) = rx.recv().await {
         let grandpa = runtime.runtime.grandpa.read().await;
@@ -57,7 +58,7 @@ pub async fn send<C: score::runtime::Config>(
         send.write_all(&codec::encode(&(header, head))?).await?;
     }
 
-    Ok(())
+    anyhow::bail!("announcement stream closed with peer: {peer}");
 }
 
 /// Receive the block announcement from a remote peer.
@@ -73,6 +74,13 @@ pub async fn recv<C: score::runtime::Config>(
             hash: header.hash()?,
             slot: head.slot,
         };
+
+        tracing::trace!(
+            "received announcement: block#{}(0x{}) from {}",
+            head.slot,
+            hex::encode(head.hash),
+            conn.address.peer_id
+        );
 
         // verify if the header is invalid with the local finalized head.
         if let Err(e) = grandpa.verify(&header).await {

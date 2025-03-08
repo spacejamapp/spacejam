@@ -17,10 +17,10 @@ pub async fn send(
     let mut buf = vec![132];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
 
     // just wait for the response
     let _ = recv.read_to_end(0).await;
+    send.finish();
     Ok(())
 }
 
@@ -33,10 +33,11 @@ pub async fn recv<C: score::runtime::Config>(
     let size = mem::size_of::<Request>();
     let mut buf = vec![0; size];
     recv.read_exact(&mut buf).await?;
+    tracing::trace!("received ticket distribution: buf({}){:?}", buf.len(), buf);
+    send.finish();
 
     // TODO: verify the proof, handle the ticket, etc.
     let request: Request = codec::decode(&buf[..])?;
     runtime.expool.insert_ticket(request.epoch, request.ticket);
-    send.finish();
     Ok(())
 }

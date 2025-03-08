@@ -24,11 +24,14 @@ pub struct Connection {
 
     /// Latency.
     pub latency: Duration,
+
+    /// Direction.
+    pub outgoing: bool,
 }
 
 impl Connection {
     /// Create a new connection.
-    pub fn new(conn: quinn::Connection) -> anyhow::Result<Self> {
+    pub fn new(conn: quinn::Connection, outgoing: bool) -> anyhow::Result<Self> {
         let peer = self::alpn(&conn)?;
         let address = Address::new(conn.remote_address(), peer);
 
@@ -37,6 +40,7 @@ impl Connection {
             conn,
             handshake: Arc::new(RwLock::new(Handshake::default())),
             latency: Duration::from_secs(0),
+            outgoing,
         })
     }
 }

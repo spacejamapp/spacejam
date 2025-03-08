@@ -1,30 +1,7 @@
 //! Handler of sync events
 
 use crate::{stream::ce128, Network};
-use score::{block::Header, runtime::Head, Block, TimeSlot};
-
-/// Announce a block to the network
-pub async fn announce<C: score::runtime::Config>(
-    runtime: Network<C>,
-    header: Box<Header>,
-    head: Head,
-) -> anyhow::Result<()> {
-    if let Err(e) = runtime.grandpa.read().await.verify(&header).await {
-        tracing::trace!(
-            "block#{}@0x{} verification failed: {e}",
-            header.slot,
-            hex::encode(header.hash()?)
-        );
-        return Ok(());
-    }
-
-    // broadcast the block to the network
-    if let Err(e) = runtime.announce.send((*header, head)) {
-        tracing::warn!("failed to broadcast block: {e}");
-    }
-
-    Ok(())
-}
+use score::{Block, TimeSlot};
 
 /// Select the best chain.
 ///

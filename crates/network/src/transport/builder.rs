@@ -82,7 +82,7 @@ impl Builder {
         // setup cert
         let key = PrivatePkcs8KeyDer::from(self.ed25519.private_pkcs8_der()?);
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519.clone()))?;
-        let mut params = CertificateParams::new(vec![dns])?;
+        let mut params = CertificateParams::new(vec![dns.clone()])?;
 
         // Set key usages for client and server auth
         params.key_usages = vec![
@@ -134,7 +134,7 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
-        tracing::info!("transport listening on {:?}", endpoint.local_addr()?);
+        tracing::info!("transport listening on {dns}@{:?}", endpoint.local_addr()?);
         Ok(Transport { endpoint, tx })
     }
 

@@ -36,9 +36,6 @@ pub enum Event {
     Connected {
         /// The connection.
         conn: Connection,
-
-        /// Whether the connection is outgoing.
-        outgoing: bool,
     },
     /// A peer has disconnected.
     Closed {
@@ -56,20 +53,22 @@ impl Event {
         self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
+        tracing::trace!("handling event: {self}");
         match self {
+            Self::AnnounceBlock { header, head } => {
+                broadcast::announce(runtime, header, head).await?;
+            }
             Self::DistributeTicket { epoch, ticket } => {
                 broadcast::ticket(runtime, epoch, *ticket).await?;
             }
-            Self::Connected { conn, outgoing } => {
-                conn::connected(runtime, conn, outgoing).await;
+            Self::Connected { conn } => {
+                conn::connected(runtime, conn).await;
             }
             Self::Closed { peer, reason } => {
-                conn::closed(runtime, peer, reason.clone()).await?;
+                if let Some(address) = conn::closed(runtime.clone(), peer, reason.clone()).await? {
+                    runtime.transport.dial(address).await?;
+                }
             }
-            Self::AnnounceBlock { header, head } => {
-                sync::announce(runtime, header, head).await?;
-            }
-
             Self::SelectBestChain { slot } => {
                 sync::select_best_chain(runtime, slot).await?;
             }
@@ -91,7 +90,7 @@ impl fmt::Display for Event {
             Self::SelectBestChain { slot } => {
                 write!(f, "SelectBestChain({})", slot)
             }
-            Self::Connected { conn, outgoing: _ } => {
+            Self::Connected { conn } => {
                 write!(f, "Connected({})", conn.address.peer_id)
             }
             Self::Closed { peer, reason: _ } => {

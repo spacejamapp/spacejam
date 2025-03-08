@@ -73,7 +73,6 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         let bootstrap = config.bootstrap;
         if !bootstrap.is_empty() {
             for peer in bootstrap {
-                tracing::debug!("dialing bootstrap peer: {peer}");
                 if let Err(e) = transport.dial(peer).await {
                     tracing::warn!("failed to dial bootstrap peer: {e}");
                 }
@@ -101,9 +100,12 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     /// Spawn a task to handle events
     pub async fn spawn(&self, mut rx: mpsc::UnboundedReceiver<Event>) {
         while let Some(event) = rx.recv().await {
-            if let Err(e) = event.clone().handle(self.clone()).await {
-                tracing::error!("failed to handle event {event}: {e}");
-            }
+            let this = self.clone();
+            tokio::spawn(async move {
+                if let Err(e) = event.clone().handle(this).await {
+                    tracing::error!("failed to handle event {event}: {e}");
+                }
+            });
         }
     }
 

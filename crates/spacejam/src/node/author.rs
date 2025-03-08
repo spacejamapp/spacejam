@@ -16,6 +16,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 
         // if we are not a validator, we should not author blocks
         if !validators.contains(&runtime.validator.ed25519_public_key()) {
+            tracing::debug!("not a validator, sleeping for authoring till next epoch");
             let Ok(timeslot) = block::timeslot() else {
                 tracing::error!("failed to get timeslot");
                 break;
@@ -60,11 +61,6 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
     let (block, ticket) = runtime.next().await?;
-    tracing::info!(
-        "subscribing block#{}: 0x{}",
-        block.header.slot,
-        hex::encode(block.hash()?)
-    );
 
     // save the block to the storage
     runtime.storage.save_block(&block)?;
@@ -82,8 +78,6 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
 
     if let Some(ticket) = ticket {
         let epoch = block.header.slot / score::EPOCH_LENGTH;
-        tracing::info!("subscribing ticket#{} on epoch {}", ticket.attempt, epoch);
-
         runtime.send(Event::DistributeTicket {
             epoch,
             ticket: Box::new(ticket),

@@ -32,6 +32,7 @@ impl Transport {
     /// Dial a new connection.
     #[tracing::instrument(skip_all, fields(peer = %addr.peer_id))]
     pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
+        tracing::debug!("dialing peer: {addr}");
         let conn = self
             .endpoint
             .connect(addr.addr, addr.peer_id.to_string().as_str())?
@@ -39,16 +40,13 @@ impl Transport {
             .map_err(|_| anyhow::anyhow!("failed to dial {addr}"))?;
 
         // we need to verify the peer id before sending the connected event
-        let Ok(conn) = Connection::new(conn.clone()) else {
+        let Ok(conn) = Connection::new(conn.clone(), true) else {
             conn.close(1u32.into(), "failed to verify alpn".as_bytes());
             anyhow::bail!("failed to verify alpn of {addr}");
         };
 
         self.tx
-            .send(Event::Connected {
-                conn,
-                outgoing: true,
-            })
+            .send(Event::Connected { conn })
             .context("failed to send connected event")
     }
 
@@ -73,16 +71,13 @@ impl Transport {
                     continue;
                 };
 
-                let Ok(conn) = Connection::new(conn).map_err(|e| {
+                let Ok(conn) = Connection::new(conn, false).map_err(|e| {
                     tracing::warn!("failed to verify alpn: {e:?}");
                 }) else {
                     continue;
                 };
 
-                if let Err(e) = self.tx.send(Event::Connected {
-                    conn,
-                    outgoing: false,
-                }) {
+                if let Err(e) = self.tx.send(Event::Connected { conn }) {
                     tracing::warn!("failed to send connected event: {e:?}");
                 }
             }
