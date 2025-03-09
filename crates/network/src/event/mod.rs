@@ -46,11 +46,11 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
+    #[tracing::instrument(skip_all, level = "debug", fields(event = self.to_string()))]
     pub async fn handle<C: score::runtime::Config>(
         self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        tracing::trace!("handling event: {self}");
         match self {
             Self::AnnounceBlock { header, head } => {
                 broadcast::announce(runtime, header, head).await?;

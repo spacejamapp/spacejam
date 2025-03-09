@@ -8,6 +8,12 @@ use score::{Block, TimeSlot};
 /// This happens on:
 /// - receiving new block announcements
 /// - before authoring blocks
+#[tracing::instrument(
+    skip_all,
+    level = "debug",
+    name = "finalizing",
+    fields(slot = ?slot)
+)]
 pub async fn select_best_chain<C: score::runtime::Config>(
     runtime: Network<C>,
     slot: TimeSlot,

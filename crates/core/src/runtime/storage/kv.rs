@@ -38,11 +38,7 @@ pub trait KVStorage {
     fn is_empty(&self) -> bool {
         let timeslot = self.get(key::TIMESLOT);
         if let Ok(Some(timeslot)) = timeslot {
-            let Ok(timeslot) = codec::decode::<TimeSlot>(timeslot.as_ref()) else {
-                return true;
-            };
-            tracing::debug!("current timeslot in storage: {timeslot}");
-            false
+            codec::decode::<TimeSlot>(timeslot.as_ref()).is_err()
         } else {
             true
         }

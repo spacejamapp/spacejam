@@ -6,6 +6,7 @@ use anyhow::Result;
 /// A branch of the blockchain
 ///
 /// maybe use column in rocksdb instead in the future.
+#[derive(Debug, Clone)]
 pub struct Branch<'s, S: KVStorage> {
     /// The latest finalized head.
     head: Head,
@@ -89,13 +90,7 @@ impl<S: KVStorage> KVStorage for Branch<'_, S> {
 
         // Try to read each key from the branch storage first
         for key in &keys {
-            let wrapped_key = self.wrap(key);
-            if let Some(value) = self.finalized.get(&wrapped_key)? {
-                results.push((key.clone(), value));
-            } else if let Some(value) = self.finalized.get(key)? {
-                // Fallback to base storage if not found in branch
-                results.push((key.clone(), value));
-            }
+            results.push((key.clone(), self.get(key)?.unwrap_or_default()));
         }
 
         Ok(results)

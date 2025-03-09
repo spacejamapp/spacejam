@@ -20,6 +20,7 @@ pub mod ticket;
 /// Transit state with new block
 ///
 /// TODO: make this function safe, should not expose storage write interface in this function.
+#[tracing::instrument(skip_all, name = "stf")]
 pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();
@@ -31,6 +32,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
     // The first round computation
     {
         // (η') Update entropy (6.22)
+        tracing::trace!("updating entropy ...");
         let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         diff.insert(key::ENTROPY, codec::encode(&state.entropy)?);
@@ -45,6 +47,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (ψ') Update disputes and get marks
+        tracing::trace!("updating disputes ...");
         let (disputes, marks) = self::dispute::disputes(
             state.timeslot,
             &state.validators.current,
@@ -58,12 +61,15 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
+        tracing::trace!("updating availability assignments ...");
         let mut reports = dispute::reports(&marks, &state.reports);
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
+        tracing::trace!("updating availability assignments based on assurances ...");
         reports = self::assurance::reports(block.header.slot, reports.clone());
 
         // (ρ') Update availability assignments based on guarantees (11.43)
+        tracing::trace!("updating availability assignments based on guarantees ...");
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
 
         if reports != state.reports {
@@ -75,6 +81,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
     // Round 2 computation
     let available = {
         // (κ') Update current validators (6.13)
+        tracing::trace!("updating current validators ...");
         state.validators.current = state
             .validators
             .current(new_epoch, &state.safrole.validators);
@@ -86,6 +93,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (W*) the sequence of new available work reports (11.16)
+        tracing::trace!("updating available work reports ...");
         self::assurance::available(
             &state.reports,
             &state.validators.current,
@@ -98,6 +106,8 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
     // Round 3 computation
     let root = {
         // (γ') Update the sealing-key series (12.10)
+        tracing::trace!("updating sealing-key series ...");
+        tracing::trace!("current validators: {:?}", state.validators.current.len());
         state.safrole = ticket::safrole(
             state.timeslot,
             block.header.slot,
@@ -110,6 +120,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         diff.insert(key::SAFROLE, codec::encode(&state.safrole)?);
 
         // (π') Update the statistic
+        tracing::trace!("updating statistics ...");
         state.statistics = state.statistics.update(
             state.timeslot,
             block.header.slot,
@@ -121,12 +132,14 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         // (..., C) Accumulate the available work reports
         //
         // TODO: 12
+        tracing::trace!("running accumulate ...");
         self::accumulate(available)
     };
 
     // Round 4 computation
     {
         // (δ') Update the accounts
+        tracing::trace!("updating accounts ...");
         let accounts = preimage::accounts(
             block.header.slot,
             &block.extrinsic.preimages,
@@ -138,6 +151,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (α') Update the authorization pool
+        tracing::trace!("updating authorization pools ...");
         let pools = guarantee::pools(
             block.header.slot,
             &state.pools,
@@ -150,6 +164,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         }
 
         // (β') Update the block history
+        tracing::trace!("updating block history ...");
         let (reported, _) =
             guarantee::report(&state, block.header.slot, &block.extrinsic.guarantees)?;
         state.recent_blocks.import(
@@ -161,6 +176,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (τ') Update the timeslot
+        tracing::trace!("updating timeslot ...");
         state.timeslot = block.header.slot;
         diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }

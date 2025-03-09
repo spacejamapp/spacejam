@@ -27,11 +27,10 @@ pub trait BlockStorage: KVStorage {
         self.set(&key, &codec::encode(block)?)?;
 
         // Save the head
-        let head = Head {
+        self.save_head(&Head {
             hash,
             slot: block.header.slot,
-        };
-        self.save_head(&head)?;
+        })?;
         Ok(())
     }
 

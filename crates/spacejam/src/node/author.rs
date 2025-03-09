@@ -3,26 +3,57 @@
 use network::{Event, Network};
 use score::{
     block,
-    runtime::{storage::BlockStorage, Validator},
+    runtime::{storage::BlockStorage, tx, Head, Storage, Validator},
 };
 use std::time::Duration;
 
 /// Author blocks
 ///
 /// we should only start authoring if we have 2/3 validators connected.
+#[tracing::instrument(skip_all, name = "authoring")]
 pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
+    {
+        let grandpa = runtime.grandpa.read().await;
+        tracing::info!(
+            "The latest finalized head #{}: 0x{}",
+            grandpa.head.slot,
+            hex::encode(grandpa.head.hash)
+        );
+
+        let chain = runtime.chain().await;
+        if let Ok(block) = chain.get_finalized() {
+            tracing::info!(
+                "The latest pending block #{}: 0x{}",
+                block.slot,
+                hex::encode(block.hash)
+            );
+        }
+    }
+
     loop {
         let validators = runtime.grandpa.read().await.grid.curr;
 
-        // if we are not a validator, we should not author blocks
-        if !validators.contains(&runtime.validator.ed25519_public_key()) {
-            tracing::debug!("not a validator, sleeping for authoring till next epoch");
+        // if we are not in the safrole series keys, we should not author blocks
+        let Ok(safrole) = runtime.chain().await.safrole() else {
+            tracing::error!("failed to get safrole state");
+            break;
+        };
+
+        let series = safrole.series.keys();
+        if !series.is_empty() && !series.contains(&runtime.validator.bandersnatch_public_key()) {
             let Ok(timeslot) = block::timeslot() else {
                 tracing::error!("failed to get timeslot");
                 break;
             };
 
             let dur = timeslot - (timeslot % score::EPOCH_LENGTH);
+            tracing::info!(
+                "not in the safrole series keys {:#?}, sleeping for authoring till next epoch",
+                series
+                    .into_iter()
+                    .map(|key| format!("0x{}", hex::encode(key)))
+                    .collect::<Vec<_>>()
+            );
             tokio::time::sleep(Duration::from_secs(dur as u64)).await;
             continue;
         }
@@ -67,7 +98,6 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
         }
 
         // author a block
-        tracing::debug!("authoring block ...");
         if let Err(e) = inner(runtime).await {
             tracing::warn!("failed to author block: {e}");
         }
@@ -79,14 +109,23 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
     let (block, ticket) = runtime.next().await?;
+    let chain = runtime.chain().await;
 
     // save the block to the storage
-    runtime.storage.save_block(&block)?;
+    chain.save_block(&block)?;
+    chain.set_finalized(&Head {
+        hash: block.hash()?,
+        slot: block.header.slot,
+    })?;
     runtime
         .grandpa
         .write()
         .await
         .save_header(block.header.clone())?;
+
+    // transit the state
+    tracing::trace!("transiting state ...");
+    tx::transit(&block, &chain, &runtime.validator)?;
 
     // announce the block to the network
     runtime.send(Event::AnnounceBlock {

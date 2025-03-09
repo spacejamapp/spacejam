@@ -174,8 +174,9 @@ pub fn sealing_key_series(
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
             let hash = crypto::blake2b(&input);
-            let index =
-                u32::from_le_bytes(hash[0..4].try_into().unwrap()) % (curr_validators.len() as u32);
+            let mut bytes = [0u8; 4];
+            bytes.copy_from_slice(&hash[0..4]);
+            let index = u32::from_le_bytes(bytes) % (curr_validators.len() as u32);
 
             fallback_keys.push(curr_validators[index as usize].bandersnatch);
         }

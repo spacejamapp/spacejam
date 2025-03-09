@@ -99,6 +99,7 @@ impl Builder {
         // set up initial safrole state
         let safrole = Safrole {
             series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
+            validators,
             ..Default::default()
         };
         storage.set(key::SAFROLE, codec::encode(&safrole)?)?;

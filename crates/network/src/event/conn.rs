@@ -8,7 +8,6 @@ use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
-#[tracing::instrument(skip_all, fields(peer = %conn.address))]
 pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 
@@ -61,10 +60,10 @@ pub async fn closed<C: score::runtime::Config>(
         return Ok(None);
     };
 
-    let address = Address::new(conn.remote_address(), peer);
-    tracing::warn!("closing connection {address} with reason: {reason}");
+    tracing::warn!("closing connection with reason: {reason}");
 
     // close the connection in the pool and metrics
+    let address = Address::new(conn.remote_address(), peer);
     conn.close(VarInt::from(0_u8), reason.as_bytes());
     runtime.metrics.conn.close_connection(address.to_string());
 

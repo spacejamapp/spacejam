@@ -8,6 +8,7 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
     Arc,
 };
+use storage::{BlockStorage, Branch};
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Head},
@@ -70,20 +71,17 @@ impl<C: Config> Runtime<C> {
         Ok((self.author().await?, self.ticket()?))
     }
 
+    /// Get the current pending chain
+    pub async fn chain(&self) -> Branch<C::Storage> {
+        Branch::checkout(&self.storage, self.grandpa.read().await.head.clone())
+    }
+
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
     pub async fn author(&self) -> anyhow::Result<Block> {
-        let safrole = self.storage.safrole()?;
-        if !safrole
-            .series
-            .keys()
-            .contains(&self.validator.bandersnatch_public_key())
-        {
-            anyhow::bail!("not in the safrole series keys");
-        }
-
-        let blocks = self.storage.recent_blocks()?;
+        let chain = self.chain().await;
+        let blocks = chain.recent_blocks()?;
         let block = blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
@@ -92,7 +90,7 @@ impl<C: Config> Runtime<C> {
         Block::builder()
             .parent(block)?
             .extrinsic(extrinsic)?
-            .seal(&self.validator, &self.storage)
+            .seal(&self.validator, &chain)
     }
 
     /// Generate a ticket for the next block (using next timeslot).
@@ -150,10 +148,26 @@ impl<C: Config> Runtime<C> {
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
     pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
+        let prev = self.grandpa.read().await.head.clone();
+
         // 1. transit the global state
         tx::transit(block, &self.storage, &self.validator)?;
 
-        // 2. update the grandpa state
+        // 2. save the block to the storage
+        self.storage.save_block(block)?;
+
+        // 3. set the latest finalized head
+        let head = Head {
+            hash: block.hash()?,
+            slot: block.header.slot,
+        };
+        self.storage.set_finalized(&head)?;
+
+        // 4. drop the previous branch
+        let branch = Branch::checkout(&self.storage, prev);
+        branch.drop()?;
+
+        // 5. update the grandpa state
         self.grandpa.write().await.finalize(block.header.clone())
     }
 }
