@@ -168,13 +168,14 @@ impl Grandpa {
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        if !self.is_descendant_of(hash, self.head.hash) {
+        if !self.is_descendant_of(header.parent, self.head.hash) {
             anyhow::bail!(
-                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}.",
+                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}, parent: 0x{}.",
                 header.slot,
                 hex::encode(hash.as_ref()),
                 self.head.slot,
                 hex::encode(self.head.hash.as_ref()),
+                hex::encode(header.parent.as_ref()),
             );
         }
 

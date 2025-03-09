@@ -15,6 +15,8 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStre
     buf.extend_from_slice(&request.direction.to_le_bytes());
     buf.extend_from_slice(&request.maximum.to_le_bytes());
     send.write_all(&buf).await?;
+
+    // recv.read_to_end(u8::MAX).await?;
     send.finish();
 
     // returns the recv stream

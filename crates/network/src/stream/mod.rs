@@ -34,8 +34,15 @@ pub async fn recv<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let mut buf = [0; 1];
     recv.read_exact(&mut buf).await?;
-    tracing::trace!("recv stream type: {buf:?}");
 
+    tracing::trace!(
+        "received stream {} from {}",
+        match buf[0] {
+            0 => "up0".to_string(),
+            _ => format!("ce{}", buf[0]),
+        },
+        peer
+    );
     match buf[0] {
         0 => up0::recv(peer, send, recv, runtime).await,
         128 => ce128::recv(send, recv, runtime).await,

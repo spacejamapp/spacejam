@@ -33,10 +33,7 @@ pub enum Event {
     /// Select the best chain.
     SelectBestChain { slot: TimeSlot },
     /// A new peer has connected.
-    Connected {
-        /// The connection.
-        conn: Connection,
-    },
+    Connected(Connection),
     /// A peer has disconnected.
     Closed {
         /// The peer id
@@ -61,7 +58,7 @@ impl Event {
             Self::DistributeTicket { epoch, ticket } => {
                 broadcast::ticket(runtime, epoch, *ticket).await?;
             }
-            Self::Connected { conn } => {
+            Self::Connected(conn) => {
                 conn::connected(runtime, conn).await;
             }
             Self::Closed { peer, reason } => {
@@ -90,7 +87,7 @@ impl fmt::Display for Event {
             Self::SelectBestChain { slot } => {
                 write!(f, "SelectBestChain({})", slot)
             }
-            Self::Connected { conn } => {
+            Self::Connected(conn) => {
                 write!(f, "Connected({})", conn.address.peer_id)
             }
             Self::Closed { peer, reason: _ } => {

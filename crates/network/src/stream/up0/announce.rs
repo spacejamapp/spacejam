@@ -10,22 +10,29 @@ use crate::{
 };
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{atomic::Ordering, Arc},
+};
 use tokio::sync::RwLock;
 
 /// Announce the block to the peer.
+#[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "announcement")]
 pub async fn unchecked<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
     conn: Connection,
 ) {
+    conn.ready.store(true, Ordering::Relaxed);
     let r = tokio::select! {
         r = self::send(runtime.clone(), send, conn.clone()) => r,
         r = self::recv(runtime.clone(), recv, conn.clone()) => r,
     };
 
+    conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
+        tracing::warn!("{e}");
         runtime
             .transport
             .close(conn.address.peer_id, e.to_string())
@@ -41,9 +48,15 @@ pub async fn send<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
-    tracing::trace!("block announcement sender stream opened with peer: {peer}");
     while let Ok((header, head)) = rx.recv().await {
-        let grandpa = runtime.runtime.grandpa.read().await;
+        // save the header to the local ancestry.
+        {
+            let mut grandpa = runtime.grandpa.write().await;
+            grandpa.save_header(header.clone());
+        }
+
+        // check if the block is a descendant of the local finalized head.
+        let grandpa = runtime.grandpa.read().await;
         let handshake = conn.handshake.read().await;
         let hash = header.hash()?;
 
@@ -51,15 +64,20 @@ pub async fn send<C: score::runtime::Config>(
         // announced by the other side of the stream.
         let leaves = handshake.leaves.iter().filter(|l| l.slot > header.slot);
         for leaf in leaves {
-            if !grandpa.is_descendant_of(leaf.hash, hash) {
+            if grandpa.is_descendant_of(leaf.hash, hash) {
                 continue;
             }
         }
 
+        tracing::trace!(
+            "sending announcement: block#{}(0x{})",
+            header.slot,
+            hex::encode(hash.as_ref()),
+        );
         send.write_all(&codec::encode(&(header, head))?).await?;
     }
 
-    anyhow::bail!("announcement stream closed with peer: {peer}");
+    anyhow::bail!("announcement stream closed");
 }
 
 /// Receive the block announcement from a remote peer.
@@ -68,34 +86,38 @@ pub async fn recv<C: score::runtime::Config>(
     mut recv: RecvStream,
     conn: Connection,
 ) -> anyhow::Result<()> {
-    tracing::trace!(
-        "block announcement receiver stream opened with peer: {}",
-        conn.address.peer_id
-    );
+    let mut buffer = Vec::new();
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
-        let grandpa = runtime.grandpa.read().await;
-        let (header, head): (Header, Head) = codec::decode(chunk.bytes.as_ref())?;
+        buffer.extend_from_slice(&chunk.bytes);
+        let Ok((header, head)) = codec::decode::<(Header, Head)>(buffer.as_ref()) else {
+            continue;
+        };
+
+        buffer.clear();
         let leaf = Head {
             hash: header.hash()?,
-            slot: head.slot,
+            slot: header.slot,
         };
 
         tracing::trace!(
-            "received announcement: block#{}(0x{}) from {}",
-            head.slot,
-            hex::encode(head.hash),
-            conn.address.peer_id
+            "received announcement: block#{}(0x{})",
+            leaf.slot,
+            hex::encode(leaf.hash.as_ref()),
         );
 
         // verify if the header is invalid with the local finalized head.
+        let grandpa = runtime.grandpa.read().await.clone();
         if let Err(e) = grandpa.verify(&header).await {
             tracing::warn!("header invalid: {}", e);
             continue;
         }
 
         // Add this header to local leaves
-        runtime.grandpa.write().await.add_leave(leaf.clone());
-        runtime.grandpa.write().await.save_header(header);
+        {
+            let mut grandpa = runtime.grandpa.write().await;
+            grandpa.add_leave(leaf.clone());
+            grandpa.save_header(header);
+        }
 
         // update the remote peer's handshake data.
         {
@@ -113,9 +135,5 @@ pub async fn recv<C: score::runtime::Config>(
         }
     }
 
-    tracing::error!(
-        "block announcement receiver stream closed with peer: {}",
-        conn.address.peer_id
-    );
-    Ok(())
+    anyhow::bail!("block announcement receiver stream closed");
 }

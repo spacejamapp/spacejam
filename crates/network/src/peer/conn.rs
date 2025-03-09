@@ -6,7 +6,14 @@ use crate::{
     transport::Verifier,
 };
 use quinn::crypto::rustls::HandshakeData;
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{
+    ops::Deref,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::sync::RwLock;
 use webpki::{types::CertificateDer, EndEntityCert};
 
@@ -21,6 +28,9 @@ pub struct Connection {
 
     /// Handshake data.
     pub handshake: Arc<RwLock<Handshake>>,
+
+    /// Whether the connection is ready.
+    pub ready: Arc<AtomicBool>,
 
     /// Latency.
     pub latency: Duration,
@@ -39,9 +49,15 @@ impl Connection {
             address,
             conn,
             handshake: Arc::new(RwLock::new(Handshake::default())),
+            ready: Arc::new(AtomicBool::new(false)),
             latency: Duration::from_secs(0),
             outgoing,
         })
+    }
+
+    /// Check if the connection is ready.
+    pub fn ready(&self) -> bool {
+        self.ready.load(Ordering::Relaxed)
     }
 }
 

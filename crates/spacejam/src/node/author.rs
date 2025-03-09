@@ -29,25 +29,45 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 
         // if we haven't seen 2/3 of the validators, we should not author blocks
         {
+            tracing::debug!("checking validator connectivity ...");
             let pool = runtime.pool.read().await;
-            let peers = pool.keys().collect::<Vec<_>>().clone();
+            let peers = pool.iter().map(|(peer, _)| peer).collect::<Vec<_>>();
             let connected = peers
                 .iter()
                 .filter(|p| validators.contains(p.as_ref()))
-                .count() as u16;
+                .count() as u16
+                + 1;
+
+            let neighbours = runtime
+                .grandpa
+                .read()
+                .await
+                .grid
+                .neighbours(runtime.validator.ed25519_public_key());
+            let connected_neighbours = pool
+                .iter()
+                .filter(|(peer, conn)| neighbours.contains(peer.as_ref()) && conn.ready())
+                .count();
+            let total_neighbours = neighbours.len();
 
             tracing::debug!(
-                "connected validators: [{}/{}]",
+                "peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
+                peers.len(),
                 connected,
-                score::VALIDATORS_COUNT
+                score::VALIDATORS_COUNT,
+                connected_neighbours,
+                total_neighbours
             );
-            if connected < score::VALIDATORS_SUPER_MAJORITY {
+            if connected < score::VALIDATORS_SUPER_MAJORITY
+                || connected_neighbours != total_neighbours
+            {
                 tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
                 continue;
             }
         }
 
         // author a block
+        tracing::debug!("authoring block ...");
         if let Err(e) = inner(runtime).await {
             tracing::warn!("failed to author block: {e}");
         }

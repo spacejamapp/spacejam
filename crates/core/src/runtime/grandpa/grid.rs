@@ -120,6 +120,10 @@ impl Grid {
         }
 
         neighbours
+            .iter()
+            .filter(|v| v.as_ref() != validator.as_ref())
+            .copied()
+            .collect()
     }
 }
 

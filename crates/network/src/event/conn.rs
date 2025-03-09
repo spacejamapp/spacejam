@@ -8,8 +8,8 @@ use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
+#[tracing::instrument(skip_all, fields(peer = %conn.address))]
 pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
-    let pool = runtime.pool.clone();
     let address = conn.address.clone();
 
     // 1. establish the connection in the metrics
@@ -24,29 +24,30 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
     // 3. open the up0 stream if needed
     if conn.outgoing {
         let grandpa = runtime.grandpa.read().await.clone();
-        let is_validator = !grandpa
+        let neighbours = grandpa
             .grid
-            .neighbours(runtime.validator.ed25519_public_key())
-            .is_empty();
-        let grandpa = runtime.grandpa.read().await.clone();
-        let neighbours = grandpa.grid.neighbours(address.peer_id.into());
+            .neighbours(runtime.validator.ed25519_public_key());
 
-        if is_validator && !neighbours.contains(&runtime.validator.ed25519_public_key()) {
-            tracing::warn!("peer is not a neighbour, skipping up0 stream");
-            return;
+        if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
+            let address = address.clone();
+            let runtime = runtime.clone();
+            tokio::spawn(async move {
+                if let Err(e) = stream::up0::send(runtime.clone(), address.peer_id).await {
+                    tracing::warn!("failed to send up0 stream: {e:?} for {address}");
+                }
+            });
+        } else {
+            tracing::trace!("skipping up0 stream");
         }
-
-        let address = address.clone();
-        tokio::spawn(async move {
-            if let Err(e) = stream::up0::send(runtime.clone(), address.peer_id).await {
-                tracing::warn!("failed to send up0 stream: {e:?} for {address}");
-            }
-        });
     }
 
     // 4. insert the connection into the manager
-    pool.write().await.insert(address.peer_id, conn.clone());
-    tracing::debug!("connected to {}", address);
+    runtime
+        .pool
+        .write()
+        .await
+        .insert(address.peer_id, conn.clone());
+    tracing::trace!("connected");
 }
 
 /// Handle the closed event.
