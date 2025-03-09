@@ -32,7 +32,7 @@ pub async fn unchecked<C: score::runtime::Config>(
 
     conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
-        tracing::warn!("{e}");
+        tracing::error!("closing connection with reason: {e}");
         runtime
             .transport
             .close(conn.address.peer_id, e.to_string())
@@ -48,15 +48,10 @@ pub async fn send<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
-    while let Ok((header, head)) = rx.recv().await {
-        // save the header to the local ancestry.
-        {
-            let mut grandpa = runtime.grandpa.write().await;
-            grandpa.save_header(header.clone());
-        }
 
+    while let Ok((header, head)) = rx.recv().await {
         // check if the block is a descendant of the local finalized head.
-        let grandpa = runtime.grandpa.read().await;
+        let grandpa = runtime.grandpa.read().await.clone();
         let handshake = conn.handshake.read().await;
         let hash = header.hash()?;
 
@@ -81,6 +76,7 @@ pub async fn send<C: score::runtime::Config>(
 }
 
 /// Receive the block announcement from a remote peer.
+#[tracing::instrument(skip_all)]
 pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
@@ -100,7 +96,7 @@ pub async fn recv<C: score::runtime::Config>(
         };
 
         tracing::trace!(
-            "received announcement: block#{}(0x{})",
+            "announcement: block#{}(0x{})",
             leaf.slot,
             hex::encode(leaf.hash.as_ref()),
         );
@@ -108,7 +104,7 @@ pub async fn recv<C: score::runtime::Config>(
         // verify if the header is invalid with the local finalized head.
         let grandpa = runtime.grandpa.read().await.clone();
         if let Err(e) = grandpa.verify(&header).await {
-            tracing::warn!("header invalid: {}", e);
+            tracing::warn!("{e}");
             continue;
         }
 
@@ -135,5 +131,5 @@ pub async fn recv<C: score::runtime::Config>(
         }
     }
 
-    anyhow::bail!("block announcement receiver stream closed");
+    anyhow::bail!("announcement stream closed");
 }

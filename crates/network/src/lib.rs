@@ -112,6 +112,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     /// Get a connection from the pool
     pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
         let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
+            tracing::trace!("closing connection for peer: {peer}");
             self.transport.tx.send(Event::Closed {
                 peer,
                 reason: "No connection found".to_string(),

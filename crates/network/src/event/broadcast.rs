@@ -14,9 +14,10 @@ pub async fn announce<C: score::runtime::Config>(
         header.slot,
         hex::encode(header.hash()?)
     );
-    if let Err(e) = runtime.grandpa.read().await.verify(&header).await {
-        tracing::trace!(
-            "block#{}@0x{} verification failed: {e}",
+    let grandpa = runtime.grandpa.read().await.clone();
+    if let Err(e) = grandpa.verify(&header).await {
+        tracing::warn!(
+            "block#{}@0x{} verification failed before announcing: {e}",
             header.slot,
             hex::encode(header.hash()?)
         );
@@ -39,7 +40,8 @@ pub async fn ticket<C: score::runtime::Config>(
     ticket: TicketEnvelope,
 ) -> anyhow::Result<()> {
     let validators = runtime.grandpa.read().await.grid.curr;
-    for conn in runtime.pool.read().await.values() {
+    let pool = runtime.pool.read().await.clone();
+    for conn in pool.values() {
         let peer: [u8; 32] = conn.address.peer_id.into();
         if validators.contains(&peer) {
             let (send, recv) = conn.open_bi().await?;

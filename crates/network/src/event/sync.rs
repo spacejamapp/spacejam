@@ -18,7 +18,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     runtime: Network<C>,
     slot: TimeSlot,
 ) -> anyhow::Result<()> {
-    let grandpa = runtime.grandpa.read().await;
+    let grandpa = runtime.grandpa.read().await.clone();
     if slot <= grandpa.head.slot {
         return Ok(());
     }
@@ -29,7 +29,8 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     };
 
     let mut feeds = Vec::new();
-    for conn in runtime.pool.read().await.values() {
+    let pool = runtime.pool.read().await.clone();
+    for conn in pool.values() {
         let head = conn.handshake.read().await.head.clone();
         if head.hash == best.hash
             || head.slot > best.slot && grandpa.is_descendant_of(head.hash, best.hash)
@@ -66,8 +67,13 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     .await?;
 
     // receive the blocks from the feed.
-    if let Some(blocks) = recv.read_chunk(10, true).await? {
-        let blocks: Vec<Block> = codec::decode(&blocks.bytes)?;
+    let mut buffer = Vec::new();
+    while let Some(chunk) = recv.read_chunk(1, true).await? {
+        buffer.extend_from_slice(&chunk.bytes);
+        let Ok(blocks) = codec::decode::<Vec<Block>>(&buffer) else {
+            continue;
+        };
+
         for block in blocks {
             runtime.finalize(&block).await?;
             tracing::info!(

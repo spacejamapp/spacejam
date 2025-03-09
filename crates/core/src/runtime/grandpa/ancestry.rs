@@ -72,12 +72,12 @@ impl Ancestry {
             };
 
             // if the header is not a ticket sealed header, break
+            ancestor = *parent;
             if header.tickets_mark.is_none() {
                 continue;
             }
 
             ancestors.push(header.clone());
-            ancestor = *parent;
         }
 
         ancestors
