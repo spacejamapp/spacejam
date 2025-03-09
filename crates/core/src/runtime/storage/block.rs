@@ -25,6 +25,28 @@ pub trait BlockStorage: KVStorage {
         let hash = block.header.hash()?;
         let key = [BLOCK_KEY, hash.as_ref()].concat();
         self.set(&key, &codec::encode(block)?)?;
+
+        // Save the head
+        let head = Head {
+            hash,
+            slot: block.header.slot,
+        };
+        self.save_head(&head)?;
+        Ok(())
+    }
+
+    fn save_head(&self, head: &Head) -> Result<()> {
+        // set block hash indexed by slot
+        {
+            let key = [BLOCK_HASH_KEY, &head.slot.to_le_bytes()].concat();
+            self.set(&key, &codec::encode(&head.hash)?)?;
+        }
+
+        // set block slot indexed by hash
+        {
+            let key = [BLOCK_SLOT_KEY, head.hash.as_ref()].concat();
+            self.set(&key, &codec::encode(&head.slot)?)?;
+        }
         Ok(())
     }
 
@@ -41,15 +63,6 @@ pub trait BlockStorage: KVStorage {
             .collect::<Result<Vec<_>>>()
     }
 
-    /// Drop the blocks
-    fn drop_blocks(&self, hashes: &[OpaqueHash]) -> Result<()> {
-        for hash in hashes {
-            let key = [BLOCK_KEY, hash.as_ref()].concat();
-            self.remove(&key)?;
-        }
-        Ok(())
-    }
-
     /// Get the finalized head
     fn get_finalized(&self) -> Result<Head> {
         self.get(FINALIZED_KEY)?
@@ -60,19 +73,7 @@ pub trait BlockStorage: KVStorage {
     /// Set the finalized head
     fn set_finalized(&self, head: &Head) -> Result<()> {
         self.set(FINALIZED_KEY, &codec::encode(head)?)?;
-
-        // set block hash indexed by slot
-        {
-            let key = [BLOCK_HASH_KEY, &head.slot.to_le_bytes()].concat();
-            self.set(&key, &codec::encode(&head.hash)?)?;
-        }
-
-        // set block slot indexed by hash
-        {
-            let key = [BLOCK_SLOT_KEY, head.hash.as_ref()].concat();
-            self.set(&key, &codec::encode(&head.slot)?)?;
-        }
-
+        self.save_head(head)?;
         Ok(())
     }
 
