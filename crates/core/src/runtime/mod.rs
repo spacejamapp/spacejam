@@ -158,6 +158,7 @@ impl<C: Config> Runtime<C> {
 
         // 1. transit the global state
         tx::transit(block, &self.storage, &self.validator)?;
+        tracing::info!("Finalized block#{}", block.header.slot);
 
         // 2. save the block to the storage
         self.storage.save_block(block)?;

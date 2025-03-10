@@ -91,10 +91,31 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         })
     }
 
+    /// Lookup the best head from the network
+    pub async fn lookup(&self, best: &Head) -> Option<Connection> {
+        let grandpa = self.runtime.grandpa.read().await.clone();
+        let mut feeds = Vec::new();
+        let pool = self.pool.read().await.clone();
+        for conn in pool.values() {
+            let head = conn.handshake.read().await.head.clone();
+            if head.hash == best.hash || grandpa.is_descendant_of(head.hash, best.hash) {
+                feeds.push(conn.clone());
+            }
+        }
+
+        // we trust the feeds since
+        //
+        // - they are peers that we've connected to (validators)
+        // - the best head is at least a descendant of their finalized heads
+        //
+        // so we can directly fetch the missing blocks from the feeds.
+        feeds.sort_by_key(|conn| conn.latency);
+        feeds.first().cloned()
+    }
+
     /// Send an event to the network
     pub fn send(&self, event: Event) -> anyhow::Result<()> {
-        self.transport.tx.send(event)?;
-        Ok(())
+        self.transport.tx.send(event).map_err(Into::into)
     }
 
     /// Spawn a task to handle events

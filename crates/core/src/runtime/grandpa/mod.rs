@@ -109,24 +109,28 @@ impl Grandpa {
     }
 
     /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
-    pub fn select_best_head(&self) -> Option<Head> {
-        let mut votes = BTreeMap::<usize, (Head, Vec<Header>)>::new();
-
+    pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
+        let mut votes = BTreeMap::new();
         for leaf in self.leaves.iter() {
             let ancestors = self.ancestors(&leaf.hash, self.head.hash);
-            votes.insert(
-                ancestors.len(),
-                (
-                    leaf.clone(),
-                    ancestors.into_iter().map(|(_, h)| h).collect(),
-                ),
-            );
+            let valid_ancestors = ancestors
+                .iter()
+                .filter_map(|(_, h)| {
+                    if h.tickets_mark.is_some() {
+                        Some(h)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            votes.insert(valid_ancestors.len(), (leaf.clone(), ancestors));
         }
 
         // select the best head from the chains with most valid ancestors, skipping
         // the chains with equivocating ancestors.
         while let Some((_, (head, ancestors))) = votes.pop_last() {
-            if ancestors.iter().any(|a| {
+            if ancestors.iter().any(|(_, a)| {
                 let Some(entry) = self.ancestry.slots.get(&(a.slot, a.parent)) else {
                     return false;
                 };
@@ -137,7 +141,7 @@ impl Grandpa {
             }
 
             if head.slot > self.head.slot {
-                return Some(head);
+                return Some((head, ancestors));
             }
         }
 

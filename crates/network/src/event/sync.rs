@@ -1,7 +1,11 @@
 //! Handler of sync events
 
 use crate::{stream::ce128, Network};
-use score::{Block, TimeSlot};
+use score::{
+    block::Header,
+    runtime::{storage::BlockStorage, Head},
+    Block, OpaqueHash, TimeSlot,
+};
 
 /// Select the best chain.
 ///
@@ -24,37 +28,64 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     }
 
     // select the best head from the grandpa.
-    let Some(best) = grandpa.select_best_head() else {
+    let Some((best, ancestors)) = grandpa.select_best_head() else {
         return Ok(());
     };
 
-    let mut feeds = Vec::new();
-    let pool = runtime.pool.read().await.clone();
-    for conn in pool.values() {
-        let head = conn.handshake.read().await.head.clone();
-        if head.hash == best.hash || grandpa.is_descendant_of(head.hash, best.hash) {
-            feeds.push(conn.clone());
+    // if the best head is already in the local storage,
+    // run sync from the local storage.
+    let chain = runtime.chain().await;
+    if let Ok(head) = chain.get_block(&best.hash) {
+        self::finalize_locally(&runtime, head, ancestors).await
+    } else {
+        self::finalize_from_feed(&runtime, best).await
+    }
+}
+
+/// Finalize blocks from the local chain.
+#[tracing::instrument(skip_all, level = "debug")]
+async fn finalize_locally<C: score::runtime::Config>(
+    runtime: &Network<C>,
+    head: Block,
+    mut ancestors: Vec<(OpaqueHash, Header)>,
+) -> anyhow::Result<()> {
+    tracing::debug!("finalizing from local chain ...");
+    ancestors.reverse();
+    let grandpa = runtime.grandpa.read().await.clone();
+    let chain = runtime.chain().await;
+    let mut current = grandpa.head.clone();
+    for (ancestor, header) in ancestors.iter().skip(1) {
+        if header.parent != current.hash {
+            anyhow::bail!(
+                "ancestor {} is not the parent of {}",
+                hex::encode(ancestor),
+                hex::encode(current.hash)
+            );
         }
+
+        runtime.finalize(&chain.get_block(ancestor)?).await?;
+        current = Head {
+            hash: *ancestor,
+            slot: header.slot,
+        };
     }
 
-    // we trust the feeds since
-    //
-    // - they are peers that we've connected to (validators)
-    // - the best head is at least a descendant of their finalized heads
-    //
-    // so we can directly fetch the missing blocks from the feeds.
-    feeds.sort_by_key(|conn| conn.latency);
-    let Some(feed) = feeds.first() else {
-        // in this case, maybe the block we want is on our local chain.
-        tracing::warn!(
-            "no peers found for syncing to the best head block#{}@{}",
-            best.slot,
-            hex::encode(best.hash)
-        );
+    runtime.finalize(&head).await?;
+    Ok(())
+}
+
+/// Finalize blocks from the feed.
+async fn finalize_from_feed<C: score::runtime::Config>(
+    runtime: &Network<C>,
+    best: Head,
+) -> anyhow::Result<()> {
+    let grandpa = runtime.grandpa.read().await.clone();
+    let Some(feed) = runtime.lookup(&best).await else {
         return Ok(());
     };
 
     // send the request to the feed.
+    tracing::debug!("finalizing from feed .");
     let request = ce128::Request {
         hash: best.hash,
         direction: 0,
@@ -83,11 +114,6 @@ pub async fn select_best_chain<C: score::runtime::Config>(
         }
 
         runtime.finalize(&block).await?;
-        tracing::info!(
-            "finalized block#{}@0x{}",
-            block.header.slot,
-            hex::encode(block.hash()?)
-        );
     }
 
     send.finish()?;

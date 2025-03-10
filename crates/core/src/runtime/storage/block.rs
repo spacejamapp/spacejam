@@ -2,7 +2,7 @@
 
 use crate::{
     runtime::{storage::KVStorage, Head},
-    Block, OpaqueHash, TimeSlot,
+    Block, OpaqueHash,
 };
 use anyhow::Result;
 
@@ -75,13 +75,5 @@ pub trait BlockStorage: KVStorage {
         self.set(FINALIZED_KEY, &codec::encode(head)?)?;
         self.save_head(head)?;
         Ok(())
-    }
-
-    /// Get the block hash by slot
-    fn get_hash(&self, slot: TimeSlot) -> Result<OpaqueHash> {
-        let key = [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat();
-        self.get(&key)?
-            .ok_or(anyhow::anyhow!("Block hash not found"))
-            .and_then(|value| Ok(codec::decode(&value)?))
     }
 }
