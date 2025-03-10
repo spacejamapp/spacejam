@@ -23,8 +23,6 @@ pub struct Ancestry {
 
 impl Ancestry {
     /// Save the header to the ancestry.
-    ///
-    /// TODO: find the equivocation of the header.
     pub fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
         let hash = header.hash()?;
         let parent = header.parent;

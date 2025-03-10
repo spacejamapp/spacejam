@@ -16,8 +16,8 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
         let grandpa = runtime.grandpa.read().await;
         tracing::info!(
             "The latest finalized head #{}: 0x{}",
-            grandpa.head.slot,
-            hex::encode(grandpa.head.hash)
+            grandpa.handshake.head.slot,
+            hex::encode(grandpa.handshake.head.hash)
         );
 
         let chain = runtime.chain().await;
@@ -82,7 +82,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 
             tracing::debug!(
                 "grandpa: #{}, peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
-                grandpa.head.slot,
+                grandpa.handshake.head.slot,
                 peers.len(),
                 connected,
                 score::VALIDATORS_COUNT,
@@ -123,7 +123,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     {
         let mut grandpa = runtime.grandpa.write().await;
         grandpa.save_header(block.header.clone())?;
-        grandpa.add_leave(head.clone());
+        grandpa.add_leaf(head.clone());
     }
 
     // transit the state

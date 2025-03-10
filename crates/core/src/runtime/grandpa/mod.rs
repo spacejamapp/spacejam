@@ -11,6 +11,7 @@ use crate::{
 };
 use ancestry::Ancestry;
 use grid::Grid;
+pub use handshake::Handshake;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -19,6 +20,7 @@ use std::{
 
 mod ancestry;
 mod grid;
+mod handshake;
 
 /// Chain head cache of SpaceJam
 ///
@@ -26,15 +28,8 @@ mod grid;
 /// in the current fork choice tree.
 #[derive(Clone, Default)]
 pub struct Grandpa {
-    /// The hash of the head of the chain, e.g. the finalized header.
-    ///
-    /// This represents the latest block that has been finalized by the GRANDPA protocol.
-    pub head: Head,
-
-    /// The leaves of the best finalized head.
-    ///
-    /// Descendants of the latest finalized block with no known children.
-    pub leaves: HashSet<Head>,
+    /// The handshake data of the grandpa protocol.
+    pub handshake: Handshake,
 
     /// The ancestry of the chain.
     ///
@@ -61,8 +56,7 @@ impl Grandpa {
         ancestry.save_header(finalized.header)?;
 
         Ok(Self {
-            head,
-            leaves: Default::default(),
+            handshake: Handshake::new(head),
             ancestry,
             grid: Grid::new(storage)?,
         })
@@ -72,20 +66,20 @@ impl Grandpa {
     ///
     /// If there are ancestors of the leaf in the leaves,
     /// we should remove the ancestors.
-    pub fn add_leave(&mut self, head: Head) {
+    pub fn add_leaf(&mut self, head: Head) {
         let ancestors = self
-            .ancestors(&head.hash, self.head.hash)
+            .ancestors(&head.hash, self.handshake.head.hash)
             .iter()
             .map(|(h, _)| *h)
             .collect::<HashSet<_>>();
 
         // remove the ancestors from the leaves
-        let mut leaves = self.leaves.clone();
+        let mut leaves = self.handshake.leaves.clone();
         leaves.insert(head);
         leaves.retain(|l| !ancestors.contains(&l.hash));
 
         // update the leaves
-        self.leaves = leaves;
+        self.handshake.leaves = leaves;
     }
 
     /// Finalize a head.
@@ -95,13 +89,14 @@ impl Grandpa {
             slot: header.slot,
         };
 
-        self.head = head.clone();
-        self.leaves = self
+        self.handshake.head = head.clone();
+        self.handshake.leaves = self
+            .handshake
             .leaves
             .iter()
             .filter(|l| l.hash != head.hash)
             .cloned()
-            .collect();
+            .collect::<HashSet<_>>();
 
         // TODO: update the grid.
 
@@ -111,8 +106,8 @@ impl Grandpa {
     /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
     pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
         let mut votes = BTreeMap::new();
-        for leaf in self.leaves.iter() {
-            let ancestors = self.ancestors(&leaf.hash, self.head.hash);
+        for leaf in self.handshake.leaves.iter() {
+            let ancestors = self.ancestors(&leaf.hash, self.handshake.head.hash);
             let valid_ancestors = ancestors
                 .iter()
                 .filter_map(|(_, h)| {
@@ -140,7 +135,7 @@ impl Grandpa {
                 continue;
             }
 
-            if head.slot > self.head.slot {
+            if head.slot > self.handshake.head.slot {
                 return Some((head, ancestors));
             }
         }
@@ -148,27 +143,16 @@ impl Grandpa {
         None
     }
 
-    /// Create a handshake message for the grandpa protocol.
-    pub fn handshake(&self) -> Vec<u8> {
-        let mut handshake = vec![];
-        handshake.extend_from_slice(self.head.hash.as_ref());
-        handshake.extend_from_slice(&self.head.slot.to_le_bytes());
-        handshake.push(self.leaves.len() as u8);
-
-        for head in self.leaves.iter() {
-            handshake.extend_from_slice(head.hash.as_ref());
-            handshake.extend_from_slice(&head.slot.to_le_bytes());
-        }
-
-        handshake
-    }
-
     /// Verify a header with ancestry
     pub async fn verify(&self, header: &Header) -> anyhow::Result<()> {
         let hash = header.hash()?;
 
         // 1. A descendant of the block is announced instead of the block itself.
-        let leaves = self.leaves.iter().filter(|l| l.slot > header.slot);
+        let leaves = self
+            .handshake
+            .leaves
+            .iter()
+            .filter(|l| l.slot > header.slot);
         for leaf in leaves {
             if !self.is_descendant_of(leaf.hash, hash) {
                 anyhow::bail!(
@@ -178,13 +162,13 @@ impl Grandpa {
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        if !self.is_descendant_of(header.parent, self.head.hash) {
+        if !self.is_descendant_of(header.parent, self.handshake.head.hash) {
             anyhow::bail!(
                 "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}, parent: 0x{}.",
                 header.slot,
                 hex::encode(hash.as_ref()),
-                self.head.slot,
-                hex::encode(self.head.hash.as_ref()),
+                self.handshake.head.slot,
+                hex::encode(self.handshake.head.hash.as_ref()),
                 hex::encode(header.parent.as_ref()),
             );
         }

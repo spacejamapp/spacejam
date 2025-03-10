@@ -2,10 +2,10 @@
 
 use crate::{
     peer::{Address, PeerId},
-    stream::up0::Handshake,
     transport::Verifier,
 };
 use quinn::crypto::rustls::HandshakeData;
+use score::runtime::Handshake;
 use std::{
     ops::Deref,
     sync::{

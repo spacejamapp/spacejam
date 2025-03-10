@@ -36,10 +36,10 @@ pub async fn recv<C: score::runtime::Config>(
     let mut ancestors = {
         let grandpa = runtime.grandpa.read().await.clone();
         grandpa
-            .ancestors(&request.hash, grandpa.head.hash)
+            .ancestors(&request.hash, grandpa.handshake.head.hash)
             .iter()
             .filter_map(|(h, _)| {
-                if *h == request.hash || *h == grandpa.head.hash {
+                if *h == request.hash || *h == grandpa.handshake.head.hash {
                     None
                 } else {
                     Some(*h)

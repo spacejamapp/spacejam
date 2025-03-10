@@ -23,7 +23,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     slot: TimeSlot,
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
-    if slot <= grandpa.head.slot {
+    if slot <= grandpa.handshake.head.slot {
         return Ok(());
     }
 
@@ -54,7 +54,7 @@ async fn finalize_locally<C: score::runtime::Config>(
     ancestors.reverse();
     let grandpa = runtime.grandpa.read().await.clone();
     let chain = runtime.chain().await;
-    let mut current = grandpa.head.clone();
+    let mut current = grandpa.handshake.head.clone();
     for (ancestor, header) in ancestors.iter().skip(1) {
         if header.parent != current.hash {
             anyhow::bail!(
@@ -90,7 +90,7 @@ async fn finalize_from_feed<C: score::runtime::Config>(
     let request = ce128::Request {
         hash: best.hash,
         direction: 0,
-        maximum: best.slot.saturating_sub(grandpa.head.slot),
+        maximum: best.slot.saturating_sub(grandpa.handshake.head.slot),
     };
     let (mut send, mut recv) = ce128::send(feed.clone(), request.clone()).await?;
 
@@ -110,7 +110,7 @@ async fn finalize_from_feed<C: score::runtime::Config>(
         buffer.clear();
         tracing::debug!("received block#{}", block.header.slot);
         let grandpa = runtime.grandpa.read().await.clone();
-        if grandpa.head.slot >= block.header.slot {
+        if grandpa.handshake.head.slot >= block.header.slot {
             continue;
         }
 

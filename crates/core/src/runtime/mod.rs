@@ -11,7 +11,7 @@ use std::sync::{
 use storage::{BlockStorage, Branch};
 use tokio::sync::RwLock;
 pub use {
-    grandpa::{Grandpa, Head},
+    grandpa::{Grandpa, Handshake, Head},
     pool::Pool,
     storage::Storage,
     validator::Validator,
@@ -73,7 +73,10 @@ impl<C: Config> Runtime<C> {
 
     /// Get the current pending chain
     pub async fn chain(&self) -> Branch<C::Storage> {
-        Branch::checkout(&self.storage, self.grandpa.read().await.head.clone())
+        Branch::checkout(
+            &self.storage,
+            self.grandpa.read().await.handshake.head.clone(),
+        )
     }
 
     /// Author a block
@@ -149,7 +152,7 @@ impl<C: Config> Runtime<C> {
     /// by ourselves in our storage.
     #[tracing::instrument(skip_all, level = "debug", name = "Runtime::finalize")]
     pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
-        let prev = self.grandpa.read().await.head.clone();
+        let prev = self.grandpa.read().await.handshake.head.clone();
         tracing::debug!(
             "previous best block#{}: {}",
             prev.slot,

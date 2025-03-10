@@ -76,9 +76,9 @@ pub async fn send<C: score::runtime::Config>(
         tracing::debug!(
             "announcing block#{}, remote: #{}",
             header.slot,
-            grandpa.head.slot
+            grandpa.handshake.head.slot
         );
-        send.write_all(&codec::encode(&(header, grandpa.head))?)
+        send.write_all(&codec::encode(&(header, grandpa.handshake.head))?)
             .await?;
     }
 
@@ -115,7 +115,7 @@ pub async fn recv<C: score::runtime::Config>(
         let grandpa = runtime.grandpa.read().await.clone();
         tracing::trace!(
             "grandpa: #{}, remote: #{}, header#{}",
-            grandpa.head.slot,
+            grandpa.handshake.head.slot,
             head.slot,
             leaf.slot,
         );
@@ -129,7 +129,7 @@ pub async fn recv<C: score::runtime::Config>(
         // Add this header to local leaves
         {
             let mut grandpa = runtime.grandpa.write().await;
-            grandpa.add_leave(leaf.clone());
+            grandpa.add_leaf(leaf.clone());
             grandpa.save_header(header.clone());
         }
 
@@ -146,7 +146,7 @@ pub async fn recv<C: score::runtime::Config>(
         //
         // Try to select the best chain if the remote peer's finalized
         // head is greater than the local finalized head.
-        if header.slot > grandpa.head.slot {
+        if header.slot > grandpa.handshake.head.slot {
             if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
                 tracing::error!("failed to send select best chain event: {e}");
             }
