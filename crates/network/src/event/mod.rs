@@ -4,7 +4,7 @@ use crate::{
     peer::{Connection, PeerId},
     Network,
 };
-use score::{block::Header, extrinsic::TicketEnvelope, runtime::Head, TimeSlot};
+use score::{block::Header, extrinsic::TicketEnvelope, TimeSlot};
 use std::fmt;
 
 mod broadcast;
@@ -15,13 +15,7 @@ mod sync;
 #[derive(Debug, Clone)]
 pub enum Event {
     /// Announce a block.
-    AnnounceBlock {
-        /// The block.
-        header: Box<Header>,
-
-        /// The head.
-        head: Head,
-    },
+    AnnounceBlock(Box<Header>),
     /// Distribute a ticket.
     DistributeTicket {
         /// The epoch.
@@ -46,15 +40,14 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
-    #[tracing::instrument(skip_all, level = "debug", fields(event = self.to_string()))]
+    #[tracing::instrument(skip_all, level = "debug", fields(event = self.to_string()), name="event")]
     pub async fn handle<C: score::runtime::Config>(
         self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
-        tracing::debug!("event received");
         match self {
-            Self::AnnounceBlock { header, head } => {
-                broadcast::announce(runtime, header, head).await?;
+            Self::AnnounceBlock(header) => {
+                broadcast::announce(runtime, header).await?;
             }
             Self::DistributeTicket { epoch, ticket } => {
                 broadcast::ticket(runtime, epoch, *ticket).await?;
@@ -80,8 +73,8 @@ impl Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AnnounceBlock { header, head: _ } => {
-                write!(f, "AnnounceBlock({})", header.slot,)
+            Self::AnnounceBlock(header) => {
+                write!(f, "AnnounceBlock({})", header.slot)
             }
             Self::DistributeTicket { epoch, ticket: _ } => {
                 write!(f, "DistributeTicket({})", epoch)

@@ -1,19 +1,13 @@
 //! Broadcast events
 
 use crate::{stream::ce132, Network};
-use score::{block::Header, extrinsic::TicketEnvelope, runtime::Head};
+use score::{block::Header, extrinsic::TicketEnvelope};
 
 /// Announce a block to the network
 pub async fn announce<C: score::runtime::Config>(
     runtime: Network<C>,
     header: Box<Header>,
-    head: Head,
 ) -> anyhow::Result<()> {
-    tracing::info!(
-        "announcing block#{}@0x{}",
-        header.slot,
-        hex::encode(header.hash()?)
-    );
     let grandpa = runtime.grandpa.read().await.clone();
     if let Err(e) = grandpa.verify(&header).await {
         tracing::warn!(
@@ -25,8 +19,8 @@ pub async fn announce<C: score::runtime::Config>(
     }
 
     // broadcast the block to the network
-    match runtime.announce.send((*header, head)) {
-        Ok(count) => tracing::trace!("broadcasted block to {} peers", count),
+    match runtime.announce.send(*header) {
+        Ok(count) => tracing::trace!("broadcasting block to {} peers", count),
         Err(e) => tracing::warn!("failed to broadcast block: {e}"),
     }
 

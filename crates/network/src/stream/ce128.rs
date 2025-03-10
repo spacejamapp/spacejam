@@ -47,7 +47,7 @@ pub async fn recv<C: score::runtime::Config>(
             })
             .collect::<Vec<_>>()
     };
-    ancestors.shrink_to((request.maximum as usize).min(ancestors.len())); 
+    ancestors.shrink_to((request.maximum as usize).min(ancestors.len()));
     tracing::trace!("request for {} blocks.", ancestors.len());
 
     // Fetch blocks in batches of 10.

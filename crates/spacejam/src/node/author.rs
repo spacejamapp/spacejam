@@ -81,7 +81,8 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
             let total_neighbours = neighbours.len();
 
             tracing::debug!(
-                "peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
+                "grandpa: #{}, peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
+                grandpa.head.slot,
                 peers.len(),
                 connected,
                 score::VALIDATORS_COUNT,
@@ -129,10 +130,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     tx::transit(&block, &chain, &runtime.validator)?;
 
     // announce the block to the network
-    runtime.send(Event::AnnounceBlock {
-        header: Box::new(block.header.clone()),
-        head,
-    })?;
+    runtime.send(Event::AnnounceBlock(Box::new(block.header.clone())))?;
 
     if let Some(ticket) = ticket {
         let epoch = block.header.slot / score::EPOCH_LENGTH;

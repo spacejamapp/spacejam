@@ -39,7 +39,7 @@ pub struct Network<C: score::runtime::Config> {
     pub metrics: Metrics,
 
     /// The announce channel of the network
-    announce: broadcast::Sender<(Header, Head)>,
+    announce: broadcast::Sender<Header>,
 }
 
 impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
