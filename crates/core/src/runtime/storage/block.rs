@@ -50,16 +50,17 @@ pub trait BlockStorage: KVStorage {
     }
 
     /// Fetch the blocks
-    fn fetch_blocks(&self, slots: &[TimeSlot]) -> Result<Vec<Block>> {
-        let keys = slots
-            .iter()
-            .map(|slot| [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat())
-            .collect::<Vec<_>>();
-
-        self.batch_read(keys)?
+    fn fetch_blocks(&self, hashes: &[OpaqueHash]) -> Result<Vec<Block>> {
+        Ok(self
+            .batch_read(
+                hashes
+                    .iter()
+                    .map(|hash| [BLOCK_KEY, hash.as_ref()].concat())
+                    .collect::<Vec<_>>(),
+            )?
             .into_iter()
-            .map(|(_, value)| codec::decode(&value).map_err(Into::into))
-            .collect::<Result<Vec<_>>>()
+            .filter_map(|(_, value)| codec::decode(&value).ok())
+            .collect::<Vec<_>>())
     }
 
     /// Get the finalized head
@@ -81,14 +82,6 @@ pub trait BlockStorage: KVStorage {
         let key = [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat();
         self.get(&key)?
             .ok_or(anyhow::anyhow!("Block hash not found"))
-            .and_then(|value| Ok(codec::decode(&value)?))
-    }
-
-    /// Get the block slot by hash
-    fn get_slot(&self, hash: &OpaqueHash) -> Result<TimeSlot> {
-        let key = [BLOCK_SLOT_KEY, hash.as_ref()].concat();
-        self.get(&key)?
-            .ok_or(anyhow::anyhow!("Block slot not found"))
             .and_then(|value| Ok(codec::decode(&value)?))
     }
 }

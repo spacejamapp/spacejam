@@ -54,6 +54,7 @@ pub fn safrole(
     tickets: &TicketsExtrinsic,
 ) -> Result<Safrole> {
     if slot <= tau {
+        tracing::error!("slot {} is less than tau {}", slot, tau);
         return Err(Error::BadSlot);
     }
 

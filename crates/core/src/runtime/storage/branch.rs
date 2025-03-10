@@ -71,6 +71,7 @@ impl<S: KVStorage> KVStorage for Branch<'_, S> {
     }
 
     fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
+        let kvs = kvs.into_iter().map(|(k, v)| (self.wrap(&k), v)).collect();
         self.finalized.batch_write(kvs)
     }
 

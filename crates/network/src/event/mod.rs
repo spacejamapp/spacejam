@@ -51,6 +51,7 @@ impl Event {
         self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
+        tracing::debug!("event received");
         match self {
             Self::AnnounceBlock { header, head } => {
                 broadcast::announce(runtime, header, head).await?;
@@ -63,6 +64,7 @@ impl Event {
             }
             Self::Closed { peer, reason } => {
                 if let Some(address) = conn::closed(runtime.clone(), peer, reason.clone()).await? {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                     runtime.transport.dial(address).await?;
                 }
             }

@@ -41,6 +41,7 @@ pub async fn unchecked<C: score::runtime::Config>(
 }
 
 /// Announce the block to the peer.
+#[tracing::instrument(skip_all)]
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
@@ -64,15 +65,11 @@ pub async fn send<C: score::runtime::Config>(
             }
         }
 
-        tracing::trace!(
-            "sending announcement: block#{}(0x{})",
-            header.slot,
-            hex::encode(hash.as_ref()),
-        );
+        tracing::trace!("block#{}(0x{})", header.slot, hex::encode(hash.as_ref()),);
         send.write_all(&codec::encode(&(header, head))?).await?;
     }
 
-    anyhow::bail!("announcement stream closed");
+    anyhow::bail!("announcement sender stream closed");
 }
 
 /// Receive the block announcement from a remote peer.
@@ -83,6 +80,7 @@ pub async fn recv<C: score::runtime::Config>(
     conn: Connection,
 ) -> anyhow::Result<()> {
     let mut buffer = Vec::new();
+
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
         buffer.extend_from_slice(&chunk.bytes);
         let Ok((header, head)) = codec::decode::<(Header, Head)>(buffer.as_ref()) else {
@@ -95,11 +93,7 @@ pub async fn recv<C: score::runtime::Config>(
             slot: header.slot,
         };
 
-        tracing::trace!(
-            "announcement: block#{}(0x{})",
-            leaf.slot,
-            hex::encode(leaf.hash.as_ref()),
-        );
+        tracing::trace!("block#{}(0x{})", leaf.slot, hex::encode(leaf.hash.as_ref()),);
 
         // verify if the header is invalid with the local finalized head.
         let grandpa = runtime.grandpa.read().await.clone();
@@ -127,9 +121,11 @@ pub async fn recv<C: score::runtime::Config>(
         // Try to select the best chain if the remote peer's finalized
         // head is greater than the local finalized head.
         if head.slot > grandpa.head.slot {
-            runtime.send(Event::SelectBestChain { slot: head.slot });
+            if let Err(e) = runtime.send(Event::SelectBestChain { slot: head.slot }) {
+                tracing::error!("failed to send select best chain event: {e}");
+            }
         }
     }
 
-    anyhow::bail!("announcement stream closed");
+    anyhow::bail!("announcement receiver stream closed");
 }

@@ -76,7 +76,7 @@ impl Grandpa {
         let ancestors = self
             .ancestors(&head.hash, self.head.hash)
             .iter()
-            .filter_map(|h| h.hash().ok())
+            .map(|(h, _)| *h)
             .collect::<HashSet<_>>();
 
         // remove the ancestors from the leaves
@@ -114,7 +114,13 @@ impl Grandpa {
 
         for leaf in self.leaves.iter() {
             let ancestors = self.ancestors(&leaf.hash, self.head.hash);
-            votes.insert(ancestors.len(), (leaf.clone(), ancestors));
+            votes.insert(
+                ancestors.len(),
+                (
+                    leaf.clone(),
+                    ancestors.into_iter().map(|(_, h)| h).collect(),
+                ),
+            );
         }
 
         // select the best head from the chains with most valid ancestors, skipping

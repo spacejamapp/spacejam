@@ -101,11 +101,9 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn spawn(&self, mut rx: mpsc::UnboundedReceiver<Event>) {
         while let Some(event) = rx.recv().await {
             let this = self.clone();
-            tokio::spawn(async move {
-                if let Err(e) = event.clone().handle(this).await {
-                    tracing::error!("failed to handle event {event}: {e}");
-                }
-            });
+            if let Err(e) = event.clone().handle(this).await {
+                tracing::error!("failed to handle event {event}: {e}");
+            }
         }
     }
 

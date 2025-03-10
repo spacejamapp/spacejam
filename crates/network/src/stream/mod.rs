@@ -26,6 +26,7 @@ pub mod ce145;
 pub mod up0;
 
 /// Handle an incoming stream.
+#[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()))]
 pub async fn recv<C: score::runtime::Config>(
     peer: PeerId,
     send: SendStream,
@@ -36,12 +37,11 @@ pub async fn recv<C: score::runtime::Config>(
     recv.read_exact(&mut buf).await?;
 
     tracing::trace!(
-        "received stream {} from {}",
+        "stream {}",
         match buf[0] {
             0 => "up0".to_string(),
             _ => format!("ce{}", buf[0]),
         },
-        peer
     );
     match buf[0] {
         0 => up0::recv(peer, send, recv, runtime).await,

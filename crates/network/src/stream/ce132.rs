@@ -30,10 +30,8 @@ pub async fn recv<C: score::runtime::Config>(
     mut recv: RecvStream,
     runtime: Network<C>,
 ) -> anyhow::Result<()> {
-    let size = mem::size_of::<Request>();
-    let mut buf = vec![0; size];
+    let mut buf = vec![0; 789];
     recv.read_exact(&mut buf).await?;
-    tracing::trace!("received ticket distribution: buf({}){:?}", buf.len(), buf);
     send.finish();
 
     // TODO: verify the proof, handle the ticket, etc.

@@ -147,8 +147,14 @@ impl<C: Config> Runtime<C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
+    #[tracing::instrument(skip_all, level = "debug", name = "Runtime::finalize")]
     pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
         let prev = self.grandpa.read().await.head.clone();
+        tracing::debug!(
+            "previous best block#{}: {}",
+            prev.slot,
+            hex::encode(prev.hash)
+        );
 
         // 1. transit the global state
         tx::transit(block, &self.storage, &self.validator)?;

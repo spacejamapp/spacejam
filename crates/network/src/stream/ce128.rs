@@ -7,50 +7,61 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Send a block request.
-pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStream> {
+#[tracing::instrument(skip_all, level = "debug", fields(peer = ?conn.address.peer_id), name="ce128::send")]
+pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStream, RecvStream)> {
     let (mut send, recv) = conn.open_bi().await?;
 
-    let mut buf = vec![0];
+    let mut buf = vec![128];
     buf.extend_from_slice(request.hash.as_ref());
     buf.extend_from_slice(&request.direction.to_le_bytes());
     buf.extend_from_slice(&request.maximum.to_le_bytes());
     send.write_all(&buf).await?;
 
-    // recv.read_to_end(u8::MAX).await?;
-    send.finish();
-
     // returns the recv stream
-    Ok(recv)
+    Ok((send, recv))
 }
 
 /// Receive a block request.
+#[tracing::instrument(skip_all, level = "debug", name = "ce128::recv")]
 pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,
 ) -> anyhow::Result<()> {
-    let Some(request) = recv.read_chunk(1, true).await? else {
-        return Err(anyhow::anyhow!("failed to receive block request"));
-    };
+    let mut buf = [0; 37];
+    recv.read_exact(&mut buf).await?;
 
-    let request: Request = codec::decode(&request.bytes)?;
-    let current = runtime.storage.get_slot(&request.hash)?;
-    let slots = if request.direction == 0 {
-        (current..current + request.maximum)
-    } else {
-        (current - request.maximum..current)
-    }
-    .collect::<Vec<_>>();
+    // TODO: maybe support child relationship in ancestry
+    let request: Request = codec::decode(&buf)?;
+    let mut ancestors = {
+        let grandpa = runtime.grandpa.read().await.clone();
+        grandpa
+            .ancestors(&request.hash, grandpa.head.hash)
+            .iter()
+            .filter_map(|(h, _)| {
+                if *h == request.hash || *h == grandpa.head.hash {
+                    None
+                } else {
+                    Some(*h)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    ancestors.shrink_to((request.maximum as usize).min(ancestors.len())); 
+    tracing::trace!("request for {} blocks.", ancestors.len());
 
     // Fetch blocks in batches of 10.
     let batch_size = 10;
-    for chunk in slots.chunks(batch_size) {
-        let blocks = runtime.storage.fetch_blocks(chunk)?;
+    let chain = runtime.chain().await;
+    for batch in ancestors.chunks(batch_size) {
+        let blocks = chain.fetch_blocks(batch)?;
+        tracing::trace!("fetched {} blocks.", blocks.len());
         for block in blocks {
             send.write(&codec::encode(&block)?).await?;
         }
     }
 
+    tracing::trace!("finishing stream.");
     send.finish();
     Ok(())
 }
