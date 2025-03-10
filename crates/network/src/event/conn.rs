@@ -1,83 +1,94 @@
 //! Peer events handler
 
-use crate::{stream, Address, Network};
+use crate::{
+    peer::{Connection, PeerId},
+    stream, Address, Network,
+};
 use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
-pub async fn connected<C: score::runtime::Config>(
-    runtime: Network<C>,
-    peer: [u8; 32],
-    connection: &quinn::Connection,
-    outgoing: bool,
-) {
-    let pool = runtime.pool.clone();
-    let address = Address::new(connection.remote_address(), &peer);
-    tracing::debug!("connected to {}", address);
+pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
+    let address = conn.address.clone();
 
-    // 1. insert the connection into the manager
-    pool.write().await.insert(peer, connection.clone());
-
-    // 2. establish the connection in the metrics
+    // 1. establish the connection in the metrics
     runtime
         .metrics
         .conn
         .establish_connection(address.to_string());
 
-    // 3. spawn the connection
-    tokio::spawn(self::serve(peer, connection.clone(), runtime.clone()));
+    // 2. spawn the connection
+    tokio::spawn(self::serve(conn.clone(), runtime.clone()));
 
-    // 4. open the up0 stream if needed
-    if outgoing {
-        let is_validator = runtime.is_validator;
+    // 3. open the up0 stream if needed
+    if conn.outgoing {
         let grandpa = runtime.grandpa.read().await.clone();
-        let neighbours = grandpa.grid.neighbours(peer);
+        let neighbours = grandpa
+            .grid
+            .neighbours(runtime.validator.ed25519_public_key());
 
-        if is_validator && !neighbours.contains(&runtime.validator.ed25519_public_key()) {
-            tracing::warn!("peer is not a neighbour, skipping up0 stream");
-            return;
+        if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
+            let address = address.clone();
+            let runtime = runtime.clone();
+            tokio::spawn(async move {
+                if let Err(e) = stream::up0::send(runtime.clone(), address.peer_id).await {
+                    tracing::warn!("failed to send up0 stream: {e:?} for {address}");
+                }
+            });
+        } else {
+            tracing::trace!("skipping up0 stream");
         }
-
-        tokio::spawn(async move {
-            if let Err(e) = stream::up0::send(runtime.clone(), peer).await {
-                tracing::warn!("failed to send up0 stream: {e:?} for {address}");
-            }
-        });
     }
+
+    // 4. insert the connection into the manager
+    runtime
+        .pool
+        .write()
+        .await
+        .insert(address.peer_id, conn.clone());
+    tracing::trace!("connected");
 }
 
 /// Handle the closed event.
 pub async fn closed<C: score::runtime::Config>(
     runtime: Network<C>,
-    peer: [u8; 32],
+    peer: PeerId,
     reason: String,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<Address>> {
     let pool = runtime.pool.clone();
     let Some(conn) = pool.write().await.remove(&peer) else {
-        tracing::warn!("connection already closed");
-        return Ok(());
+        return Ok(None);
     };
 
-    let address = Address::new(conn.remote_address(), &peer);
-    tracing::warn!("closing connection {address} with reason: {reason}");
+    tracing::warn!("closing connection with reason: {reason}");
 
     // close the connection in the pool and metrics
+    let address = Address::new(conn.remote_address(), peer);
     conn.close(VarInt::from(0_u8), reason.as_bytes());
     runtime.metrics.conn.close_connection(address.to_string());
 
-    Ok(())
+    // if the connection is incoming, we don't need to dial again
+    if !conn.outgoing {
+        return Ok(None);
+    }
+
+    // check if the peer is a validator
+    let grandpa = runtime.grandpa.read().await.clone();
+    if grandpa.grid.validators().contains(peer.as_ref()) {
+        return Ok(Some(address));
+    }
+
+    Ok(None)
 }
 
 /// Serve a connection.
-async fn serve<C: score::runtime::Config>(
-    peer: [u8; 32],
-    conn: quinn::Connection,
-    runtime: Network<C>,
-) {
+///
+/// TODO: introduce configuration for the number of errors before closing the connection.
+async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
     while let Ok((send, recv)) = conn.accept_bi().await {
-        if let Err(e) = stream::recv(peer, send, recv, runtime.clone()).await {
-            runtime.transport.close(peer, e.to_string()).await;
-            continue;
+        let runtime = runtime.clone();
+        if let Err(e) = stream::recv(conn.address.peer_id, send, recv, runtime).await {
+            tracing::warn!("error with peer: {}: {e:?}", conn.address.peer_id);
         }
     }
 }

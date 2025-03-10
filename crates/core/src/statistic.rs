@@ -47,6 +47,12 @@ impl Statistics {
             next.current = vec![ActivityRecord::default(); next.current.len()];
         }
 
+        // TODO: wrap this resize to the logic above.
+        if next.current.len() <= index as usize {
+            next.current
+                .resize(index as usize + 1, ActivityRecord::default());
+        }
+
         // Update block production count for author
         //
         // TODO: handle jumped blocks

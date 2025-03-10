@@ -2,11 +2,13 @@
 
 pub use {
     block::BlockStorage,
+    branch::Branch,
     kv::{KVStorage, MemoryDb},
     state::Storage,
 };
 
 mod block;
+mod branch;
 mod kv;
 mod state;
 

@@ -2,7 +2,7 @@
 
 use crate::{
     runtime::{storage::KVStorage, Head},
-    Block, OpaqueHash, TimeSlot,
+    Block, OpaqueHash,
 };
 use anyhow::Result;
 
@@ -25,29 +25,42 @@ pub trait BlockStorage: KVStorage {
         let hash = block.header.hash()?;
         let key = [BLOCK_KEY, hash.as_ref()].concat();
         self.set(&key, &codec::encode(block)?)?;
+
+        // Save the head
+        self.save_head(&Head {
+            hash,
+            slot: block.header.slot,
+        })?;
+        Ok(())
+    }
+
+    fn save_head(&self, head: &Head) -> Result<()> {
+        // set block hash indexed by slot
+        {
+            let key = [BLOCK_HASH_KEY, &head.slot.to_le_bytes()].concat();
+            self.set(&key, &codec::encode(&head.hash)?)?;
+        }
+
+        // set block slot indexed by hash
+        {
+            let key = [BLOCK_SLOT_KEY, head.hash.as_ref()].concat();
+            self.set(&key, &codec::encode(&head.slot)?)?;
+        }
         Ok(())
     }
 
     /// Fetch the blocks
-    fn fetch_blocks(&self, slots: &[TimeSlot]) -> Result<Vec<Block>> {
-        let keys = slots
-            .iter()
-            .map(|slot| [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat())
-            .collect::<Vec<_>>();
-
-        self.batch_read(keys)?
+    fn fetch_blocks(&self, hashes: &[OpaqueHash]) -> Result<Vec<Block>> {
+        Ok(self
+            .batch_read(
+                hashes
+                    .iter()
+                    .map(|hash| [BLOCK_KEY, hash.as_ref()].concat())
+                    .collect::<Vec<_>>(),
+            )?
             .into_iter()
-            .map(|(_, value)| codec::decode(&value).map_err(Into::into))
-            .collect::<Result<Vec<_>>>()
-    }
-
-    /// Drop the blocks
-    fn drop_blocks(&self, hashes: &[OpaqueHash]) -> Result<()> {
-        for hash in hashes {
-            let key = [BLOCK_KEY, hash.as_ref()].concat();
-            self.remove(&key)?;
-        }
-        Ok(())
+            .filter_map(|(_, value)| codec::decode(&value).ok())
+            .collect::<Vec<_>>())
     }
 
     /// Get the finalized head
@@ -60,35 +73,7 @@ pub trait BlockStorage: KVStorage {
     /// Set the finalized head
     fn set_finalized(&self, head: &Head) -> Result<()> {
         self.set(FINALIZED_KEY, &codec::encode(head)?)?;
-
-        // set block hash indexed by slot
-        {
-            let key = [BLOCK_HASH_KEY, &head.slot.to_le_bytes()].concat();
-            self.set(&key, &codec::encode(&head.hash)?)?;
-        }
-
-        // set block slot indexed by hash
-        {
-            let key = [BLOCK_SLOT_KEY, head.hash.as_ref()].concat();
-            self.set(&key, &codec::encode(&head.slot)?)?;
-        }
-
+        self.save_head(head)?;
         Ok(())
-    }
-
-    /// Get the block hash by slot
-    fn get_hash(&self, slot: TimeSlot) -> Result<OpaqueHash> {
-        let key = [BLOCK_HASH_KEY, &slot.to_le_bytes()].concat();
-        self.get(&key)?
-            .ok_or(anyhow::anyhow!("Block hash not found"))
-            .and_then(|value| Ok(codec::decode(&value)?))
-    }
-
-    /// Get the block slot by hash
-    fn get_slot(&self, hash: &OpaqueHash) -> Result<TimeSlot> {
-        let key = [BLOCK_SLOT_KEY, hash.as_ref()].concat();
-        self.get(&key)?
-            .ok_or(anyhow::anyhow!("Block slot not found"))
-            .and_then(|value| Ok(codec::decode(&value)?))
     }
 }

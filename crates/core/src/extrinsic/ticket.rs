@@ -1,5 +1,7 @@
 //! Ticket types
 
+use std::collections::HashSet;
+
 use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -68,10 +70,10 @@ pub enum TicketsOrKeys {
 
 impl TicketsOrKeys {
     /// Returns the keys of the tickets or keys.
-    pub fn keys(&self) -> Vec<BandersnatchPublic> {
+    pub fn keys(&self) -> HashSet<BandersnatchPublic> {
         match self {
             Self::Tickets(tickets) => tickets.iter().map(|t| t.id).collect(),
-            Self::Keys(keys) => keys.clone(),
+            Self::Keys(keys) => keys.clone().into_iter().collect(),
         }
     }
 }

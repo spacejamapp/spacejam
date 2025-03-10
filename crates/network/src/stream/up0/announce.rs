@@ -3,97 +3,155 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{stream::up0::Handshake, Event, Network};
+use crate::{
+    peer::{Connection, PeerId},
+    stream::up0::Handshake,
+    Event, Network,
+};
 use quinn::{RecvStream, SendStream};
 use score::{block::Header, runtime::Head};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{atomic::Ordering, Arc},
+};
 use tokio::sync::RwLock;
 
 /// Announce the block to the peer.
+#[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
 pub async fn unchecked<C: score::runtime::Config>(
-    peer: [u8; 32],
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
-    handshake: Handshake,
+    conn: Connection,
 ) {
-    let handshake = Arc::new(RwLock::new(handshake));
+    conn.ready.store(true, Ordering::Relaxed);
     let r = tokio::select! {
-        r = self::send(runtime.clone(), send, handshake.clone()) => r,
-        r = self::recv(runtime.clone(), recv, handshake, peer) => r,
+        r = self::send(runtime.clone(), send, conn.clone()) => r,
+        r = self::recv(runtime.clone(), recv, conn.clone()) => r,
     };
 
+    conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
-        runtime.transport.close(peer, e.to_string()).await;
+        tracing::error!("closing connection with reason: {e}");
+        runtime
+            .transport
+            .close(conn.address.peer_id, e.to_string())
+            .await;
     }
 }
 
 /// Announce the block to the peer.
+#[tracing::instrument(skip_all)]
 pub async fn send<C: score::runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
-    handshake: Arc<RwLock<Handshake>>,
+    conn: Connection,
 ) -> anyhow::Result<()> {
+    let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
-    while let Ok((header, head)) = rx.recv().await {
-        let grandpa = runtime.runtime.grandpa.read().await;
-        let handshake = handshake.read().await;
+
+    while let Ok(header) = rx.recv().await {
+        // check if the block is a descendant of the local finalized head.
+        let grandpa = runtime.grandpa.read().await.clone();
+        let handshake = conn.handshake.read().await;
         let hash = header.hash()?;
+        let shash = hex::encode(&hash.as_ref()[..3]);
+
+        // Skip if the block is not a descendant of the remote peer's
+        // finalized head.
+        if !grandpa.is_descendant_of(hash, handshake.head.hash) {
+            continue;
+        }
 
         // Skip if the block, or a descendant of the block, has been
         // announced by the other side of the stream.
-        let leaves = handshake.leaves.iter().filter(|l| l.slot > header.slot);
-        for leaf in leaves {
-            if !grandpa.is_descendant_of(&leaf.hash, hash) {
-                continue;
-            }
+        let mut leaves = handshake
+            .leaves
+            .iter()
+            .filter(|l| l.slot >= handshake.head.slot);
+        if leaves.any(|leaf| grandpa.is_descendant_of(leaf.hash, hash)) {
+            continue;
         }
 
-        send.write_all(&codec::encode(&(header, head))?).await?;
+        tracing::debug!(
+            "announcing block#{}, remote: #{}",
+            header.slot,
+            grandpa.head.slot
+        );
+        send.write_all(&codec::encode(&(header, grandpa.head))?)
+            .await?;
     }
 
-    Ok(())
+    anyhow::bail!("announcement sender stream closed");
 }
 
 /// Receive the block announcement from a remote peer.
+#[tracing::instrument(skip_all)]
 pub async fn recv<C: score::runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
-    handshake: Arc<RwLock<Handshake>>,
-    peer: [u8; 32],
+    conn: Connection,
 ) -> anyhow::Result<()> {
+    let mut buffer = Vec::new();
     while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
-        let grandpa = runtime.grandpa.read().await;
-        let (header, head): (Header, Head) = codec::decode(chunk.bytes.as_ref())?;
+        buffer.extend_from_slice(&chunk.bytes);
+        let Ok((header, head)) = codec::decode::<(Header, Head)>(buffer.as_ref()) else {
+            continue;
+        };
+
+        buffer.clear();
         let leaf = Head {
             hash: header.hash()?,
-            slot: head.slot,
+            slot: header.slot,
         };
+        let shash = hex::encode(&leaf.hash.as_ref()[..3]);
+        tracing::trace!("received block#{}@{shash}", leaf.slot);
+
+        // update the remote peer's finalized head.
+        {
+            conn.handshake.write().await.head = head.clone();
+        }
+
+        let grandpa = runtime.grandpa.read().await.clone();
+        tracing::trace!(
+            "grandpa: #{}, remote: #{}, header#{}",
+            grandpa.head.slot,
+            head.slot,
+            leaf.slot,
+        );
 
         // verify if the header is invalid with the local finalized head.
         if let Err(e) = grandpa.verify(&header).await {
-            tracing::warn!("header invalid: {}", e);
+            tracing::warn!("{e}");
             continue;
         }
 
         // Add this header to local leaves
-        runtime.grandpa.write().await.add_leave(leaf.clone());
-        runtime.grandpa.write().await.save_header(header);
+        {
+            let mut grandpa = runtime.grandpa.write().await;
+            grandpa.add_leave(leaf.clone());
+            grandpa.save_header(header.clone());
+        }
 
         // update the remote peer's handshake data.
         {
-            let mut handshake = handshake.write().await;
-            handshake.head = head.clone();
+            let mut handshake = conn.handshake.write().await;
             handshake.leaves.insert(leaf.clone());
         }
+
+        // broadcast the header to the network
+        runtime.announce.send(header.clone())?;
 
         // Indicates that we need to select the best chain.
         //
         // Try to select the best chain if the remote peer's finalized
         // head is greater than the local finalized head.
-        if head.slot > grandpa.head.slot {
-            runtime.send(Event::SelectBestChain { slot: head.slot });
+        if header.slot > grandpa.head.slot {
+            if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
+                tracing::error!("failed to send select best chain event: {e}");
+            }
         }
     }
-    Ok(())
+
+    anyhow::bail!("announcement receiver stream closed");
 }

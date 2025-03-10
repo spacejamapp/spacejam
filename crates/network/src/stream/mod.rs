@@ -3,7 +3,7 @@
 //! Functional handlers for streams.
 #![allow(unused)]
 
-use crate::Network;
+use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
 
 pub mod ce128;
@@ -26,16 +26,23 @@ pub mod ce145;
 pub mod up0;
 
 /// Handle an incoming stream.
+#[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name="stream")]
 pub async fn recv<C: score::runtime::Config>(
-    peer: [u8; 32],
+    peer: PeerId,
     send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,
 ) -> anyhow::Result<()> {
     let mut buf = [0; 1];
     recv.read_exact(&mut buf).await?;
-    tracing::trace!("recv stream type: {buf:?}");
 
+    tracing::trace!(
+        "{}",
+        match buf[0] {
+            0 => "up0".to_string(),
+            _ => format!("ce{}", buf[0]),
+        },
+    );
     match buf[0] {
         0 => up0::recv(peer, send, recv, runtime).await,
         128 => ce128::recv(send, recv, runtime).await,

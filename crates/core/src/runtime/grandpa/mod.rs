@@ -52,19 +52,19 @@ impl Grandpa {
     /// Create a new grandpa instance.
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
         let head = storage.get_finalized()?;
-        let curr = storage.current_validators()?;
-        let prev = storage.previous_validators()?;
-        let next = storage.next_validators()?;
+        let finalized = storage.get_block(&head.hash)?;
+
+        // save finalized block to the ancestry
+        //
+        // TODO: load all finalized blocks in 24hrs to the ancestry.
+        let mut ancestry = Ancestry::default();
+        ancestry.save_header(finalized.header)?;
 
         Ok(Self {
             head,
             leaves: Default::default(),
-            ancestry: Default::default(),
-            grid: Grid::try_from((
-                prev.iter().map(|v| v.ed25519).collect(),
-                curr.iter().map(|v| v.ed25519).collect(),
-                next.iter().map(|v| v.ed25519).collect(),
-            ))?,
+            ancestry,
+            grid: Grid::new(storage)?,
         })
     }
 
@@ -76,7 +76,7 @@ impl Grandpa {
         let ancestors = self
             .ancestors(&head.hash, self.head.hash)
             .iter()
-            .filter_map(|h| h.hash().ok())
+            .map(|(h, _)| *h)
             .collect::<HashSet<_>>();
 
         // remove the ancestors from the leaves
@@ -88,19 +88,49 @@ impl Grandpa {
         self.leaves = leaves;
     }
 
-    /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
-    pub fn select_best_head(&self) -> Option<Head> {
-        let mut votes = BTreeMap::<usize, (Head, Vec<Header>)>::new();
+    /// Finalize a head.
+    pub fn finalize(&mut self, header: Header) -> anyhow::Result<()> {
+        let head = Head {
+            hash: header.hash()?,
+            slot: header.slot,
+        };
 
+        self.head = head.clone();
+        self.leaves = self
+            .leaves
+            .iter()
+            .filter(|l| l.hash != head.hash)
+            .cloned()
+            .collect();
+
+        // TODO: update the grid.
+
+        Ok(())
+    }
+
+    /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
+    pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
+        let mut votes = BTreeMap::new();
         for leaf in self.leaves.iter() {
             let ancestors = self.ancestors(&leaf.hash, self.head.hash);
-            votes.insert(ancestors.len(), (leaf.clone(), ancestors));
+            let valid_ancestors = ancestors
+                .iter()
+                .filter_map(|(_, h)| {
+                    if h.tickets_mark.is_some() {
+                        Some(h)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            votes.insert(valid_ancestors.len(), (leaf.clone(), ancestors));
         }
 
         // select the best head from the chains with most valid ancestors, skipping
         // the chains with equivocating ancestors.
         while let Some((_, (head, ancestors))) = votes.pop_last() {
-            if ancestors.iter().any(|a| {
+            if ancestors.iter().any(|(_, a)| {
                 let Some(entry) = self.ancestry.slots.get(&(a.slot, a.parent)) else {
                     return false;
                 };
@@ -110,7 +140,9 @@ impl Grandpa {
                 continue;
             }
 
-            return Some(head);
+            if head.slot > self.head.slot {
+                return Some((head, ancestors));
+            }
         }
 
         None
@@ -121,6 +153,8 @@ impl Grandpa {
         let mut handshake = vec![];
         handshake.extend_from_slice(self.head.hash.as_ref());
         handshake.extend_from_slice(&self.head.slot.to_le_bytes());
+        handshake.push(self.leaves.len() as u8);
+
         for head in self.leaves.iter() {
             handshake.extend_from_slice(head.hash.as_ref());
             handshake.extend_from_slice(&head.slot.to_le_bytes());
@@ -136,7 +170,7 @@ impl Grandpa {
         // 1. A descendant of the block is announced instead of the block itself.
         let leaves = self.leaves.iter().filter(|l| l.slot > header.slot);
         for leaf in leaves {
-            if !self.is_descendant_of(&leaf.hash, hash) {
+            if !self.is_descendant_of(leaf.hash, hash) {
                 anyhow::bail!(
                     "A descendant of the block is announced instead of the block itself."
                 );
@@ -144,13 +178,15 @@ impl Grandpa {
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        if !self.is_descendant_of(&hash, self.head.hash) {
-            anyhow::bail!("The block is not a descendant of the latest finalized block.");
-        }
-
-        // 3. if the header is ticket sealed.
-        if header.tickets_mark.is_none() {
-            anyhow::bail!("The block is not ticket sealed.");
+        if !self.is_descendant_of(header.parent, self.head.hash) {
+            anyhow::bail!(
+                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}, parent: 0x{}.",
+                header.slot,
+                hex::encode(hash.as_ref()),
+                self.head.slot,
+                hex::encode(self.head.hash.as_ref()),
+                hex::encode(header.parent.as_ref()),
+            );
         }
 
         Ok(())

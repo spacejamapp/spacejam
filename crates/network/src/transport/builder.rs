@@ -76,13 +76,13 @@ impl Builder {
 
     /// Build the QUIC server.
     pub fn build(self, tx: mpsc::UnboundedSender<event::Event>) -> anyhow::Result<Transport> {
-        let dns = PeerId::from(self.ed25519.verifying.as_bytes()).to_string();
+        let dns = PeerId::from(self.ed25519.verifying.to_bytes()).to_string();
         let provider = Self::provider();
 
         // setup cert
         let key = PrivatePkcs8KeyDer::from(self.ed25519.private_pkcs8_der()?);
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519.clone()))?;
-        let mut params = CertificateParams::new(vec![dns])?;
+        let mut params = CertificateParams::new(vec![dns.clone()])?;
 
         // Set key usages for client and server auth
         params.key_usages = vec![
@@ -134,6 +134,7 @@ impl Builder {
         // setup endpoint
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
+        tracing::info!("transport listening on {dns}@{:?}", endpoint.local_addr()?);
         Ok(Transport { endpoint, tx })
     }
 

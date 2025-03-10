@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Default)]
 pub struct Ancestry {
     /// The parent of each header.
-    parent: HashMap<OpaqueHash, OpaqueHash>,
+    pub parent: HashMap<OpaqueHash, OpaqueHash>,
 
     /// The header of each hash.
     header: HashMap<OpaqueHash, Header>,
@@ -39,13 +39,17 @@ impl Ancestry {
     /// Check if the given hash is a descendant of the current hash.
     ///
     /// TODO: set the limit of 24 hrs (MAX_AGE_LOOKUP_ANCHOR)
-    pub fn is_descendant_of(&self, hash: &OpaqueHash, mut ancestor: OpaqueHash) -> bool {
-        while let Some(parent) = self.parent.get(&ancestor) {
-            if parent == hash {
+    pub fn is_descendant_of(&self, mut hash: OpaqueHash, ancestor: OpaqueHash) -> bool {
+        if hash == ancestor {
+            return true;
+        }
+
+        while let Some(parent) = self.parent.get(&hash) {
+            if parent == &ancestor {
                 return true;
             }
 
-            ancestor = *parent;
+            hash = *parent;
         }
 
         false
@@ -54,8 +58,8 @@ impl Ancestry {
     /// Get the ticket sealed ancestors count of the given head.
     ///
     /// Which is also the votes of this head.
-    pub fn ancestors(&self, hash: &OpaqueHash, finalized: OpaqueHash) -> Vec<Header> {
-        let mut ancestors: Vec<Header> = Vec::new();
+    pub fn ancestors(&self, hash: &OpaqueHash, finalized: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
+        let mut ancestors = Vec::new();
         let mut ancestor = *hash;
         while let Some(parent) = self.parent.get(&ancestor) {
             if parent == &finalized {
@@ -63,16 +67,11 @@ impl Ancestry {
             }
 
             // if the header is not in the ancestry, break
-            let Some(header) = self.header.get(&ancestor) else {
+            let Some(header) = self.header.get(parent) else {
                 break;
             };
 
-            // if the header is not a ticket sealed header, break
-            if header.tickets_mark.is_none() {
-                continue;
-            }
-
-            ancestors.push(header.clone());
+            ancestors.push((*parent, header.clone()));
             ancestor = *parent;
         }
 

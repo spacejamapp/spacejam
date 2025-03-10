@@ -49,7 +49,7 @@ impl Verifier {
 
         // Extract and verify the public key matches the DNS name
         let bytes = Self::extract_public_key(cert)?;
-        let encoded = PeerId::from(&bytes).to_string();
+        let encoded = PeerId::from(bytes).to_string();
         if alt != encoded.as_str() {
             return Err(rustls::Error::InvalidCertificate(
                 rustls::CertificateError::NotValidForName,

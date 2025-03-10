@@ -20,6 +20,7 @@ pub mod ticket;
 /// Transit state with new block
 ///
 /// TODO: make this function safe, should not expose storage write interface in this function.
+#[tracing::instrument(skip_all, name = "stf")]
 pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();

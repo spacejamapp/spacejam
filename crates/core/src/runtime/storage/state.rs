@@ -76,21 +76,23 @@ pub trait Storage: KVStorage {
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
 
-        state.pools = codec::decode(data.get(1).unwrap_or(&vec![]))?;
-        state.authorization = codec::decode(data.get(2).unwrap_or(&vec![]))?;
-        state.recent_blocks = codec::decode(data.get(3).unwrap_or(&vec![]))?;
-        state.safrole = codec::decode(data.get(4).unwrap_or(&vec![]))?;
-        state.disputes = codec::decode(data.get(5).unwrap_or(&vec![]))?;
-        state.entropy = codec::decode(data.get(6).unwrap_or(&vec![]))?;
-        state.validators.next = codec::decode(data.get(7).unwrap_or(&vec![]))?;
-        state.validators.current = codec::decode(data.get(8).unwrap_or(&vec![]))?;
-        state.validators.previous = codec::decode(data.get(9).unwrap_or(&vec![]))?;
-        state.reports = codec::decode(data.get(10).unwrap_or(&vec![]))?;
-        state.timeslot = codec::decode(data.get(11).unwrap_or(&vec![]))?;
-        state.service = codec::decode(data.get(12).unwrap_or(&vec![]))?;
-        state.statistics = codec::decode(data.get(13).unwrap_or(&vec![]))?;
-        state.queue = codec::decode(data.get(14).unwrap_or(&vec![]))?;
-        state.history = codec::decode(data.get(15).unwrap_or(&vec![]))?;
+        state.pools = codec::decode(data.first().unwrap_or(&vec![])).unwrap_or_default();
+        state.authorization = codec::decode(data.get(1).unwrap_or(&vec![])).unwrap_or_default();
+        state.recent_blocks = codec::decode(data.get(2).unwrap_or(&vec![])).unwrap_or_default();
+        state.safrole = codec::decode(data.get(3).unwrap_or(&vec![])).unwrap_or_default();
+        state.disputes = codec::decode(data.get(4).unwrap_or(&vec![])).unwrap_or_default();
+        state.entropy = codec::decode(data.get(5).unwrap_or(&vec![])).unwrap_or_default();
+        state.validators.next = codec::decode(data.get(6).unwrap_or(&vec![])).unwrap_or_default();
+        state.validators.current =
+            codec::decode(data.get(7).unwrap_or(&vec![])).unwrap_or_default();
+        state.validators.previous =
+            codec::decode(data.get(8).unwrap_or(&vec![])).unwrap_or_default();
+        state.reports = codec::decode(data.get(9).unwrap_or(&vec![])).unwrap_or_default();
+        state.timeslot = codec::decode(data.get(10).unwrap_or(&vec![])).unwrap_or_default();
+        state.service = codec::decode(data.get(11).unwrap_or(&vec![])).unwrap_or_default();
+        state.statistics = codec::decode(data.get(12).unwrap_or(&vec![])).unwrap_or_default();
+        state.queue = codec::decode(data.get(13).unwrap_or(&vec![])).unwrap_or_default();
+        state.history = codec::decode(data.get(14).unwrap_or(&vec![])).unwrap_or_default();
 
         // we don't need to batch all state in the memory to calculate the root since we can use
         // the prefix of storage keys to iterate them.

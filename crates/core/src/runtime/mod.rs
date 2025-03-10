@@ -8,6 +8,7 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
     Arc,
 };
+use storage::{BlockStorage, Branch};
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Head},
@@ -32,15 +33,11 @@ pub struct Runtime<C: Config> {
     pub storage: C::Storage,
 
     /// The extrinsic pool of SpaceJam
-    pub pool: Pool,
+    pub expool: Pool,
 
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa>>,
 
-    /// Whether self is a validator.
-    pub is_validator: bool,
-
-    // pub metrics:
     /// The attempt number of the current epoch
     attempt: Arc<AtomicU8>,
 }
@@ -58,50 +55,42 @@ impl<C: Config> Runtime<C> {
         storage: C::Storage,
         grandpa: Grandpa,
     ) -> Self {
-        let is_validator = !grandpa
-            .grid
-            .neighbours(validator.ed25519_public_key())
-            .is_empty();
         Self {
             validator,
             storage,
-            pool: Default::default(),
+            expool: Default::default(),
             grandpa: Arc::new(RwLock::new(grandpa)),
             attempt: Arc::new(AtomicU8::new(0)),
-            is_validator,
         }
     }
+
     /// Get the next runtime package
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.
-    pub fn next(&self) -> anyhow::Result<(Option<Block>, Option<TicketEnvelope>)> {
-        Ok((self.author()?, self.ticket()?))
+    pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
+        Ok((self.author().await?, self.ticket()?))
+    }
+
+    /// Get the current pending chain
+    pub async fn chain(&self) -> Branch<C::Storage> {
+        Branch::checkout(&self.storage, self.grandpa.read().await.head.clone())
     }
 
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
-    pub fn author(&self) -> anyhow::Result<Option<Block>> {
-        let safrole = self.storage.safrole()?;
-        if !safrole
-            .series
-            .keys()
-            .contains(&self.validator.bandersnatch_public_key())
-        {
-            return Ok(None);
-        }
-
-        let blocks = self.storage.recent_blocks()?;
+    pub async fn author(&self) -> anyhow::Result<Block> {
+        let chain = self.chain().await;
+        let blocks = chain.recent_blocks()?;
         let block = blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
-        let extrinsic = self.pool.collect()?;
+        let extrinsic = self.expool.collect().await?;
         Block::builder()
             .parent(block)?
             .extrinsic(extrinsic)?
-            .seal(&self.validator, &self.storage)
-            .map(Some)
+            .seal(&self.validator, &chain)
     }
 
     /// Generate a ticket for the next block (using next timeslot).
@@ -125,8 +114,8 @@ impl<C: Config> Runtime<C> {
         }
 
         // check if the current validator has exceeded the ticket limit
-        let mut attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
+        let attempt = self.attempt.load(Ordering::Relaxed);
+        if attempt > crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Ok(None);
         }
 
@@ -142,27 +131,51 @@ impl<C: Config> Runtime<C> {
         .collect::<Vec<_>>();
 
         // generate a ticket
-        attempt += 1;
-        self.attempt.store(attempt, Ordering::Relaxed);
-        Ok(Some(TicketEnvelope {
+        let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
                 &keys,
                 &[],
                 &TicketBody::message(attempt, &entropy[2]),
             )?,
-        }))
+        };
+        self.attempt.fetch_add(1, Ordering::Relaxed);
+        Ok(Some(envelope))
     }
 
     /// Finalize blocks
+    ///
+    /// Note that we only store finalized blocks and the blocks authored
+    /// by ourselves in our storage.
+    #[tracing::instrument(skip_all, level = "debug", name = "Runtime::finalize")]
     pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
+        let prev = self.grandpa.read().await.head.clone();
+        tracing::debug!(
+            "previous best block#{}: {}",
+            prev.slot,
+            hex::encode(prev.hash)
+        );
+
         // 1. transit the global state
         tx::transit(block, &self.storage, &self.validator)?;
+        tracing::info!("Finalized block#{}", block.header.slot);
 
-        // 2. update the grandpa state
-        *self.grandpa.write().await = Grandpa::new(&self.storage)?;
+        // 2. save the block to the storage
+        self.storage.save_block(block)?;
 
-        Ok(())
+        // 3. set the latest finalized head
+        let head = Head {
+            hash: block.hash()?,
+            slot: block.header.slot,
+        };
+        self.storage.set_finalized(&head)?;
+
+        // 4. drop the previous branch
+        let branch = Branch::checkout(&self.storage, prev);
+        branch.drop()?;
+
+        // 5. update the grandpa state
+        self.grandpa.write().await.finalize(block.header.clone())
     }
 }
 

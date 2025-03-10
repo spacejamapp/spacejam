@@ -76,11 +76,14 @@ pub fn pools(
 
     // add new authorizers from queue to the pools
     for (core_index, pool) in pools.iter_mut().enumerate() {
-        if !processed.contains(&core_index) {
+        if !processed.contains(&core_index) && !pool.is_empty() {
             *pool = pool[1..].into();
         }
 
-        pool.push(authorizations[core_index][slot as usize]);
+        // TODO: recheck this logic
+        if let Some(auth) = authorizations[core_index].get(slot as usize) {
+            pool.push(*auth);
+        }
     }
 
     pools

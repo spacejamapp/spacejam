@@ -28,7 +28,15 @@ async fn main() {
     }));
 
     // Initialize tracing
-    tracing_subscriber::fmt().with_env_filter(env).init();
+    let mut subscriber = tracing_subscriber::fmt()
+        .with_env_filter(env)
+        .with_target(false);
+
+    if app.verbose > 0 {
+        subscriber = subscriber.with_target(true);
+    }
+
+    subscriber.init();
 
     let Some(cmd) = app.cmd else {
         return;
@@ -36,9 +44,5 @@ async fn main() {
 
     if let Err(e) = cmd.run::<Development>().await {
         eprintln!("Failed to run spacejam: {e}");
-
-        if cfg!(debug_assertions) {
-            eprintln!("backtrace: {:#?}", e.backtrace());
-        }
     }
 }
