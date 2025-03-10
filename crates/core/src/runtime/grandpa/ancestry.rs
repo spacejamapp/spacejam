@@ -23,7 +23,7 @@ pub struct Ancestry {
 
 impl Ancestry {
     /// Save the header to the ancestry.
-    pub fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
+    pub(crate) fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
         let hash = header.hash()?;
         let parent = header.parent;
         let slot = header.slot;

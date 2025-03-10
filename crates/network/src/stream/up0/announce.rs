@@ -100,24 +100,23 @@ pub async fn recv<C: score::runtime::Config>(
         };
 
         buffer.clear();
-        let leaf = Head {
-            hash: header.hash()?,
-            slot: header.slot,
-        };
-        let shash = hex::encode(&leaf.hash.as_ref()[..3]);
-        tracing::trace!("received block#{}@{shash}", leaf.slot);
-
-        // update the remote peer's finalized head.
-        {
-            conn.handshake.write().await.head = head.clone();
-        }
-
+        // update the remote peer's handshake data.
+        //
+        // We're doing this directly because the remote peer will only
+        // send us the headers as they have already been added to their
+        // local leaves.
         let grandpa = runtime.grandpa.read().await.clone();
+        {
+            let mut handshake = conn.handshake.write().await;
+            handshake.head = head.clone();
+            grandpa.add_leaf_to(&header, &mut handshake)?;
+            drop(handshake);
+        }
         tracing::trace!(
             "grandpa: #{}, remote: #{}, header#{}",
             grandpa.handshake.head.slot,
             head.slot,
-            leaf.slot,
+            header.slot,
         );
 
         // verify if the header is invalid with the local finalized head.
@@ -127,17 +126,7 @@ pub async fn recv<C: score::runtime::Config>(
         }
 
         // Add this header to local leaves
-        {
-            let mut grandpa = runtime.grandpa.write().await;
-            grandpa.add_leaf(leaf.clone());
-            grandpa.save_header(header.clone());
-        }
-
-        // update the remote peer's handshake data.
-        {
-            let mut handshake = conn.handshake.write().await;
-            handshake.leaves.insert(leaf.clone());
-        }
+        runtime.grandpa.write().await.add_leaf(header.clone())?;
 
         // broadcast the header to the network
         runtime.announce.send(header.clone())?;

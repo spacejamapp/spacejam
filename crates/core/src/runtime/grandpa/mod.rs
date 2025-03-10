@@ -66,20 +66,32 @@ impl Grandpa {
     ///
     /// If there are ancestors of the leaf in the leaves,
     /// we should remove the ancestors.
-    pub fn add_leaf(&mut self, head: Head) {
+    pub fn add_leaf(&mut self, header: Header) -> anyhow::Result<()> {
+        // We're copying the handshake here because it takes less memory than
+        // cloning the whole grandpa.
+        let mut handshake = self.handshake.clone();
+        self.add_leaf_to(&header, &mut handshake)?;
+        self.handshake = handshake;
+        self.ancestry.save_header(header)?;
+        Ok(())
+    }
+
+    /// Merge the leaves with the given header.
+    pub fn add_leaf_to(&self, header: &Header, handshake: &mut Handshake) -> anyhow::Result<()> {
+        let head = Head {
+            hash: header.hash()?,
+            slot: header.slot,
+        };
+
         let ancestors = self
-            .ancestors(&head.hash, self.handshake.head.hash)
+            .ancestors(&head.hash, handshake.head.hash)
             .iter()
             .map(|(h, _)| *h)
             .collect::<HashSet<_>>();
 
-        // remove the ancestors from the leaves
-        let mut leaves = self.handshake.leaves.clone();
-        leaves.insert(head);
-        leaves.retain(|l| !ancestors.contains(&l.hash));
-
-        // update the leaves
-        self.handshake.leaves = leaves;
+        handshake.leaves.insert(head);
+        handshake.leaves.retain(|l| !ancestors.contains(&l.hash));
+        Ok(())
     }
 
     /// Finalize a head.

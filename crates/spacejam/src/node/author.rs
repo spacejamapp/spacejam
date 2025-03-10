@@ -122,8 +122,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     // save the header to the grandpa
     {
         let mut grandpa = runtime.grandpa.write().await;
-        grandpa.save_header(block.header.clone())?;
-        grandpa.add_leaf(head.clone());
+        grandpa.add_leaf(block.header.clone())?;
     }
 
     // transit the state
