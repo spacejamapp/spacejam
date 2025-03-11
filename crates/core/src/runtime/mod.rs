@@ -78,47 +78,6 @@ impl<C: Config> Runtime<C> {
         )
     }
 
-    /// Import the genesis block
-    pub async fn import_genesis(
-        &self,
-        block: &Block,
-        validators: &[ValidatorData],
-    ) -> anyhow::Result<()> {
-        // 1. save the block to the storage
-        self.storage.finalize(block)?;
-
-        // 2. initialize the recent blocks
-        let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
-        self.storage
-            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
-
-        // 3. initialize the validator set
-        let encoded = codec::encode(&validators)?;
-        self.storage
-            .set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::NEXT_VALIDATORS, encoded)?;
-
-        // 4. set the safrole state
-        let safrole = Safrole {
-            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
-            validators: validators.to_vec(),
-            ..Default::default()
-        };
-        self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
-
-        // 5. set the entropy
-        let entropy = EntropyBuffer::default();
-        self.storage.set(key::ENTROPY, codec::encode(&entropy)?)?;
-
-        // 5. initialize the grandpa state
-        let mut grandpa = self.grandpa.write().await;
-        grandpa.finalize(block.header.clone())?;
-        drop(grandpa);
-
-        Ok(())
-    }
-
     /// Author a block
     ///
     /// returns `None` if the current validator is not in the safrole series keys
@@ -162,18 +121,18 @@ impl<C: Config> Runtime<C> {
             return Ok(None);
         }
 
-        // use next epoch's validators if the current epoch is over
+        // TODO: use next epoch's validators if the current epoch is over
         let entropy = self.storage.entropy()?;
-        let keys = if slot == 0 {
-            safrole.validators
-        } else {
-            self.storage.current_validators()?
-        }
-        .iter()
-        .map(|v| v.bandersnatch)
-        .collect::<Vec<_>>();
+        let keys = self
+            .storage
+            .current_validators()?
+            .iter()
+            .map(|v| v.bandersnatch)
+            .collect::<Vec<_>>();
 
         // generate a ticket
+        //
+        // TODO: recheck the selected entropy
         let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
@@ -218,7 +177,70 @@ impl<C: Config> Runtime<C> {
         branch.drop()?;
 
         // 5. update the grandpa state
-        self.grandpa.write().await.finalize(block.header.clone())
+        let next = if block.header.epoch_mark.is_some() {
+            let validators = self.storage.next_validators()?;
+            Some(
+                validators
+                    .iter()
+                    .map(|v| v.ed25519)
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("failed to convert validators to ed25519"))?,
+            )
+        } else {
+            None
+        };
+        self.grandpa
+            .write()
+            .await
+            .finalize(block.header.clone(), next)
+    }
+
+    /// Import the genesis block
+    pub async fn import_genesis(
+        &self,
+        block: &Block,
+        validators: &[ValidatorData],
+    ) -> anyhow::Result<()> {
+        // 1. save the block to the storage
+        self.storage.finalize(block)?;
+
+        // 2. initialize the recent blocks
+        let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
+        self.storage
+            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
+
+        // 3. initialize the validator set
+        let encoded = codec::encode(&validators)?;
+        self.storage
+            .set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
+        self.storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
+        self.storage.set(key::NEXT_VALIDATORS, encoded)?;
+
+        // 4. set the safrole state
+        let safrole = Safrole {
+            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
+            validators: validators.to_vec(),
+            ..Default::default()
+        };
+        self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
+
+        // 5. set the entropy
+        let entropy = EntropyBuffer::default();
+        self.storage.set(key::ENTROPY, codec::encode(&entropy)?)?;
+
+        // 5. initialize the grandpa state
+        let mut grandpa = self.grandpa.write().await;
+        let next = validators.iter().map(|v| v.ed25519).collect::<Vec<_>>();
+        grandpa.grid.next = next
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("failed to convert validators to ed25519"))?;
+        grandpa.grid.curr = grandpa.grid.next.clone();
+        grandpa.grid.prev = grandpa.grid.curr.clone();
+        grandpa.finalize(block.header.clone(), None)?;
+        drop(grandpa);
+
+        Ok(())
     }
 }
 

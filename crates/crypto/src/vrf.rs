@@ -63,6 +63,7 @@ impl KeyPair {
                 })
                 .collect::<Result<Vec<_>>>()?,
             this,
+            self.secret.clone(),
         );
 
         let signature = if ring {
@@ -137,10 +138,10 @@ pub struct Prover {
 
 impl Prover {
     /// Creates a new prover.
-    pub fn new(ring: Vec<Public>, prover_idx: usize) -> Self {
+    pub fn new(ring: Vec<Public>, prover_idx: usize, secret: Secret) -> Self {
         Self {
             prover_idx,
-            secret: Secret::from_seed(&prover_idx.to_le_bytes()),
+            secret,
             ring,
         }
     }
@@ -178,7 +179,6 @@ impl Prover {
 
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = self.secret.output(input);
-
         let proof = self.secret.prove(input, output, aux_data);
 
         // Output and IETF Proof bundled together (as per section 2.2)
@@ -217,8 +217,7 @@ impl Verifier {
     ) -> anyhow::Result<[u8; 32]> {
         use ark_ec_vrfs::ring::Verifier as _;
 
-        let signature = RingVrfSignature::deserialize_compressed(signature).unwrap();
-
+        let signature = RingVrfSignature::deserialize_compressed(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
 
@@ -252,8 +251,7 @@ impl Verifier {
     ) -> anyhow::Result<[u8; 32]> {
         use ark_ec_vrfs::ietf::Verifier as _;
 
-        let signature = IetfVrfSignature::deserialize_compressed(signature).unwrap();
-
+        let signature = IetfVrfSignature::deserialize_compressed(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
 

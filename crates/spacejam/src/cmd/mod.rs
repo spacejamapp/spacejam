@@ -2,7 +2,10 @@
 
 use crate::{node::Genesis, validator::LocalValidator};
 use clap::Parser;
-use score::runtime::{Storage, Validator};
+use score::{
+    runtime::{Storage, Validator},
+    Block,
+};
 use spacejson::Json;
 pub use spawn::Spawn;
 use std::path::{Path, PathBuf};
@@ -53,15 +56,22 @@ impl Command {
     }
 
     fn genesis(&self) -> anyhow::Result<()> {
-        let mut genesis = Genesis::default();
-
-        // generate validators
+        let mut validators = Vec::new();
+        let mut bkeys = [[0; 32]; score::VALIDATORS_COUNT as usize];
         for i in 0..score::VALIDATORS_COUNT {
             let validator = LocalValidator::from([i as u8; 32]);
-            genesis.validators.push(validator.data().to_json());
+            let data = validator.data();
+            bkeys[i as usize] = data.bandersnatch;
+            validators.push(data.to_json());
         }
 
         // print the genesis block
+        let genesis = Block::genesis(bkeys);
+        let genesis = Genesis {
+            block: genesis.to_json(),
+            validators,
+        };
+
         println!("{}", serde_json::to_string_pretty(&genesis)?);
         Ok(())
     }

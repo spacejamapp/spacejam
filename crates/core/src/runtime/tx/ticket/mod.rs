@@ -106,7 +106,10 @@ pub fn accumulator(
                 &[],
                 &envelope.signature,
             )
-            .map_err(|_| Error::BadTicketProof)?;
+            .map_err(|e| {
+                tracing::error!("failed to verify ring VRF signature: {:?}", e);
+                Error::BadTicketProof
+            })?;
 
         // 3. Store ticket for accumulation
         new_tickets.push(TicketBody {

@@ -24,7 +24,11 @@ fn test_vrf() -> anyhow::Result<()> {
     ring[2] = padding_point;
     ring[5] = padding_point;
 
-    let prover = Prover::new(ring.clone(), prover_key_index);
+    let prover = Prover::new(
+        ring.clone(),
+        prover_key_index,
+        Secret::from_seed(&prover_key_index.to_le_bytes()),
+    );
     let verifier = Verifier::new(ring);
 
     let vrf_input_data = b"foo";
