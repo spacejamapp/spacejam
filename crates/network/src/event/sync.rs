@@ -29,7 +29,6 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 
     // select the best head from the grandpa.
     let Some((best, ancestors)) = grandpa.select_best_head() else {
-        tracing::trace!("no best head found");
         return Ok(());
     };
 

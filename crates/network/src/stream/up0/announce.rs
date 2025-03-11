@@ -73,10 +73,14 @@ pub async fn send<C: score::runtime::Config>(
             continue;
         }
 
-        tracing::debug!(
-            "announcing block#{}, remote: #{}",
+        tracing::trace!(
+            "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
             header.slot,
-            grandpa.handshake.head.slot
+            shash,
+            grandpa.handshake.head.slot,
+            hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+            handshake.head.slot,
+            hex::encode(&handshake.head.hash.as_ref()[..3]),
         );
         send.write_all(&codec::encode(&(header, grandpa.handshake.head))?)
             .await?;
@@ -112,30 +116,22 @@ pub async fn recv<C: score::runtime::Config>(
             grandpa.add_leaf_to(&header, &mut handshake)?;
             drop(handshake);
         }
+
+        // trace the announcement data.
+        let handshake = conn.handshake.read().await.clone();
         tracing::trace!(
-            "grandpa: #{}, remote: #{}, header#{}",
-            grandpa.handshake.head.slot,
-            head.slot,
+            "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
             header.slot,
+            hex::encode(&header.hash()?.as_ref()[..3]),
+            grandpa.handshake.head.slot,
+            hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+            handshake.head.slot,
+            hex::encode(&handshake.head.hash.as_ref()[..3]),
         );
 
         // verify if the header is invalid with the local finalized head.
         if let Err(e) = grandpa.verify(&header).await {
-            let handshake = conn.handshake.read().await.clone();
-            tracing::warn!(
-                "{e}, handshake data: 
-                  head.hash: 0x{},
-                  head.slot: {},
-                  leaves: {:#?},
-            ",
-                hex::encode(handshake.head.hash.as_ref()),
-                handshake.head.slot,
-                handshake
-                    .leaves
-                    .iter()
-                    .map(|l| hex::encode(l.hash.as_ref()))
-                    .collect::<Vec<_>>(),
-            );
+            tracing::warn!("{e}");
             continue;
         }
 
