@@ -3,17 +3,10 @@
 use crate::node::Genesis;
 use network::{Event, Network};
 use score::{
-    block::BlockInfo,
-    extrinsic::TicketsOrKeys,
-    runtime::{
-        storage::{BlockStorage, KVStorage},
-        Head, Runtime, Storage,
-    },
-    safrole::{Safrole, ValidatorData},
-    state::key,
-    Block, EntropyBuffer,
+    runtime::{storage::KVStorage, Runtime},
+    safrole::ValidatorData,
+    Block,
 };
-use spacejson::Json;
 use std::{fs, path::PathBuf, sync::Arc};
 use tokio::sync::mpsc;
 
@@ -52,62 +45,26 @@ impl Builder {
         let validator = C::Validator::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
 
-        // Initialize the database
+        // Initialize the runtime
+        //
+        // TODO: add config to the inner channel
         let storage = C::Storage::try_from(self.db.clone())?;
-        if KVStorage::is_empty(&storage) {
-            Self::init_storage(&self, &storage)?;
+        let runtime = Arc::new(Runtime::new(validator, storage));
+
+        // Initialize the database
+        if KVStorage::is_empty(&runtime.storage) {
+            let genesis: Genesis = serde_json::from_slice(fs::read(self.genesis)?.as_slice())?;
+            let block = Block::try_from(genesis.block)?;
+            let validators = genesis
+                .validators
+                .into_iter()
+                .map(ValidatorData::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            runtime.import_genesis(&block, &validators).await?;
         }
 
         // Initialize the network
-        //
-        // TODO: add config to the inner channel
-        let runtime = Arc::new(Runtime::new(validator, storage)?);
         Ok((network::Network::new(self.network, runtime, tx).await?, rx))
-    }
-
-    /// Initialize the storage with genesis data
-    fn init_storage(&self, storage: &impl Storage) -> anyhow::Result<()> {
-        let genesis = fs::read_to_string(self.genesis.clone())
-            .map_err(|_| anyhow::anyhow!("Failed to read genesis file {:?}", self.genesis))?;
-        let genesis: Genesis = serde_json::from_str(&genesis)
-            .map_err(|_| anyhow::anyhow!("Failed to parse genesis file {:?}", self.genesis))?;
-
-        // construct the finalized head
-        let block: Block = genesis.block.try_into()?;
-        let head = Head {
-            hash: block.hash()?,
-            slot: block.header.slot,
-        };
-        storage.save_block(&block)?;
-        storage.set_finalized(&head)?;
-
-        // construct the recent blocks
-        let recent: Vec<BlockInfo> = vec![block.header.into()];
-        storage.set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
-
-        // set up initial validators
-        let validators = genesis
-            .validators
-            .into_iter()
-            .map(Json::from_json)
-            .collect::<anyhow::Result<Vec<ValidatorData>>>()?;
-        let encoded = codec::encode(&validators)?;
-        storage.set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
-        storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
-        storage.set(key::NEXT_VALIDATORS, encoded)?;
-
-        // set up initial safrole state
-        let safrole = Safrole {
-            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
-            validators,
-            ..Default::default()
-        };
-        storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
-
-        // set up initial entropy
-        //
-        // TODO: get entropy from the genesis file
-        let entropy = EntropyBuffer::default();
-        storage.set(key::ENTROPY, codec::encode(&entropy)?)
     }
 }

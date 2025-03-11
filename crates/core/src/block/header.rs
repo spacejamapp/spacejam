@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents the epoch mark in a block header.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct EpochMark {
     #[json(hex)]
     pub entropy: Entropy,

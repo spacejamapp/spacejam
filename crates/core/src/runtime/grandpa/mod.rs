@@ -4,11 +4,7 @@
 //! protocol implementation for SpaceJam. This module manages chain head finalization
 //! and tracks chain state for consensus.
 
-use crate::{
-    block::Header,
-    runtime::{storage::BlockStorage, Storage},
-    OpaqueHash, TimeSlot,
-};
+use crate::{block::Header, OpaqueHash, TimeSlot};
 use ancestry::Ancestry;
 use grid::Grid;
 pub use handshake::Handshake;
@@ -44,24 +40,6 @@ pub struct Grandpa {
 }
 
 impl Grandpa {
-    /// Create a new grandpa instance.
-    pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
-        let head = storage.get_finalized()?;
-        let finalized = storage.get_block(&head.hash)?;
-
-        // save finalized block to the ancestry
-        //
-        // TODO: load all finalized blocks in 24hrs to the ancestry.
-        let mut ancestry = Ancestry::default();
-        ancestry.save_header(finalized.header)?;
-
-        Ok(Self {
-            handshake: Handshake::new(head),
-            ancestry,
-            grid: Grid::new(storage)?,
-        })
-    }
-
     /// Add a leave to the grandpa.
     ///
     /// If there are ancestors of the leaf in the leaves,
@@ -110,7 +88,15 @@ impl Grandpa {
             .cloned()
             .collect::<HashSet<_>>();
 
-        // TODO: update the grid.
+        // save to the ancestry
+        self.ancestry.save_header(header.clone())?;
+
+        // if new epoch start
+        if let Some(mark) = header.epoch_mark {
+            self.grid.prev = self.grid.curr;
+            self.grid.curr = self.grid.next;
+            self.grid.next = mark.validators;
+        }
 
         Ok(())
     }

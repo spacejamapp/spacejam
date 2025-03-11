@@ -3,8 +3,9 @@
 use crate::{
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    HeaderHash, OpaqueHash, TimeSlot,
+    Ed25519Public, Entropy, HeaderHash, OpaqueHash, TimeSlot,
 };
+use header::EpochMark;
 use history::{Mmr, MmrJson};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -40,6 +41,22 @@ impl Block {
     pub fn hash(&self) -> anyhow::Result<HeaderHash> {
         let encoded = codec::encode(&self.header)?;
         Ok(crypto::blake2b(&encoded))
+    }
+
+    /// Returns the genesis block
+    pub fn genesis(validators: [Ed25519Public; crate::VALIDATORS_COUNT as usize]) -> Self {
+        let header = Header {
+            epoch_mark: Some(EpochMark {
+                entropy: Entropy::default(),
+                tickets_entropy: Entropy::default(),
+                validators,
+            }),
+            ..Default::default()
+        };
+        Self {
+            header,
+            extrinsic: Extrinsic::default(),
+        }
     }
 }
 

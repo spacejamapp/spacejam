@@ -1,14 +1,17 @@
 //! Runtime utilities of SpaceJam
 
 use crate::{
-    extrinsic::{TicketBody, TicketEnvelope},
-    Block,
+    block::BlockInfo,
+    extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
+    safrole::{Safrole, ValidatorData},
+    state::key,
+    Block, EntropyBuffer,
 };
 use std::sync::{
     atomic::{AtomicU8, Ordering},
     Arc,
 };
-use storage::{BlockStorage, Branch};
+use storage::{BlockStorage, Branch, KVStorage};
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Handshake, Head},
@@ -43,23 +46,13 @@ pub struct Runtime<C: Config> {
 }
 
 impl<C: Config> Runtime<C> {
-    /// Create a new runtime
-    pub fn new(validator: C::Validator, storage: C::Storage) -> anyhow::Result<Self> {
-        let grandpa = Grandpa::new(&storage)?;
-        Ok(Self::new_with_grandpa(validator, storage, grandpa))
-    }
-
     /// Create a new runtime with a grandpa instance
-    pub fn new_with_grandpa(
-        validator: C::Validator,
-        storage: C::Storage,
-        grandpa: Grandpa,
-    ) -> Self {
+    pub fn new(validator: C::Validator, storage: C::Storage) -> Self {
         Self {
             validator,
             storage,
             expool: Default::default(),
-            grandpa: Arc::new(RwLock::new(grandpa)),
+            grandpa: Arc::new(RwLock::new(Default::default())),
             attempt: Arc::new(AtomicU8::new(0)),
         }
     }
@@ -68,7 +61,13 @@ impl<C: Config> Runtime<C> {
     ///
     /// TODO: optimize shared data once we have tests for authoring blocks.
     pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
-        Ok((self.author().await?, self.ticket()?))
+        let ticket = self.ticket()?;
+        if let Some(ticket) = ticket.clone() {
+            let epoch = crate::block::timeslot()? / crate::EPOCH_LENGTH;
+            self.expool.insert_ticket(epoch, ticket).await?;
+        }
+
+        Ok((self.author().await?, ticket))
     }
 
     /// Get the current pending chain
@@ -77,6 +76,47 @@ impl<C: Config> Runtime<C> {
             &self.storage,
             self.grandpa.read().await.handshake.head.clone(),
         )
+    }
+
+    /// Import the genesis block
+    pub async fn import_genesis(
+        &self,
+        block: &Block,
+        validators: &[ValidatorData],
+    ) -> anyhow::Result<()> {
+        // 1. save the block to the storage
+        self.storage.finalize(block)?;
+
+        // 2. initialize the recent blocks
+        let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
+        self.storage
+            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
+
+        // 3. initialize the validator set
+        let encoded = codec::encode(&validators)?;
+        self.storage
+            .set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
+        self.storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
+        self.storage.set(key::NEXT_VALIDATORS, encoded)?;
+
+        // 4. set the safrole state
+        let safrole = Safrole {
+            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
+            validators: validators.to_vec(),
+            ..Default::default()
+        };
+        self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
+
+        // 5. set the entropy
+        let entropy = EntropyBuffer::default();
+        self.storage.set(key::ENTROPY, codec::encode(&entropy)?)?;
+
+        // 5. initialize the grandpa state
+        let mut grandpa = self.grandpa.write().await;
+        grandpa.finalize(block.header.clone())?;
+        drop(grandpa);
+
+        Ok(())
     }
 
     /// Author a block

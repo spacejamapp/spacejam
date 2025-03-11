@@ -41,12 +41,14 @@ impl Builder {
         let message = codec::encode(&self.0)?;
         self.header.seal = match safrole.series {
             TicketsOrKeys::Tickets(tickets) => {
-                let entry_index = tickets
-                    .iter()
-                    .enumerate()
-                    .find(|(_, t)| t.attempt as u32 == self.header.slot)
-                    .map(|(i, _)| i)
-                    .unwrap_or_default();
+                let slot_in_epoch = self.header.slot % crate::EPOCH_LENGTH;
+                let tickets_count = tickets.len() as u32;
+                let entry_index = if slot_in_epoch < tickets_count / 2 {
+                    slot_in_epoch
+                } else {
+                    // TODO: safe math?
+                    tickets_count - 1 - (slot_in_epoch - tickets_count / 2)
+                };
                 let mut context = crate::JAM_TICKET_SEAL.to_vec();
                 context.extend_from_slice(&entropy[3]);
                 context.push(entry_index as u8);

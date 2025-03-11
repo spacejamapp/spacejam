@@ -20,6 +20,16 @@ pub trait BlockStorage: KVStorage {
         Ok(codec::decode(value.as_ref())?)
     }
 
+    /// Finalize the block
+    fn finalize(&self, block: &Block) -> Result<()> {
+        self.save_block(block)?;
+        self.set_finalized(&Head {
+            hash: block.header.hash()?,
+            slot: block.header.slot,
+        })?;
+        Ok(())
+    }
+
     /// Save the block
     fn save_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
