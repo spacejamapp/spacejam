@@ -34,6 +34,11 @@ impl Ancestry {
         Ok(())
     }
 
+    /// Get the header of the given hash.
+    pub fn header(&self, hash: &OpaqueHash) -> Option<&Header> {
+        self.header.get(hash)
+    }
+
     /// Check if the given hash is a descendant of the current hash.
     ///
     /// TODO: set the limit of 24 hrs (MAX_AGE_LOOKUP_ANCHOR)

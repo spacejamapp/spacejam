@@ -121,7 +121,21 @@ pub async fn recv<C: score::runtime::Config>(
 
         // verify if the header is invalid with the local finalized head.
         if let Err(e) = grandpa.verify(&header).await {
-            tracing::warn!("{e}");
+            let handshake = conn.handshake.read().await.clone();
+            tracing::warn!(
+                "{e}, handshake data: 
+                  head.hash: 0x{},
+                  head.slot: {},
+                  leaves: {:#?},
+            ",
+                hex::encode(handshake.head.hash.as_ref()),
+                handshake.head.slot,
+                handshake
+                    .leaves
+                    .iter()
+                    .map(|l| hex::encode(l.hash.as_ref()))
+                    .collect::<Vec<_>>(),
+            );
             continue;
         }
 

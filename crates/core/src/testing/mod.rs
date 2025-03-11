@@ -110,7 +110,7 @@ async fn genesis() {
         grandpa.grid.next.to_vec(),
         node.validators
             .iter()
-            .map(|v| v.bandersnatch_public_key())
+            .map(|v| v.ed25519_public_key())
             .collect::<Vec<_>>()
     );
 
@@ -150,10 +150,11 @@ async fn author() {
         verifier
             .ring_vrf_verify(&message, &[], &ticket.signature)
             .expect("failed to verify the ticket");
+
+        assert_eq!(next.extrinsic.tickets.len(), 1);
     }
 
-    // 3. the block contains no ticket
-    assert_eq!(next.extrinsic.tickets.len(), 1);
+    // 3. the expool contains no ticket
     assert!(next.header.tickets_mark.is_none());
 }
 

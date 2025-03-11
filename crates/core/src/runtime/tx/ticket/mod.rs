@@ -58,7 +58,8 @@ pub fn safrole(
         return Err(Error::BadSlot);
     }
 
-    if slot % crate::TICKET_SUBMISSION_PERIOD == 0 && !tickets.is_empty() {
+    let slot_phase = slot % crate::EPOCH_LENGTH;
+    if slot_phase >= crate::TICKET_SUBMISSION_PERIOD && !tickets.is_empty() {
         return Err(Error::UnexpectedTicket);
     }
 

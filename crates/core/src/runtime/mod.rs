@@ -235,8 +235,8 @@ impl<C: Config> Runtime<C> {
         grandpa.grid.next = next
             .try_into()
             .map_err(|_| anyhow::anyhow!("failed to convert validators to ed25519"))?;
-        grandpa.grid.curr = grandpa.grid.next.clone();
-        grandpa.grid.prev = grandpa.grid.curr.clone();
+        grandpa.grid.curr = grandpa.grid.next;
+        grandpa.grid.prev = grandpa.grid.curr;
         grandpa.finalize(block.header.clone(), None)?;
         drop(grandpa);
 

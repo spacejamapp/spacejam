@@ -105,7 +105,12 @@ impl Grandpa {
         Ok(())
     }
 
-    /// Select the best head from the leaves.                                                                                                                                                                                                                                                                                                                                                                                           
+    /// Select the best head from the leaves.
+    ///
+    /// 1. must has the finalized block as an ancestor.
+    /// 2. contains no unfinalized blocks where we see an equivocation.
+    /// 3. is considered audit
+    /// 4. the best head must be ticket sealed
     pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
         let mut votes = BTreeMap::new();
         for leaf in self.handshake.leaves.iter() {
@@ -138,7 +143,15 @@ impl Grandpa {
             }
 
             if head.slot > self.handshake.head.slot {
-                return Some((head, ancestors));
+                let Some(header) = self.ancestry.header(&head.hash) else {
+                    continue;
+                };
+
+                // if the header is ticket sealed, return it.
+                if header.tickets_mark.is_some() {
+                    tracing::info!("found a ticket sealed head: #{}", head.slot);
+                    return Some((head, ancestors));
+                }
             }
         }
 
