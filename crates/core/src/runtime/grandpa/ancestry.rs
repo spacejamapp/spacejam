@@ -54,9 +54,7 @@ impl Ancestry {
         false
     }
 
-    /// Get the ticket sealed ancestors count of the given head.
-    ///
-    /// Which is also the votes of this head.
+    /// Get the ancestors of the given head.
     pub fn ancestors(&self, hash: &OpaqueHash, finalized: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
         let mut ancestors = Vec::new();
         let mut ancestor = *hash;

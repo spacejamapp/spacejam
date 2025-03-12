@@ -46,7 +46,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 #[tracing::instrument(skip_all, level = "debug")]
 async fn finalize_locally<C: score::runtime::Config>(
     runtime: &Network<C>,
-    head: Block,
+    mut head: Block,
     mut ancestors: Vec<(OpaqueHash, Header)>,
 ) -> anyhow::Result<()> {
     tracing::debug!("finalizing from local chain ...");
@@ -63,14 +63,14 @@ async fn finalize_locally<C: score::runtime::Config>(
             );
         }
 
-        runtime.finalize(&chain.get_block(ancestor)?).await?;
+        runtime.finalize(&mut chain.get_block(ancestor)?).await?;
         current = Head {
             hash: *ancestor,
             slot: header.slot,
         };
     }
 
-    runtime.finalize(&head).await?;
+    runtime.finalize(&mut head).await?;
     Ok(())
 }
 
@@ -102,7 +102,7 @@ async fn finalize_from_feed<C: score::runtime::Config>(
     let mut buffer = Vec::new();
     while let Some(chunk) = recv.read_chunk(1, true).await? {
         buffer.extend_from_slice(&chunk.bytes);
-        let Ok(block) = codec::decode::<Block>(&buffer) else {
+        let Ok(mut block) = codec::decode::<Block>(&buffer) else {
             continue;
         };
 
@@ -113,7 +113,7 @@ async fn finalize_from_feed<C: score::runtime::Config>(
             continue;
         }
 
-        runtime.finalize(&block).await?;
+        runtime.finalize(&mut block).await?;
     }
 
     send.finish()?;

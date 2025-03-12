@@ -21,7 +21,11 @@ pub mod ticket;
 ///
 /// TODO: make this function safe, should not expose storage write interface in this function.
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
+pub fn transit(
+    block: &mut Block,
+    storage: &impl Storage,
+    validator: &impl Validator,
+) -> Result<()> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();
 
@@ -56,6 +60,7 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
         if disputes != state.disputes {
             diff.insert(key::DISPUTES, codec::encode(&disputes)?);
             state.disputes = disputes;
+            block.header.offenders_mark = marks.offenders.clone();
         }
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
@@ -109,6 +114,10 @@ pub fn transit(block: &Block, storage: &impl Storage, validator: &impl Validator
             &block.extrinsic.tickets,
         )?;
         diff.insert(key::SAFROLE, codec::encode(&state.safrole)?);
+        block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
+        block.header.tickets_mark = state
+            .safrole
+            .tickets_mark(state.timeslot, block.header.slot);
 
         // (π') Update the statistic
         state.statistics = state.statistics.update(

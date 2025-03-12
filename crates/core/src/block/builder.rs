@@ -36,9 +36,17 @@ impl Builder {
             .map(|v| v.bandersnatch)
             .collect();
 
+        // 1. set the validator index
+        self.header.author_index = keys
+            .iter()
+            .position(|k| k == &validator.bandersnatch_public_key())
+            .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?
+            as u16;
+
+        // 2. set the seal
         let entropy = db.entropy()?;
         let safrole = db.safrole()?;
-        let message = codec::encode(&self.0)?;
+        let message = codec::encode(&self.0.header)?;
         self.header.seal = match safrole.series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot_in_epoch = self.header.slot % crate::EPOCH_LENGTH;
@@ -61,6 +69,7 @@ impl Builder {
             }
         };
 
+        // 3. set the entropy source
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
             context.extend_from_slice(&validator.bandersnatch_output(&self.header.seal)?);

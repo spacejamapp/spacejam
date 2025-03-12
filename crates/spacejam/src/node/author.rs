@@ -108,7 +108,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
 }
 
 async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Result<()> {
-    let (block, ticket) = runtime.next().await?;
+    let (mut block, ticket) = runtime.next().await?;
     let chain = runtime.chain().await;
 
     // save the block to the storage
@@ -128,7 +128,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     }
 
     // transit the state
-    tx::transit(&block, &chain, &runtime.validator)?;
+    tx::transit(&mut block, &chain, &runtime.validator)?;
 
     // announce the block to the network
     runtime.send(Event::AnnounceBlock(Box::new(block.header.clone())))?;

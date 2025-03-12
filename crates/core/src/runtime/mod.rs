@@ -117,7 +117,7 @@ impl<C: Config> Runtime<C> {
 
         // check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt > crate::TICKET_ENTRIES_PER_VALIDATOR {
+        if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Ok(None);
         }
 
@@ -150,7 +150,7 @@ impl<C: Config> Runtime<C> {
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
     #[tracing::instrument(skip_all, level = "debug", name = "Runtime::finalize")]
-    pub async fn finalize(&self, block: &Block) -> anyhow::Result<()> {
+    pub async fn finalize(&self, block: &mut Block) -> anyhow::Result<()> {
         let prev = self.grandpa.read().await.handshake.head.clone();
         tracing::debug!(
             "previous best block#{}: {}",
