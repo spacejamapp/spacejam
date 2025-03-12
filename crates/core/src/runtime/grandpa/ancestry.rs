@@ -43,10 +43,6 @@ impl Ancestry {
     ///
     /// TODO: set the limit of 24 hrs (MAX_AGE_LOOKUP_ANCHOR)
     pub fn is_descendant_of(&self, mut hash: OpaqueHash, ancestor: OpaqueHash) -> bool {
-        if hash == ancestor {
-            return true;
-        }
-
         while let Some(parent) = self.parent.get(&hash) {
             if parent == &ancestor {
                 return true;

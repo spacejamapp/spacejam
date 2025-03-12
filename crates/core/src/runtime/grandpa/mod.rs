@@ -176,15 +176,27 @@ impl Grandpa {
             }
         }
 
-        // 2. The block is not a descendant of the latest finalized block.
+        // 2. if the header is directly the child of the latest finalized block,
+        // we should check if the header is ticket sealed.
+        //
+        // we need to check this directly because we may not have the info of a
+        // newly incoming header.
+        if header.parent == self.handshake.head.hash {
+            return Ok(());
+        }
+
+        // 3. The block is not a descendant of the latest finalized block.
+        //
+        // We are using the parent of the header because a new header will not be
+        // registered in the ancestry yet.
         if !self.is_descendant_of(header.parent, self.handshake.head.hash) {
             anyhow::bail!(
                 "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}, parent: 0x{}.",
                 header.slot,
-                hex::encode(hash.as_ref()),
+                hex::encode(&hash.as_ref()[..3]),
                 self.handshake.head.slot,
-                hex::encode(self.handshake.head.hash.as_ref()),
-                hex::encode(header.parent.as_ref()),
+                hex::encode(&self.handshake.head.hash.as_ref()[..3]),
+                hex::encode(&header.parent.as_ref()[..3]),
             );
         }
 

@@ -10,11 +10,7 @@ pub async fn announce<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
     if let Err(e) = grandpa.verify(&header).await {
-        tracing::warn!(
-            "block#{}@0x{} verification failed before announcing: {e}",
-            header.slot,
-            hex::encode(header.hash()?)
-        );
+        tracing::warn!("{e}");
         return Ok(());
     }
 

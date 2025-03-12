@@ -37,9 +37,13 @@ pub struct Header {
     /// The slot of the block (H_t)
     pub slot: TimeSlot,
     /// The epoch mark (H_e)
+    ///
+    /// This will be some if new epoch is started.
     #[json(nested)]
     pub epoch_mark: Option<EpochMark>,
     /// The winning tickets marker (H_w)
+    ///
+    /// This will be some at the end of ticket submission period.
     #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
     /// The offenders mark (H_o)

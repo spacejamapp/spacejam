@@ -69,7 +69,7 @@ pub async fn send<C: score::runtime::Config>(
             .leaves
             .iter()
             .filter(|l| l.slot >= handshake.head.slot);
-        if leaves.any(|leaf| grandpa.is_descendant_of(leaf.hash, hash)) {
+        if leaves.any(|leaf| grandpa.is_descendant_of(leaf.hash, hash) || leaf.hash == hash) {
             continue;
         }
 
@@ -115,6 +115,14 @@ pub async fn recv<C: score::runtime::Config>(
             handshake.head = head.clone();
             grandpa.add_leaf_to(&header, &mut handshake)?;
             drop(handshake);
+        }
+
+        // if we already have this header, skip re-announcing it.
+        //
+        // This is actually should be checked from the sender side, but we
+        // do it here for the sake of simplicity.
+        if grandpa.header(&header.hash()?).is_some() {
+            continue;
         }
 
         // trace the announcement data.

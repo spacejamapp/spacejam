@@ -87,6 +87,7 @@ pub async fn closed<C: score::runtime::Config>(
 async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
     while let Ok((send, recv)) = conn.accept_bi().await {
         let runtime = runtime.clone();
+
         if let Err(e) = stream::recv(conn.address.peer_id, send, recv, runtime).await {
             tracing::warn!("error with peer: {}: {e:?}", conn.address.peer_id);
         }

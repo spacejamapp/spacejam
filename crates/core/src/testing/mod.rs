@@ -185,3 +185,6 @@ async fn finalize() {
     assert_eq!(grandpa.handshake.head, head);
     assert!(grandpa.is_descendant_of(head.hash, node.genesis.header.parent));
 }
+
+#[tokio::test]
+async fn sealing() {}

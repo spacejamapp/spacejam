@@ -118,6 +118,8 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     };
     chain.save_block(&block)?;
     chain.set_finalized(&head)?;
+    let safrole = chain.safrole()?;
+    tracing::debug!("tickets count: {}", safrole.accumulator.len());
 
     // save the header to the grandpa
     {
