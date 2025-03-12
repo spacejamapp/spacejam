@@ -4,8 +4,9 @@
 use super::validator::TestValidator;
 use crate::{
     block::Block,
+    extrinsic::TicketEnvelope,
     runtime::{storage::MemoryDb, Config, Runtime, Validator},
-    OpaqueHash,
+    OpaqueHash, TimeSlot,
 };
 use tracing_subscriber::{fmt::Subscriber, EnvFilter};
 
@@ -68,6 +69,20 @@ impl Node {
             .await
             .expect("failed to import genesis block");
         Ok(node)
+    }
+
+    /// Author a block with a given timeslot
+    pub async fn author(
+        &self,
+        timeslot: TimeSlot,
+    ) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
+        let ticket = self.runtime.ticket()?;
+        if let Some(ticket) = ticket.clone() {
+            let epoch = crate::block::timeslot()? / crate::EPOCH_LENGTH;
+            self.runtime.expool.insert_ticket(epoch, ticket).await?;
+        }
+
+        Ok((self.runtime.author(timeslot).await?, ticket))
     }
 }
 

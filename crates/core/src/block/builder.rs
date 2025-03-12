@@ -3,8 +3,8 @@
 use crate::{
     block::BlockInfo,
     extrinsic::TicketsOrKeys,
-    runtime::{Storage, Validator},
-    Block, Extrinsic,
+    runtime::{tx, Storage, Validator},
+    Block, Extrinsic, TimeSlot,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -17,7 +17,6 @@ impl Builder {
     pub fn parent(mut self, info: &BlockInfo) -> anyhow::Result<Self> {
         self.header.parent = info.header_hash;
         self.header.parent_state_root = info.state_root;
-        self.header.slot = crate::block::timeslot()?;
         Ok(self)
     }
 
@@ -26,6 +25,12 @@ impl Builder {
         self.header.extrinsic_hash = extrinsic.hash()?;
         self.extrinsic = extrinsic;
         Ok(self)
+    }
+
+    /// Set the timeslot
+    pub fn timeslot(mut self, timeslot: TimeSlot) -> Self {
+        self.header.slot = timeslot;
+        self
     }
 
     /// Seal the block
@@ -43,7 +48,10 @@ impl Builder {
             .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?
             as u16;
 
-        // 2. set the seal
+        // 2. validate the block and set the marks
+        tx::simulate(&mut self.0, db, validator)?;
+
+        // 3. seal the block
         let entropy = db.entropy()?;
         let safrole = db.safrole()?;
         let message = codec::encode(&self.0.header)?;
@@ -62,14 +70,14 @@ impl Builder {
                 context.push(entry_index as u8);
                 validator.bandersnatch_sign(&keys, &context, &message)?
             }
-            TicketsOrKeys::Keys(_) => {
+            TicketsOrKeys::Keys(keys) => {
                 let mut context = crate::JAM_FALLBACK_SEAL.to_vec();
                 context.extend_from_slice(&entropy[3]);
                 validator.bandersnatch_sign(&keys, &context, &message)?
             }
         };
 
-        // 3. set the entropy source
+        // 4. set the entropy source
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
             context.extend_from_slice(&validator.bandersnatch_output(&self.header.seal)?);

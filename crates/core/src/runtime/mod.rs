@@ -5,7 +5,7 @@ use crate::{
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::{Safrole, ValidatorData},
     state::key,
-    Block, EntropyBuffer,
+    Block, EntropyBuffer, TimeSlot,
 };
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -67,7 +67,8 @@ impl<C: Config> Runtime<C> {
             self.expool.insert_ticket(epoch, ticket).await?;
         }
 
-        Ok((self.author().await?, ticket))
+        let timeslot = crate::block::timeslot()?;
+        Ok((self.author(timeslot).await?, ticket))
     }
 
     /// Get the current pending chain
@@ -79,9 +80,7 @@ impl<C: Config> Runtime<C> {
     }
 
     /// Author a block
-    ///
-    /// returns `None` if the current validator is not in the safrole series keys
-    pub async fn author(&self) -> anyhow::Result<Block> {
+    pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         let chain = self.chain().await;
         let blocks = chain.recent_blocks()?;
         let block = blocks
@@ -92,6 +91,7 @@ impl<C: Config> Runtime<C> {
         Block::builder()
             .parent(block)?
             .extrinsic(extrinsic)?
+            .timeslot(timeslot)
             .seal(&self.validator, &chain)
     }
 

@@ -18,14 +18,22 @@ pub mod preimage;
 pub mod ticket;
 
 /// Transit state with new block
-///
-/// TODO: make this function safe, should not expose storage write interface in this function.
 #[tracing::instrument(skip_all, name = "stf")]
 pub fn transit(
     block: &mut Block,
     storage: &impl Storage,
     validator: &impl Validator,
 ) -> Result<()> {
+    let diff = simulate(block, storage, validator)?;
+    storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
+}
+
+/// Simulate state transition with new block
+pub fn simulate(
+    block: &mut Block,
+    storage: &impl Storage,
+    validator: &impl Validator,
+) -> Result<HashMap<OpaqueHash, Vec<u8>>> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();
 
@@ -175,7 +183,7 @@ pub fn transit(
         diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }
 
-    storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
+    Ok(diff)
 }
 
 /// (b) Accumulate the available work reports
