@@ -78,7 +78,12 @@ impl Node {
     ) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.runtime.ticket()?;
         if let Some(ticket) = ticket.clone() {
-            self.runtime.expool.tickets.lock().await.insert(ticket);
+            self.runtime
+                .expool
+                .tickets
+                .lock()
+                .await
+                .insert((self.validators[0].bandersnatch_public_key(), ticket));
         }
 
         Ok((self.runtime.author(timeslot).await?, ticket))

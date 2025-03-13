@@ -63,7 +63,11 @@ impl<C: Config> Runtime<C> {
     pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.ticket()?;
         if let Some(ticket) = ticket.clone() {
-            self.expool.tickets.lock().await.insert(ticket);
+            self.expool
+                .tickets
+                .lock()
+                .await
+                .insert((self.validator.bandersnatch_public_key(), ticket));
         }
 
         let timeslot = crate::block::timeslot()?;
@@ -86,10 +90,10 @@ impl<C: Config> Runtime<C> {
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
-        // let extrinsic = self.expool.collect().await?;
+        let extrinsic = self.expool.collect().await?;
         Block::builder()
             .parent(block)?
-            // .extrinsic(extrinsic)?
+            .extrinsic(extrinsic)?
             .timeslot(timeslot)
             .seal(&self.validator, &chain)
     }
@@ -182,15 +186,7 @@ impl<C: Config> Runtime<C> {
 
         // 5. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
-            let validators = self.storage.next_validators()?;
-            Some(
-                validators
-                    .iter()
-                    .map(|v| v.ed25519)
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("failed to convert validators to ed25519"))?,
-            )
+            Some(self.storage.next_validators()?)
         } else {
             None
         };
@@ -235,12 +231,9 @@ impl<C: Config> Runtime<C> {
 
         // 5. initialize the grandpa state
         let mut grandpa = self.grandpa.write().await;
-        let next = validators.iter().map(|v| v.ed25519).collect::<Vec<_>>();
-        grandpa.grid.next = next
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("failed to convert validators to ed25519"))?;
-        grandpa.grid.curr = grandpa.grid.next;
-        grandpa.grid.prev = grandpa.grid.curr;
+        grandpa.grid.next = validators.to_vec();
+        grandpa.grid.curr = grandpa.grid.next.clone();
+        grandpa.grid.prev = grandpa.grid.curr.clone();
         grandpa.finalize(block.header.clone(), None)?;
         drop(grandpa);
 

@@ -87,6 +87,7 @@ pub fn accumulator(
     next: &[ValidatorData],
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator> {
+    tracing::debug!("{} tickets queued", tickets.len());
     // NOTE: gamma_k has already been updated at this point
     //
     // TODO: double check the validator set used for the ring VRF
@@ -144,6 +145,12 @@ pub fn accumulator(
     } else {
         accumulator.extend(new_tickets);
     };
+
+    tracing::trace!(
+        "new tickets count: {}, tickets count: {}",
+        sorted_new_tickets.len(),
+        accumulator.len()
+    );
 
     // Sort by identifier
     //

@@ -1,10 +1,10 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{stream::ce131, Network};
+use crate::{peer::PeerId, stream::ce131, Network};
 pub use ce131::Request;
 use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
-use score::{block, extrinsic::TicketEnvelope};
+use score::{block, extrinsic::TicketEnvelope, Ed25519Public};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -33,6 +33,7 @@ pub async fn send(
 /// Receive a safrole ticket distribution.
 #[tracing::instrument(skip_all, level = "debug", name = "ce132::recv")]
 pub async fn recv<C: score::runtime::Config>(
+    peer: PeerId,
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,
@@ -44,13 +45,21 @@ pub async fn recv<C: score::runtime::Config>(
     // TODO: verify the proof, handle the ticket, etc.
     let request: Request = codec::decode(&buf[..])?;
     let epoch = block::timeslot()? / score::EPOCH_LENGTH;
+    let validators = runtime.grandpa.read().await.grid.curr.clone();
+
+    // find the validator
+    let Some(validator) = validators.iter().find(|v| &v.ed25519 == peer.as_ref()) else {
+        return Ok(());
+    };
+
+    // insert the ticket into the pool if the epoch is present.
     if request.epoch == epoch {
         runtime
             .expool
             .tickets
             .lock()
             .await
-            .insert(request.ticket.clone());
+            .insert((validator.bandersnatch, request.ticket.clone()));
     }
 
     tracing::trace!(

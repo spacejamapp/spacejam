@@ -35,10 +35,7 @@ async fn genesis() {
     assert_eq!(grandpa.handshake.head, finalized);
     assert_eq!(
         grandpa.grid.next.to_vec(),
-        node.validators
-            .iter()
-            .map(|v| v.ed25519_public_key())
-            .collect::<Vec<_>>()
+        node.validators.iter().map(|v| v.data()).collect::<Vec<_>>()
     );
 
     // 4. check the ancestry is set up

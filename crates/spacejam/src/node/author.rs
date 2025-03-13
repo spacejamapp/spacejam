@@ -31,7 +31,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
     }
 
     loop {
-        let validators = runtime.grandpa.read().await.grid.curr;
+        let validators = runtime.grandpa.read().await.grid.curr.clone();
         {
             // if we are not in the safrole series keys, we should not author blocks
             let Ok(safrole) = runtime.chain().await.safrole() else {
@@ -66,7 +66,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
             let peers = pool.keys().collect::<Vec<_>>();
             let connected = peers
                 .iter()
-                .filter(|p| validators.contains(p.as_ref()))
+                .filter(|p| validators.iter().any(|v| &v.ed25519 == p.as_ref()))
                 .count() as u16
                 + 1;
 
@@ -120,7 +120,7 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     chain.set_finalized(&head)?;
     // let safrole = chain.safrole()?;
     tracing::debug!(
-        "tickets count: {}",
+        "tickets in pool: {}",
         runtime.expool.tickets.lock().await.len()
     );
 

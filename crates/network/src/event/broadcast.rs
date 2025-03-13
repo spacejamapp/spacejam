@@ -29,11 +29,11 @@ pub async fn ticket<C: score::runtime::Config>(
     epoch: u32,
     ticket: TicketEnvelope,
 ) -> anyhow::Result<()> {
-    let validators = runtime.grandpa.read().await.grid.curr;
+    let validators = runtime.grandpa.read().await.grid.curr.clone();
     let pool = runtime.pool.read().await.clone();
     for conn in pool.values() {
         let peer: [u8; 32] = conn.address.peer_id.into();
-        if validators.contains(&peer) {
+        if validators.iter().any(|v| v.ed25519 == peer) {
             let (send, recv) = conn.open_bi().await?;
             ce132::send(
                 send,

@@ -4,7 +4,7 @@
 //! protocol implementation for SpaceJam. This module manages chain head finalization
 //! and tracks chain state for consensus.
 
-use crate::{block::Header, Ed25519Public, OpaqueHash, TimeSlot};
+use crate::{block::Header, safrole::ValidatorsData, OpaqueHash, TimeSlot};
 use ancestry::Ancestry;
 use grid::Grid;
 pub use handshake::Handshake;
@@ -76,7 +76,7 @@ impl Grandpa {
     pub fn finalize(
         &mut self,
         header: Header,
-        next_validators: Option<[Ed25519Public; crate::VALIDATORS_COUNT as usize]>,
+        next_validators: Option<ValidatorsData>,
     ) -> anyhow::Result<()> {
         let head = Head {
             hash: header.hash()?,
@@ -97,8 +97,8 @@ impl Grandpa {
 
         // if new epoch start
         if let Some(mark) = next_validators {
-            self.grid.prev = self.grid.curr;
-            self.grid.curr = self.grid.next;
+            self.grid.prev = self.grid.curr.clone();
+            self.grid.curr = self.grid.next.clone();
             self.grid.next = mark;
         }
 

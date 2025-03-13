@@ -7,6 +7,8 @@ use crate::{
         AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketEnvelope,
         Verdict,
     },
+    safrole::ValidatorData,
+    BandersnatchPublic, Ed25519Public,
 };
 use std::{
     collections::{BTreeMap, HashSet},
@@ -32,7 +34,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    pub tickets: Arc<Mutex<HashSet<TicketEnvelope>>>,
+    pub tickets: Arc<Mutex<HashSet<(BandersnatchPublic, TicketEnvelope)>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -45,6 +47,12 @@ pub struct Pool {
 }
 
 impl Pool {
+    /// Sort and insert a ticket into the pool
+    pub async fn insert_ticket(&self, ticket: TicketEnvelope, bandersnatch: BandersnatchPublic) {
+        let mut tickets = self.tickets.lock().await;
+        tickets.insert((bandersnatch, ticket));
+    }
+
     /// Validate the extrinsics in the pool
     ///
     /// 1. remove outdated extrinsics
@@ -59,11 +67,20 @@ impl Pool {
             let timeslot = block::timeslot()?;
             let epoch = timeslot / crate::EPOCH_LENGTH;
 
+            // collect tickets
             if timeslot % crate::EPOCH_LENGTH < crate::TICKET_SUBMISSION_PERIOD {
-                let mut tickets = self.tickets.lock().await.clone();
+                let mut tickets = self
+                    .tickets
+                    .lock()
+                    .await
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>();
                 self.tickets.lock().await.clear();
+
                 tracing::debug!("collecting {} tickets for epoch: {}", tickets.len(), epoch);
-                extrinsics.tickets = tickets.into_iter().collect();
+                tickets.sort_by(|a, b| a.0.cmp(&b.0));
+                extrinsics.tickets = tickets.into_iter().map(|(_, ticket)| ticket).collect();
             }
         }
 

@@ -41,7 +41,7 @@ pub async fn recv<C: score::runtime::Config>(
         128 => ce128::recv(send, recv, runtime).await,
         129 => ce129::recv(send, recv, runtime).await,
         131 => ce131::recv(send, recv, runtime).await,
-        132 => ce132::recv(send, recv, runtime).await,
+        132 => ce132::recv(peer, send, recv, runtime).await,
         133 => ce133::recv(send, recv, runtime).await,
         134 => ce134::recv(send, recv, runtime).await,
         135 => ce135::recv(send, recv, runtime).await,
