@@ -63,8 +63,7 @@ impl<C: Config> Runtime<C> {
     pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.ticket()?;
         if let Some(ticket) = ticket.clone() {
-            let epoch = crate::block::timeslot()? / crate::EPOCH_LENGTH;
-            self.expool.insert_ticket(epoch, ticket).await?;
+            self.expool.tickets.lock().await.insert(ticket);
         }
 
         let timeslot = crate::block::timeslot()?;
@@ -87,10 +86,10 @@ impl<C: Config> Runtime<C> {
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
-        let extrinsic = self.expool.collect().await?;
+        // let extrinsic = self.expool.collect().await?;
         Block::builder()
             .parent(block)?
-            .extrinsic(extrinsic)?
+            // .extrinsic(extrinsic)?
             .timeslot(timeslot)
             .seal(&self.validator, &chain)
     }

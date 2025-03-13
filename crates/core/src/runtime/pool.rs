@@ -32,7 +32,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    tickets: Arc<Mutex<BTreeMap<u32, HashSet<TicketEnvelope>>>>,
+    pub tickets: Arc<Mutex<HashSet<TicketEnvelope>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -45,17 +45,6 @@ pub struct Pool {
 }
 
 impl Pool {
-    /// Insert a ticket into the pool
-    pub async fn insert_ticket(&self, epoch: u32, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        self.tickets
-            .lock()
-            .await
-            .entry(epoch)
-            .or_insert_with(HashSet::new)
-            .insert(ticket);
-        Ok(())
-    }
-
     /// Validate the extrinsics in the pool
     ///
     /// 1. remove outdated extrinsics
@@ -71,8 +60,7 @@ impl Pool {
             let epoch = timeslot / crate::EPOCH_LENGTH;
 
             if timeslot % crate::EPOCH_LENGTH < crate::TICKET_SUBMISSION_PERIOD {
-                let mut entry = self.tickets.lock().await.entry(epoch).or_default().clone();
-                let tickets = entry.clone();
+                let mut tickets = self.tickets.lock().await.clone();
                 self.tickets.lock().await.clear();
                 tracing::debug!("collecting {} tickets for epoch: {}", tickets.len(), epoch);
                 extrinsics.tickets = tickets.into_iter().collect();

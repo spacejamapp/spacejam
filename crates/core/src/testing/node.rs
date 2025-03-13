@@ -78,8 +78,7 @@ impl Node {
     ) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.runtime.ticket()?;
         if let Some(ticket) = ticket.clone() {
-            let epoch = crate::block::timeslot()? / crate::EPOCH_LENGTH;
-            self.runtime.expool.insert_ticket(epoch, ticket).await?;
+            self.runtime.expool.tickets.lock().await.insert(ticket);
         }
 
         Ok((self.runtime.author(timeslot).await?, ticket))

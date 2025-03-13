@@ -4,7 +4,7 @@ use crate::{stream::ce131, Network};
 pub use ce131::Request;
 use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
-use score::extrinsic::TicketEnvelope;
+use score::{block, extrinsic::TicketEnvelope};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -43,9 +43,16 @@ pub async fn recv<C: score::runtime::Config>(
 
     // TODO: verify the proof, handle the ticket, etc.
     let request: Request = codec::decode(&buf[..])?;
-    runtime
-        .expool
-        .insert_ticket(request.epoch, request.ticket.clone());
+    let epoch = block::timeslot()? / score::EPOCH_LENGTH;
+    if request.epoch == epoch {
+        runtime
+            .expool
+            .tickets
+            .lock()
+            .await
+            .insert(request.ticket.clone());
+    }
+
     tracing::trace!(
         "ticket#{} for epoch: {}",
         request.ticket.attempt,
