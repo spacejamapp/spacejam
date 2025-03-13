@@ -126,15 +126,16 @@ pub fn accumulator(
         return Err(Error::BadTicketOrder);
     }
 
-    // Check for duplicates
     let mut accumulator = accumulator.clone();
-    if accumulator.iter().any(|t| new_tickets.contains(t)) {
-        return Err(Error::DuplicateTicket);
-    }
 
     // Clear the accumulator if we're starting a new epoch: 6.34
     if new_epoch {
         accumulator.clear();
+    }
+
+    // Check for duplicates
+    if accumulator.iter().any(|t| new_tickets.contains(t)) {
+        return Err(Error::DuplicateTicket);
     }
 
     // Create merged set of tickets (formula 6.35: n ∪ γ_a)

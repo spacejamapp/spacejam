@@ -13,7 +13,7 @@ pub type TicketId = OpaqueHash;
 pub type TicketAttempt = u8;
 
 /// Represents a ticket envelope containing an attempt and a signature.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Hash)]
 pub struct TicketEnvelope {
     /// Ticket attempt
     pub attempt: TicketAttempt,

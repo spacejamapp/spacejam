@@ -8,7 +8,10 @@ use crate::{
         Verdict,
     },
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
 /// Memory pool for SpaceJam
@@ -29,7 +32,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    tickets: Arc<Mutex<BTreeMap<u32, Vec<TicketEnvelope>>>>,
+    tickets: Arc<Mutex<BTreeMap<u32, HashSet<TicketEnvelope>>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -48,8 +51,8 @@ impl Pool {
             .lock()
             .await
             .entry(epoch)
-            .or_insert_with(Vec::new)
-            .push(ticket);
+            .or_insert_with(HashSet::new)
+            .insert(ticket);
         Ok(())
     }
 
@@ -71,7 +74,8 @@ impl Pool {
                 let mut entry = self.tickets.lock().await.entry(epoch).or_default().clone();
                 let tickets = entry.clone();
                 self.tickets.lock().await.clear();
-                extrinsics.tickets = tickets;
+                tracing::debug!("collecting {} tickets for epoch: {}", tickets.len(), epoch);
+                extrinsics.tickets = tickets.into_iter().collect();
             }
         }
 

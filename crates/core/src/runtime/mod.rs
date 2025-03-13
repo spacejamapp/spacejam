@@ -109,11 +109,16 @@ impl<C: Config> Runtime<C> {
             return Ok(None);
         }
 
-        // check if the sealing series still have seats
-        let safrole = self.storage.safrole()?;
-        if safrole.series.keys().len() > crate::EPOCH_LENGTH as usize {
-            return Ok(None);
+        // reset the attempt number for the new epoch
+        if slot == 0 {
+            self.attempt.store(0, Ordering::Relaxed);
         }
+
+        // // check if the sealing series still have seats
+        // let safrole = self.storage.safrole()?;
+        // if safrole.series.keys().len() >= crate::EPOCH_LENGTH as usize {
+        //     return Ok(None);
+        // }
 
         // check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
