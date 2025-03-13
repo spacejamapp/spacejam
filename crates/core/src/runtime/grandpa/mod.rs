@@ -163,12 +163,18 @@ impl Grandpa {
         let hash = header.hash()?;
 
         // 1. A descendant of the block is announced instead of the block itself.
+        //
+        // Compare the header with the leaves.
         let leaves = self
             .handshake
             .leaves
             .iter()
             .filter(|l| l.slot > header.slot);
         for leaf in leaves {
+            if leaf.hash == hash {
+                return Ok(());
+            }
+
             if !self.is_descendant_of(leaf.hash, hash) {
                 anyhow::bail!(
                     "A descendant of the block is announced instead of the block itself."

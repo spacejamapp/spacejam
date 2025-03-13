@@ -59,6 +59,10 @@ pub async fn send<C: score::runtime::Config>(
 
         // Skip if the block is not a descendant of the remote peer's
         // finalized head.
+        //
+        // Note that we can not use `is_descendant_of` here because the
+        // remote peer may not have the same finalized head as the local
+        // peer.
         if !grandpa.is_descendant_of(hash, handshake.head.hash) {
             continue;
         }
@@ -137,13 +141,10 @@ pub async fn recv<C: score::runtime::Config>(
             hex::encode(&handshake.head.hash.as_ref()[..3]),
         );
 
-        // verify if the header is invalid with the local finalized head.
-        if let Err(e) = grandpa.verify(&header).await {
-            tracing::warn!("{e}");
-            continue;
-        }
-
         // Add this header to local leaves
+        //
+        // Note that we don't verify the header here since we may
+        // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
         // broadcast the header to the network
