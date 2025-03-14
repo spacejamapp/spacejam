@@ -5,7 +5,7 @@ use super::validator::TestValidator;
 use crate::{
     block::Block,
     extrinsic::TicketEnvelope,
-    runtime::{storage::MemoryDb, Config, Runtime, Validator},
+    runtime::{storage::MemoryDb, Config, Runtime, Storage, Validator},
     OpaqueHash, TimeSlot,
 };
 use tracing_subscriber::{fmt::Subscriber, EnvFilter};
@@ -78,12 +78,17 @@ impl Node {
     ) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.runtime.ticket()?;
         if let Some(ticket) = ticket.clone() {
+            let chain = self.runtime.chain().await;
+            let entropy = chain.entropy()?;
+            let validators = chain.current_validators()?;
             self.runtime
                 .expool
-                .tickets
-                .lock()
-                .await
-                .insert((self.validators[0].bandersnatch_public_key(), ticket));
+                .insert_ticket(
+                    ticket,
+                    validators.iter().map(|v| v.bandersnatch).collect(),
+                    entropy,
+                )
+                .await?;
         }
 
         Ok((self.runtime.author(timeslot).await?, ticket))

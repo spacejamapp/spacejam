@@ -4,11 +4,11 @@
 use crate::{
     block,
     extrinsic::{
-        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketEnvelope,
-        Verdict,
+        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketBody,
+        TicketEnvelope, Verdict,
     },
     safrole::ValidatorData,
-    BandersnatchPublic, Ed25519Public,
+    BandersnatchPublic, Ed25519Public, Entropy, EntropyBuffer, OpaqueHash,
 };
 use std::{
     collections::{BTreeMap, HashSet},
@@ -34,7 +34,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    pub tickets: Arc<Mutex<HashSet<(BandersnatchPublic, TicketEnvelope)>>>,
+    pub tickets: Arc<Mutex<HashSet<(OpaqueHash, TicketEnvelope)>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -48,9 +48,22 @@ pub struct Pool {
 
 impl Pool {
     /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(&self, ticket: TicketEnvelope, bandersnatch: BandersnatchPublic) {
+    pub async fn insert_ticket(
+        &self,
+        ticket: TicketEnvelope,
+        keys: Vec<BandersnatchPublic>,
+        entropy: EntropyBuffer,
+    ) -> anyhow::Result<()> {
+        let verifier = crypto::ring::verifier(keys);
+        let id = verifier.ring_vrf_verify(
+            &TicketBody::message(ticket.attempt, &entropy[2]),
+            &[],
+            &ticket.signature,
+        )?;
+
         let mut tickets = self.tickets.lock().await;
-        tickets.insert((bandersnatch, ticket));
+        tickets.insert((id, ticket));
+        Ok(())
     }
 
     /// Validate the extrinsics in the pool
@@ -78,7 +91,6 @@ impl Pool {
                     .collect::<Vec<_>>();
                 self.tickets.lock().await.clear();
 
-                tracing::debug!("collecting {} tickets for epoch: {}", tickets.len(), epoch);
                 tickets.sort_by(|a, b| a.0.cmp(&b.0));
                 extrinsics.tickets = tickets.into_iter().map(|(_, ticket)| ticket).collect();
             }

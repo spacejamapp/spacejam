@@ -63,11 +63,16 @@ impl<C: Config> Runtime<C> {
     pub async fn next(&self) -> anyhow::Result<(Block, Option<TicketEnvelope>)> {
         let ticket = self.ticket()?;
         if let Some(ticket) = ticket.clone() {
+            let chain = self.chain().await;
+            let entropy = chain.entropy()?;
+            let validators = chain.current_validators()?;
             self.expool
-                .tickets
-                .lock()
-                .await
-                .insert((self.validator.bandersnatch_public_key(), ticket));
+                .insert_ticket(
+                    ticket,
+                    validators.iter().map(|v| v.bandersnatch).collect(),
+                    entropy,
+                )
+                .await?;
         }
 
         let timeslot = crate::block::timeslot()?;

@@ -40,20 +40,25 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
             };
 
             let series = safrole.series.keys();
-            if !series.is_empty() && !series.contains(&runtime.validator.bandersnatch_public_key())
-            {
+            if !series.contains(&runtime.validator.bandersnatch_public_key()) {
+                tracing::info!(
+                    "local bandersnatch public key: 0x{}",
+                    hex::encode(runtime.validator.bandersnatch_public_key())
+                );
                 let Ok(timeslot) = block::timeslot() else {
                     tracing::error!("failed to get timeslot");
                     break;
                 };
 
-                let dur = timeslot - (timeslot % score::EPOCH_LENGTH);
+                let dur =
+                    (score::EPOCH_LENGTH - (timeslot % score::EPOCH_LENGTH)) * score::SLOT_PERIOD;
                 tracing::info!(
-                    "not in the safrole series keys {:#?}, sleeping for authoring till next epoch",
+                    "not in the safrole series keys {:#?}, sleeping {}s for authoring till next epoch",
                     series
                         .into_iter()
                         .map(|key| format!("0x{}", hex::encode(key)))
-                        .collect::<Vec<_>>()
+                        .collect::<Vec<_>>(),
+                    dur
                 );
                 tokio::time::sleep(Duration::from_secs(dur as u64)).await;
                 continue;
@@ -70,6 +75,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
                 .count() as u16
                 + 1;
 
+            // check neighbours
             let grandpa = runtime.grandpa.read().await.clone();
             let neighbours = grandpa
                 .grid
@@ -80,15 +86,35 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
                 .count();
             let total_neighbours = neighbours.len();
 
-            tracing::debug!(
-                "grandpa: #{}, peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
+            // get the latest pending block
+            let (pending, tickets) = {
+                let chain = runtime.chain().await;
+                (
+                    chain.get_finalized().unwrap_or_default(),
+                    chain.safrole().unwrap_or_default().accumulator.len(),
+                )
+            };
+
+            // print the current status
+            tracing::info!(
+                "epoch: #{}, progress: [{}/{}], pending: #{}, grandpa: #{}, tickets: {}",
+                pending.slot / score::EPOCH_LENGTH,
+                pending.slot % score::EPOCH_LENGTH,
+                score::EPOCH_LENGTH,
+                pending.slot,
                 grandpa.handshake.head.slot,
+                tickets,
+            );
+            tracing::info!(
+                "peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
                 peers.len(),
                 connected,
                 score::VALIDATORS_COUNT,
                 connected_neighbours,
                 total_neighbours
             );
+
+            // check if we need to wait for the next epoch
             if connected < score::VALIDATORS_SUPER_MAJORITY
                 || connected_neighbours != total_neighbours
             {
@@ -98,7 +124,7 @@ pub async fn run<C: score::runtime::Config>(runtime: &Network<C>) {
         }
 
         // author a block
-        if let Err(e) = inner(runtime).await {
+        if let Err(e) = self::inner(runtime).await {
             tracing::warn!("failed to author block: {e}");
         }
 
@@ -118,11 +144,6 @@ async fn inner<C: score::runtime::Config>(runtime: &Network<C>) -> anyhow::Resul
     };
     chain.save_block(&block)?;
     chain.set_finalized(&head)?;
-    // let safrole = chain.safrole()?;
-    tracing::debug!(
-        "tickets in pool: {}",
-        runtime.expool.tickets.lock().await.len()
-    );
 
     // save the header to the grandpa
     {
