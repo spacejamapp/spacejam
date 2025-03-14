@@ -1,10 +1,8 @@
 //! Block builder
 
 use crate::{
-    block::BlockInfo,
-    extrinsic::TicketsOrKeys,
-    runtime::{tx, Storage, Validator},
-    Block, Extrinsic, TimeSlot,
+    block::BlockInfo, extrinsic::TicketsOrKeys, runtime::Validator, BandersnatchPublic, Block,
+    EntropyBuffer, Extrinsic, TimeSlot,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -33,29 +31,22 @@ impl Builder {
         self
     }
 
+    /// Set the author index
+    pub fn author_index(mut self, index: u16) -> Self {
+        self.header.author_index = index;
+        self
+    }
+
     /// Seal the block
-    pub fn seal(mut self, validator: &impl Validator, db: &impl Storage) -> anyhow::Result<Block> {
-        let keys: Vec<[u8; 32]> = db
-            .current_validators()?
-            .into_iter()
-            .map(|v| v.bandersnatch)
-            .collect();
-
-        // 1. set the validator index
-        self.header.author_index = keys
-            .iter()
-            .position(|k| k == &validator.bandersnatch_public_key())
-            .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?
-            as u16;
-
-        // 2. validate the block and set the marks
-        tx::simulate(&mut self.0, db, validator)?;
-
-        // 3. seal the block
-        let entropy = db.entropy()?;
-        let safrole = db.safrole()?;
-        let message = codec::encode(&self.0.header)?;
-        self.header.seal = match safrole.series {
+    pub fn seal(
+        mut self,
+        validator: &impl Validator,
+        keys: &[BandersnatchPublic],
+        series: TicketsOrKeys,
+        entropy: EntropyBuffer,
+    ) -> anyhow::Result<Block> {
+        let message = codec::encode(&self.header)?;
+        self.header.seal = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot_in_epoch = self.header.slot % crate::EPOCH_LENGTH;
                 let tickets_count = tickets.len() as u32;
@@ -77,7 +68,7 @@ impl Builder {
             }
         };
 
-        // 4. set the entropy source
+        // set the entropy source
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
             context.extend_from_slice(&validator.bandersnatch_output(&self.header.seal)?);

@@ -86,10 +86,15 @@ impl From<Header> for BlockInfo {
 
 /// Returns the current timeslot
 pub fn timeslot() -> anyhow::Result<TimeSlot> {
+    Ok(now()? / crate::SLOT_PERIOD)
+}
+
+/// Returns the current time in seconds
+pub fn now() -> anyhow::Result<u32> {
     let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
     let now = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH + era)?
         .as_secs() as u32;
 
-    Ok(now / crate::SLOT_PERIOD)
+    Ok(now)
 }

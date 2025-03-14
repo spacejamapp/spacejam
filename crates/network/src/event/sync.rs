@@ -46,7 +46,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 #[tracing::instrument(skip_all, level = "debug")]
 async fn finalize_locally<C: score::runtime::Config>(
     runtime: &Network<C>,
-    mut head: Block,
+    head: Block,
     mut ancestors: Vec<(OpaqueHash, Header)>,
 ) -> anyhow::Result<()> {
     tracing::debug!("finalizing from local chain ...");
@@ -54,6 +54,7 @@ async fn finalize_locally<C: score::runtime::Config>(
     let grandpa = runtime.grandpa.read().await.clone();
     let chain = runtime.chain().await;
     let mut current = grandpa.handshake.head.clone();
+    let importer = runtime.importer();
     for (ancestor, header) in ancestors.iter().skip(1) {
         if header.parent != current.hash {
             anyhow::bail!(
@@ -63,14 +64,14 @@ async fn finalize_locally<C: score::runtime::Config>(
             );
         }
 
-        runtime.finalize(&mut chain.get_block(ancestor)?).await?;
+        importer.finalize(chain.get_block(ancestor)?).await?;
         current = Head {
             hash: *ancestor,
             slot: header.slot,
         };
     }
 
-    runtime.finalize(&mut head).await?;
+    importer.finalize(head).await?;
     Ok(())
 }
 
@@ -100,9 +101,10 @@ async fn finalize_from_feed<C: score::runtime::Config>(
         request.maximum,
     );
     let mut buffer = Vec::new();
+    let importer = runtime.importer();
     while let Some(chunk) = recv.read_chunk(1, true).await? {
         buffer.extend_from_slice(&chunk.bytes);
-        let Ok(mut block) = codec::decode::<Block>(&buffer) else {
+        let Ok(block) = codec::decode::<Block>(&buffer) else {
             continue;
         };
 
@@ -113,7 +115,7 @@ async fn finalize_from_feed<C: score::runtime::Config>(
             continue;
         }
 
-        runtime.finalize(&mut block).await?;
+        importer.finalize(block).await?;
     }
 
     send.finish()?;

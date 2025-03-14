@@ -52,6 +52,7 @@ impl Builder {
         let runtime = Arc::new(Runtime::new(validator, storage));
 
         // Initialize the database
+        let importer = runtime.importer();
         if KVStorage::is_empty(&runtime.storage) {
             let genesis: Genesis = serde_json::from_slice(fs::read(self.genesis)?.as_slice())?;
             let block = Block::try_from(genesis.block)?;
@@ -61,7 +62,7 @@ impl Builder {
                 .map(ValidatorData::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
-            runtime.import_genesis(&block, &validators).await?;
+            importer.import_genesis(&block, &validators).await?;
         }
 
         // Initialize the network
