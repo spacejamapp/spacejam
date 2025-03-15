@@ -190,6 +190,8 @@ impl Prover {
 }
 
 // Verifier actor.
+//
+// TODO: use life time to avoid cloning the ring.
 pub struct Verifier {
     pub commitment: RingCommitment,
     pub ring: Vec<Public>,

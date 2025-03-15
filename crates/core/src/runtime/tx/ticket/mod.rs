@@ -174,7 +174,7 @@ pub fn sealing_key_series(
         && prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
     {
-        next = TicketsOrKeys::Tickets(safrole.tickets());
+        next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
         let mut fallback_keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
         for i in 0..crate::EPOCH_LENGTH {

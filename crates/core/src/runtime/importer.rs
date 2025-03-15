@@ -1,10 +1,10 @@
 //! Importer for SpaceJam
 
 use crate::{
-    block::BlockInfo,
-    extrinsic::TicketsOrKeys,
+    block::{BlockInfo, Header},
+    extrinsic::{TicketBody, TicketsOrKeys},
     runtime::{
-        storage::{BlockStorage, Branch},
+        storage::{BlockStorage, Branch, KVStorage},
         tx, Config, Head, Runtime, Storage,
     },
     safrole::{Safrole, ValidatorData},
@@ -12,7 +12,7 @@ use crate::{
     Block, EntropyBuffer,
 };
 
-use super::storage::KVStorage;
+use super::Validator;
 
 /// Importer for SpaceJam
 pub struct Importer<'i, C: Config> {
@@ -29,11 +29,11 @@ impl<'i, C: Config> Importer<'i, C> {
     /// Import the genesis block
     pub async fn import_genesis(
         &self,
-        block: &Block,
+        block: Block,
         validators: &[ValidatorData],
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        self.runtime.storage.finalize(block)?;
+        self.runtime.storage.finalize(&block)?;
 
         // 2. initialize the recent blocks
         let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
@@ -124,5 +124,93 @@ impl<'i, C: Config> Importer<'i, C> {
             .write()
             .await
             .finalize(block.header.clone(), next)
+    }
+
+    /// Validate a block header.
+    pub async fn validate(&self, header: Header) -> anyhow::Result<()> {
+        let handshake = self.runtime.grandpa.read().await.handshake.clone();
+        let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
+        let remote_epoch = header.slot / crate::EPOCH_LENGTH;
+
+        // if the epoch greater than the next, skip the validation.
+        if remote_epoch > local_epoch + 1 {
+            anyhow::bail!(
+                "invalid epoch: local: {}, remote: {}",
+                local_epoch,
+                remote_epoch
+            );
+        }
+
+        // present the verifying components
+        let new_epoch = remote_epoch == local_epoch + 1;
+        let slot = (header.slot % crate::EPOCH_LENGTH) as usize;
+        let entropy_buffer = self.runtime.storage.entropy()?;
+        let series = self.runtime.storage.safrole()?.series.clone();
+        let mut entropy = entropy_buffer[3];
+        let mut ticket: Option<TicketBody> = None;
+
+        // handle entropy and attempt
+        if new_epoch {
+            entropy = entropy_buffer[2];
+
+            // check the ticket mark
+            if let Some(tickets) = header.tickets_mark {
+                ticket = Some(tickets[slot]);
+            }
+        } else if let TicketsOrKeys::Tickets(tickets) = series {
+            ticket = Some(tickets[slot]);
+        }
+
+        // indicate the keys to be used
+        let keys = if new_epoch {
+            self.runtime.storage.next_validators()?
+        } else {
+            self.runtime.storage.current_validators()?
+        }
+        .iter()
+        .map(|v| v.bandersnatch)
+        .collect::<Vec<_>>();
+
+        // construct the context and message
+        let mut message = Vec::new();
+        let mut context = Vec::new();
+        if let Some(ticket) = ticket {
+            context.extend_from_slice(&crate::JAM_TICKET_SEAL);
+            context.extend_from_slice(&entropy);
+            context.push(ticket.attempt);
+
+            // construct the message
+            let mut oheader = header.clone();
+            oheader.seal = [0; 96];
+            oheader.entropy_source = [0; 96];
+            message = codec::encode(&oheader)?;
+        } else {
+            context.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
+            context.extend_from_slice(&entropy);
+        }
+
+        // check the ticket seal
+        let author_index = header.author_index;
+        let verifier = crypto::ring::verifier(keys.clone());
+        let output =
+            verifier.ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)?;
+        if let Some(ticket) = ticket {
+            if output != ticket.id {
+                anyhow::bail!("header seal mismatch from ticket");
+            }
+        }
+
+        // check the entropy source
+        let mut context = crate::JAM_ENTROPY.to_vec();
+        context.extend_from_slice(&output);
+        let source = self
+            .runtime
+            .validator
+            .bandersnatch_sign(&keys, &context, &[])?;
+        if source != header.entropy_source {
+            anyhow::bail!("header entropy source mismatch");
+        }
+
+        Ok(())
     }
 }

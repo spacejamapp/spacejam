@@ -62,7 +62,7 @@ impl Builder {
                 .map(ValidatorData::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
-            importer.import_genesis(&block, &validators).await?;
+            importer.import_genesis(block, &validators).await?;
         }
 
         // Initialize the network

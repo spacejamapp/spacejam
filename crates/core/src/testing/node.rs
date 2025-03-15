@@ -50,7 +50,7 @@ impl Node {
         let node = Self::new(seed, block.clone(), validators);
         node.runtime
             .importer()
-            .import_genesis(&block, node.validators.as_slice())
+            .import_genesis(block, node.validators.as_slice())
             .await
             .expect("failed to import genesis block");
         Ok(node)

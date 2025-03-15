@@ -48,23 +48,17 @@ impl Builder {
         let message = codec::encode(&self.header)?;
         self.header.seal = match series {
             TicketsOrKeys::Tickets(tickets) => {
-                let slot_in_epoch = self.header.slot % crate::EPOCH_LENGTH;
-                let tickets_count = tickets.len() as u32;
-                let entry_index = if slot_in_epoch < tickets_count / 2 {
-                    slot_in_epoch
-                } else {
-                    // TODO: safe math?
-                    tickets_count - 1 - (slot_in_epoch - tickets_count / 2)
-                };
+                let slot = (self.header.slot % crate::EPOCH_LENGTH) as usize;
+                let ticket = tickets[slot];
                 let mut context = crate::JAM_TICKET_SEAL.to_vec();
                 context.extend_from_slice(&entropy[3]);
-                context.push(entry_index as u8);
+                context.push(ticket.attempt);
                 validator.bandersnatch_sign(keys, &context, &message)?
             }
-            TicketsOrKeys::Keys(keys) => {
+            TicketsOrKeys::Keys(_) => {
                 let mut context = crate::JAM_FALLBACK_SEAL.to_vec();
                 context.extend_from_slice(&entropy[3]);
-                validator.bandersnatch_sign(&keys, &context, &message)?
+                validator.bandersnatch_sign(keys, &context, &message)?
             }
         };
 

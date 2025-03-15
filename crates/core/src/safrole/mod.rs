@@ -104,23 +104,8 @@ impl Safrole {
 
         // Apply Z function to gamma_a (outside-in sequencing)
         let mut tickets = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
-        tickets.copy_from_slice(&self.tickets());
+        tickets.copy_from_slice(&TicketBody::sequence(&self.accumulator));
         Some(tickets)
-    }
-
-    /// Sequences the tickets
-    pub fn tickets(&self) -> Vec<TicketBody> {
-        let mut ordered_tickets = Vec::with_capacity(self.accumulator.len());
-        let mid = self.accumulator.len() / 2;
-
-        for i in 0..mid {
-            ordered_tickets.push(self.accumulator[i]);
-            if i + mid < self.accumulator.len() {
-                ordered_tickets.push(self.accumulator[self.accumulator.len() - 1 - i]);
-            }
-        }
-
-        ordered_tickets
     }
 }
 

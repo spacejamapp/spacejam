@@ -110,6 +110,11 @@ pub async fn recv<C: score::runtime::Config>(
             grandpa.add_leaf_to(&header, &mut handshake)?;
         }
 
+        // TODO: if the header is at the same slot with the finalized head,
+        // validate the seal of it.
+        //
+        // validation logic below vv
+
         // trace the announcement data.
         {
             let handshake = conn.handshake.read().await.clone();
@@ -123,9 +128,6 @@ pub async fn recv<C: score::runtime::Config>(
                 hex::encode(&handshake.head.hash.as_ref()[..3]),
             );
         }
-
-        // TODO: if the header is at the same slot with the finalized head,
-        // validate the seal of it.
 
         // Add this header to local leaves
         //

@@ -35,7 +35,7 @@ impl Network {
     pub async fn next(&mut self, timeslot: u32) -> Result<()> {
         for node in self.nodes.values_mut() {
             let mut author = node.author();
-            let (block, ticket) = author.on_timeslot(timeslot).await?;
+            let (_block, _ticket) = author.on_timeslot(timeslot).await?;
 
             // TODO: subscribe blocks and tickets to network
         }

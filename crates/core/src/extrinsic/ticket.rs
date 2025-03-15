@@ -54,6 +54,38 @@ impl TicketBody {
         ]
         .concat()
     }
+
+    /// Sequences the tickets with Z function (outside-in)
+    pub fn sequence(tickets: &[TicketBody]) -> Vec<TicketBody> {
+        let mut ordered_tickets = Vec::with_capacity(tickets.len());
+        let mid = tickets.len() / 2;
+
+        for i in 0..mid {
+            ordered_tickets.push(tickets[i]);
+            if i + mid < tickets.len() {
+                ordered_tickets.push(tickets[tickets.len() - 1 - i]);
+            }
+        }
+
+        ordered_tickets
+    }
+
+    /// Get the ticket at the given slot
+    ///
+    /// Note that this function could be unnecessary, since the tickets are already
+    /// sorted by the Z function.
+    pub fn entry(tickets: &[TicketBody], slot: u32) -> TicketBody {
+        let slot_in_epoch = slot % crate::EPOCH_LENGTH;
+        let tickets_count = tickets.len() as u32;
+
+        let entry_index = if slot_in_epoch < tickets_count / 2 {
+            slot_in_epoch
+        } else {
+            tickets_count - 1 - (slot_in_epoch - tickets_count / 2)
+        };
+
+        tickets[entry_index as usize]
+    }
 }
 
 /// Represents an accumulator of tickets.
@@ -62,8 +94,8 @@ pub type TicketsAccumulator = Vec<TicketBody>;
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
-    Tickets(Vec<TicketBody>),
     Keys(Vec<BandersnatchPublic>),
+    Tickets(Vec<TicketBody>),
 }
 
 impl Default for TicketsOrKeys {

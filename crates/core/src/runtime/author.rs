@@ -30,9 +30,6 @@ pub struct Author<'a, C: crate::runtime::Config> {
     /// The current validators
     pub validators: ValidatorsData,
 
-    /// if we are using the fallback series keys
-    fallback: bool,
-
     /// the current series
     series: TicketsOrKeys,
 
@@ -57,7 +54,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             me,
             timeslot: Default::default(),
             validators: Default::default(),
-            fallback: true,
             series: Default::default(),
             slots: Default::default(),
             keys: Default::default(),
@@ -121,7 +117,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         // 3. check if we are in the fallback mode
         let safrole = self.runtime.chain().await.safrole()?;
         self.series = safrole.series;
-        self.fallback = matches!(self.series, TicketsOrKeys::Tickets(_));
 
         // 4. update the authoring slots
         let mut slots = VecDeque::new();
