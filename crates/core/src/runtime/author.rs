@@ -25,7 +25,7 @@ pub struct Author<'a, C: crate::runtime::Config> {
     me: BandersnatchPublic,
 
     /// The current timeslot
-    timeslot: TimeSlot,
+    pub timeslot: TimeSlot,
 
     /// The current validators
     pub validators: ValidatorsData,
@@ -146,7 +146,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// Author a block
-    async fn author(&self) -> anyhow::Result<Header> {
+    pub async fn author(&self) -> anyhow::Result<Header> {
         // 1. get the last block
         let chain = self.runtime.chain().await;
         let blocks = chain.recent_blocks()?;
@@ -216,11 +216,27 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         self.attempt.fetch_add(1, Ordering::Relaxed);
 
         // 3. insert the ticket into the pool
-        self.runtime
-            .expool
-            .insert_ticket(envelope.clone(), self.keys.clone(), self.entropy)
-            .await?;
+        self.insert_ticket(envelope.clone()).await?;
         Ok(Some(envelope))
+    }
+
+    /// Sort and insert a ticket into the pool
+    pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<()> {
+        // verify the ticket
+        let verifier = crypto::ring::verifier(self.keys.clone());
+        let Ok(id) = verifier.ring_vrf_verify(
+            &TicketBody::message(ticket.attempt, &self.entropy[2]),
+            &[],
+            &ticket.signature,
+        ) else {
+            tracing::warn!("invalid ticket with the current storage, skipping");
+            return Ok(());
+        };
+
+        let mut tickets = self.runtime.expool.tickets.lock().await;
+        tickets.insert((id, ticket));
+
+        Ok(())
     }
 
     /// Save a block to the fork storage

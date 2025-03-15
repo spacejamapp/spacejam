@@ -44,20 +44,12 @@ pub async fn recv<C: score::runtime::Config>(
     // TODO: verify the proof, handle the ticket, etc.
     let request: Request = codec::decode(&buf[..])?;
     let epoch = block::timeslot()? / score::EPOCH_LENGTH;
-    let validators = runtime.grandpa.read().await.grid.curr.clone();
 
     // insert the ticket into the pool if the epoch is present.
     if request.epoch == epoch {
-        let chain = runtime.chain().await;
-        let entropy = chain.entropy()?;
-        let validators = chain.current_validators()?;
         runtime
-            .expool
-            .insert_ticket(
-                request.ticket.clone(),
-                validators.iter().map(|v| v.bandersnatch).collect(),
-                entropy,
-            )
+            .author()
+            .insert_ticket(request.ticket.clone())
             .await?;
     }
 

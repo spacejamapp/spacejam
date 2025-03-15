@@ -47,28 +47,6 @@ pub struct Pool {
 }
 
 impl Pool {
-    /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(
-        &self,
-        ticket: TicketEnvelope,
-        keys: Vec<BandersnatchPublic>,
-        entropy: EntropyBuffer,
-    ) -> anyhow::Result<()> {
-        let verifier = crypto::ring::verifier(keys);
-        let Ok(id) = verifier.ring_vrf_verify(
-            &TicketBody::message(ticket.attempt, &entropy[2]),
-            &[],
-            &ticket.signature,
-        ) else {
-            tracing::warn!("invalid ticket with the current storage, skipping");
-            return Ok(());
-        };
-
-        let mut tickets = self.tickets.lock().await;
-        tickets.insert((id, ticket));
-        Ok(())
-    }
-
     /// Validate the extrinsics in the pool
     ///
     /// 1. remove outdated extrinsics
