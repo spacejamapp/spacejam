@@ -155,51 +155,73 @@ impl Grandpa {
         None
     }
 
-    /// Verify a header with ancestry
-    pub async fn verify(&self, header: &Header) -> anyhow::Result<()> {
-        let hash = header.hash()?;
+    /// If a header is acceptable for a remote peer, returns error if:
+    ///
+    /// 1. The block has been announced by the remote
+    /// 2. A descendant of the block has been announced by the remote.
+    pub async fn accept_remote(
+        &self,
+        header: &Header,
+        handshake: &Handshake,
+    ) -> anyhow::Result<Head> {
+        let head = Head::try_from(header.clone())?;
+        let shash = hex::encode(&head.hash.as_ref()[..3]);
 
-        // 1. A descendant of the block is announced instead of the block itself.
+        // 1. if the block has been announced by the remote
+        if handshake.leaves.contains(&head) {
+            anyhow::bail!(
+                "block#{}: 0x{} has been announced by the remote",
+                head.slot,
+                shash
+            );
+        }
+
+        // 2. skip if a descendant of the block has been announced by the remote.
         //
-        // Compare the header with the leaves.
-        let leaves = self
-            .handshake
-            .leaves
-            .iter()
-            .filter(|l| l.slot > header.slot);
+        // # Note
+        //
+        // we can only check with our local state here.
+        let leaves = self.handshake.leaves.iter().filter(|l| l.slot > head.slot);
         for leaf in leaves {
-            if leaf.hash == hash {
-                return Ok(());
-            }
-
-            if !self.is_descendant_of(leaf.hash, hash) {
+            if self.is_descendant_of(leaf.hash, head.hash) {
                 anyhow::bail!(
-                    "A descendant of the block is announced instead of the block itself."
+                    "A descendant of the block#{}: 0x{} has been announced by the remote",
+                    leaf.slot,
+                    hex::encode(&leaf.hash.as_ref()[..3]),
                 );
             }
         }
 
-        // 2. if the header is directly the child of the latest finalized block,
-        // we should check if the header is ticket sealed.
-        //
-        // we need to check this directly because we may not have the info of a
-        // newly incoming header.
-        if header.parent == self.handshake.head.hash {
-            return Ok(());
+        Ok(head)
+    }
+
+    /// If a header is acceptable for local, returns error if:
+    ///
+    /// 1. A descendant of the block is announced instead
+    /// 2. The block is not a descendant of the latest finalized block.
+    pub async fn accept_local(&self, head: &Header) -> anyhow::Result<()> {
+        let hash = head.hash()?;
+
+        // 1. A descendant of the block is announced instead.
+        let leaves = self.handshake.leaves.iter().filter(|l| l.slot > head.slot);
+        for leaf in leaves {
+            if self.is_descendant_of(leaf.hash, hash) {
+                anyhow::bail!(
+                    "A descendant of the block#{}@0x{} is announced instead.",
+                    leaf.slot,
+                    hex::encode(&leaf.hash.as_ref()[..3])
+                );
+            }
         }
 
-        // 3. The block is not a descendant of the latest finalized block.
-        //
-        // We are using the parent of the header because a new header will not be
-        // registered in the ancestry yet.
-        if !self.is_descendant_of(header.parent, self.handshake.head.hash) {
+        // 2. The block is not a descendant of the latest finalized block.
+        if !self.is_descendant_of(hash, self.handshake.head.hash) {
             anyhow::bail!(
-                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}, parent: 0x{}.",
-                header.slot,
+                "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}.",
+                head.slot,
                 hex::encode(&hash.as_ref()[..3]),
                 self.handshake.head.slot,
                 hex::encode(&self.handshake.head.hash.as_ref()[..3]),
-                hex::encode(&header.parent.as_ref()[..3]),
             );
         }
 
@@ -229,4 +251,15 @@ pub struct Head {
 
     /// The slot of this head.
     pub slot: TimeSlot,
+}
+
+impl TryFrom<Header> for Head {
+    type Error = anyhow::Error;
+
+    fn try_from(header: Header) -> Result<Self, Self::Error> {
+        Ok(Self {
+            hash: header.hash()?,
+            slot: header.slot,
+        })
+    }
 }

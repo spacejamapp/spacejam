@@ -9,7 +9,8 @@ pub async fn announce<C: score::runtime::Config>(
     header: Box<Header>,
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
-    if let Err(e) = grandpa.verify(&header).await {
+
+    if let Err(e) = grandpa.accept_local(&header).await {
         tracing::warn!("{e}");
         return Ok(());
     }

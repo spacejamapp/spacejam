@@ -51,41 +51,31 @@ pub async fn send<C: score::runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        // check if the block is a descendant of the local finalized head.
         let grandpa = runtime.grandpa.read().await.clone();
         let handshake = conn.handshake.read().await;
-        let hash = header.hash()?;
-        let shash = hex::encode(&hash.as_ref()[..3]);
 
-        // Skip if the block is not a descendant of the remote peer's
-        // finalized head.
-        //
-        // Note that we can not use `is_descendant_of` here because the
-        // remote peer may not have the same finalized head as the local
-        // peer.
-        if !grandpa.is_descendant_of(hash, handshake.head.hash) {
-            continue;
+        // check if the block is acceptable for the remote peer.
+        match grandpa.accept_remote(&header, &handshake).await {
+            Ok(head) => {
+                let hash = header.hash()?;
+                let shash = hex::encode(&hash.as_ref()[..3]);
+                tracing::trace!(
+                    "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
+                    header.slot,
+                    shash,
+                    grandpa.handshake.head.slot,
+                    hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                    head.slot,
+                    hex::encode(&head.hash.as_ref()[..3]),
+                );
+            }
+            Err(e) => {
+                tracing::trace!("{e}");
+                continue;
+            }
         }
 
-        // Skip if the block, or a descendant of the block, has been
-        // announced by the other side of the stream.
-        let mut leaves = handshake
-            .leaves
-            .iter()
-            .filter(|l| l.slot >= handshake.head.slot);
-        if leaves.any(|leaf| grandpa.is_descendant_of(leaf.hash, hash) || leaf.hash == hash) {
-            continue;
-        }
-
-        tracing::trace!(
-            "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
-            header.slot,
-            shash,
-            grandpa.handshake.head.slot,
-            hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
-            handshake.head.slot,
-            hex::encode(&handshake.head.hash.as_ref()[..3]),
-        );
+        // send the announcement to the remote peer.
         send.write_all(&codec::encode(&(header, grandpa.handshake.head))?)
             .await?;
     }
@@ -118,32 +108,24 @@ pub async fn recv<C: score::runtime::Config>(
             let mut handshake = conn.handshake.write().await;
             handshake.head = head.clone();
             grandpa.add_leaf_to(&header, &mut handshake)?;
-            drop(handshake);
-        }
-
-        // if the header is invalid, skip it.
-        //
-        // TODO: send audit that the validator is an offender.
-
-        // if we already have this header, skip re-announcing it.
-        //
-        // This is actually should be checked from the sender side, but we
-        // do it here for the sake of simplicity.
-        if grandpa.header(&header.hash()?).is_some() {
-            continue;
         }
 
         // trace the announcement data.
-        let handshake = conn.handshake.read().await.clone();
-        tracing::trace!(
-            "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
-            header.slot,
-            hex::encode(&header.hash()?.as_ref()[..3]),
-            grandpa.handshake.head.slot,
-            hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
-            handshake.head.slot,
-            hex::encode(&handshake.head.hash.as_ref()[..3]),
-        );
+        {
+            let handshake = conn.handshake.read().await.clone();
+            tracing::trace!(
+                "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
+                header.slot,
+                hex::encode(&header.hash()?.as_ref()[..3]),
+                grandpa.handshake.head.slot,
+                hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                handshake.head.slot,
+                hex::encode(&handshake.head.hash.as_ref()[..3]),
+            );
+        }
+
+        // TODO: if the header is at the same slot with the finalized head,
+        // validate the seal of it.
 
         // Add this header to local leaves
         //
@@ -152,7 +134,7 @@ pub async fn recv<C: score::runtime::Config>(
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
         // broadcast the header to the network
-        runtime.announce.send(header.clone())?;
+        runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
 
         // Indicates that we need to select the best chain.
         //

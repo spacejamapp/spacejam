@@ -1,7 +1,7 @@
 //! Authoring service
 
 use crate::{
-    block::{Block, Header},
+    block::{self, Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     runtime::{storage::BlockStorage, tx, Head, Runtime, Storage, Validator},
     safrole::ValidatorsData,
@@ -67,13 +67,20 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// do authoring
     pub async fn next(&mut self) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
-        let mut next = (None, None);
-        let now = crate::block::now()?;
-        let timeslot = now / crate::SLOT_PERIOD;
+        let timeslot = block::timeslot()?;
+        self.on_timeslot(timeslot).await
+    }
+
+    /// Run to the next timeslot
+    pub async fn on_timeslot(
+        &mut self,
+        timeslot: u32,
+    ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
         let slot = timeslot % crate::EPOCH_LENGTH;
         if slot == 0 {
             self.on_new_epoch().await?;
         }
+        let mut next = (None, None);
 
         // 1. wait for the next epoch if we are not a validator
         if !self.validators.iter().any(|v| v.bandersnatch == self.me) {

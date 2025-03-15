@@ -1,6 +1,8 @@
 //! Testing utilities
 #![cfg(test)]
 
+use std::ops::{Deref, DerefMut};
+
 use crate::{
     block::Block,
     runtime::{storage::MemoryDb, Runtime},
@@ -52,5 +54,19 @@ impl Node {
             .await
             .expect("failed to import genesis block");
         Ok(node)
+    }
+}
+
+impl Deref for Node {
+    type Target = Runtime<TestConfig>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.runtime
+    }
+}
+
+impl DerefMut for Node {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.runtime
     }
 }
