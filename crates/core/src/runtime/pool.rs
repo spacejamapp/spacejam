@@ -55,11 +55,14 @@ impl Pool {
         entropy: EntropyBuffer,
     ) -> anyhow::Result<()> {
         let verifier = crypto::ring::verifier(keys);
-        let id = verifier.ring_vrf_verify(
+        let Ok(id) = verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &entropy[2]),
             &[],
             &ticket.signature,
-        )?;
+        ) else {
+            tracing::warn!("invalid ticket with the current storage, skipping");
+            return Ok(());
+        };
 
         let mut tickets = self.tickets.lock().await;
         tickets.insert((id, ticket));

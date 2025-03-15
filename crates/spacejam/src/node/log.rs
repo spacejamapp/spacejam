@@ -2,6 +2,7 @@
 
 use network::Network;
 use score::{
+    block,
     runtime::{storage::BlockStorage, Storage, Validator},
     safrole::ValidatorData,
 };
@@ -59,10 +60,11 @@ pub async fn current<C: score::runtime::Config>(
     };
 
     // print the current status
+    let timeslot = block::timeslot().unwrap_or_default();
     tracing::info!(
         "epoch: #{}, progress: [{}/{}], pending: #{}, grandpa: #{}, tickets: {}",
-        pending.slot / score::EPOCH_LENGTH,
-        pending.slot % score::EPOCH_LENGTH,
+        timeslot / score::EPOCH_LENGTH,
+        timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
         pending.slot,
         grandpa.handshake.head.slot,

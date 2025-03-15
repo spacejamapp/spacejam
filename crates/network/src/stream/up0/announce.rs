@@ -121,6 +121,10 @@ pub async fn recv<C: score::runtime::Config>(
             drop(handshake);
         }
 
+        // if the header is invalid, skip it.
+        //
+        // TODO: send audit that the validator is an offender.
+
         // if we already have this header, skip re-announcing it.
         //
         // This is actually should be checked from the sender side, but we

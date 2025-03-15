@@ -143,15 +143,12 @@ impl Grandpa {
             }
 
             if head.slot > self.handshake.head.slot {
-                let Some(header) = self.ancestry.header(&head.hash) else {
+                let Some(_header) = self.ancestry.header(&head.hash) else {
                     continue;
                 };
 
-                // if the header is ticket sealed, return it.
-                if header.tickets_mark.is_some() {
-                    tracing::info!("found a ticket sealed head: #{}", head.slot);
-                    return Some((head, ancestors));
-                }
+                // TODO: check if the header is ticket sealed
+                return Some((head, ancestors));
             }
         }
 

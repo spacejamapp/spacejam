@@ -32,9 +32,15 @@ pub async fn start<C: score::runtime::Config>(
 }
 
 /// Authoring service
+#[tracing::instrument(skip_all, name = "author")]
 async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
     log::init(runtime).await;
     let mut author = runtime.author();
+    if let Err(e) = author.on_new_epoch().await {
+        tracing::error!("Failed to initialize author: {e:?}");
+        return;
+    }
+
     loop {
         log::current(runtime, &author.validators).await;
         let Ok(now) = block::now() else {
@@ -51,7 +57,7 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
         let next = author.next().await;
         if let Err(e) = next {
             tracing::error!("Authoring error: {:?}", e);
-            tokio::time::sleep(Duration::from_secs(duration as u64)).await;
+            tokio::time::sleep(Duration::from_secs(duration)).await;
             continue;
         }
 
@@ -76,6 +82,6 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
         }
 
         // sleep for the next slot
-        tokio::time::sleep(Duration::from_secs(duration as u64)).await;
+        tokio::time::sleep(Duration::from_secs(duration)).await;
     }
 }

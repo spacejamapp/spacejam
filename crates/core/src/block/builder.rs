@@ -59,7 +59,7 @@ impl Builder {
                 let mut context = crate::JAM_TICKET_SEAL.to_vec();
                 context.extend_from_slice(&entropy[3]);
                 context.push(entry_index as u8);
-                validator.bandersnatch_sign(&keys, &context, &message)?
+                validator.bandersnatch_sign(keys, &context, &message)?
             }
             TicketsOrKeys::Keys(keys) => {
                 let mut context = crate::JAM_FALLBACK_SEAL.to_vec();
@@ -72,7 +72,7 @@ impl Builder {
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
             context.extend_from_slice(&validator.bandersnatch_output(&self.header.seal)?);
-            validator.bandersnatch_sign(&keys, &context, &[])?
+            validator.bandersnatch_sign(keys, &context, &[])?
         };
 
         Ok(self.into())

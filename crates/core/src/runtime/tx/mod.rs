@@ -20,7 +20,7 @@ pub mod ticket;
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
 pub fn transit(mut block: Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
-    let diff = simulate(&mut block, storage, validator)?;
+    let diff = self::simulate(&mut block, storage, validator)?;
     storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
 }
 

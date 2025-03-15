@@ -24,6 +24,9 @@ pub struct Author<'a, C: crate::runtime::Config> {
     /// The local validator
     me: BandersnatchPublic,
 
+    /// The current timeslot
+    timeslot: TimeSlot,
+
     /// The current validators
     pub validators: ValidatorsData,
 
@@ -52,6 +55,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             runtime,
             entropy: Default::default(),
             me,
+            timeslot: Default::default(),
             validators: Default::default(),
             fallback: true,
             series: Default::default(),
@@ -75,6 +79,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         if !self.validators.iter().any(|v| v.bandersnatch == self.me) {
             let duration =
                 (crate::EPOCH_LENGTH - (timeslot % crate::EPOCH_LENGTH)) * crate::SLOT_PERIOD;
+            tracing::info!("not a validator, sleeping {duration}s for the next epoch");
             tokio::time::sleep(Duration::from_secs(duration as u64)).await;
             return Ok(next);
         }
@@ -82,7 +87,10 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         // 2. check generating tickets
         next.1 = self.ticket().await?;
 
-        // 3. check authoring blocks
+        // 3. update the timeslot
+        self.timeslot = timeslot;
+
+        // 4. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author().await?);
             self.slots.pop_front();
@@ -92,7 +100,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// on new epoch
-    async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
+    pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
         // 1. update the validators
         self.validators = self.runtime.storage.current_validators()?;
 
@@ -110,10 +118,17 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
         // 4. update the authoring slots
         let mut slots = VecDeque::new();
-        let series = self.series.keys().into_iter().collect::<Vec<_>>();
-        for (i, author) in series.iter().enumerate() {
-            if author == &self.me {
-                slots.push_back(i as TimeSlot);
+        match &self.series {
+            TicketsOrKeys::Tickets(_tickets) => {
+                tracing::warn!("tickets series is not supported yet, stop authoring");
+                slots = VecDeque::new();
+            }
+            TicketsOrKeys::Keys(keys) => {
+                for (i, author) in keys.iter().enumerate() {
+                    if author == &self.me {
+                        slots.push_back(i as TimeSlot);
+                    }
+                }
             }
         }
         self.slots = slots;
@@ -123,6 +138,10 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
         // 6. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
+
+        // 7. clean the ticket cache
+        self.runtime.expool.tickets.lock().await.clear();
+
         Ok(())
     }
 
@@ -139,7 +158,10 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         let extrinsic = self.runtime.expool.collect().await?;
 
         // 2. init the builder
-        let mut builder = Block::builder().parent(parent)?.extrinsic(extrinsic)?;
+        let mut builder = Block::builder()
+            .parent(parent)?
+            .extrinsic(extrinsic)?
+            .timeslot(self.timeslot);
 
         // 3. set the author index
         builder = builder.author_index(
@@ -176,18 +198,13 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Generate a ticket
     pub async fn ticket(&self) -> anyhow::Result<Option<TicketEnvelope>> {
-        // 1. check if the sealing series still have seats
-        if self.series.keys().len() >= crate::EPOCH_LENGTH as usize {
-            return Ok(None);
-        }
-
-        // 2. check if the current validator has exceeded the ticket limit
+        // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
         if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
             return Ok(None);
         }
 
-        // 3. generate a ticket
+        // 2. generate a ticket
         let envelope = TicketEnvelope {
             attempt,
             signature: self.runtime.validator.bandersnatch_ring_sign(
@@ -197,6 +214,12 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             )?,
         };
         self.attempt.fetch_add(1, Ordering::Relaxed);
+
+        // 3. insert the ticket into the pool
+        self.runtime
+            .expool
+            .insert_ticket(envelope.clone(), self.keys.clone(), self.entropy)
+            .await?;
         Ok(Some(envelope))
     }
 
