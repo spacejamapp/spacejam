@@ -5,8 +5,7 @@ use crate::{
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
     },
-    safrole::Safrole,
-    safrole::{ValidatorData, Validators, ValidatorsData},
+    safrole::{Safrole, ValidatorData, Validators, ValidatorsData},
     Ed25519Public, OpaqueHash,
 };
 pub use error::{Error, Result};
@@ -176,18 +175,10 @@ pub fn sealing_key_series(
     {
         next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
-        let mut fallback_keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
-        for i in 0..crate::EPOCH_LENGTH {
-            let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
-            let hash = crypto::blake2b(&input);
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&hash[0..4]);
-            let index = u32::from_le_bytes(bytes) % (curr_validators.len() as u32);
-
-            fallback_keys.push(curr_validators[index as usize].bandersnatch);
-        }
-
-        next = TicketsOrKeys::Keys(fallback_keys);
+        next = TicketsOrKeys::fallback(
+            curr_validators.iter().map(|v| v.bandersnatch).collect(),
+            entropy,
+        );
     }
 
     next

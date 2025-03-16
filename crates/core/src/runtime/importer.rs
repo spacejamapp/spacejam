@@ -49,21 +49,24 @@ impl<'i, C: Config> Importer<'i, C> {
             .set(key::CURRENT_VALIDATORS, encoded.clone())?;
         self.runtime.storage.set(key::NEXT_VALIDATORS, encoded)?;
 
-        // 4. set the safrole state
+        // 4. set the entropy
+        let entropy = EntropyBuffer::default();
+        self.runtime
+            .storage
+            .set(key::ENTROPY, codec::encode(&entropy)?)?;
+
+        // 5. set the safrole state
         let safrole = Safrole {
-            series: TicketsOrKeys::Keys(validators.iter().map(|v| v.bandersnatch).collect()),
+            series: TicketsOrKeys::fallback(
+                validators.iter().map(|v| v.bandersnatch).collect(),
+                entropy,
+            ),
             validators: validators.to_vec(),
             ..Default::default()
         };
         self.runtime
             .storage
             .set(key::SAFROLE, codec::encode(&safrole)?)?;
-
-        // 5. set the entropy
-        let entropy = EntropyBuffer::default();
-        self.runtime
-            .storage
-            .set(key::ENTROPY, codec::encode(&entropy)?)?;
 
         // 5. initialize the grandpa state
         let mut grandpa = self.runtime.grandpa.write().await;
@@ -169,19 +172,18 @@ impl<'i, C: Config> Importer<'i, C> {
         .map(|v| v.bandersnatch)
         .collect::<Vec<_>>();
 
-        // construct the context and message
-        let mut message = Vec::new();
+        // construct the message
+        let mut oheader = header.clone();
+        oheader.seal = [0; 96];
+        oheader.entropy_source = [0; 96];
+        let message = codec::encode(&oheader)?;
+
+        // construct the context
         let mut context = Vec::new();
         if let Some(ticket) = ticket {
             context.extend_from_slice(&crate::JAM_TICKET_SEAL);
             context.extend_from_slice(&entropy);
             context.push(ticket.attempt);
-
-            // construct the message
-            let mut oheader = header.clone();
-            oheader.seal = [0; 96];
-            oheader.entropy_source = [0; 96];
-            message = codec::encode(&oheader)?;
         } else {
             context.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
             context.extend_from_slice(&entropy);
@@ -197,11 +199,6 @@ impl<'i, C: Config> Importer<'i, C> {
                 anyhow::bail!("header seal mismatch from ticket");
             }
         }
-
-        // check the entropy source
-        let mut context = crate::JAM_ENTROPY.to_vec();
-        context.extend_from_slice(&output);
-        verifier.ietf_vrf_verify(&[], &context, &header.entropy_source, author_index as usize)?;
 
         Ok(())
     }

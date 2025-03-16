@@ -22,7 +22,7 @@ pub struct Author<'a, C: crate::runtime::Config> {
     entropy: EntropyBuffer,
 
     /// The local validator
-    me: BandersnatchPublic,
+    pub me: BandersnatchPublic,
 
     /// The current timeslot
     pub timeslot: TimeSlot,
@@ -31,7 +31,7 @@ pub struct Author<'a, C: crate::runtime::Config> {
     pub validators: ValidatorsData,
 
     /// the current series
-    series: TicketsOrKeys,
+    pub series: TicketsOrKeys,
 
     /// The slots that we are authoring
     slots: VecDeque<TimeSlot>,
@@ -149,6 +149,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Author a block
     pub async fn author(&self) -> anyhow::Result<Header> {
+        let keys = self.keys()?;
         // 1. get the last block
         let chain = self.runtime.chain().await;
         let blocks = chain.recent_blocks()?;
@@ -166,14 +167,11 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             .timeslot(self.timeslot);
 
         // 3. set the author index
-        builder = builder.author_index(
-            self.validators
-                .iter()
-                .position(|v| v.bandersnatch == self.me)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("validator not present in the current validator set")
-                })? as u16,
-        );
+        let author_index = keys
+            .iter()
+            .position(|v| *v == self.me)
+            .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?;
+        builder = builder.author_index(author_index as u16);
 
         // 4. simulate the block
         tx::simulate(
@@ -185,13 +183,9 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         // 5. seal the block
         let block = builder.seal(
             &self.runtime.validator,
-            &self
-                .validators
-                .iter()
-                .map(|v| v.bandersnatch)
-                .collect::<Vec<_>>(),
-            self.series.clone(),
-            self.entropy,
+            &keys,
+            self.series()?,
+            self.entropy()?,
         )?;
 
         // 6. save the block to the fork storage
@@ -233,22 +227,20 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Sort and insert a ticket into the pool
     pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        let verifier = crypto::ring::verifier(self.keys.clone());
+        let keys = self.keys()?;
+        let entropy = self.entropy()?;
+        let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(
-            &TicketBody::message(ticket.attempt, &self.entropy[2]),
+            &TicketBody::message(ticket.attempt, &entropy[2]),
             &[],
             &ticket.signature,
         ) {
             Ok(id) => id,
             Err(e) => {
                 anyhow::bail!(
-                    "invalid ticket#{} with entropy: 0x{}, {e}, validators: {:#?}",
+                    "invalid ticket#{} with entropy: 0x{}, {e}",
                     ticket.attempt,
-                    hex::encode(self.entropy[2].as_ref()),
-                    self.keys
-                        .iter()
-                        .map(|v| hex::encode(v.as_ref()))
-                        .collect::<Vec<_>>()
+                    hex::encode(entropy[2].as_ref()),
                 );
             }
         };
@@ -279,5 +271,25 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         // transit the state
         tx::transit(block.clone(), &chain, &self.runtime.validator)?;
         Ok(block.header)
+    }
+
+    /// Get the bandersnatch keys of the current validators
+    fn keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
+        let validators = self.runtime.storage.current_validators()?;
+        Ok(validators
+            .iter()
+            .map(|v| v.bandersnatch)
+            .collect::<Vec<_>>())
+    }
+
+    /// Get the entropy
+    fn entropy(&self) -> anyhow::Result<EntropyBuffer> {
+        self.runtime.storage.entropy()
+    }
+
+    /// Get the series
+    fn series(&self) -> anyhow::Result<TicketsOrKeys> {
+        let safrole = self.runtime.storage.safrole()?;
+        Ok(safrole.series)
     }
 }

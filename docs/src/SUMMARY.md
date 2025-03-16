@@ -8,7 +8,8 @@
 
 - [Extrinsic](./extrinsic/README.md)
 - [Runtime](./runtime/README.md)
-  - [Grandpa](./runtime/grandpa.md)
+  - [Author](./runtime/author.md)
+  - [Importer](./runtime/importer.md)
 - [Network](./network/README.md)
 - [Node](./node/README.md)
 - [Appendix](./appendix/README.md)

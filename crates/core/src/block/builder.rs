@@ -46,6 +46,7 @@ impl Builder {
         entropy: EntropyBuffer,
     ) -> anyhow::Result<Block> {
         let message = codec::encode(&self.header)?;
+
         self.header.seal = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (self.header.slot % crate::EPOCH_LENGTH) as usize;

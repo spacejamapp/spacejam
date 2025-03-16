@@ -1,6 +1,7 @@
 //! Testing network in memory
 
 use crate::{
+    extrinsic::TicketsOrKeys,
     runtime::Validator,
     safrole::ValidatorsData,
     testing::{self, Node, TEST_VALIDATORS},
@@ -91,4 +92,52 @@ async fn verify_tickets() {
 
     author0.insert_ticket(ticket1).await.unwrap();
     author1.insert_ticket(ticket0).await.unwrap();
+}
+
+#[tokio::test]
+async fn verify_headers() {
+    let network = Network::init().await.unwrap();
+    let node0 = network.nodes.get(&ED25519_PUBLIC_KEYS[0]).unwrap();
+    let node1 = network.nodes.get(&ED25519_PUBLIC_KEYS[1]).unwrap();
+
+    let mut author0 = node0.author();
+    let mut author1 = node1.author();
+    author0.on_new_epoch().await.unwrap();
+    author1.on_new_epoch().await.unwrap();
+
+    // assert that the series is shared
+    assert_eq!(&author0.series, &author1.series);
+    let TicketsOrKeys::Keys(keys) = &author0.series else {
+        panic!("series should be keys");
+    };
+
+    // assert that the keys are in the series
+    let mut n0 = vec![];
+    let mut n1 = vec![];
+    for (i, key) in keys.iter().enumerate() {
+        if key == &author0.me {
+            n0.push(i as u32);
+        } else if key == &author1.me {
+            n1.push(i as u32);
+        }
+    }
+
+    assert_eq!(n0, vec![2]);
+    assert_eq!(n1, vec![4]);
+
+    // author 0 should author at slot 2
+    author0.timeslot = 2;
+    let header0 = author0.author().await.unwrap();
+    assert_eq!(header0.slot, 2);
+
+    // author 1 should author at slot 4
+    author1.timeslot = 4;
+    let header1 = author1.author().await.unwrap();
+    assert_eq!(header1.slot, 4);
+
+    // verify headers
+    let importer0 = node0.importer();
+    let importer1 = node1.importer();
+    importer0.validate(&header1).await.unwrap();
+    importer1.validate(&header0).await.unwrap();
 }
