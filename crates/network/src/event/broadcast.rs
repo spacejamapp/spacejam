@@ -25,7 +25,7 @@ pub async fn announce<C: score::runtime::Config>(
 }
 
 /// Broadcast a ticket to all current validators in the network.
-#[tracing::instrument(skip_all, name = "ticket")]
+#[tracing::instrument(skip(runtime, ticket), name = "ticket", fields(attempt = %ticket.attempt))]
 pub async fn ticket<C: score::runtime::Config>(
     runtime: Network<C>,
     epoch: u32,
@@ -33,6 +33,8 @@ pub async fn ticket<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let validators = runtime.grandpa.read().await.grid.curr.clone();
     let pool = runtime.pool.read().await.clone();
+
+    tracing::trace!("broadcasting to {} peers", pool.len());
     for conn in pool.values() {
         let peer: [u8; 32] = conn.address.peer_id.into();
         if validators.iter().any(|v| v.ed25519 == peer) {

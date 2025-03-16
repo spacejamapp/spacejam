@@ -22,7 +22,6 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     runtime: Network<C>,
     slot: TimeSlot,
 ) -> anyhow::Result<()> {
-    tracing::debug!("selecting the best chain");
     let grandpa = runtime.grandpa.read().await.clone();
     if slot <= grandpa.handshake.head.slot {
         tracing::trace!("skipping select best chain because of duplicated slot");

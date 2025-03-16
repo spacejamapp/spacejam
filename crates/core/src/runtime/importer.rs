@@ -85,11 +85,6 @@ impl<'i, C: Config> Importer<'i, C> {
     /// by ourselves in our storage.
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.runtime.grandpa.read().await.handshake.head.clone();
-        tracing::debug!(
-            "previous best block#{}: {}",
-            prev.slot,
-            hex::encode(prev.hash[..3].as_ref())
-        );
 
         // 1. transit the global state
         let hash = block.header.hash()?;
@@ -99,9 +94,11 @@ impl<'i, C: Config> Importer<'i, C> {
             &self.runtime.validator,
         )?;
         tracing::info!(
-            "Finalized block#{}@{}",
+            "finalized block#{}@{}, previous block#{}@{}",
             block.header.slot,
-            hex::encode(&hash[..3])
+            hex::encode(&hash[..3]),
+            prev.slot,
+            hex::encode(prev.hash[..3].as_ref())
         );
 
         // 2. save the block to the storage
@@ -128,7 +125,18 @@ impl<'i, C: Config> Importer<'i, C> {
             .grandpa
             .write()
             .await
-            .finalize(block.header.clone(), next)
+            .finalize(block.header.clone(), next)?;
+
+        // 6. clean the used tickets in pool
+        let tickets = self.runtime.storage.safrole()?.accumulator;
+        let mut envelopes = self.runtime.expool.tickets.lock().await;
+        envelopes.retain(|(id, envelope)| {
+            !tickets
+                .iter()
+                .any(|t| t.id == *id && t.attempt == envelope.attempt)
+        });
+
+        Ok(())
     }
 
     /// Validate a block header.

@@ -218,7 +218,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Sort and insert a ticket into the pool
     pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        let keys = self.keys()?;
+        let keys = self.next_keys()?;
         let entropy = self.entropy()?;
         let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(
@@ -267,6 +267,15 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     /// Get the bandersnatch keys of the current validators
     fn keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
         let validators = self.runtime.storage.current_validators()?;
+        Ok(validators
+            .iter()
+            .map(|v| v.bandersnatch)
+            .collect::<Vec<_>>())
+    }
+
+    /// Get the bandersnatch keys for the next validators
+    fn next_keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
+        let validators = self.runtime.storage.next_validators()?;
         Ok(validators
             .iter()
             .map(|v| v.bandersnatch)

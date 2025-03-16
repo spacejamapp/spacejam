@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Send a safrole ticket distribution.
-#[tracing::instrument(skip_all, level = "debug", name = "ce132::send")]
+#[tracing::instrument(skip_all, name = "ce132::send")]
 pub async fn send(
     mut send: SendStream,
     mut recv: RecvStream,
@@ -22,11 +22,6 @@ pub async fn send(
     // just wait for the response
     let _ = recv.read_to_end(0).await;
     send.finish();
-    tracing::trace!(
-        "ticket#{} for epoch: {}",
-        request.ticket.attempt,
-        request.epoch
-    );
     Ok(())
 }
 

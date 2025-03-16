@@ -62,15 +62,17 @@ pub async fn current<C: score::runtime::Config>(
     // print the current status
     let timeslot = block::timeslot().unwrap_or_default();
     tracing::info!(
-        "epoch: #{}, progress: [{}/{}], pending: #{}, grandpa: #{}, tickets: {}",
+        "epoch: #{}, progress: [{}/{}], pending: #{}@0x{}, grandpa: #{}@0x{}, tickets: {}",
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
         pending.slot,
+        hex::encode(&pending.hash[..3]),
         grandpa.handshake.head.slot,
+        hex::encode(&grandpa.handshake.head.hash[..3]),
         tickets,
     );
-    tracing::info!(
+    tracing::debug!(
         "peers: {}, connected validators: [{}/{}], connected neighbours: [{}/{}]",
         peers.len(),
         connected,
