@@ -40,7 +40,6 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
-    #[tracing::instrument(skip_all, level = "debug", fields(event = self.to_string()), name="event")]
     pub async fn handle<C: score::runtime::Config>(
         self,
         runtime: Network<C>,

@@ -4,14 +4,14 @@ use crate::{stream::ce132, Network};
 use score::{block::Header, extrinsic::TicketEnvelope};
 
 /// Announce a block to the network
+#[tracing::instrument(skip_all, name = "announce")]
 pub async fn announce<C: score::runtime::Config>(
     runtime: Network<C>,
     header: Box<Header>,
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
-
     if let Err(e) = grandpa.accept_local(&header).await {
-        tracing::warn!("{e}");
+        tracing::warn!("skip announcing block: {e}");
         return Ok(());
     }
 
@@ -25,6 +25,7 @@ pub async fn announce<C: score::runtime::Config>(
 }
 
 /// Broadcast a ticket to all current validators in the network.
+#[tracing::instrument(skip_all, name = "ticket")]
 pub async fn ticket<C: score::runtime::Config>(
     runtime: Network<C>,
     epoch: u32,

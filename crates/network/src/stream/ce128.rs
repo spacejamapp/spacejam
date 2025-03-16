@@ -22,7 +22,7 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStr
 }
 
 /// Receive a block request.
-#[tracing::instrument(skip_all, level = "debug", name = "ce128::recv")]
+#[tracing::instrument(skip_all, name = "ce128::recv")]
 pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
@@ -31,37 +31,19 @@ pub async fn recv<C: score::runtime::Config>(
     let mut buf = [0; 37];
     recv.read_exact(&mut buf).await?;
 
-    // TODO: maybe support child relationship in ancestry
     let request: Request = codec::decode(&buf)?;
-    let mut ancestors = {
-        let grandpa = runtime.grandpa.read().await.clone();
-        grandpa
-            .ancestors(&request.hash, grandpa.handshake.head.hash)
-            .iter()
-            .filter_map(|(h, _)| {
-                if *h == request.hash || *h == grandpa.handshake.head.hash {
-                    None
-                } else {
-                    Some(*h)
-                }
-            })
-            .collect::<Vec<_>>()
-    };
-    ancestors.shrink_to((request.maximum as usize).min(ancestors.len()));
-    tracing::trace!("request for {} blocks.", ancestors.len());
+    let grandpa = runtime.grandpa.read().await;
+    let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
-    // Fetch blocks in batches of 10.
-    let batch_size = 10;
+    // fetch and write the blocks
     let chain = runtime.chain().await;
-    for batch in ancestors.chunks(batch_size) {
-        let blocks = chain.fetch_blocks(batch)?;
-        tracing::trace!("fetched {} blocks.", blocks.len());
-        for block in blocks {
-            send.write(&codec::encode(&block)?).await?;
-        }
+    for (hash, header) in lookup {
+        let Ok(block) = chain.get_block(&hash) else {
+            break;
+        };
+        send.write(&codec::encode(&block)?).await?;
     }
 
-    tracing::trace!("finishing stream.");
     send.finish();
     Ok(())
 }

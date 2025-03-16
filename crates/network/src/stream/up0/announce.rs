@@ -59,14 +59,15 @@ pub async fn send<C: score::runtime::Config>(
             Ok(head) => {
                 let hash = header.hash()?;
                 let shash = hex::encode(&hash.as_ref()[..3]);
+                let handshake = conn.handshake.read().await;
                 tracing::trace!(
-                    "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
+                    "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
                     header.slot,
                     shash,
                     grandpa.handshake.head.slot,
                     hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
-                    head.slot,
-                    hex::encode(&head.hash.as_ref()[..3]),
+                    handshake.head.slot,
+                    hex::encode(&handshake.head.hash.as_ref()[..3]),
                 );
             }
             Err(e) => {
@@ -98,33 +99,28 @@ pub async fn recv<C: score::runtime::Config>(
         };
 
         buffer.clear();
+
         // update the remote peer's handshake data.
-        //
-        // We're doing this directly because the remote peer will only
-        // send us the headers as they have already been added to their
-        // local leaves.
         let grandpa = runtime.grandpa.read().await.clone();
         {
             let mut handshake = conn.handshake.write().await;
             handshake.head = head.clone();
-            grandpa.add_leaf_to(&header, &mut handshake)?;
+            grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
+        // validate the header
         if let Err(e) = runtime.importer().validate(&header).await {
-            tracing::trace!("failed to validate header: {e}");
+            tracing::warn!(
+                "failed to validate header: {e}. \nTODO: if this is caused by the epoch, we should request the ancestors of the block then handle it"
+            );
             continue;
         }
-
-        // TODO: if the header is at the same slot with the finalized head,
-        // validate the seal of it.
-        //
-        // validation logic below vv
 
         // trace the announcement data.
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
-                "block#{}: 0x{}, grandpa#{}: 0x{}, remote#{}: 0x{}",
+                "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
                 header.slot,
                 hex::encode(&header.hash()?.as_ref()[..3]),
                 grandpa.handshake.head.slot,
@@ -148,9 +144,12 @@ pub async fn recv<C: score::runtime::Config>(
         // Try to select the best chain if the remote peer's finalized
         // head is greater than the local finalized head.
         if header.slot > grandpa.handshake.head.slot {
+            tracing::debug!("queue best head selection");
             if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
                 tracing::error!("failed to send select best chain event: {e}");
             }
+        } else {
+            tracing::trace!("skipping select best chain event because of duplicated header");
         }
     }
 

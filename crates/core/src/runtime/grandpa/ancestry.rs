@@ -12,6 +12,9 @@ pub struct Ancestry {
     /// The parent of each header.
     pub parent: HashMap<OpaqueHash, OpaqueHash>,
 
+    /// The child of each header.
+    pub child: HashMap<OpaqueHash, OpaqueHash>,
+
     /// The header of each hash.
     header: HashMap<OpaqueHash, Header>,
 
@@ -29,6 +32,7 @@ impl Ancestry {
         let slot = header.slot;
 
         self.parent.insert(hash, parent);
+        self.child.insert(parent, hash);
         self.header.insert(hash, header);
         self.slots.entry((slot, parent)).or_default().insert(hash);
         Ok(())
@@ -55,11 +59,11 @@ impl Ancestry {
     }
 
     /// Get the ancestors of the given head.
-    pub fn ancestors(&self, hash: &OpaqueHash, finalized: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
+    pub fn ancestors(&self, hash: &OpaqueHash, ancestor: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
         let mut ancestors = Vec::new();
-        let mut ancestor = *hash;
-        while let Some(parent) = self.parent.get(&ancestor) {
-            if parent == &finalized {
+        let mut current = *hash;
+        while let Some(parent) = self.parent.get(&current) {
+            if parent == &ancestor {
                 break;
             }
 
@@ -69,7 +73,7 @@ impl Ancestry {
             };
 
             ancestors.push((*parent, header.clone()));
-            ancestor = *parent;
+            current = *parent;
         }
 
         ancestors

@@ -210,15 +210,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             )?,
         };
         self.attempt.fetch_add(1, Ordering::Relaxed);
-        tracing::trace!(
-            "generated ticket#{} with entropy: 0x{}, validators set: {:#?}",
-            attempt,
-            hex::encode(self.entropy[2].as_ref()),
-            self.keys
-                .iter()
-                .map(|v| hex::encode(v.as_ref()))
-                .collect::<Vec<_>>()
-        );
 
         // 3. insert the ticket into the pool
         self.insert_ticket(envelope.clone()).await?;

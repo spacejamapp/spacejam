@@ -6,17 +6,18 @@
 
 use crate::{block::Header, safrole::ValidatorsData, OpaqueHash, TimeSlot};
 use ancestry::Ancestry;
-use grid::Grid;
 pub use handshake::Handshake;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
     ops::{Deref, DerefMut},
 };
+use {grid::Grid, lookup::Lookup};
 
 mod ancestry;
 mod grid;
 mod handshake;
+mod lookup;
 
 /// Chain head cache of SpaceJam
 ///
@@ -40,6 +41,16 @@ pub struct Grandpa {
 }
 
 impl Grandpa {
+    /// Lookup the ancestors of the given hash.
+    pub fn lookup(
+        &self,
+        hash: OpaqueHash,
+        direction: u8,
+        maximum: u32,
+    ) -> impl Iterator<Item = (OpaqueHash, Header)> + '_ {
+        Lookup::new(&self.ancestry, hash, direction, maximum)
+    }
+
     /// Add a leave to the grandpa.
     ///
     /// If there are ancestors of the leaf in the leaves,
@@ -48,19 +59,14 @@ impl Grandpa {
         // We're copying the handshake here because it takes less memory than
         // cloning the whole grandpa.
         let mut handshake = self.handshake.clone();
-        self.add_leaf_to(&header, &mut handshake)?;
+        self.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         self.handshake = handshake;
         self.ancestry.save_header(header)?;
         Ok(())
     }
 
     /// Merge the leaves with the given header.
-    pub fn add_leaf_to(&self, header: &Header, handshake: &mut Handshake) -> anyhow::Result<()> {
-        let head = Head {
-            hash: header.hash()?,
-            slot: header.slot,
-        };
-
+    pub fn add_leaf_to(&self, head: Head, handshake: &mut Handshake) -> anyhow::Result<()> {
         let ancestors = self
             .ancestors(&head.hash, handshake.head.hash)
             .iter()
@@ -109,23 +115,16 @@ impl Grandpa {
     ///
     /// 1. must has the finalized block as an ancestor.
     /// 2. contains no unfinalized blocks where we see an equivocation.
-    /// 3. is considered audit
-    /// 4. the best head must be ticket sealed
+    /// 3. is considered audited
+    ///
+    /// TODO:
+    ///
+    /// - count votes via sealed blocks
     pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
         let mut votes = BTreeMap::new();
         for leaf in self.handshake.leaves.iter() {
             let ancestors = self.ancestors(&leaf.hash, self.handshake.head.hash);
-            let valid_ancestors = ancestors
-                .iter()
-                .filter_map(|(_, h)| {
-                    if h.tickets_mark.is_some() {
-                        Some(h)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
+            let valid_ancestors = ancestors.iter().collect::<Vec<_>>();
             votes.insert(valid_ancestors.len(), (leaf.clone(), ancestors));
         }
 

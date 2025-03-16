@@ -83,29 +83,33 @@ impl<'i, C: Config> Importer<'i, C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
-    #[tracing::instrument(skip_all, level = "debug", name = "Runtime::finalize")]
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.runtime.grandpa.read().await.handshake.head.clone();
         tracing::debug!(
             "previous best block#{}: {}",
             prev.slot,
-            hex::encode(prev.hash)
+            hex::encode(prev.hash[..3].as_ref())
         );
 
         // 1. transit the global state
+        let hash = block.header.hash()?;
         tx::transit(
             block.clone(),
             &self.runtime.storage,
             &self.runtime.validator,
         )?;
-        tracing::info!("Finalized block#{}", block.header.slot);
+        tracing::info!(
+            "Finalized block#{}@{}",
+            block.header.slot,
+            hex::encode(&hash[..3])
+        );
 
         // 2. save the block to the storage
         self.runtime.storage.save_block(&block)?;
 
         // 3. set the latest finalized head
         let head = Head {
-            hash: block.hash()?,
+            hash: block.header.hash()?,
             slot: block.header.slot,
         };
         self.runtime.storage.set_finalized(&head)?;

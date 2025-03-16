@@ -92,13 +92,18 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Lookup the best head from the network
-    pub async fn lookup(&self, best: &Head) -> Option<Connection> {
+    pub async fn lookup(&self, best: &Head) -> Vec<Connection> {
         let grandpa = self.runtime.grandpa.read().await.clone();
-        let mut feeds = Vec::new();
         let pool = self.pool.read().await.clone();
+        let mut feeds = Vec::new();
         for conn in pool.values() {
-            let head = conn.handshake.read().await.head.clone();
-            if head.hash == best.hash || grandpa.is_descendant_of(head.hash, best.hash) {
+            let handshake = conn.handshake.read().await;
+
+            // check if the connection is a feedi
+            if handshake.head.hash == best.hash
+                || grandpa.is_descendant_of(handshake.head.hash, best.hash)
+                || handshake.leaves.contains(best)
+            {
                 feeds.push(conn.clone());
             }
         }
@@ -110,7 +115,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
         //
         // so we can directly fetch the missing blocks from the feeds.
         feeds.sort_by_key(|conn| conn.latency);
-        feeds.first().cloned()
+        feeds
     }
 
     /// Send an event to the network

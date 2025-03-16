@@ -8,6 +8,7 @@ use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
+#[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
 pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 
@@ -50,6 +51,7 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
 }
 
 /// Handle the closed event.
+#[tracing::instrument(skip_all, name = "close", fields(peer = peer.to_string()))]
 pub async fn closed<C: score::runtime::Config>(
     runtime: Network<C>,
     peer: PeerId,
