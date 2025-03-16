@@ -12,8 +12,6 @@ use crate::{
     Block, EntropyBuffer,
 };
 
-use super::Validator;
-
 /// Importer for SpaceJam
 pub struct Importer<'i, C: Config> {
     /// The runtime
@@ -127,13 +125,13 @@ impl<'i, C: Config> Importer<'i, C> {
     }
 
     /// Validate a block header.
-    pub async fn validate(&self, header: Header) -> anyhow::Result<()> {
+    pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
         let handshake = self.runtime.grandpa.read().await.handshake.clone();
         let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
         let remote_epoch = header.slot / crate::EPOCH_LENGTH;
 
         // if the epoch greater than the next, skip the validation.
-        if remote_epoch > local_epoch + 1 {
+        if local_epoch != 0 && remote_epoch > local_epoch + 1 {
             anyhow::bail!(
                 "invalid epoch: local: {}, remote: {}",
                 local_epoch,
@@ -203,13 +201,7 @@ impl<'i, C: Config> Importer<'i, C> {
         // check the entropy source
         let mut context = crate::JAM_ENTROPY.to_vec();
         context.extend_from_slice(&output);
-        let source = self
-            .runtime
-            .validator
-            .bandersnatch_sign(&keys, &context, &[])?;
-        if source != header.entropy_source {
-            anyhow::bail!("header entropy source mismatch");
-        }
+        verifier.ietf_vrf_verify(&[], &context, &header.entropy_source, author_index as usize)?;
 
         Ok(())
     }

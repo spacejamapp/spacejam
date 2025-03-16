@@ -110,6 +110,11 @@ pub async fn recv<C: score::runtime::Config>(
             grandpa.add_leaf_to(&header, &mut handshake)?;
         }
 
+        if let Err(e) = runtime.importer().validate(&header).await {
+            tracing::trace!("failed to validate header: {e}");
+            continue;
+        }
+
         // TODO: if the header is at the same slot with the finalized head,
         // validate the seal of it.
         //

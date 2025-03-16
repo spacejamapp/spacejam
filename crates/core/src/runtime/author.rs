@@ -216,6 +216,15 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             )?,
         };
         self.attempt.fetch_add(1, Ordering::Relaxed);
+        tracing::trace!(
+            "generated ticket#{} with entropy: 0x{}, validators set: {:#?}",
+            attempt,
+            hex::encode(self.entropy[2].as_ref()),
+            self.keys
+                .iter()
+                .map(|v| hex::encode(v.as_ref()))
+                .collect::<Vec<_>>()
+        );
 
         // 3. insert the ticket into the pool
         self.insert_ticket(envelope.clone()).await?;
@@ -224,20 +233,28 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Sort and insert a ticket into the pool
     pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        // verify the ticket
         let verifier = crypto::ring::verifier(self.keys.clone());
-        let Ok(id) = verifier.ring_vrf_verify(
+        let id = match verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &self.entropy[2]),
             &[],
             &ticket.signature,
-        ) else {
-            tracing::warn!("invalid ticket with the current storage, skipping");
-            return Ok(());
+        ) {
+            Ok(id) => id,
+            Err(e) => {
+                anyhow::bail!(
+                    "invalid ticket#{} with entropy: 0x{}, {e}, validators: {:#?}",
+                    ticket.attempt,
+                    hex::encode(self.entropy[2].as_ref()),
+                    self.keys
+                        .iter()
+                        .map(|v| hex::encode(v.as_ref()))
+                        .collect::<Vec<_>>()
+                );
+            }
         };
 
         let mut tickets = self.runtime.expool.tickets.lock().await;
         tickets.insert((id, ticket));
-
         Ok(())
     }
 

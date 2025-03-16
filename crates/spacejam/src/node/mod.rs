@@ -41,6 +41,9 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
         return;
     }
 
+    // sleep for 10 seconds to make sure the network is ready
+    tokio::time::sleep(Duration::from_secs(10)).await;
+
     loop {
         log::current(runtime, &author.validators).await;
         let Ok(now) = block::now() else {
@@ -54,15 +57,14 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
 
         // author block and maybe generate ticket
         let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
-        let next = author.next().await;
-        if let Err(e) = next {
-            tracing::error!("Authoring error: {:?}", e);
-            tokio::time::sleep(Duration::from_secs(duration)).await;
-            continue;
-        }
-
-        // get the authoring result
-        let (header, ticket) = next.expect("checked before");
+        let (header, ticket) = match author.next().await {
+            Ok((header, ticket)) => (header, ticket),
+            Err(e) => {
+                tracing::error!("Authoring error: {:?}", e);
+                tokio::time::sleep(Duration::from_secs(duration)).await;
+                continue;
+            }
+        };
 
         // send ticket
         if let Some(ticket) = ticket {
