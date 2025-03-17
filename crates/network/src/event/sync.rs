@@ -24,7 +24,10 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
     if slot <= grandpa.handshake.head.slot {
-        tracing::trace!("skipping select best chain because of duplicated slot");
+        tracing::trace!(
+            "upcoming#{slot}, grandpa#{}: skipping best chain selection",
+            grandpa.handshake.head.slot
+        );
         return Ok(());
     }
 
@@ -40,7 +43,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     if let Ok(head) = chain.get_block(&best.hash) {
         self::finalize_local(&runtime, head, ancestors).await
     } else {
-        BlockSync::new(&runtime, best).await.sync().await
+        BlockSync::new(&runtime, best).await?.sync().await
     }
 }
 
@@ -97,10 +100,10 @@ pub struct BlockSync<'r, C: score::runtime::Config> {
 
 impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
     /// Create a new block sync requester.
-    pub async fn new(runtime: &'r Network<C>, best: Head) -> Self {
+    pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
         let grandpa = runtime.grandpa.read().await.clone();
         let request = ce128::Request {
-            hash: best.hash,
+            hash: grandpa.handshake.head.hash,
             direction: 0,
             maximum: (grandpa
                 .ancestors(&best.hash, grandpa.handshake.head.hash)
@@ -108,11 +111,11 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
                 + 1,
         };
 
-        Self {
+        Ok(Self {
             best,
             request,
             runtime,
-        }
+        })
     }
 
     /// Send the request to the feeds.
@@ -167,6 +170,17 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
             // if the block is considered as a descendant of the current head, skip it.
             {
                 let grandpa = self.runtime.grandpa.read().await.clone();
+                if block.header.parent != grandpa.handshake.head.hash {
+                    tracing::error!(
+                        "the mf order is not correct: parent#{}@0x{} != head#{}@0x{}",
+                        block.header.slot,
+                        hex::encode(&block.header.parent[..3]),
+                        grandpa.handshake.head.slot,
+                        hex::encode(&grandpa.handshake.head.hash[..3])
+                    );
+                    break;
+                }
+
                 if grandpa.handshake.head.slot >= block.header.slot {
                     continue;
                 }

@@ -117,17 +117,26 @@ pub async fn recv<C: score::runtime::Config>(
         }
 
         // trace the announcement data.
+        let hash = header.hash()?;
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
                 "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
                 header.slot,
-                hex::encode(&header.hash()?.as_ref()[..3]),
+                hex::encode(&hash.as_ref()[..3]),
                 grandpa.handshake.head.slot,
                 hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
                 handshake.head.slot,
                 hex::encode(&handshake.head.hash.as_ref()[..3]),
             );
+        }
+
+        // skip if the header exists
+        {
+            let grandpa = runtime.grandpa.read().await.clone();
+            if grandpa.ancestry.header(&hash).is_some() {
+                continue;
+            }
         }
 
         // Add this header to local leaves
@@ -149,7 +158,11 @@ pub async fn recv<C: score::runtime::Config>(
                 tracing::error!("failed to send select best chain event: {e}");
             }
         } else {
-            tracing::trace!("skipping select best chain event because of duplicated header");
+            tracing::trace!(
+                "skipping best chain selection: incoming#{}, grandpa#{}",
+                header.slot,
+                grandpa.handshake.head.slot
+            );
         }
     }
 

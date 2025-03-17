@@ -8,9 +8,6 @@ pub struct Lookup<'a> {
     ancestry: &'a Ancestry,
 
     /// The current hash.
-    pub from: OpaqueHash,
-
-    /// The current hash.
     pub current: OpaqueHash,
 
     /// The direction of the lookup.
@@ -28,7 +25,6 @@ impl<'a> Lookup<'a> {
     pub fn new(ancestry: &'a Ancestry, from: OpaqueHash, direction: u8, maximum: u32) -> Self {
         Self {
             ancestry,
-            from,
             current: from,
             direction,
             count: 0,
@@ -43,13 +39,6 @@ impl Iterator for Lookup<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.count >= self.maximum {
             return None;
-        }
-
-        if self.count == 0 {
-            let header = self.ancestry.header(&self.from).cloned()?;
-            self.current = self.from;
-            self.count += 1;
-            return Some((self.from, header));
         }
 
         // get the next hash

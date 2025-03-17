@@ -11,7 +11,7 @@ pub async fn announce<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
     if let Err(e) = grandpa.accept_local(&header).await {
-        tracing::warn!("skip announcing block: {e}");
+        tracing::warn!("skip because: {e}");
         return Ok(());
     }
 

@@ -62,8 +62,6 @@ impl Event {
                 }
             }
             Self::SelectBestChain { slot } => {
-                tokio::time::sleep(tokio::time::Duration::from_secs(score::SLOT_PERIOD as u64))
-                    .await;
                 sync::select_best_chain(runtime, slot).await?;
             }
         }

@@ -37,7 +37,7 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
                 }
             });
         } else {
-            tracing::trace!("skipping up0 stream");
+            tracing::trace!("peer is not a neighbour, skipping up0 stream");
         }
     }
 
