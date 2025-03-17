@@ -137,7 +137,8 @@ pub async fn recv<C: score::runtime::Config>(
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
         // broadcast the header to the network
-        runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
+        // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
+        crate::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await?;
 
         // Indicates that we need to select the best chain.
         //

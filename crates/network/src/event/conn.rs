@@ -85,9 +85,10 @@ pub async fn closed<C: score::runtime::Config>(
 
 /// Serve a connection.
 async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
+    // TODO: use limited threads to serve the connection
+
     while let Ok((send, recv)) = conn.accept_bi().await {
         let runtime = runtime.clone();
-
-        stream::recv(conn.address.peer_id, send, recv, runtime).await
+        tokio::spawn(async move { stream::recv(conn.address.peer_id, send, recv, runtime).await });
     }
 }

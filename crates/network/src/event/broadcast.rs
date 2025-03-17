@@ -4,7 +4,7 @@ use crate::{stream::ce132, Network};
 use score::{block::Header, extrinsic::TicketEnvelope};
 
 /// Announce a block to the network
-#[tracing::instrument(skip_all, name = "announce")]
+#[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
 pub async fn announce<C: score::runtime::Config>(
     runtime: Network<C>,
     header: Box<Header>,
@@ -17,7 +17,7 @@ pub async fn announce<C: score::runtime::Config>(
 
     // broadcast the block to the network
     match runtime.announce.send(*header) {
-        Ok(count) => tracing::trace!("broadcasting block to {} peers", count),
+        Ok(count) => tracing::trace!("broadcasting to {} peers", count),
         Err(e) => tracing::warn!("failed to broadcast block: {e}"),
     }
 

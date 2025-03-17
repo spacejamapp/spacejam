@@ -169,7 +169,7 @@ impl Grandpa {
         // 1. if the block has been announced by the remote
         if handshake.leaves.contains(&head) {
             anyhow::bail!(
-                "block#{}: 0x{} has been announced by the remote",
+                "block#{}@0x{} has been announced by the remote",
                 head.slot,
                 shash
             );

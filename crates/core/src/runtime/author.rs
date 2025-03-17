@@ -158,7 +158,8 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
 
         // 2. collect the extrinsics
-        let extrinsic = self.runtime.expool.collect().await?;
+        let envelopes = self.runtime.storage.safrole()?.accumulator;
+        let extrinsic = self.runtime.expool.collect(envelopes).await?;
 
         // 2. init the builder
         let mut builder = Block::builder()

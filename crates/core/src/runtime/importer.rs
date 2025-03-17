@@ -127,15 +127,6 @@ impl<'i, C: Config> Importer<'i, C> {
             .await
             .finalize(block.header.clone(), next)?;
 
-        // 6. clean the used tickets in pool
-        let tickets = self.runtime.storage.safrole()?.accumulator;
-        let mut envelopes = self.runtime.expool.tickets.lock().await;
-        envelopes.retain(|(id, envelope)| {
-            !tickets
-                .iter()
-                .any(|t| t.id == *id && t.attempt == envelope.attempt)
-        });
-
         Ok(())
     }
 

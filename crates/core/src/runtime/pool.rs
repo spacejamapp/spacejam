@@ -53,7 +53,7 @@ impl Pool {
     /// 2. remove invalid extrinsics
     /// 3. remove duplicated extrinsics
     /// 4. pack the extrinsics into a single extrinsic
-    pub async fn collect(&self) -> anyhow::Result<Extrinsic> {
+    pub async fn collect(&self, tickets: Vec<TicketBody>) -> anyhow::Result<Extrinsic> {
         let mut extrinsics = Extrinsic::default();
 
         {
@@ -63,7 +63,7 @@ impl Pool {
 
             // collect tickets
             if timeslot % crate::EPOCH_LENGTH < crate::TICKET_SUBMISSION_PERIOD {
-                let mut tickets = self
+                let mut envelopes = self
                     .tickets
                     .lock()
                     .await
@@ -72,8 +72,16 @@ impl Pool {
                     .collect::<Vec<_>>();
                 self.tickets.lock().await.clear();
 
-                tickets.sort_by(|a, b| a.0.cmp(&b.0));
-                extrinsics.tickets = tickets.into_iter().map(|(_, ticket)| ticket).collect();
+                // remove the tickets that are already in the pool
+                envelopes.retain(|(id, envelope)| {
+                    !tickets
+                        .iter()
+                        .any(|t| t.id == *id && t.attempt == envelope.attempt)
+                });
+
+                // sort the envelopes by the id
+                envelopes.sort_by(|a, b| a.0.cmp(&b.0));
+                extrinsics.tickets = envelopes.into_iter().map(|(_, ticket)| ticket).collect();
             }
         }
 

@@ -48,31 +48,38 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 #[tracing::instrument(skip_all, name = "local")]
 async fn finalize_local<C: score::runtime::Config>(
     runtime: &Network<C>,
-    head: Block,
+    best: Block,
     mut ancestors: Vec<(OpaqueHash, Header)>,
 ) -> anyhow::Result<()> {
     ancestors.reverse();
     let grandpa = runtime.grandpa.read().await.clone();
     let chain = runtime.chain().await;
-    let mut current = grandpa.handshake.head.clone();
+    let mut finalized = grandpa.handshake.head.clone();
     let importer = runtime.importer();
-    for (ancestor, header) in ancestors.iter().skip(1) {
-        if header.parent != current.hash {
+    for (ancestor, header) in ancestors.iter() {
+        if header.slot == best.header.slot {
+            break;
+        }
+
+        if header.parent != finalized.hash {
             anyhow::bail!(
-                "ancestor {} is not the parent of {}",
-                hex::encode(ancestor),
-                hex::encode(current.hash)
+                "the parent 0x{} of the ancestor#{}@0x{} is not the latest finalized block#{}@0x{}",
+                hex::encode(&header.parent[..3]),
+                header.slot,
+                hex::encode(&ancestor[..3]),
+                finalized.slot,
+                hex::encode(&finalized.hash[..3]),
             );
         }
 
         importer.finalize(chain.get_block(ancestor)?).await?;
-        current = Head {
+        finalized = Head {
             hash: *ancestor,
             slot: header.slot,
         };
     }
 
-    importer.finalize(head).await?;
+    importer.finalize(best).await?;
     Ok(())
 }
 
@@ -127,7 +134,7 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
 
             let (mut send, recv) = ce128::send(feed.clone(), self.request.clone()).await?;
             if let Err(e) = self.request(recv).await {
-                tracing::warn!("failed to request from {}: {}", feed.address.peer_id, e);
+                tracing::warn!("failed to sync from {}: {}", feed.address.peer_id, e);
             }
 
             send.finish()?;
@@ -138,6 +145,9 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
     }
 
     /// Send the request to the feeds.
+    ///
+    /// TODO: If our local storage contains one of the upcoming blocks,
+    /// we should finalize it from our storage directly.
     pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
         let importer = self.runtime.importer();
@@ -153,9 +163,13 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
                 block.header.slot,
                 hex::encode(&block.header.hash()?[..3])
             );
-            let grandpa = self.runtime.grandpa.read().await.clone();
-            if grandpa.handshake.head.slot >= block.header.slot {
-                continue;
+
+            // if the block is considered as a descendant of the current head, skip it.
+            {
+                let grandpa = self.runtime.grandpa.read().await.clone();
+                if grandpa.handshake.head.slot >= block.header.slot {
+                    continue;
+                }
             }
 
             // finalize the block.

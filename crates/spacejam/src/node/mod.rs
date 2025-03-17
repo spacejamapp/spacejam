@@ -45,23 +45,16 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
     tokio::time::sleep(Duration::from_secs(10)).await;
 
     loop {
-        log::current(runtime, &author.validators).await;
-        let Ok(now) = block::now() else {
-            tracing::error!("Failed to get current time");
-            tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
-            continue;
-        };
-
         // get the current epoch
-        let epoch = now / score::SLOT_PERIOD / score::EPOCH_LENGTH;
+        log::current(runtime, &author.validators).await;
+        let timeslot = block::timeslot().expect("failed to get current timeslot");
+        let epoch = timeslot / score::EPOCH_LENGTH;
 
         // author block and maybe generate ticket
-        let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
         let (header, ticket) = match author.next().await {
             Ok((header, ticket)) => (header, ticket),
             Err(e) => {
                 tracing::error!("Authoring error: {:?}", e);
-                tokio::time::sleep(Duration::from_secs(duration)).await;
                 continue;
             }
         };
@@ -78,12 +71,32 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
 
         // author block
         if let Some(header) = header {
-            if let Err(e) = runtime.send(Event::AnnounceBlock(Box::new(header))) {
+            if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
+                tracing::error!("Failed to select best chain: {:?}", e);
+            }
+
+            if let Ok(hash) = header.hash() {
+                tracing::info!(
+                    "authored block#{}@0x{}",
+                    header.slot,
+                    hex::encode(&hash[..3])
+                );
+            }
+
+            if let Err(e) =
+                network::event::broadcast::announce(runtime.clone(), Box::new(header)).await
+            {
                 tracing::error!("Failed to announce block: {:?}", e);
             }
         }
 
-        // sleep for the next slot
-        tokio::time::sleep(Duration::from_secs(duration)).await;
+        self::sleep_to_next_slot().await;
     }
+}
+
+/// Sleep to the next slot
+async fn sleep_to_next_slot() {
+    let now = block::now().expect("failed to get current time");
+    let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+    tokio::time::sleep(Duration::from_secs(duration)).await;
 }

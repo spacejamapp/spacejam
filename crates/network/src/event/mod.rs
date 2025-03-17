@@ -7,7 +7,7 @@ use crate::{
 use score::{block::Header, extrinsic::TicketEnvelope, TimeSlot};
 use std::fmt;
 
-mod broadcast;
+pub mod broadcast;
 mod conn;
 mod sync;
 
@@ -46,6 +46,7 @@ impl Event {
     ) -> anyhow::Result<()> {
         match self {
             Self::AnnounceBlock(header) => {
+                tracing::info!("announcing block: {}", header.slot);
                 broadcast::announce(runtime, header).await?;
             }
             Self::DistributeTicket { epoch, ticket } => {
@@ -61,6 +62,8 @@ impl Event {
                 }
             }
             Self::SelectBestChain { slot } => {
+                tokio::time::sleep(tokio::time::Duration::from_secs(score::SLOT_PERIOD as u64))
+                    .await;
                 sync::select_best_chain(runtime, slot).await?;
             }
         }
