@@ -154,9 +154,7 @@ pub async fn recv<C: score::runtime::Config>(
         // Try to select the best chain if the remote peer's finalized
         // head is greater than the local finalized head.
         if header.slot > grandpa.handshake.head.slot {
-            if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
-                tracing::error!("failed to send select best chain event: {e}");
-            }
+            crate::event::sync::select_best_chain(runtime.clone(), header.slot).await?;
         } else {
             tracing::trace!(
                 "skipping best chain selection: incoming#{}, grandpa#{}",

@@ -73,9 +73,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         timeslot: u32,
     ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
         let slot = timeslot % crate::EPOCH_LENGTH;
-        if slot == 0 {
-            self.on_new_epoch().await?;
-        }
         let mut next = (None, None);
 
         // 1. wait for the next epoch if we are not a validator

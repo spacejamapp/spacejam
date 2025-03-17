@@ -33,7 +33,6 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 
     // select the best head from the grandpa.
     let Some((best, ancestors)) = grandpa.select_best_head() else {
-        tracing::warn!("failed to select the best head");
         return Ok(());
     };
 
@@ -170,15 +169,8 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
             // if the block is considered as a descendant of the current head, skip it.
             {
                 let grandpa = self.runtime.grandpa.read().await.clone();
-                if block.header.parent != grandpa.handshake.head.hash {
-                    tracing::error!(
-                        "the mf order is not correct: parent#{}@0x{} != head#{}@0x{}",
-                        block.header.slot,
-                        hex::encode(&block.header.parent[..3]),
-                        grandpa.handshake.head.slot,
-                        hex::encode(&grandpa.handshake.head.hash[..3])
-                    );
-                    break;
+                if block.header.hash()? == grandpa.handshake.head.hash {
+                    continue;
                 }
 
                 if grandpa.handshake.head.slot >= block.header.slot {

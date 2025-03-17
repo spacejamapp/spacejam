@@ -16,9 +16,14 @@ pub async fn announce<C: score::runtime::Config>(
     }
 
     // broadcast the block to the network
+    let slot = header.slot;
     match runtime.announce.send(*header) {
         Ok(count) => tracing::trace!("broadcasting to {} peers", count),
         Err(e) => tracing::warn!("failed to broadcast block: {e}"),
+    }
+
+    if let Err(e) = crate::event::sync::select_best_chain(runtime.clone(), slot).await {
+        tracing::error!("Failed to select best chain: {:?}", e);
     }
 
     Ok(())

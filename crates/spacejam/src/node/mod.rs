@@ -37,7 +37,7 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
     log::init(runtime).await;
     let mut author = runtime.author();
     if let Err(e) = author.on_new_epoch().await {
-        tracing::error!("Failed to initialize author: {e:?}");
+        tracing::error!("Failed to initialize authoring: {e:?}");
         return;
     }
 
@@ -49,6 +49,11 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
         log::current(runtime, &author.validators).await;
         let timeslot = block::timeslot().expect("failed to get current timeslot");
         let epoch = timeslot / score::EPOCH_LENGTH;
+
+        // select the best chain before authoring
+        if let Err(e) = network::event::sync::select_best_chain(runtime.clone(), timeslot).await {
+            tracing::error!("Failed to select best chain: {:?}", e);
+        }
 
         // author block and maybe generate ticket
         let (header, ticket) = match author.next().await {
@@ -71,20 +76,17 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
 
         // author block
         if let Some(header) = header {
-            if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
-                tracing::error!("Failed to select best chain: {:?}", e);
-            }
-
             if let Ok(hash) = header.hash() {
                 tracing::info!(
-                    "authored block#{}@0x{}",
+                    "block#{}@0x{}, parent@{}",
                     header.slot,
-                    hex::encode(&hash[..3])
+                    hex::encode(&hash[..3]),
+                    hex::encode(&header.parent[..3])
                 );
             }
 
             if let Err(e) =
-                network::event::broadcast::announce(runtime.clone(), Box::new(header)).await
+                network::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await
             {
                 tracing::error!("Failed to announce block: {:?}", e);
             }
