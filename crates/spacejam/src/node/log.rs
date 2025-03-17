@@ -3,7 +3,7 @@
 use network::Network;
 use score::{
     block,
-    runtime::{storage::BlockStorage, Storage, Validator},
+    runtime::{Storage, Validator},
     safrole::ValidatorData,
 };
 
@@ -15,15 +15,6 @@ pub async fn init<C: score::runtime::Config>(runtime: &Network<C>) {
         grandpa.handshake.head.slot,
         hex::encode(grandpa.handshake.head.hash)
     );
-
-    let chain = runtime.chain().await;
-    if let Ok(block) = chain.get_finalized() {
-        tracing::info!(
-            "The latest pending block #{}: 0x{}",
-            block.slot,
-            hex::encode(block.hash)
-        );
-    }
 }
 
 /// Logging the current status of the node
@@ -51,23 +42,20 @@ pub async fn current<C: score::runtime::Config>(
     let total_neighbours = neighbours.len();
 
     // get the latest pending block
-    let (pending, tickets) = {
-        let chain = runtime.chain().await;
-        (
-            chain.get_finalized().unwrap_or_default(),
-            chain.safrole().unwrap_or_default().accumulator.len(),
-        )
-    };
+    let tickets = runtime
+        .storage
+        .safrole()
+        .unwrap_or_default()
+        .accumulator
+        .len();
 
     // print the current status
     let timeslot = block::timeslot().unwrap_or_default();
     tracing::info!(
-        "epoch: #{}, progress: [{}/{}], pending: #{}@0x{}, grandpa: #{}@0x{}, tickets: {}",
+        "epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
-        pending.slot,
-        hex::encode(&pending.hash[..3]),
         grandpa.handshake.head.slot,
         hex::encode(&grandpa.handshake.head.hash[..3]),
         tickets,

@@ -3,7 +3,6 @@
 use author::Author;
 use importer::Importer;
 use std::sync::Arc;
-use storage::Branch;
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Handshake, Head},
@@ -45,14 +44,6 @@ impl<C: Config> Runtime<C> {
             expool: Default::default(),
             grandpa: Arc::new(RwLock::new(Default::default())),
         }
-    }
-
-    /// Get the current pending chain
-    pub async fn chain(&self) -> Branch<C::Storage> {
-        Branch::checkout(
-            &self.storage,
-            self.grandpa.read().await.handshake.head.clone(),
-        )
     }
 
     /// Get the authoring context

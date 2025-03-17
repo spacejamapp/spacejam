@@ -1,6 +1,6 @@
 //! The ancestor map.
 
-use crate::{block::Header, OpaqueHash, TimeSlot};
+use crate::{block::Header, OpaqueHash};
 use std::collections::{HashMap, HashSet};
 
 /// The ancestor map.
@@ -21,7 +21,7 @@ pub struct Ancestry {
     /// Mapping from (slot, parent_hash) to block hashes
     ///
     /// This allows detecting true equivocations (same slot AND same parent)
-    pub slots: HashMap<(TimeSlot, OpaqueHash), HashSet<OpaqueHash>>,
+    pub pending: HashMap<OpaqueHash, HashSet<OpaqueHash>>,
 }
 
 impl Ancestry {
@@ -29,12 +29,11 @@ impl Ancestry {
     pub(crate) fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
         let hash = header.hash()?;
         let parent = header.parent;
-        let slot = header.slot;
 
         self.parent.insert(hash, parent);
         self.child.insert(parent, hash);
         self.header.insert(hash, header);
-        self.slots.entry((slot, parent)).or_default().insert(hash);
+        self.pending.entry(parent).or_default().insert(hash);
         Ok(())
     }
 

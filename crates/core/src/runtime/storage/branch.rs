@@ -30,17 +30,6 @@ impl<'s, S: KVStorage> Branch<'s, S> {
         Ok(())
     }
 
-    /// Finalize the branch
-    ///
-    /// Override all storage to the finalized chain.
-    pub fn finalize(&self) -> Result<()> {
-        let mut iter = self.finalized.prefix_iter(self.head.hash[..6].as_ref())?;
-        while let Some(Ok((key, value))) = iter.next() {
-            self.finalized.set(key, value)?;
-        }
-        Ok(())
-    }
-
     /// Wrap the key with the branch prefix
     fn wrap(&self, key: impl AsRef<[u8]>) -> Vec<u8> {
         [self.head.hash[..6].as_ref(), key.as_ref()].concat()

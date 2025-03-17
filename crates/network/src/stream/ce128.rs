@@ -36,9 +36,8 @@ pub async fn recv<C: score::runtime::Config>(
     let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
     // fetch and write the blocks
-    let chain = runtime.chain().await;
     for (hash, header) in lookup {
-        let Ok(block) = chain.get_block(&hash) else {
+        let Ok(block) = runtime.storage.get_block(&hash) else {
             break;
         };
         send.write(&codec::encode(&block)?).await?;

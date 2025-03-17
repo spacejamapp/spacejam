@@ -132,7 +132,7 @@ impl Grandpa {
         // the chains with equivocating ancestors.
         while let Some((_, (head, ancestors))) = votes.pop_last() {
             if ancestors.iter().any(|(_, a)| {
-                let Some(entry) = self.ancestry.slots.get(&(a.slot, a.parent)) else {
+                let Some(entry) = self.ancestry.pending.get(&a.parent) else {
                     return false;
                 };
 

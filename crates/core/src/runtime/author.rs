@@ -3,14 +3,13 @@
 use crate::{
     block::{self, Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
-    runtime::{storage::BlockStorage, tx, Head, Runtime, Storage, Validator},
+    runtime::{storage::BlockStorage, tx, Runtime, Storage, Validator},
     safrole::ValidatorsData,
     BandersnatchPublic, EntropyBuffer, TimeSlot,
 };
 use std::{
     collections::VecDeque,
     sync::atomic::{AtomicU8, Ordering},
-    time::Duration,
 };
 
 /// Authoring context
@@ -75,22 +74,13 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         let slot = timeslot % crate::EPOCH_LENGTH;
         let mut next = (None, None);
 
-        // 1. wait for the next epoch if we are not a validator
-        if !self.validators.iter().any(|v| v.bandersnatch == self.me) {
-            let duration =
-                (crate::EPOCH_LENGTH - (timeslot % crate::EPOCH_LENGTH)) * crate::SLOT_PERIOD;
-            tracing::info!("not a validator, sleeping {duration}s for the next epoch");
-            tokio::time::sleep(Duration::from_secs(duration as u64)).await;
-            return Ok(next);
-        }
-
-        // 2. check generating tickets
+        // 1. check generating tickets
         next.1 = self.ticket().await?;
 
-        // 3. update the timeslot
+        // 2. update the timeslot
         self.timeslot = timeslot;
 
-        // 4. check authoring blocks
+        // 3. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author().await?);
             self.slots.pop_front();
@@ -112,7 +102,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             .collect::<Vec<_>>();
 
         // 3. check if we are in the fallback mode
-        let safrole = self.runtime.chain().await.safrole()?;
+        let safrole = self.runtime.storage.safrole()?;
         self.series = safrole.series;
 
         // 4. update the authoring slots
@@ -148,8 +138,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     pub async fn author(&self) -> anyhow::Result<Header> {
         let keys = self.keys()?;
         // 1. get the last block
-        let chain = self.runtime.chain().await;
-        let blocks = chain.recent_blocks()?;
+        let blocks = self.runtime.storage.recent_blocks()?;
         let parent = blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?;
@@ -172,11 +161,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         builder = builder.author_index(author_index as u16);
 
         // 4. simulate the block
-        tx::simulate(
-            &mut builder,
-            &self.runtime.chain().await,
-            &self.runtime.validator,
-        )?;
+        tx::simulate(&mut builder, &self.runtime.storage, &self.runtime.validator)?;
 
         // 5. seal the block
         let block = builder.seal(
@@ -241,24 +226,12 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Save a block to the fork storage
     async fn save_block(&self, block: Block) -> anyhow::Result<Header> {
-        let chain = self.runtime.chain().await;
-
-        // save the block to the storage
-        let head = Head {
-            hash: block.hash()?,
-            slot: block.header.slot,
-        };
-        chain.save_block(&block)?;
-        chain.set_finalized(&head)?;
-
-        // save the header to the grandpa
-        {
-            let mut grandpa = self.runtime.grandpa.write().await;
-            grandpa.add_leaf(block.header.clone())?;
-        }
-
-        // transit the state
-        tx::transit(block.clone(), &chain, &self.runtime.validator)?;
+        self.runtime.storage.save_block(&block)?;
+        self.runtime
+            .grandpa
+            .write()
+            .await
+            .add_leaf(block.header.clone())?;
         Ok(block.header)
     }
 

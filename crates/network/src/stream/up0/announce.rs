@@ -148,20 +148,6 @@ pub async fn recv<C: score::runtime::Config>(
         // broadcast the header to the network
         // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
         crate::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await?;
-
-        // Indicates that we need to select the best chain.
-        //
-        // Try to select the best chain if the remote peer's finalized
-        // head is greater than the local finalized head.
-        if header.slot > grandpa.handshake.head.slot {
-            crate::event::sync::select_best_chain(runtime.clone(), header.slot).await?;
-        } else {
-            tracing::trace!(
-                "skipping best chain selection: incoming#{}, grandpa#{}",
-                header.slot,
-                grandpa.handshake.head.slot
-            );
-        }
     }
 
     anyhow::bail!("announcement receiver stream closed");

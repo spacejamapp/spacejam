@@ -38,8 +38,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 
     // if the best head is already in the local storage,
     // run sync from the local storage.
-    let chain = runtime.chain().await;
-    if let Ok(head) = chain.get_block(&best.hash) {
+    if let Ok(head) = runtime.storage.get_block(&best.hash) {
         self::finalize_local(&runtime, head, ancestors).await
     } else {
         BlockSync::new(&runtime, best).await?.sync().await
@@ -55,7 +54,6 @@ async fn finalize_local<C: score::runtime::Config>(
 ) -> anyhow::Result<()> {
     ancestors.reverse();
     let grandpa = runtime.grandpa.read().await.clone();
-    let chain = runtime.chain().await;
     let mut finalized = grandpa.handshake.head.clone();
     let importer = runtime.importer();
     for (ancestor, header) in ancestors.iter() {
@@ -74,7 +72,9 @@ async fn finalize_local<C: score::runtime::Config>(
             );
         }
 
-        importer.finalize(chain.get_block(ancestor)?).await?;
+        importer
+            .finalize(runtime.storage.get_block(ancestor)?)
+            .await?;
         finalized = Head {
             hash: *ancestor,
             slot: header.slot,

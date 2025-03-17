@@ -5,7 +5,7 @@ use crate::{
     extrinsic::{TicketBody, TicketsOrKeys},
     runtime::{
         storage::{BlockStorage, Branch, KVStorage},
-        tx, Config, Head, Runtime, Storage,
+        tx, Config, Runtime, Storage,
     },
     safrole::{Safrole, ValidatorData},
     state::key,
@@ -31,7 +31,7 @@ impl<'i, C: Config> Importer<'i, C> {
         validators: &[ValidatorData],
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        self.runtime.storage.finalize(&block)?;
+        self.runtime.storage.save_block(&block)?;
 
         // 2. initialize the recent blocks
         let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
@@ -104,18 +104,11 @@ impl<'i, C: Config> Importer<'i, C> {
         // 2. save the block to the storage
         self.runtime.storage.save_block(&block)?;
 
-        // 3. set the latest finalized head
-        let head = Head {
-            hash: block.header.hash()?,
-            slot: block.header.slot,
-        };
-        self.runtime.storage.set_finalized(&head)?;
-
-        // 4. drop the previous branch
+        // 3. drop the previous branch
         let branch = Branch::checkout(&self.runtime.storage, prev);
         branch.drop()?;
 
-        // 5. update the grandpa state
+        // 4. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.runtime.storage.next_validators()?)
         } else {

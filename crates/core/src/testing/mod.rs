@@ -57,7 +57,7 @@ async fn genesis() {
     assert_eq!(block, sblock);
 
     // 2.check the latest finalized head is recorded
-    let finalized = node.runtime.storage.get_finalized().unwrap();
+    let finalized = node.runtime.grandpa.read().await.handshake.head.clone();
     assert_eq!(finalized.hash, hash);
     assert_eq!(finalized.slot, block.header.slot);
 
