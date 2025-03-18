@@ -84,6 +84,7 @@ fn ietf_ring_outputs() -> anyhow::Result<()> {
     let pkeys = ring.iter().map(|k| k.public).collect::<Vec<_>>();
 
     let foo = b"foo";
+    let bar = b"bar";
     let verifier = Verifier::new(pkeys);
 
     let roh = {
@@ -92,8 +93,8 @@ fn ietf_ring_outputs() -> anyhow::Result<()> {
     };
 
     let ioh = {
-        let sig = ring[0].ietf_sign(keys, foo, &[])?;
-        verifier.ietf_vrf_verify(foo, &[], &sig, 0)?
+        let sig = ring[0].ietf_sign(keys, foo, bar)?;
+        verifier.ietf_vrf_verify(foo, bar, &sig, 0)?
     };
 
     assert_eq!(roh, ioh);

@@ -17,9 +17,6 @@ pub struct Author<'a, C: crate::runtime::Config> {
     /// The runtime
     runtime: &'a Runtime<C>,
 
-    /// The entropy buffer
-    entropy: EntropyBuffer,
-
     /// The local validator
     pub me: BandersnatchPublic,
 
@@ -38,9 +35,6 @@ pub struct Author<'a, C: crate::runtime::Config> {
     /// The slots that we are authoring
     slots: VecDeque<TimeSlot>,
 
-    /// The keys of the current series
-    keys: Vec<BandersnatchPublic>,
-
     /// The attempt number of the current epoch
     attempt: AtomicU8,
 }
@@ -52,13 +46,11 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
         Self {
             runtime,
-            entropy: Default::default(),
             me,
             timeslot: Default::default(),
             validators: Default::default(),
             series: Default::default(),
             slots: Default::default(),
-            keys: Default::default(),
             attempt: Default::default(),
             tickets: Default::default(),
         }
@@ -107,32 +99,24 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// on new epoch
+    ///
+    /// TODO: trigger this on finalizing a block from the next epoch.
     pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
         self.runtime.storage.on_new_epoch()?;
 
         // 1. update the validators
         self.validators = self.runtime.storage.current_validators()?;
 
-        // 2. update the keys
-        self.keys = self
-            .validators
-            .iter()
-            .map(|v| v.bandersnatch)
-            .collect::<Vec<_>>();
-
         // 3. check if we are in the fallback mode
         self.series = self.series()?;
 
-        // 4. update the entropy buffer
-        self.entropy = self.runtime.storage.entropy()?;
-
-        // 5. reset the attempt number
+        // 4. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
 
-        // 6. clean the ticket cache
+        // 5. clean the ticket cache
         self.runtime.expool.tickets.lock().await.clear();
 
-        // 7. update the authoring slots
+        // 6. update the authoring slots
         let mut slots = VecDeque::new();
         match &self.series {
             TicketsOrKeys::Tickets(tickets) => {
@@ -153,8 +137,9 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             }
         }
         self.slots = slots;
+        tracing::info!("authoring slots: {:?}", self.slots);
 
-        // 8. reset the tickets
+        // 7. reset the tickets
         self.tickets.clear();
 
         Ok(())
@@ -173,23 +158,23 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         let envelopes = self.runtime.storage.safrole()?.accumulator;
         let extrinsic = self.runtime.expool.collect(envelopes).await?;
 
-        // 2. init the builder
+        // 3. init the builder
         let mut builder = Block::builder()
             .parent(parent)?
             .extrinsic(extrinsic)?
             .timeslot(self.timeslot);
 
-        // 3. set the author index
+        // 4. set the author index
         let author_index = keys
             .iter()
             .position(|v| *v == self.me)
             .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?;
         builder = builder.author_index(author_index as u16);
 
-        // 4. simulate the block
+        // 5. simulate the block
         tx::simulate(&mut builder, &self.runtime.storage, &self.runtime.validator)?;
 
-        // 5. seal the block
+        // 6. seal the block
         let block = builder.seal(
             &self.runtime.validator,
             &keys,
@@ -197,7 +182,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             self.entropy()?,
         )?;
 
-        // 6. save the block to the fork storage
+        // 7. save the block to the fork storage
         self.save_block(block).await
     }
 
@@ -210,15 +195,25 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         }
 
         // 2. generate a ticket
+        let entropy = self.entropy()?;
+        let next_keys = self.next_keys()?;
         let envelope = TicketEnvelope {
             attempt,
             signature: self.runtime.validator.bandersnatch_ring_sign(
-                &self.keys,
+                &next_keys,
                 &[],
-                &TicketBody::message(attempt, &self.entropy[2]),
+                &TicketBody::message(attempt, &entropy[2]),
             )?,
         };
         self.attempt.fetch_add(1, Ordering::Relaxed);
+        tracing::info!(
+            "generated ticket with validator set: {:#?}, with entropy: 0x{}",
+            next_keys
+                .iter()
+                .map(|v| hex::encode(v.as_ref()))
+                .collect::<Vec<_>>(),
+            hex::encode(entropy[2].as_ref())
+        );
 
         // 3. insert the ticket into the pool
         let id = self.insert_ticket(envelope.clone()).await?;
@@ -226,8 +221,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// Sort and insert a ticket into the pool
-    ///
-    /// TODO: handle tickets from the next epoch.
     pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<OpaqueHash> {
         let keys = self.next_keys()?;
         let entropy = self.entropy()?;

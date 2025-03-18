@@ -2,7 +2,7 @@
 
 use crate::{
     block::{BlockInfo, Header},
-    extrinsic::TicketsOrKeys,
+    extrinsic::{TicketBody, TicketsOrKeys},
     runtime::{
         storage::{Branch, KVStorage, SyncStorage},
         tx, Config, Runtime, Storage,
@@ -143,13 +143,8 @@ impl<'i, C: Config> Importer<'i, C> {
         let new_epoch = remote_epoch == local_epoch + 1;
         let slot = (header.slot % crate::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.runtime.storage.entropy()?;
-        let mut entropy = entropy_buffer[3];
+        let entropy = entropy_buffer[3];
         let mut ticket = None;
-
-        // handle entropy and attempt
-        if new_epoch {
-            entropy = entropy_buffer[2];
-        }
 
         // check the ticket mark
         if let Ok(TicketsOrKeys::Tickets(tickets)) = self.runtime.storage.series() {
@@ -170,17 +165,22 @@ impl<'i, C: Config> Importer<'i, C> {
         let mut oheader = header.clone();
         oheader.seal = [0; 96];
         oheader.entropy_source = [0; 96];
-        let message = codec::encode(&oheader)?;
+        let context = codec::encode(&oheader)?;
 
         // construct the context
-        let mut context = Vec::new();
+        let mut message = Vec::new();
         if let Some(ticket) = ticket {
-            context.extend_from_slice(&crate::JAM_TICKET_SEAL);
-            context.extend_from_slice(&entropy);
-            context.push(ticket.attempt);
+            tracing::trace!(
+                "veriying seal using validator sets: {:#?}, with entropy: {}",
+                keys.iter()
+                    .map(|v| hex::encode(v.as_ref()))
+                    .collect::<Vec<_>>(),
+                hex::encode(entropy.as_ref())
+            );
+            message = TicketBody::message(ticket.attempt, &entropy);
         } else {
-            context.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
-            context.extend_from_slice(&entropy);
+            message.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
+            message.extend_from_slice(&entropy);
         }
 
         // check the ticket seal

@@ -47,18 +47,18 @@ impl Builder {
         series: TicketsOrKeys,
         entropy: EntropyBuffer,
     ) -> anyhow::Result<Block> {
-        let message = codec::encode(&self.header)?;
+        let context = codec::encode(&self.header)?;
 
         self.header.seal = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (self.header.slot % crate::EPOCH_LENGTH) as usize;
                 let ticket = tickets[slot];
-                let context = TicketBody::message(ticket.attempt, &entropy[3]);
+                let message = TicketBody::message(ticket.attempt, &entropy[3]);
                 validator.bandersnatch_sign(keys, &context, &message)?
             }
             TicketsOrKeys::Keys(_) => {
-                let mut context = crate::JAM_FALLBACK_SEAL.to_vec();
-                context.extend_from_slice(&entropy[3]);
+                let mut message = crate::JAM_FALLBACK_SEAL.to_vec();
+                message.extend_from_slice(&entropy[3]);
                 validator.bandersnatch_sign(keys, &context, &message)?
             }
         };
