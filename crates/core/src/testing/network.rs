@@ -90,8 +90,8 @@ async fn verify_tickets() {
     let ticket0 = author0.ticket().await.unwrap().unwrap();
     let ticket1 = author1.ticket().await.unwrap().unwrap();
 
-    author0.insert_ticket(ticket1).await.unwrap();
-    author1.insert_ticket(ticket0).await.unwrap();
+    author0.insert_ticket(ticket1.1).await.unwrap();
+    author1.insert_ticket(ticket0.1).await.unwrap();
 }
 
 #[tokio::test]

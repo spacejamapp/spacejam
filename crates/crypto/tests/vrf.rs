@@ -70,3 +70,32 @@ fn test_vrf() -> anyhow::Result<()> {
     assert_eq!(ring_vrf_output, ietf_vrf_output);
     Ok(())
 }
+
+#[test]
+fn ietf_ring_outputs() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let pkeys = ring.iter().map(|k| k.public).collect::<Vec<_>>();
+
+    let foo = b"foo";
+    let verifier = Verifier::new(pkeys);
+
+    let roh = {
+        let sig = ring[0].ring_sign(keys.clone(), foo, &[])?;
+        verifier.ring_vrf_verify(foo, &[], &sig)?
+    };
+
+    let ioh = {
+        let sig = ring[0].ietf_sign(keys, foo, &[])?;
+        verifier.ietf_vrf_verify(foo, &[], &sig, 0)?
+    };
+
+    assert_eq!(roh, ioh);
+    Ok(())
+}

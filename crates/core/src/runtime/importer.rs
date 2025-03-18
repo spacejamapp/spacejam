@@ -9,7 +9,7 @@ use crate::{
     },
     safrole::{Safrole, ValidatorData},
     state::key,
-    Block, EntropyBuffer, OpaqueHash,
+    Block, EntropyBuffer,
 };
 
 /// Importer for SpaceJam
@@ -125,7 +125,7 @@ impl<'i, C: Config> Importer<'i, C> {
     }
 
     /// Validate a block header.
-    pub async fn validate(&self, header: &Header) -> anyhow::Result<OpaqueHash> {
+    pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
         let handshake = self.runtime.grandpa.read().await.handshake.clone();
         let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
         let remote_epoch = header.slot / crate::EPOCH_LENGTH;
@@ -189,11 +189,11 @@ impl<'i, C: Config> Importer<'i, C> {
         let output =
             verifier.ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)?;
         if let Some(ticket) = ticket {
-            if output != ticket.id {
-                anyhow::bail!("header seal mismatch from ticket");
+            if ticket.id != output {
+                anyhow::bail!("header seal mismatched");
             }
         }
 
-        Ok(output)
+        Ok(())
     }
 }

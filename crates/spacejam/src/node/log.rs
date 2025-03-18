@@ -52,7 +52,8 @@ pub async fn current<C: score::runtime::Config>(
     // print the current status
     let timeslot = block::timeslot().unwrap_or_default();
     tracing::info!(
-        "epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
+        "timeslot: #{}, epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
+        timeslot,
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,

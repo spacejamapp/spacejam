@@ -1,8 +1,10 @@
 //! Block builder
 
 use crate::{
-    block::BlockInfo, extrinsic::TicketsOrKeys, runtime::Validator, BandersnatchPublic, Block,
-    EntropyBuffer, Extrinsic, TimeSlot,
+    block::BlockInfo,
+    extrinsic::{TicketBody, TicketsOrKeys},
+    runtime::Validator,
+    BandersnatchPublic, Block, EntropyBuffer, Extrinsic, TimeSlot,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -51,9 +53,7 @@ impl Builder {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (self.header.slot % crate::EPOCH_LENGTH) as usize;
                 let ticket = tickets[slot];
-                let mut context = crate::JAM_TICKET_SEAL.to_vec();
-                context.extend_from_slice(&entropy[3]);
-                context.push(ticket.attempt);
+                let context = TicketBody::message(ticket.attempt, &entropy[3]);
                 validator.bandersnatch_sign(keys, &context, &message)?
             }
             TicketsOrKeys::Keys(_) => {

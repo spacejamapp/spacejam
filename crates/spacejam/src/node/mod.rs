@@ -45,6 +45,8 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
     tokio::time::sleep(Duration::from_secs(10)).await;
 
     loop {
+        self::sleep_to_next_slot().await;
+
         // get the current epoch
         log::current(runtime, &author.validators).await;
         let timeslot = block::timeslot().expect("failed to get current timeslot");
@@ -91,8 +93,6 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
                 tracing::error!("Failed to announce block: {:?}", e);
             }
         }
-
-        self::sleep_to_next_slot().await;
     }
 }
 

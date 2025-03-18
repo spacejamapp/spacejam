@@ -38,6 +38,17 @@ impl KeyPair {
         Ok(buf)
     }
 
+    /// Get the VRF output.
+    pub fn output_hash(&self, message: &[u8]) -> Result<[u8; 32]> {
+        let output = self.secret.output(
+            Input::new(message).ok_or(anyhow::anyhow!("Invalid bandersnatch input {message:?}"))?,
+        );
+        let src = output.hash();
+        let mut hash = [0; 32];
+        hash.copy_from_slice(&src[..32]);
+        Ok(hash)
+    }
+
     /// Sign a message using the ring VRF.
     pub fn sign(
         &self,
