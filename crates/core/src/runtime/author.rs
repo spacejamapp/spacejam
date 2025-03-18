@@ -3,7 +3,7 @@
 use crate::{
     block::{self, Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
-    runtime::{storage::BlockStorage, tx, Runtime, Storage, Validator},
+    runtime::{storage::SyncStorage, tx, Runtime, Storage, Validator},
     safrole::ValidatorsData,
     BandersnatchPublic, EntropyBuffer, TimeSlot,
 };
@@ -74,6 +74,12 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         let slot = timeslot % crate::EPOCH_LENGTH;
         let mut next = (None, None);
 
+        // TODO: handle this rotation on the storage interface
+        // for syncing interfaces.
+        if slot == 0 {
+            self.on_new_epoch().await?;
+        }
+
         // 1. check generating tickets
         next.1 = self.ticket().await?;
 
@@ -91,6 +97,8 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// on new epoch
     pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
+        self.runtime.storage.on_new_epoch()?;
+
         // 1. update the validators
         self.validators = self.runtime.storage.current_validators()?;
 
@@ -102,17 +110,17 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             .collect::<Vec<_>>();
 
         // 3. check if we are in the fallback mode
-        let safrole = self.runtime.storage.safrole()?;
-        self.series = safrole.series;
+        self.series = self.series()?;
 
         // 4. update the authoring slots
         let mut slots = VecDeque::new();
         match &self.series {
             TicketsOrKeys::Tickets(_tickets) => {
-                tracing::warn!("tickets series is not supported yet, stop authoring");
+                tracing::warn!("ticket sealed blocks are not supported yet");
                 slots = VecDeque::new();
             }
             TicketsOrKeys::Keys(keys) => {
+                tracing::warn!("fallback keys are used for new epoch");
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me {
                         slots.push_back(i as TimeSlot);
@@ -200,6 +208,8 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// Sort and insert a ticket into the pool
+    ///
+    /// TODO: handle tickets from the next epoch.
     pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<()> {
         let keys = self.next_keys()?;
         let entropy = self.entropy()?;
@@ -226,7 +236,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Save a block to the fork storage
     async fn save_block(&self, block: Block) -> anyhow::Result<Header> {
-        self.runtime.storage.save_block(&block)?;
+        self.runtime.storage.set_block(&block)?;
         self.runtime
             .grandpa
             .write()
@@ -260,7 +270,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Get the series
     fn series(&self) -> anyhow::Result<TicketsOrKeys> {
-        let safrole = self.runtime.storage.safrole()?;
-        Ok(safrole.series)
+        self.runtime.storage.series()
     }
 }

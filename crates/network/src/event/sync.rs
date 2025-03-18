@@ -4,7 +4,7 @@ use crate::{stream::ce128, Network};
 use quinn::RecvStream;
 use score::{
     block::Header,
-    runtime::{storage::BlockStorage, Head},
+    runtime::{storage::SyncStorage, Head},
     Block, OpaqueHash, TimeSlot,
 };
 
@@ -16,6 +16,7 @@ use score::{
 #[tracing::instrument(
     skip_all,
     name = "finalize",
+    parent = None,
     fields(slot = ?slot)
 )]
 pub async fn select_best_chain<C: score::runtime::Config>(
@@ -126,7 +127,7 @@ impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
                 break;
             }
 
-            tracing::info!(
+            tracing::debug!(
                 "request {} for block#{}@0x{} with maximum {} blocks",
                 feed.address.peer_id.to_string(),
                 self.best.slot,

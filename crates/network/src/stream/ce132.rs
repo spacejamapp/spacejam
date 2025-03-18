@@ -41,6 +41,8 @@ pub async fn recv<C: score::runtime::Config>(
     let epoch = block::timeslot()? / score::EPOCH_LENGTH;
 
     // insert the ticket into the pool if the epoch is present.
+    //
+    // TODO: handle ticket from the next epoch
     if request.epoch == epoch {
         runtime
             .author()

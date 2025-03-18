@@ -2,14 +2,14 @@
 
 use crate::{
     block::{BlockInfo, Header},
-    extrinsic::{TicketBody, TicketsOrKeys},
+    extrinsic::TicketsOrKeys,
     runtime::{
-        storage::{BlockStorage, Branch, KVStorage},
+        storage::{Branch, KVStorage, SyncStorage},
         tx, Config, Runtime, Storage,
     },
     safrole::{Safrole, ValidatorData},
     state::key,
-    Block, EntropyBuffer,
+    Block, EntropyBuffer, OpaqueHash,
 };
 
 /// Importer for SpaceJam
@@ -31,7 +31,7 @@ impl<'i, C: Config> Importer<'i, C> {
         validators: &[ValidatorData],
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        self.runtime.storage.save_block(&block)?;
+        self.runtime.storage.set_block(&block)?;
 
         // 2. initialize the recent blocks
         let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
@@ -56,11 +56,10 @@ impl<'i, C: Config> Importer<'i, C> {
             .set(key::ENTROPY, codec::encode(&entropy)?)?;
 
         // 5. set the safrole state
+        let series =
+            TicketsOrKeys::fallback(validators.iter().map(|v| v.bandersnatch).collect(), entropy);
         let safrole = Safrole {
-            series: TicketsOrKeys::fallback(
-                validators.iter().map(|v| v.bandersnatch).collect(),
-                entropy,
-            ),
+            series: series.clone(),
             validators: validators.to_vec(),
             ..Default::default()
         };
@@ -74,7 +73,6 @@ impl<'i, C: Config> Importer<'i, C> {
         grandpa.grid.curr = grandpa.grid.next.clone();
         grandpa.grid.prev = grandpa.grid.curr.clone();
         grandpa.finalize(block.header.clone(), None)?;
-        drop(grandpa);
 
         Ok(())
     }
@@ -102,7 +100,10 @@ impl<'i, C: Config> Importer<'i, C> {
         );
 
         // 2. save the block to the storage
-        self.runtime.storage.save_block(&block)?;
+        self.runtime.storage.set_block(&block)?;
+        if let Some(series) = block.header.tickets_mark {
+            self.runtime.storage.set_next_series(&series)?;
+        }
 
         // 3. drop the previous branch
         let branch = Branch::checkout(&self.runtime.storage, prev);
@@ -124,7 +125,7 @@ impl<'i, C: Config> Importer<'i, C> {
     }
 
     /// Validate a block header.
-    pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
+    pub async fn validate(&self, header: &Header) -> anyhow::Result<OpaqueHash> {
         let handshake = self.runtime.grandpa.read().await.handshake.clone();
         let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
         let remote_epoch = header.slot / crate::EPOCH_LENGTH;
@@ -142,19 +143,16 @@ impl<'i, C: Config> Importer<'i, C> {
         let new_epoch = remote_epoch == local_epoch + 1;
         let slot = (header.slot % crate::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.runtime.storage.entropy()?;
-        let series = self.runtime.storage.safrole()?.series.clone();
         let mut entropy = entropy_buffer[3];
-        let mut ticket: Option<TicketBody> = None;
+        let mut ticket = None;
 
         // handle entropy and attempt
         if new_epoch {
             entropy = entropy_buffer[2];
+        }
 
-            // check the ticket mark
-            if let Some(tickets) = header.tickets_mark {
-                ticket = Some(tickets[slot]);
-            }
-        } else if let TicketsOrKeys::Tickets(tickets) = series {
+        // check the ticket mark
+        if let Ok(TicketsOrKeys::Tickets(tickets)) = self.runtime.storage.series() {
             ticket = Some(tickets[slot]);
         }
 
@@ -196,6 +194,6 @@ impl<'i, C: Config> Importer<'i, C> {
             }
         }
 
-        Ok(())
+        Ok(output)
     }
 }

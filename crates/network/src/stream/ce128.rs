@@ -2,7 +2,7 @@
 
 use crate::{Connection, Network};
 use quinn::{RecvStream, SendStream};
-use score::{runtime::storage::BlockStorage, Block, OpaqueHash};
+use score::{runtime::storage::SyncStorage, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use std::mem;
 

@@ -3,7 +3,7 @@
 
 use crate::{
     runtime::{
-        storage::{BlockStorage, MemoryDb},
+        storage::{MemoryDb, SyncStorage},
         Config, Validator,
     },
     safrole::ValidatorsData,
