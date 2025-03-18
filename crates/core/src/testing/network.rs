@@ -2,7 +2,7 @@
 
 use crate::{
     extrinsic::TicketsOrKeys,
-    runtime::Validator,
+    runtime::{storage::SyncStorage, Storage, Validator},
     safrole::ValidatorsData,
     testing::{self, Node, TEST_VALIDATORS},
     Ed25519Public,
@@ -85,13 +85,19 @@ async fn verify_tickets() {
     author0.on_new_epoch().await.unwrap();
     author1.on_new_epoch().await.unwrap();
 
-    assert_eq!(author0.validators.len(), 6);
-    assert_eq!(author1.validators.len(), 6);
+    assert_eq!(
+        author0.runtime.storage.current_validators().unwrap().len(),
+        6
+    );
+    assert_eq!(
+        author1.runtime.storage.current_validators().unwrap().len(),
+        6
+    );
     let ticket0 = author0.ticket().await.unwrap().unwrap();
     let ticket1 = author1.ticket().await.unwrap().unwrap();
 
-    author0.insert_ticket(ticket1.1).await.unwrap();
-    author1.insert_ticket(ticket0.1).await.unwrap();
+    author0.insert_ticket(0, ticket1.1).await.unwrap();
+    author1.insert_ticket(0, ticket0.1).await.unwrap();
 }
 
 #[tokio::test]
@@ -106,8 +112,11 @@ async fn verify_headers() {
     author1.on_new_epoch().await.unwrap();
 
     // assert that the series is shared
-    assert_eq!(&author0.series, &author1.series);
-    let TicketsOrKeys::Keys(keys) = &author0.series else {
+    assert_eq!(
+        &author0.runtime.storage.series().unwrap(),
+        &author1.runtime.storage.series().unwrap()
+    );
+    let TicketsOrKeys::Keys(keys) = &author0.runtime.storage.series().unwrap() else {
         panic!("series should be keys");
     };
 

@@ -83,6 +83,13 @@ impl<'i, C: Config> Importer<'i, C> {
     /// by ourselves in our storage.
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.runtime.grandpa.read().await.handshake.head.clone();
+        if block.header.parent != prev.hash {
+            anyhow::bail!(
+                "invalid parent: 0x{} != 0x{}",
+                hex::encode(block.header.parent[..3].as_ref()),
+                hex::encode(prev.hash[..3].as_ref())
+            );
+        }
 
         // 1. transit the global state
         let hash = block.header.hash()?;
@@ -147,7 +154,11 @@ impl<'i, C: Config> Importer<'i, C> {
         let mut ticket = None;
 
         // check the ticket mark
-        if let Ok(TicketsOrKeys::Tickets(tickets)) = self.runtime.storage.series() {
+        if new_epoch {
+            if let Ok(tickets) = self.runtime.storage.next_series() {
+                ticket = Some(tickets[slot]);
+            }
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.runtime.storage.series() {
             ticket = Some(tickets[slot]);
         }
 

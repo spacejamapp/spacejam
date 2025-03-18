@@ -48,7 +48,7 @@ async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
         self::sleep_to_next_slot().await;
 
         // get the current epoch
-        log::current(runtime, &author.validators).await;
+        log::current(runtime).await;
         let timeslot = block::timeslot().expect("failed to get current timeslot");
         let epoch = timeslot / score::EPOCH_LENGTH;
 

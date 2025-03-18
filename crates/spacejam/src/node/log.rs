@@ -4,7 +4,6 @@ use network::Network;
 use score::{
     block,
     runtime::{Storage, Validator},
-    safrole::ValidatorData,
 };
 
 /// Logging the initial status of the node
@@ -18,10 +17,12 @@ pub async fn init<C: score::runtime::Config>(runtime: &Network<C>) {
 }
 
 /// Logging the current status of the node
-pub async fn current<C: score::runtime::Config>(
-    runtime: &Network<C>,
-    validators: &[ValidatorData],
-) {
+pub async fn current<C: score::runtime::Config>(runtime: &Network<C>) {
+    // TODO: handle this gracefully
+    let validators = runtime
+        .storage
+        .current_validators()
+        .expect("failed to get validators");
     let pool = runtime.pool.read().await.clone();
     let peers = pool.keys().collect::<Vec<_>>();
     let connected = peers

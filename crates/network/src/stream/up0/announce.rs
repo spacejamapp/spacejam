@@ -110,6 +110,10 @@ pub async fn recv<C: score::runtime::Config>(
 
         // validate the header
         let hash = header.hash()?;
+        if grandpa.ancestry.header(&hash).is_some() {
+            continue;
+        }
+
         if let Err(e) = runtime.importer().validate(&header).await {
             tracing::warn!(
                 "failed to validate header#{}@0x{}: {e}. \n\nTODO: if this is caused by the epoch, we should request the ancestors of the block then handle it",

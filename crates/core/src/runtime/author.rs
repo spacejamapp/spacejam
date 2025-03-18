@@ -4,7 +4,6 @@ use crate::{
     block::{self, Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     runtime::{storage::SyncStorage, tx, Runtime, Storage, Validator},
-    safrole::ValidatorsData,
     BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use std::{
@@ -15,19 +14,13 @@ use std::{
 /// Authoring context
 pub struct Author<'a, C: crate::runtime::Config> {
     /// The runtime
-    runtime: &'a Runtime<C>,
+    pub runtime: &'a Runtime<C>,
 
     /// The local validator
     pub me: BandersnatchPublic,
 
     /// The current timeslot
     pub timeslot: TimeSlot,
-
-    /// The current validators
-    pub validators: ValidatorsData,
-
-    /// the current series
-    pub series: TicketsOrKeys,
 
     /// The ticket id
     tickets: Vec<OpaqueHash>,
@@ -48,8 +41,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             runtime,
             me,
             timeslot: Default::default(),
-            validators: Default::default(),
-            series: Default::default(),
             slots: Default::default(),
             attempt: Default::default(),
             tickets: Default::default(),
@@ -104,23 +95,17 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
         self.runtime.storage.on_new_epoch()?;
 
-        // 1. update the validators
-        self.validators = self.runtime.storage.current_validators()?;
-
-        // 3. check if we are in the fallback mode
-        self.series = self.series()?;
-
-        // 4. reset the attempt number
+        // 1. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
 
-        // 5. clean the ticket cache
+        // 2. clean the ticket cache
         self.runtime.expool.tickets.lock().await.clear();
 
-        // 6. update the authoring slots
+        // 3. update the authoring slots
         let mut slots = VecDeque::new();
-        match &self.series {
+        let mut fallback = false;
+        match self.series()? {
             TicketsOrKeys::Tickets(tickets) => {
-                tracing::info!("using ticket series");
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
                         slots.push_back(i as TimeSlot);
@@ -128,7 +113,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
                 }
             }
             TicketsOrKeys::Keys(keys) => {
-                tracing::info!("using fallback keys");
+                fallback = true;
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me {
                         slots.push_back(i as TimeSlot);
@@ -137,11 +122,14 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             }
         }
         self.slots = slots;
-        tracing::info!("authoring slots: {:?}", self.slots);
+        tracing::info!(
+            "using {} keys, authoring slots: {:?}",
+            if fallback { "fallback" } else { "safrole" },
+            self.slots
+        );
 
-        // 7. reset the tickets
+        // 4. reset the tickets
         self.tickets.clear();
-
         Ok(())
     }
 
@@ -188,6 +176,8 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
 
     /// Generate a ticket
     pub async fn ticket(&self) -> anyhow::Result<Option<(OpaqueHash, TicketEnvelope)>> {
+        let epoch = self.timeslot / crate::EPOCH_LENGTH;
+
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
         if attempt >= crate::TICKET_ENTRIES_PER_VALIDATOR {
@@ -216,13 +206,23 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         );
 
         // 3. insert the ticket into the pool
-        let id = self.insert_ticket(envelope.clone()).await?;
+        let id = self.insert_ticket(epoch, envelope.clone()).await?;
         Ok(Some((id, envelope)))
     }
 
     /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<OpaqueHash> {
+    pub async fn insert_ticket(
+        &self,
+        _epoch: u32,
+        ticket: TicketEnvelope,
+    ) -> anyhow::Result<OpaqueHash> {
         let keys = self.next_keys()?;
+        tracing::trace!(
+            "verifying ticket with keys: {:#?}",
+            keys.iter()
+                .map(|v| hex::encode(v.as_ref()))
+                .collect::<Vec<_>>()
+        );
         let entropy = self.entropy()?;
         let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(

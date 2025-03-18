@@ -47,14 +47,18 @@ pub trait SyncStorage: Storage {
         if let Some(value) = self.get(&next_series)? {
             let series: Vec<TicketBody> = codec::decode(&value)?;
             self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
-
-            // reset the next series
-            self.remove(&next_series)?;
         } else {
             self.remove(SERIES_KEY)?;
         }
 
         Ok(())
+    }
+
+    /// Get the next series
+    fn next_series(&self) -> Result<Vec<TicketBody>> {
+        let key = [SERIES_KEY, b"next"].concat();
+        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
+        Ok(codec::decode(value.as_ref())?)
     }
 
     /// Set the next series
