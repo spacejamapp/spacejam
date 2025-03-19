@@ -11,6 +11,17 @@ use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
+/// Get the VRF output hash.
+pub fn ietf_output(sig: [u8; 96]) -> Result<[u8; 32]> {
+    let signature = IetfVrfSignature::deserialize_compressed(sig.as_ref())
+        .map_err(|e| anyhow::anyhow!("Failed to deserialize bandersnatch signature: {e}"))?;
+    let output = signature.output;
+    let output_hash = output.hash();
+    let mut buf = [0; 32];
+    buf.copy_from_slice(&output_hash[..32]);
+    Ok(buf)
+}
+
 /// Banersnatch key pair.
 pub struct KeyPair {
     /// Secret key.

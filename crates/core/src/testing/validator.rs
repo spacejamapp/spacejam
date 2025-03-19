@@ -2,7 +2,6 @@ use crate::{
     runtime::Validator, BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature,
     BlsPublic, Ed25519Public, ValidatorMetadata,
 };
-use anyhow::Result;
 use crypto::{bls, ed25519, vrf};
 
 /// A testing validator
@@ -48,10 +47,6 @@ impl Validator for TestValidator {
         message: &[u8],
     ) -> anyhow::Result<BandersnatchRingVrfSignature> {
         self.banersnatch.ring_sign(keys.to_vec(), message, context)
-    }
-
-    fn bandersnatch_output(&self, message: &[u8]) -> Result<BandersnatchVrfSignature> {
-        self.banersnatch.output(message)
     }
 
     fn metadata(&self) -> ValidatorMetadata {

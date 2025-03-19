@@ -181,13 +181,6 @@ impl<'i, C: Config> Importer<'i, C> {
         // construct the context
         let mut message = Vec::new();
         if let Some(ticket) = ticket {
-            tracing::trace!(
-                "veriying seal using validator sets: {:#?}, with entropy: {}",
-                keys.iter()
-                    .map(|v| hex::encode(v.as_ref()))
-                    .collect::<Vec<_>>(),
-                hex::encode(entropy.as_ref())
-            );
             message = TicketBody::message(ticket.attempt, &entropy);
         } else {
             message.extend_from_slice(&crate::JAM_FALLBACK_SEAL);

@@ -66,7 +66,7 @@ impl Builder {
         // set the entropy source
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
-            context.extend_from_slice(&validator.bandersnatch_output(&self.header.seal)?);
+            context.extend_from_slice(&crypto::vrf::ietf_output(self.header.seal)?);
             validator.bandersnatch_sign(keys, &context, &[])?
         };
 

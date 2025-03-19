@@ -1,6 +1,6 @@
 use spacejam_crypto::{
     ring::{RING_CTX, RING_SIZE},
-    vrf::*,
+    vrf::{self, *},
 };
 
 macro_rules! measure_time {
@@ -98,5 +98,23 @@ fn ietf_ring_outputs() -> anyhow::Result<()> {
     };
 
     assert_eq!(roh, ioh);
+    Ok(())
+}
+
+#[test]
+fn serde_vrf_signature() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let foo = b"foo";
+    let bar = b"bar";
+    let signature = ring[0].ietf_sign(keys.clone(), foo, bar)?;
+    assert!(vrf::ietf_output(signature).is_ok());
+
     Ok(())
 }

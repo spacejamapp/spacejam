@@ -195,17 +195,15 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
                 &TicketBody::message(attempt, &entropy[2]),
             )?,
         };
-        self.attempt.fetch_add(1, Ordering::Relaxed);
+
         tracing::info!(
-            "generated ticket with validator set: {:#?}, with entropy: 0x{}",
-            next_keys
-                .iter()
-                .map(|v| hex::encode(v.as_ref()))
-                .collect::<Vec<_>>(),
+            "generated ticket#{} with entropy: 0x{}",
+            attempt,
             hex::encode(entropy[2].as_ref())
         );
 
         // 3. insert the ticket into the pool
+        self.attempt.fetch_add(1, Ordering::Relaxed);
         let id = self.insert_ticket(epoch, envelope.clone()).await?;
         Ok(Some((id, envelope)))
     }
@@ -217,13 +215,12 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         ticket: TicketEnvelope,
     ) -> anyhow::Result<OpaqueHash> {
         let keys = self.next_keys()?;
-        tracing::trace!(
-            "verifying ticket with keys: {:#?}",
-            keys.iter()
-                .map(|v| hex::encode(v.as_ref()))
-                .collect::<Vec<_>>()
-        );
         let entropy = self.entropy()?;
+        tracing::trace!(
+            "verifying ticket with entropy: 0x{}",
+            hex::encode(entropy[2].as_ref())
+        );
+
         let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &entropy[2]),
