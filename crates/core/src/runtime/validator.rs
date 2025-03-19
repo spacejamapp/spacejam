@@ -33,9 +33,6 @@ pub trait Validator {
         message: &[u8],
     ) -> Result<BandersnatchRingVrfSignature>;
 
-    /// Bandersnatch output
-    fn bandersnatch_output(&self, message: &[u8]) -> Result<BandersnatchVrfSignature>;
-
     /// Metadata of the validator
     fn metadata(&self) -> ValidatorMetadata;
 
@@ -56,7 +53,7 @@ pub trait Validator {
 
     /// Generate entropy from the given block header GP: (6.22)
     fn entropy(&self, entropy: OpaqueHash, source: &BandersnatchVrfSignature) -> Result<[u8; 32]> {
-        let output = self.bandersnatch_output(source.as_ref())?;
+        let output = crypto::vrf::ietf_output(*source).unwrap_or_default();
         let mut input = entropy.to_vec();
         input.extend_from_slice(&output);
         Ok(crypto::blake2b(&input))
@@ -92,10 +89,6 @@ impl Validator for crypto::ed25519::KeyPair {
         _message: &[u8],
     ) -> Result<BandersnatchRingVrfSignature> {
         Ok([0; 784])
-    }
-
-    fn bandersnatch_output(&self, _message: &[u8]) -> Result<BandersnatchVrfSignature> {
-        Ok([0; 96])
     }
 
     fn metadata(&self) -> ValidatorMetadata {

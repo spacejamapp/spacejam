@@ -51,34 +51,33 @@ pub async fn send<C: score::runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        // check if the block is a descendant of the local finalized head.
         let grandpa = runtime.grandpa.read().await.clone();
         let handshake = conn.handshake.read().await;
-        let hash = header.hash()?;
-        let shash = hex::encode(&hash.as_ref()[..3]);
 
-        // Skip if the block is not a descendant of the remote peer's
-        // finalized head.
-        if !grandpa.is_descendant_of(hash, handshake.head.hash) {
-            continue;
+        // check if the block is acceptable for the remote peer.
+        match grandpa.accept_remote(&header, &handshake).await {
+            Ok(head) => {
+                let hash = header.hash()?;
+                let shash = hex::encode(&hash.as_ref()[..3]);
+                let handshake = conn.handshake.read().await;
+                tracing::trace!(
+                    "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
+                    header.slot,
+                    shash,
+                    grandpa.handshake.head.slot,
+                    hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                    handshake.head.slot,
+                    hex::encode(&handshake.head.hash.as_ref()[..3]),
+                );
+            }
+            Err(e) => {
+                tracing::trace!("{e}");
+                continue;
+            }
         }
 
-        // Skip if the block, or a descendant of the block, has been
-        // announced by the other side of the stream.
-        let mut leaves = handshake
-            .leaves
-            .iter()
-            .filter(|l| l.slot >= handshake.head.slot);
-        if leaves.any(|leaf| grandpa.is_descendant_of(leaf.hash, hash)) {
-            continue;
-        }
-
-        tracing::debug!(
-            "announcing block#{}, remote: #{}",
-            header.slot,
-            grandpa.head.slot
-        );
-        send.write_all(&codec::encode(&(header, grandpa.head))?)
+        // send the announcement to the remote peer.
+        send.write_all(&codec::encode(&(header, grandpa.handshake.head))?)
             .await?;
     }
 
@@ -100,57 +99,61 @@ pub async fn recv<C: score::runtime::Config>(
         };
 
         buffer.clear();
-        let leaf = Head {
-            hash: header.hash()?,
-            slot: header.slot,
-        };
-        let shash = hex::encode(&leaf.hash.as_ref()[..3]);
-        tracing::trace!("received block#{}@{shash}", leaf.slot);
 
-        // update the remote peer's finalized head.
+        // update the remote peer's handshake data.
+        let grandpa = runtime.grandpa.read().await.clone();
         {
-            conn.handshake.write().await.head = head.clone();
+            let mut handshake = conn.handshake.write().await;
+            handshake.head = head.clone();
+            grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
-        let grandpa = runtime.grandpa.read().await.clone();
-        tracing::trace!(
-            "grandpa: #{}, remote: #{}, header#{}",
-            grandpa.head.slot,
-            head.slot,
-            leaf.slot,
-        );
-
-        // verify if the header is invalid with the local finalized head.
-        if let Err(e) = grandpa.verify(&header).await {
-            tracing::warn!("{e}");
+        // validate the header
+        let hash = header.hash()?;
+        if grandpa.ancestry.header(&hash).is_some() {
             continue;
         }
 
-        // Add this header to local leaves
-        {
-            let mut grandpa = runtime.grandpa.write().await;
-            grandpa.add_leave(leaf.clone());
-            grandpa.save_header(header.clone());
+        if let Err(e) = runtime.importer().validate(&header).await {
+            tracing::warn!(
+                "failed to validate header#{}@0x{}: {e}. \n\nTODO: if this is caused by the epoch, we should request the ancestors of the block then handle it",
+                header.slot,
+                hex::encode(&hash[..3]),
+            );
+            continue;
         }
 
-        // update the remote peer's handshake data.
+        // trace the announcement data.
         {
-            let mut handshake = conn.handshake.write().await;
-            handshake.leaves.insert(leaf.clone());
+            let handshake = conn.handshake.read().await.clone();
+            tracing::trace!(
+                "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
+                header.slot,
+                hex::encode(&hash.as_ref()[..3]),
+                grandpa.handshake.head.slot,
+                hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                handshake.head.slot,
+                hex::encode(&handshake.head.hash.as_ref()[..3]),
+            );
         }
 
-        // broadcast the header to the network
-        runtime.announce.send(header.clone())?;
-
-        // Indicates that we need to select the best chain.
-        //
-        // Try to select the best chain if the remote peer's finalized
-        // head is greater than the local finalized head.
-        if header.slot > grandpa.head.slot {
-            if let Err(e) = runtime.send(Event::SelectBestChain { slot: header.slot }) {
-                tracing::error!("failed to send select best chain event: {e}");
+        // skip if the header exists
+        {
+            let grandpa = runtime.grandpa.read().await.clone();
+            if grandpa.ancestry.header(&hash).is_some() {
+                continue;
             }
         }
+
+        // Add this header to local leaves
+        //
+        // Note that we don't verify the header here since we may
+        // not have the parent of it.
+        runtime.grandpa.write().await.add_leaf(header.clone())?;
+
+        // broadcast the header to the network
+        // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
+        crate::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await?;
     }
 
     anyhow::bail!("announcement receiver stream closed");

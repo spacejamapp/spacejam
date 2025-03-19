@@ -24,10 +24,9 @@ impl Node {
     ) -> (Network<()>, mpsc::UnboundedReceiver<Event>) {
         let (tx, rx) = mpsc::unbounded_channel();
         let node = Arc::new(Self { keypair });
-        let runtime = Arc::new(runtime::Runtime::new_with_grandpa(
+        let runtime = Arc::new(runtime::Runtime::new(
             node.keypair.clone(),
             runtime::storage::MemoryDb::default(),
-            Default::default(),
         ));
 
         (

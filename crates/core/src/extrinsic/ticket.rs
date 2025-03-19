@@ -1,8 +1,6 @@
 //! Ticket types
 
-use std::collections::HashSet;
-
-use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash};
+use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, EntropyBuffer, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -13,7 +11,7 @@ pub type TicketId = OpaqueHash;
 pub type TicketAttempt = u8;
 
 /// Represents a ticket envelope containing an attempt and a signature.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Hash)]
 pub struct TicketEnvelope {
     /// Ticket attempt
     pub attempt: TicketAttempt,
@@ -56,6 +54,38 @@ impl TicketBody {
         ]
         .concat()
     }
+
+    /// Sequences the tickets with Z function (outside-in)
+    pub fn sequence(tickets: &[TicketBody]) -> Vec<TicketBody> {
+        let mut ordered_tickets = Vec::with_capacity(tickets.len());
+        let mid = tickets.len() / 2;
+
+        for i in 0..mid {
+            ordered_tickets.push(tickets[i]);
+            if i + mid < tickets.len() {
+                ordered_tickets.push(tickets[tickets.len() - 1 - i]);
+            }
+        }
+
+        ordered_tickets
+    }
+
+    /// Get the ticket at the given slot
+    ///
+    /// Note that this function could be unnecessary, since the tickets are already
+    /// sorted by the Z function.
+    pub fn entry(tickets: &[TicketBody], slot: u32) -> TicketBody {
+        let slot_in_epoch = slot % crate::EPOCH_LENGTH;
+        let tickets_count = tickets.len() as u32;
+
+        let entry_index = if slot_in_epoch < tickets_count / 2 {
+            slot_in_epoch
+        } else {
+            tickets_count - 1 - (slot_in_epoch - tickets_count / 2)
+        };
+
+        tickets[entry_index as usize]
+    }
 }
 
 /// Represents an accumulator of tickets.
@@ -64,23 +94,30 @@ pub type TicketsAccumulator = Vec<TicketBody>;
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
-    Tickets(Vec<TicketBody>),
     Keys(Vec<BandersnatchPublic>),
+    Tickets(Vec<TicketBody>),
 }
 
 impl TicketsOrKeys {
-    /// Returns the keys of the tickets or keys.
-    pub fn keys(&self) -> HashSet<BandersnatchPublic> {
-        match self {
-            Self::Tickets(tickets) => tickets.iter().map(|t| t.id).collect(),
-            Self::Keys(keys) => keys.clone().into_iter().collect(),
+    /// Create a fallback series
+    pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: EntropyBuffer) -> Self {
+        let mut keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
+        for i in 0..crate::EPOCH_LENGTH {
+            let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
+            let hash = crypto::blake2b(&input);
+            let mut bytes = [0u8; 4];
+            bytes.copy_from_slice(&hash[0..4]);
+            let index = u32::from_le_bytes(bytes) % (ring.len() as u32);
+            keys.push(ring[index as usize]);
         }
+
+        Self::Keys(keys)
     }
 }
 
 impl Default for TicketsOrKeys {
     fn default() -> Self {
-        Self::Tickets(Default::default())
+        Self::Keys(Default::default())
     }
 }
 

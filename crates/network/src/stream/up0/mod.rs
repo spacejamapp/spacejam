@@ -1,18 +1,16 @@
 //! Block announcement stream.
 
 use crate::{peer::PeerId, Event, Network};
-pub use handshake::Handshake;
 use quinn::{RecvStream, SendStream};
 use score::{
     block::Header,
-    runtime::{Head, Runtime},
+    runtime::{Handshake, Head, Runtime},
     OpaqueHash, TimeSlot,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod announce;
-mod handshake;
 
 /// Send a block announcement.
 pub async fn send<C: score::runtime::Config>(
@@ -24,13 +22,13 @@ pub async fn send<C: score::runtime::Config>(
 
     // 1. send the handshake
     let grandpa = runtime.runtime.grandpa.read().await;
-    let handshake = grandpa.handshake();
+    let handshake = grandpa.handshake.clone();
     let mut buf = vec![0];
-    buf.extend_from_slice(&handshake);
+    buf.extend_from_slice(&codec::encode(&handshake)?);
     send.write(&buf).await?;
 
-    // 2. verify that we can receive handshake
-    let handshake = Handshake::read(&mut recv).await?;
+    // 2. get the handshake from remote
+    let handshake = self::handshake(&mut recv).await?;
     conn.handshake.write().await.head = handshake.head;
 
     // 3. announcement loop
@@ -52,12 +50,12 @@ pub async fn recv<C: score::runtime::Config>(
     let conn = runtime.get_conn(peer).await?;
 
     // 1. read the grandpa data
-    let handshake = Handshake::read(&mut recv).await?;
+    let handshake = self::handshake(&mut recv).await?;
     conn.handshake.write().await.head = handshake.head;
 
     // 2. send the handshake data.
     let grandpa = runtime.runtime.grandpa.read().await;
-    send.write(&grandpa.handshake()).await?;
+    send.write(&codec::encode(&grandpa.handshake)?).await?;
 
     // 3. announcement loop.
     let runtime = runtime.clone();
@@ -66,4 +64,17 @@ pub async fn recv<C: score::runtime::Config>(
     });
 
     Ok(())
+}
+
+/// Read the handshake from the stream.
+async fn handshake(recv: &mut RecvStream) -> anyhow::Result<Handshake> {
+    let mut buf = vec![];
+    while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
+        buf.extend_from_slice(&chunk.bytes);
+        if let Ok(handshake) = codec::decode(&buf) {
+            return Ok(handshake);
+        }
+    }
+
+    anyhow::bail!("failed to read handshake");
 }

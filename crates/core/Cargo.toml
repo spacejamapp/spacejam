@@ -15,5 +15,9 @@ spacejson.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
 
+[dev-dependencies]
+tracing-subscriber.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+
 [features]
 default = []

@@ -9,6 +9,7 @@ pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
+pub mod testing;
 
 /// The count of validators
 pub const VALIDATORS_COUNT: u16 = 6;

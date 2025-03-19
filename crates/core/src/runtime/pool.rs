@@ -4,11 +4,16 @@
 use crate::{
     block,
     extrinsic::{
-        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketEnvelope,
-        Verdict,
+        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketBody,
+        TicketEnvelope, Verdict,
     },
+    safrole::ValidatorData,
+    BandersnatchPublic, Ed25519Public, Entropy, EntropyBuffer, OpaqueHash,
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 
 /// Memory pool for SpaceJam
@@ -29,7 +34,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    tickets: Arc<Mutex<BTreeMap<u32, Vec<TicketEnvelope>>>>,
+    pub tickets: Arc<Mutex<HashSet<(OpaqueHash, TicketEnvelope)>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -42,24 +47,13 @@ pub struct Pool {
 }
 
 impl Pool {
-    /// Insert a ticket into the pool
-    pub async fn insert_ticket(&self, epoch: u32, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        self.tickets
-            .lock()
-            .await
-            .entry(epoch)
-            .or_insert_with(Vec::new)
-            .push(ticket);
-        Ok(())
-    }
-
     /// Validate the extrinsics in the pool
     ///
     /// 1. remove outdated extrinsics
     /// 2. remove invalid extrinsics
     /// 3. remove duplicated extrinsics
     /// 4. pack the extrinsics into a single extrinsic
-    pub async fn collect(&self) -> anyhow::Result<Extrinsic> {
+    pub async fn collect(&self, tickets: Vec<TicketBody>) -> anyhow::Result<Extrinsic> {
         let mut extrinsics = Extrinsic::default();
 
         {
@@ -67,11 +61,27 @@ impl Pool {
             let timeslot = block::timeslot()?;
             let epoch = timeslot / crate::EPOCH_LENGTH;
 
+            // collect tickets
             if timeslot % crate::EPOCH_LENGTH < crate::TICKET_SUBMISSION_PERIOD {
-                let mut entry = self.tickets.lock().await.entry(epoch).or_default().clone();
-                let tickets = entry.clone();
+                let mut envelopes = self
+                    .tickets
+                    .lock()
+                    .await
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>();
                 self.tickets.lock().await.clear();
-                extrinsics.tickets = tickets;
+
+                // remove the tickets that are already in the pool
+                envelopes.retain(|(id, envelope)| {
+                    !tickets
+                        .iter()
+                        .any(|t| t.id == *id && t.attempt == envelope.attempt)
+                });
+
+                // sort the envelopes by the id
+                envelopes.sort_by(|a, b| a.0.cmp(&b.0));
+                extrinsics.tickets = envelopes.into_iter().map(|(_, ticket)| ticket).collect();
             }
         }
 

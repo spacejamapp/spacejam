@@ -8,6 +8,7 @@
 /monitor/logs
 /monitor/prometheus-data
 /res
+/logs
 
 # misc
 spacejam.db

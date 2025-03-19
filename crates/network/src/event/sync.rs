@@ -1,9 +1,10 @@
 //! Handler of sync events
 
 use crate::{stream::ce128, Network};
+use quinn::RecvStream;
 use score::{
     block::Header,
-    runtime::{storage::BlockStorage, Head},
+    runtime::{storage::SyncStorage, Head},
     Block, OpaqueHash, TimeSlot,
 };
 
@@ -14,8 +15,8 @@ use score::{
 /// - before authoring blocks
 #[tracing::instrument(
     skip_all,
-    level = "debug",
-    name = "finalizing",
+    name = "finalize",
+    parent = None,
     fields(slot = ?slot)
 )]
 pub async fn select_best_chain<C: score::runtime::Config>(
@@ -23,100 +24,170 @@ pub async fn select_best_chain<C: score::runtime::Config>(
     slot: TimeSlot,
 ) -> anyhow::Result<()> {
     let grandpa = runtime.grandpa.read().await.clone();
-    if slot <= grandpa.head.slot {
+    if slot <= grandpa.handshake.head.slot {
+        tracing::trace!(
+            "upcoming#{slot}, grandpa#{}: skipping best chain selection",
+            grandpa.handshake.head.slot
+        );
         return Ok(());
     }
 
     // select the best head from the grandpa.
     let Some((best, ancestors)) = grandpa.select_best_head() else {
-        tracing::trace!("no best head found");
         return Ok(());
     };
 
     // if the best head is already in the local storage,
     // run sync from the local storage.
-    let chain = runtime.chain().await;
-    if let Ok(head) = chain.get_block(&best.hash) {
-        self::finalize_locally(&runtime, head, ancestors).await
+    if let Ok(head) = runtime.storage.get_block(&best.hash) {
+        self::finalize_local(&runtime, head, ancestors).await
     } else {
-        self::finalize_from_feed(&runtime, best).await
+        BlockSync::new(&runtime, best).await?.sync().await
     }
 }
 
 /// Finalize blocks from the local chain.
-#[tracing::instrument(skip_all, level = "debug")]
-async fn finalize_locally<C: score::runtime::Config>(
+#[tracing::instrument(skip_all, name = "local")]
+async fn finalize_local<C: score::runtime::Config>(
     runtime: &Network<C>,
-    head: Block,
+    best: Block,
     mut ancestors: Vec<(OpaqueHash, Header)>,
 ) -> anyhow::Result<()> {
-    tracing::debug!("finalizing from local chain ...");
     ancestors.reverse();
     let grandpa = runtime.grandpa.read().await.clone();
-    let chain = runtime.chain().await;
-    let mut current = grandpa.head.clone();
-    for (ancestor, header) in ancestors.iter().skip(1) {
-        if header.parent != current.hash {
+    let mut finalized = grandpa.handshake.head.clone();
+    let importer = runtime.importer();
+    for (ancestor, header) in ancestors.iter() {
+        if header.slot == best.header.slot {
+            break;
+        }
+
+        if header.parent != finalized.hash {
             anyhow::bail!(
-                "ancestor {} is not the parent of {}",
-                hex::encode(ancestor),
-                hex::encode(current.hash)
+                "the parent 0x{} of the ancestor#{}@0x{} is not the latest finalized block#{}@0x{}",
+                hex::encode(&header.parent[..3]),
+                header.slot,
+                hex::encode(&ancestor[..3]),
+                finalized.slot,
+                hex::encode(&finalized.hash[..3]),
             );
         }
 
-        runtime.finalize(&chain.get_block(ancestor)?).await?;
-        current = Head {
+        importer
+            .finalize(runtime.storage.get_block(ancestor)?)
+            .await?;
+        finalized = Head {
             hash: *ancestor,
             slot: header.slot,
         };
     }
 
-    runtime.finalize(&head).await?;
+    importer.finalize(best).await?;
     Ok(())
 }
 
-/// Finalize blocks from the feed.
-async fn finalize_from_feed<C: score::runtime::Config>(
-    runtime: &Network<C>,
+/// An block sync requester.
+pub struct BlockSync<'r, C: score::runtime::Config> {
+    /// The best head of the sync.
     best: Head,
-) -> anyhow::Result<()> {
-    let grandpa = runtime.grandpa.read().await.clone();
-    let Some(feed) = runtime.lookup(&best).await else {
-        return Ok(());
-    };
 
-    // send the request to the feed.
-    tracing::debug!("finalizing from feed .");
-    let request = ce128::Request {
-        hash: best.hash,
-        direction: 0,
-        maximum: best.slot.saturating_sub(grandpa.head.slot),
-    };
-    let (mut send, mut recv) = ce128::send(feed.clone(), request.clone()).await?;
+    /// The current state of the request.
+    request: ce128::Request,
 
-    // receive the blocks from the feed.
-    tracing::trace!(
-        "request for {} blocks with maximum {} blocks",
-        hex::encode(request.hash),
-        request.maximum,
-    );
-    let mut buffer = Vec::new();
-    while let Some(chunk) = recv.read_chunk(1, true).await? {
-        buffer.extend_from_slice(&chunk.bytes);
-        let Ok(block) = codec::decode::<Block>(&buffer) else {
-            continue;
+    /// The runtime of the sync.
+    runtime: &'r Network<C>,
+}
+
+impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
+    /// Create a new block sync requester.
+    pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
+        let grandpa = runtime.grandpa.read().await.clone();
+        let request = ce128::Request {
+            hash: grandpa.handshake.head.hash,
+            direction: 0,
+            maximum: (grandpa
+                .ancestors(&best.hash, grandpa.handshake.head.hash)
+                .len() as u32)
+                + 1,
         };
 
-        buffer.clear();
-        tracing::debug!("received block#{}", block.header.slot);
-        let grandpa = runtime.grandpa.read().await.clone();
-        if grandpa.head.slot >= block.header.slot {
+        Ok(Self {
+            best,
+            request,
+            runtime,
+        })
+    }
+
+    /// Send the request to the feeds.
+    #[tracing::instrument(skip_all, name = "remote")]
+    pub async fn sync(&mut self) -> anyhow::Result<()> {
+        let feeds = self.runtime.lookup(&self.best).await;
+        for feed in feeds {
+            if self.request.maximum == 0 {
+                break;
+            }
+
+            tracing::debug!(
+                "request {} for block#{}@0x{} with maximum {} blocks",
+                feed.address.peer_id.to_string(),
+                self.best.slot,
+                hex::encode(&self.best.hash[..3]),
+                self.request.maximum,
+            );
+
+            let (mut send, recv) = ce128::send(feed.clone(), self.request.clone()).await?;
+            if let Err(e) = self.request(recv).await {
+                tracing::warn!("failed to sync from {}: {}", feed.address.peer_id, e);
+            }
+
+            send.finish()?;
             continue;
         }
 
-        runtime.finalize(&block).await?;
+        Ok(())
     }
 
-    send.finish()?;
-    Ok(())
+    /// Send the request to the feeds.
+    ///
+    /// TODO: If our local storage contains one of the upcoming blocks,
+    /// we should finalize it from our storage directly.
+    pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
+        let mut buffer = Vec::new();
+        let importer = self.runtime.importer();
+        while let Some(chunk) = recv.read_chunk(1, true).await? {
+            buffer.extend_from_slice(&chunk.bytes);
+            let Ok(block) = codec::decode::<Block>(&buffer) else {
+                continue;
+            };
+
+            buffer.clear();
+            tracing::debug!(
+                "received block#{}@{}",
+                block.header.slot,
+                hex::encode(&block.header.hash()?[..3])
+            );
+
+            // if the block is considered as a descendant of the current head, skip it.
+            {
+                let grandpa = self.runtime.grandpa.read().await.clone();
+                if block.header.hash()? == grandpa.handshake.head.hash {
+                    continue;
+                }
+
+                if grandpa.handshake.head.slot >= block.header.slot {
+                    continue;
+                }
+            }
+
+            // finalize the block.
+            let head: Head = block.header.clone().try_into()?;
+            importer.finalize(block).await?;
+
+            // update the request.
+            self.request.maximum = self.request.maximum.saturating_sub(1);
+            self.request.hash = head.hash;
+            self.best = head;
+        }
+        Ok(())
+    }
 }

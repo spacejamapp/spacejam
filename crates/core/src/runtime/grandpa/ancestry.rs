@@ -1,6 +1,6 @@
 //! The ancestor map.
 
-use crate::{block::Header, OpaqueHash, TimeSlot};
+use crate::{block::Header, OpaqueHash};
 use std::collections::{HashMap, HashSet};
 
 /// The ancestor map.
@@ -12,38 +12,40 @@ pub struct Ancestry {
     /// The parent of each header.
     pub parent: HashMap<OpaqueHash, OpaqueHash>,
 
+    /// The child of each header.
+    pub child: HashMap<OpaqueHash, OpaqueHash>,
+
     /// The header of each hash.
     header: HashMap<OpaqueHash, Header>,
 
     /// Mapping from (slot, parent_hash) to block hashes
     ///
     /// This allows detecting true equivocations (same slot AND same parent)
-    pub slots: HashMap<(TimeSlot, OpaqueHash), HashSet<OpaqueHash>>,
+    pub pending: HashMap<OpaqueHash, HashSet<OpaqueHash>>,
 }
 
 impl Ancestry {
     /// Save the header to the ancestry.
-    ///
-    /// TODO: find the equivocation of the header.
-    pub fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
+    pub(crate) fn save_header(&mut self, header: Header) -> anyhow::Result<()> {
         let hash = header.hash()?;
         let parent = header.parent;
-        let slot = header.slot;
 
         self.parent.insert(hash, parent);
+        self.child.insert(parent, hash);
         self.header.insert(hash, header);
-        self.slots.entry((slot, parent)).or_default().insert(hash);
+        self.pending.entry(parent).or_default().insert(hash);
         Ok(())
+    }
+
+    /// Get the header of the given hash.
+    pub fn header(&self, hash: &OpaqueHash) -> Option<&Header> {
+        self.header.get(hash)
     }
 
     /// Check if the given hash is a descendant of the current hash.
     ///
     /// TODO: set the limit of 24 hrs (MAX_AGE_LOOKUP_ANCHOR)
     pub fn is_descendant_of(&self, mut hash: OpaqueHash, ancestor: OpaqueHash) -> bool {
-        if hash == ancestor {
-            return true;
-        }
-
         while let Some(parent) = self.parent.get(&hash) {
             if parent == &ancestor {
                 return true;
@@ -55,14 +57,12 @@ impl Ancestry {
         false
     }
 
-    /// Get the ticket sealed ancestors count of the given head.
-    ///
-    /// Which is also the votes of this head.
-    pub fn ancestors(&self, hash: &OpaqueHash, finalized: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
+    /// Get the ancestors of the given head.
+    pub fn ancestors(&self, hash: &OpaqueHash, ancestor: OpaqueHash) -> Vec<(OpaqueHash, Header)> {
         let mut ancestors = Vec::new();
-        let mut ancestor = *hash;
-        while let Some(parent) = self.parent.get(&ancestor) {
-            if parent == &finalized {
+        let mut current = *hash;
+        while let Some(parent) = self.parent.get(&current) {
+            if parent == &ancestor {
                 break;
             }
 
@@ -72,7 +72,7 @@ impl Ancestry {
             };
 
             ancestors.push((*parent, header.clone()));
-            ancestor = *parent;
+            current = *parent;
         }
 
         ancestors

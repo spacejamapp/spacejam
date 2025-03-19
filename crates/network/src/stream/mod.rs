@@ -26,24 +26,20 @@ pub mod ce145;
 pub mod up0;
 
 /// Handle an incoming stream.
-#[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name="stream")]
+#[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name = "stream")]
 pub async fn recv<C: score::runtime::Config>(
     peer: PeerId,
     send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,
-) -> anyhow::Result<()> {
+) {
     let mut buf = [0; 1];
-    recv.read_exact(&mut buf).await?;
+    if let Err(e) = recv.read_exact(&mut buf).await {
+        tracing::warn!("failed to read stream type: {e:?}");
+        return;
+    }
 
-    tracing::trace!(
-        "{}",
-        match buf[0] {
-            0 => "up0".to_string(),
-            _ => format!("ce{}", buf[0]),
-        },
-    );
-    match buf[0] {
+    if let Err(e) = match buf[0] {
         0 => up0::recv(peer, send, recv, runtime).await,
         128 => ce128::recv(send, recv, runtime).await,
         129 => ce129::recv(send, recv, runtime).await,
@@ -62,6 +58,14 @@ pub async fn recv<C: score::runtime::Config>(
         143 => ce143::recv(send, recv, runtime).await,
         144 => ce144::recv(send, recv, runtime).await,
         145 => ce145::recv(send, recv, runtime).await,
-        unknown => anyhow::bail!("unknown stream type: {unknown}"),
+        unknown => Err(anyhow::anyhow!("unknown stream type: {unknown}")),
+    } {
+        tracing::warn!(
+            "{}: {e:?}",
+            match buf[0] {
+                0 => "up0".into(),
+                n => format!("ce{n}"),
+            }
+        );
     }
 }

@@ -3,8 +3,9 @@
 use crate::{
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    HeaderHash, OpaqueHash, TimeSlot,
+    Ed25519Public, Entropy, HeaderHash, OpaqueHash, TimeSlot,
 };
+use header::EpochMark;
 use history::{Mmr, MmrJson};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -41,6 +42,22 @@ impl Block {
         let encoded = codec::encode(&self.header)?;
         Ok(crypto::blake2b(&encoded))
     }
+
+    /// Returns the genesis block
+    pub fn genesis(validators: [Ed25519Public; crate::VALIDATORS_COUNT as usize]) -> Self {
+        let header = Header {
+            epoch_mark: Some(EpochMark {
+                entropy: Entropy::default(),
+                tickets_entropy: Entropy::default(),
+                validators,
+            }),
+            ..Default::default()
+        };
+        Self {
+            header,
+            extrinsic: Extrinsic::default(),
+        }
+    }
 }
 
 /// Represents information about a block.
@@ -69,10 +86,15 @@ impl From<Header> for BlockInfo {
 
 /// Returns the current timeslot
 pub fn timeslot() -> anyhow::Result<TimeSlot> {
+    Ok(now()? / crate::SLOT_PERIOD)
+}
+
+/// Returns the current time in seconds
+pub fn now() -> anyhow::Result<u32> {
     let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
     let now = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH + era)?
         .as_secs() as u32;
 
-    Ok(now / crate::SLOT_PERIOD)
+    Ok(now)
 }

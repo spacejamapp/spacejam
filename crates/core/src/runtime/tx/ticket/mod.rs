@@ -5,8 +5,7 @@ use crate::{
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
     },
-    safrole::Safrole,
-    safrole::{ValidatorData, Validators, ValidatorsData},
+    safrole::{Safrole, ValidatorData, Validators, ValidatorsData},
     Ed25519Public, OpaqueHash,
 };
 pub use error::{Error, Result};
@@ -58,7 +57,8 @@ pub fn safrole(
         return Err(Error::BadSlot);
     }
 
-    if slot % crate::TICKET_SUBMISSION_PERIOD == 0 && !tickets.is_empty() {
+    let slot_phase = slot % crate::EPOCH_LENGTH;
+    if slot_phase >= crate::TICKET_SUBMISSION_PERIOD && !tickets.is_empty() {
         return Err(Error::UnexpectedTicket);
     }
 
@@ -106,7 +106,10 @@ pub fn accumulator(
                 &[],
                 &envelope.signature,
             )
-            .map_err(|_| Error::BadTicketProof)?;
+            .map_err(|e| {
+                tracing::error!("failed to verify ring VRF signature: {:?}", e);
+                Error::BadTicketProof
+            })?;
 
         // 3. Store ticket for accumulation
         new_tickets.push(TicketBody {
@@ -122,15 +125,16 @@ pub fn accumulator(
         return Err(Error::BadTicketOrder);
     }
 
-    // Check for duplicates
     let mut accumulator = accumulator.clone();
-    if accumulator.iter().any(|t| new_tickets.contains(t)) {
-        return Err(Error::DuplicateTicket);
-    }
 
     // Clear the accumulator if we're starting a new epoch: 6.34
     if new_epoch {
         accumulator.clear();
+    }
+
+    // Check for duplicates
+    if accumulator.iter().any(|t| new_tickets.contains(t)) {
+        return Err(Error::DuplicateTicket);
     }
 
     // Create merged set of tickets (formula 6.35: n ∪ γ_a)
@@ -169,20 +173,12 @@ pub fn sealing_key_series(
         && prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
     {
-        next = TicketsOrKeys::Tickets(safrole.tickets());
+        next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
-        let mut fallback_keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
-        for i in 0..crate::EPOCH_LENGTH {
-            let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
-            let hash = crypto::blake2b(&input);
-            let mut bytes = [0u8; 4];
-            bytes.copy_from_slice(&hash[0..4]);
-            let index = u32::from_le_bytes(bytes) % (curr_validators.len() as u32);
-
-            fallback_keys.push(curr_validators[index as usize].bandersnatch);
-        }
-
-        next = TicketsOrKeys::Keys(fallback_keys);
+        next = TicketsOrKeys::fallback(
+            curr_validators.iter().map(|v| v.bandersnatch).collect(),
+            entropy,
+        );
     }
 
     next

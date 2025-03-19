@@ -1,6 +1,6 @@
 use spacejam_crypto::{
     ring::{RING_CTX, RING_SIZE},
-    vrf::*,
+    vrf::{self, *},
 };
 
 macro_rules! measure_time {
@@ -24,7 +24,11 @@ fn test_vrf() -> anyhow::Result<()> {
     ring[2] = padding_point;
     ring[5] = padding_point;
 
-    let prover = Prover::new(ring.clone(), prover_key_index);
+    let prover = Prover::new(
+        ring.clone(),
+        prover_key_index,
+        Secret::from_seed(&prover_key_index.to_le_bytes()),
+    );
     let verifier = Verifier::new(ring);
 
     let vrf_input_data = b"foo";
@@ -64,5 +68,53 @@ fn test_vrf() -> anyhow::Result<()> {
 
     // Must match
     assert_eq!(ring_vrf_output, ietf_vrf_output);
+    Ok(())
+}
+
+#[test]
+fn ietf_ring_outputs() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let pkeys = ring.iter().map(|k| k.public).collect::<Vec<_>>();
+
+    let foo = b"foo";
+    let bar = b"bar";
+    let verifier = Verifier::new(pkeys);
+
+    let roh = {
+        let sig = ring[0].ring_sign(keys.clone(), foo, &[])?;
+        verifier.ring_vrf_verify(foo, &[], &sig)?
+    };
+
+    let ioh = {
+        let sig = ring[0].ietf_sign(keys, foo, bar)?;
+        verifier.ietf_vrf_verify(foo, bar, &sig, 0)?
+    };
+
+    assert_eq!(roh, ioh);
+    Ok(())
+}
+
+#[test]
+fn serde_vrf_signature() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let foo = b"foo";
+    let bar = b"bar";
+    let signature = ring[0].ietf_sign(keys.clone(), foo, bar)?;
+    assert!(vrf::ietf_output(signature).is_ok());
+
     Ok(())
 }

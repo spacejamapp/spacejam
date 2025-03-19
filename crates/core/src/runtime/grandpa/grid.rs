@@ -1,19 +1,19 @@
 //! The grid of the network.
 
-use crate::{runtime::Storage, Ed25519Public, VALIDATORS_COUNT};
+use crate::{runtime::Storage, safrole::ValidatorsData, Ed25519Public, VALIDATORS_COUNT};
 use std::collections::HashSet;
 
 /// The grid of the network.
 #[derive(Clone, Default)]
 pub struct Grid {
     /// The previous layer of the grid.
-    pub prev: [Ed25519Public; VALIDATORS_COUNT as usize],
+    pub prev: ValidatorsData,
 
     /// The current layer of the grid.
-    pub curr: [Ed25519Public; VALIDATORS_COUNT as usize],
+    pub curr: ValidatorsData,
 
     /// The next layer of the grid.
-    pub next: [Ed25519Public; VALIDATORS_COUNT as usize],
+    pub next: ValidatorsData,
 }
 
 impl Grid {
@@ -23,11 +23,7 @@ impl Grid {
         let curr = storage.current_validators().unwrap_or_default();
         let next = storage.next_validators().unwrap_or_default();
 
-        Self::try_from((
-            prev.iter().map(|v| v.ed25519).collect(),
-            curr.iter().map(|v| v.ed25519).collect(),
-            next.iter().map(|v| v.ed25519).collect(),
-        ))
+        Ok(Self { prev, curr, next })
     }
 
     /// Get the validators of the grid.
@@ -36,17 +32,17 @@ impl Grid {
             .iter()
             .chain(&self.curr)
             .chain(&self.next)
-            .copied()
+            .map(|v| v.ed25519)
             .collect()
     }
 
     /// Check if the given peer is a validator.
-    pub fn is_validator(&self, peer: [u8; 32]) -> bool {
+    pub fn is_validator(&self, peer: Ed25519Public) -> bool {
         self.prev
             .iter()
             .chain(&self.curr)
             .chain(&self.next)
-            .any(|v| v.as_ref() == peer)
+            .any(|v| v.ed25519 == peer)
     }
 
     /// Get the neighbours of the given validator.
@@ -66,7 +62,7 @@ impl Grid {
             let mut validator_layer = None;
             let mut validator_index = None;
             for (layer_index, layer) in layers.iter().enumerate() {
-                if let Some(idx) = layer.iter().position(|v| *v == validator) {
+                if let Some(idx) = layer.iter().position(|v| v.ed25519 == validator) {
                     validator_layer = Some(layer_index);
                     validator_index = Some(idx);
                     break;
@@ -96,7 +92,7 @@ impl Grid {
             .skip(row * width)
         {
             if i != index {
-                neighbours.insert(*validator);
+                neighbours.insert(validator.ed25519);
             }
         }
 
@@ -104,7 +100,7 @@ impl Grid {
         let mut col_idx = col;
         while col_idx < VALIDATORS_COUNT as usize {
             if col_idx != index {
-                neighbours.insert(layer[col_idx]);
+                neighbours.insert(layer[col_idx].ed25519);
             }
             col_idx += width;
         }
@@ -115,7 +111,7 @@ impl Grid {
                 .iter()
                 .filter(|&i| *i != layer_index)
                 .for_each(|i| {
-                    neighbours.insert(layers[*i][index]);
+                    neighbours.insert(layers[*i][index].ed25519);
                 });
         }
 
@@ -124,25 +120,5 @@ impl Grid {
             .filter(|v| v.as_ref() != validator.as_ref())
             .copied()
             .collect()
-    }
-}
-
-impl TryFrom<(Vec<Ed25519Public>, Vec<Ed25519Public>, Vec<Ed25519Public>)> for Grid {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        (prev, curr, next): (Vec<Ed25519Public>, Vec<Ed25519Public>, Vec<Ed25519Public>),
-    ) -> Result<Self, Self::Error> {
-        Ok(Self {
-            prev: prev
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("failed to convert prev"))?,
-            curr: curr
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("failed to convert curr"))?,
-            next: next
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("failed to convert next"))?,
-        })
     }
 }

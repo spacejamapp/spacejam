@@ -4,18 +4,16 @@ use crate::{
     peer::{Connection, PeerId},
     Network,
 };
-use score::{block::Header, extrinsic::TicketEnvelope, TimeSlot};
+use score::extrinsic::TicketEnvelope;
 use std::fmt;
 
-mod broadcast;
+pub mod broadcast;
 mod conn;
-mod sync;
+pub mod sync;
 
 /// Events for peers.
 #[derive(Debug, Clone)]
 pub enum Event {
-    /// Announce a block.
-    AnnounceBlock(Box<Header>),
     /// Distribute a ticket.
     DistributeTicket {
         /// The epoch.
@@ -24,8 +22,6 @@ pub enum Event {
         /// The ticket.
         ticket: Box<TicketEnvelope>,
     },
-    /// Select the best chain.
-    SelectBestChain { slot: TimeSlot },
     /// A new peer has connected.
     Connected(Connection),
     /// A peer has disconnected.
@@ -40,15 +36,11 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
-    #[tracing::instrument(skip_all, level = "debug", fields(event = self.to_string()), name="event")]
     pub async fn handle<C: score::runtime::Config>(
         self,
         runtime: Network<C>,
     ) -> anyhow::Result<()> {
         match self {
-            Self::AnnounceBlock(header) => {
-                broadcast::announce(runtime, header).await?;
-            }
             Self::DistributeTicket { epoch, ticket } => {
                 broadcast::ticket(runtime, epoch, *ticket).await?;
             }
@@ -61,9 +53,6 @@ impl Event {
                     runtime.transport.dial(address).await?;
                 }
             }
-            Self::SelectBestChain { slot } => {
-                sync::select_best_chain(runtime, slot).await?;
-            }
         }
 
         Ok(())
@@ -73,14 +62,8 @@ impl Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AnnounceBlock(header) => {
-                write!(f, "AnnounceBlock({})", header.slot)
-            }
             Self::DistributeTicket { epoch, ticket: _ } => {
                 write!(f, "DistributeTicket({})", epoch)
-            }
-            Self::SelectBestChain { slot } => {
-                write!(f, "SelectBestChain({})", slot)
             }
             Self::Connected(conn) => {
                 write!(f, "Connected({})", conn.address.peer_id)

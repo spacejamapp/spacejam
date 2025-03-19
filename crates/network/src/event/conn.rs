@@ -8,6 +8,7 @@ use quinn::VarInt;
 use score::runtime::Validator;
 
 /// Handle the connected event.
+#[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
 pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 
@@ -36,7 +37,7 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
                 }
             });
         } else {
-            tracing::trace!("skipping up0 stream");
+            tracing::trace!("peer is not a neighbour, skipping up0 stream");
         }
     }
 
@@ -50,6 +51,7 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
 }
 
 /// Handle the closed event.
+#[tracing::instrument(skip_all, name = "close", fields(peer = peer.to_string()))]
 pub async fn closed<C: score::runtime::Config>(
     runtime: Network<C>,
     peer: PeerId,
@@ -82,13 +84,11 @@ pub async fn closed<C: score::runtime::Config>(
 }
 
 /// Serve a connection.
-///
-/// TODO: introduce configuration for the number of errors before closing the connection.
 async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
+    // TODO: use limited threads to serve the connection
+
     while let Ok((send, recv)) = conn.accept_bi().await {
         let runtime = runtime.clone();
-        if let Err(e) = stream::recv(conn.address.peer_id, send, recv, runtime).await {
-            tracing::warn!("error with peer: {}: {e:?}", conn.address.peer_id);
-        }
+        tokio::spawn(async move { stream::recv(conn.address.peer_id, send, recv, runtime).await });
     }
 }

@@ -1,6 +1,5 @@
 //! Validator from local.
 
-use anyhow::Result;
 use crypto::{bls, ed25519, vrf};
 use rand::Rng;
 use score::{
@@ -66,10 +65,6 @@ impl Validator for LocalValidator {
         message: &[u8],
     ) -> anyhow::Result<BandersnatchRingVrfSignature> {
         self.banersnatch.ring_sign(keys.to_vec(), message, context)
-    }
-
-    fn bandersnatch_output(&self, message: &[u8]) -> Result<BandersnatchVrfSignature> {
-        self.banersnatch.output(message)
     }
 
     fn metadata(&self) -> ValidatorMetadata {
