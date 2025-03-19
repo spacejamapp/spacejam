@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Send a safrole ticket distribution.
-#[tracing::instrument(skip_all, name = "ce132::send")]
+#[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
 pub async fn send(
     mut send: SendStream,
     mut recv: RecvStream,
@@ -26,7 +26,7 @@ pub async fn send(
 }
 
 /// Receive a safrole ticket distribution.
-#[tracing::instrument(skip_all, level = "debug", name = "ce132::recv")]
+#[tracing::instrument(skip_all, name = "ce132::recv", parent = None)]
 pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,

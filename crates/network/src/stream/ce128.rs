@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::mem;
 
 /// Send a block request.
-#[tracing::instrument(skip_all, level = "debug", fields(peer = ?conn.address.peer_id), name="ce128::send")]
+#[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
 pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStream, RecvStream)> {
     let (mut send, recv) = conn.open_bi().await?;
 
@@ -22,7 +22,7 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStr
 }
 
 /// Receive a block request.
-#[tracing::instrument(skip_all, name = "ce128::recv")]
+#[tracing::instrument(skip_all, name = "ce128::recv", parent = None)]
 pub async fn recv<C: score::runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
