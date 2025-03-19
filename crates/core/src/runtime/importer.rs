@@ -137,7 +137,7 @@ impl<'i, C: Config> Importer<'i, C> {
     }
 
     /// Validate a block header.
-    #[tracing::instrument(skip(self), name = "importer::validate")]
+    #[tracing::instrument(skip_all, name = "importer::validate")]
     pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
         let handshake = self.runtime.grandpa.read().await.handshake.clone();
         let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
