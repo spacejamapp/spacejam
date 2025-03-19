@@ -90,8 +90,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     }
 
     /// on new epoch
-    ///
-    /// TODO: trigger this on finalizing a block from the next epoch.
     pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
         self.runtime.storage.on_new_epoch()?;
 
@@ -108,6 +106,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
+                        tracing::debug!("assigned slot#{i} with ticket#{}", hex::encode(ticket.id));
                         slots.push_back(i as TimeSlot);
                     }
                 }
@@ -128,7 +127,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
             self.slots
         );
 
-        // 4. reset the tickets
         self.tickets.clear();
         Ok(())
     }
@@ -216,11 +214,6 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
     ) -> anyhow::Result<OpaqueHash> {
         let keys = self.next_keys()?;
         let entropy = self.entropy()?;
-        tracing::trace!(
-            "verifying ticket with entropy: 0x{}",
-            hex::encode(entropy[2].as_ref())
-        );
-
         let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &entropy[2]),

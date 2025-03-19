@@ -48,18 +48,49 @@ impl Builder {
         entropy: EntropyBuffer,
     ) -> anyhow::Result<Block> {
         let context = codec::encode(&self.header)?;
+        let mut keys = keys.to_vec();
+        let entropy = if let Some(mark) = self.header.epoch_mark.clone() {
+            keys = mark.validators.to_vec();
+            entropy[2]
+        } else {
+            entropy[3]
+        };
 
         self.header.seal = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (self.header.slot % crate::EPOCH_LENGTH) as usize;
                 let ticket = tickets[slot];
-                let message = TicketBody::message(ticket.attempt, &entropy[3]);
-                validator.bandersnatch_sign(keys, &context, &message)?
+                tracing::trace!(
+                    "sealing block with entropy: 0x{}, ticket#{}@0x{}",
+                    hex::encode(entropy.as_ref()),
+                    ticket.attempt,
+                    hex::encode(ticket.id)
+                );
+                let message = TicketBody::message(ticket.attempt, &entropy);
+                let seal = validator.bandersnatch_sign(&keys, &context, &message)?;
+
+                let verifier = crypto::ring::verifier(keys.clone());
+                let output = verifier.ietf_vrf_verify(
+                    &message,
+                    &context,
+                    &seal,
+                    self.header.author_index as usize,
+                )?;
+                if output != ticket.id {
+                    tracing::error!(
+                        "ticket seal mismatched, expected: 0x{}, got: 0x{}",
+                        hex::encode(ticket.id),
+                        hex::encode(output)
+                    );
+                    anyhow::bail!("ticket seal mismatched");
+                }
+
+                seal
             }
             TicketsOrKeys::Keys(_) => {
                 let mut message = crate::JAM_FALLBACK_SEAL.to_vec();
-                message.extend_from_slice(&entropy[3]);
-                validator.bandersnatch_sign(keys, &context, &message)?
+                message.extend_from_slice(&entropy);
+                validator.bandersnatch_sign(&keys, &context, &message)?
             }
         };
 
@@ -67,7 +98,7 @@ impl Builder {
         self.header.entropy_source = {
             let mut context = crate::JAM_ENTROPY.to_vec();
             context.extend_from_slice(&crypto::vrf::ietf_output(self.header.seal)?);
-            validator.bandersnatch_sign(keys, &context, &[])?
+            validator.bandersnatch_sign(&keys, &context, &[])?
         };
 
         Ok(self.into())

@@ -41,7 +41,7 @@ pub trait SyncStorage: Storage {
             .collect::<Vec<_>>())
     }
 
-    /// On new epoch handler
+    /// On new epoch handler for rotating the series
     fn on_new_epoch(&self) -> Result<()> {
         let next_series = [SERIES_KEY, b"next"].concat();
         if let Some(value) = self.get(&next_series)? {

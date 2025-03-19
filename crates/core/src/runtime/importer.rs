@@ -83,6 +83,7 @@ impl<'i, C: Config> Importer<'i, C> {
     /// by ourselves in our storage.
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.runtime.grandpa.read().await.handshake.head.clone();
+
         if block.header.parent != prev.hash {
             anyhow::bail!(
                 "invalid parent: 0x{} != 0x{}",
@@ -109,6 +110,10 @@ impl<'i, C: Config> Importer<'i, C> {
         // 2. save the block to the storage
         self.runtime.storage.set_block(&block)?;
         if let Some(series) = block.header.tickets_mark {
+            tracing::info!(
+                "next tickets: {:#?}",
+                series.iter().map(|t| hex::encode(t.id)).collect::<Vec<_>>()
+            );
             self.runtime.storage.set_next_series(&series)?;
         }
 
@@ -132,6 +137,7 @@ impl<'i, C: Config> Importer<'i, C> {
     }
 
     /// Validate a block header.
+    #[tracing::instrument(skip(self), name = "importer::validate")]
     pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
         let handshake = self.runtime.grandpa.read().await.handshake.clone();
         let local_epoch = handshake.head.slot / crate::EPOCH_LENGTH;
@@ -150,8 +156,12 @@ impl<'i, C: Config> Importer<'i, C> {
         let new_epoch = remote_epoch == local_epoch + 1;
         let slot = (header.slot % crate::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.runtime.storage.entropy()?;
-        let entropy = entropy_buffer[3];
         let mut ticket = None;
+        let entropy = if header.epoch_mark.is_some() {
+            entropy_buffer[2]
+        } else {
+            entropy_buffer[3]
+        };
 
         // check the ticket mark
         if new_epoch {
@@ -188,15 +198,55 @@ impl<'i, C: Config> Importer<'i, C> {
         }
 
         // check the ticket seal
+
+        if let Some(ticket) = ticket {
+            tracing::trace!(
+                "verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",
+                hex::encode(entropy.as_ref()),
+                ticket.attempt,
+                hex::encode(ticket.id),
+                header.author_index
+            );
+        } else {
+            tracing::trace!(
+                "verifying header seal with entropy: 0x{},",
+                hex::encode(entropy.as_ref())
+            );
+        }
         let author_index = header.author_index;
         let verifier = crypto::ring::verifier(keys.clone());
-        let output =
-            verifier.ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)?;
+        let output = verifier
+            .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
+            .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
+
+        tracing::trace!("vrf verification output: 0x{}", hex::encode(output));
         if let Some(ticket) = ticket {
             if ticket.id != output {
+                let TicketsOrKeys::Tickets(tickets) = self.runtime.storage.series()? else {
+                    anyhow::bail!("ticket series not found");
+                };
+                tracing::error!(
+                    "ticket series: {:?}",
+                    tickets.into_iter().map(|t| t.id).collect::<Vec<_>>()
+                );
                 anyhow::bail!("header seal mismatched");
             }
         }
+
+        // verify entropy source
+        verifier
+            .ietf_vrf_verify(
+                &[],
+                &[
+                    &crate::JAM_ENTROPY[..],
+                    &crypto::vrf::ietf_output(header.seal)?[..],
+                ]
+                .concat(),
+                &header.entropy_source,
+                author_index as usize,
+            )
+            .map(|_| ())
+            .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
 
         Ok(())
     }
