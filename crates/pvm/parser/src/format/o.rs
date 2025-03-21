@@ -1,3 +1,5 @@
+//! The O instruction format.
+
 use crate::format::{I, O};
 
 impl From<O> for Vec<u8> {

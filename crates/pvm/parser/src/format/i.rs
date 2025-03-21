@@ -1,3 +1,5 @@
+//! The I instruction format.
+
 use crate::format::{I, ISA};
 
 impl From<I> for Vec<u8> {
@@ -15,7 +17,7 @@ impl From<&[u8]> for I {
         }
 
         I {
-            imm0: u32::read_imm(&bytes[..bytes.len().min(4)]),
+            imm0: u64::read_imm(&bytes[..bytes.len().min(8)]),
         }
     }
 }

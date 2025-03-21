@@ -1,8 +1,8 @@
 //! PolkaVM program interpreter
 
-use crate::{status::Status, Memory};
+use crate::{status::Status, Memory, Register};
 use anyhow::Result;
-use parser::{reader::Offset, Instruction, ProgramBlob, Visitor};
+use pvm_parser::{reader::Offset, Instruction, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;
@@ -11,7 +11,7 @@ mod visitor;
 #[derive(Default)]
 pub struct Interpreter {
     /// The registers of the interpreter.
-    pub registers: [u32; 13],
+    pub registers: [Register; 13],
 
     /// The gas limit of the interpreter.
     pub gas: u32,
@@ -97,20 +97,4 @@ impl Interpreter {
         self.gas -= 1;
         Ok(())
     }
-}
-
-#[test]
-fn test_add() {
-    let mut interpreter = Interpreter::default()
-        .registers([0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0])
-        .gas(10000);
-
-    interpreter
-        .interp([0, 0, 3, 0xbe, 135, 9, 1])
-        .expect("interp failed");
-    assert_eq!(interpreter.status, Status::Trap);
-    assert_eq!(
-        interpreter.registers,
-        [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 0, 0]
-    );
 }

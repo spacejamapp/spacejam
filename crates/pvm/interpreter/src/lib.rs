@@ -10,4 +10,5 @@ mod interp;
 pub mod memory;
 mod status;
 
+pub use pvm_parser::Register;
 pub use {interp::Interpreter, memory::Memory, status::Status};

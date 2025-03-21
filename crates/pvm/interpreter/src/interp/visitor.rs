@@ -2,7 +2,7 @@
 
 use crate::{interp::Interpreter, status::Status};
 use anyhow::Result;
-use parser::{format, Visitor};
+use pvm_parser::{format, Visitor};
 
 impl Visitor for Interpreter {
     fn visit_trap(&mut self) -> Result<()> {
@@ -204,7 +204,7 @@ impl Visitor for Interpreter {
         let divisor = self.registers[reg1 as usize];
 
         self.registers[reg2 as usize] = if divisor == 0 {
-            u32::MAX // 2^32 - 1
+            u32::MAX as u64 // 2^32 - 1
         } else {
             dividend.wrapping_div(divisor)
         };
@@ -217,11 +217,11 @@ impl Visitor for Interpreter {
         let divisor = self.registers[reg1 as usize] as i32;
 
         self.registers[reg2 as usize] = if divisor == 0 {
-            u32::MAX // 2^32 - 1
+            u32::MAX as u64 // 2^32 - 1
         } else if dividend == i32::MIN && divisor == -1 {
             self.registers[reg0 as usize] // Return dividend unchanged
         } else {
-            (dividend.wrapping_div(divisor)) as u32
+            (dividend.wrapping_div(divisor)) as u64
         };
         Ok(())
     }
@@ -245,7 +245,7 @@ impl Visitor for Interpreter {
     fn visit_load_i8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = &self.memory.slots[&imm0];
-        self.registers[reg0 as usize] = value[0] as i8 as i32 as u32;
+        self.registers[reg0 as usize] = value[0] as i8 as i64 as u64;
         Ok(())
     }
 
@@ -253,7 +253,7 @@ impl Visitor for Interpreter {
         let format::RI { reg0, imm0 } = format;
         let value = &self.memory.slots[&imm0];
         self.registers[reg0 as usize] =
-            u16::from_le_bytes([value[0], value[1]]) as i16 as i32 as u32;
+            u16::from_le_bytes([value[0], value[1]]) as i16 as i64 as u64;
         Ok(())
     }
 
@@ -274,7 +274,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let offset = imm0.min(4) as usize;
         let addr = self.registers[reg1 as usize];
-        let value = self.memory.slots[&addr][offset] as i8 as i32 as u32;
+        let value = self.memory.slots[&addr][offset] as i8 as i64 as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -283,7 +283,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let offset = imm0.min(3) as usize;
         let addr = self.registers[reg1 as usize];
-        let value = self.memory.slots[&addr][offset] as u32;
+        let value = self.memory.slots[&addr][offset] as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -297,7 +297,7 @@ impl Visitor for Interpreter {
             self.memory.slots[&addr][offset + 1],
         ]);
 
-        self.registers[reg0 as usize] = value as u32;
+        self.registers[reg0 as usize] = value as u64;
         Ok(())
     }
 
@@ -308,7 +308,7 @@ impl Visitor for Interpreter {
         let value = u16::from_le_bytes([
             self.memory.slots[&addr][offset],
             self.memory.slots[&addr][offset + 1],
-        ]) as i16 as i32 as u32;
+        ]) as i16 as i64 as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -321,21 +321,21 @@ impl Visitor for Interpreter {
         let mut bytes = [0; 4];
         bytes.copy_from_slice(&self.memory.slots[&addr][offset..offset + 4]);
         let value = u32::from_le_bytes(bytes);
-        self.registers[reg0 as usize] = value;
+        self.registers[reg0 as usize] = value as u64;
         Ok(())
     }
 
     fn visit_load_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = &self.memory.slots[&imm0];
-        self.registers[reg0 as usize] = value[0] as u32;
+        self.registers[reg0 as usize] = value[0] as u64;
         Ok(())
     }
 
     fn visit_load_u16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = &self.memory.slots[&imm0];
-        self.registers[reg0 as usize] = u16::from_le_bytes([value[0], value[1]]) as u32;
+        self.registers[reg0 as usize] = u16::from_le_bytes([value[0], value[1]]) as u64;
         Ok(())
     }
 
@@ -343,7 +343,7 @@ impl Visitor for Interpreter {
         let format::RI { reg0, imm0 } = format;
         let value = &self.memory.slots[&imm0];
         self.registers[reg0 as usize] =
-            u32::from_le_bytes([value[0], value[1], value[2], value[3]]);
+            u32::from_le_bytes([value[0], value[1], value[2], value[3]]) as u64;
         Ok(())
     }
 
@@ -371,16 +371,16 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         let a = self.registers[reg0 as usize] as i32 as i64;
         let b = self.registers[reg1 as usize] as i32 as i64;
-        let result = ((a * b) >> 32) as u32;
+        let result = ((a * b) >> 32) as u64;
         self.registers[reg2 as usize] = result;
         Ok(())
     }
 
     fn visit_mul_upper_u_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let a = self.registers[reg0 as usize] as u64;
-        let b = self.registers[reg1 as usize] as u64;
-        let result = ((a * b) >> 32) as u32;
+        let a = self.registers[reg0 as usize];
+        let b = self.registers[reg1 as usize];
+        let result = (a * b) >> 32;
         self.registers[reg2 as usize] = result;
         Ok(())
     }
@@ -388,8 +388,8 @@ impl Visitor for Interpreter {
     fn visit_mul_upper_s_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let a = self.registers[reg0 as usize] as i32 as i64;
-        let b = self.registers[reg1 as usize] as u64;
-        let result = ((a * b as i64) >> 32) as u32;
+        let b = self.registers[reg1 as usize];
+        let result = ((a * b as i64) >> 32) as u64;
         self.registers[reg2 as usize] = result;
         Ok(())
     }
@@ -424,7 +424,7 @@ impl Visitor for Interpreter {
         } else if dividend == i32::MIN && divisor == -1 {
             0 // Special case as per spec
         } else {
-            (dividend.wrapping_rem(divisor)) as u32
+            (dividend.wrapping_rem(divisor)) as u64
         };
         Ok(())
     }
@@ -509,7 +509,7 @@ impl Visitor for Interpreter {
     fn visit_shar_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let shift = self.registers[reg1 as usize] % 32;
-        let value = ((self.registers[reg0 as usize] as i32).wrapping_shr(shift)) as u32;
+        let value = ((self.registers[reg0 as usize] as i64).wrapping_shr(shift as u32)) as u64;
         self.registers[reg2 as usize] = value;
         Ok(())
     }
@@ -517,7 +517,7 @@ impl Visitor for Interpreter {
     fn visit_shar_r_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = ((self.registers[reg1 as usize] as i32).wrapping_shr(shift)) as u32;
+        let value = ((self.registers[reg1 as usize] as i64).wrapping_shr(shift as u32)) as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -527,7 +527,7 @@ impl Visitor for Interpreter {
         // ω'A = Z4^-1(⌊Z4(νX) ÷ 2^ωB mod 32⌋)
         let shift = self.registers[reg1 as usize] % 32;
         // Z4 converts to signed, arithmetic shift, then back to unsigned
-        let value = ((imm0 as i32).wrapping_shr(shift)) as u32;
+        let value = ((imm0 as i64).wrapping_shr(shift as u32)) as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -535,7 +535,7 @@ impl Visitor for Interpreter {
     fn visit_shlo_l_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let shift = self.registers[reg1 as usize] % 32;
-        let value = self.registers[reg0 as usize].wrapping_shl(shift);
+        let value = self.registers[reg0 as usize].wrapping_shl(shift as u32);
         self.registers[reg2 as usize] = value;
         Ok(())
     }
@@ -543,7 +543,7 @@ impl Visitor for Interpreter {
     fn visit_shlo_l_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = self.registers[reg1 as usize].wrapping_shl(shift);
+        let value = self.registers[reg1 as usize].wrapping_shl(shift as u32);
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -552,7 +552,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         // ω'A = (νX · 2^ωB mod 32) mod 2^32
         let shift = self.registers[reg1 as usize] % 32;
-        let value = imm0.wrapping_shl(shift);
+        let value = imm0.wrapping_shl(shift as u32);
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -560,7 +560,7 @@ impl Visitor for Interpreter {
     fn visit_shlo_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let shift = self.registers[reg1 as usize] % 32;
-        let value = self.registers[reg0 as usize].wrapping_shr(shift);
+        let value = self.registers[reg0 as usize].wrapping_shr(shift as u32);
         self.registers[reg2 as usize] = value;
         Ok(())
     }
@@ -568,7 +568,7 @@ impl Visitor for Interpreter {
     fn visit_shlo_r_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = self.registers[reg1 as usize].wrapping_shr(shift);
+        let value = self.registers[reg1 as usize].wrapping_shr(shift as u32);
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -577,7 +577,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         // ω'A = ⌊νX ÷ 2^ωB mod 32⌋
         let shift = self.registers[reg1 as usize] % 32;
-        let value = imm0.wrapping_shr(shift);
+        let value = imm0.wrapping_shr(shift as u32);
         self.registers[reg0 as usize] = value;
         Ok(())
     }

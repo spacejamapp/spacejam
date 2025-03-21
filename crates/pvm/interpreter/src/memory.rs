@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct Memory {
     /// The pages of the memory.
-    pub pages: BTreeMap<u32, Page>,
+    pub pages: BTreeMap<u64, Page>,
     /// The slots of the memory.
-    pub slots: BTreeMap<u32, Vec<u8>>,
+    pub slots: BTreeMap<u64, Vec<u8>>,
 }
 
 /// A memory page.

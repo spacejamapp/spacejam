@@ -1,3 +1,5 @@
+//! The RRI instruction format.
+
 use crate::format::{ISA, RRI};
 
 impl From<RRI> for Vec<u8> {
@@ -24,7 +26,7 @@ impl From<&[u8]> for RRI {
         let imm0 = if bytes.len() == 1 {
             0
         } else {
-            u32::read_imm(&bytes[1..])
+            u64::read_imm(&bytes[1..])
         };
 
         RRI {

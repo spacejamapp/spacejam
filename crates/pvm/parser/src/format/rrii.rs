@@ -49,8 +49,8 @@ impl From<&[u8]> for RRII {
         RRII {
             reg0,
             reg1,
-            imm0: u32::read_imm(&bytes[2..mid]),
-            imm1: u32::read_imm(&bytes[mid..]),
+            imm0: u64::read_imm(&bytes[2..mid]),
+            imm1: u64::read_imm(&bytes[mid..]),
         }
     }
 }

@@ -5,9 +5,6 @@ use crate::format::REI;
 impl From<REI> for Vec<u8> {
     fn from(value: REI) -> Self {
         let mut result = Vec::with_capacity(9);
-
-        // Add register info in the lower 4 bits of the first byte
-        // Register value is capped at 12 (0xC) as per pvm.tex
         result.push(value.reg0 & 0xF);
 
         // Add extended immediate (8-byte value in little-endian format)
@@ -38,23 +35,21 @@ impl From<&[u8]> for REI {
 
 #[test]
 fn test_rei_encoding() {
-    // Create a sample REI with register 7 and extended immediate 0x0000000000ABCDEF
-    let original = REI {
-        reg0: 7,
-        eimm0: 0x0000000000ABCDEF,
-    };
+    let eimm0 = 0x0000000000ABCDEF;
+    let reg0 = 7;
+    let original = REI { reg0, eimm0 };
 
     // Encode the REI
     let encoded: Vec<u8> = original.into();
 
     // Check encoding format
     assert_eq!(encoded.len(), 9); // 1 byte for register + 8 bytes for extended immediate
-    assert_eq!(encoded[0], 7); // Register should be 7
+    assert_eq!(encoded[0], reg0); // Register should be 7
 
     // Decode back to REI
     let decoded = REI::from(encoded.as_ref());
 
     // Check that decoded matches original values
-    assert_eq!(decoded.reg0, 7);
-    assert_eq!(decoded.eimm0, 0x0000000000ABCDEF);
+    assert_eq!(decoded.reg0, reg0);
+    assert_eq!(decoded.eimm0, eimm0);
 }

@@ -1,3 +1,5 @@
+//! The codegen for the formats.
+
 use proc_macro2::Span;
 use quote::quote;
 use serde::{Deserialize, Serialize};
@@ -23,7 +25,7 @@ impl Formats {
             .map(|i| (format!("reg{}", i), parse_quote!(u8), "register"))
             .chain(
                 (0..format.immediate)
-                    .map(|i| (format!("imm{}", i), parse_quote!(u32), "immediate")),
+                    .map(|i| (format!("imm{}", i), parse_quote!(Register), "immediate")),
             )
             .chain((0..format.extended_immediate).map(|i| {
                 (
@@ -32,7 +34,7 @@ impl Formats {
                     "extended-immediate",
                 )
             }))
-            .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(u32), "offset")))
+            .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(u64), "offset")))
             .map(|(name, value, doc): (String, Type, &str)| {
                 let i = name.chars().last().expect("Failed to get last char");
                 let ident = Ident::new(&name, Span::call_site());

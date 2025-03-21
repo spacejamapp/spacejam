@@ -1,3 +1,5 @@
+//! The RRO instruction format.
+
 use crate::format::{ISA, RRI, RRO};
 
 impl From<&[u8]> for RRO {
