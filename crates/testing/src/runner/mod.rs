@@ -3,6 +3,7 @@
 use anyhow::Result;
 use score::{block::History, runtime::tx};
 use specjam::{Section, Test};
+use tracing_subscriber::EnvFilter;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -10,6 +11,10 @@ pub struct Runner;
 impl Runner {
     /// Step a test.
     pub fn step(test: &Test) -> Result<()> {
+        tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+
         match test.section {
             Section::Assurances => {
                 use crate::assurances;

@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Memory {
+    /// The address of the memory slot.
     pub address: u64,
+    /// The contents of the memory slot.
     pub contents: Vec<u8>,
 }
 
@@ -34,4 +36,4 @@ pub struct TestOutput {
     pub expected_gas: u32,
 }
 
-// include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
+include!(concat!(env!("OUT_DIR"), "/pvm.rs"));

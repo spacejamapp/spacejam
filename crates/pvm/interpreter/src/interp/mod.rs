@@ -39,7 +39,7 @@ impl Interpreter {
         while !reader.eof() && self.status.is_unknown() {
             let Ok(instr) = reader.read() else {
                 tracing::error!("failed to read instruction, position: {}", reader.position);
-                self.status = Status::Trap;
+                self.status = Status::Panic;
                 return Ok(());
             };
 
@@ -49,8 +49,14 @@ impl Interpreter {
                 instr.value
             );
 
+            // step the instruction
+            if let Err(e) = self.step(instr) {
+                tracing::error!("failed to step instruction: {:?}", e);
+                self.status = Status::Panic;
+                break;
+            }
+
             // if there is a jump target, update the reader position
-            self.step(instr)?;
             if let Some(jump) = self.jump.take() {
                 if jump > reader.buffer.len() {
                     self.status = Status::Halt;
@@ -59,7 +65,7 @@ impl Interpreter {
                 }
 
                 if jump == 0 {
-                    self.status = Status::Trap;
+                    self.status = Status::Panic;
                     self.pc = 0;
                     return Ok(());
                 }
@@ -89,7 +95,7 @@ impl Interpreter {
     /// Execute a single instruction.
     pub fn step(&mut self, instr: Offset<Instruction>) -> Result<()> {
         if self.gas == 0 {
-            self.status = Status::OutOfGas;
+            self.status = Status::OOG;
             return Ok(());
         }
 

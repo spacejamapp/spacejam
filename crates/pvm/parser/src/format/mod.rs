@@ -35,6 +35,12 @@ pub trait ISA: Sized {
     /// n must be in {0,1,2,3,4,8}
     fn sign_extend(&self, n: usize) -> Self;
 
+    /// Sign extends the value in 32 bits
+    fn sign_ext32(&self) -> Self;
+
+    /// Sign extends the value in 64 bits
+    fn sign_ext64(&self) -> Self;
+
     /// Read the value from the bytes.
     fn read(bytes: &[u8]) -> (Self, usize);
 }
@@ -84,6 +90,28 @@ impl ISA for u64 {
             *self | mask
         } else {
             // If sign bit is 0, extend with 0s
+            *self
+        }
+    }
+
+    // sign extend the value in 32 bits
+    //
+    // see also `self.sign_extend(4)`
+    fn sign_ext32(&self) -> Self {
+        if (*self & 0x80000000) != 0 {
+            *self | 0xFFFFFFFF00000000
+        } else {
+            *self
+        }
+    }
+
+    // sign extend the value in 64 bits
+    //
+    // see also `self.sign_extend(8)`
+    fn sign_ext64(&self) -> Self {
+        if (*self & 0x8000000000000000) != 0 {
+            *self | 0xFFFFFFFF00000000
+        } else {
             *self
         }
     }
