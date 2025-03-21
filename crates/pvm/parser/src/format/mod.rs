@@ -5,6 +5,7 @@ include!(concat!(env!("OUT_DIR"), "/format.rs"));
 mod i;
 mod ii;
 mod o;
+mod rei;
 mod ri;
 mod rii;
 mod rio;

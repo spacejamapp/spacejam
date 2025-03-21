@@ -15,3 +15,7 @@
 - [Appendix](./appendix/README.md)
   - [A - Graypaper](./appendix/graypaper.md)
   - [B - State Transition](./appendix/state.md)
+
+# Development
+
+- [Localnet](./dev/localnet.md)

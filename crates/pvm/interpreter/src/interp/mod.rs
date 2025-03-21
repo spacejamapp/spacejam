@@ -106,7 +106,7 @@ fn test_add() {
         .gas(10000);
 
     interpreter
-        .interp([0, 0, 3, 8, 135, 9, 1])
+        .interp([0, 0, 3, 0xbe, 135, 9, 1])
         .expect("interp failed");
     assert_eq!(interpreter.status, Status::Trap);
     assert_eq!(

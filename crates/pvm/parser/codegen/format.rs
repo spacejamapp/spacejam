@@ -25,6 +25,13 @@ impl Formats {
                 (0..format.immediate)
                     .map(|i| (format!("imm{}", i), parse_quote!(u32), "immediate")),
             )
+            .chain((0..format.extended_immediate).map(|i| {
+                (
+                    format!("eimm{}", i),
+                    parse_quote!(u64),
+                    "extended-immediate",
+                )
+            }))
             .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(u32), "offset")))
             .map(|(name, value, doc): (String, Type, &str)| {
                 let i = name.chars().last().expect("Failed to get last char");
@@ -73,6 +80,9 @@ pub struct Format {
     pub immediate: u8,
     /// The number of offset arguments in the format.
     pub offset: u8,
+    /// The number of extended immediate arguments in the format.
+    #[serde(rename = "extended-immediate")]
+    pub extended_immediate: u8,
     /// The opcodes in the format.
     pub opcodes: Vec<Opcode>,
     /// The identifier of the format.
@@ -83,7 +93,7 @@ pub struct Format {
 impl Format {
     /// Returns the instruction formats for the PVM.
     pub fn tables() -> Vec<Format> {
-        let toml = include_str!("../instruction/v0.4.5.toml");
+        let toml = include_str!("../instruction/v0.5.4.toml");
         let formats: HashMap<String, Format> =
             toml::from_str(toml).expect("Failed to parse formats");
 
@@ -104,7 +114,10 @@ impl Format {
 /// An opcode in the PVM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Opcode {
+    /// The name of the opcode.
     pub name: String,
+    /// The description of the opcode.
     pub description: String,
+    /// The opcode.
     pub opcode: u8,
 }

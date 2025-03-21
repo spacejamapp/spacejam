@@ -38,7 +38,7 @@ pub enum Opcode {
 */
 
 fn main() {
-    // println!("cargo:rerun-if-changed=instruction/v0.4.5.toml");
+    println!("cargo:rerun-if-changed=instruction/v0.5.4.toml");
     // println!("cargo:rerun-if-changed=src");
 
     Codegen::default()
