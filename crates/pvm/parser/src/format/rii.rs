@@ -26,7 +26,7 @@ impl From<&[u8]> for RII {
             return Default::default();
         }
 
-        let mid = (bytes.len() - 1).min(4) + 1;
+        let mid = 1 + ((bytes[0] >> 4) % 8).min(4) as usize;
         RII {
             reg0: bytes[0] % 16,
             imm0: u64::read_imm(&bytes[1..mid]),

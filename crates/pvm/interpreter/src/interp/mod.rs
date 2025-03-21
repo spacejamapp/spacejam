@@ -75,8 +75,10 @@ impl Interpreter {
             }
 
             if self.status.is_trap() {
+                tracing::trace!("trap");
                 break;
             }
+
             self.pc = reader.position;
         }
 
