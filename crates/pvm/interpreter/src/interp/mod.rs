@@ -51,8 +51,7 @@ impl Interpreter {
 
             // step the instruction
             if let Err(e) = self.step(instr) {
-                tracing::error!("failed to step instruction: {:?}", e);
-                self.status = Status::Panic;
+                self.status = e.into();
                 break;
             }
 
@@ -85,17 +84,22 @@ impl Interpreter {
         // If the status is still unknown, we have a trap.
         tracing::debug!("end of program, status: {:?}", self.status);
         if self.status.is_unknown() {
-            self.step(Offset {
-                range: self.pc..self.pc,
-                value: Instruction::Trap,
-            })?;
+            if self
+                .step(Offset {
+                    range: self.pc..self.pc,
+                    value: Instruction::Trap,
+                })
+                .is_err()
+            {
+                self.status = Status::Panic;
+            }
         }
 
         Ok(())
     }
 
     /// Execute a single instruction.
-    pub fn step(&mut self, instr: Offset<Instruction>) -> Result<()> {
+    pub fn step(&mut self, instr: Offset<Instruction>) -> crate::Result<()> {
         if self.gas == 0 {
             self.status = Status::OOG;
             return Ok(());

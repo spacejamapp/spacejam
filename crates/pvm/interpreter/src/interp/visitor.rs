@@ -1,14 +1,13 @@
 //! Instruction visitor for the pvm interpreter
 
-use crate::{interp::Interpreter, status::Status};
-use anyhow::Result;
+use crate::{interp::Interpreter, status::Status, Result};
 use pvm_parser::{
     format::{self, ISA},
     Visitor,
 };
 
 impl Visitor for Interpreter {
-    type Error = anyhow::Error;
+    type Error = crate::Error;
 
     fn visit_trap(&mut self) -> Result<()> {
         self.status = Status::Panic;
@@ -24,7 +23,7 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_add_64(&mut self, format: format::RRR) -> anyhow::Result<()> {
+    fn visit_add_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_add(self.registers[reg1 as usize]);
 
@@ -285,7 +284,7 @@ impl Visitor for Interpreter {
     fn visit_fallthrough(&mut self) -> Result<()> {
         self.status = Status::Panic;
         self.pc = 1;
-        anyhow::bail!("Fallthrough instruction encountered");
+        Ok(())
     }
 
     fn visit_jump(&mut self, format: format::O) -> Result<()> {
@@ -906,7 +905,7 @@ impl Visitor for Interpreter {
     }
 
     // TODO: introduce page access check here.
-    fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> anyhow::Result<()> {
+    fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let offset = self.registers[reg0 as usize];
         let address = offset.wrapping_add(imm0);
@@ -914,7 +913,7 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_store_imm_ind_u16(&mut self, format: format::RII) -> anyhow::Result<()> {
+    fn visit_store_imm_ind_u16(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let imm1 = imm1 as u16 as u64;
         let offset = self.registers[reg0 as usize];
@@ -923,7 +922,7 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_store_imm_ind_u32(&mut self, format: format::RII) -> anyhow::Result<()> {
+    fn visit_store_imm_ind_u32(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let imm1 = imm1 as u32 as u64;
         let offset = self.registers[reg0 as usize];
@@ -932,7 +931,7 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_store_imm_ind_u64(&mut self, format: format::RII) -> anyhow::Result<()> {
+    fn visit_store_imm_ind_u64(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let offset = self.registers[reg0 as usize];
         let address = offset.wrapping_add(imm0);
