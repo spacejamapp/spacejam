@@ -281,9 +281,8 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    // TODO: re-check the fallthrough logic
     fn visit_fallthrough(&mut self) -> Result<()> {
-        self.status = Status::Panic;
-        self.pc = 1;
         Ok(())
     }
 
@@ -837,66 +836,56 @@ impl Visitor for Interpreter {
         self.memory.write(imm0, value)
     }
 
-    // TODO: introduce page access check here.
     fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let offset = self.registers[reg0 as usize];
-        let address = offset.wrapping_add(imm0);
-        self.memory.write(address, imm1 as u8)
+        let address = self.registers[reg0 as usize];
+        self.memory.write_offset(address, imm0, imm1 as u8)
     }
 
     fn visit_store_imm_ind_u16(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let imm1 = imm1 as u16 as u64;
-        let offset = self.registers[reg0 as usize];
-        let address = offset.wrapping_add(imm0);
-        self.memory.write(address, imm1)
+        let address = self.registers[reg0 as usize];
+        self.memory.write_offset(address, imm0, imm1 as u16)
     }
 
     fn visit_store_imm_ind_u32(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let imm1 = imm1 as u32 as u64;
-        let offset = self.registers[reg0 as usize];
-        let address = offset.wrapping_add(imm0);
-        self.memory.write(address, imm1)
+        let address = self.registers[reg0 as usize];
+        self.memory.write_offset(address, imm0, imm1 as u32)
     }
 
     fn visit_store_imm_ind_u64(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let offset = self.registers[reg0 as usize];
-        let address = offset.wrapping_add(imm0);
-        self.memory.write(address, imm1)
+        let address = self.registers[reg0 as usize];
+        self.memory.write_offset(address, imm0, imm1)
     }
 
     fn visit_store_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let offset = self.registers[reg1 as usize];
-        let address = offset.wrapping_add(imm0 as u8 as u64);
+        let address = self.registers[reg1 as usize];
         self.memory
-            .write(address, self.registers[reg0 as usize] as u8)
+            .write_offset(address, imm0, self.registers[reg0 as usize] as u8)
     }
 
     fn visit_store_ind_u16(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let offset = self.registers[reg1 as usize];
-        let address = offset.wrapping_add(imm0 as u16 as u64);
+        let address = self.registers[reg1 as usize];
         self.memory
-            .write(address, self.registers[reg0 as usize] as u16)
+            .write_offset(address, imm0, self.registers[reg0 as usize] as u16)
     }
 
     fn visit_store_ind_u32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let offset = self.registers[reg1 as usize];
-        let address = offset.wrapping_add(imm0 as u32 as u64);
+        let address = self.registers[reg1 as usize];
         self.memory
-            .write(address, self.registers[reg0 as usize] as u32)
+            .write_offset(address, imm0, self.registers[reg0 as usize] as u32)
     }
 
     fn visit_store_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let offset = self.registers[reg1 as usize];
-        let address = offset.wrapping_add(imm0);
-        self.memory.write(address, self.registers[reg0 as usize])
+        let address = self.registers[reg1 as usize];
+        self.memory
+            .write_offset(address, imm0, self.registers[reg0 as usize])
     }
 
     fn visit_sub_32(&mut self, format: format::RRR) -> Result<()> {

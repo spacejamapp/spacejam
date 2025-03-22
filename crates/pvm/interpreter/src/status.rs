@@ -38,6 +38,11 @@ impl Status {
 
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", format!("{self:?}").to_lowercase())
+        let s = match self {
+            Status::Fault => "page-fault".into(),
+            _ => format!("{self:?}").to_lowercase(),
+        };
+
+        write!(f, "{s}")
     }
 }

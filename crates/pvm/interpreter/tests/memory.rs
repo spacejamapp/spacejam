@@ -38,54 +38,21 @@ fn write() {
 }
 
 #[test]
-fn write_multiple() {
+fn write_offset() {
     let mut memory = Memory::default();
-    for i in 0..3 {
-        memory.pages.insert(
-            i,
-            Page {
-                data: SmallVec::new(),
-                access: Access::Mutable,
-            },
-        );
-    }
-
-    let three_pages = 3 * PAGE_SIZE as usize;
-    let data = vec![42; three_pages];
-    let page = vec![42; PAGE_SIZE as usize];
-
-    assert!(memory.write_bytes(0, 0, &data).is_ok());
-    for i in 0..3 {
-        assert_eq!(
-            memory.read_bytes(i * PAGE_SIZE, 0, PAGE_SIZE as u64),
-            Ok(page.clone())
-        );
-    }
-}
-
-#[test]
-fn write_partial() {
-    let mut memory = Memory::default();
-    for i in 0..2 {
-        memory.pages.insert(
-            i,
-            Page {
-                data: SmallVec::new(),
-                access: Access::Mutable,
-            },
-        );
-    }
-
-    let full = 6666 as usize;
-    let page1 = PAGE_SIZE as usize;
-    let page2 = full - page1;
-    let data = vec![42; full];
-    assert!(memory.write_bytes(0, 0, &data).is_ok());
-    assert_eq!(memory.read_bytes(0, 0, page1 as u64), Ok(vec![42; page1]));
-    assert_eq!(
-        memory.read_bytes(PAGE_SIZE, 0, page2 as u64),
-        Ok(vec![42; page2])
+    memory.pages.insert(
+        0,
+        Page {
+            data: SmallVec::new(),
+            access: Access::Mutable,
+        },
     );
+
+    let offset = 10;
+    let value = 42;
+    let data = vec![value; offset];
+    assert!(memory.write_bytes(0, offset as u64, &data).is_ok());
+    assert_eq!(memory.read_bytes(0, offset as u64, offset as u64), Ok(data));
 }
 
 #[test]

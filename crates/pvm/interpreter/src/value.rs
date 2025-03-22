@@ -28,7 +28,7 @@ macro_rules! impl_bytes {
             }
 
             let mut bytes = [0u8; Self::SIZE];
-            bytes.copy_from_slice(source);
+            bytes[..source.len()].copy_from_slice(source);
             Some(Self::from_le_bytes(bytes))
         }
     };
@@ -58,7 +58,8 @@ impl Value for u8 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as u64).bytes()
+        // (*self as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -73,7 +74,8 @@ impl Value for i16 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as i64 as u64).bytes()
+        // (*self as i64 as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -88,7 +90,8 @@ impl Value for u16 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as u64).bytes()
+        // (*self as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -103,7 +106,8 @@ impl Value for i32 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as i64 as u64).bytes()
+        // (*self as i64 as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -118,7 +122,8 @@ impl Value for u32 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as u64).bytes()
+        // (*self as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -133,7 +138,8 @@ impl Value for i64 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as u64).bytes()
+        // (*self as u64).bytes()
+        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -148,7 +154,8 @@ impl Value for u64 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        self.bytes()
+        (*self as u64).bytes()
+        // self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();

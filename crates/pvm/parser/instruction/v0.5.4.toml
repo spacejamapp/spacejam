@@ -6,7 +6,7 @@ offset = 0
 extended-immediate = 0
 opcodes = [
     { name = "trap", description = "Trap", opcode = 0x00 },
-    { name = "fallthrough", description = "Fallthrough", opcode = 0x11 },
+    { name = "fallthrough", description = "Fallthrough", opcode = 0x01 },
 ]
 
 [I]

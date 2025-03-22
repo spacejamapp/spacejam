@@ -2,7 +2,7 @@
 
 use crate::{status::Status, Memory, Register};
 use anyhow::Result;
-use pvm_parser::{reader::Offset, Instruction, ProgramBlob, Visitor};
+use pvm_parser::{Instruction, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;
@@ -37,9 +37,14 @@ impl Interpreter {
 
         // TODO: update the position of the reader for supporting jumps.
         while !reader.eof() && self.status.is_unknown() {
+            if self.gas == 0 {
+                self.status = Status::OOG;
+                return Ok(());
+            }
+
+            self.gas -= 1;
             let Ok(instr) = reader.read() else {
                 tracing::error!("failed to read instruction, position: {}", reader.position);
-                self.status = Status::Panic;
                 return Ok(());
             };
 
@@ -50,7 +55,8 @@ impl Interpreter {
             );
 
             // step the instruction
-            if let Err(e) = self.step(instr) {
+            if let Err(e) = self.visit(instr.value) {
+                self.gas -= 1;
                 self.status = e.into();
                 break;
             }
@@ -74,39 +80,20 @@ impl Interpreter {
             }
 
             if self.status.is_trap() {
-                tracing::trace!("trap");
                 break;
             }
-
             self.pc = reader.position;
         }
 
         // If the status is still unknown, we have a trap.
         tracing::debug!("end of program, status: {:?}", self.status);
         if self.status.is_unknown() {
-            if self
-                .step(Offset {
-                    range: self.pc..self.pc,
-                    value: Instruction::Trap,
-                })
-                .is_err()
-            {
+            self.gas -= 1;
+            if self.visit(Instruction::Trap).is_err() {
                 self.status = Status::Panic;
             }
         }
 
-        Ok(())
-    }
-
-    /// Execute a single instruction.
-    pub fn step(&mut self, instr: Offset<Instruction>) -> crate::Result<()> {
-        if self.gas == 0 {
-            self.status = Status::OOG;
-            return Ok(());
-        }
-
-        self.visit(instr.value)?;
-        self.gas -= 1;
         Ok(())
     }
 }
