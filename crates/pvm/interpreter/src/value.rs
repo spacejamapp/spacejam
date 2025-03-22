@@ -1,5 +1,7 @@
 //! Value type for the PVM
 
+use pvm_parser::format::ISA;
+
 /// The value type for the PVM
 pub trait Value: Sized {
     /// The size of the value in bytes
@@ -13,9 +15,12 @@ pub trait Value: Sized {
 
     /// Convert a slice of bytes to a value
     fn from_bytes(bytes: &[u8]) -> Option<Self>;
+
+    /// Convert the value to a slice of bytes
+    fn to_vec(&self) -> Vec<u8>;
 }
 
-macro_rules! impl_from_bytes {
+macro_rules! impl_bytes {
     () => {
         fn from_bytes(source: &[u8]) -> Option<Self> {
             if source.len() < Self::SIZE {
@@ -37,7 +42,11 @@ impl Value for i8 {
         *self as i64 as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as i64 as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for u8 {
@@ -48,7 +57,11 @@ impl Value for u8 {
         *self as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for i16 {
@@ -59,7 +72,11 @@ impl Value for i16 {
         *self as i64 as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as i64 as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for u16 {
@@ -70,7 +87,11 @@ impl Value for u16 {
         *self as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for i32 {
@@ -81,7 +102,11 @@ impl Value for i32 {
         *self as i64 as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as i64 as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for u32 {
@@ -92,7 +117,11 @@ impl Value for u32 {
         *self as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for i64 {
@@ -103,7 +132,11 @@ impl Value for i64 {
         *self as u64
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        (*self as u64).bytes()
+    }
+
+    impl_bytes!();
 }
 
 impl Value for u64 {
@@ -114,5 +147,9 @@ impl Value for u64 {
         *self
     }
 
-    impl_from_bytes!();
+    fn to_vec(&self) -> Vec<u8> {
+        self.bytes()
+    }
+
+    impl_bytes!();
 }

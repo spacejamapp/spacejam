@@ -7,6 +7,9 @@ use crate::Status;
 pub enum Error {
     /// The memory is inaccessible.
     MemoryInaccessible,
+
+    /// The memory is immutable.
+    MemoryImmutable,
 }
 
 /// Convert an error to a status.
@@ -14,6 +17,7 @@ impl From<Error> for Status {
     fn from(error: Error) -> Self {
         match error {
             Error::MemoryInaccessible => Status::Fault,
+            Error::MemoryImmutable => Status::Fault,
         }
     }
 }

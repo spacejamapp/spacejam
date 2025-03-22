@@ -24,6 +24,17 @@ impl Memory {
         self.read_offset(address, 0)
     }
 
+    /// Write a value to the memory.
+    pub fn write<V: Value>(&mut self, address: u64, value: V) -> Result<()> {
+        if !self.access(address, 0, V::SIZE)?.is_mutable() {
+            return Err(Error::MemoryImmutable);
+        }
+
+        let bytes = value.to_vec();
+        self.slots.insert(address, bytes);
+        Ok(())
+    }
+
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
         let bytes = self.read_bytes(address)?;
