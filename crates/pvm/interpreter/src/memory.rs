@@ -4,7 +4,7 @@ use crate::{Error, Result, Value};
 use std::collections::BTreeMap;
 
 /// The size of a page in the memory.
-const PAGE_SIZE: u64 = 4096;
+pub const PAGE_SIZE: u64 = 4096;
 
 /// The memory of the interpreter.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
@@ -26,8 +26,9 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
-        let bytes = self.read_bytes(address + offset)?;
-        V::from_bytes(&bytes[..V::SIZE]).ok_or(Error::MemoryInaccessible)
+        let bytes = self.read_bytes(address)?;
+        let offset = offset as usize;
+        V::from_bytes(&bytes[offset..offset + V::SIZE]).ok_or(Error::MemoryInaccessible)
     }
 
     /// Read bytes from the memory.
@@ -49,6 +50,7 @@ impl Memory {
             .get(&(address / PAGE_SIZE))
             .ok_or(Error::MemoryInaccessible)?;
 
+        tracing::debug!("reading page {:?}", page);
         if size > PAGE_SIZE as usize {
             return Err(Error::MemoryInaccessible);
         }

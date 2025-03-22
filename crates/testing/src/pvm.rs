@@ -1,3 +1,5 @@
+//! PVM test vectors
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -19,6 +21,9 @@ pub struct TestInput {
     pub initial_memory: Vec<Memory>,
     #[serde(alias = "initial-gas")]
     pub initial_gas: u32,
+    #[serde(alias = "initial-page-map")]
+    pub initial_page_map: Vec<Page>,
+    /// The program to run.
     pub program: Vec<u8>,
 }
 
@@ -34,6 +39,17 @@ pub struct TestOutput {
     pub expected_memory: Vec<Memory>,
     #[serde(alias = "expected-gas")]
     pub expected_gas: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Page {
+    /// The address of the page.
+    pub address: u64,
+    /// The length of the page.
+    pub length: u16,
+    /// Whether the page is writable.
+    #[serde(alias = "is-writable")]
+    pub is_writable: bool,
 }
 
 include!(concat!(env!("OUT_DIR"), "/pvm.rs"));

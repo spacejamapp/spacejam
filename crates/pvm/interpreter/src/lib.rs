@@ -15,7 +15,7 @@ mod value;
 pub use pvm_parser::Register;
 pub use {
     interp::Interpreter,
-    memory::Memory,
+    memory::{Access, Memory, Page, PAGE_SIZE},
     result::{Error, Result},
     status::Status,
     value::Value,

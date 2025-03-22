@@ -211,6 +211,20 @@ impl Runner {
                     memory.slots.insert(mem.address, mem.contents.clone());
                 }
 
+                for page in input.initial_page_map {
+                    memory.pages.insert(
+                        page.address / ::pvmi::PAGE_SIZE,
+                        ::pvmi::Page {
+                            length: page.length as u32,
+                            access: if page.is_writable {
+                                ::pvmi::Access::Mutable
+                            } else {
+                                ::pvmi::Access::Immutable
+                            },
+                        },
+                    );
+                }
+
                 // Initialize interpreter
                 let mut interpreter = pvmi::Interpreter::default()
                     .gas(input.initial_gas)
