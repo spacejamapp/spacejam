@@ -8,6 +8,7 @@
 
 mod interp;
 pub mod memory;
+mod result;
 mod status;
 
 pub use pvm_parser::Register;

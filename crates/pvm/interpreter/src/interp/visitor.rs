@@ -8,6 +8,8 @@ use pvm_parser::{
 };
 
 impl Visitor for Interpreter {
+    type Error = anyhow::Error;
+
     fn visit_trap(&mut self) -> Result<()> {
         self.status = Status::Panic;
         Ok(())

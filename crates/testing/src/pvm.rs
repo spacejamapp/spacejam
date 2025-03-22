@@ -36,4 +36,4 @@ pub struct TestOutput {
     pub expected_gas: u32,
 }
 
-// include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
+include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
