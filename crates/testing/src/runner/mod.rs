@@ -207,15 +207,11 @@ impl Runner {
 
                 // Initialize memory
                 let mut memory = pvmi::Memory::default();
-                for mem in input.initial_memory {
-                    memory.slots.insert(mem.address, mem.contents.clone());
-                }
-
                 for page in input.initial_page_map {
                     memory.pages.insert(
                         page.address / ::pvmi::PAGE_SIZE,
                         ::pvmi::Page {
-                            length: page.length as u32,
+                            data: Default::default(),
                             access: if page.is_writable {
                                 ::pvmi::Access::Mutable
                             } else {
@@ -223,6 +219,14 @@ impl Runner {
                             },
                         },
                     );
+                }
+
+                for mem in input.initial_memory {
+                    memory.write_bytes(
+                        mem.address,
+                        mem.address % ::pvmi::PAGE_SIZE,
+                        mem.contents.as_slice(),
+                    )?;
                 }
 
                 // Initialize interpreter
@@ -237,7 +241,7 @@ impl Runner {
 
                 let expected_memory = interpreter
                     .memory
-                    .slots
+                    .to_data_maps()
                     .iter()
                     .map(|(k, v)| pvm::Memory {
                         address: *k,

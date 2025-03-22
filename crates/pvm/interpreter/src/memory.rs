@@ -1,5 +1,7 @@
 //! Memory management for the interpreter
 
+use smallvec::SmallVec;
+
 use crate::{Error, Result, Value};
 use std::collections::BTreeMap;
 
@@ -11,11 +13,6 @@ pub const PAGE_SIZE: u64 = 4096;
 pub struct Memory {
     /// The pages of the memory.
     pub pages: BTreeMap<u64, Page>,
-
-    /// The slots of the memory.
-    ///
-    /// TODO: this should be a BTreeMap<u32, Vec<u8>>
-    pub slots: BTreeMap<u64, Vec<u8>>,
 }
 
 impl Memory {
@@ -24,59 +21,147 @@ impl Memory {
         self.read_offset(address, 0)
     }
 
-    /// Write a value to the memory.
-    pub fn write<V: Value>(&mut self, address: u64, value: V) -> Result<()> {
-        if !self.access(address, 0, V::SIZE)?.is_mutable() {
-            return Err(Error::MemoryImmutable);
-        }
-
-        let bytes = value.to_vec();
-        self.slots.insert(address, bytes);
-        Ok(())
-    }
-
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
-        let bytes = self.read_bytes(address)?;
-        let offset = offset as usize;
-        V::from_bytes(&bytes[offset..offset + V::SIZE]).ok_or(Error::MemoryInaccessible)
+        let bytes = self.read_bytes(address, offset, V::SIZE as u64)?;
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible)
     }
 
     /// Read bytes from the memory.
-    pub fn read_bytes(&self, address: u64) -> Result<Vec<u8>> {
-        self.access(address, 0, PAGE_SIZE as usize)?;
+    pub fn read_bytes(&self, address: u64, offset: u64, mut len: u64) -> Result<Vec<u8>> {
+        let raw = address + offset;
+        let start = raw / PAGE_SIZE;
+        let end = (raw + len - 1) / PAGE_SIZE;
 
-        Ok(self
-            .slots
-            .get(&address)
-            .ok_or(Error::MemoryInaccessible)?
-            .clone())
+        // prepare pages
+        let mut bytes = Vec::with_capacity(len as usize);
+        let mut offset = raw % PAGE_SIZE;
+        for page in start..=end {
+            let page = self.access(page)?;
+            let slots = PAGE_SIZE - offset;
+            let data = page.data.as_slice();
+            let data_len = data.len() as u64;
+            let to_read = len.min(slots);
+            if to_read > data_len {
+                return Err(Error::MemoryInaccessible);
+            }
+
+            // extend bytes
+            bytes.extend_from_slice(&data[offset as usize..(offset + to_read) as usize]);
+            len -= to_read;
+            if len == 0 {
+                return Ok(bytes);
+            }
+            offset = 0;
+        }
+        Ok(bytes)
+    }
+
+    /// Write a value to the memory.
+    pub fn write<V: Value>(&mut self, address: u64, value: V) -> Result<()> {
+        self.write_bytes(address, 0, &value.to_vec())
+    }
+
+    /// Write a value to the memory at an offset.
+    pub fn write_offset<V: Value>(&mut self, address: u64, offset: u64, value: V) -> Result<()> {
+        self.write_bytes(address, offset, &value.to_vec())
+    }
+
+    /// Write bytes to the memory.
+    pub fn write_bytes(&mut self, address: u64, offset: u64, bytes: &[u8]) -> Result<()> {
+        let raw = address + offset;
+        let start = raw / PAGE_SIZE;
+        let end = (raw + bytes.len() as u64 - 1) / PAGE_SIZE;
+
+        // write data to pages
+        let mut offset = raw % PAGE_SIZE;
+        let mut len = bytes.len() as u64;
+        for idx in start..=end {
+            let page = self.mutate(idx);
+            if page.is_immutable() {
+                return Err(Error::MemoryImmutable);
+            }
+
+            let data_len = page.data.len() as u64;
+            let slots = PAGE_SIZE - offset;
+            let to_write = len.min(slots);
+
+            // extend page if necessary
+            if data_len < to_write + offset {
+                page.data.resize(to_write as usize + offset as usize, 0);
+            }
+
+            // copy data
+            let ptr = (idx - start) * PAGE_SIZE;
+            page.data[offset as usize..(offset + to_write) as usize]
+                .copy_from_slice(&bytes[ptr as usize..(ptr + to_write) as usize]);
+
+            // update length
+            len -= to_write;
+            if len == 0 {
+                return Ok(());
+            }
+
+            // reset offset, this could only happen once when len > slots
+            offset = 0;
+        }
+
+        Ok(())
+    }
+
+    /// Convert the memory to a data map.
+    ///
+    /// Address -> Data
+    pub fn to_data_maps(&self) -> BTreeMap<u64, Vec<u8>> {
+        self.pages
+            .iter()
+            .map(|(k, v)| {
+                let offset = v.data.iter().position(|b| *b != 0).unwrap_or(v.data.len());
+                (k * PAGE_SIZE + offset as u64, v.data[offset..].to_vec())
+            })
+            .collect()
     }
 
     /// Get the access type of a memory slot.
-    pub fn access(&self, address: u64, offset: u64, size: usize) -> Result<&Access> {
-        let address = address + offset;
-        let page = self
-            .pages
-            .get(&(address / PAGE_SIZE))
-            .ok_or(Error::MemoryInaccessible)?;
+    fn access(&self, page: u64) -> Result<&Page> {
+        self.pages.get(&page).ok_or(Error::MemoryInaccessible)
+    }
 
-        tracing::debug!("reading page {:?}", page);
-        if size > PAGE_SIZE as usize {
-            return Err(Error::MemoryInaccessible);
-        }
-
-        Ok(&page.access)
+    /// Get the access type of a page.
+    ///
+    /// TODO: grant mutable directly here?
+    fn mutate(&mut self, page: u64) -> &mut Page {
+        self.pages.entry(page).or_insert(Page {
+            data: SmallVec::new(),
+            access: Access::Mutable,
+        })
     }
 }
 
 /// A memory page.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
-    /// The length of the page.
-    pub length: u32,
+    /// The data of the page.
+    pub data: SmallVec<[u8; PAGE_SIZE as usize]>,
     /// The access type of the page.
     pub access: Access,
+}
+
+impl Page {
+    /// Whether the access is mutable.
+    pub fn is_mutable(&self) -> bool {
+        matches!(self.access, Access::Mutable)
+    }
+
+    /// Whether the access is immutable.
+    pub fn is_immutable(&self) -> bool {
+        matches!(self.access, Access::Immutable)
+    }
+
+    /// Whether the access is inaccessible.
+    pub fn is_inaccessible(&self) -> bool {
+        matches!(self.access, Access::Inaccessible)
+    }
 }
 
 /// The access type of a memory page.
@@ -88,21 +173,4 @@ pub enum Access {
     Immutable,
     /// The page is inaccessible.
     Inaccessible,
-}
-
-impl Access {
-    /// Whether the access is mutable.
-    pub fn is_mutable(&self) -> bool {
-        matches!(self, Access::Mutable)
-    }
-
-    /// Whether the access is immutable.
-    pub fn is_immutable(&self) -> bool {
-        matches!(self, Access::Immutable)
-    }
-
-    /// Whether the access is inaccessible.
-    pub fn is_inaccessible(&self) -> bool {
-        matches!(self, Access::Inaccessible)
-    }
 }
