@@ -93,6 +93,41 @@ impl<'r> Reader<'r> {
     }
 }
 
+/// The instruction reader.
+pub struct InstructionReader<'r> {
+    /// The buffer.
+    pub bitmask: &'r [u8],
+
+    /// The reader.
+    pub reader: Reader<'r>,
+}
+
+impl InstructionReader<'_> {
+    /// Read an instruction.
+    pub fn read(&mut self) -> Result<Offset<Instruction>> {
+        self.reader.read_instr(self.bitmask)
+    }
+
+    /// Set the position of the reader.
+    pub fn with_position(mut self, position: usize) -> Self {
+        self.reader.position = position;
+        self
+    }
+
+    /// Set the position of the reader.
+    pub fn set_position(&mut self, position: usize) {
+        self.reader.position = position;
+    }
+}
+
+impl<'r> core::ops::Deref for InstructionReader<'r> {
+    type Target = Reader<'r>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.reader
+    }
+}
+
 /// A wrapped value with an offset range.
 pub struct Offset<T> {
     /// The range.

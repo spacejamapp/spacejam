@@ -42,7 +42,6 @@ impl Interpreter {
                 return Ok(());
             }
 
-            self.gas -= 1;
             let Ok(instr) = reader.read() else {
                 tracing::error!("failed to read instruction, position: {}", reader.position);
                 return Ok(());
@@ -55,6 +54,7 @@ impl Interpreter {
             );
 
             // step the instruction
+            self.gas -= 1;
             if let Err(e) = self.visit(instr.value) {
                 self.gas -= 1;
                 self.status = e.into();

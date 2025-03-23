@@ -154,7 +154,7 @@ impl Value for u64 {
     }
 
     fn to_vec(&self) -> Vec<u8> {
-        (*self as u64).bytes()
+        self.bytes()
         // self.to_le_bytes().to_vec()
     }
 
