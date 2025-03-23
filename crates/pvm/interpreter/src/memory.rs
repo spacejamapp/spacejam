@@ -1,8 +1,7 @@
 //! Memory management for the interpreter
 
-use smallvec::SmallVec;
-
 use crate::{Error, Result, Value};
+use smallvec::SmallVec;
 use std::collections::BTreeMap;
 
 /// The size of a page in the memory.
@@ -23,22 +22,24 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
+        let page = address / PAGE_SIZE;
         if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible);
+            return Err(Error::MemoryInaccessible(page as u32));
         }
 
         let bytes = self.read_bytes(address, offset, V::SIZE as u64)?;
-        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible)
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page as u32))
     }
 
     /// Read bytes from the memory.
     pub fn read_bytes(&self, address: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
+        let pagenum = address / PAGE_SIZE;
         let offset = address % PAGE_SIZE + offset;
-        let page = self.access(address / PAGE_SIZE)?;
+        let page = self.access(pagenum)?;
         let data = page.data.as_slice();
         let data_len = data.len() as u64;
         if len > data_len {
-            return Err(Error::MemoryInaccessible);
+            return Err(Error::MemoryInaccessible(pagenum as u32));
         }
 
         Ok(data[offset as usize..(offset + len) as usize].to_vec())
@@ -51,8 +52,9 @@ impl Memory {
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u64, offset: u64, value: V) -> Result<()> {
+        let page = address / PAGE_SIZE;
         if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible);
+            return Err(Error::MemoryInaccessible(page as u32));
         }
 
         // TODO: note that we hacked (u64).to_vec() here for matching the
@@ -75,15 +77,10 @@ impl Memory {
         // copy data
         page.data[offset as usize..(offset + to_write) as usize]
             .copy_from_slice(&bytes[..to_write as usize]);
-
-        tracing::debug!("page.data: {:?}", page.data.len());
-
         Ok(())
     }
 
     /// Convert the memory to a data map.
-    ///
-    /// Address -> Data
     pub fn to_data_maps(&self) -> BTreeMap<u64, Vec<u8>> {
         self.pages
             .iter()
@@ -100,14 +97,19 @@ impl Memory {
 
     /// Get the access type of a memory slot.
     fn access(&self, page: u64) -> Result<&Page> {
-        self.pages.get(&page).ok_or(Error::MemoryInaccessible)
+        self.pages
+            .get(&page)
+            .ok_or(Error::MemoryInaccessible(page as u32))
     }
 
     /// Get the access type of a page.
-    fn mutate(&mut self, page: u64) -> Result<&mut Page> {
-        let page = self.pages.get_mut(&page).ok_or(Error::MemoryInaccessible)?;
+    fn mutate(&mut self, pagenum: u64) -> Result<&mut Page> {
+        let page = self
+            .pages
+            .get_mut(&pagenum)
+            .ok_or(Error::MemoryInaccessible(pagenum as u32))?;
         if page.is_immutable() {
-            return Err(Error::MemoryImmutable);
+            return Err(Error::MemoryImmutable(pagenum as u32));
         }
 
         Ok(page)
@@ -119,6 +121,7 @@ impl Memory {
 pub struct Page {
     /// The data of the page.
     pub data: SmallVec<[u8; PAGE_SIZE as usize]>,
+
     /// The access type of the page.
     pub access: Access,
 }

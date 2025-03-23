@@ -6,10 +6,10 @@ use crate::Status;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     /// The memory is inaccessible.
-    MemoryInaccessible,
+    MemoryInaccessible(u32),
 
     /// The memory is immutable.
-    MemoryImmutable,
+    MemoryImmutable(u32),
 
     /// The jump to halt.
     Terminate,
@@ -25,8 +25,8 @@ impl Error {
     /// Get the extra gas for the error.
     pub fn extra_gas(&self) -> u32 {
         match self {
-            Error::MemoryInaccessible => 1,
-            Error::MemoryImmutable => 1,
+            Error::MemoryInaccessible(_) => 1,
+            Error::MemoryImmutable(_) => 1,
             Error::Trap(true) => 1,
             _ => 0,
         }
@@ -37,8 +37,8 @@ impl Error {
 impl From<Error> for Status {
     fn from(error: Error) -> Self {
         match error {
-            Error::MemoryInaccessible => Status::Fault,
-            Error::MemoryImmutable => Status::Fault,
+            Error::MemoryInaccessible(address) => Status::Fault(address),
+            Error::MemoryImmutable(address) => Status::Fault(address),
             Error::Terminate => Status::Halt,
             Error::InvalidDynamicJump => Status::Panic,
             Error::Trap(_) => Status::Panic,

@@ -38,11 +38,13 @@ pub struct Interpreter {
 impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
+        tracing::debug!("program: {:?}", program.as_ref());
         let program = ProgramBlob::try_from(program.as_ref())?;
         let mut reader = program.instr_reader_at(self.pc);
 
         // TODO: do not clone the jump table but reference it.
         self.table = program.jump_table.clone();
+        tracing::debug!("jump table: {:?}", self.table);
 
         // TODO: update the position of the reader for supporting jumps.
         while !reader.eof() && self.status.is_unknown() {

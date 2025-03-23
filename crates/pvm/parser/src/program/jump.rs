@@ -28,8 +28,7 @@ impl JumpTable {
 
         self.table
             .windows(self.entry_size)
-            .skip(index)
-            .next()
+            .nth(index)
             .map(|w| u64::read(w).0 as usize)
     }
 }

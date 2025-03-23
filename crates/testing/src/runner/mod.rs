@@ -207,16 +207,12 @@ impl Runner {
 
                 // Initialize memory
                 let mut memory = pvmi::Memory::default();
-                for page in input.initial_page_map {
+                for page in &input.initial_page_map {
                     memory.pages.insert(
                         page.address / ::pvmi::PAGE_SIZE,
                         ::pvmi::Page {
                             data: Default::default(),
-                            access: if page.is_writable {
-                                ::pvmi::Access::Mutable
-                            } else {
-                                ::pvmi::Access::Immutable
-                            },
+                            access: ::pvmi::Access::Mutable,
                         },
                     );
                 }
@@ -227,6 +223,17 @@ impl Runner {
                         mem.address % ::pvmi::PAGE_SIZE,
                         mem.contents.as_slice(),
                     )?;
+                }
+
+                for tpage in input.initial_page_map {
+                    let page = memory.pages.get_mut(&(tpage.address / ::pvmi::PAGE_SIZE));
+                    if let Some(page) = page {
+                        page.access = if tpage.is_writable {
+                            ::pvmi::Access::Mutable
+                        } else {
+                            ::pvmi::Access::Immutable
+                        };
+                    }
                 }
 
                 // Initialize interpreter

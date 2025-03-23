@@ -6,7 +6,10 @@ use smallvec::SmallVec;
 #[test]
 fn inaccessible() {
     let memory = Memory::default();
-    assert_eq!(memory.read_bytes(0, 0, 1), Err(Error::MemoryInaccessible));
+    assert_eq!(
+        memory.read_bytes(0, 0, 1),
+        Err(Error::MemoryInaccessible(0))
+    );
 }
 
 #[test]
@@ -19,7 +22,10 @@ fn immutable() {
             access: Access::Immutable,
         },
     );
-    assert_eq!(memory.write_bytes(0, 0, &[0]), Err(Error::MemoryImmutable));
+    assert_eq!(
+        memory.write_bytes(0, 0, &[0]),
+        Err(Error::MemoryImmutable(0))
+    );
 }
 
 #[test]
@@ -67,9 +73,10 @@ fn read_inaccessible() {
     );
 
     let data = vec![42; 1];
+    let page = 0;
     assert!(memory.write_bytes(0, 0, &data).is_ok());
     assert_eq!(
         memory.read_bytes(0, 0, PAGE_SIZE as u64),
-        Err(Error::MemoryInaccessible)
+        Err(Error::MemoryInaccessible(page as u32))
     );
 }

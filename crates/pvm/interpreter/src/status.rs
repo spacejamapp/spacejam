@@ -11,7 +11,7 @@ pub enum Status {
     Panic,
 
     /// The invocation completed with a page fault.
-    Fault,
+    Fault(u32),
 
     /// The invocation completed with a host-call fault.
     Host,
@@ -39,7 +39,7 @@ impl Status {
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Status::Fault => "page-fault".into(),
+            Status::Fault(_) => "page-fault".into(),
             _ => format!("{self:?}").to_lowercase(),
         };
 
