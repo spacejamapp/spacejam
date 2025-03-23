@@ -1,6 +1,6 @@
 //! Instruction visitor for the pvm interpreter
 
-use crate::{interp::Interpreter, status::Status, Result, Value};
+use crate::{interp::Interpreter, Result, Value};
 use pvm_parser::{
     format::{self, ISA},
     Visitor,
@@ -10,8 +10,7 @@ impl Visitor for Interpreter {
     type Error = crate::Error;
 
     fn visit_trap(&mut self) -> Result<()> {
-        self.status = Status::Panic;
-        Ok(())
+        Err(crate::Error::Trap(false))
     }
 
     fn visit_add_32(&mut self, format: format::RRR) -> Result<()> {
@@ -26,8 +25,7 @@ impl Visitor for Interpreter {
     fn visit_add_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_add(self.registers[reg1 as usize]);
-
-        self.registers[reg2 as usize] = value.sign_ext64();
+        self.registers[reg2 as usize] = value;
         Ok(())
     }
 
@@ -43,9 +41,7 @@ impl Visitor for Interpreter {
     fn visit_add_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let value = self.registers[reg1 as usize].wrapping_add(imm0);
-
-        // sign extend the value if it is negative
-        self.registers[reg0 as usize] = value.sign_ext64();
+        self.registers[reg0 as usize] = value;
         Ok(())
     }
 
@@ -294,8 +290,7 @@ impl Visitor for Interpreter {
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        self.jump = Some((self.registers[reg0 as usize] + imm0) as usize);
-        Ok(())
+        self.djump(self.registers[reg0 as usize].wrapping_add(imm0) as u32)
     }
 
     fn visit_load_i8(&mut self, format: format::RI) -> Result<()> {
@@ -336,6 +331,22 @@ impl Visitor for Interpreter {
         self.registers[reg0 as usize] = imm0;
         self.jump = Some(self.pc.wrapping_add(off0 as usize));
         Ok(())
+    }
+
+    fn visit_load_imm_jump_ind(&mut self, format: format::RRII) -> Result<()> {
+        let format::RRII {
+            reg0,
+            reg1,
+            imm0,
+            imm1,
+        } = format;
+
+        // Note that we process the jump before loading the immediate.
+        //
+        // This is because the immediate could be used as the address of the jump.
+        let result = self.djump(self.registers[reg1 as usize].wrapping_add(imm1) as u32);
+        self.registers[reg0 as usize] = imm0;
+        result
     }
 
     fn visit_load_ind_i8(&mut self, format: format::RRI) -> Result<()> {
@@ -442,9 +453,7 @@ impl Visitor for Interpreter {
     fn visit_mul_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_mul(self.registers[reg1 as usize]);
-
-        // sign extend the value if it is negative
-        self.registers[reg2 as usize] = value.sign_ext64();
+        self.registers[reg2 as usize] = value;
         Ok(())
     }
 
@@ -460,9 +469,7 @@ impl Visitor for Interpreter {
     fn visit_mul_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let value = self.registers[reg1 as usize].wrapping_mul(imm0);
-
-        // sign extend the value if it is negative
-        self.registers[reg0 as usize] = value.sign_ext64();
+        self.registers[reg0 as usize] = value;
         Ok(())
     }
 
@@ -471,9 +478,7 @@ impl Visitor for Interpreter {
         let a = self.registers[reg0 as usize] as i32 as i64;
         let b = self.registers[reg1 as usize] as i32 as i64;
         let result = ((a * b) >> 32) as u64;
-
-        // sign extend the value if it is negative
-        self.registers[reg2 as usize] = result.sign_ext64();
+        self.registers[reg2 as usize] = result;
         Ok(())
     }
 
@@ -900,7 +905,7 @@ impl Visitor for Interpreter {
     fn visit_sub_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_sub(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value.sign_ext64();
+        self.registers[reg2 as usize] = value;
         Ok(())
     }
 

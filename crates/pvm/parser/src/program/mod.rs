@@ -57,18 +57,54 @@ impl TryFrom<&[u8]> for ProgramBlob {
     type Error = anyhow::Error;
 
     fn try_from(blob: &[u8]) -> Result<Self> {
-        let jump_table_len = &blob[0..2];
-        if jump_table_len != [0, 0] {
-            println!("jump table length: {:?}", jump_table_len);
-            anyhow::bail!("does not support jump tables atm");
-        }
+        let mut pos = 0;
 
-        // FIXME: only support 1 byte instruction data length for now
-        let instruction_len = blob[2] as usize;
+        // decode the jump table length
+        //
+        // TODO: decode the jump table length > 255
+        let jump_table_len = blob[0] as usize;
+        pos += 1;
+
+        // decode the jump table entry size
+        //
+        // TODO: decode the jump table entry size > 255
+        let jump_table_entry_size = blob[pos] as usize;
+        pos += 1;
+
+        // decode the instruction data length
+        let instruction_len = blob[pos] as usize;
+        pos += 1;
+
+        // decode the jump table
+        let jump_table = if jump_table_len > 0 && jump_table_entry_size > 0 {
+            let length = jump_table_len * jump_table_entry_size;
+            let table = blob[pos..pos + length].to_vec();
+            let table = JumpTable {
+                len: jump_table_len,
+                entry_size: jump_table_entry_size,
+                table,
+                range: pos..pos + length,
+            };
+
+            pos += length;
+            table
+        } else {
+            JumpTable::default()
+        };
+
+        // decode the instruction data
+        let instructions = blob[pos..pos + instruction_len].to_vec();
+        pos += instruction_len;
+
+        // decode the bitmask
+        //
+        // TODO: add checks for bitmask length
+        let bitmask = blob[pos..].to_vec();
+
         Ok(Self {
-            jump_table: JumpTable::default(),
-            instructions: blob[3..instruction_len + 3].to_vec(),
-            bitmask: blob[instruction_len + 3..].to_vec(),
+            jump_table,
+            instructions,
+            bitmask,
             range: 0..blob.len(),
         })
     }

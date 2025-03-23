@@ -1,11 +1,14 @@
 //! PolkaVM program interpreter
 
-use crate::{status::Status, Memory, Register};
+use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
-use pvm_parser::{Instruction, ProgramBlob, Visitor};
+use pvm_parser::{program::JumpTable, Instruction, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;
+
+/// (Z_A) The alignment factor of the jump table.
+pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 
 /// The interpreter for the polkavm program.
 #[derive(Default)]
@@ -22,6 +25,9 @@ pub struct Interpreter {
     /// The memory of the interpreter.
     pub memory: Memory,
 
+    /// The jump table of the program.
+    pub table: JumpTable,
+
     /// The program counter.
     pub pc: usize,
 
@@ -35,65 +41,86 @@ impl Interpreter {
         let program = ProgramBlob::try_from(program.as_ref())?;
         let mut reader = program.instr_reader_at(self.pc);
 
+        // TODO: do not clone the jump table but reference it.
+        self.table = program.jump_table.clone();
+
         // TODO: update the position of the reader for supporting jumps.
         while !reader.eof() && self.status.is_unknown() {
-            if self.gas == 0 {
-                self.status = Status::OOG;
-                return Ok(());
-            }
-
             let Ok(instr) = reader.read() else {
                 tracing::error!("failed to read instruction, position: {}", reader.position);
                 return Ok(());
             };
 
-            tracing::trace!(
-                "{:08} | stepped instruction: {:?}",
-                reader.position,
-                instr.value
-            );
-
-            // step the instruction
-            self.gas -= 1;
-            if let Err(e) = self.visit(instr.value) {
-                self.gas -= 1;
-                self.status = e.into();
-                break;
+            tracing::trace!("{:08} | {:?}", reader.position, instr.value);
+            if !self.step(instr.value) {
+                return Ok(());
             }
 
             // if there is a jump target, update the reader position
-            if let Some(jump) = self.jump.take() {
-                if jump > reader.buffer.len() {
-                    self.status = Status::Halt;
-                    self.pc = 0;
-                    return Ok(());
-                }
-
-                if jump == 0 {
-                    self.status = Status::Panic;
-                    self.pc = 0;
-                    return Ok(());
-                }
-
-                tracing::debug!("jumping to {:08}", jump);
-                reader.set_position(jump);
-            }
-
-            if self.status.is_trap() {
-                break;
-            }
             self.pc = reader.position;
+            if let Some(pos) = self.jump.take() {
+                reader.set_position(pos);
+            }
         }
 
         // If the status is still unknown, we have a trap.
         tracing::debug!("end of program, status: {:?}", self.status);
         if self.status.is_unknown() {
             self.gas -= 1;
-            if self.visit(Instruction::Trap).is_err() {
-                self.status = Status::Panic;
-            }
+            self.status = Status::Panic;
         }
 
+        Ok(())
+    }
+
+    /// Step the instruction.
+    ///
+    /// returns true if the instruction was stepped, false otherwise.
+    fn step(&mut self, instr: Instruction) -> bool {
+        if self.gas == 0 {
+            self.status = Status::OOG;
+            return false;
+        }
+
+        self.gas -= 1;
+        if let Err(e) = self.visit(instr) {
+            self.gas -= e.extra_gas();
+            self.status = e.into();
+            return false;
+        }
+
+        true
+    }
+
+    /// Dynamic jump to the given target.
+    fn djump(&mut self, address: u32) -> crate::Result<()> {
+        if address == u32::MAX - u16::MAX as u32 {
+            return Err(Error::Terminate);
+        }
+
+        if address == 0
+            || address > self.table.len as u32 * JUMP_ALIGNMENT_FACTOR
+            || address % 2 != 0
+        {
+            tracing::error!(
+                "invalid dynamic jump, address: {}, table len: {}",
+                address,
+                self.table.len
+            );
+            return Err(Error::InvalidDynamicJump);
+        }
+
+        let index = address as usize / 2 - 1;
+        let Some(target) = self.table.get(index) else {
+            tracing::error!(
+                "invalid dynamic jump, index: {}, table len: {}",
+                index,
+                self.table.len
+            );
+            return Err(Error::InvalidDynamicJump);
+        };
+
+        self.jump = Some(target);
         Ok(())
     }
 }

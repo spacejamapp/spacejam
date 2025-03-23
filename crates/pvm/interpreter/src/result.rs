@@ -10,6 +10,27 @@ pub enum Error {
 
     /// The memory is immutable.
     MemoryImmutable,
+
+    /// The jump to halt.
+    Terminate,
+
+    /// The dynamic jump is invalid.
+    InvalidDynamicJump,
+
+    /// The trap instruction was executed.
+    Trap(bool),
+}
+
+impl Error {
+    /// Get the extra gas for the error.
+    pub fn extra_gas(&self) -> u32 {
+        match self {
+            Error::MemoryInaccessible => 1,
+            Error::MemoryImmutable => 1,
+            Error::Trap(true) => 1,
+            _ => 0,
+        }
+    }
 }
 
 /// Convert an error to a status.
@@ -18,6 +39,9 @@ impl From<Error> for Status {
         match error {
             Error::MemoryInaccessible => Status::Fault,
             Error::MemoryImmutable => Status::Fault,
+            Error::Terminate => Status::Halt,
+            Error::InvalidDynamicJump => Status::Panic,
+            Error::Trap(_) => Status::Panic,
         }
     }
 }

@@ -1,4 +1,4 @@
-//! The RRI instruction format.
+//! Instruction with two registers and one immediate.
 
 use crate::format::{ISA, RRI};
 
