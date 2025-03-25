@@ -2,12 +2,14 @@
 
 mod de;
 mod error;
+mod num;
 mod ser;
 mod with;
 
 pub use {
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
+    num::Numeric,
     ser::Serializer,
     with::bytes,
 };
