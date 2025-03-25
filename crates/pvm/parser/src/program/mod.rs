@@ -6,8 +6,6 @@ use core::ops::Range;
 
 pub use jump::JumpTable;
 
-// mod data;
-// mod deblob;
 mod jump;
 
 /// The code section.
@@ -22,17 +20,17 @@ mod jump;
 /// (i.e. non-negative integers) each encoded with the same length in
 /// octets. This length, term z above, is itself encoded prior.
 ///
-/// `p` = E(∣j∣)⌢ E1(z)⌢ E(∣c∣)⌢ Ez (j)⌢ E(c)⌢ E(k), ∣k∣= ∣c∣
+/// `p` = E(∣j∣)⌢ E1(z)⌢ E(∣c∣)⌢ Ez(j)⌢ E(c)⌢ E(k), ∣k∣= ∣c∣
 #[derive(Default)]
 pub struct ProgramBlob {
-    /// The jump table.
-    pub jump_table: JumpTable,
-
-    /// The instructions.
+    /// The instructions (c).
     pub instructions: Vec<u8>,
 
-    /// The bitmask of the instruction data.
+    /// The bitmask of the instruction data (k).
     pub bitmask: Vec<u8>,
+
+    /// The jump table (j).
+    pub jump_table: JumpTable,
 
     /// The range of the code.
     pub range: Range<usize>,
@@ -61,21 +59,29 @@ impl TryFrom<&[u8]> for ProgramBlob {
 
         // decode the jump table length
         //
+        // E(|j|)
+        //
         // TODO: decode the jump table length > 255
         let jump_table_len = blob[0] as usize;
         pos += 1;
 
         // decode the jump table entry size
         //
+        // E₁(z)
+        //
         // TODO: decode the jump table entry size > 255
         let jump_table_entry_size = blob[pos] as usize;
         pos += 1;
 
         // decode the instruction data length
+        //
+        // E(|c|)
         let instruction_len = blob[pos] as usize;
         pos += 1;
 
         // decode the jump table
+        //
+        // E_z(j)
         let jump_table = if jump_table_len > 0 && jump_table_entry_size > 0 {
             let length = jump_table_len * jump_table_entry_size;
             let table = blob[pos..pos + length].to_vec();
@@ -93,10 +99,14 @@ impl TryFrom<&[u8]> for ProgramBlob {
         };
 
         // decode the instruction data
+        //
+        // E(c)
         let instructions = blob[pos..pos + instruction_len].to_vec();
         pos += instruction_len;
 
         // decode the bitmask
+        //
+        // E(k)
         //
         // TODO: add checks for bitmask length
         let bitmask = blob[pos..].to_vec();

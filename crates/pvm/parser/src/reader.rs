@@ -58,6 +58,8 @@ impl<'r> Reader<'r> {
     }
 
     /// Find the next instruction.
+    ///
+    /// this is actually the `skip` function defined in graypaper.
     fn next_instr(&self, bitmask: &[u8]) -> usize {
         let mut pc = self.position;
         let mut next = None;
