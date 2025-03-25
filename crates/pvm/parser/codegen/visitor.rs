@@ -27,7 +27,7 @@ impl VisitorTrait {
         if let Some(format) = format {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
-                fn #fun(&mut self, _format: #format) -> anyhow::Result<()> {
+                fn #fun(&mut self, _format: #format) -> Result<(), Self::Error> {
                     unimplemented!(concat!("visit_", #name, " not implemented"))
                 }
             });
@@ -37,7 +37,7 @@ impl VisitorTrait {
         } else {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
-                fn #fun(&mut self) -> anyhow::Result<()> {
+                fn #fun(&mut self) -> Result<(), Self::Error> {
                     unimplemented!(concat!("visit_", #name, " not implemented"))
                 }
             });
@@ -54,7 +54,7 @@ impl core::fmt::Display for VisitorTrait {
 
         item.items.push(parse_quote! {
             /// Visits an instruction.
-            fn visit(&mut self, instruction: Instruction) -> anyhow::Result<()> {
+            fn visit(&mut self, instruction: Instruction) -> Result<(), Self::Error> {
                 match instruction {
                     #(#impl_visit_arms)*
                 }
@@ -70,7 +70,10 @@ impl Default for VisitorTrait {
     fn default() -> Self {
         let item = parse_quote! {
             /// The PVM instruction visitor.
-            pub trait Visitor {}
+            pub trait Visitor {
+                type Error;
+
+            }
         };
 
         Self {

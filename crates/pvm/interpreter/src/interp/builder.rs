@@ -1,10 +1,10 @@
 //! The builder for the PVM interpreter.
 
-use crate::{Interpreter, Memory};
+use crate::{Interpreter, Memory, Register};
 
 impl Interpreter {
     /// Set the registers of the interpreter.
-    pub fn registers(mut self, value: [u32; 13]) -> Self {
+    pub fn registers(mut self, value: [Register; 13]) -> Self {
         self.registers = value;
         self
     }

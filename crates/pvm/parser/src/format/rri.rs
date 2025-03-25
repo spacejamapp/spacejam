@@ -1,3 +1,5 @@
+//! Instruction with two registers and one immediate.
+
 use crate::format::{ISA, RRI};
 
 impl From<RRI> for Vec<u8> {
@@ -7,7 +9,7 @@ impl From<RRI> for Vec<u8> {
         bytes.push(((value.reg1 % 16) << 4) | (value.reg0 % 16));
 
         // Encode immediate
-        let x_len = value.imm0.len();
+        let x_len = value.imm0.len().min(4);
         let x_bytes = value.imm0.to_le_bytes();
         bytes.extend_from_slice(&x_bytes[..x_len as usize]);
 
@@ -24,7 +26,7 @@ impl From<&[u8]> for RRI {
         let imm0 = if bytes.len() == 1 {
             0
         } else {
-            u32::read_imm(&bytes[1..])
+            u64::read_imm(&bytes[1..bytes.len().min(5)])
         };
 
         RRI {

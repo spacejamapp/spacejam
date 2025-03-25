@@ -1,3 +1,5 @@
+//! Instructions with one register and one immediate.
+
 use crate::format::{ISA, RI};
 
 impl From<RI> for Vec<u8> {
@@ -21,7 +23,7 @@ impl From<&[u8]> for RI {
 
         RI {
             reg0: (bytes[0] % 16).min(12),
-            imm0: u32::read_imm(&bytes[1..]),
+            imm0: u64::read_imm(&bytes[1..]),
         }
     }
 }

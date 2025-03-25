@@ -35,17 +35,22 @@ pub struct Test {
 pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
     let mut accounts = BTreeMap::new();
     for acc in accs {
-        accounts.insert(acc.id, acc.info.into());
+        accounts.insert(acc.id, acc.data.into());
     }
     accounts
 }
 
+// TODO: update the tests of the preimage module
 crate::impl_tests! {
     preimages,
     preimage_needed_1,
     preimage_needed_2,
     preimage_not_needed_1,
-    preimage_not_needed_2
+    preimage_not_needed_2,
+   /*  preimages_order_check_1,
+    preimages_order_check_2,
+    preimages_order_check_3,
+    preimages_order_check_4 */
 }
 
 // TODO: clean types later
@@ -72,7 +77,7 @@ mod types {
 
         /// Account info
         #[json(nested)]
-        pub info: AccountInfo,
+        pub data: AccountInfo,
     }
 
     #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
@@ -102,7 +107,7 @@ mod types {
         #[json(nested)]
         pub preimages: Vec<TPreimage>,
         #[json(nested)]
-        pub history: Vec<History>,
+        pub lookup_meta: Vec<History>,
     }
 
     impl From<AccountInfo> for ServiceAccount {
@@ -112,7 +117,7 @@ mod types {
                 account.preimage.insert(preimage.hash, preimage.blob);
             }
 
-            for lookup in info.history {
+            for lookup in info.lookup_meta {
                 let mut slots = [0; 3];
                 slots[..lookup.value.len()].copy_from_slice(&lookup.value);
                 account

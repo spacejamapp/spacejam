@@ -3,6 +3,7 @@
 use anyhow::Result;
 use score::{block::History, runtime::tx};
 use specjam::{Section, Test};
+use tracing_subscriber::EnvFilter;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -10,6 +11,10 @@ pub struct Runner;
 impl Runner {
     /// Step a test.
     pub fn step(test: &Test) -> Result<()> {
+        tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+
         match test.section {
             Section::Assurances => {
                 use crate::assurances;
@@ -202,8 +207,33 @@ impl Runner {
 
                 // Initialize memory
                 let mut memory = pvmi::Memory::default();
+                for page in &input.initial_page_map {
+                    memory.pages.insert(
+                        page.address / ::pvmi::PAGE_SIZE,
+                        ::pvmi::Page {
+                            data: Default::default(),
+                            access: ::pvmi::Access::Mutable,
+                        },
+                    );
+                }
+
                 for mem in input.initial_memory {
-                    memory.slots.insert(mem.address, mem.contents.clone());
+                    memory.write_bytes(
+                        mem.address,
+                        mem.address % ::pvmi::PAGE_SIZE,
+                        mem.contents.as_slice(),
+                    )?;
+                }
+
+                for tpage in input.initial_page_map {
+                    let page = memory.pages.get_mut(&(tpage.address / ::pvmi::PAGE_SIZE));
+                    if let Some(page) = page {
+                        page.access = if tpage.is_writable {
+                            ::pvmi::Access::Mutable
+                        } else {
+                            ::pvmi::Access::Immutable
+                        };
+                    }
                 }
 
                 // Initialize interpreter
@@ -218,7 +248,7 @@ impl Runner {
 
                 let expected_memory = interpreter
                     .memory
-                    .slots
+                    .to_data_maps()
                     .iter()
                     .map(|(k, v)| pvm::Memory {
                         address: *k,

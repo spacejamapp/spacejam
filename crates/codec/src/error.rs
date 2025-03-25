@@ -2,35 +2,48 @@ use core::fmt::Display;
 
 /// Error type for JAMCodec
 #[derive(Debug)]
-pub struct Error(anyhow::Error);
+pub enum Error {
+    Anyhow(anyhow::Error),
+    InvalidLength { expected: usize, got: usize },
+    InvalidInput(String),
+}
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.0.fmt(f)
+        match self {
+            Self::Anyhow(e) => e.fmt(f),
+            Self::InvalidLength { expected, got } => {
+                write!(f, "Invalid length: expected {}, got {}", expected, got)
+            }
+            Self::InvalidInput(s) => write!(f, "Invalid input: {}", s),
+        }
     }
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
+        match self {
+            Self::Anyhow(e) => e.source(),
+            _ => None,
+        }
     }
 }
 
 impl serde::ser::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
-        Self(anyhow::anyhow!("{msg}"))
+        Self::Anyhow(anyhow::anyhow!("{msg}"))
     }
 }
 
 impl serde::de::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
-        Self(anyhow::anyhow!("{msg}"))
+        Self::Anyhow(anyhow::anyhow!("{msg}"))
     }
 }
 
 impl From<anyhow::Error> for Error {
     fn from(err: anyhow::Error) -> Self {
-        Self(err)
+        Self::Anyhow(err)
     }
 }
 

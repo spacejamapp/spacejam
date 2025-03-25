@@ -1824,6 +1824,10 @@ dependencies = [
 [[package]]
 name = "pvm"
 version = "0.0.0"
+dependencies = [
+ "pvmi",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "pvm-parser"
@@ -1845,6 +1849,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "pvm-parser",
+ "smallvec",
  "tracing",
 ]
 
@@ -2571,13 +2576,26 @@ dependencies = [
 
 [[package]]
 name = "specjam"
-version = "0.0.4"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b0989a26da43c92053f8ab361d79e61b7b7dabb152c34b15d4d9381fc3582a1"
+checksum = "5f68e4f6041612a9d85652d49d518911ea4dba82dd4cf081119b5cef338cfd27"
 dependencies = [
  "anyhow",
  "clap",
  "colored",
+ "serde_json",
+ "specjam-codegen",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "specjam-codegen"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b1ab5e863ec6936c90a555123a07366e8fc9a2037f8907dd96a9d16ae7dadd3"
+dependencies = [
+ "anyhow",
  "heck",
  "hex",
  "paste",
@@ -2585,8 +2603,6 @@ dependencies = [
  "quote",
  "serde_json",
  "syn 2.0.98",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

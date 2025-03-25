@@ -1,3 +1,5 @@
+//! The RRR instruction format.
+
 use crate::format::RRR;
 
 impl From<[u8; 2]> for RRR {

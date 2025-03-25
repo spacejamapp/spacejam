@@ -1,3 +1,5 @@
+//! The RIO instruction format.
+
 use crate::format::{ISA, RII, RIO};
 
 impl From<RIO> for Vec<u8> {
@@ -21,8 +23,8 @@ impl From<&[u8]> for RIO {
         let mid = (bytes[0] / 16 % 8).min(4) as usize + 1;
         RIO {
             reg0: (bytes[0] % 16).min(12),
-            imm0: u32::read_imm(&bytes[1..mid]),
-            off0: u32::read(&bytes[mid..]),
+            imm0: u64::read_imm(&bytes[1..mid]),
+            off0: u64::read(&bytes[mid..]).0,
         }
     }
 }
