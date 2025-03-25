@@ -1,6 +1,6 @@
 //! Number encoding and decoding
 
-// mod prefix;
+pub mod prefix;
 
 /// Trait for types that can be encoded and decoded using JAMCodec
 pub trait Numeric: Sized {
@@ -11,20 +11,15 @@ pub trait Numeric: Sized {
     fn decode(value: &[u8]) -> Self;
 }
 
+/// Implement the `Numeric` trait for the given types.
 macro_rules! impl_numeric {
     ($(($t:ty, $len:expr)),+) => {
         $(
             impl Numeric for $t {
                 fn encode(&self) -> Vec<u8> {
                     let bytes = self.to_le_bytes().to_vec();
-                    bytes
-                        .into_iter()
-                        .rev()
-                        .skip_while(|&b| b == 0)
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .rev()
-                        .collect()
+                    let end = $len - self.leading_zeros() as usize / 8;
+                    bytes[..end].to_vec()
                 }
 
                 fn decode(source: &[u8]) -> Self {
@@ -46,9 +41,7 @@ impl_numeric! {
     (i32, 4),
     (u32, 4),
     (i64, 8),
-    (u64, 8),
-    (f32, 4),
-    (f64, 8)
+    (u64, 8)
 }
 
 #[cfg(test)]
