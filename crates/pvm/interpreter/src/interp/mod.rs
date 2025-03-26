@@ -99,9 +99,12 @@ impl Interpreter {
             // - remove the i32 conversion.
             // - shall we add up with 1 here?
             // - block checks, need to get access to the reader.
+            let mut target = self.pc as i32 + target;
+            if target < 0 {
+                target += 1;
+            }
 
-            let target = self.pc.wrapping_add(target as usize);
-            self.jump = Some(target);
+            self.jump = Some(target as usize);
         }
 
         Ok(())

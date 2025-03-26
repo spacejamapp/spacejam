@@ -403,6 +403,34 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_max(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].max(self.registers[reg1 as usize]);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_max_u(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].max(self.registers[reg1 as usize]);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_min(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].min(self.registers[reg1 as usize]);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_min_u(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].min(self.registers[reg1 as usize]);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
     fn visit_move_reg(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         self.registers[reg0 as usize] = self.registers[reg1 as usize];
@@ -497,6 +525,20 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_or_inv(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize] | !self.registers[reg1 as usize];
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_and_inv(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize] & !self.registers[reg1 as usize];
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
     fn visit_rem_u_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend = self.registers[reg0 as usize] as u32;
@@ -550,6 +592,60 @@ impl Visitor for Interpreter {
         } else {
             (dividend.wrapping_rem(divisor)) as u64
         };
+        Ok(())
+    }
+
+    fn visit_reverse_bytes(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let mut value = self.registers[reg0 as usize].to_le_bytes();
+        value.reverse();
+
+        self.registers[reg1 as usize] = u64::from_le_bytes(value);
+        Ok(())
+    }
+
+    fn visit_rot_l_32(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].rotate_left(self.registers[reg1 as usize] as u32);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_rot_l_64(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize].rotate_left(self.registers[reg1 as usize] as u32);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_rot_r_32(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value =
+            self.registers[reg0 as usize].rotate_right(self.registers[reg1 as usize] as u32);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_rot_r_32_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let value = self.registers[reg0 as usize].rotate_right(imm0 as u32);
+        self.registers[reg1 as usize] = value;
+        Ok(())
+    }
+
+    // TODO: fix this with u64
+    fn visit_rot_r_64(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value =
+            self.registers[reg0 as usize].rotate_right(self.registers[reg1 as usize] as u32);
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_rot_r_64_imm(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let value = self.registers[reg0 as usize].rotate_right(imm0 as u32);
+        self.registers[reg1 as usize] = value;
         Ok(())
     }
 
@@ -762,6 +858,18 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_sign_extend_8(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        self.registers[reg0 as usize] = self.registers[reg1 as usize] as i8 as u64;
+        Ok(())
+    }
+
+    fn visit_sign_extend_16(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        self.registers[reg0 as usize] = self.registers[reg1 as usize] as i16 as u64;
+        Ok(())
+    }
+
     fn visit_store_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = self.registers[reg0 as usize] as u8;
@@ -878,6 +986,13 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_xnor(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize] ^ self.registers[reg1 as usize];
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
     fn visit_xor(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize] ^ self.registers[reg1 as usize];
@@ -889,6 +1004,12 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let value = self.registers[reg1 as usize] ^ imm0;
         self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_zero_extend_16(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        self.registers[reg0 as usize] = self.registers[reg1 as usize] as u16 as u64;
         Ok(())
     }
 }
