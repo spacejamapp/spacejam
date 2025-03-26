@@ -51,7 +51,7 @@ impl Interpreter {
                 return Ok(());
             };
 
-            tracing::trace!("{:08} | {:?}", reader.position, instr.value);
+            tracing::trace!("0x{:06x} | {:?}", reader.position, instr.value);
             if let Err(e) = self.step(instr.value) {
                 self.status = e.into();
                 tracing::warn!("{e:?}");
@@ -99,8 +99,9 @@ impl Interpreter {
             // - remove the i32 conversion.
             // - shall we add up with 1 here?
             // - block checks, need to get access to the reader.
-            let target = self.pc as i32 + target;
-            self.jump = Some(target as usize);
+
+            let target = self.pc.wrapping_add(target as usize);
+            self.jump = Some(target);
         }
 
         Ok(())
