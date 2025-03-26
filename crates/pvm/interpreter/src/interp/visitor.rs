@@ -62,75 +62,66 @@ impl Visitor for Interpreter {
     fn visit_branch_eq(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
+            off0,
             self.registers[reg0 as usize] == self.registers[reg1 as usize],
         )
     }
 
     fn visit_branch_eq_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] == imm0)
+        self.branch(off0, self.registers[reg0 as usize] == imm0)
     }
 
     fn visit_branch_ge_s(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
-            self.registers[reg0 as usize] as i32 >= self.registers[reg1 as usize] as i32,
+            off0,
+            self.registers[reg0 as usize] as i64 >= self.registers[reg1 as usize] as i64,
         )
     }
 
     fn visit_branch_ge_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(
-            off0 as i32,
-            self.registers[reg0 as usize] as i32 >= imm0 as i32,
-        )
+        self.branch(off0, self.registers[reg0 as usize] as i64 >= imm0 as i64)
     }
 
     fn visit_branch_ge_u(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
+            off0,
             self.registers[reg0 as usize] >= self.registers[reg1 as usize],
         )
     }
 
     fn visit_branch_ge_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] >= imm0)
+        self.branch(off0, self.registers[reg0 as usize] >= imm0)
     }
 
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(
-            off0 as i32,
-            self.registers[reg0 as usize] as i32 > imm0 as i32,
-        )
+        self.branch(off0, self.registers[reg0 as usize] as i32 > imm0 as i32)
     }
 
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] > imm0)
+        self.branch(off0, self.registers[reg0 as usize] > imm0)
     }
 
     fn visit_branch_le_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(
-            off0 as i32,
-            self.registers[reg0 as usize] as i32 <= imm0 as i32,
-        )
+        self.branch(off0, self.registers[reg0 as usize] as i32 <= imm0 as i32)
     }
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] <= imm0)
+        self.branch(off0, self.registers[reg0 as usize] <= imm0)
     }
 
     fn visit_branch_lt_s(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
+            off0,
             (self.registers[reg0 as usize] as i64) < (self.registers[reg1 as usize] as i64),
         )
     }
@@ -138,35 +129,32 @@ impl Visitor for Interpreter {
     fn visit_branch_lt_u(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
+            off0,
             self.registers[reg0 as usize] < self.registers[reg1 as usize],
         )
     }
 
     fn visit_branch_lt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(
-            off0 as i32,
-            (self.registers[reg0 as usize] as i64) < imm0 as i64,
-        )
+        self.branch(off0, (self.registers[reg0 as usize] as i64) < imm0 as i64)
     }
 
     fn visit_branch_lt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] < imm0)
+        self.branch(off0, self.registers[reg0 as usize] < imm0)
     }
 
     fn visit_branch_ne(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
-            off0 as i32,
+            off0,
             self.registers[reg0 as usize] != self.registers[reg1 as usize],
         )
     }
 
     fn visit_branch_ne_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0 as i32, self.registers[reg0 as usize] != imm0)
+        self.branch(off0, self.registers[reg0 as usize] != imm0)
     }
 
     fn visit_cmov_iz(&mut self, format: format::RRR) -> Result<()> {
@@ -266,7 +254,7 @@ impl Visitor for Interpreter {
 
     fn visit_jump(&mut self, format: format::O) -> Result<()> {
         let format::O { off0 } = format;
-        self.branch(off0 as i32, true)
+        self.branch(off0, true)
     }
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {

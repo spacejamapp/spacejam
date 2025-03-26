@@ -34,7 +34,7 @@ impl Formats {
                     "extended-immediate",
                 )
             }))
-            .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(u64), "offset")))
+            .chain((0..format.offset).map(|i| (format!("off{}", i), parse_quote!(i32), "offset")))
             .map(|(name, value, doc): (String, Type, &str)| {
                 let i = name.chars().last().expect("Failed to get last char");
                 let ident = Ident::new(&name, Span::call_site());
