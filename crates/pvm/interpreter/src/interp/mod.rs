@@ -1,4 +1,10 @@
 //! PolkaVM program interpreter
+//!
+//! TODOs:
+//!
+//! - [ ]: double check the update of program counter
+//! - [ ]: double check the jump instruction (what's the exact PC)
+//! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
@@ -51,17 +57,21 @@ impl Interpreter {
                 return Ok(());
             };
 
-            tracing::trace!("0x{:06x} | {:?}", reader.position, instr.value);
+            // stepping the instruction.
+            tracing::trace!("0x{:06x} | {:?}", self.pc, instr.value);
             if let Err(e) = self.step(instr.value) {
                 self.status = e.into();
                 tracing::warn!("{e:?}");
                 return Ok(());
             }
 
-            // if there is a jump target, update the reader position
+            // update the program counter on stepping successfully.
             self.pc = reader.position;
+
+            // if there is a jump target, update the reader position
             if let Some(pos) = self.jump.take() {
                 reader.set_position(pos);
+                self.pc = pos;
             }
         }
 
@@ -93,18 +103,11 @@ impl Interpreter {
     }
 
     /// Branch to the given target.
-    fn branch(&mut self, target: i32, jump: bool) -> crate::Result<()> {
+    fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {
             // TODO:
-            // - remove the i32 conversion.
-            // - shall we add up with 1 here?
             // - block checks, need to get access to the reader.
-            let mut target = self.pc as i32 + target;
-            if target < 0 {
-                target += 1;
-            }
-
-            self.jump = Some(target as usize);
+            self.jump = Some((self.pc as i32 + offset) as usize);
         }
 
         Ok(())
