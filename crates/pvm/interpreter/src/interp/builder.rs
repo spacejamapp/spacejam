@@ -20,4 +20,10 @@ impl Interpreter {
         self.gas = value;
         self
     }
+
+    /// Set the program counter of the interpreter.
+    pub fn pc(mut self, value: usize) -> Self {
+        self.pc = value;
+        self
+    }
 }

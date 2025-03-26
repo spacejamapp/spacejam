@@ -218,11 +218,7 @@ impl Runner {
                 }
 
                 for mem in input.initial_memory {
-                    memory.write_bytes(
-                        mem.address,
-                        mem.address % ::pvmi::PAGE_SIZE,
-                        mem.contents.as_slice(),
-                    )?;
+                    memory.write_bytes(mem.address, 0, mem.contents.as_slice())?;
                 }
 
                 for tpage in input.initial_page_map {
@@ -240,7 +236,8 @@ impl Runner {
                 let mut interpreter = pvmi::Interpreter::default()
                     .gas(input.initial_gas)
                     .registers(registers)
-                    .memory(memory);
+                    .memory(memory)
+                    .pc(input.initial_pc as usize);
 
                 interpreter
                     .interp(&input.program)

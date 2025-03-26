@@ -17,6 +17,9 @@ pub enum Error {
     /// The dynamic jump is invalid.
     InvalidDynamicJump,
 
+    /// Out of gas.
+    OOG,
+
     /// The trap instruction was executed.
     Trap(bool),
 }
@@ -28,6 +31,7 @@ impl Error {
             Error::MemoryInaccessible(_) => 1,
             Error::MemoryImmutable(_) => 1,
             Error::Trap(true) => 1,
+            Error::OOG => 0,
             _ => 0,
         }
     }
@@ -42,6 +46,7 @@ impl From<Error> for Status {
             Error::Terminate => Status::Halt,
             Error::InvalidDynamicJump => Status::Panic,
             Error::Trap(_) => Status::Panic,
+            Error::OOG => Status::Panic,
         }
     }
 }

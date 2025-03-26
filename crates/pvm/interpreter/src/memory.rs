@@ -38,11 +38,13 @@ impl Memory {
         let page = self.access(pagenum)?;
         let data = page.data.as_slice();
         let data_len = data.len() as u64;
-        if len > data_len {
-            return Err(Error::MemoryInaccessible(pagenum as u32));
-        }
 
-        Ok(data[offset as usize..(offset + len) as usize].to_vec())
+        // fill with 0s if necessary
+        let mut bytes = vec![0; len as usize];
+        let to_copy = (len).min(data_len.saturating_sub(offset));
+        bytes[..to_copy as usize]
+            .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
+        Ok(bytes)
     }
 
     /// Write a value to the memory.

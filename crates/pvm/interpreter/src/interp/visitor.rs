@@ -284,8 +284,7 @@ impl Visitor for Interpreter {
 
     fn visit_jump(&mut self, format: format::O) -> Result<()> {
         let format::O { off0 } = format;
-        self.jump = Some(self.pc.wrapping_add(off0 as usize));
-        Ok(())
+        unimplemented!("branch(Vx, T)");
     }
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {

@@ -91,7 +91,8 @@ impl<'r> Reader<'r> {
         }
 
         // return the next instruction position, or the end of the buffer
-        next.unwrap_or(self.buffer.len()).min(24)
+        let blen = self.buffer.len();
+        next.unwrap_or(blen).min(blen)
     }
 }
 

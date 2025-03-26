@@ -38,13 +38,11 @@ pub struct Interpreter {
 impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
-        tracing::debug!("program: {:?}", program.as_ref());
         let program = ProgramBlob::try_from(program.as_ref())?;
         let mut reader = program.instr_reader_at(self.pc);
 
         // TODO: do not clone the jump table but reference it.
         self.table = program.jump_table.clone();
-        tracing::debug!("jump table: {:?}", self.table);
 
         // TODO: update the position of the reader for supporting jumps.
         while !reader.eof() && self.status.is_unknown() {
@@ -54,7 +52,9 @@ impl Interpreter {
             };
 
             tracing::trace!("{:08} | {:?}", reader.position, instr.value);
-            if !self.step(instr.value) {
+            if let Err(e) = self.step(instr.value) {
+                self.status = e.into();
+                tracing::error!("error: {e:?}");
                 return Ok(());
             }
 
@@ -78,20 +78,23 @@ impl Interpreter {
     /// Step the instruction.
     ///
     /// returns true if the instruction was stepped, false otherwise.
-    fn step(&mut self, instr: Instruction) -> bool {
+    fn step(&mut self, instr: Instruction) -> crate::Result<()> {
         if self.gas == 0 {
-            self.status = Status::OOG;
-            return false;
+            return Err(Error::OOG);
         }
 
         self.gas -= 1;
         if let Err(e) = self.visit(instr) {
             self.gas -= e.extra_gas();
-            self.status = e.into();
-            return false;
+            return Err(e);
         }
 
-        true
+        Ok(())
+    }
+
+    /// Branch to the given target.
+    fn branch(&mut self) -> crate::Result<()> {
+        Ok(())
     }
 
     /// Dynamic jump to the given target.
