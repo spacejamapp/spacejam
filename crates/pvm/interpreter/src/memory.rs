@@ -84,17 +84,42 @@ impl Memory {
 
     /// Convert the memory to a data map.
     pub fn to_data_maps(&self) -> BTreeMap<u64, Vec<u8>> {
-        self.pages
-            .iter()
-            .filter_map(|(k, v)| {
-                if v.data.is_empty() {
-                    return None;
-                }
+        let mut maps = BTreeMap::new();
 
-                let offset = v.data.iter().position(|b| *b != 0).unwrap_or_default();
-                Some((k * PAGE_SIZE + offset as u64, v.data[offset..].to_vec()))
-            })
-            .collect()
+        for (&page_num, page) in &self.pages {
+            if page.data.is_empty() {
+                continue;
+            }
+
+            let base = page_num * PAGE_SIZE;
+            let mut current = None;
+            let mut data = Vec::new();
+
+            // Scan through each byte in the page
+            for (offset, &byte) in page.data.iter().enumerate() {
+                if byte == 0 {
+                    if !data.is_empty() {
+                        maps.insert(current.unwrap(), data);
+                        data = Vec::new();
+                        current = None;
+                    }
+                } else {
+                    if current.is_none() {
+                        current = Some(base + offset as u64);
+                    }
+                    data.push(byte);
+                }
+            }
+
+            // Store any remaining data at the end of the page
+            if !data.is_empty() {
+                if let Some(addr) = current {
+                    maps.insert(addr, data);
+                }
+            }
+        }
+
+        maps
     }
 
     /// Get the access type of a memory slot.

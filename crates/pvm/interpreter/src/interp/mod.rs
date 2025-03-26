@@ -54,7 +54,7 @@ impl Interpreter {
             tracing::trace!("{:08} | {:?}", reader.position, instr.value);
             if let Err(e) = self.step(instr.value) {
                 self.status = e.into();
-                tracing::error!("error: {e:?}");
+                tracing::warn!("{e:?}");
                 return Ok(());
             }
 
@@ -93,7 +93,16 @@ impl Interpreter {
     }
 
     /// Branch to the given target.
-    fn branch(&mut self) -> crate::Result<()> {
+    fn branch(&mut self, target: i32, jump: bool) -> crate::Result<()> {
+        if jump {
+            // TODO:
+            // - remove the i32 conversion.
+            // - shall we add up with 1 here?
+            // - block checks, need to get access to the reader.
+            let target = self.pc as i32 + target;
+            self.jump = Some(target as usize);
+        }
+
         Ok(())
     }
 
