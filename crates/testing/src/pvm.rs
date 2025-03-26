@@ -52,4 +52,4 @@ pub struct Page {
     pub is_writable: bool,
 }
 
-// include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
+include!(concat!(env!("OUT_DIR"), "/pvm.rs"));

@@ -60,29 +60,27 @@ impl TryFrom<&[u8]> for ProgramBlob {
         // decode the jump table length
         //
         // E(|j|)
-        //
-        // TODO: decode the jump table length > 255
-        let jump_table_len = blob[0] as usize;
-        pos += 1;
+        let (len, next) = codec::prefix::decode(&blob);
+        let jump_table_len = len as usize;
+        pos += next;
 
         // decode the jump table entry size
         //
         // E₁(z)
-        //
-        // TODO: decode the jump table entry size > 255
         let jump_table_entry_size = blob[pos] as usize;
         pos += 1;
 
         // decode the instruction data length
         //
         // E(|c|)
-        let instruction_len = blob[pos] as usize;
-        pos += 1;
+        let (len, next) = codec::prefix::decode(&blob[pos..]);
+        let instruction_len = len as usize;
+        pos += next;
 
         // decode the jump table
         //
         // E_z(j)
-        let jump_table = if jump_table_len > 0 && jump_table_entry_size > 0 {
+        let jump_table = if jump_table_entry_size > 0 {
             let length = jump_table_len * jump_table_entry_size;
             let table = blob[pos..pos + length].to_vec();
             let table = JumpTable {
@@ -107,8 +105,6 @@ impl TryFrom<&[u8]> for ProgramBlob {
         // decode the bitmask
         //
         // E(k)
-        //
-        // TODO: add checks for bitmask length
         let bitmask = blob[pos..].to_vec();
 
         Ok(Self {

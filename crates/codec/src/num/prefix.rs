@@ -48,14 +48,15 @@ pub fn decode(encoded: &[u8]) -> (u64, usize) {
     // loop instead match for returning the length
     for (length, base, next, bits, _) in THRESHOLDS.into_iter() {
         if prefix < next {
+            let dlen = length + 1;
             return (
-                ((prefix - base) as u64) * bits + u64::decode(&encoded[1..]),
-                length + 1,
+                ((prefix - base) as u64) * bits + u64::decode(&encoded[1..dlen]),
+                dlen,
             );
         }
     }
 
-    (u64::decode(&encoded[1..]), 9)
+    (u64::decode(&encoded[1..9]), 9)
 }
 
 #[test]

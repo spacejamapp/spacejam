@@ -7,3 +7,4 @@ edition = "2021"
 anyhow.workspace = true
 hex.workspace = true
 serde.workspace = true
+tracing.workspace = true
