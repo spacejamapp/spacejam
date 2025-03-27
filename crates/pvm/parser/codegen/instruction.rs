@@ -1,5 +1,5 @@
-use quote::ToTokens;
-use syn::{parse_quote, Ident, ItemEnum, Variant};
+use quote::{quote, ToTokens};
+use syn::{parse_quote, Ident, ItemEnum, ItemImpl, Variant};
 
 use super::Format;
 
@@ -7,6 +7,8 @@ use super::Format;
 pub struct InstructionEnum {
     /// The item enum.
     pub item: ItemEnum,
+    /// The display implementation.
+    pub display_impl: Option<ItemImpl>,
 }
 
 impl InstructionEnum {
@@ -27,12 +29,49 @@ impl InstructionEnum {
         ]);
         self.item.variants.push(variant);
     }
+
+    /// Generate Display implementation for Instruction enum
+    pub fn impl_display(&mut self) {
+        let variants = &self.item.variants;
+        let mut display_arms = Vec::new();
+
+        for variant in variants {
+            let variant_name = &variant.ident;
+            if variant.fields.is_empty() {
+                display_arms.push(quote! {
+                    Self::#variant_name => write!(f, stringify!(#variant_name))
+                });
+            } else {
+                display_arms.push(quote! {
+                    Self::#variant_name(format) => write!(f, "{}({})", stringify!(#variant_name), format)
+                });
+            }
+        }
+
+        // Create the final Display implementation
+        self.display_impl = Some(parse_quote! {
+            impl std::fmt::Display for Instruction {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        #(#display_arms,)*
+                    }
+                }
+            }
+        });
+    }
 }
 
 impl core::fmt::Display for InstructionEnum {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let formatted = self.item.to_token_stream().to_string();
-        write!(f, "{formatted}")
+        let mut output = self.item.to_token_stream().to_string();
+
+        // Add the Display implementation if it exists
+        if let Some(display_impl) = &self.display_impl {
+            output.push_str("\n\n");
+            output.push_str(&display_impl.to_token_stream().to_string());
+        }
+
+        write!(f, "{output}")
     }
 }
 
@@ -44,6 +83,9 @@ impl Default for InstructionEnum {
             pub enum Instruction {}
         };
 
-        Self { item }
+        Self {
+            item,
+            display_impl: None,
+        }
     }
 }

@@ -58,7 +58,7 @@ impl Interpreter {
             };
 
             // stepping the instruction.
-            tracing::trace!("0x{:06x} | {:?}", self.pc, instr.value);
+            tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
             if let Err(e) = self.step(instr.value) {
                 self.status = e.into();
                 tracing::warn!("{e:?}");
