@@ -124,7 +124,15 @@ pub struct ServiceItem {
 
     /// The info of the service item
     #[json(nested)]
-    pub info: ServiceAccountState,
+    pub data: ServiceAccountData,
+}
+
+/// Represents the service account data.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ServiceAccountData {
+    /// The service account state
+    #[json(nested)]
+    pub service: ServiceAccountState,
 }
 
 /// Represents the RefineContext structure from ASN.1

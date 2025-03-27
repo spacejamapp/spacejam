@@ -3,8 +3,10 @@
 use crate::{
     block::{BlockInfo, BlockInfoJson},
     safrole::{ValidatorDataJson, ValidatorsData},
-    service::{AvailabilityAssignmentJson, AvailabilityAssignments},
-    service::{ServiceItem, ServiceItemJson},
+    service::{
+        AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccountData, ServiceItem,
+        ServiceItemJson,
+    },
     Ed25519Public, EntropyBuffer, OpaqueHash, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};
@@ -44,6 +46,7 @@ pub struct State {
 
     /// (δ) Encoded services dictionary. Refer to T(σ) in Appendix D.
     #[json(nested)]
+    #[serde(alias = "accounts")]
     pub services: Vec<ServiceItem>,
 }
 
@@ -58,11 +61,11 @@ impl State {
         state.recent_blocks = self.recent_blocks;
         state.authorization = self.auth_pools;
 
-        for ServiceItem { id, info } in self.services.into_iter() {
-            state.accounts.entry(id).or_default().code = info.code;
+        for ServiceItem { id, data } in self.services.into_iter() {
+            state.accounts.entry(id).or_default().code = data.service.code;
             state.accounts.entry(id).and_modify(|account| {
-                account.balance = info.balance;
-                account.gas = info.gas;
+                account.balance = data.service.balance;
+                account.gas = data.service.gas;
             });
         }
     }
@@ -91,7 +94,9 @@ impl From<crate::State> for State {
                 .into_iter()
                 .map(|(id, service)| ServiceItem {
                     id,
-                    info: service.state(),
+                    data: ServiceAccountData {
+                        service: service.state(),
+                    },
                 })
                 .collect(),
         }

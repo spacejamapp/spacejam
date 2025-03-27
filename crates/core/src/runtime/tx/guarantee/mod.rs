@@ -127,7 +127,7 @@ impl Context<'_> {
             .state
             .services
             .iter()
-            .map(|s| (s.id, s.info.code))
+            .map(|s| (s.id, s.data.service.code))
             .unzip();
 
         // Process each guarantee
@@ -194,7 +194,7 @@ impl Context<'_> {
             .state
             .services
             .iter()
-            .map(|s| s.info.code)
+            .map(|s| s.data.service.code)
             .collect::<Vec<_>>();
         let reported = guarantees
             .iter()

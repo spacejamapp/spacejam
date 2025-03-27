@@ -23,7 +23,9 @@ pub fn accounts(
         }
     }
 
-    // The lookup the validator. extrinsic is a sequence of pairs of service indices and data.
+    // The lookup the validator. extrinsic is a sequence of pairs of
+    // service indices and data.
+    //
     // The objective statistics are updated in line with their
     // These pairs must be ordered and without duplicates (equa-
     // tion 12.35 requires this).
