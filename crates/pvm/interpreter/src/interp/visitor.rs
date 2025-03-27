@@ -9,10 +9,6 @@ use pvm_parser::{
 impl Visitor for Interpreter {
     type Error = crate::Error;
 
-    fn visit_trap(&mut self) -> Result<()> {
-        Err(crate::Error::Trap(false))
-    }
-
     fn visit_add_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = (self.registers[reg0 as usize] as u32)
@@ -196,6 +192,20 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_count_set_bits_32(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize] as u32;
+        self.registers[reg0 as usize] = value.count_ones() as u64;
+        Ok(())
+    }
+
+    fn visit_count_set_bits_64(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize];
+        self.registers[reg0 as usize] = value.count_ones() as u64;
+        Ok(())
+    }
+
     fn visit_div_u_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend = self.registers[reg0 as usize] as u32;
@@ -268,6 +278,26 @@ impl Visitor for Interpreter {
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         self.djump(self.registers[reg0 as usize].wrapping_add(imm0) as u32)
+    }
+
+    // # NOTE
+    //
+    // The decoding of these instructions are following the graypaper,
+    //
+    // reg0  - rD
+    // reg1  - rA
+    fn visit_leading_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize] as u32;
+        self.registers[reg0 as usize] = value.leading_zeros() as u64;
+        Ok(())
+    }
+
+    fn visit_leading_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize];
+        self.registers[reg0 as usize] = value.leading_zeros() as u64;
+        Ok(())
     }
 
     fn visit_load_i8(&mut self, format: format::RI) -> Result<()> {
@@ -409,8 +439,9 @@ impl Visitor for Interpreter {
 
     fn visit_max(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].max(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value =
+            (self.registers[reg0 as usize] as i64).max(self.registers[reg1 as usize] as i64);
+        self.registers[reg2 as usize] = value as u64;
         Ok(())
     }
 
@@ -423,8 +454,9 @@ impl Visitor for Interpreter {
 
     fn visit_min(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].min(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value =
+            (self.registers[reg0 as usize] as i64).min(self.registers[reg1 as usize] as i64);
+        self.registers[reg2 as usize] = value as u64;
         Ok(())
     }
 
@@ -445,8 +477,6 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = (self.registers[reg0 as usize] as u32)
             .wrapping_mul(self.registers[reg1 as usize] as u32) as u64;
-
-        // sign extend the value if it is negative
         self.registers[reg2 as usize] = value.sign_ext32();
         Ok(())
     }
@@ -461,8 +491,6 @@ impl Visitor for Interpreter {
     fn visit_mul_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let value = (self.registers[reg1 as usize] as u32).wrapping_mul(imm0 as u32) as u64;
-
-        // sign extend the value if it is negative
         self.registers[reg0 as usize] = value.sign_ext32();
         Ok(())
     }
@@ -545,7 +573,8 @@ impl Visitor for Interpreter {
             (dividend as u64).sign_ext32()
         } else {
             (dividend.wrapping_rem(divisor)) as u64
-        };
+        }
+        .sign_ext32();
         Ok(())
     }
 
@@ -594,55 +623,74 @@ impl Visitor for Interpreter {
 
     fn visit_reverse_bytes(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let mut value = self.registers[reg0 as usize].to_le_bytes();
+        let mut value = self.registers[reg1 as usize].to_le_bytes();
         value.reverse();
 
-        self.registers[reg1 as usize] = u64::from_le_bytes(value);
+        self.registers[reg0 as usize] = u64::from_le_bytes(value);
         Ok(())
     }
 
     fn visit_rot_l_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].rotate_left(self.registers[reg1 as usize] as u32);
-        self.registers[reg2 as usize] = value;
+        let rotation = self.registers[reg1 as usize] % 32;
+        let value = ((self.registers[reg0 as usize] as u32).rotate_left(rotation as u32)) as u64;
+        self.registers[reg2 as usize] = value.sign_ext32();
         Ok(())
     }
 
     fn visit_rot_l_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].rotate_left(self.registers[reg1 as usize] as u32);
+        let rotation = self.registers[reg1 as usize] % 64;
+        let value = self.registers[reg0 as usize].rotate_left(rotation as u32);
         self.registers[reg2 as usize] = value;
         Ok(())
     }
 
     fn visit_rot_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value =
-            self.registers[reg0 as usize].rotate_right(self.registers[reg1 as usize] as u32);
-        self.registers[reg2 as usize] = value;
+        let rotation = self.registers[reg1 as usize] % 32;
+        let value = ((self.registers[reg0 as usize] as u32).rotate_right(rotation as u32)) as u64;
+        self.registers[reg2 as usize] = value.sign_ext32();
         Ok(())
     }
 
     fn visit_rot_r_32_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg0 as usize].rotate_right(imm0 as u32);
-        self.registers[reg1 as usize] = value;
+        let rotation = imm0 % 32;
+        let value = ((self.registers[reg1 as usize] as u32).rotate_right(rotation as u32)) as u64;
+        self.registers[reg0 as usize] = value.sign_ext32();
         Ok(())
     }
 
-    // TODO: fix this with u64
+    fn visit_rot_r_32_imm_alt(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let rotation = self.registers[reg1 as usize] % 32;
+        let value = ((imm0 as u32).rotate_right(rotation as u32)) as u64;
+        self.registers[reg0 as usize] = value.sign_ext32();
+        Ok(())
+    }
+
     fn visit_rot_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value =
-            self.registers[reg0 as usize].rotate_right(self.registers[reg1 as usize] as u32);
+        let rotation = self.registers[reg1 as usize] % 64;
+        let value = self.registers[reg0 as usize].rotate_right(rotation as u32);
         self.registers[reg2 as usize] = value;
         Ok(())
     }
 
     fn visit_rot_r_64_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg0 as usize].rotate_right(imm0 as u32);
-        self.registers[reg1 as usize] = value;
+        let rotation = imm0 % 64;
+        let value = self.registers[reg1 as usize].rotate_right(rotation as u32);
+        self.registers[reg0 as usize] = value;
+        Ok(())
+    }
+
+    fn visit_rot_r_64_imm_alt(&mut self, format: format::RRI) -> Result<()> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let rotation = self.registers[reg1 as usize] % 64;
+        let value = imm0.rotate_right(rotation as u32);
+        self.registers[reg0 as usize] = value;
         Ok(())
     }
 
@@ -983,9 +1031,27 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_trap(&mut self) -> Result<()> {
+        Err(crate::Error::Trap(false))
+    }
+
+    fn visit_trailing_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize] as u32;
+        self.registers[reg0 as usize] = value.trailing_zeros() as u64;
+        Ok(())
+    }
+
+    fn visit_trailing_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let value = self.registers[reg1 as usize];
+        self.registers[reg0 as usize] = value.trailing_zeros() as u64;
+        Ok(())
+    }
+
     fn visit_xnor(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] ^ self.registers[reg1 as usize];
+        let value = !(self.registers[reg0 as usize] ^ self.registers[reg1 as usize]);
         self.registers[reg2 as usize] = value;
         Ok(())
     }

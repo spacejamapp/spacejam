@@ -66,7 +66,7 @@ impl Interpreter {
             }
 
             // update the program counter on stepping successfully.
-            /* tracing::trace!(
+            /*       tracing::trace!(
                 "register: {:#?}",
                 self.registers
                     .iter()
