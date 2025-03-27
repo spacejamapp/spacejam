@@ -36,10 +36,7 @@ pub fn accounts(
     }
 
     // check for duplicates
-    let spreimages = preimages
-        .into_iter()
-        .cloned()
-        .collect::<HashSet<Preimage>>();
+    let spreimages = preimages.iter().cloned().collect::<HashSet<Preimage>>();
 
     if spreimages.len() != preimages.len() {
         anyhow::bail!("Preimages contain duplicates");
