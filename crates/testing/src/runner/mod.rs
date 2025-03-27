@@ -218,7 +218,11 @@ impl Runner {
                 }
 
                 for mem in input.initial_memory {
-                    memory.write_bytes(mem.address, 0, mem.contents.as_slice())?;
+                    memory.write_bytes(
+                        mem.address / ::pvmi::PAGE_SIZE,
+                        mem.address % ::pvmi::PAGE_SIZE,
+                        mem.contents.as_slice(),
+                    )?;
                 }
 
                 for tpage in input.initial_page_map {

@@ -27,7 +27,7 @@ impl JumpTable {
         }
 
         self.table
-            .windows(self.entry_size)
+            .chunks(self.entry_size)
             .nth(index)
             .map(|w| u64::read(w).0 as usize)
     }

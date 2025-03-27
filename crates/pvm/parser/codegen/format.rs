@@ -78,41 +78,26 @@ impl Formats {
                 }
             }
         } else {
-            // Get the first field for special handling (no comma prefix)
-            let first = &field_idents[0];
-            let first_str = first.to_string();
-            let first_display = if first_str.starts_with("imm") || first_str.starts_with("eimm") {
-                quote! { write!(f, " {}: 0x{:x}", stringify!(#first), self.#first)? }
-            } else {
-                quote! { write!(f, " {}: {}", stringify!(#first), self.#first)? }
-            };
-
-            // Process the rest of the fields (with comma prefix)
-            let rest = &field_idents[1..];
-            let mut rest_displays = Vec::new();
-
-            for field in rest {
-                let field_str = field.to_string();
-                if field_str.starts_with("imm")
-                    || field_str.starts_with("eimm")
-                    || field_str.starts_with("off")
+            let mut arms = Vec::new();
+            for (i, ident) in field_idents.iter().enumerate() {
+                let istr = ident.to_string();
+                let comma = if i != 0 { "," } else { "" };
+                let display = if istr.starts_with("imm")
+                    || istr.starts_with("eimm")
+                    || istr.starts_with("off")
                 {
-                    rest_displays.push(quote! {
-                        write!(f, ", {}: 0x{:x}", stringify!(#field), self.#field)?
-                    });
+                    quote! { write!(f, "{} {}: 0x{:x}", #comma, stringify!(#ident), self.#ident)?; }
                 } else {
-                    rest_displays.push(quote! {
-                        write!(f, ", {}: {}", stringify!(#field), self.#field)?
-                    });
-                }
+                    quote! { write!(f, "{} {}: {}", #comma, stringify!(#ident), self.#ident)?; }
+                };
+                arms.push(display);
             }
 
             parse_quote! {
                 impl std::fmt::Display for #name {
                     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                         write!(f, "{} {{", stringify!(#name))?;
-                        #first_display;
-                        #(#rest_displays;)*
+                        #(#arms)*
                         write!(f, " }}")
                     }
                 }

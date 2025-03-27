@@ -23,19 +23,18 @@ impl Memory {
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
         let page = address / PAGE_SIZE;
-        if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
+        let offset = address % PAGE_SIZE + offset;
+        if offset + V::SIZE as u64 > PAGE_SIZE {
             return Err(Error::MemoryInaccessible(page as u32));
         }
 
-        let bytes = self.read_bytes(address, offset, V::SIZE as u64)?;
+        let bytes = self.read_bytes(page, offset, V::SIZE as u64)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page as u32))
     }
 
     /// Read bytes from the memory.
-    pub fn read_bytes(&self, address: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
-        let pagenum = address / PAGE_SIZE;
-        let offset = address % PAGE_SIZE + offset;
-        let page = self.access(pagenum)?;
+    pub fn read_bytes(&self, page: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
+        let page = self.access(page)?;
         let data = page.data.as_slice();
         let data_len = data.len() as u64;
 
@@ -49,25 +48,25 @@ impl Memory {
 
     /// Write a value to the memory.
     pub fn write<V: Value>(&mut self, address: u64, value: V) -> Result<()> {
-        self.write_bytes(address, 0, &value.to_vec())
+        self.write_bytes(address / PAGE_SIZE, address % PAGE_SIZE, &value.to_vec())
     }
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u64, offset: u64, value: V) -> Result<()> {
         let page = address / PAGE_SIZE;
-        if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
+        let offset = address % PAGE_SIZE + offset;
+        if offset + V::SIZE as u64 > PAGE_SIZE {
             return Err(Error::MemoryInaccessible(page as u32));
         }
 
         // TODO: note that we hacked (u64).to_vec() here for matching the
         // pvm stf, there could be sth wrong in the test vectors.
-        self.write_bytes(address, offset, &value.to_vec())
+        self.write_bytes(page, offset, &value.to_vec())
     }
 
     /// Write bytes to the memory.
-    pub fn write_bytes(&mut self, address: u64, offset: u64, bytes: &[u8]) -> Result<()> {
-        let offset = address % PAGE_SIZE + offset;
-        let page = self.mutate(address / PAGE_SIZE)?;
+    pub fn write_bytes(&mut self, page: u64, offset: u64, bytes: &[u8]) -> Result<()> {
+        let page = self.mutate(page)?;
 
         // extend page if necessary
         let data_len = page.data.len() as u64;

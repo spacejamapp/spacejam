@@ -59,6 +59,13 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_and_inv(&mut self, format: format::RRR) -> Result<()> {
+        let format::RRR { reg0, reg1, reg2 } = format;
+        let value = self.registers[reg0 as usize] & !self.registers[reg1 as usize];
+        self.registers[reg2 as usize] = value;
+        Ok(())
+    }
+
     fn visit_branch_eq(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
         self.branch(
@@ -313,6 +320,10 @@ impl Visitor for Interpreter {
         // Note that we process the jump before loading the immediate.
         //
         // This is because the immediate could be used as the address of the jump.
+        tracing::trace!(
+            "load_imm_jump_ind: 0x{:06x}, off: {imm1:x}",
+            self.registers[reg1 as usize]
+        );
         let result = self.djump(self.registers[reg1 as usize].wrapping_add(imm1) as u32);
         self.registers[reg0 as usize] = imm0;
         result
@@ -532,13 +543,6 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
-    fn visit_and_inv(&mut self, format: format::RRR) -> Result<()> {
-        let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] & !self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
-        Ok(())
-    }
-
     fn visit_rem_u_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend = self.registers[reg0 as usize] as u32;
@@ -725,7 +729,7 @@ impl Visitor for Interpreter {
     fn visit_shar_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let shift = self.registers[reg1 as usize] % 64;
-        let value = ((self.registers[reg0 as usize] as i64).wrapping_shr(shift as u32)) as u64;
+        let value = ((self.registers[reg0 as usize] as i64) >> shift) as u64;
         self.registers[reg2 as usize] = value;
         Ok(())
     }
@@ -741,7 +745,7 @@ impl Visitor for Interpreter {
     fn visit_shar_r_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 64;
-        let value = ((self.registers[reg1 as usize] as i64).wrapping_shr(shift as u32)) as u64;
+        let value = ((self.registers[reg1 as usize] as i64) >> shift) as u64;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -788,8 +792,8 @@ impl Visitor for Interpreter {
 
     fn visit_shlo_l_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = imm0 % 32;
-        let value = self.registers[reg1 as usize].wrapping_shl(shift as u32);
+        let shift = imm0 % 64;
+        let value = self.registers[reg1 as usize] << shift;
         self.registers[reg0 as usize] = value;
         Ok(())
     }
