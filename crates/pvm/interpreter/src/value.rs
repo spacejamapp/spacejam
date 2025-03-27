@@ -1,7 +1,5 @@
 //! Value type for the PVM
 
-use pvm_parser::format::ISA;
-
 /// The value type for the PVM
 pub trait Value: Sized {
     /// The size of the value in bytes
@@ -31,6 +29,10 @@ macro_rules! impl_bytes {
             bytes[..source.len()].copy_from_slice(source);
             Some(Self::from_le_bytes(bytes))
         }
+
+        fn to_vec(&self) -> Vec<u8> {
+            self.to_le_bytes().to_vec()
+        }
     };
 }
 
@@ -40,10 +42,6 @@ impl Value for i8 {
 
     fn as_u64(&self) -> u64 {
         *self as i64 as u64
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        (*self as i64 as u64).bytes()
     }
 
     impl_bytes!();
@@ -57,11 +55,6 @@ impl Value for u8 {
         *self as u64
     }
 
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as u64).bytes()
-        self.to_le_bytes().to_vec()
-    }
-
     impl_bytes!();
 }
 
@@ -71,11 +64,6 @@ impl Value for i16 {
 
     fn as_u64(&self) -> u64 {
         *self as i64 as u64
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as i64 as u64).bytes()
-        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -89,11 +77,6 @@ impl Value for u16 {
         *self as u64
     }
 
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as u64).bytes()
-        self.to_le_bytes().to_vec()
-    }
-
     impl_bytes!();
 }
 
@@ -103,11 +86,6 @@ impl Value for i32 {
 
     fn as_u64(&self) -> u64 {
         *self as i64 as u64
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as i64 as u64).bytes()
-        self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();
@@ -121,11 +99,6 @@ impl Value for u32 {
         *self as u64
     }
 
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as u64).bytes()
-        self.to_le_bytes().to_vec()
-    }
-
     impl_bytes!();
 }
 
@@ -137,11 +110,6 @@ impl Value for i64 {
         *self as u64
     }
 
-    fn to_vec(&self) -> Vec<u8> {
-        // (*self as u64).bytes()
-        self.to_le_bytes().to_vec()
-    }
-
     impl_bytes!();
 }
 
@@ -151,11 +119,6 @@ impl Value for u64 {
 
     fn as_u64(&self) -> u64 {
         *self
-    }
-
-    fn to_vec(&self) -> Vec<u8> {
-        self.bytes()
-        // self.to_le_bytes().to_vec()
     }
 
     impl_bytes!();

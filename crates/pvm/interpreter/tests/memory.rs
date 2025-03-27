@@ -76,7 +76,7 @@ fn read_inaccessible() {
     let page = 0;
     assert!(memory.write_bytes(0, 0, &data).is_ok());
     assert_eq!(
-        memory.read_bytes(0, 0, PAGE_SIZE as u64),
+        memory.read_bytes(0, 0, PAGE_SIZE as u64 + 1),
         Err(Error::MemoryInaccessible(page as u32))
     );
 }

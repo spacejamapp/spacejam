@@ -2,22 +2,26 @@
 
 mod de;
 mod error;
+mod num;
 mod ser;
 mod with;
 
 pub use {
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
+    num::{prefix, Numeric},
     ser::Serializer,
     with::bytes,
 };
 
 /// Trait for types that can be encoded and decoded using JAMCodec
 pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
+    /// Encode the value into a byte vector
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         encode(&self).map_err(Into::into)
     }
 
+    /// Decode the value from a byte vector
     fn decode(value: &[u8]) -> anyhow::Result<Self> {
         decode(value).map_err(Into::into)
     }

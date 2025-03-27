@@ -52,6 +52,9 @@ impl Codegen {
             }
         }
 
+        // Generate Display implementation for Instruction enum
+        self.instruction.impl_display();
+
         // write the files
         fs::write(self.out_dir.join(OPCODE_RS), self.opcode.to_string())?;
         fs::write(self.out_dir.join(VISITOR_RS), self.visitor.to_string())?;

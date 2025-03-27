@@ -1,4 +1,10 @@
 //! PolkaVM program interpreter
+//!
+//! TODOs:
+//!
+//! - [ ]: double check the update of program counter
+//! - [ ]: double check the jump instruction (what's the exact PC)
+//! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
@@ -38,13 +44,11 @@ pub struct Interpreter {
 impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
-        tracing::debug!("program: {:?}", program.as_ref());
         let program = ProgramBlob::try_from(program.as_ref())?;
         let mut reader = program.instr_reader_at(self.pc);
 
         // TODO: do not clone the jump table but reference it.
         self.table = program.jump_table.clone();
-        tracing::debug!("jump table: {:?}", self.table);
 
         // TODO: update the position of the reader for supporting jumps.
         while !reader.eof() && self.status.is_unknown() {
@@ -53,15 +57,29 @@ impl Interpreter {
                 return Ok(());
             };
 
-            tracing::trace!("{:08} | {:?}", reader.position, instr.value);
-            if !self.step(instr.value) {
+            // stepping the instruction.
+            tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
+            if let Err(e) = self.step(instr.value) {
+                self.status = e.into();
+                tracing::warn!("{e:?}");
                 return Ok(());
             }
 
-            // if there is a jump target, update the reader position
+            // update the program counter on stepping successfully.
+            /*       tracing::trace!(
+                "register: {:#?}",
+                self.registers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, r)| format!("r{:2}: 0x{:016x}", i, r))
+                    .collect::<Vec<_>>()
+            ); */
             self.pc = reader.position;
+
+            // if there is a jump target, update the reader position
             if let Some(pos) = self.jump.take() {
                 reader.set_position(pos);
+                self.pc = pos;
             }
         }
 
@@ -78,20 +96,29 @@ impl Interpreter {
     /// Step the instruction.
     ///
     /// returns true if the instruction was stepped, false otherwise.
-    fn step(&mut self, instr: Instruction) -> bool {
+    fn step(&mut self, instr: Instruction) -> crate::Result<()> {
         if self.gas == 0 {
-            self.status = Status::OOG;
-            return false;
+            return Err(Error::OOG);
         }
 
         self.gas -= 1;
         if let Err(e) = self.visit(instr) {
             self.gas -= e.extra_gas();
-            self.status = e.into();
-            return false;
+            return Err(e);
         }
 
-        true
+        Ok(())
+    }
+
+    /// Branch to the given target.
+    fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
+        if jump {
+            // TODO:
+            // - block checks, need to get access to the reader.
+            self.jump = Some((self.pc as i32 + offset) as usize);
+        }
+
+        Ok(())
     }
 
     /// Dynamic jump to the given target.

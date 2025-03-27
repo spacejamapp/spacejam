@@ -22,50 +22,53 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u64, offset: u64) -> Result<V> {
-        let page = address / PAGE_SIZE;
-        if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page as u32));
-        }
+        let start = address + offset;
+        let page = start / PAGE_SIZE;
+        let offset = start % PAGE_SIZE;
 
-        let bytes = self.read_bytes(address, offset, V::SIZE as u64)?;
+        // read bytes
+        let bytes = self.read_bytes(page, offset, V::SIZE as u64)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page as u32))
     }
 
     /// Read bytes from the memory.
-    pub fn read_bytes(&self, address: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
-        let pagenum = address / PAGE_SIZE;
-        let offset = address % PAGE_SIZE + offset;
-        let page = self.access(pagenum)?;
-        let data = page.data.as_slice();
-        let data_len = data.len() as u64;
-        if len > data_len {
-            return Err(Error::MemoryInaccessible(pagenum as u32));
+    pub fn read_bytes(&self, page: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
+        if offset + len > PAGE_SIZE {
+            return Err(Error::MemoryInaccessible(page as u32));
         }
 
-        Ok(data[offset as usize..(offset + len) as usize].to_vec())
+        let page = self.access(page)?;
+        let data = page.data.as_slice();
+        let data_len = data.len() as u64;
+
+        // fill with 0s if necessary
+        let mut bytes = vec![0; len as usize];
+        let to_copy = (len).min(data_len.saturating_sub(offset));
+        bytes[..to_copy as usize]
+            .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
+        Ok(bytes)
     }
 
     /// Write a value to the memory.
     pub fn write<V: Value>(&mut self, address: u64, value: V) -> Result<()> {
-        self.write_bytes(address, 0, &value.to_vec())
+        self.write_bytes(address / PAGE_SIZE, address % PAGE_SIZE, &value.to_vec())
     }
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u64, offset: u64, value: V) -> Result<()> {
-        let page = address / PAGE_SIZE;
-        if offset + (address % PAGE_SIZE) + V::SIZE as u64 > PAGE_SIZE {
+        let start = address + offset;
+        let page = start / PAGE_SIZE;
+        let offset = start % PAGE_SIZE;
+        if offset + V::SIZE as u64 > PAGE_SIZE {
             return Err(Error::MemoryInaccessible(page as u32));
         }
 
-        // TODO: note that we hacked (u64).to_vec() here for matching the
-        // pvm stf, there could be sth wrong in the test vectors.
-        self.write_bytes(address, offset, &value.to_vec())
+        self.write_bytes(page, offset, &value.to_vec())
     }
 
     /// Write bytes to the memory.
-    pub fn write_bytes(&mut self, address: u64, offset: u64, bytes: &[u8]) -> Result<()> {
-        let offset = address % PAGE_SIZE + offset;
-        let page = self.mutate(address / PAGE_SIZE)?;
+    pub fn write_bytes(&mut self, page: u64, offset: u64, bytes: &[u8]) -> Result<()> {
+        let page = self.mutate(page)?;
 
         // extend page if necessary
         let data_len = page.data.len() as u64;
@@ -82,17 +85,42 @@ impl Memory {
 
     /// Convert the memory to a data map.
     pub fn to_data_maps(&self) -> BTreeMap<u64, Vec<u8>> {
-        self.pages
-            .iter()
-            .filter_map(|(k, v)| {
-                if v.data.is_empty() {
-                    return None;
-                }
+        let mut maps = BTreeMap::new();
 
-                let offset = v.data.iter().position(|b| *b != 0).unwrap_or_default();
-                Some((k * PAGE_SIZE + offset as u64, v.data[offset..].to_vec()))
-            })
-            .collect()
+        for (&page_num, page) in &self.pages {
+            if page.data.is_empty() {
+                continue;
+            }
+
+            let base = page_num * PAGE_SIZE;
+            let mut current = None;
+            let mut data = Vec::new();
+
+            // Scan through each byte in the page
+            for (offset, &byte) in page.data.iter().enumerate() {
+                if byte == 0 {
+                    if !data.is_empty() {
+                        maps.insert(current.unwrap(), data);
+                        data = Vec::new();
+                        current = None;
+                    }
+                } else {
+                    if current.is_none() {
+                        current = Some(base + offset as u64);
+                    }
+                    data.push(byte);
+                }
+            }
+
+            // Store any remaining data at the end of the page
+            if !data.is_empty() {
+                if let Some(addr) = current {
+                    maps.insert(addr, data);
+                }
+            }
+        }
+
+        maps
     }
 
     /// Get the access type of a memory slot.

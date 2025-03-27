@@ -7,7 +7,7 @@ impl From<RIO> for Vec<u8> {
         let rii = RII {
             reg0: value.reg0,
             imm0: value.imm0,
-            imm1: value.off0,
+            imm1: value.off0 as u64,
         };
 
         rii.into()
@@ -24,7 +24,7 @@ impl From<&[u8]> for RIO {
         RIO {
             reg0: (bytes[0] % 16).min(12),
             imm0: u64::read_imm(&bytes[1..mid]),
-            off0: u64::read(&bytes[mid..]).0,
+            off0: u64::read(&bytes[mid..]).0 as i32,
         }
     }
 }
