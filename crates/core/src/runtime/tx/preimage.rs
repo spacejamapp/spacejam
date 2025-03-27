@@ -1,8 +1,12 @@
 //! Preimage handler
 
-use crate::{extrinsic::PreimagesExtrinsic, service::ServiceAccount, TimeSlot};
+use crate::{
+    extrinsic::{Preimage, PreimagesExtrinsic},
+    service::ServiceAccount,
+    TimeSlot,
+};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 /// handle preimage
 pub fn accounts(
@@ -19,6 +23,27 @@ pub fn accounts(
         }
     }
 
+    // The lookup the validator. extrinsic is a sequence of pairs of service indices and data.
+    // The objective statistics are updated in line with their
+    // These pairs must be ordered and without duplicates (equa-
+    // tion 12.35 requires this).
+
+    // check ordering
+    if preimages.windows(2).any(|window| window[0] > window[1]) {
+        anyhow::bail!("Preimages are not ordered");
+    }
+
+    // check for duplicates
+    let spreimages = preimages
+        .into_iter()
+        .cloned()
+        .collect::<HashSet<Preimage>>();
+
+    if spreimages.len() != preimages.len() {
+        anyhow::bail!("Preimages contain duplicates");
+    }
+
+    // transit preimages
     let mut next = accounts.clone();
     let mut preimages = preimages.clone();
     while let Some(preimage) = preimages.pop() {
