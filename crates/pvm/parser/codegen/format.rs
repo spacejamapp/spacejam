@@ -4,7 +4,7 @@ use proc_macro2::Span;
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use syn::{parse_quote, Field, Ident, ItemImpl, ItemStruct, Type};
+use syn::{parse_quote, Field, Ident, ItemImpl, ItemStruct, LitStr, Type};
 
 /// The codegen for the formats.
 #[derive(Default)]
@@ -80,15 +80,28 @@ impl Formats {
         } else {
             let mut arms = Vec::new();
             for (i, ident) in field_idents.iter().enumerate() {
+                let fhex = LitStr::new(
+                    if i != 0 {
+                        ", {}: 0x{:x}"
+                    } else {
+                        " {}: 0x{:x}"
+                    },
+                    Span::call_site(),
+                );
+                let fdec = LitStr::new(
+                    if i != 0 { ", {}: {}" } else { " {}: {}" },
+                    Span::call_site(),
+                );
+
+                // write the field
                 let istr = ident.to_string();
-                let comma = if i != 0 { "," } else { "" };
                 let display = if istr.starts_with("imm")
                     || istr.starts_with("eimm")
                     || istr.starts_with("off")
                 {
-                    quote! { write!(f, "{} {}: 0x{:x}", #comma, stringify!(#ident), self.#ident)?; }
+                    quote! { write!(f, #fhex, stringify!(#ident), self.#ident)?; }
                 } else {
-                    quote! { write!(f, "{} {}: {}", #comma, stringify!(#ident), self.#ident)?; }
+                    quote! { write!(f, #fdec, stringify!(#ident), self.#ident)?; }
                 };
                 arms.push(display);
             }

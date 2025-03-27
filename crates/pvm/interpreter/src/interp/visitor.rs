@@ -515,7 +515,7 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         let a = self.registers[reg0 as usize];
         let b = self.registers[reg1 as usize];
-        let result = (a as u128 * b as u128 >> 64) as u64;
+        let result = ((a as u128 * b as u128) >> 64) as u64;
         self.registers[reg2 as usize] = result;
         Ok(())
     }

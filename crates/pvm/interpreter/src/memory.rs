@@ -25,16 +25,18 @@ impl Memory {
         let start = address + offset;
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
-        if offset + V::SIZE as u64 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page as u32));
-        }
 
+        // read bytes
         let bytes = self.read_bytes(page, offset, V::SIZE as u64)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page as u32))
     }
 
     /// Read bytes from the memory.
     pub fn read_bytes(&self, page: u64, offset: u64, len: u64) -> Result<Vec<u8>> {
+        if offset + len > PAGE_SIZE {
+            return Err(Error::MemoryInaccessible(page as u32));
+        }
+
         let page = self.access(page)?;
         let data = page.data.as_slice();
         let data_len = data.len() as u64;
