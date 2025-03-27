@@ -317,13 +317,6 @@ impl Visitor for Interpreter {
             imm1,
         } = format;
 
-        // Note that we process the jump before loading the immediate.
-        //
-        // This is because the immediate could be used as the address of the jump.
-        tracing::trace!(
-            "load_imm_jump_ind: 0x{:06x}, off: {imm1:x}",
-            self.registers[reg1 as usize]
-        );
         let result = self.djump(self.registers[reg1 as usize].wrapping_add(imm1) as u32);
         self.registers[reg0 as usize] = imm0;
         result
@@ -331,9 +324,8 @@ impl Visitor for Interpreter {
 
     fn visit_load_ind_i8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let offset = imm0.min(1);
         let addr = self.registers[reg1 as usize];
-        let value: i8 = self.memory.read_offset(addr, offset)?;
+        let value: i8 = self.memory.read_offset(addr, imm0)?;
         self.registers[reg0 as usize] = value.as_u64();
         Ok(())
     }
