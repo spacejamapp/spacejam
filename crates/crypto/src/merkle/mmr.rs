@@ -1,6 +1,6 @@
 //! MMR utils.
 
-const MMR_NODE: [u8; 4] = *b"node";
+const MMR_PEAK: [u8; 4] = *b"peak";
 
 /// Append a root to the peaks of the MMR.
 pub fn append(
@@ -50,7 +50,7 @@ pub fn root(peaks: &[Option<[u8; 32]>]) -> Option<[u8; 32]> {
     let mut current = non_empty_peaks[0];
     for peak in non_empty_peaks.iter().skip(1) {
         let mut to_hash = vec![];
-        to_hash.extend_from_slice(&MMR_NODE);
+        to_hash.extend_from_slice(&MMR_PEAK);
         to_hash.extend_from_slice(&current);
         to_hash.extend_from_slice(peak);
 
@@ -84,7 +84,7 @@ fn test_verify_beefy_root_valid() {
         )),
     ];
 
-    let beefy_root = to_bytes("71c150347dc035847d5944c864a2d3ed0fa410341b2ffbfdeeaa1c9d6aa9cacd");
+    let beefy_root = to_bytes("f5df0c11416d43c55b43e096572d450b7780ed0fd7b540f26c8ded8e0d41e183");
     assert_eq!(root(&peaks), Some(beefy_root));
 }
 

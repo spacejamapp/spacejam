@@ -114,16 +114,16 @@ impl Fault {
 /// Represents the records of disputes.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct DisputesRecords {
-    /// [ψ_g] Good records
+    /// (ψ_g) Good records
     #[json(hex)]
     pub good: Vec<OpaqueHash>,
-    /// [ψ_b] Bad records
+    /// (ψ_b) Bad records
     #[json(hex)]
     pub bad: Vec<OpaqueHash>,
-    /// [ψ_w] Wonky records
+    /// (ψ_w) Wonky records
     #[json(hex)]
     pub wonky: Vec<OpaqueHash>,
-    /// [ψ_o] Offenders
+    /// (ψ_o) Offenders
     #[json(hex)]
     pub offenders: Vec<Ed25519Public>,
 }
@@ -131,13 +131,13 @@ pub struct DisputesRecords {
 /// Represents the extrinsic data for disputes.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct DisputesExtrinsic {
-    /// [ψ_v] Verdicts
+    /// (ψ_v) Verdicts
     #[json(nested)]
     pub verdicts: Vec<Verdict>,
-    /// [ψ_c] Culprits
+    /// (ψ_c) Culprits
     #[json(nested)]
     pub culprits: Vec<Culprit>,
-    /// [ψ_f] Faults
+    /// (ψ_f) Faults
     #[json(nested)]
     pub faults: Vec<Fault>,
 }

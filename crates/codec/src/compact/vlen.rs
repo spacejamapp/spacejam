@@ -1,6 +1,6 @@
 //! Length prefix encoding.
 
-use crate::Numeric;
+use crate::compact::Numeric;
 
 /// The thresholds for the length prefix encoding.
 const THRESHOLDS: [(usize, u8, u8, u64, u64); 7] = [
@@ -38,8 +38,17 @@ pub fn encode(value: u64) -> Vec<u8> {
     [vec![255], value.to_le_bytes().to_vec()].concat()
 }
 
+/// Decode a compact encoded number.
+pub fn decode(encoded: &[u8]) -> u64 {
+    self::decode_from(encoded).0
+}
+
 /// Decode a length prefix.
-pub fn decode(encoded: &[u8]) -> (u64, usize) {
+pub fn decode_from(encoded: &[u8]) -> (u64, usize) {
+    if encoded.is_empty() {
+        return (0, 0);
+    }
+
     let prefix = encoded[0];
     if prefix < 0x80 {
         return (prefix as u64, 1);
@@ -79,7 +88,7 @@ fn roundtrip() {
     for (length, _, _, _, threshold) in THRESHOLDS.iter() {
         let value = threshold - 1;
         let encoded = encode(value);
-        let (decoded, dlen) = decode(&encoded);
+        let (decoded, dlen) = decode_from(&encoded);
         assert_eq!(dlen, *length + 1);
         assert_eq!(encoded.len(), dlen);
         assert_eq!(value, decoded);

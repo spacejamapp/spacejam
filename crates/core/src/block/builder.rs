@@ -50,7 +50,7 @@ impl Builder {
         let context = codec::encode(&self.header)?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = self.header.epoch_mark.clone() {
-            keys = mark.validators.to_vec();
+            keys = mark.validators.iter().map(|v| v.bandersnatch).collect();
             entropy[2]
         } else {
             entropy[3]

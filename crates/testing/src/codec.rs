@@ -1,6 +1,6 @@
 //! Codec tests
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use codec::JamCodec;
 use paste::paste;
 use score::{
@@ -27,7 +27,7 @@ macro_rules! impl_codec_tests {
             #[test]
             fn [<decode_ $name>]() -> Result<()> {
                 let (json, data) = impl_codec_tests!($name);
-                let decoded: $dest = $dest::from_json(json)?;
+                let decoded: $dest = $dest::from_json(json).context("failed to decode json")?;
 
                 assert_eq!(decoded.encode()?, data);
                 assert_eq!(decoded, $dest::decode(&data)?);

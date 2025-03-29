@@ -1,4 +1,7 @@
+//! Service module
+
 use crate::{BeefyRoot, Gas, HeaderHash, OpaqueHash, ServiceId, StateRoot, TimeSlot};
+use codec::Compact;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
@@ -124,7 +127,15 @@ pub struct ServiceItem {
 
     /// The info of the service item
     #[json(nested)]
-    pub info: ServiceAccountState,
+    pub data: ServiceAccountData,
+}
+
+/// Represents the service account data.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ServiceAccountData {
+    /// The service account state
+    #[json(nested)]
+    pub service: ServiceAccountState,
 }
 
 /// Represents the RefineContext structure from ASN.1
@@ -141,6 +152,30 @@ pub struct RefineContext {
     pub lookup_anchor_slot: TimeSlot,
     #[json(hex)]
     pub prerequisites: Vec<OpaqueHash>,
+}
+
+/// The refine load
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+pub struct RefineLoad {
+    /// The gas used
+    #[json(compact)]
+    pub gas_used: Compact<u64>,
+
+    /// The number of imports
+    #[json(compact)]
+    pub imports: Compact<u16>,
+
+    /// The number of extrinsics
+    #[json(compact)]
+    pub extrinsic_count: Compact<u16>,
+
+    /// The size of the extrinsics
+    #[json(compact)]
+    pub extrinsic_size: Compact<u32>,
+
+    /// The number of exports
+    #[json(compact)]
+    pub exports: Compact<u16>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]

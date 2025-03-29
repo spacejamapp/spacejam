@@ -47,10 +47,10 @@ crate::impl_tests! {
     preimage_needed_2,
     preimage_not_needed_1,
     preimage_not_needed_2,
-   /*  preimages_order_check_1,
+    preimages_order_check_1,
     preimages_order_check_2,
     preimages_order_check_3,
-    preimages_order_check_4 */
+    preimages_order_check_4
 }
 
 // TODO: clean types later

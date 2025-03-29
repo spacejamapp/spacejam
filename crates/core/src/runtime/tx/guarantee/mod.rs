@@ -1,7 +1,5 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
-use std::collections::BTreeMap;
-
 use crate::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     safrole::ValidatorData,
@@ -16,6 +14,7 @@ use crypto::shuffle;
 use dep::Dependencies;
 use error::{Error, Result};
 pub use state::{State, StateJson};
+use std::collections::BTreeMap;
 
 mod dep;
 pub mod error;
@@ -127,7 +126,7 @@ impl Context<'_> {
             .state
             .services
             .iter()
-            .map(|s| (s.id, s.info.code))
+            .map(|s| (s.id, s.data.service.code))
             .unzip();
 
         // Process each guarantee
@@ -194,7 +193,7 @@ impl Context<'_> {
             .state
             .services
             .iter()
-            .map(|s| s.info.code)
+            .map(|s| s.data.service.code)
             .collect::<Vec<_>>();
         let reported = guarantees
             .iter()
@@ -372,14 +371,15 @@ impl Context<'_> {
     }
 
     fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
-        if guarantee.slot > slot {
+        let gslot = guarantee.slot;
+        if gslot > slot {
             return Err(Error::FutureReportSlot);
         }
 
         // TODO: reference GP 11.23
         //
         // The test case or the GP is not correct.
-        if guarantee.slot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
+        if gslot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
             self.validators = self.state.curr_validators.clone();
             self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
@@ -388,7 +388,7 @@ impl Context<'_> {
             self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.state.entropy[3]);
         }
 
-        if guarantee.slot / ROTATION_PERIOD + 1 < slot / ROTATION_PERIOD {
+        if gslot / ROTATION_PERIOD + 1 < slot / ROTATION_PERIOD {
             return Err(Error::ReportEpochBeforeLast);
         }
 

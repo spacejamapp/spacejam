@@ -1,5 +1,5 @@
 use crate::{
-    block::header::{EpochMark, TicketsMark},
+    block::header::{EValidator, EpochMark, TicketsMark},
     extrinsic::{TicketBody, TicketsAccumulator, TicketsOrKeys},
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
@@ -69,10 +69,13 @@ impl Safrole {
         let next_epoch_validators: Vec<_> = self
             .validators
             .iter()
-            .map(|validator| validator.bandersnatch)
+            .map(|validator| EValidator {
+                bandersnatch: validator.bandersnatch,
+                ed25519: validator.ed25519,
+            })
             .collect();
 
-        let mut validators = [[0; 32]; crate::VALIDATORS_COUNT as usize];
+        let mut validators = [EValidator::default(); crate::VALIDATORS_COUNT as usize];
         validators.copy_from_slice(&next_epoch_validators);
 
         Some(EpochMark {

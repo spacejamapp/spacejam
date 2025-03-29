@@ -1,10 +1,8 @@
 use crate::vrf;
-use ark_ec_vrfs::{
-    prelude::{
-        ark_ec::AffineRepr,
-        ark_serialize::{CanonicalDeserialize, CanonicalSerialize},
-    },
-    suites::bandersnatch::edwards::{PcsParams, RingContext},
+use ark_ec::AffineRepr;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_vrf::{
+    suites::bandersnatch::{PcsParams, RingProofParams},
     Public,
 };
 use once_cell::sync::Lazy;
@@ -15,13 +13,13 @@ use once_cell::sync::Lazy;
 pub const RING_SIZE: usize = 6;
 
 /// "Static" ring context data
-pub static RING_CTX: Lazy<RingContext> = Lazy::new(|| {
+pub static RING_CTX: Lazy<RingProofParams> = Lazy::new(|| {
     let buf = include_bytes!(
         "../bandersnatch-vrfs-spec/assets/example/data/zcash-srs-2-11-uncompressed.bin"
     );
     let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &buf[..])
         .expect("Failed to deserialize SRS parameters");
-    RingContext::from_srs(RING_SIZE, pcs_params).expect("Failed to create ring context")
+    RingProofParams::from_pcs_params(RING_SIZE, pcs_params).expect("Failed to create ring context")
 });
 
 /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
@@ -32,7 +30,7 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
         .map(|key| {
             AffineRepr::from_random_bytes(&key).unwrap_or_else(|| {
                 // If key is invalid (zeroed or can't be decoded), use padding point
-                RING_CTX.padding_point()
+                RingProofParams::padding_point()
             })
         })
         .collect::<Vec<_>>();
@@ -53,7 +51,7 @@ pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
         .map(|k| {
             AffineRepr::from_random_bytes(k).unwrap_or_else(|| {
                 // If key is invalid (zeroed or can't be decoded), use padding point
-                RING_CTX.padding_point()
+                RingProofParams::padding_point()
             })
         })
         .map(Public)

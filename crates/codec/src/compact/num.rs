@@ -1,14 +1,20 @@
 //! Number encoding and decoding
 
-pub mod prefix;
+use crate::compact;
 
 /// Trait for types that can be encoded and decoded using JAMCodec
-pub trait Numeric: Sized {
+pub trait Numeric: Sized + Default + Copy {
     /// Encode the value into a byte vector
     fn encode(&self) -> Vec<u8>;
 
     /// Decode the value from a byte vector
     fn decode(value: &[u8]) -> Self;
+
+    /// Encode the value into a compact byte vector
+    fn compact_encode(&self) -> Vec<u8>;
+
+    /// Decode the value from a compact byte vector
+    fn compact_decode(source: &[u8]) -> Self;
 }
 
 /// Implement the `Numeric` trait for the given types.
@@ -27,6 +33,14 @@ macro_rules! impl_numeric {
                     let mut bytes = [0; $len];
                     bytes[0..len.min($len)].copy_from_slice(source);
                     Self::from_le_bytes(bytes)
+                }
+
+                fn compact_encode(&self) -> Vec<u8> {
+                    compact::encode(*self as u64)
+                }
+
+                fn compact_decode(source: &[u8]) -> Self {
+                    compact::decode(source) as $t
                 }
             }
         )+

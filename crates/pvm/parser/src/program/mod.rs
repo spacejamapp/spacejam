@@ -60,7 +60,7 @@ impl TryFrom<&[u8]> for ProgramBlob {
         // decode the jump table length
         //
         // E(|j|)
-        let (len, next) = codec::prefix::decode(blob);
+        let (len, next) = codec::compact::decode_from(blob);
         let jump_table_len = len as usize;
         pos += next;
 
@@ -73,7 +73,7 @@ impl TryFrom<&[u8]> for ProgramBlob {
         // decode the instruction data length
         //
         // E(|c|)
-        let (len, next) = codec::prefix::decode(&blob[pos..]);
+        let (len, next) = codec::compact::decode_from(&blob[pos..]);
         let instruction_len = len as usize;
         pos += next;
 

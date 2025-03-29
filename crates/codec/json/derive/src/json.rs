@@ -25,6 +25,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mut option_fields = Vec::new();
     let mut array_fields = Vec::new();
     let mut nested_array_fields = Vec::new();
+    let mut compact_fields = Vec::new();
     let mut other_fields = Vec::new();
     let Fields::Named(ref mut fields) = json.fields else {
         panic!("Invalid fields");
@@ -86,6 +87,21 @@ pub fn derive(input: TokenStream) -> TokenStream {
         };
 
         let is_option = segment.ident == "Option";
+
+        // Check for the #[json(compact)] attribute
+        if arg == *"compact" && segment.ident == "Compact" {
+            let syn::PathArguments::AngleBracketed(ref args) = segment.arguments else {
+                panic!("Invalid compact type");
+            };
+
+            let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() else {
+                panic!("Invalid compact type");
+            };
+
+            compact_fields.push(field.ident.clone());
+            field.ty = inner_type.clone();
+            continue;
+        }
 
         // Check for the #[json(hex)] attribute
         if arg == *"hex" {
@@ -184,6 +200,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #(#option_fields: self.#option_fields.to_json(),)*
                     #(#array_fields: self.#array_fields.to_json(),)*
                     #(#nested_array_fields: self.#nested_array_fields.to_json(),)*
+                    #(#compact_fields: (*self.#compact_fields),)*
                 }
             }
 
@@ -194,6 +211,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #(#option_fields: Json::from_json(json.#option_fields)?,)*
                     #(#array_fields: Json::from_json(json.#array_fields)?,)*
                     #(#nested_array_fields: Json::from_json(json.#nested_array_fields)?,)*
+                    #(#compact_fields: codec::Compact::from(json.#compact_fields),)*
                 })
             }
         }
