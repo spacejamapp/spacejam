@@ -121,6 +121,8 @@ pub trait Storage: KVStorage {
         }
 
         // fetch lookup data
+        //
+        // TODO: double check how to iterate the lookup data
         let mut service: u32 = 0;
         while let Ok(lookup) = self.prefix_collect(service.to_le_bytes()) {
             kvs.extend(lookup);

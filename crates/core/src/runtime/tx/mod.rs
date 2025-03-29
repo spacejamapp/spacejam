@@ -131,9 +131,14 @@ pub fn simulate(
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
-        //
-        // TODO: 12
-        guarantee::accumulate(block.header.slot, available)?
+        guarantee::accumulate(
+            block.header.slot,
+            state.timeslot,
+            available,
+            &state.queue,
+            &state.history,
+            storage,
+        )?
     };
 
     // Round 4 computation

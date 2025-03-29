@@ -7,10 +7,10 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
-/// The ready queue
+/// The ready queue (θ)
 pub type ReadyQueue = [Vec<ReadyRecord>; crate::EPOCH_LENGTH as usize];
 
-/// The accumulated queue
+/// The accumulated queue (ξ)
 pub type AccumulatedQueue = [Vec<WorkPackageHash>; crate::EPOCH_LENGTH as usize];
 
 /// The privileges

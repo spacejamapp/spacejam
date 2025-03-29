@@ -1,4 +1,6 @@
 //! Branch storage
+//!
+//! TODO: refactor this interface as the snapshot of blocks.
 
 use crate::runtime::{storage::KVStorage, Head};
 use anyhow::Result;

@@ -89,3 +89,9 @@ pub struct ServiceAccountData {
     #[json(nested)]
     pub service: ServiceAccountState,
 }
+
+impl From<ServiceAccountState> for ServiceAccountData {
+    fn from(state: ServiceAccountState) -> Self {
+        ServiceAccountData { service: state }
+    }
+}

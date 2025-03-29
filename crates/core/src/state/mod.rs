@@ -4,9 +4,11 @@ use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
-    service::{AvailabilityAssignments, ServiceAccount, ServiceIndex, WorkReport},
+    service::{
+        AccumulatedQueue, AvailabilityAssignments, ReadyQueue, ServiceAccount, ServiceIndex,
+    },
     statistic::Statistics,
-    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
+    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -59,10 +61,10 @@ pub struct State {
     pub statistics: Statistics,
 
     /// The accumulation queue (θ)
-    pub queue: [(Vec<WorkReport>, Vec<OpaqueHash>); EPOCH_LENGTH as usize],
+    pub queue: ReadyQueue,
 
     /// The accumulation history (ξ)
-    pub history: [Vec<OpaqueHash>; EPOCH_LENGTH as usize],
+    pub history: AccumulatedQueue,
 }
 
 /// Get the diff of the accounts

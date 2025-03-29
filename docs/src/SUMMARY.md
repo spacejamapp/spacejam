@@ -1,12 +1,10 @@
 # Summary
 
-[Milestones](./milestones/README.md)
-
----
-
 # Spacejam
 
 - [Extrinsic](./extrinsic/README.md)
+  - [Guarantee](./extrinsic/guarantee/README.md)
+    - [Accumulate](./extrinsic/guarantee/accumulate.md)
 - [Runtime](./runtime/README.md)
   - [Author](./runtime/author.md)
   - [Importer](./runtime/importer.md)

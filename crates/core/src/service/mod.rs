@@ -57,7 +57,7 @@ pub struct ServiceIndex {
 
     /// indices of services which automatically accumulate
     /// in each block together with a basic amount of gas with
-    /// which each accumulates.
+    /// which each accumulates. (g)
     pub gas: BTreeMap<u32, Gas>,
 }
 
