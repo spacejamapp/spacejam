@@ -7,6 +7,7 @@ use crate::{
     },
     CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
+use codec::Compact;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -49,33 +50,59 @@ pub struct WorkResult {
 /// Represents the specification of a work package.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackageSpec {
+    /// The hash
     #[json(hex)]
     pub hash: WorkPackageHash,
+
+    /// The length
     pub length: u32,
+
+    /// The erasure root
     #[json(hex)]
     pub erasure_root: ErasureRoot,
+
+    /// The exports root
     #[json(hex)]
     pub exports_root: ExportsRoot,
+
+    /// The exports count
     pub exports_count: u16,
 }
 
 /// Represents a work report.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkReport {
+    /// The package spec
     #[json(nested)]
     pub package_spec: WorkPackageSpec,
+
+    /// The context
     #[json(nested)]
     pub context: RefineContext,
+
+    /// The core index
     pub core_index: CoreIndex,
+
+    /// The authorizer hash
     #[json(hex)]
     pub authorizer_hash: OpaqueHash,
+
+    /// The auth output
     #[json(hex)]
     pub auth_output: Vec<u8>,
+
+    /// The reported work packages
     #[json(nested)]
     #[serde(alias = "segment_root_lookup")]
     pub reported: Vec<ReportedWorkPackage>,
+
+    /// The results of the work items
     #[json(nested)]
     pub results: Vec<WorkResult>,
+
+    /// The auth gas used
+    #[json(compact)]
+    pub auth_gas_used: Compact<u64>,
 }
 
 // TODO: support enum in Json macro

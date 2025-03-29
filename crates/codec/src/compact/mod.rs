@@ -12,12 +12,18 @@ pub use {
 
 /// A compact number.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Compact<T: Numeric>(T);
+pub struct Compact<T: Numeric + Default>(T);
 
 impl<T: Numeric> Compact<T> {
     /// Create a new compact number
-    pub fn new(value: T) -> Self {
-        Compact(value)
+    pub fn cloned(&self) -> T {
+        self.0
+    }
+}
+
+impl<T: Numeric> Default for Compact<T> {
+    fn default() -> Self {
+        Compact(T::default())
     }
 }
 
@@ -51,5 +57,11 @@ impl<'de, T: Numeric> Deserialize<'de> for Compact<T> {
     {
         let bytes = <Vec<u8>>::deserialize(deserializer)?;
         Ok(Compact(T::compact_decode(&bytes)))
+    }
+}
+
+impl<T: Numeric> From<T> for Compact<T> {
+    fn from(value: T) -> Self {
+        Compact(value)
     }
 }

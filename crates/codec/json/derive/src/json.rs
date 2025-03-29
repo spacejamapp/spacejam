@@ -211,7 +211,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #(#option_fields: Json::from_json(json.#option_fields)?,)*
                     #(#array_fields: Json::from_json(json.#array_fields)?,)*
                     #(#nested_array_fields: Json::from_json(json.#nested_array_fields)?,)*
-                    #(#compact_fields: codec::Compact::new(json.#compact_fields),)*
+                    #(#compact_fields: codec::Compact::from(json.#compact_fields),)*
                 })
             }
         }

@@ -4,7 +4,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    block::Block,
+    block::{header::EValidator, Block},
     runtime::{storage::MemoryDb, Runtime},
     safrole::ValidatorsData,
     testing::{validator::TestValidator, TestConfig},
@@ -40,7 +40,10 @@ impl Node {
     pub async fn genesis(seed: OpaqueHash, validators: ValidatorsData) -> anyhow::Result<Self> {
         let current = validators
             .iter()
-            .map(|v| v.bandersnatch)
+            .map(|v| EValidator {
+                bandersnatch: v.bandersnatch,
+                ed25519: v.ed25519,
+            })
             .collect::<Vec<_>>();
 
         // create the genesis block

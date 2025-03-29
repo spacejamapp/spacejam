@@ -3,6 +3,7 @@
 use crate::{node::Genesis, validator::LocalValidator};
 use clap::Parser;
 use score::{
+    block::header::EValidator,
     runtime::{Storage, Validator},
     Block,
 };
@@ -57,11 +58,14 @@ impl Command {
 
     fn genesis(&self) -> anyhow::Result<()> {
         let mut validators = Vec::new();
-        let mut bkeys = [[0; 32]; score::VALIDATORS_COUNT as usize];
+        let mut bkeys = [EValidator::default(); score::VALIDATORS_COUNT as usize];
         for i in 0..score::VALIDATORS_COUNT {
             let validator = LocalValidator::from([i as u8; 32]);
             let data = validator.data();
-            bkeys[i as usize] = data.bandersnatch;
+            bkeys[i as usize] = EValidator {
+                bandersnatch: data.bandersnatch,
+                ed25519: data.ed25519,
+            };
             validators.push(data.to_json());
         }
 

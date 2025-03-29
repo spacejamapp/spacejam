@@ -3,7 +3,7 @@
 use crate::compact;
 
 /// Trait for types that can be encoded and decoded using JAMCodec
-pub trait Numeric: Sized {
+pub trait Numeric: Sized + Default + Copy {
     /// Encode the value into a byte vector
     fn encode(&self) -> Vec<u8>;
 

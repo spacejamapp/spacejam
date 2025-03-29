@@ -3,9 +3,9 @@
 use crate::{
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    Ed25519Public, Entropy, HeaderHash, OpaqueHash, TimeSlot,
+    Entropy, HeaderHash, OpaqueHash, TimeSlot,
 };
-use header::EpochMark;
+use header::{EValidator, EpochMark};
 use history::{Mmr, MmrJson};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -44,7 +44,7 @@ impl Block {
     }
 
     /// Returns the genesis block
-    pub fn genesis(validators: [Ed25519Public; crate::VALIDATORS_COUNT as usize]) -> Self {
+    pub fn genesis(validators: [EValidator; crate::VALIDATORS_COUNT as usize]) -> Self {
         let header = Header {
             epoch_mark: Some(EpochMark {
                 entropy: Entropy::default(),

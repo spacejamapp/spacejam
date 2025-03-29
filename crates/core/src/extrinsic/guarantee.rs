@@ -19,9 +19,14 @@ pub struct ValidatorSignature {
 /// Represents a report guarantee.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct ReportGuarantee {
+    /// The report
     #[json(nested)]
     pub report: WorkReport,
+
+    /// The slot
     pub slot: TimeSlot,
+
+    /// The signatures
     #[json(nested)]
     pub signatures: Vec<ValidatorSignature>,
 }

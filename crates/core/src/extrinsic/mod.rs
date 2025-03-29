@@ -1,3 +1,5 @@
+//! Extrinsic types
+
 use crate::OpaqueHash;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -17,15 +19,19 @@ pub struct Extrinsic {
     /// Note that the maximum number of tickets is `K = 16`.
     #[json(Vec<TicketEnvelopeJson>)]
     pub tickets: TicketsExtrinsic,
+
     /// The preimages
     #[json(Vec<PreimageJson>)]
     pub preimages: PreimagesExtrinsic,
+
     /// The guarantees
     #[json(Vec<ReportGuaranteeJson>)]
     pub guarantees: GuaranteesExtrinsic,
+
     /// The assurances
     #[json(Vec<AvailAssuranceJson>)]
     pub assurances: AssurancesExtrinsic,
+
     /// The disputes
     #[json(nested)]
     pub disputes: DisputesExtrinsic,
