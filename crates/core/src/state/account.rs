@@ -24,9 +24,7 @@ pub fn preimage(service: u32, h: OpaqueHash) -> OpaqueHash {
     (service, key).key()
 }
 
-/// C(s, [(2^32 - 3), k0...28]) ((s ->a ->h ->l) δ)
-///
-/// TODO: maybe embed this function to the account service
+/// C(s, [E4(l), H(h)2..30]) (s ->a ->h ->l) δ)
 pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> OpaqueHash {
     let mut key = [0; 32];
     let hashed = crypto::blake2b(&h);

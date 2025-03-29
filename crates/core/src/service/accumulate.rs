@@ -1,5 +1,7 @@
 //! Accumulate types
 
+use std::collections::BTreeMap;
+
 use crate::{
     service::{WorkReport, WorkReportJson},
     Gas, ServiceId, WorkPackageHash,
@@ -13,31 +15,20 @@ pub type ReadyQueue = [Vec<ReadyRecord>; crate::EPOCH_LENGTH as usize];
 /// The accumulated queue (ξ)
 pub type AccumulatedQueue = [Vec<WorkPackageHash>; crate::EPOCH_LENGTH as usize];
 
-/// The privileges
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+/// The privileged service indices (χ)
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
 pub struct Privileges {
-    /// The bless service id
+    /// The bless service id (χm)
     pub bless: ServiceId,
 
-    /// The assign service id
-    pub assign: ServiceId,
-
-    /// The designate service id
+    /// The designate service id (χv)
     pub designate: ServiceId,
 
-    /// The always accumulate service ids
-    #[json(nested)]
-    pub always_acc: Vec<AlwaysAccumulateMapItem>,
-}
+    /// The assign service id (χa)
+    pub assign: ServiceId,
 
-/// The always accumulate map item
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct AlwaysAccumulateMapItem {
-    /// The service id
-    pub service: ServiceId,
-
-    /// The gas
-    pub gas: Gas,
+    /// The always accumulate service ids (χg)
+    pub always_acc: BTreeMap<ServiceId, Gas>,
 }
 
 /// The ready record

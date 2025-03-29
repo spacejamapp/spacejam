@@ -2,11 +2,22 @@
 
 use crate::{
     service::{GasLimit, GasLimitJson},
-    OpaqueHash, TimeSlot,
+    OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
+
+/// Represents a service item.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ServiceItem {
+    /// The id of the service item
+    pub id: ServiceId,
+
+    /// The info of the service item
+    #[json(nested)]
+    pub data: ServiceAccountData,
+}
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -88,10 +99,30 @@ pub struct ServiceAccountData {
     /// The service account state
     #[json(nested)]
     pub service: ServiceAccountState,
+
+    /// (a_p) The preimages
+    #[serde(default)]
+    #[json(nested)]
+    pub preimages: Vec<ServicePreimage>,
 }
 
 impl From<ServiceAccountState> for ServiceAccountData {
     fn from(state: ServiceAccountState) -> Self {
-        ServiceAccountData { service: state }
+        ServiceAccountData {
+            service: state,
+            preimages: vec![],
+        }
     }
+}
+
+/// Represents a service preimage.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ServicePreimage {
+    /// The hash of the preimage
+    #[json(hex)]
+    pub hash: OpaqueHash,
+
+    /// The blob of the preimage
+    #[json(hex)]
+    pub blob: Vec<u8>,
 }

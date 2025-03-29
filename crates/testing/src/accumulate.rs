@@ -2,10 +2,10 @@
 
 use score::{
     service::{
-        AccumulatedQueue, Privileges, PrivilegesJson, ReadyQueue, ReadyRecordJson, ServiceItem,
-        ServiceItemJson, WorkReport, WorkReportJson,
+        AccumulatedQueue, Privileges, ReadyQueue, ReadyRecordJson, ServiceItem, ServiceItemJson,
+        WorkReport, WorkReportJson,
     },
-    Entropy, OpaqueHash, TimeSlot,
+    Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -77,13 +77,68 @@ pub struct State {
 
     /// The privileges
     #[json(nested)]
-    pub privileges: Privileges,
+    pub privileges: PrivilegesWrap,
 
     /// The accounts
     #[json(nested)]
     pub accounts: Vec<ServiceItem>,
 }
 
+/// Privileges wrapper
+#[derive(Debug, Serialize, Deserialize, Json)]
+pub struct PrivilegesWrap {
+    /// The bless service id
+    pub bless: ServiceId,
+
+    /// The designate service id
+    pub designate: ServiceId,
+
+    /// The assign service id
+    pub assign: ServiceId,
+
+    /// The always accumulate service ids
+    #[json(nested)]
+    pub always_acc: Vec<AlwaysAccumulateMapItem>,
+}
+
+impl From<PrivilegesWrap> for Privileges {
+    fn from(value: PrivilegesWrap) -> Self {
+        Privileges {
+            bless: value.bless,
+            designate: value.designate,
+            assign: value.assign,
+            always_acc: value
+                .always_acc
+                .into_iter()
+                .map(|item| (item.service, item.gas))
+                .collect(),
+        }
+    }
+}
+
+impl From<Privileges> for PrivilegesWrap {
+    fn from(value: Privileges) -> Self {
+        PrivilegesWrap {
+            bless: value.bless,
+            designate: value.designate,
+            assign: value.assign,
+            always_acc: value
+                .always_acc
+                .into_iter()
+                .map(|(service, gas)| AlwaysAccumulateMapItem { service, gas })
+                .collect(),
+        }
+    }
+}
+/// Always accumulate service id
+#[derive(Debug, Serialize, Deserialize, Json)]
+pub struct AlwaysAccumulateMapItem {
+    /// The service id
+    pub service: ServiceId,
+
+    /// The gas
+    pub gas: Gas,
+}
 crate::impl_tests! {
     accumulate,
     @scale

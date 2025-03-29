@@ -1,9 +1,16 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::{block::History, runtime::tx};
+use score::{
+    block::History,
+    runtime::tx::{self, guarantee},
+};
+use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
+use storage::StorageExt;
 use tracing_subscriber::EnvFilter;
+
+mod storage;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -19,8 +26,20 @@ impl Runner {
             Section::Accumulate => {
                 use crate::accumulate;
 
-                let _input = accumulate::TestInput::from_json(test.input)?;
+                let input = accumulate::TestInput::from_json(test.input)?;
                 let _output = accumulate::TestOutput::from_json(test.output)?;
+                let mdb = MemoryDb::default();
+                mdb.add_accounts(input.pre_state.accounts)?;
+
+                let _ = guarantee::accumulate(
+                    input.input.slot,
+                    input.pre_state.slot,
+                    input.input.reports,
+                    &input.pre_state.ready_queue,
+                    &input.pre_state.accumulated,
+                    &input.pre_state.privileges.into(),
+                    &mdb,
+                );
             }
             Section::Assurances => {
                 use crate::assurances;

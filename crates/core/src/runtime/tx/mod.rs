@@ -137,6 +137,7 @@ pub fn simulate(
             available,
             &state.queue,
             &state.history,
+            &state.privileges,
             storage,
         )?
     };

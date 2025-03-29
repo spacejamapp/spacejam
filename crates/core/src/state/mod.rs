@@ -4,9 +4,7 @@ use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
-    service::{
-        AccumulatedQueue, AvailabilityAssignments, ReadyQueue, ServiceAccount, ServiceIndex,
-    },
+    service::{AccumulatedQueue, AvailabilityAssignments, Privileges, ReadyQueue, ServiceAccount},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT,
 };
@@ -52,7 +50,7 @@ pub struct State {
     pub authorization: [Vec<OpaqueHash>; CORES_COUNT],
 
     /// The privileged service indices (χ)
-    pub service: ServiceIndex,
+    pub privileges: Privileges,
 
     /// Past judgments (disputes) on work-reports and validators (ψ)
     pub disputes: DisputesRecords,

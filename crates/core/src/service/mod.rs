@@ -1,14 +1,15 @@
 //! Service module
 
-use crate::{Gas, ServiceId};
+use crate::Gas;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::BTreeMap;
 pub use {
-    account::{ServiceAccount, ServiceAccountData, ServiceAccountDataJson, ServiceAccountState},
+    account::{
+        ServiceAccount, ServiceAccountData, ServiceAccountDataJson, ServiceAccountState,
+        ServiceItem, ServiceItemJson, ServicePreimage, ServicePreimageJson,
+    },
     accumulate::{
-        AccumulatedQueue, AlwaysAccumulateMapItem, Privileges, PrivilegesJson, ReadyQueue,
-        ReadyRecord, ReadyRecordJson,
+        AccumulatedQueue, Privileges, PrivilegesJson, ReadyQueue, ReadyRecord, ReadyRecordJson,
     },
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{ReportedWorkPackage, ReportedWorkPackageJson, WorkReport, WorkReportJson},
@@ -40,36 +41,6 @@ pub struct AvailabilityAssignment {
 
     /// The timeout
     pub timeout: u32,
-}
-
-/// The privileged service indices (χ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
-pub struct ServiceIndex {
-    /// The manager of the service index (m)
-    pub manager: u32,
-
-    /// The authorized service indices (a)
-    pub authorized: u32,
-
-    /// index of the validator keys and metadata to be drawn
-    /// from next (t)
-    pub validator: u32,
-
-    /// indices of services which automatically accumulate
-    /// in each block together with a basic amount of gas with
-    /// which each accumulates. (g)
-    pub gas: BTreeMap<u32, Gas>,
-}
-
-/// Represents a service item.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceItem {
-    /// The id of the service item
-    pub id: ServiceId,
-
-    /// The info of the service item
-    #[json(nested)]
-    pub data: ServiceAccountData,
 }
 
 /// The gas limits of the service account

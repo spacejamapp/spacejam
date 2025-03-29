@@ -2,7 +2,7 @@
 
 use crate::{
     runtime::Storage,
-    service::{AccumulatedQueue, ReadyQueue, WorkReport},
+    service::{AccumulatedQueue, Privileges, ReadyQueue, WorkReport},
     OpaqueHash, TimeSlot,
 };
 
@@ -18,7 +18,9 @@ pub fn accumulate(
     _ready_queue: &ReadyQueue,
     // The accumulated queue (ξ)
     _accumulated_queue: &AccumulatedQueue,
-    // The account storage
+    // The privileges (χ)
+    _privileges: &Privileges,
+    // The account storage (δ)
     _accounts: &impl Storage,
 ) -> anyhow::Result<OpaqueHash> {
     // (W_!) work reports to be accumulated immediately
