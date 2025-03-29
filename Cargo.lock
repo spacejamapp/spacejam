@@ -579,15 +579,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
-name = "colored"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
-dependencies = [
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2578,24 +2569,9 @@ dependencies = [
 
 [[package]]
 name = "specjam"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f68e4f6041612a9d85652d49d518911ea4dba82dd4cf081119b5cef338cfd27"
-dependencies = [
- "anyhow",
- "clap",
- "colored",
- "serde_json",
- "specjam-codegen",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "specjam-codegen"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b1ab5e863ec6936c90a555123a07366e8fc9a2037f8907dd96a9d16ae7dadd3"
+checksum = "6619b82c2064335547547a132954727963d00fa77210e3c8167270b1c050b4f2"
 dependencies = [
  "anyhow",
  "heck",

@@ -1,15 +1,15 @@
 //! JAMCodec based on the parity scale codec
 
+pub mod compact;
 mod de;
 mod error;
-mod num;
 mod ser;
 mod with;
 
 pub use {
+    compact::{Compact, Numeric},
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
-    num::{prefix, Numeric},
     ser::Serializer,
     with::bytes,
 };

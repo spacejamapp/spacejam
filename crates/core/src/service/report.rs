@@ -3,7 +3,7 @@
 use crate::{
     service::{
         work::{ReportedWorkPackage, ReportedWorkPackageJson},
-        RefineContext, RefineContextJson,
+        RefineContext, RefineContextJson, RefineLoad, RefineLoadJson,
     },
     CoreIndex, ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
@@ -23,14 +23,27 @@ pub enum WorkExecResult {
 /// Represents the result of a work item.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkResult {
+    /// The service id
     pub service_id: ServiceId,
+
+    /// The code hash
     #[json(hex)]
     pub code_hash: OpaqueHash,
+
+    /// The payload hash
     #[json(hex)]
     pub payload_hash: OpaqueHash,
+
+    /// The accumulate gas
     pub accumulate_gas: Gas,
+
+    /// The result of the work item
     #[json(nested)]
     pub result: WorkExecResult,
+
+    /// The refine load
+    #[json(nested)]
+    pub refine_load: RefineLoad,
 }
 
 /// Represents the specification of a work package.
