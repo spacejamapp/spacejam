@@ -125,7 +125,6 @@ pub fn simulate(
 
         // (π') Update the statistic
         state.statistics = state.statistics.update(
-            state.timeslot,
             block.header.slot,
             block.header.author_index,
             &block.extrinsic,

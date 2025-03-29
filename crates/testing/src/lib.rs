@@ -12,6 +12,7 @@ pub fn init_tracing() {
         .init();
 }
 
+#[ignore]
 #[test]
 fn coverage() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");

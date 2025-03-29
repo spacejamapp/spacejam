@@ -40,12 +40,14 @@ pub struct TestOutput {
 pub struct State {
     /// The statistics state
     #[json(nested)]
-    pub pi: Statistics,
+    pub statistics: Statistics,
+
     /// The current time slot
-    pub tau: TimeSlot,
+    pub slot: TimeSlot,
+
     /// The current validators
     #[json(Vec<ValidatorDataJson>)]
-    pub kappa_prime: ValidatorsData,
+    pub curr_validators: ValidatorsData,
 }
 
 crate::impl_tests! {

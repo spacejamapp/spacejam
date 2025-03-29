@@ -189,13 +189,12 @@ impl Runner {
                 let output = statistics::TestOutput::from_json(test.output)?;
 
                 // validate
-                let state = input.pre_state.pi.update(
-                    input.pre_state.tau,
+                let state = input.pre_state.statistics.update(
                     input.input.slot,
                     input.input.author_index,
                     &input.input.extrinsic,
                 );
-                assert_eq!(state, output.post_state.pi);
+                assert_eq!(state, output.post_state.statistics);
             }
             Section::Pvm => {
                 use crate::pvm;
