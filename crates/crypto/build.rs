@@ -12,7 +12,7 @@ fn main() -> Result<()> {
 
     Command::new("git").args(["clone", REPO, INTO]).status()?;
     Command::new("git")
-        .args(["checkout", "e491b41"])
+        .args(["checkout", "cc99f5c"])
         .current_dir(into)
         .status()?;
     Ok(())

@@ -25,10 +25,10 @@ validator = { path = "crates/spacejam/validator", package = "spacejam-validator"
 # crates.io
 anyhow = "1.0.93"
 ark-bls12-381 = "0.5.0"
-ark-ec = "0.5.0"
-ark-ff = "0.5.0"
-ark-serialize = "0.5.0"
-ark-std = "0.5.0"
+ark-ec = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
+ark-std = { version = "0.5", default-features = false }
+ark-serialize = { version = "0.5", default-features = false }
 base32 = "0.5.1"
 blake2 = "0.10.6"
 clap = "4.5.23"
@@ -69,9 +69,10 @@ w3f-bls = "0.1.8"
 x509-parser = "0.17.0"
 
 # git dependencies
-ark-ec-vrfs = { git = "https://github.com/davxy/ark-ec-vrfs", rev = "d90e180", features = [
+ark-vrf = { git = "https://github.com/davxy/ark-vrf", rev = "bf2d1cf", features = [
     "bandersnatch",
     "ring",
     "parallel",
 ] }
-ring = { git = "https://github.com/davxy/ring-proof", rev = "db13482", default-features = false }
+# ring = { git = "https://github.com/davxy/ring-proof", rev = "db13482", default-features = false }
+ring = { package = "w3f-ring-proof", version = "0.0.2", default-features = false }

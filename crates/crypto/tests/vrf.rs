@@ -1,5 +1,6 @@
+use ark_vrf::{suites::bandersnatch::RingProofParams, Public};
 use spacejam_crypto::{
-    ring::{RING_CTX, RING_SIZE},
+    ring::RING_SIZE,
     vrf::{self, *},
 };
 
@@ -20,7 +21,7 @@ fn test_vrf() -> anyhow::Result<()> {
     let prover_key_index = 3;
 
     // NOTE: any key can be replaced with the padding point
-    let padding_point = Public::from(RING_CTX.padding_point());
+    let padding_point = Public::from(RingProofParams::padding_point());
     ring[2] = padding_point;
     ring[5] = padding_point;
 

@@ -6,9 +6,8 @@
 
 use crate::ring::RING_CTX;
 use anyhow::Result;
-use ark_ec_vrfs::prelude::ark_serialize;
-use ark_ec_vrfs::suites::bandersnatch::edwards as bandersnatch;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_vrf::suites::bandersnatch;
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
 /// Get the VRF output hash.
@@ -140,7 +139,7 @@ pub struct IetfVrfSignature {
 }
 
 /// Ring commitment type
-pub type RingCommitment = ark_ec_vrfs::ring::RingCommitment<bandersnatch::BandersnatchSha512Ell2>;
+pub type RingCommitment = ark_vrf::ring::RingCommitment<bandersnatch::BandersnatchSha512Ell2>;
 
 // This is the IETF `Prove` procedure output as described in section 4.2
 // of the Bandersnatch VRFs specification
@@ -172,7 +171,7 @@ impl Prover {
     ///
     /// Used for tickets submission.
     pub fn ring_vrf_sign(&self, vrf_input_data: &[u8], aux_data: &[u8]) -> anyhow::Result<Vec<u8>> {
-        use ark_ec_vrfs::ring::Prover as _;
+        use ark_vrf::ring::Prover as _;
 
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = self.secret.output(input);
@@ -197,7 +196,7 @@ impl Prover {
     /// Used for ticket claiming during block production.
     /// Not used with Safrole test vectors.
     pub fn ietf_vrf_sign(&self, vrf_input_data: &[u8], aux_data: &[u8]) -> anyhow::Result<Vec<u8>> {
-        use ark_ec_vrfs::ietf::Prover as _;
+        use ark_vrf::ietf::Prover as _;
 
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = self.secret.output(input);
@@ -239,7 +238,7 @@ impl Verifier {
         aux_data: &[u8],
         signature: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        use ark_ec_vrfs::ring::Verifier as _;
+        use ark_vrf::ring::Verifier as _;
 
         let signature = RingVrfSignature::deserialize_compressed(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
@@ -273,7 +272,7 @@ impl Verifier {
         signature: &[u8],
         signer_key_index: usize,
     ) -> anyhow::Result<[u8; 32]> {
-        use ark_ec_vrfs::ietf::Verifier as _;
+        use ark_vrf::ietf::Verifier as _;
 
         let signature = IetfVrfSignature::deserialize_compressed(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
