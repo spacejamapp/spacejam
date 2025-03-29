@@ -16,6 +16,12 @@ impl Runner {
             .init();
 
         match test.section {
+            Section::Accumulate => {
+                use crate::accumulate;
+
+                let _input = accumulate::TestInput::from_json(test.input)?;
+                let _output = accumulate::TestOutput::from_json(test.output)?;
+            }
             Section::Assurances => {
                 use crate::assurances;
 

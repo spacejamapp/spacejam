@@ -13,8 +13,11 @@ use crate::{
 use crypto::shuffle;
 use dep::Dependencies;
 use error::{Error, Result};
-pub use state::{State, StateJson};
 use std::collections::BTreeMap;
+pub use {
+    accumulate::accumulate,
+    state::{State, StateJson},
+};
 
 mod accumulate;
 mod dep;

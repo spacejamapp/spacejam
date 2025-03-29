@@ -1,8 +1,9 @@
-use std::collections::BTreeMap;
+//! Preimage tests
 
 use score::service::ServiceAccount;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::collections::BTreeMap;
 use types::*;
 
 /// Test input.
@@ -40,7 +41,6 @@ pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
     accounts
 }
 
-// TODO: update the tests of the preimage module
 crate::impl_tests! {
     preimages,
     preimage_needed_1,

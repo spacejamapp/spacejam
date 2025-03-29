@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use crate::{
     block::History,
     runtime::{Storage, Validator},
-    service::WorkReport,
     state::{self, key},
     Block, OpaqueHash,
 };
@@ -134,7 +133,7 @@ pub fn simulate(
         // (..., C) Accumulate the available work reports
         //
         // TODO: 12
-        self::accumulate(available)
+        guarantee::accumulate(block.header.slot, available)?
     };
 
     // Round 4 computation
@@ -179,11 +178,4 @@ pub fn simulate(
     }
 
     Ok(diff)
-}
-
-/// (b) Accumulate the available work reports
-///
-/// TODO: 12
-fn accumulate(_available: Vec<WorkReport>) -> OpaqueHash {
-    Default::default()
 }

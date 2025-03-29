@@ -4,6 +4,7 @@
 use runner::Runner;
 use std::{fs, path::Path};
 use tracing_subscriber::EnvFilter;
+mod accumulate;
 
 /// Initialize tracing subscriber
 pub fn init_tracing() {
@@ -12,7 +13,6 @@ pub fn init_tracing() {
         .init();
 }
 
-#[ignore]
 #[test]
 fn coverage() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");

@@ -6,6 +6,10 @@ use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
     account::{ServiceAccount, ServiceAccountData, ServiceAccountDataJson, ServiceAccountState},
+    accumulate::{
+        AccumulatedQueue, AlwaysAccumulateMapItem, Privileges, PrivilegesJson, ReadyQueue,
+        ReadyRecord, ReadyRecordJson,
+    },
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{ReportedWorkPackage, ReportedWorkPackageJson, WorkReport, WorkReportJson},
     result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
@@ -15,6 +19,7 @@ pub use {
 };
 
 mod account;
+mod accumulate;
 mod refine;
 mod report;
 mod result;
