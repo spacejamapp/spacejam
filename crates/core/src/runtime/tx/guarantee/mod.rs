@@ -16,6 +16,7 @@ use error::{Error, Result};
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
+mod accumulate;
 mod dep;
 pub mod error;
 mod state;

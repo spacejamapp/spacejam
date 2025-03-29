@@ -1,0 +1,2 @@
+//! Accumulation of guarantees
+
