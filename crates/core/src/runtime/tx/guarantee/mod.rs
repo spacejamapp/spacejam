@@ -37,12 +37,15 @@ pub fn accumulate(
     // The accumulated queue (ξ)
     accumulated_queue: &mut AccumulatedQueue,
     // The privileges (χ)
-    _privileges: &Privileges,
+    privileges: &Privileges,
     // The account storage (δ)
-    _accounts: &impl Storage,
+    accounts: &impl Storage,
 ) -> anyhow::Result<OpaqueHash> {
     // (W*) get accumulatable work reports
-    let _accumulatable = queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+    let accumulatable = queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+
+    // (Δ+) run outer accumulation
+    exec::exec(Default::default(), accumulatable, accounts, privileges);
 
     Ok(Default::default())
 }

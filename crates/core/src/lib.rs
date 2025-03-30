@@ -14,7 +14,7 @@ pub mod testing;
 /// The count of validators
 pub const VALIDATORS_COUNT: u16 = 6;
 
-/// The count of cores
+/// (C) The count of cores
 pub const CORES_COUNT: usize = 2;
 
 /// The length of an epoch
@@ -68,6 +68,20 @@ pub const JAM_COMMON_ERA_AFTER_UNIX_EPOCH: u32 = 1_735_689_600;
 
 /// The period of a timeslot in seconds
 pub const SLOT_PERIOD: u32 = 6;
+
+/// (G_A) The gas allocated to invoke a work report's Accumulation logic
+pub const GAS_ACC: u64 = 10_000_000;
+
+/// (G_I) The gas allocated to invoke a work report's IsAuthorized logic
+pub const GAS_IS_AUTHORIZED: u64 = 50_000_000;
+
+/// (G_R) The gas allocated to invoke a work report's Refine logic
+pub const GAS_REFINE: u64 = 5_000_000_000;
+
+/// (G_T) The total gas allocated across for all accumulation
+///
+/// should be no smaller than G_A * C + ∑ privileges
+pub const GAS_ALL_ACC: u64 = 3_500_000_000;
 
 // Singing Contexts
 

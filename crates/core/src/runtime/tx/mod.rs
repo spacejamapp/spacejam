@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     block::History,
     runtime::{Storage, Validator},
-    state::{self, key},
+    state::{account, key},
     Block, OpaqueHash,
 };
 use anyhow::Result;
@@ -153,7 +153,7 @@ pub fn simulate(
             &state.accounts,
         )?;
         if accounts != state.accounts {
-            diff.extend(state::accounts(&accounts)?);
+            diff.extend(account::diff(&accounts)?);
             state.accounts = accounts;
         }
 

@@ -1,11 +1,16 @@
 //! Execution of work reports
 
-use crate::service::Privileges;
+use crate::{
+    runtime::Storage,
+    service::{Privileges, WorkReport},
+    Gas,
+};
 
-/// Execute the work reports
-///
-/// ref GP: 12.2 Execution
-pub fn exec(privileges: &Privileges) {
-
-    
+/// (Δ+) outer accumulation
+pub fn exec(
+    _gas_limit: Gas,
+    _reports: Vec<WorkReport>,
+    _accounts: &impl Storage,
+    _privileges: &Privileges,
+) {
 }

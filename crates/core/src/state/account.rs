@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+
+use crate::service::ServiceAccount;
 use crate::state::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::OpaqueHash;
 
@@ -31,4 +34,48 @@ pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> OpaqueHash {
     key[..4].copy_from_slice(&lookup.to_le_bytes());
     key[4..].copy_from_slice(&hashed[2..30]);
     (service, key).key()
+}
+
+/// Get the diff of the accounts
+pub fn diff(
+    accounts: &BTreeMap<u32, ServiceAccount>,
+) -> anyhow::Result<Vec<(OpaqueHash, Vec<u8>)>> {
+    let mut diff = vec![];
+    for (index, account) in accounts {
+        // set info
+        let mut value = Vec::new();
+        let info = account.state();
+        value.extend_from_slice(&info.code);
+        value.extend_from_slice(&codec::encode(&(
+            &info.balance,
+            &info.gas.accumulate,
+            &info.gas.transfer,
+            &info.total,
+        ))?);
+        value.extend_from_slice(&info.items.to_le_bytes());
+        diff.push((self::info(*index), value));
+
+        // set storage
+        for (key, value) in &account.storage {
+            diff.push((self::storage(*index, *key), value.clone()));
+        }
+
+        // set preimage
+        for (key, value) in &account.preimage {
+            diff.push((self::preimage(*index, *key), value.clone()));
+        }
+
+        // set lookup
+        for ((key, lookup), slots) in &account.lookup {
+            diff.push((
+                self::lookup(*index, *lookup, *key),
+                slots
+                    .iter()
+                    .flat_map(|slot| slot.to_le_bytes())
+                    .collect::<Vec<u8>>(),
+            ));
+        }
+    }
+
+    Ok(diff)
 }

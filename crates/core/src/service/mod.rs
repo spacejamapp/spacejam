@@ -63,6 +63,14 @@ pub struct Privileges {
     pub always_acc: BTreeMap<ServiceId, Gas>,
 }
 
+impl Privileges {
+    /// Get the gas limit from the privileges
+    pub fn gas_limit(&self) -> Gas {
+        (crate::GAS_ACC * crate::CORES_COUNT as u64 + self.always_acc.values().sum::<u64>())
+            .max(crate::GAS_ALL_ACC)
+    }
+}
+
 /// The gas limits of the service account
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct GasLimit {
