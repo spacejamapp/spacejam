@@ -131,12 +131,14 @@ pub fn simulate(
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
+        let mut ready_queue = state.queue.clone();
+        let mut accumulated = state.history.clone();
         guarantee::accumulate(
             block.header.slot,
             state.timeslot,
             available,
-            &state.queue,
-            &state.history,
+            &mut ready_queue,
+            &mut accumulated,
             &state.privileges,
             storage,
         )?

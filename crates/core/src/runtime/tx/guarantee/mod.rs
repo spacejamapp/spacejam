@@ -145,8 +145,8 @@ impl Context<'_> {
 
             // Record reported package
             reported.push(ReportedWorkPackage {
-                hash: guarantee.report.package_spec.hash,
-                exports_root: guarantee.report.package_spec.exports_root,
+                hash: guarantee.report.spec.hash,
+                exports_root: guarantee.report.spec.exports_root,
             });
 
             // Record reporters (guarantors)
@@ -201,7 +201,7 @@ impl Context<'_> {
             .collect::<Vec<_>>();
         let reported = guarantees
             .iter()
-            .map(|g| g.report.package_spec.hash)
+            .map(|g| g.report.spec.hash)
             .collect::<Vec<_>>();
         let recent = self
             .state
@@ -263,11 +263,11 @@ impl Context<'_> {
             }
         }
 
-        if self.deps.duplicated(&guarantee.report.package_spec.hash) {
+        if self.deps.duplicated(&guarantee.report.spec.hash) {
             return Err(Error::DuplicatePackage);
         }
 
-        if guarantee.report.context.prerequisites.len() + guarantee.report.reported.len()
+        if guarantee.report.context.prerequisites.len() + guarantee.report.lookup.len()
             > MAX_DEPENDENCY_COUNT
         {
             return Err(Error::TooManyDependencies);

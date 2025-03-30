@@ -2,7 +2,7 @@
 
 use score::{
     service::{
-        AccumulatedQueue, Privileges, ReadyQueue, ReadyRecordJson, ServiceItem, ServiceItemJson,
+        AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceItem, ServiceItemJson,
         WorkReport, WorkReportJson,
     },
     Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
@@ -68,7 +68,7 @@ pub struct State {
     pub entropy: Entropy,
 
     /// The ready queue
-    #[json(Vec<Vec<ReadyRecordJson>>)]
+    #[json(Vec<Vec<ReadyReportJson>>)]
     pub ready_queue: ReadyQueue,
 
     /// The accumulated reports

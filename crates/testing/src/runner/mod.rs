@@ -31,12 +31,14 @@ impl Runner {
                 let mdb = MemoryDb::default();
                 mdb.add_accounts(input.pre_state.accounts)?;
 
+                let mut ready_queue = input.pre_state.ready_queue.clone();
+                let mut accumulated = input.pre_state.accumulated.clone();
                 let _ = guarantee::accumulate(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
-                    &input.pre_state.ready_queue,
-                    &input.pre_state.accumulated,
+                    &mut ready_queue,
+                    &mut accumulated,
                     &input.pre_state.privileges.into(),
                     &mdb,
                 );

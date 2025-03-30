@@ -9,7 +9,7 @@ pub use {
         ServiceItem, ServiceItemJson, ServicePreimage, ServicePreimageJson,
     },
     accumulate::{
-        AccumulatedQueue, Privileges, PrivilegesJson, ReadyQueue, ReadyRecord, ReadyRecordJson,
+        AccumulatedQueue, Privileges, PrivilegesJson, ReadyQueue, ReadyReport, ReadyReportJson,
     },
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{ReportedWorkPackage, ReportedWorkPackageJson, WorkReport, WorkReportJson},

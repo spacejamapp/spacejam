@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// The ready queue (θ)
-pub type ReadyQueue = [Vec<ReadyRecord>; crate::EPOCH_LENGTH as usize];
+pub type ReadyQueue = [Vec<ReadyReport>; crate::EPOCH_LENGTH as usize];
 
 /// The accumulated queue (ξ)
 pub type AccumulatedQueue = [Vec<WorkPackageHash>; crate::EPOCH_LENGTH as usize];
@@ -33,7 +33,7 @@ pub struct Privileges {
 
 /// The ready record
 #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ReadyRecord {
+pub struct ReadyReport {
     /// The report
     #[json(nested)]
     pub report: WorkReport,

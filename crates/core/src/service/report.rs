@@ -16,7 +16,7 @@ use spacejson::Json;
 pub struct WorkReport {
     /// The package spec
     #[json(nested)]
-    pub package_spec: WorkPackageSpec,
+    pub spec: WorkPackageSpec,
 
     /// The context
     #[json(nested)]
@@ -33,10 +33,10 @@ pub struct WorkReport {
     #[json(hex)]
     pub auth_output: Vec<u8>,
 
-    /// The reported work packages
+    /// The segment root lookup directory
     #[json(nested)]
     #[serde(alias = "segment_root_lookup")]
-    pub reported: Vec<ReportedWorkPackage>,
+    pub lookup: Vec<ReportedWorkPackage>,
 
     /// The results of the work items
     #[json(nested)]
@@ -45,6 +45,13 @@ pub struct WorkReport {
     /// The auth gas used
     #[json(compact)]
     pub auth_gas_used: Compact<u64>,
+}
+
+impl WorkReport {
+    /// Check if the work report is immediate
+    pub fn is_immediate(&self) -> bool {
+        self.lookup.is_empty() && self.context.prerequisites.is_empty()
+    }
 }
 
 /// Represents a reported work package.
