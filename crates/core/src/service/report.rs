@@ -5,7 +5,7 @@ use crate::{
         RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
         WorkResultJson,
     },
-    CoreIndex, OpaqueHash,
+    CoreIndex, OpaqueHash, WorkPackageHash,
 };
 use codec::Compact;
 use serde::{Deserialize, Serialize};
@@ -66,4 +66,16 @@ pub struct ReportedWorkPackage {
     #[json(hex)]
     #[serde(alias = "segment_tree_root")]
     pub exports_root: OpaqueHash,
+}
+
+/// The ready record
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct ReadyReport {
+    /// The report
+    #[json(nested)]
+    pub report: WorkReport,
+
+    /// The dependencies
+    #[json(Vec<String>)]
+    pub dependencies: Vec<WorkPackageHash>,
 }

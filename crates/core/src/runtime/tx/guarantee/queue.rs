@@ -1,37 +1,14 @@
-//! Accumulation of guarantees
+//! Queue of work reports
 
 use crate::{
-    runtime::Storage,
-    service::{AccumulatedQueue, Privileges, ReadyQueue, WorkReport},
+    service::{AccumulatedQueue, ReadyQueue, WorkReport},
     OpaqueHash, TimeSlot,
 };
-
-/// (b) Accumulate the available work reports
-pub fn accumulate(
-    // The next timeslot (τ')
-    slot: TimeSlot,
-    // The prior timeslot (τ)
-    _tau: TimeSlot,
-    // available work reports (W)
-    reports: Vec<WorkReport>,
-    // The ready queue (θ)
-    ready_queue: &mut ReadyQueue,
-    // The accumulated queue (ξ)
-    accumulated_queue: &mut AccumulatedQueue,
-    // The privileges (χ)
-    _privileges: &Privileges,
-    // The account storage (δ)
-    _accounts: &impl Storage,
-) -> anyhow::Result<OpaqueHash> {
-    let _accumulatable = self::accumulatable(slot, reports, ready_queue, accumulated_queue);
-
-    Ok(Default::default())
-}
 
 /// Extracts the accumulatable work reports
 ///
 /// ref GP: 12.1 Hisotry and Queuing
-fn accumulatable(
+pub fn accumulatable(
     slot: TimeSlot,
     reports: Vec<WorkReport>,
     ready_queue: &ReadyQueue,

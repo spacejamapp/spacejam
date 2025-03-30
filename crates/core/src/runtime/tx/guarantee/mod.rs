@@ -2,9 +2,11 @@
 
 use crate::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
+    runtime::Storage,
     safrole::ValidatorData,
     service::{
-        AvailabilityAssignment, AvailabilityAssignments, ReportedWorkPackage, WorkExecResult,
+        AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
+        ReportedWorkPackage, WorkExecResult, WorkReport,
     },
     Ed25519Public, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH, MAX_DEPENDENCY_COUNT,
     MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, VALIDATORS_COUNT,
@@ -13,16 +15,37 @@ use crate::{
 use crypto::shuffle;
 use dep::Dependencies;
 use error::{Error, Result};
+pub use state::{State, StateJson};
 use std::collections::BTreeMap;
-pub use {
-    accumulate::accumulate,
-    state::{State, StateJson},
-};
 
-mod accumulate;
 mod dep;
 pub mod error;
+mod exec;
+mod queue;
 mod state;
+
+/// (b) Accumulate the available work reports
+pub fn accumulate(
+    // The next timeslot (τ')
+    slot: TimeSlot,
+    // The prior timeslot (τ)
+    _tau: TimeSlot,
+    // available work reports (W)
+    reports: Vec<WorkReport>,
+    // The ready queue (θ)
+    ready_queue: &mut ReadyQueue,
+    // The accumulated queue (ξ)
+    accumulated_queue: &mut AccumulatedQueue,
+    // The privileges (χ)
+    _privileges: &Privileges,
+    // The account storage (δ)
+    _accounts: &impl Storage,
+) -> anyhow::Result<OpaqueHash> {
+    // (W*) get accumulatable work reports
+    let _accumulatable = queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+
+    Ok(Default::default())
+}
 
 /// (ρ') Update availability assignments based on guarantees
 pub fn reports(
