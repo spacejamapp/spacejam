@@ -43,7 +43,6 @@ pub fn accumulate<V: Vm>(
     // The account storage (δ)
     accounts: &impl Storage,
 ) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
-    tracing::info!("tau: {}, slot: {}", tau, slot);
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
