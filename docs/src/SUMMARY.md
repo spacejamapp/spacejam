@@ -16,4 +16,5 @@
 
 # Development
 
+- [Architecture](./dev/arch.md)
 - [Localnet](./dev/localnet.md)

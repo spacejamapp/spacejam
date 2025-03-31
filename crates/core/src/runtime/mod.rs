@@ -4,12 +4,12 @@ use author::Author;
 use importer::Importer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use vm::Vm;
 pub use {
     grandpa::{Grandpa, Handshake, Head},
     pool::Pool,
     storage::Storage,
     validator::Validator,
+    vm::Vm,
 };
 
 mod author;

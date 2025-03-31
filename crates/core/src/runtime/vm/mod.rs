@@ -1,20 +1,41 @@
 //! The virtual machine interfaces of SpaceJam
 
-use crate::{
-    service::{ServiceAccount, WorkExecResult},
-    Gas, OpaqueHash, ServiceId, TimeSlot,
-};
-pub use context::StateContext;
+use crate::{service::ServiceAccount, Gas, OpaqueHash, ServiceId, TimeSlot};
 use std::collections::BTreeMap;
+pub use {
+    accumulate::{AccumulateResult, Operand},
+    context::StateContext,
+    transfer::DeferredTransfer,
+};
 
+mod accumulate;
 mod context;
+mod transfer;
 
 /// Service to hash commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 
 /// The virtual machine interface
 pub trait Vm {
+    /// (Ψ): the general PVM invocation
+    fn invoke(
+        // (p) the program blob
+        _blob: Vec<u8>,
+        // (ı) the current program counter
+        _pc: u64,
+        // (ϱ) the gas
+        _gas: Gas,
+        // (ω) the registers
+        _registers: [u64; 13],
+        // (µ) the memory
+        _memory: Vec<u32>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// (ΨA): single step state transition invocation
+    ///
+    /// as defined per graypaper (A.1)
     fn accumulate(
         // (U) The state context
         _context: StateContext,
@@ -30,6 +51,26 @@ pub trait Vm {
         Default::default()
     }
 
+    /// (Ψ1): single step state transition invocation
+    fn step(
+        // (c) The instruction data
+        _blob: Vec<u8>,
+        // (k) The bitmap of the instruction data
+        _bitmap: Vec<u8>,
+        // (j) The jump table
+        _jump_table: Vec<u64>,
+        // (ı) The current program counter
+        _pc: u64,
+        // (ϱ) The gas
+        _gas: Gas,
+        // (ω) The registers
+        _registers: [u64; 13],
+        // (µ) The memory
+        _memory: Vec<u32>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// (ΨT): on-transfer invocation
     fn transfer(
         // (δ) The account storage
@@ -43,104 +84,6 @@ pub trait Vm {
     ) -> (ServiceAccount, Gas) {
         (ServiceAccount::default(), 0)
     }
-}
-
-/// A deferred transfer item
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct DeferredTransfer {
-    /// (s) The sender
-    pub sender: ServiceId,
-
-    /// (d) The destination
-    pub recipient: ServiceId,
-
-    /// (a) The amount
-    pub amount: u64,
-
-    /// (m) The memo
-    pub memo: Vec<u8>,
-
-    /// (g) The gas limit
-    pub gas_limit: Gas,
-}
-
-impl DeferredTransfer {
-    /// (R): Select transfers for a given destination service
-    pub fn select(transfers: &[DeferredTransfer], dest: ServiceId) -> Vec<DeferredTransfer> {
-        let mut transfers = transfers.to_vec();
-        transfers.sort_by_key(|t| t.sender);
-        transfers
-            .iter()
-            .filter(|t| t.recipient == dest)
-            .cloned()
-            .collect()
-    }
-
-    /// integrate the deferred transfers
-    pub fn integrate<V: Vm>(
-        accounts: &mut BTreeMap<ServiceId, ServiceAccount>,
-        transfers: &[DeferredTransfer],
-        slot: TimeSlot,
-    ) -> anyhow::Result<Gas> {
-        let mut gas_used = 0;
-        // Process each account in the intermediate state
-        for (service_id, _account) in accounts.clone().into_iter() {
-            let transfers = DeferredTransfer::select(transfers, service_id);
-            if transfers.is_empty() {
-                continue;
-            }
-
-            // Invoke PVM's transfer function (Ψ_T) for this service
-            // This applies all transfers targeting this service in order
-            //
-            // TODO: handle the changes of accounts may be using smart pointer.
-            let (new_account, gas) = V::transfer(accounts, slot, service_id, &transfers);
-
-            gas_used += gas;
-            accounts.insert(service_id, new_account);
-        }
-
-        Ok(gas_used)
-    }
-}
-
-/// An operand of the accumulation
-///
-/// defined per GP (12.19)
-pub struct Operand {
-    /// (d) The work execution result
-    pub data: WorkExecResult,
-
-    /// (e) The erasure root
-    pub erasure_root: OpaqueHash,
-
-    /// (o) The authorizer output
-    pub authorizer_output: Vec<u8>,
-
-    /// (y) The payload blob hash
-    pub payload: OpaqueHash,
-
-    /// (h) The hash of the work package
-    pub hash: OpaqueHash,
-
-    /// (n) The accumulate gas
-    pub gas: Gas,
-}
-
-/// The accumulate result of (ΨA)
-#[derive(Default)]
-pub struct AccumulateResult {
-    /// (o) The state context
-    pub context: StateContext,
-
-    /// (t) The timeslot for the current accumulation
-    pub transfers: Vec<DeferredTransfer>,
-
-    /// (b) The output hash of the accumulation
-    pub hash: Option<OpaqueHash>,
-
-    /// (u) The gas used
-    pub gas: Gas,
 }
 
 impl Vm for () {}

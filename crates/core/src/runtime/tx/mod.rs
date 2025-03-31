@@ -78,7 +78,6 @@ pub fn simulate<V: Vm>(
 
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-
         if reports != state.reports {
             diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
             state.reports = reports;

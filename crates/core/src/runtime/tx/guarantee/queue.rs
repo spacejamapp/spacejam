@@ -7,7 +7,7 @@ use crate::{
 
 /// Extracts the accumulatable work reports
 ///
-/// ref GP: 12.1 Hisotry and Queuing
+/// ref GP: 12.1 History and Queuing
 pub fn accumulatable(
     slot: TimeSlot,
     reports: Vec<WorkReport>,
