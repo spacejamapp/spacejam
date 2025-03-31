@@ -1,11 +1,16 @@
 //! Storage APIs of the state of SpaceJam
+//!
+//! TODO: tests for IO. e.g. encoding / decoding of kvs.
 
 use crate::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     runtime::storage::KVStorage,
     safrole::{Safrole, ValidatorData},
-    service::{ServiceAccountState, ServiceIndex, WorkReport},
+    service::{
+        Privileges, ServiceAccountData, ServiceAccountState, ServiceItem, ServicePreimage,
+        WorkReport,
+    },
     state::{account, key, State},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
@@ -26,18 +31,16 @@ pub trait Storage: KVStorage {
         let mut kvs = vec![];
         let mut index = 0;
         loop {
-            let mut storage_iter = self.prefix_iter(key::prefix(index, &prefix))?;
-            let mut count = 0;
+            let Ok(mut storage_iter) = self.prefix_iter(key::prefix(index, &prefix)) else {
+                break;
+            };
+
             while let Some(Ok((key, value))) = storage_iter.next() {
                 let mut hkey = [0; 32];
                 hkey.copy_from_slice(&key);
                 kvs.push((hkey, value));
-                count += 1;
             }
 
-            if count == 0 {
-                break;
-            }
             index += 1;
         }
 
@@ -89,7 +92,7 @@ pub trait Storage: KVStorage {
             codec::decode(data.get(8).unwrap_or(&vec![])).unwrap_or_default();
         state.reports = codec::decode(data.get(9).unwrap_or(&vec![])).unwrap_or_default();
         state.timeslot = codec::decode(data.get(10).unwrap_or(&vec![])).unwrap_or_default();
-        state.service = codec::decode(data.get(11).unwrap_or(&vec![])).unwrap_or_default();
+        state.privileges = codec::decode(data.get(11).unwrap_or(&vec![])).unwrap_or_default();
         state.statistics = codec::decode(data.get(12).unwrap_or(&vec![])).unwrap_or_default();
         state.queue = codec::decode(data.get(13).unwrap_or(&vec![])).unwrap_or_default();
         state.history = codec::decode(data.get(14).unwrap_or(&vec![])).unwrap_or_default();
@@ -121,6 +124,8 @@ pub trait Storage: KVStorage {
         }
 
         // fetch lookup data
+        //
+        // TODO: double check how to iterate the lookup data
         let mut service: u32 = 0;
         while let Ok(lookup) = self.prefix_collect(service.to_le_bytes()) {
             kvs.extend(lookup);
@@ -234,10 +239,10 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the privileged service indices
-    fn service(&self) -> Result<Option<ServiceIndex>> {
+    fn privileges(&self) -> Result<Privileges> {
         self.get(key::PRIVILEGED_SERVICE)?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("privileged service not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode privileged service: {e}"))
     }
 
@@ -268,28 +273,53 @@ pub trait Storage: KVStorage {
             .map_err(|e| anyhow::anyhow!("failed to decode accumulation history: {e}"))
     }
 
+    /// Fetch the account
+    fn account(&self, service: u32) -> Result<ServiceItem> {
+        let info = self.account_info(service)?;
+        let preimages = self.account_preimages(service)?;
+        Ok(ServiceItem {
+            id: service,
+            data: ServiceAccountData {
+                service: info,
+                preimages,
+            },
+        })
+    }
+
     /// Fetch the account state
-    fn account_info(&self, service: u32) -> Result<Option<ServiceAccountState>> {
+    fn account_info(&self, service: u32) -> Result<ServiceAccountState> {
         self.get(account::info(service))?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("account state not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account state: {e}"))
     }
 
     /// Fetch the account storage
-    fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
+    fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Vec<u8>> {
         self.get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("account storage not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account storage: {e}"))
     }
 
     /// Fetch the account preimage
-    fn account_preimage(&self, service: u32, key: OpaqueHash) -> Result<Option<Vec<u8>>> {
+    fn account_preimage(&self, service: u32, key: OpaqueHash) -> Result<Vec<u8>> {
         self.get(account::preimage(service, key))?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("account preimage not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
+    }
+
+    fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
+        self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
+            .map(|kv| {
+                kv.map(|(key, value)| {
+                    let mut hash = [0; 32];
+                    hash.copy_from_slice(&key);
+                    ServicePreimage { hash, blob: value }
+                })
+            })
+            .collect()
     }
 
     /// Fetch the account lookup

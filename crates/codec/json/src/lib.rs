@@ -4,6 +4,7 @@
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use spacejson_derive::Json;
+use std::{collections::BTreeMap, fmt::Debug};
 
 /// A trait for types that can be encoded and decoded to and from JSON.
 pub trait Json<Target: Serialize + DeserializeOwned>: Sized + std::fmt::Debug {
@@ -48,6 +49,20 @@ impl Json<String> for Vec<u8> {
     fn from_json(json: String) -> Result<Self> {
         let bytes = hex::decode(json.trim_start_matches("0x"))?;
         Ok(bytes)
+    }
+}
+
+impl<K, V> Json<BTreeMap<K, V>> for BTreeMap<K, V>
+where
+    K: Serialize + DeserializeOwned + Ord + Debug,
+    V: Serialize + DeserializeOwned + Debug,
+{
+    fn to_json(self) -> BTreeMap<K, V> {
+        self
+    }
+
+    fn from_json(json: BTreeMap<K, V>) -> Result<Self> {
+        Ok(json)
     }
 }
 
@@ -159,4 +174,18 @@ macro_rules! impl_primitive {
     };
 }
 
-impl_primitive!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, bool, ());
+impl_primitive!(
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    usize,
+    bool,
+    ()
+);

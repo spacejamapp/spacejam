@@ -1,90 +1,74 @@
 //! Service module
 
-use crate::{BeefyRoot, Gas, HeaderHash, OpaqueHash, ServiceId, StateRoot, TimeSlot};
-use codec::Compact;
+use std::collections::BTreeMap;
+
+use crate::{Gas, ServiceId, WorkPackageHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::BTreeMap;
 pub use {
-    report::{WorkExecResult, WorkExecResultJson, WorkReport, WorkReportJson, WorkResult},
-    work::{ReportedWorkPackage, ReportedWorkPackageJson, WorkItem, WorkPackage},
+    account::{
+        ServiceAccount, ServiceAccountData, ServiceAccountDataJson, ServiceAccountState,
+        ServiceItem, ServiceItemJson, ServicePreimage, ServicePreimageJson,
+    },
+    refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
+    report::{
+        ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
+        WorkReportJson,
+    },
+    result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
+    work::{
+        WorkItem, WorkItemJson, WorkPackage, WorkPackageJson, WorkPackageSpec, WorkPackageSpecJson,
+    },
 };
 
+mod account;
+mod refine;
 mod report;
+mod result;
 mod work;
 
-/// The service accounts (δ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
-pub struct ServiceAccount {
-    /// storage of the service account (s)
-    pub storage: BTreeMap<OpaqueHash, Vec<u8>>,
+/// The ready queue (θ)
+pub type ReadyQueue = [Vec<ReadyReport>; crate::EPOCH_LENGTH as usize];
 
-    /// The preimage of the service account (p)
-    pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,
+/// The accumulated queue (ξ)
+pub type AccumulatedQueue = [Vec<WorkPackageHash>; crate::EPOCH_LENGTH as usize];
 
-    /// Preimage lookup dictionary (l)
-    pub lookup: BTreeMap<(OpaqueHash, u32), [TimeSlot; 3]>,
+/// The availability assignments (ρ)
+pub type AvailabilityAssignments = [Option<AvailabilityAssignment>; crate::CORES_COUNT];
 
-    /// The code hash of the service account (c)
-    pub code: OpaqueHash,
-
-    /// The balance of the service account (b)
-    pub balance: u64,
-
-    /// The gas limits of the service account (g) and (m)
-    #[serde(flatten)]
-    pub gas: GasLimit,
-}
-
-impl ServiceAccount {
-    /// The number of items in storage
-    pub fn items(&self) -> u32 {
-        2 * self.lookup.len() as u32 + self.storage.len() as u32
-    }
-
-    /// total number of octets used in storage
-    pub fn total(&self) -> u64 {
-        self.lookup
-            .iter()
-            .map(|((_, z), _)| 81 + *z as u64)
-            .chain(self.storage.values().map(|x| 32 + x.len() as u64))
-            .sum::<u64>()
-    }
-
-    /// The state of the service account
-    pub fn state(&self) -> ServiceAccountState {
-        ServiceAccountState {
-            code: self.code,
-            balance: self.balance,
-            gas: self.gas.clone(),
-            total: self.total(),
-            items: self.items(),
-        }
-    }
-}
-
-/// The state of the service account
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json)]
-pub struct ServiceAccountState {
-    /// The code hash of the service account (c)
-    #[json(hex)]
-    #[serde(alias = "code_hash")]
-    pub code: OpaqueHash,
-
-    /// The balance of the service account (b)
-    pub balance: u64,
-
-    /// The gas limits of the service account (g) and (m)
-    #[serde(flatten)]
+/// The availability assignment
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+pub struct AvailabilityAssignment {
+    /// The report
     #[json(nested)]
-    pub gas: GasLimit,
+    pub report: WorkReport,
 
-    /// The total number of octets used in storage (o)
-    #[serde(alias = "bytes")]
-    pub total: u64,
+    /// The timeout
+    pub timeout: u32,
+}
 
-    /// The number of items in storage (i)
-    pub items: u32,
+/// The privileged service indices (χ)
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+pub struct Privileges {
+    /// The bless service id (χm)
+    pub bless: ServiceId,
+
+    /// The designate service id (χv)
+    pub designate: ServiceId,
+
+    /// The assign service id (χa)
+    pub assign: ServiceId,
+
+    /// The always accumulate service ids (χg)
+    pub always_acc: BTreeMap<ServiceId, Gas>,
+}
+
+impl Privileges {
+    /// Get the gas limit from the privileges
+    pub fn gas_limit(&self) -> Gas {
+        (crate::GAS_ACC * crate::CORES_COUNT as u64 + self.always_acc.values().sum::<u64>())
+            .max(crate::GAS_ALL_ACC)
+    }
 }
 
 /// The gas limits of the service account
@@ -99,91 +83,3 @@ pub struct GasLimit {
     #[serde(alias = "min_item_gas")]
     pub transfer: Gas,
 }
-
-/// The privileged service indices (χ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
-pub struct ServiceIndex {
-    /// The manager of the service index (m)
-    pub manager: u32,
-
-    /// The authorized service indices (a)
-    pub authorized: u32,
-
-    /// index of the validator keys and metadata to be drawn
-    /// from next (t)
-    pub validator: u32,
-
-    /// indices of services which automatically accumulate
-    /// in each block together with a basic amount of gas with
-    /// which each accumulates.
-    pub gas: BTreeMap<u32, Gas>,
-}
-
-/// Represents a service item.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceItem {
-    /// The id of the service item
-    pub id: ServiceId,
-
-    /// The info of the service item
-    #[json(nested)]
-    pub data: ServiceAccountData,
-}
-
-/// Represents the service account data.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceAccountData {
-    /// The service account state
-    #[json(nested)]
-    pub service: ServiceAccountState,
-}
-
-/// Represents the RefineContext structure from ASN.1
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct RefineContext {
-    #[json(hex)]
-    pub anchor: HeaderHash,
-    #[json(hex)]
-    pub state_root: StateRoot,
-    #[json(hex)]
-    pub beefy_root: BeefyRoot,
-    #[json(hex)]
-    pub lookup_anchor: HeaderHash,
-    pub lookup_anchor_slot: TimeSlot,
-    #[json(hex)]
-    pub prerequisites: Vec<OpaqueHash>,
-}
-
-/// The refine load
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-pub struct RefineLoad {
-    /// The gas used
-    #[json(compact)]
-    pub gas_used: Compact<u64>,
-
-    /// The number of imports
-    #[json(compact)]
-    pub imports: Compact<u16>,
-
-    /// The number of extrinsics
-    #[json(compact)]
-    pub extrinsic_count: Compact<u16>,
-
-    /// The size of the extrinsics
-    #[json(compact)]
-    pub extrinsic_size: Compact<u32>,
-
-    /// The number of exports
-    #[json(compact)]
-    pub exports: Compact<u16>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
-pub struct AvailabilityAssignment {
-    #[json(nested)]
-    pub report: WorkReport,
-    pub timeout: u32,
-}
-
-pub type AvailabilityAssignmentsItem = Option<AvailabilityAssignment>;
-pub type AvailabilityAssignments = [AvailabilityAssignmentsItem; crate::CORES_COUNT];

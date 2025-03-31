@@ -9,6 +9,7 @@ pub use {
     pool::Pool,
     storage::Storage,
     validator::Validator,
+    vm::Vm,
 };
 
 mod author;
@@ -18,6 +19,7 @@ mod pool;
 pub mod storage;
 pub mod tx;
 mod validator;
+pub mod vm;
 
 /// Runtime of SpaceJam
 #[derive(Clone)]
@@ -64,9 +66,13 @@ pub trait Config: Send + Sync + 'static {
 
     /// The validator of the runtime
     type Validator: Validator + Send + Sync + 'static;
+
+    /// The virtual machine of the runtime
+    type Vm: Vm + Send + Sync + 'static;
 }
 
 impl Config for () {
     type Storage = storage::MemoryDb;
     type Validator = crypto::ed25519::KeyPair;
+    type Vm = ();
 }

@@ -94,7 +94,7 @@ impl<'i, C: Config> Importer<'i, C> {
 
         // 1. transit the global state
         let hash = block.header.hash()?;
-        tx::transit(
+        tx::transit::<C::Vm>(
             block.clone(),
             &self.runtime.storage,
             &self.runtime.validator,

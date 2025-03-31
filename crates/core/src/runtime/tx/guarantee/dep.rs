@@ -31,7 +31,7 @@ impl Dependencies {
 
     /// Validate segment lookup
     pub fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        for lookup in guarantee.report.reported.iter() {
+        for lookup in guarantee.report.lookup.iter() {
             if self.reported.contains(&lookup.hash) {
                 continue;
             }

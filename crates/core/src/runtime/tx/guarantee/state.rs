@@ -96,6 +96,7 @@ impl From<crate::State> for State {
                     id,
                     data: ServiceAccountData {
                         service: service.state(),
+                        preimages: vec![],
                     },
                 })
                 .collect(),

@@ -4,9 +4,8 @@ use std::collections::HashMap;
 
 use crate::{
     block::History,
-    runtime::{Storage, Validator},
-    service::WorkReport,
-    state::{self, key},
+    runtime::{vm::Vm, Storage, Validator},
+    state::{account, key},
     Block, OpaqueHash,
 };
 use anyhow::Result;
@@ -19,13 +18,17 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit(mut block: Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
-    let diff = self::simulate(&mut block, storage, validator)?;
+pub fn transit<V: Vm>(
+    mut block: Block,
+    storage: &impl Storage,
+    validator: &impl Validator,
+) -> Result<()> {
+    let diff = self::simulate::<V>(&mut block, storage, validator)?;
     storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
 }
 
 /// Simulate state transition with new block
-pub fn simulate(
+pub fn simulate<V: Vm>(
     block: &mut Block,
     storage: &impl Storage,
     validator: &impl Validator,
@@ -75,7 +78,6 @@ pub fn simulate(
 
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-
         if reports != state.reports {
             diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
             state.reports = reports;
@@ -132,9 +134,18 @@ pub fn simulate(
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
-        //
-        // TODO: 12
-        self::accumulate(available)
+        let (root, ready_queue, accumulated_queue) = guarantee::accumulate::<V>(
+            block.header.slot,
+            state.timeslot,
+            available,
+            &state.queue,
+            &state.history,
+            &state.privileges,
+            storage,
+        )?;
+        state.queue = ready_queue;
+        state.history = accumulated_queue;
+        root
     };
 
     // Round 4 computation
@@ -146,7 +157,7 @@ pub fn simulate(
             &state.accounts,
         )?;
         if accounts != state.accounts {
-            diff.extend(state::accounts(&accounts)?);
+            diff.extend(account::diff(&accounts)?);
             state.accounts = accounts;
         }
 
@@ -179,11 +190,4 @@ pub fn simulate(
     }
 
     Ok(diff)
-}
-
-/// (b) Accumulate the available work reports
-///
-/// TODO: 12
-fn accumulate(_available: Vec<WorkReport>) -> OpaqueHash {
-    Default::default()
 }

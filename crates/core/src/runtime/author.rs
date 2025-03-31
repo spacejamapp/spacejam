@@ -158,7 +158,7 @@ impl<'a, C: crate::runtime::Config> Author<'a, C> {
         builder = builder.author_index(author_index as u16);
 
         // 5. simulate the block
-        tx::simulate(&mut builder, &self.runtime.storage, &self.runtime.validator)?;
+        tx::simulate::<C::Vm>(&mut builder, &self.runtime.storage, &self.runtime.validator)?;
 
         // 6. seal the block
         let block = builder.seal(

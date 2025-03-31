@@ -1,4 +1,6 @@
 //! Spacejam storage interfaces
+//!
+//! introduce read-only storage interface for the state.
 
 pub use {
     branch::Branch,

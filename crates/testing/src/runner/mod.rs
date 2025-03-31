@@ -2,8 +2,12 @@
 
 use anyhow::Result;
 use score::{block::History, runtime::tx};
+use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
+use storage::StorageExt;
 use tracing_subscriber::EnvFilter;
+
+mod storage;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
@@ -16,6 +20,25 @@ impl Runner {
             .init();
 
         match test.section {
+            Section::Accumulate => {
+                use crate::accumulate;
+
+                let input = accumulate::TestInput::from_json(test.input)?;
+                let _output = accumulate::TestOutput::from_json(test.output)?;
+                let mdb = MemoryDb::default();
+                mdb.add_accounts(input.pre_state.accounts)?;
+
+                // run the accumulate function
+                let _ = tx::guarantee::accumulate::<()>(
+                    input.input.slot,
+                    input.pre_state.slot,
+                    input.input.reports,
+                    &input.pre_state.ready_queue,
+                    &input.pre_state.accumulated,
+                    &input.pre_state.privileges.into(),
+                    &mdb,
+                );
+            }
             Section::Assurances => {
                 use crate::assurances;
 

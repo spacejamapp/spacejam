@@ -101,8 +101,10 @@ pub fn verify_assurance(
         return Err(Error::BadAttestationParent);
     }
 
-    if let Err(e) = validators[index as usize].verify_assurance(assurance) {
-        tracing::warn!("assurance verification failed: {e}");
+    if validators[index as usize]
+        .verify_assurance(assurance)
+        .is_err()
+    {
         return Err(Error::BadSignature);
     }
 
