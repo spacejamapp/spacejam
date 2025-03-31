@@ -1,7 +1,7 @@
 //! Queue of work reports
 
 use crate::{
-    service::{AccumulatedQueue, ReadyQueue, WorkReport},
+    service::{AccumulatedQueue, ReadyQueue, ReadyReport, WorkReport},
     OpaqueHash, TimeSlot,
 };
 
@@ -31,24 +31,23 @@ pub fn accumulatable(
     }
 
     // (W_Q) work reports to be queued for accumulation
-    let accq: Vec<(WorkReport, Vec<OpaqueHash>)> = self::pairing(accq, &accd);
-
-    // construct the priority queue
+    let accq: Vec<ReadyReport> = self::pairing(accq, &accd);
     let mid = (slot % crate::EPOCH_LENGTH) as usize;
-    let ready = ready_queue
-        .iter()
-        .flat_map(|r| r.iter().map(|r| (r.report.clone(), r.dependencies.clone())))
-        .collect::<Vec<_>>();
 
     // extract the work package hashes
     self::priority(self::edit(
-        [ready[mid..].to_vec(), ready[..mid].to_vec(), accq].concat(),
+        [
+            ready_queue[mid..].iter().flatten().cloned().collect(),
+            ready_queue[..mid].iter().flatten().cloned().collect(),
+            accq,
+        ]
+        .concat(),
         &self::mapping(&acci),
     ))
 }
 
 /// (D) pairing work reports with their dependencies
-fn pairing(accq: Vec<WorkReport>, accd: &[OpaqueHash]) -> Vec<(WorkReport, Vec<OpaqueHash>)> {
+fn pairing(accq: Vec<WorkReport>, accd: &[OpaqueHash]) -> Vec<ReadyReport> {
     self::edit(
         accq.into_iter()
             .map(|report| {
@@ -60,7 +59,10 @@ fn pairing(accq: Vec<WorkReport>, accd: &[OpaqueHash]) -> Vec<(WorkReport, Vec<O
                     .chain(report.lookup.iter().map(|lookup| lookup.hash))
                     .collect::<Vec<_>>();
 
-                (report, deps)
+                ReadyReport {
+                    report,
+                    dependencies: deps,
+                }
             })
             .collect(),
         accd,
@@ -70,48 +72,51 @@ fn pairing(accq: Vec<WorkReport>, accd: &[OpaqueHash]) -> Vec<(WorkReport, Vec<O
 /// (E) queue-editing function
 ///
 /// Removes the accumulated dependencies from the accumulated queue
-fn edit(
-    accq: Vec<(WorkReport, Vec<OpaqueHash>)>,
-    accd: &[OpaqueHash],
-) -> Vec<(WorkReport, Vec<OpaqueHash>)> {
+fn edit(accq: Vec<ReadyReport>, accd: &[OpaqueHash]) -> Vec<ReadyReport> {
     accq.into_iter()
-        .filter_map(|(report, deps)| {
+        .filter_map(|report| {
             // Skip if the report's segment hash is already accumulated
-            if accd.contains(&report.spec.hash) {
+            if accd.contains(&report.report.spec.hash) {
                 return None;
             }
 
             // Remove accumulated dependencies
-            let filtered_deps = deps
+            let filtered_deps = report
+                .dependencies
                 .into_iter()
                 .filter(|dep| !accd.contains(dep))
                 .collect::<Vec<_>>();
 
-            Some((report, filtered_deps))
+            Some(ReadyReport {
+                report: report.report,
+                dependencies: filtered_deps,
+            })
         })
         .collect()
 }
 
 /// (Q) provides the sequence of work reports which are accumulatable given a set of
 /// not yet accumulated work reports and their dependencies
-fn priority(accq: Vec<(WorkReport, Vec<OpaqueHash>)>) -> Vec<WorkReport> {
+fn priority(accq: Vec<ReadyReport>) -> Vec<WorkReport> {
     if accq.is_empty() {
         return vec![];
     }
 
+    println!("accq: {:?}", accq.len());
+
     // splitting ready and pending work reports
     let (mut ready, mut pending) = (vec![], vec![]);
-    for (report, deps) in accq {
-        if deps.is_empty() {
-            ready.push(report);
+    for report in accq {
+        if report.dependencies.is_empty() {
+            ready.push(report.report);
         } else {
-            pending.push((report, deps));
+            pending.push(report);
         }
     }
 
     // recursively calling priority on the pending work reports
     //
-    // TODO: use for-loop instead of recursion
+    // TODO: use for-loop instead of recursion (dead loop ?)
     ready.extend(self::priority(self::edit(pending, &self::mapping(&ready))));
     ready
 }

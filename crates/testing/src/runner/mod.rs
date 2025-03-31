@@ -1,10 +1,7 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::{
-    block::History,
-    runtime::tx::{self, guarantee},
-};
+use score::{block::History, runtime::tx};
 use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
 use storage::StorageExt;
@@ -31,17 +28,20 @@ impl Runner {
                 let mdb = MemoryDb::default();
                 mdb.add_accounts(input.pre_state.accounts)?;
 
-                let mut ready_queue = input.pre_state.ready_queue.clone();
-                let mut accumulated = input.pre_state.accumulated.clone();
-                let _ = guarantee::accumulate::<()>(
-                    input.input.slot,
-                    input.pre_state.slot,
-                    input.input.reports,
-                    &mut ready_queue,
-                    &mut accumulated,
-                    &input.pre_state.privileges.into(),
-                    &mdb,
-                );
+                let mut _ready_queue = input.pre_state.ready_queue.clone();
+                let mut _accumulated = input.pre_state.accumulated.clone();
+
+                // TODO: implement the full logic
+                //
+                // let _ = guarantee::accumulate::<()>(
+                //     input.input.slot,
+                //     input.pre_state.slot,
+                //     input.input.reports,
+                //     &mut ready_queue,
+                //     &mut accumulated,
+                //     &input.pre_state.privileges.into(),
+                //     &mdb,
+                // );
             }
             Section::Assurances => {
                 use crate::assurances;

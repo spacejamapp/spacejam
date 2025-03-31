@@ -16,6 +16,7 @@ use spacejson::Json;
 pub struct WorkReport {
     /// The package spec
     #[json(nested)]
+    #[serde(alias = "package_spec")]
     pub spec: WorkPackageSpec,
 
     /// The context

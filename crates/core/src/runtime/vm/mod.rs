@@ -23,7 +23,7 @@ pub trait Vm {
         _gas_limit: Gas,
         // (O)  the accumulation operands
         _operands: Vec<Operand>,
-    ) -> anyhow::Result<AccumulateResult>;
+    ) -> AccumulateResult;
 }
 
 /// A deferred transfer item
@@ -90,7 +90,7 @@ impl Vm for () {
         _service_id: ServiceId,
         _gas_limit: Gas,
         _operands: Vec<Operand>,
-    ) -> anyhow::Result<AccumulateResult> {
-        Ok(AccumulateResult::default())
+    ) -> AccumulateResult {
+        Default::default()
     }
 }
