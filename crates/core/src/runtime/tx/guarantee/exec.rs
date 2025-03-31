@@ -33,7 +33,7 @@ pub fn exec<V: Vm>(
     context: StateContext,
     _accounts: &impl Storage,
     _gas_table: &BTreeMap<ServiceId, Gas>,
-) -> ExecResult {
+) -> Accumulated {
     let _ = V::accumulate(context, 0, 0, 0, Default::default());
     Default::default()
 }
@@ -46,7 +46,7 @@ pub fn exec<V: Vm>(
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
 #[derive(Default)]
-pub struct ExecResult {
+pub struct Accumulated {
     /// the number of work-results accumulated.
     pub accumulated: usize,
 

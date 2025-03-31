@@ -8,14 +8,14 @@ use crate::{
     },
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
-        ReportedWorkPackage, WorkReport,
+        ReadyReport, ReportedWorkPackage, WorkReport,
     },
     Ed25519Public, OpaqueHash, TimeSlot, CORES_COUNT,
 };
 use dep::Dependencies;
 use error::{Error, Result};
 pub use {
-    exec::ExecResult,
+    exec::Accumulated,
     state::{State, StateJson},
 };
 
@@ -31,32 +31,103 @@ pub fn accumulate<V: Vm>(
     // The next timeslot (τ')
     slot: TimeSlot,
     // The prior timeslot (τ)
-    _tau: TimeSlot,
+    tau: TimeSlot,
     // available work reports (W)
     reports: Vec<WorkReport>,
     // The ready queue (θ)
-    ready_queue: &mut ReadyQueue,
+    ready_queue: &ReadyQueue,
     // The accumulated queue (ξ)
-    accumulated_queue: &mut AccumulatedQueue,
+    accumulated_queue: &AccumulatedQueue,
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
     accounts: &impl Storage,
-) -> anyhow::Result<OpaqueHash> {
+) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
+    tracing::info!("tau: {}, slot: {}", tau, slot);
     // (W*) get accumulatable work reports
-    let accumulatable = queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+    let (accumulatable, queued) =
+        queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let _result = exec::exec::<V>(
+    let accumulated = exec::exec::<V>(
         gas_limit,
-        accumulatable,
+        accumulatable.clone(),
         StateContext::default(),
         accounts,
         &privileges.always_acc,
     );
 
-    Ok(Default::default())
+    // update the accumulated queue (ξ')
+    let next_accumulated_queue =
+        self::accumulated_history(accumulated_queue, accumulatable, accumulated.accumulated);
+
+    // update the ready queue (θ')
+    let next_ready_queue =
+        self::ready_queue(ready_queue, &next_accumulated_queue, queued, slot, tau);
+
+    Ok((Default::default(), next_ready_queue, next_accumulated_queue))
+}
+
+/// (ξ') Update the accumulated history
+pub fn accumulated_history(
+    pre: &AccumulatedQueue,
+    accumulatable: Vec<WorkReport>,
+    accumulated: usize,
+) -> AccumulatedQueue {
+    let mut next = pre.to_vec();
+    // Update accumulated history (keeping last E entries where E is epoch length)
+    if next.len() >= crate::EPOCH_LENGTH as usize {
+        next.remove(0);
+    }
+
+    // Add new accumulated work report hashes
+    let new_accumulated: Vec<OpaqueHash> = accumulatable
+        .iter()
+        .take(accumulated)
+        .map(|w| w.spec.hash)
+        .collect();
+
+    next.push(new_accumulated);
+
+    // Update the accumulated history (ξ')
+    let mut history: [Vec<OpaqueHash>; crate::EPOCH_LENGTH as usize] = Default::default();
+    for (i, item) in next.iter().enumerate() {
+        history[i] = item.clone();
+    }
+    history
+}
+
+/// (θ') Update the ready queue
+pub fn ready_queue(
+    pre: &ReadyQueue,
+    history: &AccumulatedQueue,
+    reports: Vec<ReadyReport>,
+    slot: TimeSlot,
+    tau: TimeSlot,
+) -> ReadyQueue {
+    let mut ready_queue = pre.clone();
+    let slot_idx = slot / crate::EPOCH_LENGTH;
+    let accd = history[crate::EPOCH_LENGTH as usize - 1].clone();
+
+    // update the ready queue (θ')
+    let blocks = slot - tau;
+    for idx in 0..slot_idx {
+        let target = slot_idx - idx;
+        let ready = if idx == 0 {
+            queue::edit(reports.clone(), &accd)
+        } else if idx >= 1 && idx < blocks {
+            Default::default()
+        } else if idx >= blocks {
+            queue::edit(pre[target as usize].clone(), &accd)
+        } else {
+            continue;
+        };
+
+        ready_queue[target as usize] = ready;
+    }
+
+    ready_queue
 }
 
 /// (ρ') Update availability assignments based on guarantees

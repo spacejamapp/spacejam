@@ -1,8 +1,15 @@
 //! Statistics
 
-use crate::{Extrinsic, Gas, TimeSlot};
+use crate::{Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+pub use {
+    acc::{AccumulationRecord, AccumulationRecordJson, TransferRecord, TransferRecordJson},
+    core::{CoreActivityRecord, CoreActivityRecordJson},
+};
+
+mod acc;
+mod core;
 
 /// Represents an activity record.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
@@ -24,36 +31,6 @@ pub struct ActivityRecord {
 
     /// Number of assurances
     pub assurances: u32,
-}
-
-/// Represents a core record.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct CoreActivityRecord {
-    /// Total gas consumed by core for reported work. Includes all refinement and authorizations.
-    pub gas_used: Gas,
-
-    /// Number of segments imported from DA made by core for reported work.
-    pub imports: u16,
-
-    /// Total number of extrinsics used by core for reported work.
-    pub extrinsic_count: u16,
-
-    /// Total size of extrinsics used by core for reported work.
-    pub extrinsic_size: u32,
-
-    /// Number of segments exported into DA made by core for reported work.
-    pub exports: u16,
-
-    /// The work-bundle size. This is the size of data being placed into Audits DA by the core.
-    pub bundle_size: u32,
-
-    /// Amount of bytes which are placed into either Audits or Segments DA.
-    /// This includes the work-bundle (including all extrinsics and imports) as well as all
-    /// (exported) segments.
-    pub da_load: u64,
-
-    /// Number of validators which formed super-majority for assurance.
-    pub popularity: u64,
 }
 
 /// Represents statistics.

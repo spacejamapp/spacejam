@@ -135,17 +135,18 @@ pub fn simulate<V: Vm>(
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
-        let mut ready_queue = state.queue.clone();
-        let mut accumulated = state.history.clone();
-        guarantee::accumulate::<V>(
+        let (root, ready_queue, accumulated_queue) = guarantee::accumulate::<V>(
             block.header.slot,
             state.timeslot,
             available,
-            &mut ready_queue,
-            &mut accumulated,
+            &state.queue,
+            &state.history,
             &state.privileges,
             storage,
-        )?
+        )?;
+        state.queue = ready_queue;
+        state.history = accumulated_queue;
+        root
     };
 
     // Round 4 computation

@@ -13,7 +13,7 @@ pub fn accumulatable(
     reports: Vec<WorkReport>,
     ready_queue: &ReadyQueue,
     accumulated_queue: &AccumulatedQueue,
-) -> Vec<WorkReport> {
+) -> (Vec<WorkReport>, Vec<ReadyReport>) {
     let accd = accumulated_queue
         .iter()
         .flatten()
@@ -32,18 +32,21 @@ pub fn accumulatable(
 
     // (W_Q) work reports to be queued for accumulation
     let accq: Vec<ReadyReport> = self::pairing(accq, &accd);
-    let mid = (slot % crate::EPOCH_LENGTH) as usize;
+    let idx = (slot % crate::EPOCH_LENGTH) as usize;
 
     // extract the work package hashes
-    self::priority(self::edit(
-        [
-            ready_queue[mid..].iter().flatten().cloned().collect(),
-            ready_queue[..mid].iter().flatten().cloned().collect(),
-            accq,
-        ]
-        .concat(),
-        &self::mapping(&acci),
-    ))
+    (
+        self::priority(self::edit(
+            [
+                ready_queue[idx..].iter().flatten().cloned().collect(),
+                ready_queue[..idx].iter().flatten().cloned().collect(),
+                accq.clone(),
+            ]
+            .concat(),
+            &self::mapping(&acci),
+        )),
+        accq,
+    )
 }
 
 /// (D) pairing work reports with their dependencies
@@ -72,7 +75,7 @@ fn pairing(accq: Vec<WorkReport>, accd: &[OpaqueHash]) -> Vec<ReadyReport> {
 /// (E) queue-editing function
 ///
 /// Removes the accumulated dependencies from the accumulated queue
-fn edit(accq: Vec<ReadyReport>, accd: &[OpaqueHash]) -> Vec<ReadyReport> {
+pub fn edit(accq: Vec<ReadyReport>, accd: &[OpaqueHash]) -> Vec<ReadyReport> {
     accq.into_iter()
         .filter_map(|report| {
             // Skip if the report's segment hash is already accumulated
