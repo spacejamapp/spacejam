@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     block::History,
-    runtime::{Storage, Validator},
+    runtime::{vm::Vm, Storage, Validator},
     state::{account, key},
     Block, OpaqueHash,
 };
@@ -18,13 +18,17 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit(mut block: Block, storage: &impl Storage, validator: &impl Validator) -> Result<()> {
-    let diff = self::simulate(&mut block, storage, validator)?;
+pub fn transit<V: Vm>(
+    mut block: Block,
+    storage: &impl Storage,
+    validator: &impl Validator,
+) -> Result<()> {
+    let diff = self::simulate::<V>(&mut block, storage, validator)?;
     storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
 }
 
 /// Simulate state transition with new block
-pub fn simulate(
+pub fn simulate<V: Vm>(
     block: &mut Block,
     storage: &impl Storage,
     validator: &impl Validator,
@@ -133,7 +137,7 @@ pub fn simulate(
         // (..., C) Accumulate the available work reports
         let mut ready_queue = state.queue.clone();
         let mut accumulated = state.history.clone();
-        guarantee::accumulate(
+        guarantee::accumulate::<V>(
             block.header.slot,
             state.timeslot,
             available,

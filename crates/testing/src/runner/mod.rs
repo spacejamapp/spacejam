@@ -33,7 +33,7 @@ impl Runner {
 
                 let mut ready_queue = input.pre_state.ready_queue.clone();
                 let mut accumulated = input.pre_state.accumulated.clone();
-                let _ = guarantee::accumulate(
+                let _ = guarantee::accumulate::<()>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,

@@ -1,13 +1,13 @@
 //! Execution of work reports
 
 use crate::{
-    runtime::Storage,
+    runtime::{vm::Vm, Storage},
     service::{Privileges, WorkReport},
     Gas,
 };
 
 /// (Δ+) outer accumulation
-pub fn exec(
+pub fn exec<V: Vm>(
     _gas_limit: Gas,
     _reports: Vec<WorkReport>,
     _accounts: &impl Storage,

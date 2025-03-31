@@ -26,6 +26,7 @@ pub struct TestConfig;
 impl Config for TestConfig {
     type Storage = MemoryDb;
     type Validator = TestValidator;
+    type Vm = ();
 }
 
 /// The testing validators

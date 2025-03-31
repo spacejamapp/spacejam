@@ -4,6 +4,7 @@ use author::Author;
 use importer::Importer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use vm::Vm;
 pub use {
     grandpa::{Grandpa, Handshake, Head},
     pool::Pool,
@@ -65,9 +66,13 @@ pub trait Config: Send + Sync + 'static {
 
     /// The validator of the runtime
     type Validator: Validator + Send + Sync + 'static;
+
+    /// The virtual machine of the runtime
+    type Vm: Vm + Send + Sync + 'static;
 }
 
 impl Config for () {
     type Storage = storage::MemoryDb;
     type Validator = crypto::ed25519::KeyPair;
+    type Vm = ();
 }

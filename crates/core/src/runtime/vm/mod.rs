@@ -68,6 +68,7 @@ pub struct Operand {
 }
 
 /// The accumulate result of (ΨA)
+#[derive(Default)]
 pub struct AccumulateResult {
     /// (o) The state context
     pub context: StateContext,
@@ -80,4 +81,16 @@ pub struct AccumulateResult {
 
     /// (u) The gas used
     pub gas: Gas,
+}
+
+impl Vm for () {
+    fn accumulate(
+        _context: StateContext,
+        _slot: TimeSlot,
+        _service_id: ServiceId,
+        _gas_limit: Gas,
+        _operands: Vec<Operand>,
+    ) -> anyhow::Result<AccumulateResult> {
+        Ok(AccumulateResult::default())
+    }
 }

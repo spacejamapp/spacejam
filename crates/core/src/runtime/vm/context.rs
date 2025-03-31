@@ -8,6 +8,7 @@ use crate::{
 use std::collections::BTreeMap;
 
 /// The state context for accumulation
+#[derive(Default)]
 pub struct StateContext {
     /// d (δ) The accounts
     pub accounts: BTreeMap<u32, ServiceAccount>,

@@ -2,7 +2,7 @@
 
 use crate::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    runtime::Storage,
+    runtime::{vm::Vm, Storage},
     safrole::ValidatorData,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
@@ -25,7 +25,7 @@ mod queue;
 mod state;
 
 /// (b) Accumulate the available work reports
-pub fn accumulate(
+pub fn accumulate<V: Vm>(
     // The next timeslot (τ')
     slot: TimeSlot,
     // The prior timeslot (τ)
@@ -45,7 +45,7 @@ pub fn accumulate(
     let accumulatable = queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
     // (Δ+) run outer accumulation
-    exec::exec(Default::default(), accumulatable, accounts, privileges);
+    exec::exec::<V>(Default::default(), accumulatable, accounts, privileges);
 
     Ok(Default::default())
 }
