@@ -66,14 +66,6 @@ impl Interpreter {
             }
 
             // update the program counter on stepping successfully.
-            /*       tracing::trace!(
-                "register: {:#?}",
-                self.registers
-                    .iter()
-                    .enumerate()
-                    .map(|(i, r)| format!("r{:2}: 0x{:016x}", i, r))
-                    .collect::<Vec<_>>()
-            ); */
             self.pc = reader.position;
 
             // if there is a jump target, update the reader position

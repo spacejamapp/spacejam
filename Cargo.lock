@@ -1967,6 +1967,8 @@ name = "pvm"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "jamcodec",
+ "pvm-parser",
  "spacejam-core",
  "tracing-subscriber",
 ]

@@ -82,6 +82,14 @@ pub const GAS_REFINE: u64 = 5_000_000_000;
 /// should be no smaller than G_A * C + ∑ privileges
 pub const GAS_ALL_ACC: u64 = 3_500_000_000;
 
+/// The size of the program init data
+///
+/// 2^24 = 16_777_216 bytes
+pub const PROGRAM_INIT_DATA_SIZE: usize = 16_777_216;
+
+/// (W_G) The size of a segment in octets
+pub const SEGMENT_SIZE: usize = 4104;
+
 // Singing Contexts
 
 /// The signing context for the jam available key

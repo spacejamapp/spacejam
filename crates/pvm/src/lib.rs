@@ -1,8 +1,13 @@
 //! PolkaVM implementation
 
-pub use invocation::Invocation;
+pub use {
+    invocation::Invocation,
+    result::{Reason, Result, State},
+};
 
 mod invocation;
+pub mod program;
+mod result;
 
 /// The PVM interface
 pub trait Pvm: Invocation {}
