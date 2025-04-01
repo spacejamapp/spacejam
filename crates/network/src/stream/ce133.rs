@@ -20,7 +20,7 @@ pub async fn send(
 }
 
 /// Receive a work package submission.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     send: SendStream,
     recv: RecvStream,
     runtime: Network<C>,

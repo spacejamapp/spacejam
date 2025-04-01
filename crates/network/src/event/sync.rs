@@ -2,11 +2,8 @@
 
 use crate::{stream::ce128, Network};
 use quinn::RecvStream;
-use score::{
-    block::Header,
-    runtime::{storage::SyncStorage, Head},
-    Block, OpaqueHash, TimeSlot,
-};
+use runtime::{storage::SyncStorage, Head};
+use score::{block::Header, Block, OpaqueHash, TimeSlot};
 
 /// Select the best chain.
 ///
@@ -19,7 +16,7 @@ use score::{
     parent = None,
     fields(slot = ?slot)
 )]
-pub async fn select_best_chain<C: score::runtime::Config>(
+pub async fn select_best_chain<C: runtime::Config>(
     runtime: Network<C>,
     slot: TimeSlot,
 ) -> anyhow::Result<()> {
@@ -48,7 +45,7 @@ pub async fn select_best_chain<C: score::runtime::Config>(
 
 /// Finalize blocks from the local chain.
 #[tracing::instrument(skip_all, name = "local")]
-async fn finalize_local<C: score::runtime::Config>(
+async fn finalize_local<C: runtime::Config>(
     runtime: &Network<C>,
     best: Block,
     mut ancestors: Vec<(OpaqueHash, Header)>,
@@ -87,7 +84,7 @@ async fn finalize_local<C: score::runtime::Config>(
 }
 
 /// An block sync requester.
-pub struct BlockSync<'r, C: score::runtime::Config> {
+pub struct BlockSync<'r, C: runtime::Config> {
     /// The best head of the sync.
     best: Head,
 
@@ -98,7 +95,7 @@ pub struct BlockSync<'r, C: score::runtime::Config> {
     runtime: &'r Network<C>,
 }
 
-impl<'r, C: score::runtime::Config> BlockSync<'r, C> {
+impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// Create a new block sync requester.
     pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
         let grandpa = runtime.grandpa.read().await.clone();

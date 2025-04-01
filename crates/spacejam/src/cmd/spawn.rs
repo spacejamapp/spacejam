@@ -20,7 +20,7 @@ impl Spawn {
     /// Run the command
     pub async fn run<C>(&self) -> anyhow::Result<()>
     where
-        C: score::runtime::Config,
+        C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Validator: TryFrom<String>,
     {

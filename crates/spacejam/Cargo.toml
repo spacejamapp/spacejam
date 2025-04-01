@@ -20,6 +20,7 @@ metrics = { workspace = true, optional = true }
 network.workspace = true
 rocksdb = { workspace = true, optional = true }
 rand.workspace = true
+runtime.workspace = true
 score = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }

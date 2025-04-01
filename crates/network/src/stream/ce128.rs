@@ -2,7 +2,8 @@
 
 use crate::{Connection, Network};
 use quinn::{RecvStream, SendStream};
-use score::{runtime::storage::SyncStorage, Block, OpaqueHash};
+use runtime::storage::SyncStorage;
+use score::{Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -23,7 +24,7 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStr
 
 /// Receive a block request.
 #[tracing::instrument(skip_all, name = "ce128::recv", parent = None)]
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

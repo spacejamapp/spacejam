@@ -17,7 +17,7 @@ pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> 
 /// Receive a preimage announcement.
 ///
 /// TODO: handle the received preimage.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

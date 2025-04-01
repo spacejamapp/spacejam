@@ -1,6 +1,6 @@
 //! The runtime of SpaceJam
 
-pub use score::runtime::{Config, Storage, Validator};
+pub use runtime::{Config, Storage, Validator};
 
 pub mod cmd;
 mod node;

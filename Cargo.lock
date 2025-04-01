@@ -1966,7 +1966,8 @@ dependencies = [
 name = "pvm"
 version = "0.0.0"
 dependencies = [
- "pvmi",
+ "anyhow",
+ "spacejam-core",
  "tracing-subscriber",
 ]
 
@@ -2221,6 +2222,23 @@ checksum = "6bd13e55d6d7b8cd0ea569161127567cd587676c99f4472f779a0279aa60a7a7"
 dependencies = [
  "libc",
  "librocksdb-sys",
+]
+
+[[package]]
+name = "runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "jamcodec",
+ "pvm",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejson",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2566,6 +2584,7 @@ dependencies = [
  "jamcodec",
  "rand",
  "rocksdb",
+ "runtime",
  "serde",
  "serde_json",
  "sled",
@@ -2645,6 +2664,7 @@ dependencies = [
  "jamcodec",
  "quinn",
  "rcgen",
+ "runtime",
  "rustls",
  "rustls-webpki",
  "serde",
@@ -2668,6 +2688,7 @@ dependencies = [
  "proc-macro2",
  "pvmi",
  "quote",
+ "runtime",
  "serde",
  "serde_json",
  "spacejam",

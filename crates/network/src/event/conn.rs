@@ -5,11 +5,11 @@ use crate::{
     stream, Address, Network,
 };
 use quinn::VarInt;
-use score::runtime::Validator;
+use runtime::Validator;
 
 /// Handle the connected event.
 #[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
-pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Connection) {
+pub async fn connected<C: runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 
     // 1. establish the connection in the metrics
@@ -52,7 +52,7 @@ pub async fn connected<C: score::runtime::Config>(runtime: Network<C>, conn: Con
 
 /// Handle the closed event.
 #[tracing::instrument(skip_all, name = "close", fields(peer = peer.to_string()))]
-pub async fn closed<C: score::runtime::Config>(
+pub async fn closed<C: runtime::Config>(
     runtime: Network<C>,
     peer: PeerId,
     reason: String,
@@ -84,7 +84,7 @@ pub async fn closed<C: score::runtime::Config>(
 }
 
 /// Serve a connection.
-async fn serve<C: score::runtime::Config>(conn: Connection, runtime: Network<C>) {
+async fn serve<C: runtime::Config>(conn: Connection, runtime: Network<C>) {
     // TODO: use limited threads to serve the connection
 
     while let Ok((send, recv)) = conn.accept_bi().await {

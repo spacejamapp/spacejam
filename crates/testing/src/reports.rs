@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use score::runtime::tx::guarantee::{
+use runtime::tx::guarantee::{
     error::{Error, Result},
     State, StateJson,
 };

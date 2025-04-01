@@ -1,7 +1,8 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
 use anyhow::Result;
-use score::{block::History, runtime::tx};
+use runtime::tx;
+use score::block::History;
 use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
 use storage::StorageExt;

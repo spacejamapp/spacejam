@@ -4,7 +4,8 @@ use crate::{peer::PeerId, stream::ce131, Network};
 pub use ce131::Request;
 use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
-use score::{block, extrinsic::TicketEnvelope, runtime::Storage, Ed25519Public};
+use runtime::Storage;
+use score::{block, extrinsic::TicketEnvelope, Ed25519Public};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -27,7 +28,7 @@ pub async fn send(
 
 /// Receive a safrole ticket distribution.
 #[tracing::instrument(skip_all, name = "ce132::recv", parent = None)]
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

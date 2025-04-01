@@ -4,12 +4,11 @@ pub use {block::Block, extrinsic::Extrinsic, state::State};
 
 pub mod block;
 pub mod extrinsic;
-pub mod runtime;
 pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod testing;
+pub mod vm;
 
 /// The count of validators
 pub const VALIDATORS_COUNT: u16 = 6;

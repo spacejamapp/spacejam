@@ -1,11 +1,11 @@
 #![cfg(test)]
 
 use core::result::Result;
+use runtime::tx::dispute::error::Error;
 use score::{
     extrinsic::dispute::{
         DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
     },
-    runtime::tx::dispute::error::Error,
     safrole::{ValidatorDataJson, ValidatorsData},
     service::{AvailabilityAssignmentJson, AvailabilityAssignments},
     Ed25519Public, TimeSlot,

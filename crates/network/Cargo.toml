@@ -15,6 +15,7 @@ quinn.workspace = true
 rcgen = { workspace = true, features = ["x509-parser"] }
 rustls.workspace = true
 rustls-webpki.workspace = true
+runtime.workspace = true
 score.workspace = true
 serde.workspace = true
 tokio.workspace = true

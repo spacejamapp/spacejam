@@ -15,7 +15,7 @@ pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> 
 }
 
 /// Receive a shard distribution.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

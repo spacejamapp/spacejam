@@ -1,13 +1,11 @@
 //! logging utilities
 
 use network::Network;
-use score::{
-    block,
-    runtime::{Storage, Validator},
-};
+use runtime::{Storage, Validator};
+use score::block;
 
 /// Logging the initial status of the node
-pub async fn init<C: score::runtime::Config>(runtime: &Network<C>) {
+pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
     let grandpa = runtime.grandpa.read().await;
     tracing::info!(
         "The latest finalized head #{}: 0x{}",
@@ -17,7 +15,7 @@ pub async fn init<C: score::runtime::Config>(runtime: &Network<C>) {
 }
 
 /// Logging the current status of the node
-pub async fn current<C: score::runtime::Config>(runtime: &Network<C>) {
+pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     // TODO: handle this gracefully
     let validators = runtime
         .storage

@@ -1,0 +1,17 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+codec.workspace = true
+crypto.workspace = true
+hex.workspace = true
+pvm.workspace = true
+score.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+spacejson.workspace = true
+serde_json.workspace = true
