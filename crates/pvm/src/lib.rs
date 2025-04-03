@@ -2,7 +2,7 @@
 
 pub use {
     invocation::Invocation,
-    result::{Reason, Result, State},
+    result::{Executed, Reason, Received, Refined, State, Stepped, Transfered},
 };
 
 mod invocation;

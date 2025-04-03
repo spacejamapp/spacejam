@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{program, Reason, State};
+use crate::{program, Executed, Reason, Received, Refined, State, Stepped, Transfered};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -24,7 +24,7 @@ pub trait Invocation {
         registers: [u64; 13],
         // (µ) the memory
         memory: Vec<u32>,
-    ) -> (Reason, State) {
+    ) -> Stepped<()> {
         let mut state = State {
             pc,
             gas: gas as i64,
@@ -35,12 +35,16 @@ pub trait Invocation {
         // deblob the program
         let (instructions, bitmask, jump) = match program::deblob(blob) {
             Ok(program) => program,
-            Err(e) => return (Reason::Panic(e.to_string()), state),
+            Err(e) => return Stepped::new(Reason::Panic(e.to_string()), state),
         };
 
         // stepping instructions
         loop {
-            let (reason, next) = Self::step(
+            let Stepped {
+                reason,
+                state: next,
+                data: _,
+            } = Self::step(
                 &instructions,
                 &bitmask,
                 &jump,
@@ -52,7 +56,7 @@ pub trait Invocation {
 
             // out of gas
             if state.gas < 0 {
-                return (Reason::OOG, state);
+                return Stepped::new(Reason::OOG, state);
             }
 
             // handle the exit reason
@@ -67,7 +71,7 @@ pub trait Invocation {
                 _ => {}
             };
 
-            return (reason, state);
+            return Stepped::new(reason, state);
         }
     }
 
@@ -89,7 +93,7 @@ pub trait Invocation {
         _registers: [u64; 13],
         // (µ) The memory
         _memory: Vec<u32>,
-    ) -> (Reason, State);
+    ) -> Stepped<()>;
 
     /// (ΨH): host call invocation
     ///
@@ -105,26 +109,32 @@ pub trait Invocation {
         _registers: [u64; 13],
         // (µ) The memory
         _memory: Vec<u32>,
-        // Ω⟨X⟩ the host function
+        // (f) the host function
         _function: impl FnOnce(X) -> (Reason, State, X),
-        // X the host function input data
+        // (x) the host function input data
         _input: X,
-    ) -> (Reason, State, X) {
-        (Reason::Halt, State::default(), X::default())
+    ) -> Stepped<X> {
+        Stepped::new(Reason::Halt, State::default())
     }
 
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
     fn argument<X: Default>(
+        // (p) The program blob
         _blob: &[u8],
+        // (ı) The current program counter
         _pc: u64,
+        // (ϱ) The gas
         _gas: u64,
+        // (a) The input data
         _input: &[u8],
+        // (f) the host function
         _fun: impl FnOnce(X) -> (Reason, State, X),
+        // (x) the host function input data
         _args: X,
-    ) -> (Gas, (Vec<u8>, Reason, X)) {
-        (0, (Vec::new(), Reason::Halt, X::default()))
+    ) -> Received<X> {
+        Received::new(0, Vec::new(), Reason::Halt)
     }
 
     /// (ΨI): The Is-Authorized invocation
@@ -135,8 +145,8 @@ pub trait Invocation {
         _package: WorkPackage,
         // (i) The core index
         _core_idx: usize,
-    ) -> ((Vec<u8>, WorkExecResult), Gas) {
-        ((Vec::new(), WorkExecResult::Panic), 0)
+    ) -> Executed {
+        Executed::new(Vec::new(), WorkExecResult::Panic, 0)
     }
 
     // TODO: complete the signature
@@ -154,12 +164,11 @@ pub trait Invocation {
         _imports: Vec<Vec<[u8; score::SEGMENT_SIZE]>>,
         // (ς) export segment offset
         _export_offset: usize,
-    ) -> (
-        (Vec<u8>, WorkExecResult),
-        Vec<[u8; score::SEGMENT_SIZE]>,
-        Gas,
-    ) {
-        ((Vec::new(), WorkExecResult::Panic), Vec::new(), 0)
+    ) -> Refined {
+        Refined::new(
+            Executed::new(Vec::new(), WorkExecResult::Panic, 0),
+            Vec::new(),
+        )
     }
 
     /// (ΨA): Accumulation invocation
@@ -192,8 +201,8 @@ pub trait Invocation {
         _service_id: ServiceId,
         // (T)  the deferred transfers
         _transfers: &[DeferredTransfer],
-    ) -> (ServiceAccount, Gas) {
-        (ServiceAccount::default(), 0)
+    ) -> Transfered {
+        Transfered::default()
     }
 }
 
@@ -206,7 +215,7 @@ impl Invocation for () {
         _gas: Gas,
         _registers: [u64; 13],
         _memory: Vec<u32>,
-    ) -> (Reason, State) {
-        (Reason::Continue, State::default())
+    ) -> Stepped<()> {
+        Stepped::new(Reason::Continue, State::default())
     }
 }

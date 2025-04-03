@@ -1,7 +1,9 @@
 //! PVM execution result
 
-/// The result type for the PVM invocation.
-pub type Result<T> = std::result::Result<T, Reason>;
+use score::{
+    service::{ServiceAccount, WorkExecResult},
+    Gas,
+};
 
 /// The program exit reason.
 ///
@@ -40,4 +42,118 @@ pub struct State {
 
     /// (µ') The memory.
     pub memory: Vec<u32>,
+}
+
+/// The result of step invocation (Ψ1)
+pub struct Stepped<X> {
+    /// (ε) the reason for exiting
+    pub reason: Reason,
+
+    /// (U) The newly updated state
+    pub state: State,
+
+    /// (X) the data
+    pub data: X,
+}
+
+impl<X: Default> Stepped<X> {
+    /// Create a new stepped result
+    pub fn new(reason: Reason, state: State) -> Self {
+        Self {
+            reason,
+            state,
+            data: X::default(),
+        }
+    }
+
+    /// Create a new stepped result with the given data
+    pub fn with(self, data: X) -> Self {
+        Self {
+            reason: self.reason,
+            state: self.state,
+            data,
+        }
+    }
+}
+
+/// The received data from (ΨM)
+pub struct Received<X: Default> {
+    /// The gas we used
+    pub gas: Gas,
+
+    /// The output
+    pub output: Vec<u8>,
+
+    /// program exit-reason
+    pub reason: Reason,
+
+    /// The data we got
+    pub data: X,
+}
+
+impl<X: Default> Received<X> {
+    /// Create a new received result
+    pub fn new(gas: Gas, output: Vec<u8>, reason: Reason) -> Self {
+        Self {
+            gas,
+            output,
+            reason,
+            data: X::default(),
+        }
+    }
+
+    /// Create a new extracted result with the given data
+    pub fn with(self, data: X) -> Self {
+        Self {
+            gas: self.gas,
+            output: self.output,
+            reason: self.reason,
+            data,
+        }
+    }
+}
+
+/// The result of is-authorized invocation (ΨI)
+pub struct Executed {
+    /// The output
+    pub data: Vec<u8>,
+
+    /// The reason
+    pub exec: WorkExecResult,
+
+    /// The gas used
+    pub gas: Gas,
+}
+
+impl Executed {
+    /// Create a new executed result
+    pub fn new(data: Vec<u8>, exec: WorkExecResult, gas: Gas) -> Self {
+        Self { data, exec, gas }
+    }
+}
+
+/// The result of refine invocation (ΨR)
+pub struct Refined {
+    /// The executed result
+    pub executed: Executed,
+
+    /// The imports
+    pub segments: Vec<[u8; score::SEGMENT_SIZE]>,
+}
+
+impl Refined {
+    /// Create a new refined result
+    pub fn new(executed: Executed, segments: Vec<[u8; score::SEGMENT_SIZE]>) -> Self {
+        Self { executed, segments }
+    }
+}
+
+/// The result of transfer invocation (ΨT)
+#[derive(Default)]
+pub struct Transfered {
+    /// The account
+    pub account: ServiceAccount,
+
+    /// The gas used
+    pub gas: Gas,
 }
