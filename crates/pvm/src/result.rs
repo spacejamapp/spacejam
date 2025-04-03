@@ -1,5 +1,9 @@
 //! PVM execution result
 
+use core::fmt;
+use std::fmt::Display;
+
+use crate::Memory;
 use score::{
     service::{ServiceAccount, WorkExecResult},
     Gas,
@@ -22,10 +26,27 @@ pub enum Reason {
     OOG,
 
     /// The invocation completed with a page fault.
-    Fault(u64),
+    Fault(u32),
 
     /// The status is unknown.
-    HostCall(u64),
+    HostCall(u32),
+}
+
+impl Display for Reason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Reason::Continue => "continue".to_string(),
+                Reason::Halt => "halt".to_string(),
+                Reason::Panic(_) => "panic".to_string(),
+                Reason::OOG => "OOG".to_string(),
+                Reason::Fault(addr) => format!("page-fault({addr})"),
+                Reason::HostCall(addr) => format!("host-call({addr})"),
+            }
+        )
+    }
 }
 
 /// The execution state of programs.
@@ -41,7 +62,7 @@ pub struct State {
     pub registers: [u64; 13],
 
     /// (µ') The memory.
-    pub memory: Vec<u8>,
+    pub memory: Memory,
 }
 
 /// The result of step invocation (Ψ1)

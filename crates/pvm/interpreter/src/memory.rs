@@ -144,6 +144,48 @@ impl Memory {
     }
 }
 
+impl From<pvm::Memory> for Memory {
+    fn from(value: pvm::Memory) -> Self {
+        let mut memory = Memory::default();
+        let mut pages = BTreeMap::new();
+        for (i, page) in value.value.chunks(PAGE_SIZE as usize).enumerate() {
+            let access = value.access[i];
+            pages.insert(
+                i as u32,
+                Page {
+                    data: page.to_vec().into(),
+                    access: match access {
+                        Some(access) => match access {
+                            pvm::Access::Mutable => Access::Mutable,
+                            pvm::Access::Immutable => Access::Immutable,
+                        },
+                        None => Access::Inaccessible,
+                    },
+                },
+            );
+        }
+        memory.pages = pages;
+        memory
+    }
+}
+
+impl Into<pvm::Memory> for Memory {
+    fn into(self) -> pvm::Memory {
+        let mut memory = pvm::Memory::default();
+        for (_, (i, page)) in self.pages.iter().enumerate() {
+            let i = *i as usize;
+            memory.value[PAGE_SIZE as usize * i..PAGE_SIZE as usize * (i + 1)]
+                .copy_from_slice(&page.data);
+            memory.access[i] = match page.access {
+                Access::Mutable => Some(pvm::Access::Mutable),
+                Access::Immutable => Some(pvm::Access::Immutable),
+                Access::Inaccessible => None,
+            };
+        }
+        memory
+    }
+}
+
 /// A memory page.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {

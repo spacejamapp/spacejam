@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{program, Executed, Reason, Received, Refined, State, Stepped, Transfered};
+use crate::{program, Executed, Memory, Reason, Received, Refined, State, Stepped, Transfered};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -23,7 +23,7 @@ pub trait Invocation {
         // (ω) the registers
         registers: [u64; 13],
         // (µ) the memory
-        memory: Vec<u8>,
+        memory: Memory,
     ) -> Stepped<()> {
         let mut state = State {
             pc,
@@ -55,11 +55,12 @@ pub trait Invocation {
             );
 
             // out of gas
-            if state.gas < 0 {
+            if next.gas < 0 {
                 return Stepped::new(Reason::OOG, state);
             }
 
             // handle the exit reason
+            tracing::trace!("reason: {}", reason);
             match reason {
                 // no exit reason, continue
                 Reason::Continue => {
@@ -92,7 +93,7 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Vec<u8>,
+        _memory: Memory,
     ) -> Stepped<()>;
 
     /// (ΨH): host call invocation
@@ -108,7 +109,7 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Vec<u8>,
+        _memory: Memory,
         // (f) the host function
         _function: impl FnOnce(X) -> (Reason, State, X),
         // (x) the host function input data
@@ -214,8 +215,8 @@ impl Invocation for () {
         _pc: u64,
         _gas: Gas,
         _registers: [u64; 13],
-        _memory: Vec<u8>,
+        _memory: Memory,
     ) -> Stepped<()> {
-        Stepped::new(Reason::Continue, State::default())
+        Stepped::new(Reason::Panic("unimplemented".to_string()), State::default())
     }
 }

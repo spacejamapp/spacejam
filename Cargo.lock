@@ -1970,6 +1970,7 @@ dependencies = [
  "jamcodec",
  "pvm-parser",
  "spacejam-core",
+ "tracing",
  "tracing-subscriber",
 ]
 
@@ -2689,6 +2690,7 @@ dependencies = [
  "jamcodec",
  "paste",
  "proc-macro2",
+ "pvm",
  "pvmi",
  "quote",
  "runtime",

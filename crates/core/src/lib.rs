@@ -85,10 +85,19 @@ pub const GAS_ALL_ACC: u64 = 3_500_000_000;
 /// The size of the program init data
 ///
 /// 2^24 = 16_777_216 bytes
-pub const PROGRAM_INIT_DATA_SIZE: usize = 16_777_216;
+pub const PROGRAM_INIT_DATA_SIZE: usize = 1 << 24;
 
 /// (W_G) The size of a segment in octets
 pub const SEGMENT_SIZE: usize = 4104;
+
+/// (Z_P) The size of a page in octets (2^12)
+pub const PAGE_SIZE: usize = 1 << 12;
+
+/// The length of pages, p = 2^32 / 2^12
+pub const PAGE_LENGTH: usize = 1 << 20;
+
+/// The size of the PVM memory
+pub const PVM_MEMORY_SIZE: usize = 1 << 32;
 
 // Singing Contexts
 

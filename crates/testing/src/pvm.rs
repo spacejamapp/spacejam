@@ -20,7 +20,7 @@ pub struct TestInput {
     #[serde(alias = "initial-memory")]
     pub initial_memory: Vec<Memory>,
     #[serde(alias = "initial-gas")]
-    pub initial_gas: u32,
+    pub initial_gas: u64,
     #[serde(alias = "initial-page-map")]
     pub initial_page_map: Vec<Page>,
     /// The program to run.
@@ -38,7 +38,7 @@ pub struct TestOutput {
     #[serde(alias = "expected-memory")]
     pub expected_memory: Vec<Memory>,
     #[serde(alias = "expected-gas")]
-    pub expected_gas: u32,
+    pub expected_gas: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -9,6 +9,7 @@ codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
 paste.workspace = true
+pvm.workspace = true
 pvmi.workspace = true
 runtime.workspace = true
 spacejam.workspace = true

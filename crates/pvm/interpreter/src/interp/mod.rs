@@ -8,8 +8,8 @@
 
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
-use pvm::{Gas, Invocation, Reason, State, Stepped};
-use pvm_parser::{program::JumpTable, Instruction, ProgramBlob, Visitor};
+use pvm::{Gas, Invocation, Reason, Stepped};
+use pvm_parser::{program::JumpTable, Instruction, Opcode, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;
@@ -24,7 +24,7 @@ pub struct Interpreter {
     pub registers: [Register; 13],
 
     /// The gas limit of the interpreter.
-    pub gas: u32,
+    pub gas: u64,
 
     /// The status of the execution.
     pub status: Status,
@@ -151,20 +151,65 @@ impl Invocation for Interpreter {
     /// Step the instruction.
     fn step(
         // (c) The instruction data
-        _instructions: &[u8],
+        instructions: &[u8],
         // (k) The bitmap of the instruction data
-        _bitmask: &[u8],
+        bitmask: &[u8],
         // (j) The jump table
         _jump: &[u64],
         // (ı) The current program counter
-        _pc: u64,
+        pc: u64,
         // (ϱ) The gas
-        _gas: Gas,
+        gas: Gas,
         // (ω) The registers
-        _registers: [u64; 13],
+        registers: [u64; 13],
         // (µ) The memory
-        _memory: Vec<u8>,
+        memory: pvm::Memory,
     ) -> Stepped<()> {
-        Stepped::new(Reason::Continue, State::default())
+        let pc = pc as usize;
+        let distance = pvm::program::skip(pc, bitmask);
+        let opcode = Opcode::try_from(instructions[pc]).unwrap();
+        let instruction = opcode.instr(&instructions[pc + 1..pc + distance]);
+        let mut pvmi = Interpreter::default()
+            .gas(gas)
+            .registers(registers)
+            .memory(memory.into())
+            .pc(pc);
+
+        let stepped = pvmi.visit(instruction);
+        let mut state = pvm::State {
+            memory: pvmi.memory.clone().into(),
+            registers,
+            gas: gas as i64,
+            pc: pc as u64,
+        };
+
+        // perform jump if there is a jump target.
+        if let Some(pos) = pvmi.jump.take() {
+            state.pc = pos as u64;
+        }
+
+        let reason = match stepped {
+            Ok(_) => Reason::Continue,
+            Err(e) => {
+                pvmi.gas -= e.extra_gas();
+                match e {
+                    crate::Error::OOG => Reason::OOG,
+                    crate::Error::Terminate => Reason::Panic("terminate".to_string()),
+                    crate::Error::Trap(true) => Reason::Panic("trap".to_string()),
+                    crate::Error::Trap(false) => Reason::Panic("trap".to_string()),
+                    crate::Error::InvalidDynamicJump => {
+                        Reason::Panic("invalid dynamic jump".to_string())
+                    }
+                    crate::Error::MemoryInaccessible(_) => {
+                        Reason::Panic("memory inaccessible".to_string())
+                    }
+                    crate::Error::MemoryImmutable(_) => {
+                        Reason::Panic("memory immutable".to_string())
+                    }
+                }
+            }
+        };
+
+        Stepped::new(reason, state)
     }
 }

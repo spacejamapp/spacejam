@@ -26,7 +26,7 @@ pub enum Error {
 
 impl Error {
     /// Get the extra gas for the error.
-    pub fn extra_gas(&self) -> u32 {
+    pub fn extra_gas(&self) -> u64 {
         match self {
             Error::MemoryInaccessible(_) => 1,
             Error::MemoryImmutable(_) => 1,

@@ -16,7 +16,7 @@ impl Interpreter {
     }
 
     /// Set the gas of the interpreter.
-    pub fn gas(mut self, value: u32) -> Self {
+    pub fn gas(mut self, value: u64) -> Self {
         self.gas = value;
         self
     }
