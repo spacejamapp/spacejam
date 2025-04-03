@@ -26,4 +26,10 @@ impl Interpreter {
         self.pc = value;
         self
     }
+
+    /// Set the jump table of the interpreter.
+    pub fn table(mut self, value: Vec<u64>) -> Self {
+        self.table = value;
+        self
+    }
 }

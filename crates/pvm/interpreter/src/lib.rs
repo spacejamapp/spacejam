@@ -9,12 +9,11 @@
 mod interp;
 pub mod memory;
 mod result;
-mod status;
+mod pvmi;
 
 pub use pvm_parser::Register;
 pub use {
     interp::Interpreter,
     memory::{Access, Memory, Page, PAGE_SIZE},
     result::{Error, Result},
-    status::Status,
 };

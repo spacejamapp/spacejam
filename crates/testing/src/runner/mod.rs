@@ -282,7 +282,7 @@ impl Runner {
                     .collect::<Vec<_>>();
 
                 assert_eq!(interpreter.pc, output.expected_pc);
-                assert_eq!(interpreter.status.to_string(), output.expected_status);
+                assert_eq!(interpreter.reason.to_string(), output.expected_status);
                 assert_eq!(interpreter.registers.to_vec(), output.expected_regs);
                 assert_eq!(interpreter.gas, output.expected_gas);
                 assert_eq!(expected_memory, output.expected_memory);
@@ -300,7 +300,19 @@ impl Runner {
                 assert_eq!(result.state.pc, output.expected_pc as u64);
                 assert_eq!(result.state.registers.to_vec(), output.expected_regs);
                 assert_eq!(result.state.gas as u64, output.expected_gas);
-                // assert_eq!(result.state.memory.to_data_maps(), expected_memory);
+                assert_eq!(
+                    result
+                        .state
+                        .memory
+                        .to_data_maps()
+                        .iter()
+                        .map(|(k, v)| pvm::Memory {
+                            address: *k,
+                            contents: v.to_vec(),
+                        })
+                        .collect::<Vec<_>>(),
+                    output.expected_memory
+                );
             }
             _ => {}
         }

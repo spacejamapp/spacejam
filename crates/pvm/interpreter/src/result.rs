@@ -1,6 +1,6 @@
 //! Result type for the interpreter
 
-use crate::Status;
+use pvm::Reason;
 
 /// The error type for the interpreter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,16 +37,16 @@ impl Error {
     }
 }
 
-/// Convert an error to a status.
-impl From<Error> for Status {
+/// Convert an error to a reason.
+impl From<Error> for Reason {
     fn from(error: Error) -> Self {
         match error {
-            Error::MemoryInaccessible(address) => Status::Fault(address),
-            Error::MemoryImmutable(address) => Status::Fault(address),
-            Error::Terminate => Status::Halt,
-            Error::InvalidDynamicJump => Status::Panic,
-            Error::Trap(_) => Status::Panic,
-            Error::OOG => Status::Panic,
+            Error::MemoryInaccessible(address) => Reason::Fault(address),
+            Error::MemoryImmutable(address) => Reason::Fault(address),
+            Error::Terminate => Reason::Halt,
+            Error::InvalidDynamicJump => Reason::Panic("invalid dynamic jump".into()),
+            Error::Trap(_) => Reason::Panic("trap".into()),
+            Error::OOG => Reason::OOG,
         }
     }
 }

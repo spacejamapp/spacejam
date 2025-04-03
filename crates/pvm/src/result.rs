@@ -10,11 +10,8 @@ use std::fmt::Display;
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum Reason {
-    /// The program is still running.
-    Continue,
-
     /// The program has halted.
     Halt,
 
@@ -29,6 +26,17 @@ pub enum Reason {
 
     /// The status is unknown.
     HostCall(u32),
+
+    /// The program is still running.
+    #[default]
+    Continue,
+}
+
+impl Reason {
+    /// Check if the reason is a trap.
+    pub fn is_continue(&self) -> bool {
+        matches!(self, Reason::Continue)
+    }
 }
 
 impl Display for Reason {
