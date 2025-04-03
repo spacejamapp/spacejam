@@ -1,6 +1,7 @@
 //! PVM invocation interface
 
-use crate::{program, Executed, Reason, Received, Refined, State, Stepped, Transfered};
+use crate::{Executed, Reason, Received, Refined, State, Stepped, Transfered};
+use pvm_parser::util;
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -36,7 +37,7 @@ pub trait Invocation {
         };
 
         // deblob the program
-        let (instructions, bitmask, jump) = match program::deblob(blob) {
+        let (instructions, bitmask, jump) = match util::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
                 return Stepped::new(Reason::Panic(e.to_string()), state);

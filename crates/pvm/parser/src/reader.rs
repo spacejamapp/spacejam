@@ -1,6 +1,6 @@
 //! The binary reader.
 
-use crate::{instruction::Instruction, opcode::Opcode};
+use crate::{instruction::Instruction, opcode::Opcode, util};
 use anyhow::Result;
 use core::ops::Range;
 
@@ -55,55 +55,18 @@ impl<'r> Reader<'r> {
         let opcode = self.read_opcode()?;
 
         // Get skip distance to next instruction
-        let next_instr = self.next_instr(self.bitmask);
+        let distance = util::skip(self.position, self.bitmask);
+        let next = (self.position + distance).min(self.buffer.len());
 
         // Read instruction
-        let buffer = &self.buffer[self.position..next_instr];
+        let buffer = &self.buffer[self.position..next];
         let instruction = opcode.instr(buffer);
-        self.position = next_instr;
+        self.position = next;
 
         Ok(Offset {
-            range: start..next_instr,
+            range: start..next,
             value: instruction,
         })
-    }
-
-    /// Find the next instruction.
-    ///
-    /// this is actually the `skip` function defined in graypaper.
-    fn next_instr(&self, bitmask: &[u8]) -> usize {
-        let mut pc = self.position;
-        let mut next = None;
-        let mut byte_idx = pc / 8;
-
-        // search for the bit in the current byte
-        let mut search_byte = |byte: u8, start_bit: usize| {
-            for bit_idx in start_bit..8 {
-                if (byte >> bit_idx) & 1 == 1 {
-                    return Some(pc);
-                }
-                pc += 1;
-            }
-
-            None
-        };
-
-        // search for the bit in the first byte
-        let bit_idx = self.position % 8;
-        if bit_idx > 0 {
-            next = search_byte(bitmask[byte_idx], bit_idx);
-            byte_idx += 1;
-        }
-
-        // search for the bit in the rest of the bytes
-        while let (Some(byte), None) = (bitmask.get(byte_idx), next) {
-            next = search_byte(*byte, 0);
-            byte_idx += 1;
-        }
-
-        // return the next instruction position, or the end of the buffer
-        let blen = self.buffer.len();
-        next.unwrap_or(blen).min(blen)
     }
 }
 

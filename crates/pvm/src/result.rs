@@ -41,7 +41,7 @@ impl Display for Reason {
                 Reason::Halt => "halt".to_string(),
                 Reason::Panic(_) => "panic".to_string(),
                 Reason::OOG => "OOG".to_string(),
-                Reason::Fault(_) => format!("page-fault"),
+                Reason::Fault(_) => "page-fault".to_string(),
                 Reason::HostCall(addr) => format!("host-call({addr})"),
             }
         )

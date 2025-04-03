@@ -11,6 +11,7 @@ pub mod instruction;
 pub mod opcode;
 pub mod program;
 pub mod reader;
+pub mod util;
 pub mod visitor;
 
 /// The type of the registers.

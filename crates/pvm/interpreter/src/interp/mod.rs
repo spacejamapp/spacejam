@@ -170,11 +170,11 @@ impl Invocation for Interpreter {
         let mut pvmi = Interpreter::default()
             .gas(gas)
             .registers(registers)
-            .memory(memory.into())
+            .memory(memory)
             .pc(pc);
         pvmi.table = jump.to_vec();
         let mut state = pvm::State {
-            memory: pvmi.memory.clone().into(),
+            memory: pvmi.memory.clone(),
             registers,
             gas: gas as i64,
             pc: pc as u64,

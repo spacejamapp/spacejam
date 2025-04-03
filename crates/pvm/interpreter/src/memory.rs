@@ -61,7 +61,7 @@ impl Memory {
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
         if offset + V::SIZE as u32 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page as u32));
+            return Err(Error::MemoryInaccessible(page));
         }
 
         self.write_bytes(page, offset, &value.to_vec())
@@ -126,9 +126,7 @@ impl Memory {
 
     /// Get the access type of a memory slot.
     fn access(&self, page: u32) -> Result<&Page> {
-        self.pages
-            .get(&page)
-            .ok_or(Error::MemoryInaccessible(page as u32))
+        self.pages.get(&page).ok_or(Error::MemoryInaccessible(page))
     }
 
     /// Get the access type of a page.
@@ -136,9 +134,9 @@ impl Memory {
         let page = self
             .pages
             .get_mut(&pagenum)
-            .ok_or(Error::MemoryInaccessible(pagenum as u32))?;
+            .ok_or(Error::MemoryInaccessible(pagenum))?;
         if page.is_immutable() {
-            return Err(Error::MemoryImmutable(pagenum as u32));
+            return Err(Error::MemoryImmutable(pagenum));
         }
 
         Ok(page)

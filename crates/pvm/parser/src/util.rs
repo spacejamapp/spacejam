@@ -1,5 +1,6 @@
-//! Program related functions.
+//! Utility functions.
 
+use anyhow::Result;
 use codec::compact::Numeric;
 
 /// The `deblob` function.
@@ -16,7 +17,7 @@ use codec::compact::Numeric;
 ///
 /// `p` = E(∣j∣)⌢ E1(z)⌢ E(∣c∣)⌢ Ez(j)⌢ E(c)⌢ E(k), ∣k∣= ∣c∣
 #[allow(clippy::type_complexity)]
-pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>), &str> {
+pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>)> {
     let mut pos = 0;
 
     // decode the jump table length
@@ -64,7 +65,7 @@ pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>), &str> {
 
     // check that the program blob is not empty
     if instructions.is_empty() {
-        return Err("empty program blob");
+        anyhow::bail!("empty program blob");
     }
 
     // decode the bitmask
@@ -90,7 +91,7 @@ pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>), &str> {
 /// ```
 pub fn skip(pc: usize, bitmask: &[u8]) -> usize {
     let byte = pc / 8;
-    let mut distance = 1;
+    let mut distance = 0;
     let mut bit = pc % 8;
 
     // search for the next instruction
@@ -99,8 +100,9 @@ pub fn skip(pc: usize, bitmask: &[u8]) -> usize {
             if (byte >> bit_idx) & 1 == 1 {
                 return distance;
             }
+
+            distance += 1;
         }
-        distance += 1;
         bit = 0;
     }
 

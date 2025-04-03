@@ -1,8 +1,7 @@
 //! Program blob.
 
-use crate::reader::Reader;
+use crate::{reader::Reader, util};
 use anyhow::Result;
-use codec::compact::Numeric;
 use core::ops::Range;
 
 /// The code section.
@@ -44,55 +43,7 @@ impl TryFrom<&[u8]> for ProgramBlob {
     type Error = anyhow::Error;
 
     fn try_from(blob: &[u8]) -> Result<Self> {
-        let mut pos = 0;
-
-        // decode the jump table length
-        //
-        // E(|j|)
-        let (len, next) = codec::compact::decode_from(blob);
-        let jump_table_len = len as usize;
-        pos += next;
-
-        // decode the jump table entry size
-        //
-        // E₁(z)
-        let jump_table_entry_size = blob[pos] as usize;
-        pos += 1;
-
-        // decode the instruction data length
-        //
-        // E(|c|)
-        let (len, next) = codec::compact::decode_from(&blob[pos..]);
-        let instruction_len = len as usize;
-        pos += next;
-
-        // decode the jump table
-        //
-        // E_z(j)
-        let jump_table = if jump_table_entry_size > 0 {
-            let length = jump_table_len * jump_table_entry_size;
-            let table = blob[pos..pos + length].to_vec();
-            let jump = table
-                .chunks(jump_table_entry_size)
-                .map(u64::decode)
-                .collect();
-
-            pos += length;
-            jump
-        } else {
-            vec![]
-        };
-
-        // decode the instruction data
-        //
-        // E(c)
-        let instructions = blob[pos..pos + instruction_len].to_vec();
-        pos += instruction_len;
-
-        // decode the bitmask
-        //
-        // E(k)
-        let bitmask = blob[pos..].to_vec();
+        let (instructions, bitmask, jump_table) = util::deblob(blob)?;
 
         Ok(Self {
             jump_table,
