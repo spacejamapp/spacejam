@@ -41,7 +41,7 @@ pub struct State {
     pub registers: [u64; 13],
 
     /// (µ') The memory.
-    pub memory: Vec<u32>,
+    pub memory: Vec<u8>,
 }
 
 /// The result of step invocation (Ψ1)

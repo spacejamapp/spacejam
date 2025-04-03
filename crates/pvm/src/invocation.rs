@@ -23,7 +23,7 @@ pub trait Invocation {
         // (ω) the registers
         registers: [u64; 13],
         // (µ) the memory
-        memory: Vec<u32>,
+        memory: Vec<u8>,
     ) -> Stepped<()> {
         let mut state = State {
             pc,
@@ -92,7 +92,7 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Vec<u32>,
+        _memory: Vec<u8>,
     ) -> Stepped<()>;
 
     /// (ΨH): host call invocation
@@ -108,7 +108,7 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Vec<u32>,
+        _memory: Vec<u8>,
         // (f) the host function
         _function: impl FnOnce(X) -> (Reason, State, X),
         // (x) the host function input data
@@ -214,7 +214,7 @@ impl Invocation for () {
         _pc: u64,
         _gas: Gas,
         _registers: [u64; 13],
-        _memory: Vec<u32>,
+        _memory: Vec<u8>,
     ) -> Stepped<()> {
         Stepped::new(Reason::Continue, State::default())
     }

@@ -8,6 +8,7 @@
 
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
+use pvm::{Gas, Invocation, Reason, State, Stepped};
 use pvm_parser::{program::JumpTable, Instruction, ProgramBlob, Visitor};
 
 mod builder;
@@ -143,5 +144,27 @@ impl Interpreter {
 
         self.jump = Some(target);
         Ok(())
+    }
+}
+
+impl Invocation for Interpreter {
+    /// Step the instruction.
+    fn step(
+        // (c) The instruction data
+        _instructions: &[u8],
+        // (k) The bitmap of the instruction data
+        _bitmask: &[u8],
+        // (j) The jump table
+        _jump: &[u64],
+        // (ı) The current program counter
+        _pc: u64,
+        // (ϱ) The gas
+        _gas: Gas,
+        // (ω) The registers
+        _registers: [u64; 13],
+        // (µ) The memory
+        _memory: Vec<u8>,
+    ) -> Stepped<()> {
+        Stepped::new(Reason::Continue, State::default())
     }
 }

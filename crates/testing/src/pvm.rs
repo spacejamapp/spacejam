@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Memory {
     /// The address of the memory slot.
-    pub address: u64,
+    pub address: u32,
     /// The contents of the memory slot.
     pub contents: Vec<u8>,
 }
@@ -44,7 +44,7 @@ pub struct TestOutput {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
     /// The address of the page.
-    pub address: u64,
+    pub address: u32,
     /// The length of the page.
     pub length: u16,
     /// Whether the page is writable.
