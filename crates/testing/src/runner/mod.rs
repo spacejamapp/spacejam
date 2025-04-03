@@ -224,7 +224,6 @@ impl Runner {
             Section::Pvm => {
                 use crate::pvm;
 
-                tracing::trace!("input: {}", test.input);
                 let input: pvm::TestInput = serde_json::from_str(test.input)?;
                 let output: pvm::TestOutput = serde_json::from_str(test.output)?;
                 let mut registers = [0; 13];
@@ -289,7 +288,6 @@ impl Runner {
                 assert_eq!(expected_memory, output.expected_memory);
 
                 // test with the new interface
-                tracing::trace!("invoking");
                 let result = <pvmi::Interpreter as Invocation>::invoke(
                     &input.program,
                     input.initial_pc as u64,

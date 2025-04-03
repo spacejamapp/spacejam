@@ -9,7 +9,10 @@
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
 use pvm::{Gas, Invocation, Reason, Stepped};
-use pvm_parser::{program::JumpTable, Instruction, Opcode, ProgramBlob, Visitor};
+use pvm_parser::{
+    reader::{InstructionReader, Reader},
+    Instruction, ProgramBlob, Visitor,
+};
 
 mod builder;
 mod visitor;
@@ -33,7 +36,7 @@ pub struct Interpreter {
     pub memory: Memory,
 
     /// The jump table of the program.
-    pub table: JumpTable,
+    pub table: Vec<u64>,
 
     /// The program counter.
     pub pc: usize,
@@ -62,7 +65,6 @@ impl Interpreter {
             tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
             if let Err(e) = self.step(instr.value) {
                 self.status = e.into();
-                tracing::warn!("{e:?}");
                 return Ok(());
             }
 
@@ -121,13 +123,13 @@ impl Interpreter {
         }
 
         if address == 0
-            || address > self.table.len as u32 * JUMP_ALIGNMENT_FACTOR
+            || address > self.table.len() as u32 * JUMP_ALIGNMENT_FACTOR
             || address % 2 != 0
         {
             tracing::error!(
                 "invalid dynamic jump, address: {}, table len: {}",
                 address,
-                self.table.len
+                self.table.len()
             );
             return Err(Error::InvalidDynamicJump);
         }
@@ -137,17 +139,19 @@ impl Interpreter {
             tracing::error!(
                 "invalid dynamic jump, index: {}, table len: {}",
                 index,
-                self.table.len
+                self.table.len()
             );
             return Err(Error::InvalidDynamicJump);
         };
 
-        self.jump = Some(target);
+        self.jump = Some(*target as usize);
         Ok(())
     }
 }
 
 impl Invocation for Interpreter {
+    type Memory = Memory;
+
     /// Step the instruction.
     fn step(
         // (c) The instruction data
@@ -155,7 +159,7 @@ impl Invocation for Interpreter {
         // (k) The bitmap of the instruction data
         bitmask: &[u8],
         // (j) The jump table
-        _jump: &[u64],
+        jump: &[u64],
         // (ı) The current program counter
         pc: u64,
         // (ϱ) The gas
@@ -163,19 +167,15 @@ impl Invocation for Interpreter {
         // (ω) The registers
         registers: [u64; 13],
         // (µ) The memory
-        memory: pvm::Memory,
-    ) -> Stepped<()> {
+        memory: Memory,
+    ) -> Stepped<Memory, ()> {
         let pc = pc as usize;
-        let distance = pvm::program::skip(pc, bitmask);
-        let opcode = Opcode::try_from(instructions[pc]).unwrap();
-        let instruction = opcode.instr(&instructions[pc + 1..pc + distance]);
         let mut pvmi = Interpreter::default()
             .gas(gas)
             .registers(registers)
             .memory(memory.into())
             .pc(pc);
-
-        let stepped = pvmi.visit(instruction);
+        pvmi.table = jump.to_vec();
         let mut state = pvm::State {
             memory: pvmi.memory.clone().into(),
             registers,
@@ -183,31 +183,56 @@ impl Invocation for Interpreter {
             pc: pc as u64,
         };
 
-        // perform jump if there is a jump target.
-        if let Some(pos) = pvmi.jump.take() {
-            state.pc = pos as u64;
+        // check if the program counter is out of bounds
+        if pc >= instructions.len() {
+            state.gas -= 1;
+            return Stepped::new(Reason::Panic("end of program".to_string()), state);
         }
 
-        let reason = match stepped {
-            Ok(_) => Reason::Continue,
+        // create the instruction reader
+        let mut reader = InstructionReader {
+            bitmask,
+            reader: Reader::new(&instructions, pc),
+        }
+        .with_position(pc);
+
+        // get the opcode
+        let instr = match reader.read() {
+            Ok(instr) => instr,
             Err(e) => {
-                pvmi.gas -= e.extra_gas();
-                match e {
-                    crate::Error::OOG => Reason::OOG,
-                    crate::Error::Terminate => Reason::Panic("terminate".to_string()),
-                    crate::Error::Trap(true) => Reason::Panic("trap".to_string()),
-                    crate::Error::Trap(false) => Reason::Panic("trap".to_string()),
-                    crate::Error::InvalidDynamicJump => {
-                        Reason::Panic("invalid dynamic jump".to_string())
-                    }
-                    crate::Error::MemoryInaccessible(_) => {
-                        Reason::Panic("memory inaccessible".to_string())
-                    }
-                    crate::Error::MemoryImmutable(_) => {
-                        Reason::Panic("memory immutable".to_string())
-                    }
-                }
+                tracing::error!("invalid instruction: {}", e);
+                return Stepped::new(Reason::Panic(e.to_string()), state);
             }
+        };
+
+        // step the instruction
+        tracing::trace!("0x{:06x} | {}", pc, instr.value);
+        let stepped = pvmi.visit(instr.value);
+
+        // update the state
+        state.gas -= 1;
+        state.registers = pvmi.registers;
+        state.memory = pvmi.memory.clone();
+
+        let reason = if let Err(e) = stepped {
+            state.gas -= e.extra_gas() as i64;
+            match e {
+                crate::Error::OOG => Reason::OOG,
+                crate::Error::Terminate => Reason::Halt,
+                crate::Error::Trap(_) => Reason::Panic("trap".to_string()),
+                crate::Error::InvalidDynamicJump => {
+                    Reason::Panic("invalid dynamic jump".to_string())
+                }
+                crate::Error::MemoryInaccessible(page) => Reason::Fault(page),
+                crate::Error::MemoryImmutable(page) => Reason::Fault(page),
+            }
+        } else {
+            if let Some(pos) = pvmi.jump.take() {
+                state.pc = pos as u64;
+            } else {
+                state.pc = reader.position as u64;
+            }
+            Reason::Continue
         };
 
         Stepped::new(reason, state)

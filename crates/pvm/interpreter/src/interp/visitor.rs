@@ -1,6 +1,7 @@
 //! Instruction visitor for the pvm interpreter
 
-use crate::{interp::Interpreter, Result, Value};
+use crate::{interp::Interpreter, Result};
+use pvm::Value;
 use pvm_parser::{
     format::{self, ISA},
     Visitor,

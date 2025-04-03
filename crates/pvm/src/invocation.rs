@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{program, Executed, Memory, Reason, Received, Refined, State, Stepped, Transfered};
+use crate::{program, Executed, Reason, Received, Refined, State, Stepped, Transfered};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -10,6 +10,9 @@ use std::collections::BTreeMap;
 
 /// The invocation interface of PVM
 pub trait Invocation {
+    /// The memory type of the PVM
+    type Memory: Default + Clone;
+
     /// (Ψ): the general PVM invocation
     ///
     /// defined per graypaper (A.1)
@@ -23,9 +26,9 @@ pub trait Invocation {
         // (ω) the registers
         registers: [u64; 13],
         // (µ) the memory
-        memory: Memory,
-    ) -> Stepped<()> {
-        let mut state = State {
+        memory: Self::Memory,
+    ) -> Stepped<Self::Memory, ()> {
+        let mut state = State::<Self::Memory> {
             pc,
             gas: gas as i64,
             registers,
@@ -35,7 +38,9 @@ pub trait Invocation {
         // deblob the program
         let (instructions, bitmask, jump) = match program::deblob(blob) {
             Ok(program) => program,
-            Err(e) => return Stepped::new(Reason::Panic(e.to_string()), state),
+            Err(e) => {
+                return Stepped::new(Reason::Panic(e.to_string()), state);
+            }
         };
 
         // stepping instructions
@@ -60,15 +65,18 @@ pub trait Invocation {
             }
 
             // handle the exit reason
-            tracing::trace!("reason: {}", reason);
+            state = next;
             match reason {
                 // no exit reason, continue
                 Reason::Continue => {
-                    state = next;
                     continue;
                 }
                 // reset the program counter on halt or panic
-                Reason::Halt | Reason::Panic(_) => state.pc = 0,
+                Reason::Halt | Reason::Panic(_) => {
+                    // TODO: stf and GP not matched
+                    //
+                    // state.pc = 0
+                }
                 _ => {}
             };
 
@@ -93,8 +101,8 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Memory,
-    ) -> Stepped<()>;
+        _memory: Self::Memory,
+    ) -> Stepped<Self::Memory, ()>;
 
     /// (ΨH): host call invocation
     ///
@@ -109,13 +117,13 @@ pub trait Invocation {
         // (ω) The registers
         _registers: [u64; 13],
         // (µ) The memory
-        _memory: Memory,
+        _memory: Self::Memory,
         // (f) the host function
-        _function: impl FnOnce(X) -> (Reason, State, X),
+        _function: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
         // (x) the host function input data
         _input: X,
-    ) -> Stepped<X> {
-        Stepped::new(Reason::Halt, State::default())
+    ) -> Stepped<Self::Memory, X> {
+        Stepped::new(Reason::Halt, State::<Self::Memory>::default())
     }
 
     /// (ΨM): argument invocation
@@ -131,7 +139,7 @@ pub trait Invocation {
         // (a) The input data
         _input: &[u8],
         // (f) the host function
-        _fun: impl FnOnce(X) -> (Reason, State, X),
+        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
         // (x) the host function input data
         _args: X,
     ) -> Received<X> {
@@ -208,6 +216,8 @@ pub trait Invocation {
 }
 
 impl Invocation for () {
+    type Memory = ();
+
     fn step(
         _instructions: &[u8],
         _bitmask: &[u8],
@@ -215,8 +225,11 @@ impl Invocation for () {
         _pc: u64,
         _gas: Gas,
         _registers: [u64; 13],
-        _memory: Memory,
-    ) -> Stepped<()> {
-        Stepped::new(Reason::Panic("unimplemented".to_string()), State::default())
+        _memory: Self::Memory,
+    ) -> Stepped<Self::Memory, ()> {
+        Stepped::new(
+            Reason::Panic("unimplemented".to_string()),
+            State::<Self::Memory>::default(),
+        )
     }
 }

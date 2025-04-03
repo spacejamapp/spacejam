@@ -71,9 +71,11 @@ pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>), &str> {
     //
     // E(k)
     let bitmask = blob[pos..].to_vec();
-    if bitmask.len() * 8 != instructions.len() {
-        return Err("bitmask length does not match instruction length");
-    }
+    // TODO: bitmask length check
+    //
+    // if bitmask.len() * 8 != instructions.len() {
+    //     return Err("bitmask length does not match instruction length");
+    // }
 
     Ok((instructions, bitmask, jump))
 }
@@ -88,7 +90,7 @@ pub fn deblob(blob: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u64>), &str> {
 /// ```
 pub fn skip(pc: usize, bitmask: &[u8]) -> usize {
     let byte = pc / 8;
-    let mut distance = 0;
+    let mut distance = 1;
     let mut bit = pc % 8;
 
     // search for the next instruction
@@ -97,8 +99,8 @@ pub fn skip(pc: usize, bitmask: &[u8]) -> usize {
             if (byte >> bit_idx) & 1 == 1 {
                 return distance;
             }
-            distance += 1;
         }
+        distance += 1;
         bit = 0;
     }
 

@@ -1,17 +1,16 @@
 //! PVM execution result
 
 use core::fmt;
-use std::fmt::Display;
-
-use crate::Memory;
 use score::{
     service::{ServiceAccount, WorkExecResult},
     Gas,
 };
+use std::fmt::Display;
 
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
+#[derive(Debug)]
 pub enum Reason {
     /// The program is still running.
     Continue,
@@ -42,7 +41,7 @@ impl Display for Reason {
                 Reason::Halt => "halt".to_string(),
                 Reason::Panic(_) => "panic".to_string(),
                 Reason::OOG => "OOG".to_string(),
-                Reason::Fault(addr) => format!("page-fault({addr})"),
+                Reason::Fault(_) => format!("page-fault"),
                 Reason::HostCall(addr) => format!("host-call({addr})"),
             }
         )
@@ -51,7 +50,7 @@ impl Display for Reason {
 
 /// The execution state of programs.
 #[derive(Default)]
-pub struct State {
+pub struct State<Memory: Default> {
     /// (ı') The program counter.
     pub pc: u64,
 
@@ -66,20 +65,20 @@ pub struct State {
 }
 
 /// The result of step invocation (Ψ1)
-pub struct Stepped<X> {
+pub struct Stepped<Memory: Default, X> {
     /// (ε) the reason for exiting
     pub reason: Reason,
 
     /// (U) The newly updated state
-    pub state: State,
+    pub state: State<Memory>,
 
     /// (X) the data
     pub data: X,
 }
 
-impl<X: Default> Stepped<X> {
+impl<Memory: Default, X: Default> Stepped<Memory, X> {
     /// Create a new stepped result
-    pub fn new(reason: Reason, state: State) -> Self {
+    pub fn new(reason: Reason, state: State<Memory>) -> Self {
         Self {
             reason,
             state,

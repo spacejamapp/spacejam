@@ -2,8 +2,8 @@
 
 use crate::reader::{InstructionReader, Reader};
 use anyhow::Result;
+use codec::compact::Numeric;
 use core::ops::Range;
-
 pub use jump::JumpTable;
 
 mod jump;
@@ -30,7 +30,7 @@ pub struct ProgramBlob {
     pub bitmask: Vec<u8>,
 
     /// The jump table (j).
-    pub jump_table: JumpTable,
+    pub jump_table: Vec<u64>,
 
     /// The range of the code.
     pub range: Range<usize>,
@@ -83,17 +83,15 @@ impl TryFrom<&[u8]> for ProgramBlob {
         let jump_table = if jump_table_entry_size > 0 {
             let length = jump_table_len * jump_table_entry_size;
             let table = blob[pos..pos + length].to_vec();
-            let table = JumpTable {
-                len: jump_table_len,
-                entry_size: jump_table_entry_size,
-                table,
-                range: pos..pos + length,
-            };
+            let jump = table
+                .chunks(jump_table_entry_size)
+                .map(u64::decode)
+                .collect();
 
             pos += length;
-            table
+            jump
         } else {
-            JumpTable::default()
+            vec![]
         };
 
         // decode the instruction data

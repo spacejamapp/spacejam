@@ -10,7 +10,6 @@ mod interp;
 pub mod memory;
 mod result;
 mod status;
-mod value;
 
 pub use pvm_parser::Register;
 pub use {
@@ -18,5 +17,4 @@ pub use {
     memory::{Access, Memory, Page, PAGE_SIZE},
     result::{Error, Result},
     status::Status,
-    value::Value,
 };
