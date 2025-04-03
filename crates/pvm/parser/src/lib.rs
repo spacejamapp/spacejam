@@ -1,7 +1,10 @@
 //! The PVM parser.
 
 use anyhow::Result;
-pub use {instruction::Instruction, opcode::Opcode, program::ProgramBlob, visitor::Visitor};
+pub use {
+    instruction::Instruction, opcode::Opcode, program::ProgramBlob, reader::Reader,
+    visitor::Visitor,
+};
 
 pub mod format;
 pub mod instruction;

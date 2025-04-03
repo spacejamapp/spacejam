@@ -9,10 +9,7 @@
 use crate::{status::Status, Error, Memory, Register};
 use anyhow::Result;
 use pvm::{Gas, Invocation, Reason, Stepped};
-use pvm_parser::{
-    reader::{InstructionReader, Reader},
-    Instruction, ProgramBlob, Visitor,
-};
+use pvm_parser::{Instruction, ProgramBlob, Reader, Visitor};
 
 mod builder;
 mod visitor;
@@ -49,7 +46,7 @@ impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
         let program = ProgramBlob::try_from(program.as_ref())?;
-        let mut reader = program.instr_reader_at(self.pc);
+        let mut reader = program.reader().with_position(self.pc);
 
         // TODO: do not clone the jump table but reference it.
         self.table = program.jump_table.clone();
@@ -190,11 +187,7 @@ impl Invocation for Interpreter {
         }
 
         // create the instruction reader
-        let mut reader = InstructionReader {
-            bitmask,
-            reader: Reader::new(&instructions, pc),
-        }
-        .with_position(pc);
+        let mut reader = Reader::new(instructions, bitmask).with_position(pc);
 
         // get the opcode
         let instr = match reader.read() {

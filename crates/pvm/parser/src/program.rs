@@ -1,12 +1,9 @@
 //! Program blob.
 
-use crate::reader::{InstructionReader, Reader};
+use crate::reader::Reader;
 use anyhow::Result;
 use codec::compact::Numeric;
 use core::ops::Range;
-pub use jump::JumpTable;
-
-mod jump;
 
 /// The code section.
 ///
@@ -37,17 +34,9 @@ pub struct ProgramBlob {
 }
 
 impl ProgramBlob {
-    /// Get the instruction reader.
-    pub fn instr_reader(&self) -> InstructionReader<'_> {
-        InstructionReader {
-            bitmask: &self.bitmask,
-            reader: Reader::new(&self.instructions, self.range.start),
-        }
-    }
-
-    /// Get the instruction reader at the program counter.
-    pub fn instr_reader_at(&self, pc: usize) -> InstructionReader<'_> {
-        self.instr_reader().with_position(pc)
+    /// Get the reader.
+    pub fn reader(&self) -> Reader<'_> {
+        Reader::new(&self.instructions, &self.bitmask)
     }
 }
 

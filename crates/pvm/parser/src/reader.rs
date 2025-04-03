@@ -6,29 +6,40 @@ use core::ops::Range;
 
 /// The binary reader.
 pub struct Reader<'r> {
-    /// The buffer to read from.
+    /// The instruction buffer to read from.
     pub buffer: &'r [u8],
+
+    /// The bitmask of the instruction buffer.
+    pub bitmask: &'r [u8],
 
     /// The current position in the buffer.
     pub position: usize,
-
-    /// The original offset of the buffer.
-    pub original_offset: usize,
 }
 
 impl<'r> Reader<'r> {
     /// Create a new binary reader.
-    pub fn new(buffer: &'r [u8], original_offset: usize) -> Self {
+    pub fn new(buffer: &'r [u8], bitmask: &'r [u8]) -> Self {
         Self {
             buffer,
+            bitmask,
             position: 0,
-            original_offset,
         }
     }
 
     /// Check if the reader is at the end of the buffer.
     pub fn eof(&self) -> bool {
         self.position >= self.buffer.len()
+    }
+
+    /// Set the position of the reader.
+    pub fn with_position(mut self, position: usize) -> Self {
+        self.position = position;
+        self
+    }
+
+    /// Set the position of the reader.
+    pub fn set_position(&mut self, position: usize) {
+        self.position = position;
     }
 
     /// Read an opcode.
@@ -39,12 +50,12 @@ impl<'r> Reader<'r> {
     }
 
     /// Read an instruction.
-    pub fn read_instr(&mut self, bitmask: &[u8]) -> Result<Offset<Instruction>> {
+    pub fn read(&mut self) -> Result<Offset<Instruction>> {
         let start = self.position;
         let opcode = self.read_opcode()?;
 
         // Get skip distance to next instruction
-        let next_instr = self.next_instr(bitmask);
+        let next_instr = self.next_instr(self.bitmask);
 
         // Read instruction
         let buffer = &self.buffer[self.position..next_instr];
@@ -93,41 +104,6 @@ impl<'r> Reader<'r> {
         // return the next instruction position, or the end of the buffer
         let blen = self.buffer.len();
         next.unwrap_or(blen).min(blen)
-    }
-}
-
-/// The instruction reader.
-pub struct InstructionReader<'r> {
-    /// The buffer.
-    pub bitmask: &'r [u8],
-
-    /// The reader.
-    pub reader: Reader<'r>,
-}
-
-impl InstructionReader<'_> {
-    /// Read an instruction.
-    pub fn read(&mut self) -> Result<Offset<Instruction>> {
-        self.reader.read_instr(self.bitmask)
-    }
-
-    /// Set the position of the reader.
-    pub fn with_position(mut self, position: usize) -> Self {
-        self.reader.position = position;
-        self
-    }
-
-    /// Set the position of the reader.
-    pub fn set_position(&mut self, position: usize) {
-        self.reader.position = position;
-    }
-}
-
-impl<'r> core::ops::Deref for InstructionReader<'r> {
-    type Target = Reader<'r>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.reader
     }
 }
 
