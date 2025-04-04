@@ -52,7 +52,7 @@ impl Grid {
     /// in a grid structure. Two validators are considered neighbours in the grid if:
     ///
     /// 1. They are validators in the same epoch and either have the same row (index / W) or the same column (index % W).
-    ///     W here is floor(sqrt(V)), where V is the number of validators.
+    ///    W here is floor(sqrt(V)), where V is the number of validators.
     /// 2. They are validators in different epochs but have the same index.
     pub fn neighbours(&self, validator: Ed25519Public) -> HashSet<Ed25519Public> {
         let layers = [&self.prev, &self.curr, &self.next];

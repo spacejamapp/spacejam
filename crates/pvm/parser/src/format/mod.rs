@@ -52,7 +52,7 @@ impl ISA for u64 {
             return 1;
         }
 
-        ((64 - self.leading_zeros() + 7) / 8).min(8) as u64
+        (64 - self.leading_zeros()).div_ceil(8).min(8) as u64
     }
 
     fn read(bytes: &[u8]) -> (Self, usize) {
