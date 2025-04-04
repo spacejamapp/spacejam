@@ -1,4 +1,6 @@
 //! Core of SpaceJam
+//!
+//! TODO: remove crypto as dependency
 
 pub use {block::Block, extrinsic::Extrinsic, state::State};
 

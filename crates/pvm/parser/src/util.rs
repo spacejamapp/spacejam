@@ -1,10 +1,9 @@
 //! Utility functions.
 
+use crate::{ProgramBlob, StandardProgramBlob};
 use anyhow::Result;
 use codec::compact::Numeric;
 use std::collections::BTreeMap;
-
-use crate::{ProgramBlob, StandardProgramBlob};
 
 /// The `deblob` function.
 ///
@@ -149,17 +148,17 @@ pub fn init(format: &[u8]) -> anyhow::Result<StandardProgramBlob> {
     let o = format[11..oend].to_vec();
     let w = format[oend..wend].to_vec();
 
-    // decode c
-    let cstart = oend + wlen + 4;
-    let clen = u64::decode(&format[cstart..cstart + 4]) as usize;
-    if cstart + clen > len {
+    // decode code
+    let code_start = oend + wlen + 4;
+    let code_len = u64::decode(&format[code_start..code_start + 4]) as usize;
+    if code_start + code_len > len {
         anyhow::bail!("Failed to decode program blob, invalid format length")
     }
 
-    let code = format[cstart..cstart + clen].to_vec();
+    let code = format[code_start..code_start + code_len].to_vec();
 
     // decode a
-    let a = format[cstart + clen..].to_vec();
+    let a = format[code_start + code_len..].to_vec();
     let alen = a.len();
 
     // with o, w, decode the memory and registers

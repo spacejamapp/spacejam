@@ -109,26 +109,6 @@ pub trait Invocation {
         _memory: Self::Memory,
     ) -> Stepped<Self::Memory, ()>;
 
-    /// (ΨM): argument invocation
-    ///
-    /// Defined per graypaper (A.43)
-    fn argument<X: Default>(
-        // (p) The program blob
-        _blob: &[u8],
-        // (ı) The current program counter
-        _pc: u64,
-        // (ϱ) The gas
-        _gas: u64,
-        // (a) The input data
-        _input: &[u8],
-        // (f) the host function
-        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
-        // (x) the host function input data
-        _args: X,
-    ) -> Received<X> {
-        Received::new(0, Vec::new(), Reason::Halt)
-    }
-
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
@@ -149,6 +129,26 @@ pub trait Invocation {
         _input: X,
     ) -> Stepped<Self::Memory, X> {
         Stepped::new(Reason::Halt, State::<Self::Memory>::default())
+    }
+
+    /// (ΨM): argument invocation
+    ///
+    /// Defined per graypaper (A.43)
+    fn argument<X: Default>(
+        // (p) The program blob
+        _blob: &[u8],
+        // (ı) The current program counter
+        _pc: u64,
+        // (ϱ) The gas
+        _gas: u64,
+        // (a) The input data
+        _input: &[u8],
+        // (f) the host function
+        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
+        // (x) the host function input data
+        _args: X,
+    ) -> Received<X> {
+        Received::new(0, Vec::new(), Reason::Halt)
     }
 
     /// (ΨI): The Is-Authorized invocation
