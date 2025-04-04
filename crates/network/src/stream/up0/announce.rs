@@ -9,7 +9,8 @@ use crate::{
     Event, Network,
 };
 use quinn::{RecvStream, SendStream};
-use score::{block::Header, runtime::Head};
+use runtime::Head;
+use score::block::Header;
 use std::{
     collections::HashSet,
     sync::{atomic::Ordering, Arc},
@@ -18,7 +19,7 @@ use tokio::sync::RwLock;
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
-pub async fn unchecked<C: score::runtime::Config>(
+pub async fn unchecked<C: runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
     mut recv: RecvStream,
@@ -42,7 +43,7 @@ pub async fn unchecked<C: score::runtime::Config>(
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all)]
-pub async fn send<C: score::runtime::Config>(
+pub async fn send<C: runtime::Config>(
     runtime: Network<C>,
     mut send: SendStream,
     conn: Connection,
@@ -86,7 +87,7 @@ pub async fn send<C: score::runtime::Config>(
 
 /// Receive the block announcement from a remote peer.
 #[tracing::instrument(skip_all)]
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     runtime: Network<C>,
     mut recv: RecvStream,
     conn: Connection,

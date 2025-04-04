@@ -1,34 +1,45 @@
 //! The binary reader.
 
-use crate::{instruction::Instruction, opcode::Opcode};
+use crate::{instruction::Instruction, opcode::Opcode, util};
 use anyhow::Result;
 use core::ops::Range;
 
 /// The binary reader.
 pub struct Reader<'r> {
-    /// The buffer to read from.
+    /// The instruction buffer to read from.
     pub buffer: &'r [u8],
+
+    /// The bitmask of the instruction buffer.
+    pub bitmask: &'r [u8],
 
     /// The current position in the buffer.
     pub position: usize,
-
-    /// The original offset of the buffer.
-    pub original_offset: usize,
 }
 
 impl<'r> Reader<'r> {
     /// Create a new binary reader.
-    pub fn new(buffer: &'r [u8], original_offset: usize) -> Self {
+    pub fn new(buffer: &'r [u8], bitmask: &'r [u8]) -> Self {
         Self {
             buffer,
+            bitmask,
             position: 0,
-            original_offset,
         }
     }
 
     /// Check if the reader is at the end of the buffer.
     pub fn eof(&self) -> bool {
         self.position >= self.buffer.len()
+    }
+
+    /// Set the position of the reader.
+    pub fn with_position(mut self, position: usize) -> Self {
+        self.position = position;
+        self
+    }
+
+    /// Set the position of the reader.
+    pub fn set_position(&mut self, position: usize) {
+        self.position = position;
     }
 
     /// Read an opcode.
@@ -39,95 +50,23 @@ impl<'r> Reader<'r> {
     }
 
     /// Read an instruction.
-    pub fn read_instr(&mut self, bitmask: &[u8]) -> Result<Offset<Instruction>> {
+    pub fn read(&mut self) -> Result<Offset<Instruction>> {
         let start = self.position;
         let opcode = self.read_opcode()?;
 
         // Get skip distance to next instruction
-        let next_instr = self.next_instr(bitmask);
+        let distance = util::skip(self.position, self.bitmask);
+        let next = (self.position + distance).min(self.buffer.len());
 
         // Read instruction
-        let buffer = &self.buffer[self.position..next_instr];
+        let buffer = &self.buffer[self.position..next];
         let instruction = opcode.instr(buffer);
-        self.position = next_instr;
+        self.position = next;
 
         Ok(Offset {
-            range: start..next_instr,
+            range: start..next,
             value: instruction,
         })
-    }
-
-    /// Find the next instruction.
-    ///
-    /// this is actually the `skip` function defined in graypaper.
-    fn next_instr(&self, bitmask: &[u8]) -> usize {
-        let mut pc = self.position;
-        let mut next = None;
-        let mut byte_idx = pc / 8;
-
-        // search for the bit in the current byte
-        let mut search_byte = |byte: u8, start_bit: usize| {
-            for bit_idx in start_bit..8 {
-                if (byte >> bit_idx) & 1 == 1 {
-                    return Some(pc);
-                }
-                pc += 1;
-            }
-
-            None
-        };
-
-        // search for the bit in the first byte
-        let bit_idx = self.position % 8;
-        if bit_idx > 0 {
-            next = search_byte(bitmask[byte_idx], bit_idx);
-            byte_idx += 1;
-        }
-
-        // search for the bit in the rest of the bytes
-        while let (Some(byte), None) = (bitmask.get(byte_idx), next) {
-            next = search_byte(*byte, 0);
-            byte_idx += 1;
-        }
-
-        // return the next instruction position, or the end of the buffer
-        let blen = self.buffer.len();
-        next.unwrap_or(blen).min(blen)
-    }
-}
-
-/// The instruction reader.
-pub struct InstructionReader<'r> {
-    /// The buffer.
-    pub bitmask: &'r [u8],
-
-    /// The reader.
-    pub reader: Reader<'r>,
-}
-
-impl InstructionReader<'_> {
-    /// Read an instruction.
-    pub fn read(&mut self) -> Result<Offset<Instruction>> {
-        self.reader.read_instr(self.bitmask)
-    }
-
-    /// Set the position of the reader.
-    pub fn with_position(mut self, position: usize) -> Self {
-        self.reader.position = position;
-        self
-    }
-
-    /// Set the position of the reader.
-    pub fn set_position(&mut self, position: usize) {
-        self.reader.position = position;
-    }
-}
-
-impl<'r> core::ops::Deref for InstructionReader<'r> {
-    type Target = Reader<'r>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.reader
     }
 }
 

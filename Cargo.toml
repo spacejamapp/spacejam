@@ -15,8 +15,10 @@ codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 metrics = { path = "crates/metrics", package = "spacejam-metrics" }
 network = { path = "crates/network", package = "spacejam-network" }
+pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
+runtime = { path = "crates/runtime", package = "runtime" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
@@ -33,7 +35,7 @@ ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
 base32 = "0.5.1"
 blake2 = "0.10.6"
 clap = "4.5.23"
-ed25519-dalek = { version = "2.1.1", features = ["pkcs8"] }
+ed25519-dalek = "2.1.1"
 git2 = "0.19.0"
 heck = "0.5.0"
 hex = "0.4.3"

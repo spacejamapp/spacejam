@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Memory {
     /// The address of the memory slot.
-    pub address: u64,
+    pub address: u32,
     /// The contents of the memory slot.
     pub contents: Vec<u8>,
 }
@@ -20,7 +20,7 @@ pub struct TestInput {
     #[serde(alias = "initial-memory")]
     pub initial_memory: Vec<Memory>,
     #[serde(alias = "initial-gas")]
-    pub initial_gas: u32,
+    pub initial_gas: u64,
     #[serde(alias = "initial-page-map")]
     pub initial_page_map: Vec<Page>,
     /// The program to run.
@@ -38,13 +38,13 @@ pub struct TestOutput {
     #[serde(alias = "expected-memory")]
     pub expected_memory: Vec<Memory>,
     #[serde(alias = "expected-gas")]
-    pub expected_gas: u32,
+    pub expected_gas: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
     /// The address of the page.
-    pub address: u64,
+    pub address: u32,
     /// The length of the page.
     pub length: u16,
     /// Whether the page is writable.

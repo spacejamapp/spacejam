@@ -9,7 +9,9 @@ codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
 paste.workspace = true
+pvm.workspace = true
 pvmi.workspace = true
+runtime.workspace = true
 spacejam.workspace = true
 specjam.workspace = true
 score.workspace = true
@@ -18,7 +20,6 @@ serde_json.workspace = true
 spacejson.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-
 
 [build-dependencies]
 anyhow.workspace = true

@@ -57,8 +57,8 @@ fn write_offset() {
     let offset = 10;
     let value = 42;
     let data = vec![value; offset];
-    assert!(memory.write_bytes(0, offset as u64, &data).is_ok());
-    assert_eq!(memory.read_bytes(0, offset as u64, offset as u64), Ok(data));
+    assert!(memory.write_bytes(0, offset as u32, &data).is_ok());
+    assert_eq!(memory.read_bytes(0, offset as u32, offset as u32), Ok(data));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn read_inaccessible() {
     let page = 0;
     assert!(memory.write_bytes(0, 0, &data).is_ok());
     assert_eq!(
-        memory.read_bytes(0, 0, PAGE_SIZE as u64 + 1),
+        memory.read_bytes(0, 0, PAGE_SIZE + 1),
         Err(Error::MemoryInaccessible(page as u32))
     );
 }

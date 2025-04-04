@@ -5,7 +5,11 @@ edition = "2021"
 description = "Polkadot Virtual Machine"
 
 [dependencies]
-pvmi.workspace = true
+anyhow.workspace = true
+codec.workspace = true
+score.workspace = true
+tracing.workspace = true
+pvm-parser.workspace = true
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

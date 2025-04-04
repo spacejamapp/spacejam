@@ -6,9 +6,10 @@
 //! - [ ]: double check the jump instruction (what's the exact PC)
 //! - [ ]: introduce the sign / unsign transitionss
 
-use crate::{status::Status, Error, Memory, Register};
+use crate::{Error, Memory, Register};
 use anyhow::Result;
-use pvm_parser::{program::JumpTable, Instruction, ProgramBlob, Visitor};
+use pvm::Reason;
+use pvm_parser::{Instruction, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;
@@ -17,41 +18,42 @@ mod visitor;
 pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 
 /// The interpreter for the polkavm program.
+///
+/// TODO: maybe use lifetime to save the cost for adpating the
+/// invocation interfaces in the future.
 #[derive(Default)]
 pub struct Interpreter {
     /// The registers of the interpreter.
     pub registers: [Register; 13],
 
     /// The gas limit of the interpreter.
-    pub gas: u32,
+    pub gas: u64,
 
-    /// The status of the execution.
-    pub status: Status,
+    /// The reason of the exit-execution.
+    pub reason: Reason,
 
     /// The memory of the interpreter.
     pub memory: Memory,
 
     /// The jump table of the program.
-    pub table: JumpTable,
+    pub table: Vec<u64>,
 
     /// The program counter.
     pub pc: usize,
 
     /// The jump target.
-    jump: Option<usize>,
+    pub jump: Option<usize>,
 }
 
 impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
         let program = ProgramBlob::try_from(program.as_ref())?;
-        let mut reader = program.instr_reader_at(self.pc);
+        let mut reader = program.reader().with_position(self.pc);
 
-        // TODO: do not clone the jump table but reference it.
+        // stepping the instructions
         self.table = program.jump_table.clone();
-
-        // TODO: update the position of the reader for supporting jumps.
-        while !reader.eof() && self.status.is_unknown() {
+        while !reader.eof() && self.reason.is_continue() {
             let Ok(instr) = reader.read() else {
                 tracing::error!("failed to read instruction, position: {}", reader.position);
                 return Ok(());
@@ -60,34 +62,22 @@ impl Interpreter {
             // stepping the instruction.
             tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
             if let Err(e) = self.step(instr.value) {
-                self.status = e.into();
-                tracing::warn!("{e:?}");
+                self.reason = e.into();
                 return Ok(());
             }
 
-            // update the program counter on stepping successfully.
-            /*       tracing::trace!(
-                "register: {:#?}",
-                self.registers
-                    .iter()
-                    .enumerate()
-                    .map(|(i, r)| format!("r{:2}: 0x{:016x}", i, r))
-                    .collect::<Vec<_>>()
-            ); */
+            // update the program counter
             self.pc = reader.position;
-
-            // if there is a jump target, update the reader position
             if let Some(pos) = self.jump.take() {
                 reader.set_position(pos);
                 self.pc = pos;
             }
         }
 
-        // If the status is still unknown, we have a trap.
-        tracing::debug!("end of program, status: {:?}", self.status);
-        if self.status.is_unknown() {
+        // If the reason is still unknown, we have a trap.
+        if self.reason.is_continue() {
             self.gas -= 1;
-            self.status = Status::Panic;
+            self.reason = Reason::Panic("end of program".into());
         }
 
         Ok(())
@@ -128,13 +118,13 @@ impl Interpreter {
         }
 
         if address == 0
-            || address > self.table.len as u32 * JUMP_ALIGNMENT_FACTOR
+            || address > self.table.len() as u32 * JUMP_ALIGNMENT_FACTOR
             || address % 2 != 0
         {
             tracing::error!(
                 "invalid dynamic jump, address: {}, table len: {}",
                 address,
-                self.table.len
+                self.table.len()
             );
             return Err(Error::InvalidDynamicJump);
         }
@@ -144,12 +134,12 @@ impl Interpreter {
             tracing::error!(
                 "invalid dynamic jump, index: {}, table len: {}",
                 index,
-                self.table.len
+                self.table.len()
             );
             return Err(Error::InvalidDynamicJump);
         };
 
-        self.jump = Some(target);
+        self.jump = Some(*target as usize);
         Ok(())
     }
 }

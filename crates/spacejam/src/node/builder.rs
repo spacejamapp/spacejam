@@ -2,11 +2,8 @@
 
 use crate::node::Genesis;
 use network::{Event, Network};
-use score::{
-    runtime::{storage::KVStorage, Runtime},
-    safrole::ValidatorData,
-    Block,
-};
+use runtime::{storage::KVStorage, Runtime};
+use score::{safrole::ValidatorData, Block};
 use std::{fs, path::PathBuf, sync::Arc};
 use tokio::sync::mpsc;
 
@@ -37,7 +34,7 @@ impl Builder {
     /// Build the node
     pub async fn build<C>(self) -> anyhow::Result<(Network<C>, mpsc::UnboundedReceiver<Event>)>
     where
-        C: score::runtime::Config,
+        C: runtime::Config,
         C::Validator: TryFrom<String>,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
     {

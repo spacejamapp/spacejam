@@ -1,6 +1,5 @@
 //! Extrinsic types
 
-use crate::OpaqueHash;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {assurance::*, dispute::*, guarantee::*, preimage::*, ticket::*};
@@ -38,8 +37,9 @@ pub struct Extrinsic {
 }
 
 impl Extrinsic {
+    #[cfg(feature = "crypto")]
     /// Returns the hash of the extrinsic
-    pub fn hash(&self) -> anyhow::Result<OpaqueHash> {
+    pub fn hash(&self) -> anyhow::Result<crate::OpaqueHash> {
         let encoded = codec::encode(&self)?;
         Ok(crypto::blake2b(&encoded))
     }

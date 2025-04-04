@@ -3,7 +3,6 @@
 use crypto::ed25519;
 use metrics::Peer;
 use network::{peer::PeerId, transport, Address, Config, Event, Network};
-use score::runtime;
 use spacejam_network::{self as network};
 use std::{
     net::{Ipv4Addr, SocketAddr},

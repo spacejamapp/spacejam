@@ -1,13 +1,12 @@
 //! Accumulation statistics
 
-use std::collections::HashSet;
-
 use crate::{
-    runtime::{tx::guarantee::Accumulated, vm::DeferredTransfer},
+    vm::{Accumulated, DeferredTransfer},
     Gas,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::collections::HashSet;
 
 /// (I) Statistics about the accumulation process
 ///

@@ -5,7 +5,7 @@ use crate::{
     transport::Verifier,
 };
 use quinn::crypto::rustls::HandshakeData;
-use score::runtime::Handshake;
+use runtime::Handshake;
 use std::{
     ops::Deref,
     sync::{

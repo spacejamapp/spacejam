@@ -5,19 +5,32 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-ark-ec.workspace = true
-ark-serialize.workspace = true
-ark-vrf.workspace = true
 blake2.workspace = true
 ed25519-dalek.workspace = true
 hex.workspace = true
 once_cell.workspace = true
 rand.workspace = true
-rcgen.workspace = true
-ring.workspace = true
 tiny-keccak.workspace = true
 tracing.workspace = true
-w3f-bls.workspace = true
+
+# vrf dependencies
+ark-ec = { workspace = true, optional = true }
+ark-serialize = { workspace = true, optional = true }
+ark-vrf = { workspace = true, optional = true }
+ring = { workspace = true, optional = true }
+
+# bls dependencies
+w3f-bls = { workspace = true, optional = true }
+
+# tls dependencies
+rcgen = { workspace = true, optional = true }
+
+[features]
+default = []
+full = ["bls", "vrf", "tls"]
+bls = ["w3f-bls"]
+tls = ["rcgen", "ed25519-dalek/pkcs8"]
+vrf = ["ark-vrf", "ark-ec", "ark-serialize", "ring"]
 
 [build-dependencies]
 anyhow.workspace = true

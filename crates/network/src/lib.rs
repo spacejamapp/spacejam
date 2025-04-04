@@ -2,10 +2,8 @@
 
 use metrics::Metrics;
 use peer::PeerId;
-use score::{
-    block::Header,
-    runtime::{Head, Runtime, Validator},
-};
+use runtime::{Head, Runtime, Validator};
+use score::block::Header;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, mpsc, RwLock};
 pub use {
@@ -25,7 +23,7 @@ pub mod transport;
 pub const PROTOCOL: &str = "jamnp-s";
 
 /// The network of Spacejam.
-pub struct Network<C: score::runtime::Config> {
+pub struct Network<C: runtime::Config> {
     /// The transport of the network
     pub transport: Transport,
 
@@ -42,7 +40,7 @@ pub struct Network<C: score::runtime::Config> {
     announce: broadcast::Sender<Header>,
 }
 
-impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
+impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
     fn clone(&self) -> Self {
         Self {
             transport: self.transport.clone(),
@@ -54,7 +52,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Clone for Network<C> {
     }
 }
 
-impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
+impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     /// Create a new network
     pub async fn new(
         config: Config,
@@ -148,7 +146,7 @@ impl<C: score::runtime::Config + Send + Sync + 'static> Network<C> {
     }
 }
 
-impl<C: score::runtime::Config> Deref for Network<C> {
+impl<C: runtime::Config> Deref for Network<C> {
     type Target = Runtime<C>;
 
     fn deref(&self) -> &Self::Target {

@@ -1,10 +1,12 @@
+//! Block header
+
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
 use crate::{
     extrinsic::*, BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash,
     OpaqueHash, StateRoot, TimeSlot, ValidatorIndex,
 };
-use anyhow::Result;
+
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -87,9 +89,10 @@ pub struct Header {
     pub seal: BandersnatchVrfSignature,
 }
 
+#[cfg(feature = "crypto")]
 impl Header {
     /// Get the hash of the header
-    pub fn hash(&self) -> Result<HeaderHash> {
+    pub fn hash(&self) -> anyhow::Result<HeaderHash> {
         Ok(crypto::blake2b(&codec::encode(self)?))
     }
 }

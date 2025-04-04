@@ -14,7 +14,7 @@ pub async fn send(mut send: SendStream, recv: RecvStream, hash: OpaqueHash) -> a
 }
 
 /// Receive a work report request.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

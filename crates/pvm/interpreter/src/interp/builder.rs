@@ -16,7 +16,7 @@ impl Interpreter {
     }
 
     /// Set the gas of the interpreter.
-    pub fn gas(mut self, value: u32) -> Self {
+    pub fn gas(mut self, value: u64) -> Self {
         self.gas = value;
         self
     }
@@ -24,6 +24,12 @@ impl Interpreter {
     /// Set the program counter of the interpreter.
     pub fn pc(mut self, value: usize) -> Self {
         self.pc = value;
+        self
+    }
+
+    /// Set the jump table of the interpreter.
+    pub fn table(mut self, value: Vec<u64>) -> Self {
+        self.table = value;
         self
     }
 }

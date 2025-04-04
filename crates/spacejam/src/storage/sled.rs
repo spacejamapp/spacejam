@@ -2,7 +2,7 @@
 #![cfg(feature = "sled")]
 
 use anyhow::Result;
-use score::runtime::storage::KVStorage;
+use runtime::storage::KVStorage;
 use sled::{Batch, Db};
 use std::path::PathBuf;
 

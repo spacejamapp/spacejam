@@ -2,21 +2,15 @@
 
 use crate::{peer::PeerId, Event, Network};
 use quinn::{RecvStream, SendStream};
-use score::{
-    block::Header,
-    runtime::{Handshake, Head, Runtime},
-    OpaqueHash, TimeSlot,
-};
+use runtime::{Handshake, Head, Runtime};
+use score::{block::Header, OpaqueHash, TimeSlot};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod announce;
 
 /// Send a block announcement.
-pub async fn send<C: score::runtime::Config>(
-    runtime: Network<C>,
-    peer: PeerId,
-) -> anyhow::Result<()> {
+pub async fn send<C: runtime::Config>(runtime: Network<C>, peer: PeerId) -> anyhow::Result<()> {
     let conn = runtime.get_conn(peer).await?;
     let (mut send, mut recv) = conn.open_bi().await?;
 
@@ -41,7 +35,7 @@ pub async fn send<C: score::runtime::Config>(
 }
 
 /// Receive a block announcement
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     peer: PeerId,
     mut send: SendStream,
     mut recv: RecvStream,

@@ -21,7 +21,7 @@ pub async fn send(
 /// Receive a work report distribution.
 ///
 /// TODO: handle the received work report.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

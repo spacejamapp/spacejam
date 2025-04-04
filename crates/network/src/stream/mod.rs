@@ -27,7 +27,7 @@ pub mod up0;
 
 /// Handle an incoming stream.
 #[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name = "stream")]
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     peer: PeerId,
     send: SendStream,
     mut recv: RecvStream,

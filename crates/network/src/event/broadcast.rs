@@ -5,7 +5,7 @@ use score::{block::Header, extrinsic::TicketEnvelope};
 
 /// Announce a block to the network
 #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
-pub async fn announce<C: score::runtime::Config>(
+pub async fn announce<C: runtime::Config>(
     runtime: Network<C>,
     header: Box<Header>,
 ) -> anyhow::Result<()> {
@@ -36,7 +36,7 @@ pub async fn announce<C: score::runtime::Config>(
 
 /// Broadcast a ticket to all current validators in the network.
 #[tracing::instrument(skip(runtime, ticket), name = "ticket", fields(attempt = %ticket.attempt))]
-pub async fn ticket<C: score::runtime::Config>(
+pub async fn ticket<C: runtime::Config>(
     runtime: Network<C>,
     epoch: u32,
     ticket: TicketEnvelope,

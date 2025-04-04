@@ -3,6 +3,7 @@
 //! The specification can be found at <https://github.com/davxy/bandersnatch-vrfs-spec>
 //!
 //! commit hash: 8c82722
+#![cfg(feature = "vrf")]
 
 use crate::ring::RING_CTX;
 use anyhow::Result;

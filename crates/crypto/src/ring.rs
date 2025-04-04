@@ -1,3 +1,6 @@
+//! Bandersnatch ring related primitives
+#![cfg(feature = "vrf")]
+
 use crate::vrf;
 use ark_ec::AffineRepr;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};

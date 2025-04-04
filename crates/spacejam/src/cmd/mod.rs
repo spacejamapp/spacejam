@@ -2,11 +2,8 @@
 
 use crate::{node::Genesis, validator::LocalValidator};
 use clap::Parser;
-use score::{
-    block::header::EValidator,
-    runtime::{Storage, Validator},
-    Block,
-};
+use runtime::{Storage, Validator};
+use score::{block::header::EValidator, Block};
 use spacejson::Json;
 pub use spawn::Spawn;
 use std::path::{Path, PathBuf};
@@ -34,7 +31,7 @@ impl Command {
     /// Run the command
     pub async fn run<C>(&self) -> anyhow::Result<()>
     where
-        C: score::runtime::Config,
+        C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Validator: TryFrom<String>,
     {
@@ -47,7 +44,7 @@ impl Command {
 
     fn state<C>(&self, db: &Path) -> anyhow::Result<()>
     where
-        C: score::runtime::Config,
+        C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
     {
         let storage = C::Storage::try_from(db.to_path_buf())?;

@@ -1,3 +1,6 @@
+//! VRF tests
+#![cfg(feature = "vrf")]
+
 use ark_vrf::{suites::bandersnatch::RingProofParams, Public};
 use spacejam_crypto::{
     ring::RING_SIZE,

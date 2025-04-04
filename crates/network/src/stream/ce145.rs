@@ -21,7 +21,7 @@ pub async fn send(
 /// Receive judgement publication.
 ///
 /// TODO: handle the judgement
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     mut send: SendStream,
     mut recv: RecvStream,
     runtime: Network<C>,

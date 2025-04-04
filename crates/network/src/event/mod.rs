@@ -36,10 +36,7 @@ pub enum Event {
 
 impl Event {
     /// Handle the event.
-    pub async fn handle<C: score::runtime::Config>(
-        self,
-        runtime: Network<C>,
-    ) -> anyhow::Result<()> {
+    pub async fn handle<C: runtime::Config>(self, runtime: Network<C>) -> anyhow::Result<()> {
         match self {
             Self::DistributeTicket { epoch, ticket } => {
                 broadcast::ticket(runtime, epoch, *ticket).await?;

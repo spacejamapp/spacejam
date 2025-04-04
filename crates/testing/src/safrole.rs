@@ -1,12 +1,12 @@
 //! Safrole vector tests
 
+use runtime::tx::{self, ticket::Error};
 use score::{
     block::header::{EpochMark, EpochMarkJson, TicketsMark},
     extrinsic::ticket::{
         TicketBodyJson, TicketEnvelopeJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
         TicketsOrKeysJson,
     },
-    runtime::tx::{self, ticket::Error},
     safrole::{Safrole, ValidatorDataJson, Validators, ValidatorsData},
     BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
 };

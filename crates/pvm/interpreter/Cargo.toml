@@ -6,6 +6,7 @@ description = "Polkadot Virtual Machine"
 
 [dependencies]
 anyhow.workspace = true
+pvm.workspace = true
 pvm-parser.workspace = true
 tracing.workspace = true
 smallvec.workspace = true

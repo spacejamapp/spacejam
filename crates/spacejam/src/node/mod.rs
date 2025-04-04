@@ -14,7 +14,7 @@ pub mod metrics;
 /// Start the node
 ///
 /// TODO: make metrics service out of this function?
-pub async fn start<C: score::runtime::Config>(
+pub async fn start<C: runtime::Config>(
     network: Network<C>,
     rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
@@ -33,7 +33,7 @@ pub async fn start<C: score::runtime::Config>(
 
 /// Authoring service
 #[tracing::instrument(skip_all, name = "author")]
-async fn author<C: score::runtime::Config>(runtime: &Network<C>) {
+async fn author<C: runtime::Config>(runtime: &Network<C>) {
     log::init(runtime).await;
     let mut author = runtime.author();
     if let Err(e) = author.on_new_epoch().await {

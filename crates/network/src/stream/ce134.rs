@@ -4,7 +4,7 @@ use crate::Network;
 use quinn::{RecvStream, SendStream};
 
 /// Send a work package sharing.
-pub async fn send<C: score::runtime::Config>(
+pub async fn send<C: runtime::Config>(
     send: SendStream,
     recv: RecvStream,
     runtime: Network<C>,
@@ -13,7 +13,7 @@ pub async fn send<C: score::runtime::Config>(
 }
 
 /// Receive a work package sharing.
-pub async fn recv<C: score::runtime::Config>(
+pub async fn recv<C: runtime::Config>(
     send: SendStream,
     recv: RecvStream,
     runtime: Network<C>,

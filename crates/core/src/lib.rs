@@ -1,15 +1,16 @@
 //! Core of SpaceJam
+//!
+//! TODO: remove crypto as dependency
 
 pub use {block::Block, extrinsic::Extrinsic, state::State};
 
 pub mod block;
 pub mod extrinsic;
-pub mod runtime;
 pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod testing;
+pub mod vm;
 
 /// The count of validators
 pub const VALIDATORS_COUNT: u16 = 6;
@@ -82,6 +83,32 @@ pub const GAS_REFINE: u64 = 5_000_000_000;
 ///
 /// should be no smaller than G_A * C + ∑ privileges
 pub const GAS_ALL_ACC: u64 = 3_500_000_000;
+
+/// The size of the program init data
+///
+/// 2^24 = 16_777_216 bytes
+pub const PROGRAM_INIT_DATA_SIZE: usize = 1 << 24;
+
+/// (W_G) The size of a segment in octets
+pub const SEGMENT_SIZE: usize = 4104;
+
+/// (Z_P) The size of a page in octets (2^12)
+pub const PAGE_SIZE: usize = 1 << 12;
+
+/// (Z_Z) The size of a zone in octets (2^16)
+pub const ZONE_SIZE: usize = 1 << 16;
+
+/// (Z_I) The size of the init data in octets (2^24)
+pub const PVM_INIT_DATA_SIZE: usize = 1 << 24;
+
+/// The length of pages, p = 2^32 / 2^12
+pub const PAGE_LENGTH: usize = 1 << 20;
+
+/// The size of the PVM memory
+pub const PVM_MEMORY_SIZE: usize = 1 << 32;
+
+/// The size of the PVM zone
+pub const PVM_ZONE_SIZE: usize = 1 << 16;
 
 // Singing Contexts
 

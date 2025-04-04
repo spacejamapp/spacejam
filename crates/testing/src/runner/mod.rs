@@ -1,7 +1,9 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
+use ::pvm::Invocation;
 use anyhow::Result;
-use score::{block::History, runtime::tx};
+use runtime::tx;
+use score::block::History;
 use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
 use storage::StorageExt;
@@ -262,7 +264,7 @@ impl Runner {
                 let mut interpreter = pvmi::Interpreter::default()
                     .gas(input.initial_gas)
                     .registers(registers)
-                    .memory(memory)
+                    .memory(memory.clone())
                     .pc(input.initial_pc as usize);
 
                 interpreter
@@ -280,10 +282,37 @@ impl Runner {
                     .collect::<Vec<_>>();
 
                 assert_eq!(interpreter.pc, output.expected_pc);
-                assert_eq!(interpreter.status.to_string(), output.expected_status);
+                assert_eq!(interpreter.reason.to_string(), output.expected_status);
                 assert_eq!(interpreter.registers.to_vec(), output.expected_regs);
                 assert_eq!(interpreter.gas, output.expected_gas);
                 assert_eq!(expected_memory, output.expected_memory);
+
+                // test with the new interface
+                let result = <pvmi::Interpreter as Invocation>::invoke(
+                    &input.program,
+                    input.initial_pc as u64,
+                    input.initial_gas,
+                    registers,
+                    memory.clone().into(),
+                );
+
+                assert_eq!(result.reason.to_string(), output.expected_status);
+                assert_eq!(result.state.pc, output.expected_pc as u64);
+                assert_eq!(result.state.registers.to_vec(), output.expected_regs);
+                assert_eq!(result.state.gas as u64, output.expected_gas);
+                assert_eq!(
+                    result
+                        .state
+                        .memory
+                        .to_data_maps()
+                        .iter()
+                        .map(|(k, v)| pvm::Memory {
+                            address: *k,
+                            contents: v.to_vec(),
+                        })
+                        .collect::<Vec<_>>(),
+                    output.expected_memory
+                );
             }
             _ => {}
         }
