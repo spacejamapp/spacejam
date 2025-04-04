@@ -1,6 +1,4 @@
-use crate::{
-    extrinsic::AvailAssurance, BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata,
-};
+use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -56,8 +54,12 @@ pub struct ValidatorData {
 }
 
 impl ValidatorData {
+    #[cfg(feature = "crypto")]
     /// Verify the input assurance.
-    pub fn verify_assurance(&self, assurance: &AvailAssurance) -> anyhow::Result<()> {
+    pub fn verify_assurance(
+        &self,
+        assurance: &crate::extrinsic::AvailAssurance,
+    ) -> anyhow::Result<()> {
         crypto::ed25519::verify(
             &assurance.singing_message(),
             assurance.signature,

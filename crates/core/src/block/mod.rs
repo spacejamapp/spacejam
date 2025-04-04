@@ -3,18 +3,20 @@
 use crate::{
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    Entropy, HeaderHash, OpaqueHash, TimeSlot,
+    Entropy, OpaqueHash, TimeSlot,
 };
 use header::{EValidator, EpochMark};
-use history::{Mmr, MmrJson};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::time::{Duration, UNIX_EPOCH};
 pub use {
     builder::Builder,
     header::{Header, HeaderJson},
-    history::History,
+    history::{Mmr, MmrJson},
 };
+
+#[cfg(feature = "crypto")]
+pub use history::History;
 
 mod builder;
 pub mod header;
@@ -37,8 +39,9 @@ impl Block {
         Builder::default()
     }
 
+    #[cfg(feature = "crypto")]
     /// Returns the hash of the block
-    pub fn hash(&self) -> anyhow::Result<HeaderHash> {
+    pub fn hash(&self) -> anyhow::Result<crate::HeaderHash> {
         let encoded = codec::encode(&self.header)?;
         Ok(crypto::blake2b(&encoded))
     }
@@ -73,6 +76,7 @@ pub struct BlockInfo {
     pub reported: Vec<ReportedWorkPackage>,
 }
 
+#[cfg(feature = "crypto")]
 impl From<Header> for BlockInfo {
     fn from(header: Header) -> Self {
         Self {

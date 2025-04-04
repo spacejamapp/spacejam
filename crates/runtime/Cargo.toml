@@ -6,12 +6,12 @@ edition = "2024"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto.workspace = true
+crypto = { workspace = true, features = ["full"] }
 hex.workspace = true
 pvm.workspace = true
-score.workspace = true
+score = { workspace = true, features = ["crypto"] }
+serde.workspace = true
+serde_json.workspace = true
+spacejson.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-serde.workspace = true
-spacejson.workspace = true
-serde_json.workspace = true

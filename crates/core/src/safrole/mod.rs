@@ -46,20 +46,6 @@ impl Safrole {
             .collect()
     }
 
-    /// (γ_z') Returns the bandersnatch ring commitment.
-    pub fn commitment(&self, new_epoch: bool) -> BandersnatchRingCommitment {
-        if !new_epoch {
-            return self.ring_commitment;
-        }
-
-        let keys = self
-            .validators
-            .iter()
-            .map(|validator| validator.bandersnatch)
-            .collect::<Vec<_>>();
-        crypto::ring::commitment(keys)
-    }
-
     /// Collects the epoch mark.
     pub fn epoch_mark(&self, new_epoch: bool, entropy: &[OpaqueHash; 4]) -> Option<EpochMark> {
         if !new_epoch {

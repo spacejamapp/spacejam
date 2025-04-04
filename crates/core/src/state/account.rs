@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
+//! Account state
 
-use crate::service::ServiceAccount;
 use crate::state::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::OpaqueHash;
 
@@ -27,6 +26,7 @@ pub fn preimage(service: u32, h: OpaqueHash) -> OpaqueHash {
     (service, key).key()
 }
 
+#[cfg(feature = "crypto")]
 /// C(s, [E4(l), H(h)2..30]) (s ->a ->h ->l) δ)
 pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> OpaqueHash {
     let mut key = [0; 32];
@@ -36,9 +36,10 @@ pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> OpaqueHash {
     (service, key).key()
 }
 
+#[cfg(feature = "crypto")]
 /// Get the diff of the accounts
 pub fn diff(
-    accounts: &BTreeMap<u32, ServiceAccount>,
+    accounts: &std::collections::BTreeMap<u32, crate::service::ServiceAccount>,
 ) -> anyhow::Result<Vec<(OpaqueHash, Vec<u8>)>> {
     let mut diff = vec![];
     for (index, account) in accounts {

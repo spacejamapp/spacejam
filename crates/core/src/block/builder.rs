@@ -1,6 +1,6 @@
 //! Block builder
 
-use crate::{block::BlockInfo, Block, Extrinsic, TimeSlot};
+use crate::{block::BlockInfo, Block, TimeSlot};
 use std::ops::{Deref, DerefMut};
 
 /// Block builder
@@ -15,8 +15,9 @@ impl Builder {
         Ok(self)
     }
 
+    #[cfg(feature = "crypto")]
     /// Set the extrinsic
-    pub fn extrinsic(mut self, extrinsic: Extrinsic) -> anyhow::Result<Self> {
+    pub fn extrinsic(mut self, extrinsic: crate::Extrinsic) -> anyhow::Result<Self> {
         self.header.extrinsic_hash = extrinsic.hash()?;
         self.extrinsic = extrinsic;
         Ok(self)

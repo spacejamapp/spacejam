@@ -2,7 +2,7 @@
 
 pub use error::{Error, Result};
 use score::{
-    Ed25519Public, OpaqueHash,
+    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
     extrinsic::{
         TicketsAccumulator,
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
@@ -74,7 +74,7 @@ pub fn safrole(
         tickets,
     )?;
     safrole.validators = safrole.next(new_epoch, &validators.next, offenders);
-    safrole.ring_commitment = safrole.commitment(new_epoch);
+    safrole.ring_commitment = self::ring_commitment(&safrole, new_epoch);
     Ok(safrole)
 }
 
@@ -182,4 +182,18 @@ pub fn sealing_key_series(
     }
 
     next
+}
+
+/// (γ_z') Returns the bandersnatch ring commitment.
+pub fn ring_commitment(safrole: &Safrole, new_epoch: bool) -> BandersnatchRingCommitment {
+    if !new_epoch {
+        return safrole.ring_commitment;
+    }
+
+    let keys = safrole
+        .validators
+        .iter()
+        .map(|validator| validator.bandersnatch)
+        .collect::<Vec<_>>();
+    crypto::ring::commitment(keys)
 }

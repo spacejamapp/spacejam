@@ -1,6 +1,6 @@
 //! Ticket types
 
-use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, EntropyBuffer, OpaqueHash};
+use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -99,8 +99,9 @@ pub enum TicketsOrKeys {
 }
 
 impl TicketsOrKeys {
+    #[cfg(feature = "crypto")]
     /// Create a fallback series
-    pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: EntropyBuffer) -> Self {
+    pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: crate::EntropyBuffer) -> Self {
         let mut keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();

@@ -6,18 +6,16 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto.workspace = true
 hex.workspace = true
 metrics.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
 
-[dev-dependencies]
-tracing-subscriber.workspace = true
-tokio = { workspace = true, features = ["sync", "time"] }
+# crypto dependencies
+crypto = { workspace = true, optional = true }
 
 [features]
 default = []
+crypto = ["dep:crypto"]

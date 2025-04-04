@@ -1,4 +1,5 @@
 //! BLS utilities.
+#![cfg(feature = "bls")]
 
 use std::ops::Deref;
 

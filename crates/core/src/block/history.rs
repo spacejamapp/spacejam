@@ -1,9 +1,13 @@
 //! Block history
 
-use crate::{block::BlockInfo, service::ReportedWorkPackage, OpaqueHash, MAX_BLOCKS_HISTORY};
-use crypto::merkle::mmr;
+use crate::{service::ReportedWorkPackage, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+
+#[cfg(feature = "crypto")]
+use crate::{block::BlockInfo, MAX_BLOCKS_HISTORY};
+#[cfg(feature = "crypto")]
+use crypto::merkle::mmr;
 
 /// Represents a peak in the Merkle Mountain Range (MMR).
 pub type MmrPeak = Option<OpaqueHash>;
@@ -20,6 +24,7 @@ pub trait History {
     );
 }
 
+#[cfg(feature = "crypto")]
 impl History for Vec<BlockInfo> {
     fn import(
         &mut self,
@@ -68,6 +73,7 @@ pub struct Mmr {
     pub peaks: Vec<MmrPeak>,
 }
 
+#[cfg(feature = "crypto")]
 impl Mmr {
     /// Append a peak to the MMR.
     pub fn append(&mut self, peak: OpaqueHash) {

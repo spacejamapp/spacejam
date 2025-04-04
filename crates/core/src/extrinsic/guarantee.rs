@@ -2,7 +2,7 @@
 
 use crate::{
     service::{WorkReport, WorkReportJson},
-    Ed25519Signature, TimeSlot, ValidatorIndex, JAM_GUARANTEE,
+    Ed25519Signature, TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -32,10 +32,11 @@ pub struct ReportGuarantee {
 }
 
 impl ReportGuarantee {
+    #[cfg(feature = "crypto")]
     /// Returns the message that was signed by the guarantors.
     pub fn signing_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut message = vec![];
-        message.extend_from_slice(&JAM_GUARANTEE);
+        message.extend_from_slice(&crate::JAM_GUARANTEE);
 
         let hashed = crypto::blake2b(&codec::encode(&self.report)?);
         message.extend_from_slice(&hashed);
