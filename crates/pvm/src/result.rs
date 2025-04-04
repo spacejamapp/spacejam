@@ -178,7 +178,7 @@ impl Refined {
 
 /// The result of transfer invocation (ΨT)
 #[derive(Default)]
-pub struct Transfered {
+pub struct Transferred {
     /// The account
     pub account: ServiceAccount,
 

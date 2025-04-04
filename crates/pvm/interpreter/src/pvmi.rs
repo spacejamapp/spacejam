@@ -28,7 +28,7 @@ impl Invocation for Interpreter {
             memory: memory.clone(),
             registers,
             gas: gas as i64,
-            pc: pc as u64,
+            pc,
         };
 
         let pc = pc as usize;

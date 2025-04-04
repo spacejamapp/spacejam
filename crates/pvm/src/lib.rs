@@ -3,7 +3,7 @@
 pub use score::Gas;
 pub use {
     invocation::Invocation,
-    result::{Executed, Reason, Received, Refined, State, Stepped, Transfered},
+    result::{Executed, Reason, Received, Refined, State, Stepped, Transferred},
     value::Value,
 };
 

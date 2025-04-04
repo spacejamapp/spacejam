@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{Executed, Reason, Received, Refined, State, Stepped, Transfered};
+use crate::{Executed, Reason, Received, Refined, State, Stepped, Transferred};
 use pvm_parser::util;
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
@@ -211,8 +211,8 @@ pub trait Invocation {
         _service_id: ServiceId,
         // (T)  the deferred transfers
         _transfers: &[DeferredTransfer],
-    ) -> Transfered {
-        Transfered::default()
+    ) -> Transferred {
+        Transferred::default()
     }
 }
 
