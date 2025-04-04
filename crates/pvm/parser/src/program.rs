@@ -2,7 +2,7 @@
 
 use crate::{reader::Reader, util};
 use anyhow::Result;
-use core::ops::Range;
+use std::collections::BTreeMap;
 
 /// The code section.
 ///
@@ -27,9 +27,6 @@ pub struct ProgramBlob {
 
     /// The jump table (j).
     pub jump_table: Vec<u64>,
-
-    /// The range of the code.
-    pub range: Range<usize>,
 }
 
 impl ProgramBlob {
@@ -43,13 +40,27 @@ impl TryFrom<&[u8]> for ProgramBlob {
     type Error = anyhow::Error;
 
     fn try_from(blob: &[u8]) -> Result<Self> {
-        let (instructions, bitmask, jump_table) = util::deblob(blob)?;
+        util::deblob(blob)
+    }
+}
 
-        Ok(Self {
-            jump_table,
-            instructions,
-            bitmask,
-            range: 0..blob.len(),
-        })
+/// The standard program blob.
+#[derive(Default)]
+pub struct StandardProgramBlob {
+    /// The program code (c).
+    pub code: Vec<u8>,
+
+    /// The registers (ω).
+    pub registers: [u64; 13],
+
+    /// The memory (µ).
+    pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
+}
+
+impl TryFrom<&[u8]> for StandardProgramBlob {
+    type Error = anyhow::Error;
+
+    fn try_from(blob: &[u8]) -> Result<Self> {
+        util::init(blob)
     }
 }

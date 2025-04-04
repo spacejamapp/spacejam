@@ -93,11 +93,20 @@ pub const SEGMENT_SIZE: usize = 4104;
 /// (Z_P) The size of a page in octets (2^12)
 pub const PAGE_SIZE: usize = 1 << 12;
 
+/// (Z_Z) The size of a zone in octets (2^16)
+pub const ZONE_SIZE: usize = 1 << 16;
+
+/// (Z_I) The size of the init data in octets (2^24)
+pub const PVM_INIT_DATA_SIZE: usize = 1 << 24;
+
 /// The length of pages, p = 2^32 / 2^12
 pub const PAGE_LENGTH: usize = 1 << 20;
 
 /// The size of the PVM memory
 pub const PVM_MEMORY_SIZE: usize = 1 << 32;
+
+/// The size of the PVM zone
+pub const PVM_ZONE_SIZE: usize = 1 << 16;
 
 // Singing Contexts
 

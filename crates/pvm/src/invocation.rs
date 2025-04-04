@@ -1,7 +1,7 @@
 //! PVM invocation interface
 
 use crate::{Executed, Reason, Received, Refined, State, Stepped, Transferred};
-use pvm_parser::util;
+use pvm_parser::{util, ProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -37,7 +37,11 @@ pub trait Invocation {
         };
 
         // deblob the program
-        let (instructions, bitmask, jump) = match util::deblob(blob) {
+        let ProgramBlob {
+            instructions,
+            bitmask,
+            jump_table: jump,
+        } = match util::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
                 return Stepped::new(Reason::Panic(e.to_string()), state);
@@ -105,6 +109,26 @@ pub trait Invocation {
         _memory: Self::Memory,
     ) -> Stepped<Self::Memory, ()>;
 
+    /// (ΨM): argument invocation
+    ///
+    /// Defined per graypaper (A.43)
+    fn argument<X: Default>(
+        // (p) The program blob
+        _blob: &[u8],
+        // (ı) The current program counter
+        _pc: u64,
+        // (ϱ) The gas
+        _gas: u64,
+        // (a) The input data
+        _input: &[u8],
+        // (f) the host function
+        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
+        // (x) the host function input data
+        _args: X,
+    ) -> Received<X> {
+        Received::new(0, Vec::new(), Reason::Halt)
+    }
+
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
@@ -125,26 +149,6 @@ pub trait Invocation {
         _input: X,
     ) -> Stepped<Self::Memory, X> {
         Stepped::new(Reason::Halt, State::<Self::Memory>::default())
-    }
-
-    /// (ΨM): argument invocation
-    ///
-    /// Defined per graypaper (A.43)
-    fn argument<X: Default>(
-        // (p) The program blob
-        _blob: &[u8],
-        // (ı) The current program counter
-        _pc: u64,
-        // (ϱ) The gas
-        _gas: u64,
-        // (a) The input data
-        _input: &[u8],
-        // (f) the host function
-        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
-        // (x) the host function input data
-        _args: X,
-    ) -> Received<X> {
-        Received::new(0, Vec::new(), Reason::Halt)
     }
 
     /// (ΨI): The Is-Authorized invocation

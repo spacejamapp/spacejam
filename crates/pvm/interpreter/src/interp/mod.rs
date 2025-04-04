@@ -18,6 +18,9 @@ mod visitor;
 pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 
 /// The interpreter for the polkavm program.
+///
+/// TODO: maybe use lifetime to save the cost for adpating the
+/// invocation interfaces in the future.
 #[derive(Default)]
 pub struct Interpreter {
     /// The registers of the interpreter.

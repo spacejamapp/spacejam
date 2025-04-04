@@ -24,13 +24,6 @@ impl Invocation for Interpreter {
         // (µ) The memory
         memory: Memory,
     ) -> Stepped<Memory, ()> {
-        let mut state = pvm::State {
-            memory: memory.clone(),
-            registers,
-            gas: gas as i64,
-            pc,
-        };
-
         let pc = pc as usize;
         let mut pvmi = Interpreter::default()
             .gas(gas)
@@ -40,9 +33,9 @@ impl Invocation for Interpreter {
             .table(jump.to_vec());
 
         // check if the program counter is out of bounds
-        state.gas -= 1;
+        pvmi.gas -= 1;
         if pc >= instructions.len() {
-            return Stepped::new(Reason::Panic("end of program".to_string()), state);
+            return Stepped::new(Reason::Panic("end of program".to_string()), pvmi.into());
         }
 
         // read the instruction
@@ -51,29 +44,36 @@ impl Invocation for Interpreter {
             Ok(instr) => instr,
             Err(e) => {
                 tracing::error!("invalid instruction: {}", e);
-                return Stepped::new(Reason::Panic(e.to_string()), state);
+                return Stepped::new(Reason::Panic(e.to_string()), pvmi.into());
             }
         };
 
         // step the instruction
         tracing::trace!("0x{:06x} | {}", pc, instr.value);
         let stepped = pvmi.visit(instr.value);
-        state.registers = pvmi.registers;
-        state.memory = pvmi.memory.clone();
-
-        // check if need to exit
         let reason = if let Err(e) = stepped {
-            state.gas -= e.extra_gas() as i64;
+            pvmi.gas = pvmi.gas.saturating_sub(e.extra_gas());
             e.into()
         } else {
             if let Some(pos) = pvmi.jump.take() {
-                state.pc = pos as u64;
+                pvmi.pc = pos;
             } else {
-                state.pc = reader.position as u64;
+                pvmi.pc = reader.position;
             }
             Reason::Continue
         };
 
-        Stepped::new(reason, state)
+        Stepped::new(reason, pvmi.into())
+    }
+}
+
+impl From<Interpreter> for pvm::State<Memory> {
+    fn from(interp: Interpreter) -> Self {
+        pvm::State {
+            memory: interp.memory,
+            registers: interp.registers,
+            gas: interp.gas as i64,
+            pc: interp.pc as u64,
+        }
     }
 }
