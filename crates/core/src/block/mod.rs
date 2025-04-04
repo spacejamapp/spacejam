@@ -5,6 +5,7 @@ use crate::{
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
     Entropy, OpaqueHash, TimeSlot,
 };
+pub use crypto_impl::*;
 use header::{EValidator, EpochMark};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -14,9 +15,6 @@ pub use {
     header::{Header, HeaderJson},
     history::{Mmr, MmrJson},
 };
-
-#[cfg(feature = "crypto")]
-pub use history::History;
 
 mod builder;
 pub mod header;
@@ -37,13 +35,6 @@ impl Block {
     /// Returns a builder for the block
     pub fn builder() -> Builder {
         Builder::default()
-    }
-
-    #[cfg(feature = "crypto")]
-    /// Returns the hash of the block
-    pub fn hash(&self) -> anyhow::Result<crate::HeaderHash> {
-        let encoded = codec::encode(&self.header)?;
-        Ok(crypto::blake2b(&encoded))
     }
 
     /// Returns the genesis block
@@ -76,18 +67,6 @@ pub struct BlockInfo {
     pub reported: Vec<ReportedWorkPackage>,
 }
 
-#[cfg(feature = "crypto")]
-impl From<Header> for BlockInfo {
-    fn from(header: Header) -> Self {
-        Self {
-            header_hash: header.hash().unwrap(),
-            mmr: Mmr::default(),
-            state_root: header.parent_state_root,
-            reported: vec![],
-        }
-    }
-}
-
 /// Returns the current timeslot
 pub fn timeslot() -> anyhow::Result<TimeSlot> {
     Ok(now()? / crate::SLOT_PERIOD)
@@ -101,4 +80,29 @@ pub fn now() -> anyhow::Result<u32> {
         .as_secs() as u32;
 
     Ok(now)
+}
+
+#[cfg(feature = "crypto")]
+mod crypto_impl {
+    pub use super::history::History;
+    use super::*;
+
+    impl Block {
+        /// Returns the hash of the block
+        pub fn hash(&self) -> anyhow::Result<crate::HeaderHash> {
+            let encoded = codec::encode(&self.header)?;
+            Ok(crypto::blake2b(&encoded))
+        }
+    }
+
+    impl From<Header> for BlockInfo {
+        fn from(header: Header) -> Self {
+            Self {
+                header_hash: header.hash().unwrap(),
+                mmr: Mmr::default(),
+                state_root: header.parent_state_root,
+                reported: vec![],
+            }
+        }
+    }
 }

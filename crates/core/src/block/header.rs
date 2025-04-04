@@ -89,8 +89,8 @@ pub struct Header {
     pub seal: BandersnatchVrfSignature,
 }
 
+#[cfg(feature = "crypto")]
 impl Header {
-    #[cfg(feature = "crypto")]
     /// Get the hash of the header
     pub fn hash(&self) -> anyhow::Result<HeaderHash> {
         Ok(crypto::blake2b(&codec::encode(self)?))

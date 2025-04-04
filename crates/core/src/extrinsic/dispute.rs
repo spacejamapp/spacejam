@@ -72,12 +72,6 @@ impl Culprit {
         message[13..45].copy_from_slice(&self.target);
         message
     }
-
-    #[cfg(feature = "crypto")]
-    /// Verifies the signature of the culprit.
-    pub fn verify(&self) -> anyhow::Result<()> {
-        crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
-    }
 }
 
 /// Represents a fault in a dispute.
@@ -104,12 +98,6 @@ impl Fault {
         }
         message.extend_from_slice(&self.target);
         message
-    }
-
-    #[cfg(feature = "crypto")]
-    /// Verifies the signature of the fault.
-    pub fn verify(&self) -> anyhow::Result<()> {
-        crypto::ed25519::verify(&self.singing_message(), self.signature, self.key)
     }
 }
 
@@ -142,4 +130,23 @@ pub struct DisputesExtrinsic {
     /// (ψ_f) Faults
     #[json(nested)]
     pub faults: Vec<Fault>,
+}
+
+#[cfg(feature = "crypto")]
+mod crypto_impl {
+    use super::*;
+
+    impl Culprit {
+        /// Verifies the signature of the culprit.
+        pub fn verify(&self) -> anyhow::Result<()> {
+            crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
+        }
+    }
+
+    impl Fault {
+        /// Verifies the signature of the fault.
+        pub fn verify(&self) -> anyhow::Result<()> {
+            crypto::ed25519::verify(&self.singing_message(), self.signature, self.key)
+        }
+    }
 }
