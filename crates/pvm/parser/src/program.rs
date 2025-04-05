@@ -64,3 +64,20 @@ impl TryFrom<&[u8]> for StandardProgramBlob {
         util::init(blob)
     }
 }
+
+/// The memory trait.
+pub trait Memory {
+    /// Create a new memory from a raw memory.
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self;
+
+    /// Check if the memory contains the given data.
+    fn contains(&self, data: &[u8]) -> bool;
+}
+
+impl Memory for () {
+    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self {}
+
+    fn contains(&self, _data: &[u8]) -> bool {
+        false
+    }
+}

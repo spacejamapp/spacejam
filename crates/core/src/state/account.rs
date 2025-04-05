@@ -2,6 +2,8 @@
 
 use crate::state::key::{StorageKey, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::OpaqueHash;
+
+#[cfg(feature = "crypto")]
 pub use crypto_impl::*;
 
 /// C(255, s) - The service account state ((s -> a) δ)

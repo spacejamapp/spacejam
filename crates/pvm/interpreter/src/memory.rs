@@ -143,6 +143,35 @@ impl Memory {
     }
 }
 
+impl pvm_parser::Memory for Memory {
+    // TODO: optimize this without using windows
+    fn contains(&self, data: &[u8]) -> bool {
+        let len = data.len();
+        self.pages
+            .values()
+            .any(|page| page.data.windows(len).any(|window| window == data))
+    }
+
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self {
+        let mut pages = BTreeMap::new();
+        for (addr, (data, is_immutable)) in memory {
+            pages.insert(
+                addr,
+                Page {
+                    data: data.into(),
+                    access: if is_immutable {
+                        Access::Immutable
+                    } else {
+                        Access::Mutable
+                    },
+                },
+            );
+        }
+
+        Self { pages }
+    }
+}
+
 /// A memory page.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
