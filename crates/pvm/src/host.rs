@@ -1,193 +1,154 @@
 //! Host functions
 
 use crate::{Reason, State, Stepped};
+use score::{service::ServiceAccount, Gas};
 
-/// The host function type
-pub type HostCall<X, Memory> = fn(u32, State<Memory>, X) -> Stepped<Memory, X>;
+/// Call the host function
+pub fn call<X: Default, Memory: parser::Memory>(
+    call: u32,
+    state: State<Memory>,
+    data: X,
+) -> Stepped<Memory, X> {
+    let mut state = state;
+    let mut data = data;
+    match call {
+        0..5 => self::state(call, &mut state, Default::default(), &mut data),
+        5 => self::bless(&mut state, &mut data),
+        6 => self::assign(&mut state, &mut data),
+        7 => self::designate(&mut state, &mut data),
+        8 => self::checkpoint(&mut state, &mut data),
+        9 => self::new(&mut state, &mut data),
+        10 => self::upgrade(&mut state, &mut data),
+        11 => self::transfer(&mut state, &mut data),
+        12 => self::eject(&mut state, &mut data),
+        13 => self::query(&mut state, &mut data),
+        14 => self::solicit(&mut state, &mut data),
+        15 => self::forget(&mut state, &mut data),
+        16 => self::yield_(&mut state, &mut data),
+        17 => self::historical_lookup(&mut state, &mut data),
+        18 => self::fetch(&mut state, &mut data),
+        19 => self::export(&mut state, &mut data),
+        20 => self::machine(&mut state, &mut data),
+        21 => self::peek(&mut state, &mut data),
+        22 => self::poke(&mut state, &mut data),
+        23 => self::zero(&mut state, &mut data),
+        24 => self::void(&mut state, &mut data),
+        25 => self::invoke(&mut state, &mut data),
+        26 => self::expunge(&mut state, &mut data),
+        _ => return Stepped::new(Reason::Panic(format!("unknown host call: {call}")), state),
+    };
 
-/// Interface that abstract host functions
-pub trait Host {
-    /// The memory type of the state
-    type Memory: Default + Clone;
-
-    /// Call the host function
-    fn call<X: Default>(
-        call: u32,
-        state: State<Self::Memory>,
-        data: X,
-    ) -> Stepped<Self::Memory, X> {
-        let mut state = state;
-        let mut data = data;
-        let _ = match call {
-            0 => Self::gas(&mut state, &mut data),
-            1 => Self::lookup(&mut state, &mut data),
-            2 => Self::read(&mut state, &mut data),
-            3 => Self::write(&mut state, &mut data),
-            4 => Self::info(&mut state, &mut data),
-            5 => Self::bless(&mut state, &mut data),
-            6 => Self::assign(&mut state, &mut data),
-            7 => Self::designate(&mut state, &mut data),
-            8 => Self::checkpoint(&mut state, &mut data),
-            9 => Self::new(&mut state, &mut data),
-            10 => Self::upgrade(&mut state, &mut data),
-            11 => Self::transfer(&mut state, &mut data),
-            12 => Self::eject(&mut state, &mut data),
-            13 => Self::query(&mut state, &mut data),
-            14 => Self::solicit(&mut state, &mut data),
-            15 => Self::forget(&mut state, &mut data),
-            16 => Self::yield_(&mut state, &mut data),
-            17 => Self::historical_lookup(&mut state, &mut data),
-            18 => Self::fetch(&mut state, &mut data),
-            19 => Self::export(&mut state, &mut data),
-            20 => Self::machine(&mut state, &mut data),
-            21 => Self::peek(&mut state, &mut data),
-            22 => Self::poke(&mut state, &mut data),
-            23 => Self::zero(&mut state, &mut data),
-            24 => Self::void(&mut state, &mut data),
-            25 => Self::invoke(&mut state, &mut data),
-            26 => Self::expunge(&mut state, &mut data),
-            _ => return Stepped::new(Reason::Panic(format!("unknown host call: {call}")), state),
-        };
-
-        Stepped::new(Reason::Halt, state)
-    }
-
-    /// (ΩG) Get the gas to register
-    fn gas<X: Default>(state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        state.registers[7] = state.gas as u64;
-        Result::Ok
-    }
-
-    /// (ΩL) account lookup
-    fn lookup<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩR) storage lookup
-    fn read<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩW) storage write
-    fn write<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩI) fetch info
-    fn info<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩB) bless
-    fn bless<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩA) assign
-    fn assign<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩD) designate
-    fn designate<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩC) checkpoint
-    fn checkpoint<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩN) new
-    fn new<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩU) upgrade
-    fn upgrade<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩT) transfer
-    fn transfer<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩE) eject
-    fn eject<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩQ) query
-    fn query<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩS) solicit
-    fn solicit<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩF) forget
-    fn forget<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩY) yield
-    fn yield_<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩH) historical lookup
-    fn historical_lookup<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩP) fetch
-    fn fetch<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩX) export
-    fn export<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩM) machine
-    fn machine<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩP) peek
-    fn peek<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩP) poke
-    fn poke<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩZ) zero
-    fn zero<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩV) void
-    fn void<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩI) invoke
-    fn invoke<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
-
-    /// (ΩE) expunge
-    fn expunge<X: Default>(_state: &mut State<Self::Memory>, _data: &mut X) -> Result {
-        Result::What
-    }
+    Stepped::new(Reason::Halt, state)
 }
+
+/// General host calls
+///
+/// parameters: ϱ,ω,µ,s,...
+///
+/// with the range 0..4
+pub fn state<X: Default, Memory: parser::Memory>(
+    call: u32,
+    state: &mut State<Memory>,
+    _account: ServiceAccount,
+    data: &mut X,
+) {
+    match call {
+        0 => self::gas(&mut state.registers, state.gas as u64),
+        1 => self::lookup(state, data),
+        2 => self::read(state, data),
+        3 => self::write(state, data),
+        4 => self::info(state, data),
+        _ => {}
+    };
+}
+
+/// (ΩG) Get the gas to register
+fn gas(registers: &mut [u64; 13], gas: Gas) {
+    registers[7] = gas;
+}
+
+/// (ΩL) account lookup
+fn lookup<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩR) storage lookup
+fn read<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩW) storage write
+fn write<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩI) fetch info
+fn info<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩB) bless
+fn bless<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩA) assign
+fn assign<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩD) designate
+fn designate<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩC) checkpoint
+fn checkpoint<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩN) new
+#[allow(clippy::new_ret_no_self)]
+fn new<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩU) upgrade
+fn upgrade<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩT) transfer
+fn transfer<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩE) eject
+fn eject<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩQ) query
+fn query<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩS) solicit
+fn solicit<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩF) forget
+fn forget<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩY) yield
+fn yield_<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩH) historical lookup
+fn historical_lookup<X: Default, Memory: parser::Memory>(
+    _state: &mut State<Memory>,
+    _data: &mut X,
+) {
+}
+
+/// (ΩP) fetch
+fn fetch<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩX) export
+fn export<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩM) machine
+fn machine<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩP) peek
+fn peek<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩP) poke
+fn poke<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩZ) zero
+fn zero<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩV) void
+fn void<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩI) invoke
+fn invoke<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
+
+/// (ΩE) expunge
+fn expunge<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) {}
 
 /// Host call results
 #[repr(u64)]

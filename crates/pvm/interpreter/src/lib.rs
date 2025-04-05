@@ -11,7 +11,7 @@ pub mod memory;
 mod pvmi;
 mod result;
 
-pub use pvm_parser::Register;
+pub use parser::Register;
 pub use {
     interp::Interpreter,
     memory::{Access, Memory, Page, PAGE_SIZE},

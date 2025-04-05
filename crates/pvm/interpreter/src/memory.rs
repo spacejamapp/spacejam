@@ -143,7 +143,7 @@ impl Memory {
     }
 }
 
-impl pvm_parser::Memory for Memory {
+impl parser::Memory for Memory {
     // TODO: optimize this without using windows
     fn contains(&self, data: &[u8]) -> bool {
         let len = data.len();

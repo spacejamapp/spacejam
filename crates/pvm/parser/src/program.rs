@@ -66,8 +66,8 @@ impl TryFrom<&[u8]> for StandardProgramBlob {
 }
 
 /// The memory trait.
-pub trait Memory {
-    /// Create a new memory from a raw memory.
+pub trait Memory: Default + Clone {
+    /// Create a new mwemory from a raw memory.
     fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self;
 
     /// Check if the memory contains the given data.

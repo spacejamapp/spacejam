@@ -1,7 +1,7 @@
 //! PVM invocation interface
 
-use crate::{Executed, HostCall, Reason, Received, Refined, State, Stepped, Transferred};
-use pvm_parser::{util, Memory, ProgramBlob, StandardProgramBlob};
+use crate::{host, Executed, Reason, Received, Refined, State, Stepped, Transferred};
+use parser::{util, Memory, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 /// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
     /// The memory type of the PVM
-    type Memory: Default + Clone + Memory;
+    type Memory: parser::Memory;
 
     /// (Ψ): the general PVM invocation
     ///
@@ -126,7 +126,7 @@ pub trait Invocation {
         // (µ) The memory
         memory: Self::Memory,
         // (f) the host function
-        fun: HostCall<X, Self::Memory>,
+        //
         // (x) the host function input data
         input: X,
     ) -> Stepped<Self::Memory, X> {
@@ -143,7 +143,7 @@ pub trait Invocation {
         };
 
         // (state'') call the host function, returns if page fault occurs
-        let stepped = fun(call, state, input);
+        let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault(addr) => Stepped::new(Reason::Fault(addr), stepped.state),
             // TODO: this recursive call should be optimized in production.
@@ -155,7 +155,6 @@ pub trait Invocation {
                 stepped.state.gas as u64,
                 stepped.state.registers,
                 stepped.state.memory,
-                fun,
                 stepped.data,
             ),
             _ => Stepped::new(stepped.reason, stepped.state),
@@ -175,7 +174,7 @@ pub trait Invocation {
         // (a) The input data
         args: &[u8],
         // (f) the host function
-        fun: HostCall<X, Self::Memory>,
+        //
         // (x) the host function input data
         data: X,
     ) -> Received<X> {
@@ -195,7 +194,6 @@ pub trait Invocation {
             gas,
             registers,
             Self::Memory::from_raw(memory),
-            fun,
             data,
         );
 

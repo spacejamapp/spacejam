@@ -2,7 +2,6 @@
 
 pub use score::Gas;
 pub use {
-    host::HostCall,
     invocation::Invocation,
     result::{Executed, Reason, Received, Refined, State, Stepped, Transferred},
     value::Value,

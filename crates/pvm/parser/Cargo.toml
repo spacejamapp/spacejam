@@ -3,6 +3,9 @@ name = "pvm-parser"
 version = "0.0.0"
 edition = "2021"
 
+[lib]
+name = "parser"
+
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true

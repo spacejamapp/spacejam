@@ -8,8 +8,8 @@
 
 use crate::{Error, Memory, Register};
 use anyhow::Result;
+use parser::{Instruction, ProgramBlob, Visitor};
 use pvm::Reason;
-use pvm_parser::{Instruction, ProgramBlob, Visitor};
 
 mod builder;
 mod visitor;

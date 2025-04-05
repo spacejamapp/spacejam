@@ -1,11 +1,11 @@
 //! Instruction visitor for the pvm interpreter
 
 use crate::{interp::Interpreter, Result};
-use pvm::Value;
-use pvm_parser::{
+use parser::{
     format::{self, ISA},
     Visitor,
 };
+use pvm::Value;
 
 impl Visitor for Interpreter {
     type Error = crate::Error;

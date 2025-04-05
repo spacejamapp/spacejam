@@ -66,7 +66,7 @@ impl Display for Reason {
 
 /// The execution state of programs.
 #[derive(Default)]
-pub struct State<Memory: Default> {
+pub struct State<Memory: parser::Memory> {
     /// (ı') The program counter.
     pub pc: u64,
 
@@ -81,7 +81,7 @@ pub struct State<Memory: Default> {
 }
 
 /// The result of step invocation (Ψ1)
-pub struct Stepped<Memory: Default, X> {
+pub struct Stepped<Memory: parser::Memory, X> {
     /// (ε) the reason for exiting
     pub reason: Reason,
 
@@ -92,7 +92,7 @@ pub struct Stepped<Memory: Default, X> {
     pub data: X,
 }
 
-impl<Memory: Default, X: Default> Stepped<Memory, X> {
+impl<Memory: parser::Memory, X: Default> Stepped<Memory, X> {
     /// Create a new stepped result
     pub fn new(reason: Reason, state: State<Memory>) -> Self {
         Self {
