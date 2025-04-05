@@ -143,20 +143,22 @@ pub trait Invocation {
         };
 
         // (state'') call the host function, returns if page fault occurs
-        let (reason, state, data) = fun(call, input);
-        match reason {
-            Reason::Fault(addr) => Stepped::new(Reason::Fault(addr), state),
+        let stepped = fun(call, state, input);
+        match stepped.reason {
+            Reason::Fault(addr) => Stepped::new(Reason::Fault(addr), stepped.state),
             // TODO: this recursive call should be optimized in production.
+            //
+            // mb create a new call_inner function and set up a loop for it.
             Reason::Continue | Reason::HostCall(_) => Self::call(
                 code,
-                state.pc,
-                state.gas as u64,
-                state.registers,
-                state.memory,
+                stepped.state.pc,
+                stepped.state.gas as u64,
+                stepped.state.registers,
+                stepped.state.memory,
                 fun,
-                data,
+                stepped.data,
             ),
-            _ => Stepped::new(reason, state),
+            _ => Stepped::new(stepped.reason, stepped.state),
         }
     }
 
@@ -225,7 +227,6 @@ pub trait Invocation {
         Executed::new(Vec::new(), WorkExecResult::Panic, 0)
     }
 
-    // TODO: complete the signature
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)

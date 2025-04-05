@@ -8,7 +8,7 @@ pub use {
     value::Value,
 };
 
-mod host;
+pub mod host;
 mod invocation;
 mod result;
 mod value;
