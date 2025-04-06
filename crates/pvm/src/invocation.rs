@@ -1,7 +1,9 @@
 //! PVM invocation interface
 
-use crate::{host, Argument, Executed, Reason, Received, Refined, State, Stepped, Transferred};
-use parser::{util, Memory, ProgramBlob, StandardProgramBlob};
+use crate::{
+    host, Argument, Executed, Memory as _, Reason, Received, Refined, State, Stepped, Transferred,
+};
+use parser::{util, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -14,7 +16,7 @@ use std::collections::BTreeMap;
 /// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
     /// The memory type of the PVM
-    type Memory: parser::Memory;
+    type Memory: crate::Memory;
 
     /// (Ψ): the general PVM invocation
     ///

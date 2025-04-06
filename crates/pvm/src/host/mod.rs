@@ -10,7 +10,7 @@ mod general;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument, Memory: parser::Memory>(
+pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: State<Memory>,
     data: X,

@@ -11,7 +11,7 @@ pub struct Accumulate {
 }
 
 /// Accumulation calls
-pub fn call<X: Default, Memory: parser::Memory>(
+pub fn call<X: Default, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
     data: &mut X,
@@ -34,17 +34,17 @@ pub fn call<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩB) bless
-fn bless<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn bless<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩA) assign
-fn assign<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn assign<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩD) designate
-fn designate<X: Default, Memory: parser::Memory>(
+fn designate<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -52,7 +52,7 @@ fn designate<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩC) checkpoint
-fn checkpoint<X: Default, Memory: parser::Memory>(
+fn checkpoint<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -61,12 +61,12 @@ fn checkpoint<X: Default, Memory: parser::Memory>(
 
 /// (ΩN) new
 #[allow(clippy::new_ret_no_self)]
-fn new<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn new<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩU) upgrade
-fn upgrade<X: Default, Memory: parser::Memory>(
+fn upgrade<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -74,7 +74,7 @@ fn upgrade<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩT) transfer
-fn transfer<X: Default, Memory: parser::Memory>(
+fn transfer<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -82,17 +82,17 @@ fn transfer<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩE) eject
-fn eject<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn eject<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩQ) query
-fn query<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn query<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩS) solicit
-fn solicit<X: Default, Memory: parser::Memory>(
+fn solicit<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -100,11 +100,11 @@ fn solicit<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩF) forget
-fn forget<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn forget<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩY) yield
-fn yield_<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn yield_<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }

@@ -1,7 +1,7 @@
 //! Memory management for the interpreter
 
 use crate::{Error, Result};
-use pvm::Value;
+use pvm::{Reason, Value};
 use smallvec::SmallVec;
 use std::collections::BTreeMap;
 
@@ -143,7 +143,7 @@ impl Memory {
     }
 }
 
-impl parser::Memory for Memory {
+impl pvm::Memory for Memory {
     // TODO: optimize this without using windows
     fn contains(&self, data: &[u8]) -> bool {
         let len = data.len();
@@ -169,6 +169,19 @@ impl parser::Memory for Memory {
         }
 
         Self { pages }
+    }
+
+    fn read_bytes(&self, page: u32, offset: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
+        self.read_bytes(page, offset, len).map_err(Into::into)
+    }
+
+    fn write_bytes(
+        &mut self,
+        page: u32,
+        offset: u32,
+        bytes: &[u8],
+    ) -> std::result::Result<(), Reason> {
+        self.write_bytes(page, offset, bytes).map_err(Into::into)
     }
 }
 

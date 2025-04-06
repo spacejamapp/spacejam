@@ -6,7 +6,7 @@ use crate::{Reason, State};
 pub struct Refine {}
 
 /// refine host call
-pub fn call<X: Default, Memory: parser::Memory>(
+pub fn call<X: Default, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
     data: &mut X,
@@ -27,7 +27,7 @@ pub fn call<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩH) historical lookup
-fn historical_lookup<X: Default, Memory: parser::Memory>(
+fn historical_lookup<X: Default, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Reason {
@@ -35,52 +35,46 @@ fn historical_lookup<X: Default, Memory: parser::Memory>(
 }
 
 /// (ΩP) fetch
-fn fetch<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn fetch<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩX) export
-fn export<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn export<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩM) machine
-fn machine<X: Default, Memory: parser::Memory>(
-    _state: &mut State<Memory>,
-    _data: &mut X,
-) -> Reason {
+fn machine<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩP) peek
-fn peek<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn peek<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩP) poke
-fn poke<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn poke<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩZ) zero
-fn zero<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn zero<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩV) void
-fn void<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn void<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩI) invoke
-fn invoke<X: Default, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn invoke<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩE) expunge
-fn expunge<X: Default, Memory: parser::Memory>(
-    _state: &mut State<Memory>,
-    _data: &mut X,
-) -> Reason {
+fn expunge<X: Default, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }

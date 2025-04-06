@@ -21,7 +21,7 @@ pub struct General {
 /// parameters: ϱ,ω,µ,s,...
 ///
 /// with the range 0..4
-pub fn call<X: Argument, Memory: parser::Memory>(
+pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
     _account: ServiceAccount,
@@ -44,7 +44,7 @@ fn gas(registers: &mut [u64; 13], gas: Gas) -> Reason {
 }
 
 /// (ΩL) account lookup
-fn lookup<X: Argument, Memory: parser::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
+fn lookup<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
     let Some(general) = data.as_general_mut() else {
         return Reason::Panic("could not find general arguments".into());
     };
@@ -71,16 +71,16 @@ fn lookup<X: Argument, Memory: parser::Memory>(state: &mut State<Memory>, data: 
 }
 
 /// (ΩR) storage lookup
-fn read<X: Argument, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn read<X: Argument, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩW) storage write
-fn write<X: Argument, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn write<X: Argument, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }
 
 /// (ΩI) fetch info
-fn info<X: Argument, Memory: parser::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
+fn info<X: Argument, Memory: crate::Memory>(_state: &mut State<Memory>, _data: &mut X) -> Reason {
     Reason::Continue
 }

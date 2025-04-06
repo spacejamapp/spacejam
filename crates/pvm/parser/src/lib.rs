@@ -4,7 +4,7 @@ use anyhow::Result;
 pub use {
     instruction::Instruction,
     opcode::Opcode,
-    program::{Memory, ProgramBlob, StandardProgramBlob},
+    program::{ProgramBlob, StandardProgramBlob},
     reader::Reader,
     visitor::Visitor,
 };
