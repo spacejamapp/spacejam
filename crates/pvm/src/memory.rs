@@ -13,10 +13,10 @@ pub trait Memory: Default + Clone {
     fn contains(&self, data: &[u8]) -> bool;
 
     /// read bytes from the memory
-    fn read_bytes(&self, _page: u32, _offset: u32, _len: u32) -> Result<Vec<u8>, Reason>;
+    fn read_bytes(&self, _from: u32, _len: u32) -> Result<Vec<u8>, Reason>;
 
     /// write bytes to the memory
-    fn write_bytes(&mut self, _page: u32, _offset: u32, _bytes: &[u8]) -> Result<(), Reason>;
+    fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason>;
 }
 
 impl Memory for () {
@@ -26,11 +26,11 @@ impl Memory for () {
         false
     }
 
-    fn read_bytes(&self, _page: u32, _offset: u32, _len: u32) -> Result<Vec<u8>, Reason> {
+    fn read_bytes(&self, _from: u32, _len: u32) -> Result<Vec<u8>, Reason> {
         Err(Reason::Panic("read memory not supported".into()))
     }
 
-    fn write_bytes(&mut self, _page: u32, _offset: u32, _bytes: &[u8]) -> Result<(), Reason> {
+    fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason> {
         Err(Reason::Panic("read memory not supported".into()))
     }
 }

@@ -59,12 +59,14 @@ impl ServiceAccount {
 
     /// The state of the service account
     pub fn state(&self) -> ServiceAccountState {
+        let items = self.items();
+        let total = self.total();
         ServiceAccountState {
             code: self.code,
             balance: self.balance,
             gas: self.gas.clone(),
-            total: self.total(),
-            items: self.items(),
+            total,
+            items,
         }
     }
 }
@@ -91,6 +93,15 @@ pub struct ServiceAccountState {
 
     /// The number of items in storage (i)
     pub items: u32,
+}
+
+impl ServiceAccountState {
+    /// The minimum balance which the service must satisfy. (t)
+    pub const fn threshold(&self) -> u64 {
+        crate::BALANCE_PER_SERVICE
+            + crate::BALANCE_PER_ITEM * self.items as u64
+            + crate::BALANCE_PER_OCTET * self.total
+    }
 }
 
 /// Represents the service account data.

@@ -110,6 +110,15 @@ pub const PVM_MEMORY_SIZE: usize = 1 << 32;
 /// The size of the PVM zone
 pub const PVM_ZONE_SIZE: usize = 1 << 16;
 
+/// (B_I) The balance per item
+pub const BALANCE_PER_ITEM: u64 = 10;
+
+/// (B_L) The balance per octet
+pub const BALANCE_PER_OCTET: u64 = 1;
+
+/// (B_S) The balance per service
+pub const BALANCE_PER_SERVICE: u64 = 100;
+
 // Singing Contexts
 
 /// The signing context for the jam available key

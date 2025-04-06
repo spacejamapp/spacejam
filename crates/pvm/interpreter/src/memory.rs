@@ -171,16 +171,15 @@ impl pvm::Memory for Memory {
         Self { pages }
     }
 
-    fn read_bytes(&self, page: u32, offset: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
+    fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
+        let page = address / PAGE_SIZE;
+        let offset = address % PAGE_SIZE;
         self.read_bytes(page, offset, len).map_err(Into::into)
     }
 
-    fn write_bytes(
-        &mut self,
-        page: u32,
-        offset: u32,
-        bytes: &[u8],
-    ) -> std::result::Result<(), Reason> {
+    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
+        let page = from / PAGE_SIZE;
+        let offset = from % PAGE_SIZE;
         self.write_bytes(page, offset, bytes).map_err(Into::into)
     }
 }
