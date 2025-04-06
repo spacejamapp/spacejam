@@ -122,7 +122,7 @@ mod types {
                 slots[..lookup.value.len()].copy_from_slice(&lookup.value);
                 account
                     .lookup
-                    .insert((lookup.key.hash, lookup.key.length), slots);
+                    .insert((lookup.key.hash, lookup.key.length), slots.to_vec());
             }
 
             account

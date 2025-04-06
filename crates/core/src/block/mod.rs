@@ -5,7 +5,6 @@ use crate::{
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
     Entropy, OpaqueHash, TimeSlot,
 };
-pub use crypto_impl::*;
 use header::{EValidator, EpochMark};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -15,6 +14,9 @@ pub use {
     header::{Header, HeaderJson},
     history::{Mmr, MmrJson},
 };
+
+#[cfg(feature = "crypto")]
+pub use crypto_impl::*;
 
 mod builder;
 pub mod header;

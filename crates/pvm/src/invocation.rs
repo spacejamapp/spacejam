@@ -1,7 +1,9 @@
 //! PVM invocation interface
 
-use crate::{Executed, Reason, Received, Refined, State, Stepped, Transferred};
-use pvm_parser::{util, ProgramBlob};
+use crate::{
+    host, Argument, Executed, Memory as _, Reason, Received, Refined, State, Stepped, Transferred,
+};
+use parser::{util, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
@@ -10,9 +12,11 @@ use score::{
 use std::collections::BTreeMap;
 
 /// The invocation interface of PVM
+///
+/// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
     /// The memory type of the PVM
-    type Memory: Default + Clone;
+    type Memory: crate::Memory;
 
     /// (Ψ): the general PVM invocation
     ///
@@ -112,43 +116,103 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<X: Default>(
+    fn call<X: Argument>(
         // (c) The instruction data
-        _instructions: &[u8],
+        code: &[u8],
         // (ı) The current program counter
-        _pc: u64,
+        pc: u64,
         // (ϱ) The gas
-        _gas: u64,
+        gas: u64,
         // (ω) The registers
-        _registers: [u64; 13],
+        registers: [u64; 13],
         // (µ) The memory
-        _memory: Self::Memory,
+        memory: Self::Memory,
         // (f) the host function
-        _function: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
+        //
         // (x) the host function input data
-        _input: X,
+        input: X,
     ) -> Stepped<Self::Memory, X> {
-        Stepped::new(Reason::Halt, State::<Self::Memory>::default())
+        // (state') invoke the PVM
+        let Stepped {
+            reason,
+            state,
+            data: _,
+        } = Self::invoke(code, pc, gas, registers, memory);
+
+        // if error occurs, return the state.
+        let Reason::HostCall(call) = reason else {
+            return Stepped::new(reason, state);
+        };
+
+        // (state'') call the host function, returns if page fault occurs
+        let stepped = host::call(call, state, input);
+        match stepped.reason {
+            Reason::Fault(addr) => Stepped::new(Reason::Fault(addr), stepped.state),
+            // TODO: this recursive call should be optimized in production.
+            //
+            // mb create a new call_inner function and set up a loop for it.
+            Reason::Continue | Reason::HostCall(_) => Self::call(
+                code,
+                stepped.state.pc,
+                stepped.state.gas as u64,
+                stepped.state.registers,
+                stepped.state.memory,
+                stepped.data,
+            ),
+            _ => Stepped::new(stepped.reason, stepped.state),
+        }
     }
 
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<X: Default>(
-        // (p) The program blob
-        _blob: &[u8],
+    fn argument<X: Argument>(
+        // (p) The standard program blob
+        blob: &[u8],
         // (ı) The current program counter
-        _pc: u64,
+        pc: u64,
         // (ϱ) The gas
-        _gas: u64,
+        gas: u64,
         // (a) The input data
-        _input: &[u8],
+        args: &[u8],
         // (f) the host function
-        _fun: impl FnOnce(X) -> (Reason, State<Self::Memory>, X),
+        //
         // (x) the host function input data
-        _args: X,
+        data: X,
     ) -> Received<X> {
-        Received::new(0, Vec::new(), Reason::Halt)
+        let blob = [blob, args].concat();
+        let StandardProgramBlob {
+            code,
+            registers,
+            memory,
+        } = match StandardProgramBlob::try_from(blob.as_slice()) {
+            Ok(standard) => standard,
+            Err(e) => return Received::new(0, Reason::Panic(e.to_string()), data),
+        };
+
+        let stepped = Self::call(
+            &code,
+            pc,
+            gas,
+            registers,
+            Self::Memory::from_raw(memory),
+            data,
+        );
+
+        // get the output
+        let mut output = vec![];
+        let registers = stepped.state.registers;
+        let registered = [registers[7].to_le_bytes(), registers[8].to_le_bytes()].concat();
+        if stepped.reason == Reason::Halt && stepped.state.memory.contains(&registered) {
+            output = registered;
+        };
+
+        Received::new(
+            gas - (stepped.state.gas.max(0) as u64),
+            stepped.reason,
+            stepped.data,
+        )
+        .with(output)
     }
 
     /// (ΨI): The Is-Authorized invocation
@@ -163,7 +227,6 @@ pub trait Invocation {
         Executed::new(Vec::new(), WorkExecResult::Panic, 0)
     }
 
-    // TODO: complete the signature
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)

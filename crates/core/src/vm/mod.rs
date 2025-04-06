@@ -1,7 +1,7 @@
 //! Virtual machine interfaces
 
 pub use {
-    acc::{AccumulateResult, Accumulated, CommitmentMap, Operand},
+    acc::{AccumulateContext, AccumulateResult, Accumulated, CommitmentMap, Operand},
     context::StateContext,
     transfer::DeferredTransfer,
 };

@@ -2,12 +2,16 @@
 
 pub use score::Gas;
 pub use {
+    host::Argument,
     invocation::Invocation,
+    memory::Memory,
     result::{Executed, Reason, Received, Refined, State, Stepped, Transferred},
     value::Value,
 };
 
+pub mod host;
 mod invocation;
+mod memory;
 mod result;
 mod value;
 

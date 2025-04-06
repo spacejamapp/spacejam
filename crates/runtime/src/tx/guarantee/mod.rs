@@ -12,10 +12,7 @@ use score::{
     },
     vm::StateContext,
 };
-pub use {
-    exec::Accumulated,
-    state::{State, StateJson},
-};
+pub use state::{State, StateJson};
 
 mod dep;
 pub mod error;

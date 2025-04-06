@@ -29,7 +29,7 @@ pub struct ServiceAccount {
     pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,
 
     /// Preimage lookup dictionary (l)
-    pub lookup: BTreeMap<(OpaqueHash, u32), [TimeSlot; 3]>,
+    pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
 
     /// The code hash of the service account (c)
     pub code: OpaqueHash,
@@ -40,6 +40,27 @@ pub struct ServiceAccount {
     /// The gas limits of the service account (g) and (m)
     #[serde(flatten)]
     pub gas: GasLimit,
+}
+
+impl ServiceAccount {
+    /// Create a new service account
+    pub const fn new(gas: GasLimit) -> Self {
+        Self {
+            storage: BTreeMap::new(),
+            preimage: BTreeMap::new(),
+            lookup: BTreeMap::new(),
+            code: [0u8; 32],
+            balance: crate::BALANCE_PER_SERVICE,
+            gas,
+        }
+    }
+
+    /// The threshold of the service account
+    pub fn threshold(&self) -> u64 {
+        crate::BALANCE_PER_SERVICE
+            + crate::BALANCE_PER_ITEM * self.items() as u64
+            + crate::BALANCE_PER_OCTET * self.total()
+    }
 }
 
 impl ServiceAccount {
@@ -59,12 +80,14 @@ impl ServiceAccount {
 
     /// The state of the service account
     pub fn state(&self) -> ServiceAccountState {
+        let items = self.items();
+        let total = self.total();
         ServiceAccountState {
             code: self.code,
             balance: self.balance,
             gas: self.gas.clone(),
-            total: self.total(),
-            items: self.items(),
+            total,
+            items,
         }
     }
 }
@@ -91,6 +114,15 @@ pub struct ServiceAccountState {
 
     /// The number of items in storage (i)
     pub items: u32,
+}
+
+impl ServiceAccountState {
+    /// The minimum balance which the service must satisfy. (t)
+    pub const fn threshold(&self) -> u64 {
+        crate::BALANCE_PER_SERVICE
+            + crate::BALANCE_PER_ITEM * self.items as u64
+            + crate::BALANCE_PER_OCTET * self.total
+    }
 }
 
 /// Represents the service account data.

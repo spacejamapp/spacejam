@@ -1,7 +1,7 @@
 //! Memory management for the interpreter
 
 use crate::{Error, Result};
-use pvm::Value;
+use pvm::{Reason, Value};
 use smallvec::SmallVec;
 use std::collections::BTreeMap;
 
@@ -140,6 +140,47 @@ impl Memory {
         }
 
         Ok(page)
+    }
+}
+
+impl pvm::Memory for Memory {
+    // TODO: optimize this without using windows
+    fn contains(&self, data: &[u8]) -> bool {
+        let len = data.len();
+        self.pages
+            .values()
+            .any(|page| page.data.windows(len).any(|window| window == data))
+    }
+
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self {
+        let mut pages = BTreeMap::new();
+        for (addr, (data, is_immutable)) in memory {
+            pages.insert(
+                addr,
+                Page {
+                    data: data.into(),
+                    access: if is_immutable {
+                        Access::Immutable
+                    } else {
+                        Access::Mutable
+                    },
+                },
+            );
+        }
+
+        Self { pages }
+    }
+
+    fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
+        let page = address / PAGE_SIZE;
+        let offset = address % PAGE_SIZE;
+        self.read_bytes(page, offset, len).map_err(Into::into)
+    }
+
+    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
+        let page = from / PAGE_SIZE;
+        let offset = from % PAGE_SIZE;
+        self.write_bytes(page, offset, bytes).map_err(Into::into)
     }
 }
 

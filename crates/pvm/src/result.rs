@@ -10,7 +10,7 @@ use std::fmt::Display;
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum Reason {
     /// The program has halted.
     Halt,
@@ -37,6 +37,14 @@ impl Reason {
     pub fn is_continue(&self) -> bool {
         matches!(self, Reason::Continue)
     }
+
+    /// Check if the reason is an error.
+    pub fn is_err(&self) -> bool {
+        matches!(
+            self,
+            Reason::Halt | Reason::Panic(_) | Reason::OOG | Reason::Fault(_)
+        )
+    }
 }
 
 impl Display for Reason {
@@ -58,7 +66,7 @@ impl Display for Reason {
 
 /// The execution state of programs.
 #[derive(Default)]
-pub struct State<Memory: Default> {
+pub struct State<Memory: crate::Memory> {
     /// (ı') The program counter.
     pub pc: u64,
 
@@ -73,7 +81,7 @@ pub struct State<Memory: Default> {
 }
 
 /// The result of step invocation (Ψ1)
-pub struct Stepped<Memory: Default, X> {
+pub struct Stepped<Memory: crate::Memory, X> {
     /// (ε) the reason for exiting
     pub reason: Reason,
 
@@ -84,7 +92,7 @@ pub struct Stepped<Memory: Default, X> {
     pub data: X,
 }
 
-impl<Memory: Default, X: Default> Stepped<Memory, X> {
+impl<Memory: crate::Memory, X: Default> Stepped<Memory, X> {
     /// Create a new stepped result
     pub fn new(reason: Reason, state: State<Memory>) -> Self {
         Self {
@@ -121,22 +129,22 @@ pub struct Received<X: Default> {
 
 impl<X: Default> Received<X> {
     /// Create a new received result
-    pub fn new(gas: Gas, output: Vec<u8>, reason: Reason) -> Self {
+    pub fn new(gas: Gas, reason: Reason, data: X) -> Self {
         Self {
             gas,
-            output,
             reason,
-            data: X::default(),
+            output: Vec::new(),
+            data,
         }
     }
 
     /// Create a new extracted result with the given data
-    pub fn with(self, data: X) -> Self {
+    pub fn with(self, output: Vec<u8>) -> Self {
         Self {
             gas: self.gas,
-            output: self.output,
+            output,
             reason: self.reason,
-            data,
+            data: self.data,
         }
     }
 }

@@ -1,8 +1,8 @@
 //! PVM interface implementation
 
 use crate::{Interpreter, Memory};
+use parser::{Reader, Visitor};
 use pvm::{Gas, Invocation, Reason, Stepped};
-use pvm_parser::{Reader, Visitor};
 
 impl Invocation for Interpreter {
     type Memory = Memory;
