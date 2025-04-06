@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{host, Executed, Reason, Received, Refined, State, Stepped, Transferred};
+use crate::{host, Argument, Executed, Reason, Received, Refined, State, Stepped, Transferred};
 use parser::{util, Memory, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
@@ -114,7 +114,7 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<X: Default>(
+    fn call<X: Argument>(
         // (c) The instruction data
         code: &[u8],
         // (ı) The current program counter
@@ -164,7 +164,7 @@ pub trait Invocation {
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<X: Default>(
+    fn argument<X: Argument>(
         // (p) The standard program blob
         blob: &[u8],
         // (ı) The current program counter

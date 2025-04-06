@@ -1,27 +1,51 @@
 //! Host functions
 
 use crate::{Reason, State, Stepped};
+use accumulate::Accumulate;
+pub use general::General;
+use refine::Refine;
 
 mod accumulate;
 mod general;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Default, Memory: parser::Memory>(
+pub fn call<X: Argument, Memory: parser::Memory>(
     call: u32,
     state: State<Memory>,
     data: X,
 ) -> Stepped<Memory, X> {
     let mut state = state;
     let mut data = data;
-    match call {
+    let reason = match call {
         0..5 => general::call(call, &mut state, Default::default(), &mut data),
         5..17 => accumulate::call(call, &mut state, &mut data),
         17..27 => refine::call(call, &mut state, &mut data),
         _ => return Stepped::new(Reason::Panic(format!("unknown host call: {call}")), state),
     };
 
-    Stepped::new(Reason::Halt, state)
+    Stepped::new(reason, state)
+}
+
+/// Dynamic arguments for host calls
+pub trait Argument: Default {
+    /// returns some if the input data is general
+    fn as_general() -> Option<General>;
+
+    /// returns some if the input data is general
+    fn as_general_mut(&mut self) -> Option<&mut General>;
+
+    /// returns some if the input data is accumulate
+    fn as_accumulate() -> Option<Accumulate>;
+
+    /// returns some if the input data is accumulate
+    fn as_accumulate_mut(&mut self) -> Option<&mut Accumulate>;
+
+    /// returns some if the input data is refine
+    fn as_refine() -> Option<Refine>;
+
+    /// returns some if the input data is refine
+    fn as_refine_mut(&mut self) -> Option<&mut Refine>;
 }
 
 /// Host call results
