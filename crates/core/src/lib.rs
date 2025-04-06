@@ -119,6 +119,15 @@ pub const BALANCE_PER_OCTET: u64 = 1;
 /// (B_S) The balance per service
 pub const BALANCE_PER_SERVICE: u64 = 100;
 
+/// (N_Q) The number of items in the authorization queue
+pub const QUEUE_ITEMS: u64 = 80;
+
+/// (W_T) The size of the transfer memo
+pub const TRANSFER_MEMO_SIZE: u32 = 128;
+
+/// (D) The period in timeslots after which an unreferenced preimage may be expunged.
+pub const EXPUNGED_TIME: u32 = 192_000;
+
 // Singing Contexts
 
 /// The signing context for the jam available key

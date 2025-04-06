@@ -1,12 +1,11 @@
 //! Operand for the virtual machine
 
-use std::collections::BTreeMap;
-
 use crate::{
-    service::WorkExecResult,
+    service::{ServiceAccount, WorkExecResult},
     vm::{DeferredTransfer, StateContext},
     Gas, OpaqueHash, ServiceId,
 };
+use std::collections::BTreeMap;
 
 /// The commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
@@ -18,7 +17,7 @@ pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 /// - [T]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Accumulated {
     /// the number of work-results accumulated.
     pub accumulated: usize,
@@ -34,6 +33,42 @@ pub struct Accumulated {
 
     /// The total gas used
     pub gas: Gas,
+}
+
+/// Context for the accumulation
+#[derive(Default, Clone)]
+pub struct AccumulateContext {
+    /// (s) The service id
+    pub service: ServiceId,
+
+    /// (u) The upcoming validators
+    pub context: StateContext,
+
+    /// (i) empty index for a new account
+    pub index: ServiceId,
+
+    /// (t) The deferred transfer
+    pub transfer: Vec<DeferredTransfer>,
+
+    /// (y) The output hash of the accumulation
+    pub output: Option<OpaqueHash>,
+}
+
+impl AccumulateContext {
+    /// Get the account for the accumulation
+    pub fn account(&mut self) -> Option<&mut ServiceAccount> {
+        self.context.accounts.get_mut(&self.service)
+    }
+
+    /// Check update an empty account index
+    pub fn check(&mut self, index: ServiceId) {
+        if !self.context.accounts.contains_key(&index) {
+            self.index = index;
+        } else {
+            let next = ((index - (1 << 8)) + 1) % (u32::MAX - (1 << 9)) + (1 << 8);
+            self.check(next);
+        }
+    }
 }
 
 /// The accumulate result of (ΨA)

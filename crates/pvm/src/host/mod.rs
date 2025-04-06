@@ -57,16 +57,18 @@ pub enum Result {
     What = u64::MAX - 1,
     /// The inner PVM memory index provided for reading/writing is not accessible.
     OOB = u64::MAX - 2,
+    /// Index unknown
+    Who = u64::MAX - 3,
     /// Storage full
-    Full = u64::MAX - 3,
+    Full = u64::MAX - 4,
     /// Core index unknown
-    Core = u64::MAX - 4,
+    Core = u64::MAX - 5,
     /// Insufficient funds
-    Cash = u64::MAX - 5,
+    Cash = u64::MAX - 6,
     /// Gas limit too low
-    Low = u64::MAX - 6,
+    Low = u64::MAX - 7,
     /// The item is already solicited or cannot be forgotten.
-    Huh = u64::MAX - 7,
+    Huh = u64::MAX - 8,
     /// The return value indicating general success.
     Ok = 0,
 }
