@@ -1,5 +1,7 @@
 //! Operand for the virtual machine
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     service::{ServiceAccount, WorkExecResult},
     vm::{DeferredTransfer, StateContext},
@@ -69,6 +71,16 @@ impl AccumulateContext {
             self.check(next);
         }
     }
+
+    /// Convert the accumulate context to an accumulate result
+    pub fn to_result(self, gas: Gas) -> AccumulateResult {
+        AccumulateResult {
+            context: self.context,
+            transfers: self.transfer,
+            hash: self.output,
+            gas,
+        }
+    }
 }
 
 /// The accumulate result of (ΨA)
@@ -90,6 +102,7 @@ pub struct AccumulateResult {
 /// An operand of the accumulation
 ///
 /// defined per GP (12.19)
+#[derive(Serialize, Deserialize)]
 pub struct Operand {
     /// (d) The work execution result
     pub data: WorkExecResult,

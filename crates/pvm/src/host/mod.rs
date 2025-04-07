@@ -1,9 +1,7 @@
 //! Host functions
 
 use crate::{Reason, State, Stepped};
-use accumulate::Accumulate;
-pub use general::General;
-use refine::Refine;
+pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
 mod general;
@@ -12,16 +10,15 @@ mod refine;
 /// Call the host function
 pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
-    state: State<Memory>,
+    mut state: State<Memory>,
     data: X,
 ) -> Stepped<Memory, X> {
-    let mut state = state;
     let mut data = data;
     let reason = match call {
         0..5 => general::call(call, &mut state, Default::default(), &mut data),
         5..17 => accumulate::call(call, &mut state, &mut data),
         17..27 => refine::call(call, &mut state, &mut data),
-        _ => Err(Reason::Panic(format!("unknown host call: {call}"))),
+        _ => Ok(Exit::What as u64),
     };
 
     match reason {
@@ -36,7 +33,12 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 /// Dynamic arguments for host calls
 pub trait Argument: Default {
     /// returns some if the input data is general
-    fn as_general() -> crate::Result<General> {
+    fn as_general(&self) -> crate::Result<General> {
+        crate::bail!("not a general")
+    }
+
+    /// update the general argument
+    fn update_general(&mut self, _general: General) -> crate::Result<()> {
         crate::bail!("not a general")
     }
 
@@ -46,23 +48,39 @@ pub trait Argument: Default {
     }
 
     /// returns some if the input data is accumulate
-    fn as_accumulate() -> crate::Result<Accumulate> {
-        crate::bail!("not an accumulate")
-    }
-
-    /// returns some if the input data is accumulate
     fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
         crate::bail!("not an accumulate")
     }
 
     /// returns some if the input data is refine
-    fn as_refine() -> crate::Result<Refine> {
-        crate::bail!("not a refine")
-    }
-
-    /// returns some if the input data is refine
     fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
         crate::bail!("not a refine")
+    }
+}
+
+impl Argument for Accumulate {
+    fn as_general(&self) -> crate::Result<General> {
+        Ok(General {
+            account: self
+                .x
+                .context
+                .accounts
+                .get(&self.x.service)
+                .unwrap()
+                .clone(),
+            index: self.x.service,
+            accounts: self.x.context.accounts.clone(),
+        })
+    }
+
+    fn update_general(&mut self, general: General) -> crate::Result<()> {
+        self.x.context.accounts = general.accounts;
+        self.x.service = general.index;
+        Ok(())
+    }
+
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
+        Ok(self)
     }
 }
 

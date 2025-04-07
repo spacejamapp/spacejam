@@ -3,7 +3,7 @@
 use crate::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
-    OpaqueHash,
+    OpaqueHash, TimeSlot,
 };
 use std::collections::BTreeMap;
 
@@ -21,4 +21,20 @@ pub struct StateContext {
 
     /// χ (χ) The privileged service indices
     pub privileges: Privileges,
+}
+
+/// External environment specified in spacejam
+pub struct Environment {
+    /// (η'0) entropy
+    pub entropy: OpaqueHash,
+
+    /// (Ht) The current timeslot
+    pub timeslot: TimeSlot,
+}
+
+impl Environment {
+    /// Create a new environment
+    pub fn new(entropy: OpaqueHash, timeslot: TimeSlot) -> Self {
+        Self { entropy, timeslot }
+    }
 }

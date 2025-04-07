@@ -3,9 +3,12 @@
 use core::fmt;
 use score::{
     service::{ServiceAccount, WorkExecResult},
+    vm::AccumulateResult,
     Gas,
 };
 use std::fmt::Display;
+
+use crate::host::Accumulate;
 
 /// The result type of PVM
 pub type Result<T> = core::result::Result<T, Reason>;
@@ -74,7 +77,7 @@ impl Display for Reason {
 }
 
 /// The execution state of programs.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct State<Memory: crate::Memory> {
     /// (ı') The program counter.
     pub pc: u64,
@@ -155,6 +158,24 @@ impl<X: Default> Received<X> {
             reason: self.reason,
             data: self.data,
         }
+    }
+}
+
+impl Received<Accumulate> {
+    /// Convert the received result to an accumulate result
+    pub fn to_result(self, gas: Gas) -> AccumulateResult {
+        if self.reason != Reason::Continue {
+            return self.data.y.to_result(gas);
+        }
+
+        let mut result = self.data.x.to_result(gas);
+        if self.output.len() == 32 {
+            let mut hash = [0; 32];
+            hash.copy_from_slice(&self.output);
+            result.hash = Some(hash);
+        }
+
+        result
     }
 }
 

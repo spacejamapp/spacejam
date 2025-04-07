@@ -32,6 +32,6 @@ pub fn exec<V: Pvm>(
     _accounts: &impl Storage,
     _gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
-    let _ = V::accumulate(context, 0, 0, 0, Default::default());
+    let _ = V::accumulate(context, 0, 0, 0, Default::default(), [0; 32]);
     Default::default()
 }

@@ -13,6 +13,7 @@ use score::{
 use std::collections::BTreeMap;
 
 /// Accumulate arguments
+#[derive(Default)]
 pub struct Accumulate {
     /// The regular dimension
     pub x: AccumulateContext,
@@ -25,6 +26,15 @@ pub struct Accumulate {
 }
 
 impl Accumulate {
+    /// Create a new accumulate
+    pub fn new(x: AccumulateContext, timeslot: TimeSlot) -> Self {
+        Self {
+            y: x.clone(),
+            x,
+            timeslot,
+        }
+    }
+
     /// Get the account
     pub fn account(&mut self) -> Result<&mut ServiceAccount> {
         self.x
@@ -54,7 +64,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         14 => self::solicit(state, data),
         15 => self::forget(state, data),
         16 => self::yield_(state, data),
-        _ => crate::bail!("Host call {call} not found"),
+        _ => Ok(Exit::What as u64),
     }
 }
 

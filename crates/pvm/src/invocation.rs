@@ -6,8 +6,8 @@ use crate::{
 use parser::{util, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
-    vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
-    Gas, ServiceId, TimeSlot,
+    vm::{AccumulateContext, AccumulateResult, DeferredTransfer, Operand, StateContext},
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;
 
@@ -253,17 +253,42 @@ pub trait Invocation {
     /// as defined per graypaper (B.9)
     fn accumulate(
         // (U) The state context
-        _context: StateContext,
+        context: StateContext,
         // (N_t)  timeslot for the current accumulation
-        _slot: TimeSlot,
+        timeslot: TimeSlot,
         // (N_s)  the service id of the caller
-        _service_id: ServiceId,
+        service: ServiceId,
         // (N_g)  the gas limit for the current operation
-        _gas_limit: Gas,
+        gas: Gas,
         // (O)  the accumulation operands
-        _operands: Vec<Operand>,
+        operands: Vec<Operand>,
+        // entropy'0
+        entropy: OpaqueHash,
     ) -> AccumulateResult {
-        Default::default()
+        let Some(code) = context
+            .accounts
+            .get(&service)
+            .and_then(|account| account.code())
+        else {
+            // TODO: the graypaper could be wrong, no need to run the I function
+            return AccumulateResult {
+                context,
+                ..Default::default()
+            };
+        };
+
+        // create the accumulate context
+        let accumulate = host::Accumulate::new(
+            AccumulateContext {
+                context: context.clone(),
+                service,
+                index: Self::index(service, timeslot, entropy),
+                ..Default::default()
+            },
+            timeslot,
+        );
+        let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }
 
     /// (ΨT): on-transfer invocation
@@ -280,6 +305,17 @@ pub trait Invocation {
         _transfers: &[DeferredTransfer],
     ) -> Transferred {
         Transferred::default()
+    }
+
+    /// (I) Generate a new index from provided environment
+    fn index(service: ServiceId, timeslot: TimeSlot, entropy: OpaqueHash) -> ServiceId {
+        let encoded = codec::encode(&(service, entropy, timeslot)).expect("failed to encode");
+        let hash = crypto::blake2b(&encoded);
+        let mut lebytes = [0; 4];
+        lebytes[0..4].copy_from_slice(&hash[0..4]);
+
+        let base = u32::from_le_bytes(lebytes);
+        base % (u32::MAX - (1 << 9)) + (1 << 8)
     }
 }
 

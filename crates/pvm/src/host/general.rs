@@ -5,7 +5,7 @@ use crate::{
     Argument, Reason, Result, State,
 };
 use codec::Numeric;
-use score::{service::ServiceAccount, Gas};
+use score::{service::ServiceAccount, Gas, ServiceId};
 use std::collections::BTreeMap;
 
 /// Input data of general host functions
@@ -14,20 +14,23 @@ pub struct General {
     pub account: ServiceAccount,
 
     /// (s) Service index
-    pub index: u64,
+    pub index: ServiceId,
 
     /// (d) Account dictionary
-    pub accounts: BTreeMap<u64, ServiceAccount>,
+    pub accounts: BTreeMap<ServiceId, ServiceAccount>,
 }
 
 impl General {
     /// Get service account
-    pub fn get(&self, r7: u64) -> Option<(u64, ServiceAccount)> {
-        if r7 == u64::MAX || r7 == self.index {
-            return Some((self.index, self.account.clone()));
+    pub fn get(&self, r7: u64) -> Option<(ServiceId, ServiceAccount)> {
+        let service = self.index as u64;
+        if r7 == u64::MAX || r7 == service {
+            return Some((service as ServiceId, self.account.clone()));
         }
 
-        self.accounts.get(&r7).map(|account| (r7, account.clone()))
+        self.accounts
+            .get(&(r7 as ServiceId))
+            .map(|account| (r7 as ServiceId, account.clone()))
     }
 }
 
@@ -48,7 +51,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         2 => self::read(state, data),
         3 => self::write(state, data),
         4 => self::info(state, data),
-        _ => crate::bail!("host call not found"),
+        _ => Ok(Exit::What as u64),
     }
 }
 
@@ -62,7 +65,7 @@ fn lookup<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<u64> {
-    let general = data.as_general_mut()?;
+    let general = data.as_general()?;
     let Some((_, account)) = general.get(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
@@ -99,7 +102,7 @@ fn read<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    let general = data.as_general_mut()?;
+    let general = data.as_general()?;
 
     // get the account
     let Some((index, account)) = general.get(state.registers[7]) else {
@@ -108,7 +111,7 @@ fn read<X: Argument, Memory: crate::Memory>(
 
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    let mut input = codec::encode(&(index as u32)).expect("should not fail");
+    let mut input = codec::encode(&index).expect("should not fail");
     let shash = state
         .memory
         .read_bytes(ko as u32, (ko + kz) as u32)
@@ -134,7 +137,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    let general = data.as_general_mut()?;
+    let mut general = data.as_general()?;
 
     // extract arguments from registers
     let [ko, kz, vo, vz] = [
@@ -145,7 +148,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     ];
 
     // get the key
-    let mut input = codec::encode(&(general.index as u32)).expect("should not fail");
+    let mut input = codec::encode(&general.index).expect("should not fail");
     input.extend_from_slice(
         &state
             .memory
@@ -157,6 +160,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
+        data.update_general(general)?;
         Ok(Exit::None as u64)
     } else if let Ok(value) = state.memory.read_bytes(vo as u32, (vo + vz) as u32) {
         let account = general.account.state();
@@ -164,6 +168,7 @@ fn write<X: Argument, Memory: crate::Memory>(
             Ok(Exit::Full as u64)
         } else {
             general.account.storage.insert(key, value.clone());
+            data.update_general(general)?;
             Ok(u64::decode(&value))
         }
     } else {
@@ -176,14 +181,14 @@ fn info<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    let general = data.as_general_mut()?;
+    let general = data.as_general()?;
 
     // get and encode the account state
     let r7 = state.registers[7];
     let Some(account) = if r7 == u64::MAX {
         general.accounts.get(&general.index)
     } else {
-        general.accounts.get(&r7)
+        general.accounts.get(&(r7 as ServiceId))
     }
     .and_then(|account| codec::encode(&account.state()).ok()) else {
         return Ok(Exit::None as u64);

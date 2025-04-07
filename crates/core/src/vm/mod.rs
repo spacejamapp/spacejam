@@ -2,7 +2,7 @@
 
 pub use {
     acc::{AccumulateContext, AccumulateResult, Accumulated, CommitmentMap, Operand},
-    context::StateContext,
+    context::{Environment, StateContext},
     transfer::DeferredTransfer,
 };
 

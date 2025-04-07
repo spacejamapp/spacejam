@@ -1,6 +1,9 @@
 //! refine host calls
 
-use crate::{host::ExitCode, Reason, Result, State};
+use crate::{
+    host::{Exit, ExitCode},
+    Reason, Result, State,
+};
 
 /// Reine host call arguments
 pub struct Refine {}
@@ -22,7 +25,7 @@ pub fn call<X: Default, Memory: crate::Memory>(
         24 => self::void(state, data),
         25 => self::invoke(state, data),
         26 => self::expunge(state, data),
-        _ => crate::bail!("host call not found"),
+        _ => Ok(Exit::What as u64),
     }
 }
 
