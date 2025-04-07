@@ -7,6 +7,9 @@ use score::{
 };
 use std::fmt::Display;
 
+/// The result type of PVM
+pub type Result<T> = core::result::Result<T, Reason>;
+
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
@@ -44,6 +47,12 @@ impl Reason {
             self,
             Reason::Halt | Reason::Panic(_) | Reason::OOG | Reason::Fault(_)
         )
+    }
+}
+
+impl From<anyhow::Error> for Reason {
+    fn from(e: anyhow::Error) -> Self {
+        Reason::Panic(e.to_string())
     }
 }
 

@@ -21,31 +21,49 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         0..5 => general::call(call, &mut state, Default::default(), &mut data),
         5..17 => accumulate::call(call, &mut state, &mut data),
         17..27 => refine::call(call, &mut state, &mut data),
-        _ => return Stepped::new(Reason::Panic(format!("unknown host call: {call}")), state),
+        _ => Err(Reason::Panic(format!("unknown host call: {call}"))),
     };
 
-    Stepped::new(reason, state)
+    match reason {
+        Ok(exit) => {
+            state.registers[7] = exit;
+            Stepped::new(Reason::Continue, state)
+        }
+        Err(reason) => Stepped::new(reason, state),
+    }
 }
 
 /// Dynamic arguments for host calls
 pub trait Argument: Default {
     /// returns some if the input data is general
-    fn as_general() -> Option<General>;
+    fn as_general() -> crate::Result<General> {
+        crate::bail!("not a general")
+    }
 
     /// returns some if the input data is general
-    fn as_general_mut(&mut self) -> Option<&mut General>;
+    fn as_general_mut(&mut self) -> crate::Result<&mut General> {
+        crate::bail!("not a general")
+    }
 
     /// returns some if the input data is accumulate
-    fn as_accumulate() -> Option<Accumulate>;
+    fn as_accumulate() -> crate::Result<Accumulate> {
+        crate::bail!("not an accumulate")
+    }
 
     /// returns some if the input data is accumulate
-    fn as_accumulate_mut(&mut self) -> Option<&mut Accumulate>;
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
+        crate::bail!("not an accumulate")
+    }
 
     /// returns some if the input data is refine
-    fn as_refine() -> Option<Refine>;
+    fn as_refine() -> crate::Result<Refine> {
+        crate::bail!("not a refine")
+    }
 
     /// returns some if the input data is refine
-    fn as_refine_mut(&mut self) -> Option<&mut Refine>;
+    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
+        crate::bail!("not a refine")
+    }
 }
 
 /// Host call results
@@ -72,3 +90,9 @@ pub enum Result {
     /// The return value indicating general success.
     Ok = 0,
 }
+
+/// The result type of host calls
+pub type Exit = Result;
+
+/// The exit code type
+pub type ExitCode = u64;
