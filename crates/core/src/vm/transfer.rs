@@ -1,9 +1,10 @@
 //! Deferred transfer related stuffs
 
 use crate::{Gas, ServiceId};
+use serde::{Deserialize, Serialize};
 
 /// A deferred transfer item
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub struct DeferredTransfer {
     /// (s) The sender
     pub sender: ServiceId,

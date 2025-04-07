@@ -296,15 +296,46 @@ pub trait Invocation {
     /// Defined per graypaper (B.15)
     fn transfer(
         // (δ) The account storage
-        _accounts: &BTreeMap<ServiceId, ServiceAccount>,
+        accounts: &BTreeMap<ServiceId, ServiceAccount>,
         // (N_t)  timeslot for the current accumulation
-        _slot: TimeSlot,
+        slot: TimeSlot,
         // (N_s)  the service id of the caller
-        _service_id: ServiceId,
+        service: ServiceId,
         // (T)  the deferred transfers
-        _transfers: &[DeferredTransfer],
+        transfers: &[DeferredTransfer],
     ) -> Transferred {
-        Transferred::default()
+        let Some(account) = accounts.get(&service) else {
+            tracing::warn!("no account found for service: {}", service);
+            return Transferred::default();
+        };
+
+        let Some(code) = account.code() else {
+            tracing::warn!("no code found for service: {}", service);
+            return Transferred::default();
+        };
+
+        let code = code.clone();
+        let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
+        let amount = transfers.iter().map(|t| t.amount).sum::<u64>();
+
+        // TODO: update the account balance ???
+        //
+        // this seems not correct.
+        tracing::warn!("FIXME: update the account balance: {}", amount);
+        let mut account = account.clone();
+        account.balance = account.balance + amount;
+        let general = host::General {
+            account,
+            index: service,
+            accounts: accounts.clone(),
+        };
+
+        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
+        let received = Self::argument(&code, 10, gas, &input, general);
+        Transferred {
+            account: received.data.account,
+            gas: received.gas,
+        }
     }
 
     /// (I) Generate a new index from provided environment

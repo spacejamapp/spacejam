@@ -9,6 +9,7 @@ use score::{service::ServiceAccount, Gas, ServiceId};
 use std::collections::BTreeMap;
 
 /// Input data of general host functions
+#[derive(Debug, Clone, Default)]
 pub struct General {
     /// (s) The provided service account
     pub account: ServiceAccount,
@@ -18,6 +19,17 @@ pub struct General {
 
     /// (d) Account dictionary
     pub accounts: BTreeMap<ServiceId, ServiceAccount>,
+}
+
+impl Argument for General {
+    fn as_general(&self) -> Result<General> {
+        Ok(self.clone())
+    }
+
+    fn update_general(&mut self, general: General) -> Result<()> {
+        *self = general;
+        Ok(())
+    }
 }
 
 impl General {
