@@ -44,7 +44,7 @@ pub fn accumulate<V: Pvm>(
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let accumulated = exec::exec::<V>(
+    let accumulated = exec::outer::<V>(
         gas_limit,
         accumulatable.clone(),
         StateContext::default(),

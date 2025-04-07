@@ -5,7 +5,8 @@ use crate::{
         RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
         WorkResultJson,
     },
-    CoreIndex, OpaqueHash, WorkPackageHash,
+    vm::Operand,
+    CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
 };
 use codec::Compact;
 use serde::{Deserialize, Serialize};
@@ -52,6 +53,26 @@ impl WorkReport {
     /// Check if the work report is immediate
     pub fn is_immediate(&self) -> bool {
         self.lookup.is_empty() && self.context.prerequisites.is_empty()
+    }
+
+    /// Get the operands
+    pub fn operands(&self, service: ServiceId) -> Vec<Operand> {
+        let mut operands = vec![];
+        for work in self.results.iter() {
+            if work.service_id != service {
+                continue;
+            }
+
+            operands.push(Operand {
+                data: work.result.clone(),
+                erasure_root: self.spec.erasure_root,
+                authorizer_output: self.auth_output.clone(),
+                payload: work.payload_hash,
+                hash: self.spec.hash,
+                gas: work.accumulate_gas,
+            });
+        }
+        operands
     }
 }
 

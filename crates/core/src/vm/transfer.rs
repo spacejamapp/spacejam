@@ -33,31 +33,4 @@ impl DeferredTransfer {
             .cloned()
             .collect()
     }
-
-    /*  /// integrate the deferred transfers
-    pub fn integrate<V: Vm>(
-        accounts: &mut BTreeMap<ServiceId, ServiceAccount>,
-        transfers: &[DeferredTransfer],
-        slot: TimeSlot,
-    ) -> anyhow::Result<Gas> {
-        let mut gas_used = 0;
-        // Process each account in the intermediate state
-        for (service_id, _account) in accounts.clone().into_iter() {
-            let transfers = DeferredTransfer::select(transfers, service_id);
-            if transfers.is_empty() {
-                continue;
-            }
-
-            // Invoke PVM's transfer function (Ψ_T) for this service
-            // This applies all transfers targeting this service in order
-            //
-            // TODO: handle the changes of accounts may be using smart pointer.
-            let (new_account, gas) = V::transfer(accounts, slot, service_id, &transfers);
-
-            gas_used += gas;
-            accounts.insert(service_id, new_account);
-        }
-
-        Ok(gas_used)
-    } */
 }

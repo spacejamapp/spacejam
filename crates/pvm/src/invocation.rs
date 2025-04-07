@@ -323,7 +323,7 @@ pub trait Invocation {
         // this seems not correct.
         tracing::warn!("FIXME: update the account balance: {}", amount);
         let mut account = account.clone();
-        account.balance = account.balance + amount;
+        account.balance += amount;
         let general = host::General {
             account,
             index: service,
