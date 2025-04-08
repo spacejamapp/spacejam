@@ -141,7 +141,7 @@ pub fn simulate<V: Pvm>(
             &state.queue,
             &state.history,
             &state.privileges,
-            storage,
+            state.accounts.clone(),
         )?;
         state.queue = ready_queue;
         state.history = accumulated_queue;

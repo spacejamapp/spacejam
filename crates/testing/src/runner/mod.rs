@@ -4,9 +4,7 @@ use ::pvm::Invocation;
 use anyhow::Result;
 use runtime::tx;
 use score::block::History;
-use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
-use storage::StorageExt;
 use tracing_subscriber::EnvFilter;
 
 mod storage;
@@ -27,8 +25,12 @@ impl Runner {
 
                 let input = accumulate::TestInput::from_json(test.input)?;
                 let _output = accumulate::TestOutput::from_json(test.output)?;
-                let mdb = MemoryDb::default();
-                mdb.add_accounts(input.pre_state.accounts)?;
+                let accounts = input
+                    .pre_state
+                    .accounts
+                    .into_iter()
+                    .map(|a| (a.id, a.data.into()))
+                    .collect();
 
                 // run the accumulate function
                 let _ = tx::guarantee::accumulate::<()>(
@@ -38,7 +40,7 @@ impl Runner {
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
-                    &mdb,
+                    accounts,
                 );
             }
             Section::Assurances => {

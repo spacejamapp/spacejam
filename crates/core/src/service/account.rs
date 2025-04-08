@@ -152,6 +152,23 @@ impl From<ServiceAccountState> for ServiceAccountData {
     }
 }
 
+impl From<ServiceAccountData> for ServiceAccount {
+    fn from(data: ServiceAccountData) -> Self {
+        ServiceAccount {
+            storage: Default::default(),
+            preimage: data
+                .preimages
+                .into_iter()
+                .map(|p| (p.hash, p.blob))
+                .collect(),
+            lookup: Default::default(),
+            code: data.service.code,
+            balance: data.service.balance,
+            gas: data.service.gas,
+        }
+    }
+}
+
 /// Represents a service preimage.
 #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
 pub struct ServicePreimage {

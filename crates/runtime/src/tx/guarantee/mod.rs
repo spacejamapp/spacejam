@@ -1,6 +1,5 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
-use crate::Storage;
 use error::{Error, Result};
 use pvm::Pvm;
 use score::{
@@ -8,11 +7,12 @@ use score::{
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
-        ReadyReport, ReportedWorkPackage, WorkReport,
+        ReadyReport, ReportedWorkPackage, ServiceAccount, WorkReport,
     },
     vm::StateContext,
 };
 pub use state::{State, StateJson};
+use std::collections::BTreeMap;
 
 mod dep;
 pub mod error;
@@ -36,7 +36,7 @@ pub fn accumulate<V: Pvm>(
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
-    _accounts: &impl Storage,
+    accounts: BTreeMap<u32, ServiceAccount>,
 ) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
@@ -47,7 +47,10 @@ pub fn accumulate<V: Pvm>(
     let accumulated = exec::outer::<V>(
         gas_limit,
         &accumulatable,
-        StateContext::default(),
+        StateContext {
+            accounts,
+            ..Default::default()
+        },
         &privileges.always_acc,
     );
 
@@ -58,6 +61,8 @@ pub fn accumulate<V: Pvm>(
     // update the ready queue (θ')
     let next_ready_queue =
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, slot, tau);
+
+    // TODO: note that we need to update account data as well after accumulation
 
     Ok((Default::default(), next_ready_queue, next_accumulated_queue))
 }

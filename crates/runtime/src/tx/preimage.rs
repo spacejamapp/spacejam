@@ -8,7 +8,7 @@ use score::{
 };
 use std::collections::{BTreeMap, HashSet};
 
-/// handle preimage
+/// (δ') handle preimage
 pub fn accounts(
     slot: TimeSlot,
     preimages: &PreimagesExtrinsic,

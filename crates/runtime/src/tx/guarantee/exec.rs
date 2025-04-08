@@ -30,16 +30,16 @@ pub fn outer<V: Pvm>(
     context: StateContext,
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
+    // NOTE: the graypaper is using max(N|w| + 1), I believe it is a typo.
     let count = reports
         .iter()
         .filter(|r| r.results.iter().map(|r| r.accumulate_gas).sum::<Gas>() <= gas_limit)
-        .count()
-        + 1;
+        .count();
     if count == 0 {
         return Default::default();
     }
 
-    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..count], &gas_table);
+    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..count], gas_table);
     let rest = self::outer::<V>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
         &reports[count..],
@@ -66,7 +66,7 @@ pub fn parallel<V: Pvm>(
         .map(|service| {
             (
                 **service,
-                self::once::<V>(context.clone(), reports, &table, **service),
+                self::once::<V>(context.clone(), reports, table, **service),
             )
         })
         .collect::<Vec<_>>();
@@ -116,7 +116,7 @@ pub fn parallel<V: Pvm>(
         context.privileges.assign,
     ]
     .iter()
-    .map(|service| self::once::<V>(context.clone(), reports.clone(), &table, *service))
+    .map(|service| self::once::<V>(context.clone(), reports, table, *service))
     .collect::<Vec<_>>();
 
     let (privileges, validators, authorization) = (
