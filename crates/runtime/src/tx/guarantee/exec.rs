@@ -47,6 +47,7 @@ pub fn outer<V: Pvm>(
         &Default::default(),
     );
 
+    accumulated.accumulated += rest.accumulated;
     accumulated.gas.extend(rest.gas);
     accumulated.transfers.extend(rest.transfers);
     accumulated.pairings.extend(rest.pairings);
@@ -126,7 +127,7 @@ pub fn parallel<V: Pvm>(
     );
 
     Accumulated {
-        accumulated: 0,
+        accumulated: reports.len(),
         context: StateContext {
             accounts,
             privileges,

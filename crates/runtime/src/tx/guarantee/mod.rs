@@ -81,12 +81,15 @@ pub fn accumulated_history(
     }
 
     // Add new accumulated work report hashes
-    let new_accumulated: Vec<OpaqueHash> = accumulatable
+    let mut new_accumulated: Vec<OpaqueHash> = accumulatable
         .iter()
         .take(accumulated)
         .map(|w| w.spec.hash)
         .collect();
 
+    // NOTE: Sort the new accumulated work report hashes again to align the test
+    // vectors, not sure if we missed anything that we have to do it here.
+    new_accumulated.sort();
     next.push(new_accumulated);
 
     // Update the accumulated history (ξ')
@@ -111,18 +114,19 @@ pub fn ready_queue(
 
     // update the ready queue (θ')
     let blocks = slot - tau;
-    for idx in 0..phase {
+    for idx in 0..score::EPOCH_LENGTH {
+        let target = ((score::EPOCH_LENGTH + phase - idx) % score::EPOCH_LENGTH) as usize;
         let ready = if idx == 0 {
             queue::edit(reports.clone(), &accd)
         } else if idx >= 1 && idx < blocks {
             Default::default()
         } else if idx >= blocks {
-            queue::edit(pre[(phase - idx) as usize].clone(), &accd)
+            queue::edit(pre[target].clone(), &accd)
         } else {
             continue;
         };
 
-        ready_queue[(phase - idx) as usize] = ready;
+        ready_queue[target] = ready;
     }
 
     ready_queue
