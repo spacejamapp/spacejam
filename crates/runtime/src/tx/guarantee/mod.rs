@@ -36,7 +36,7 @@ pub fn accumulate<V: Pvm>(
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
-    accounts: &impl Storage,
+    _accounts: &impl Storage,
 ) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
@@ -46,9 +46,8 @@ pub fn accumulate<V: Pvm>(
     let gas_limit = privileges.gas_limit();
     let accumulated = exec::outer::<V>(
         gas_limit,
-        accumulatable.clone(),
+        &accumulatable,
         StateContext::default(),
-        accounts,
         &privileges.always_acc,
     );
 

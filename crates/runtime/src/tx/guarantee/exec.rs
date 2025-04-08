@@ -1,6 +1,5 @@
 //! Execution of work reports
 
-use crate::Storage;
 use pvm::Pvm;
 use score::{
     Gas, ServiceId,
@@ -26,21 +25,39 @@ use std::collections::BTreeMap;
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
 pub fn outer<V: Pvm>(
-    _gas_limit: Gas,
-    _reports: Vec<WorkReport>,
+    gas_limit: Gas,
+    reports: &[WorkReport],
     context: StateContext,
-    _accounts: &impl Storage,
-    _gas_table: &BTreeMap<ServiceId, Gas>,
+    gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
-    let _ = V::accumulate(context, 0, 0, 0, Default::default(), [0; 32]);
-    Default::default()
+    let count = reports
+        .iter()
+        .filter(|r| r.results.iter().map(|r| r.accumulate_gas).sum::<Gas>() <= gas_limit)
+        .count()
+        + 1;
+    if count == 0 {
+        return Default::default();
+    }
+
+    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..count], &gas_table);
+    let rest = self::outer::<V>(
+        gas_limit - accumulated.gas.values().sum::<Gas>(),
+        &reports[count..],
+        accumulated.context.clone(),
+        &Default::default(),
+    );
+
+    accumulated.gas.extend(rest.gas);
+    accumulated.transfers.extend(rest.transfers);
+    accumulated.pairings.extend(rest.pairings);
+    accumulated
 }
 
 /// (Δ*) parallel accumulation
 pub fn parallel<V: Pvm>(
     context: StateContext,
-    reports: Vec<WorkReport>,
-    table: BTreeMap<ServiceId, Gas>,
+    reports: &[WorkReport],
+    table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
     // TODO: use a local task pool for spawning this calculation.
     let services = table.keys().collect::<Vec<_>>();
@@ -49,14 +66,14 @@ pub fn parallel<V: Pvm>(
         .map(|service| {
             (
                 **service,
-                self::once::<V>(context.clone(), reports.clone(), &table, **service),
+                self::once::<V>(context.clone(), reports, &table, **service),
             )
         })
         .collect::<Vec<_>>();
 
     // assemble the result
     let mut accounts = context.accounts.clone();
-    let mut gas = 0;
+    let mut gas = BTreeMap::new();
     let mut removed: Vec<ServiceId> = vec![];
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
@@ -78,7 +95,7 @@ pub fn parallel<V: Pvm>(
         }
 
         // update other fields
-        gas += result.gas;
+        gas.insert(service_id, result.gas);
         transfers.extend(result.transfers);
         if let Some(hash) = result.hash {
             pairings.insert(service_id, hash);
@@ -125,7 +142,7 @@ pub fn parallel<V: Pvm>(
 /// (Δ1) single accumulation
 pub fn once<V: Pvm>(
     context: StateContext,
-    reports: Vec<WorkReport>,
+    reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
 ) -> AccumulateResult {

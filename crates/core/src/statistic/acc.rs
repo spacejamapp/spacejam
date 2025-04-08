@@ -32,7 +32,7 @@ impl From<&Accumulated> for AccumulationRecord {
 
         AccumulationRecord {
             work_reports_processed: accumulated.accumulated,
-            total_gas_used: accumulated.gas,
+            total_gas_used: accumulated.gas.values().sum(),
             services_affected: affected_services.len(),
             commitment_count: accumulated.pairings.len(),
         }

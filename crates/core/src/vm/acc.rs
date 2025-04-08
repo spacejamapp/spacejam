@@ -21,20 +21,20 @@ pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 /// - U: the total gas used
 #[derive(Default, Clone)]
 pub struct Accumulated {
-    /// the number of work-results accumulated.
+    /// (i) the number of work-results accumulated.
     pub accumulated: usize,
 
-    /// A posterior state-context.
+    /// (o) A posterior state-context.
     pub context: StateContext,
 
-    /// The resultant deferred-transfers
+    /// (t) The resultant deferred-transfers
     pub transfers: Vec<DeferredTransfer>,
 
-    /// The accumulation-output pairings.
+    /// (b) The accumulation-output pairings.
     pub pairings: CommitmentMap,
 
-    /// The total gas used
-    pub gas: Gas,
+    /// (u) The total gas used
+    pub gas: BTreeMap<ServiceId, Gas>,
 }
 
 /// Context for the accumulation
