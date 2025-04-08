@@ -22,6 +22,7 @@ mod state;
 mod validator;
 
 /// (b) Accumulate the available work reports
+#[tracing::instrument(skip_all)]
 pub fn accumulate<V: Pvm>(
     // The next timeslot (τ')
     slot: TimeSlot,
@@ -60,7 +61,7 @@ pub fn accumulate<V: Pvm>(
 
     // update the ready queue (θ')
     let next_ready_queue =
-        self::ready_queue(ready_queue, &next_accumulated_queue, queued, slot, tau);
+        self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
     // TODO: note that we need to update account data as well after accumulation
 
@@ -101,28 +102,27 @@ pub fn ready_queue(
     pre: &ReadyQueue,
     history: &AccumulatedQueue,
     reports: Vec<ReadyReport>,
-    slot: TimeSlot,
     tau: TimeSlot,
+    slot: TimeSlot,
 ) -> ReadyQueue {
     let mut ready_queue = pre.clone();
-    let slot_idx = slot / score::EPOCH_LENGTH;
+    let phase = slot % score::EPOCH_LENGTH;
     let accd = history[score::EPOCH_LENGTH as usize - 1].clone();
 
     // update the ready queue (θ')
     let blocks = slot - tau;
-    for idx in 0..slot_idx {
-        let target = slot_idx - idx;
+    for idx in 0..phase {
         let ready = if idx == 0 {
             queue::edit(reports.clone(), &accd)
         } else if idx >= 1 && idx < blocks {
             Default::default()
         } else if idx >= blocks {
-            queue::edit(pre[target as usize].clone(), &accd)
+            queue::edit(pre[(phase - idx) as usize].clone(), &accd)
         } else {
             continue;
         };
 
-        ready_queue[target as usize] = ready;
+        ready_queue[(phase - idx) as usize] = ready;
     }
 
     ready_queue
