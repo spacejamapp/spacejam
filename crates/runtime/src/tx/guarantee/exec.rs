@@ -1,10 +1,10 @@
 //! Execution of work reports
 
-use pvm::Pvm;
+use pvm::{AccumulateResult, Pvm};
 use score::{
     Gas, ServiceId,
     service::WorkReport,
-    vm::{AccumulateResult, Accumulated, StateContext},
+    vm::{Accumulated, StateContext},
 };
 use std::collections::BTreeMap;
 
@@ -36,7 +36,10 @@ pub fn outer<V: Pvm>(
         .filter(|r| r.results.iter().map(|r| r.accumulate_gas).sum::<Gas>() <= gas_limit)
         .count();
     if count == 0 {
-        return Default::default();
+        return Accumulated {
+            context,
+            ..Default::default()
+        };
     }
 
     let mut accumulated = self::parallel::<V>(context.clone(), &reports[..count], gas_table);

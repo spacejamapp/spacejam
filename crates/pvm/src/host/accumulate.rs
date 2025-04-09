@@ -2,12 +2,12 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    Argument, Reason, Result, State,
+    AccumulateContext, Argument, Reason, Result, State,
 };
 use codec::Numeric;
 use score::{
     service::{GasLimit, Privileges, ServiceAccount},
-    vm::{AccumulateContext, DeferredTransfer},
+    vm::DeferredTransfer,
     TimeSlot,
 };
 use std::collections::BTreeMap;

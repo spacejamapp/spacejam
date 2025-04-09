@@ -1,9 +1,11 @@
 //! Accumulate tests
 
+use std::collections::BTreeMap;
+
 use score::{
     service::{
-        AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceItem, ServiceItemJson,
-        WorkReport, WorkReportJson,
+        AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount, ServiceItem,
+        ServiceItemJson, WorkReport, WorkReportJson,
     },
     Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -82,6 +84,16 @@ pub struct State {
     /// The accounts
     #[json(nested)]
     pub accounts: Vec<ServiceItem>,
+}
+
+impl State {
+    /// Get the accounts
+    pub fn accounts(&self) -> BTreeMap<u32, ServiceAccount> {
+        self.accounts
+            .iter()
+            .map(|item| (item.id, item.data.clone().into()))
+            .collect()
+    }
 }
 
 /// Privileges wrapper

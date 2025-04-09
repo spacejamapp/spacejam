@@ -1,12 +1,13 @@
 //! PVM invocation interface
 
 use crate::{
-    host, Argument, Executed, Memory as _, Reason, Received, Refined, State, Stepped, Transferred,
+    host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
+    Refined, State, Stepped, Transferred,
 };
 use parser::{util, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
-    vm::{AccumulateContext, AccumulateResult, DeferredTransfer, Operand, StateContext},
+    vm::{DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;

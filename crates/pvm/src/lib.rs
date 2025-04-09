@@ -2,10 +2,13 @@
 
 pub use score::Gas;
 pub use {
+    env::AccumulateContext,
     host::Argument,
     invocation::Invocation,
     memory::Memory,
-    result::{Executed, Reason, Received, Refined, Result, State, Stepped, Transferred},
+    result::{
+        AccumulateResult, Executed, Reason, Received, Refined, Result, State, Stepped, Transferred,
+    },
     value::Value,
 };
 
@@ -17,6 +20,7 @@ macro_rules! bail {
     };
 }
 
+mod env;
 pub mod host;
 mod invocation;
 mod memory;

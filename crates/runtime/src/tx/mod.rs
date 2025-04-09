@@ -108,7 +108,7 @@ pub fn simulate<V: Pvm>(
     };
 
     // Round 3 computation
-    let root = {
+    let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
         state.safrole = ticket::safrole(
             state.timeslot,
@@ -134,7 +134,7 @@ pub fn simulate<V: Pvm>(
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
-        let (root, ready_queue, accumulated_queue) = guarantee::accumulate::<V>(
+        let accumulation = guarantee::accumulate::<V>(
             block.header.slot,
             state.timeslot,
             available,
@@ -143,19 +143,17 @@ pub fn simulate<V: Pvm>(
             &state.privileges,
             state.accounts.clone(),
         )?;
-        state.queue = ready_queue;
-        state.history = accumulated_queue;
-        root
+        state.queue = accumulation.ready_queue;
+        state.history = accumulation.accumulated_queue;
+        state.privileges = accumulation.privileges;
+        (accumulation.root, accumulation.accounts)
     };
 
     // Round 4 computation
     {
         // (δ') Update the accounts
-        let accounts = preimage::accounts(
-            block.header.slot,
-            &block.extrinsic.preimages,
-            &state.accounts,
-        )?;
+        let accounts =
+            preimage::accounts(block.header.slot, &block.extrinsic.preimages, &accounts)?;
         if accounts != state.accounts {
             diff.extend(account::diff(&accounts)?);
             state.accounts = accounts;

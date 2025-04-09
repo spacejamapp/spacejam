@@ -9,7 +9,7 @@ use score::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, ServiceAccount, WorkReport,
     },
-    vm::StateContext,
+    vm::{Accumulation, StateContext},
 };
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
@@ -38,7 +38,7 @@ pub fn accumulate<V: Pvm>(
     privileges: &Privileges,
     // The account storage (δ)
     accounts: BTreeMap<u32, ServiceAccount>,
-) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
+) -> anyhow::Result<Accumulation> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
@@ -64,8 +64,16 @@ pub fn accumulate<V: Pvm>(
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
     // TODO: note that we need to update account data as well after accumulation
+    //
+    // e.g. integrate transfers
 
-    Ok((Default::default(), next_ready_queue, next_accumulated_queue))
+    Ok(Accumulation {
+        root: Default::default(),
+        ready_queue: next_ready_queue,
+        accumulated_queue: next_accumulated_queue,
+        accounts: accumulated.context.accounts,
+        privileges: accumulated.context.privileges,
+    })
 }
 
 /// (ξ') Update the accumulated history

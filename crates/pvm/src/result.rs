@@ -1,14 +1,13 @@
 //! PVM execution result
 
+use crate::host::Accumulate;
 use core::fmt;
 use score::{
     service::{ServiceAccount, WorkExecResult},
-    vm::AccumulateResult,
-    Gas,
+    vm::{DeferredTransfer, StateContext},
+    Gas, OpaqueHash,
 };
 use std::fmt::Display;
-
-use crate::host::Accumulate;
 
 /// The result type of PVM
 pub type Result<T> = core::result::Result<T, Reason>;
@@ -177,6 +176,22 @@ impl Received<Accumulate> {
 
         result
     }
+}
+
+/// The accumulate result of (ΨA)
+#[derive(Default)]
+pub struct AccumulateResult {
+    /// (o) The state context
+    pub context: StateContext,
+
+    /// (t) The timeslot for the current accumulation
+    pub transfers: Vec<DeferredTransfer>,
+
+    /// (b) The output hash of the accumulation
+    pub hash: Option<OpaqueHash>,
+
+    /// (u) The gas used
+    pub gas: Gas,
 }
 
 /// The result of is-authorized invocation (ΨI)

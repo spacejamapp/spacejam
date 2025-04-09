@@ -25,15 +25,10 @@ impl Runner {
 
                 let input = accumulate::TestInput::from_json(test.input)?;
                 let output = accumulate::TestOutput::from_json(test.output)?;
-                let accounts = input
-                    .pre_state
-                    .accounts
-                    .into_iter()
-                    .map(|a| (a.id, a.data.into()))
-                    .collect();
+                let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let (hash, ready_queue, accumulated_queue) = tx::guarantee::accumulate::<()>(
+                let accumulation = tx::guarantee::accumulate::<()>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
@@ -43,9 +38,14 @@ impl Runner {
                     accounts,
                 )?;
 
-                assert_eq!(hash, output.output.unwrap());
-                assert_eq!(accumulated_queue, output.post_state.accumulated);
-                assert_eq!(ready_queue, output.post_state.ready_queue);
+                assert_eq!(accumulation.root, output.output.unwrap());
+                assert_eq!(
+                    accumulation.accumulated_queue,
+                    output.post_state.accumulated
+                );
+                assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
+                assert_eq!(accumulation.accounts, output.post_state.accounts());
+                assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
                 use crate::assurances;
