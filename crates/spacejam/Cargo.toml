@@ -14,8 +14,8 @@ clap = { workspace = true, features = ["derive"], optional = true }
 codec.workspace = true
 crypto.workspace = true
 hex.workspace = true
-hyper = { workspace = true, optional = true, features = ["server", "http2"] }
-hyper-util = { workspace = true, optional = true, features = ["tokio"] }
+hyper = { workspace = true, features = ["http1", "server"], optional = true }
+hyper-util = { workspace = true, features = ["tokio"], optional = true }
 metrics = { workspace = true, optional = true }
 network.workspace = true
 rocksdb = { workspace = true, optional = true }
