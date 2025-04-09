@@ -1,11 +1,16 @@
 //! PVM execution result
 
+use crate::host::Accumulate;
 use core::fmt;
 use score::{
     service::{ServiceAccount, WorkExecResult},
-    Gas,
+    vm::{DeferredTransfer, StateContext},
+    Gas, OpaqueHash,
 };
 use std::fmt::Display;
+
+/// The result type of PVM
+pub type Result<T> = core::result::Result<T, Reason>;
 
 /// The program exit reason.
 ///
@@ -47,6 +52,12 @@ impl Reason {
     }
 }
 
+impl From<anyhow::Error> for Reason {
+    fn from(e: anyhow::Error) -> Self {
+        Reason::Panic(e.to_string())
+    }
+}
+
 impl Display for Reason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -65,7 +76,7 @@ impl Display for Reason {
 }
 
 /// The execution state of programs.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct State<Memory: crate::Memory> {
     /// (ı') The program counter.
     pub pc: u64,
@@ -147,6 +158,40 @@ impl<X: Default> Received<X> {
             data: self.data,
         }
     }
+}
+
+impl Received<Accumulate> {
+    /// Convert the received result to an accumulate result
+    pub fn to_result(self, gas: Gas) -> AccumulateResult {
+        if self.reason != Reason::Continue {
+            return self.data.y.to_result(gas);
+        }
+
+        let mut result = self.data.x.to_result(gas);
+        if self.output.len() == 32 {
+            let mut hash = [0; 32];
+            hash.copy_from_slice(&self.output);
+            result.hash = Some(hash);
+        }
+
+        result
+    }
+}
+
+/// The accumulate result of (ΨA)
+#[derive(Default)]
+pub struct AccumulateResult {
+    /// (o) The state context
+    pub context: StateContext,
+
+    /// (t) The timeslot for the current accumulation
+    pub transfers: Vec<DeferredTransfer>,
+
+    /// (b) The output hash of the accumulation
+    pub hash: Option<OpaqueHash>,
+
+    /// (u) The gas used
+    pub gas: Gas,
 }
 
 /// The result of is-authorized invocation (ΨI)

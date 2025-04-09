@@ -4,9 +4,7 @@ use ::pvm::Invocation;
 use anyhow::Result;
 use runtime::tx;
 use score::block::History;
-use spacejam::storage::MemoryDb;
 use specjam::{Section, Test};
-use storage::StorageExt;
 use tracing_subscriber::EnvFilter;
 
 mod storage;
@@ -26,20 +24,28 @@ impl Runner {
                 use crate::accumulate;
 
                 let input = accumulate::TestInput::from_json(test.input)?;
-                let _output = accumulate::TestOutput::from_json(test.output)?;
-                let mdb = MemoryDb::default();
-                mdb.add_accounts(input.pre_state.accounts)?;
+                let output = accumulate::TestOutput::from_json(test.output)?;
+                let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let _ = tx::guarantee::accumulate::<()>(
+                let accumulation = tx::guarantee::accumulate::<()>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
-                    &mdb,
+                    accounts,
+                )?;
+
+                assert_eq!(accumulation.root, output.output.unwrap());
+                assert_eq!(
+                    accumulation.accumulated_queue,
+                    output.post_state.accumulated
                 );
+                assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
+                assert_eq!(accumulation.accounts, output.post_state.accounts());
+                assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
                 use crate::assurances;

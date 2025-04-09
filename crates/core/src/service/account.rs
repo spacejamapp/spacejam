@@ -61,6 +61,11 @@ impl ServiceAccount {
             + crate::BALANCE_PER_ITEM * self.items() as u64
             + crate::BALANCE_PER_OCTET * self.total()
     }
+
+    /// Get the present code of the service account
+    pub fn code(&self) -> Option<&Vec<u8>> {
+        self.preimage.get(&self.code)
+    }
 }
 
 impl ServiceAccount {
@@ -143,6 +148,23 @@ impl From<ServiceAccountState> for ServiceAccountData {
         ServiceAccountData {
             service: state,
             preimages: vec![],
+        }
+    }
+}
+
+impl From<ServiceAccountData> for ServiceAccount {
+    fn from(data: ServiceAccountData) -> Self {
+        ServiceAccount {
+            storage: Default::default(),
+            preimage: data
+                .preimages
+                .into_iter()
+                .map(|p| (p.hash, p.blob))
+                .collect(),
+            lookup: Default::default(),
+            code: data.service.code,
+            balance: data.service.balance,
+            gas: data.service.gas,
         }
     }
 }

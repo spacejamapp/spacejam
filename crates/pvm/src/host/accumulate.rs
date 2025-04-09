@@ -1,15 +1,19 @@
 //! Accumulation related host calls
 
-use crate::{host::Result, Argument, Reason, State};
+use crate::{
+    host::{Exit, ExitCode},
+    AccumulateContext, Argument, Reason, Result, State,
+};
 use codec::Numeric;
 use score::{
     service::{GasLimit, Privileges, ServiceAccount},
-    vm::{AccumulateContext, DeferredTransfer},
+    vm::DeferredTransfer,
     TimeSlot,
 };
 use std::collections::BTreeMap;
 
 /// Accumulate arguments
+#[derive(Default)]
 pub struct Accumulate {
     /// The regular dimension
     pub x: AccumulateContext,
@@ -21,12 +25,32 @@ pub struct Accumulate {
     pub timeslot: TimeSlot,
 }
 
+impl Accumulate {
+    /// Create a new accumulate
+    pub fn new(x: AccumulateContext, timeslot: TimeSlot) -> Self {
+        Self {
+            y: x.clone(),
+            x,
+            timeslot,
+        }
+    }
+
+    /// Get the account
+    pub fn account(&mut self) -> Result<&mut ServiceAccount> {
+        self.x
+            .context
+            .accounts
+            .get_mut(&self.x.service)
+            .ok_or(Reason::Panic("Could not find account".into()))
+    }
+}
+
 /// Accumulation calls
 pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
     data: &mut X,
-) -> Reason {
+) -> Result<ExitCode> {
     match call {
         5 => self::bless(state, data),
         6 => self::assign(state, data),
@@ -40,15 +64,16 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         14 => self::solicit(state, data),
         15 => self::forget(state, data),
         16 => self::yield_(state, data),
-        _ => Reason::Panic("Host call not found".into()),
+        _ => Ok(Exit::What as u64),
     }
 }
 
 /// (ΩB) bless
-fn bless<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn bless<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [m, a, v, o, n] = [
@@ -60,10 +85,7 @@ fn bless<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &m
     ];
 
     // get the data source
-    let source = match state.memory.read_bytes(o as u32, (12 * n) as u32) {
-        Ok(source) => source,
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let source = state.memory.read_bytes(o as u32, (12 * n) as u32)?;
 
     // parse always accumulate service ids
     let mut map = BTreeMap::new();
@@ -76,8 +98,7 @@ fn bless<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &m
     // return if unknown index
     let u32max = u32::MAX as u64;
     if m > u32max || a > u32max || v > u32max {
-        state.registers[7] = Result::Who as u64;
-        return Reason::Continue;
+        return Ok(Exit::Who as u64);
     }
 
     accumulate.x.context.privileges = Privileges {
@@ -87,31 +108,26 @@ fn bless<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &m
         always_acc: map,
     };
 
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩA) assign
-fn assign<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn assign<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the data source
     let o = state.registers[8];
-    let source = match state
+    let source = state
         .memory
-        .read_bytes(o as u32, (12 * score::QUEUE_ITEMS) as u32)
-    {
-        Ok(source) => source,
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+        .read_bytes(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
 
     // return if invalid core index
     let core_index = state.registers[7];
     if core_index > score::CORES_COUNT as u64 {
-        state.registers[7] = Result::Core as u64;
-        return Reason::Continue;
+        return Ok(Exit::Core as u64);
     }
 
     // parse the authorization queue
@@ -126,28 +142,21 @@ fn assign<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &
 
     // set the authorization queue
     accumulate.x.context.authorization[core_index as usize] = queue;
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩD) designate
 fn designate<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
-) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the data source
     let o = state.registers[7];
-    let source = match state
+    let source = state
         .memory
-        .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)
-    {
-        Ok(source) => source,
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+        .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
 
     // decode validators
     let Some(validators) = source
@@ -155,36 +164,33 @@ fn designate<X: Argument, Memory: crate::Memory>(
         .map(|chunk| codec::decode(chunk).ok())
         .collect::<Option<Vec<_>>>()
     else {
-        return Reason::Panic("Could not parse validators".into());
+        crate::bail!("Could not parse validators");
     };
 
     // set the validators
     accumulate.x.context.validators = validators;
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩC) checkpoint
 fn checkpoint<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
-) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // set the checkpoint
     accumulate.y = accumulate.x.clone();
-    state.registers[7] = state.gas as u64;
-    Reason::Continue
+    Ok(state.gas as u64)
 }
 
 /// (ΩN) new
 #[allow(clippy::new_ret_no_self)]
-fn new<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn new<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [o, l, g, m] = [
@@ -195,23 +201,14 @@ fn new<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut
     ];
 
     // get the hash
-    let code = match state.memory.read_bytes(o as u32, 32) {
-        Ok(vhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&vhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let code = state.memory.read_bytes(o as u32, 32)?;
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&code);
 
     // update the creator's account
-    let Some(creator) = accumulate.x.account() else {
-        return Reason::Panic("Could not find account".into());
-    };
-
+    let creator = accumulate.account()?;
     if creator.balance < score::BALANCE_PER_SERVICE {
-        state.registers[7] = Result::Cash as u64;
-        return Reason::Continue;
+        return Ok(Exit::Cash as u64);
     }
 
     // create the new accumulated
@@ -220,50 +217,40 @@ fn new<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut
         accumulate: g,
         transfer: m,
     });
-    account.code = code;
-    account.lookup.insert((code, l as u32), vec![]);
+    account.code = hash;
+    account.lookup.insert((hash, l as u32), vec![]);
 
     // insert the new account to the map
     let index = accumulate.x.index;
     accumulate.x.context.accounts.insert(index, account);
     accumulate.x.check(index);
-    state.registers[7] = index as u64;
-    Reason::Continue
+    Ok(index as u64)
 }
 
 /// (ΩU) upgrade service code
-fn upgrade<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn upgrade<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
-    let chash = match state.memory.read_bytes(o as u32, 32) {
-        Ok(chash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&chash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let code = state.memory.read_hash(o as u32)?;
+    let account = accumulate.account()?;
 
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
-
-    account.code = chash;
+    account.code = code;
     account.gas.transfer = m;
     account.gas.accumulate = g;
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩT) transfer
-fn transfer<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn transfer<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [d, a, limit, o] = [
@@ -275,35 +262,29 @@ fn transfer<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data:
 
     // check if the recipient exists
     let Some(dest) = accumulate.x.context.accounts.get(&(d as u32)) else {
-        state.registers[7] = Result::Who as u64;
-        return Reason::Continue;
+        return Ok(Exit::Who as u64);
     };
 
     // check if the transfer limit is enough
     if limit < dest.gas.transfer {
-        state.registers[7] = Result::Low as u64;
-        return Reason::Continue;
+        return Ok(Exit::Low as u64);
     }
 
     // update the sender's account
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
+    let account = accumulate.account()?;
 
     // check if the sender has enough balance
     if account.balance < a + account.threshold() {
-        state.registers[7] = Result::Cash as u64;
-        return Reason::Continue;
+        return Ok(Exit::Cash as u64);
     }
 
     // update the sender's balance
     account.balance -= a;
 
     // get the memo
-    let memo = match state.memory.read_bytes(o as u32, score::TRANSFER_MEMO_SIZE) {
-        Ok(source) => source,
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let memo = state
+        .memory
+        .read_bytes(o as u32, score::TRANSFER_MEMO_SIZE)?;
 
     // create the deferred transfer
     accumulate.x.transfer.push(DeferredTransfer {
@@ -313,33 +294,23 @@ fn transfer<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data:
         memo,
         gas_limit: limit,
     });
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩE) eject
-fn eject<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn eject<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let (d, o) = (state.registers[7] as u32, state.registers[8] as u32);
-
-    // get the hash
-    let hash = match state.memory.read_bytes(o, 32) {
-        Ok(rhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&rhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let hash = state.memory.read_hash(o)?;
 
     // check if the service exists
     let Some(dest) = accumulate.x.context.accounts.get(&d) else {
-        state.registers[7] = Result::Who as u64;
-        return Reason::Continue;
+        return Ok(Exit::Who as u64);
     };
 
     // check the creation code
@@ -347,195 +318,145 @@ fn eject<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &m
     let mut code = [0u8; 32];
     code[..4].copy_from_slice(&ibytes);
     if dest.code != code {
-        state.registers[7] = Result::Who as u64;
-        return Reason::Continue;
+        return Ok(Exit::Who as u64);
     }
 
     // check items
     let dest = dest.clone();
     let total = (dest.total().max(81) - 81) as u32;
     if dest.items() != 2 {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     }
 
     // check the lookup data
     let Some(lookup) = dest.lookup.get(&(hash, total)) else {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     };
 
     // check if the preimage is expunged
     if *lookup.get(1).unwrap_or(&0) >= accumulate.timeslot - score::EXPUNGED_TIME {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     }
 
     // update the account map
     accumulate.x.context.accounts.remove(&d);
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
+    let account = accumulate.account()?;
 
     account.balance += dest.balance;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩQ) query
-fn query<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn query<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
-    let [o, z] = [state.registers[7], state.registers[8]];
-    let hash = match state.memory.read_bytes(o as u32, 32) {
-        Ok(rhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&rhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
-
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
+    let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
+    let hash = state.memory.read_hash(o)?;
+    let account = accumulate.account()?;
 
     // query the lookup state
-    let Some(lookup) = account.lookup.get(&(hash, z as u32)) else {
-        state.registers[7] = Result::None as u64;
+    let Some(lookup) = account.lookup.get(&(hash, z)) else {
         state.registers[8] = 0;
-        return Reason::Continue;
+        return Ok(Exit::None as u64);
     };
 
     // update registers
-    if lookup.is_empty() {
-        state.registers[7] = 0;
+    let exit = if lookup.is_empty() {
         state.registers[8] = 0;
+        0
     } else if lookup.len() == 1 {
-        state.registers[7] = 1 + u32::MAX as u64 * lookup[0] as u64;
         state.registers[8] = 0;
+        1 + u32::MAX as u64 * lookup[0] as u64
     } else if lookup.len() == 2 {
-        state.registers[7] = 2 + u32::MAX as u64 * lookup[0] as u64;
         state.registers[8] = lookup[1] as u64;
+        2 + u32::MAX as u64 * lookup[0] as u64
     } else {
-        state.registers[7] = 3 + u32::MAX as u64 * lookup[0] as u64;
         state.registers[8] = lookup[1] as u64 + u32::MAX as u64 * lookup[2] as u64;
-    }
-    Reason::Continue
+        3 + u32::MAX as u64 * lookup[0] as u64
+    };
+    Ok(exit)
 }
 
 /// (ΩS) solicit
-fn solicit<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn solicit<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [o, z] = [state.registers[7], state.registers[8]];
-
-    // get the hash
-    let hash = match state.memory.read_bytes(o as u32, 32) {
-        Ok(rhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&rhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
-
-    // get the account
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
+    let hash = state.memory.read_hash(o as u32)?;
 
     // check if the account has enough balance
+    let timeslot = accumulate.timeslot;
+    let account = accumulate.account()?;
     let this = account.clone();
     if this.balance < this.threshold() {
-        state.registers[7] = Result::Full as u64;
-        return Reason::Continue;
+        return Ok(Exit::Full as u64);
     }
 
     // get the lookup
     let lookup = account.lookup.entry((hash, z as u32)).or_insert(vec![]);
     if lookup.len() == 2 {
-        lookup.push(accumulate.timeslot);
+        lookup.push(timeslot);
     } else {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     }
 
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩF) forget
-fn forget<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn forget<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let [o, z] = [state.registers[7], state.registers[8]];
-
-    // get the hash
-    let hash = match state.memory.read_bytes(o as u32, 32) {
-        Ok(rhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&rhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
-
-    // get the account
-    let Some(account) = accumulate.x.account() else {
-        return Reason::Panic("Could not find service account".into());
-    };
+    let hash = state.memory.read_hash(o as u32)?;
 
     // get the lookup data
+    let timeslot = accumulate.timeslot;
+    let account = accumulate.account()?;
     let Some(lookup) = account.lookup.get_mut(&(hash, z as u32)) else {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     };
 
-    let expunged = accumulate.timeslot - score::EXPUNGED_TIME;
+    let expunged = timeslot - score::EXPUNGED_TIME;
     if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
         account.lookup.remove(&(hash, z as u32));
         account.preimage.remove(&hash);
     } else if lookup.len() == 1 {
-        lookup.push(accumulate.timeslot);
+        lookup.push(timeslot);
     } else if lookup.len() == 3 && lookup[2] < expunged {
-        *lookup = vec![lookup[2], accumulate.timeslot];
+        *lookup = vec![lookup[2], timeslot];
     } else {
-        state.registers[7] = Result::Huh as u64;
-        return Reason::Continue;
+        return Ok(Exit::Huh as u64);
     }
 
-    state.registers[7] = Result::Ok as u64;
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }
 
 /// (ΩY) yield
-fn yield_<X: Argument, Memory: crate::Memory>(state: &mut State<Memory>, data: &mut X) -> Reason {
-    let Some(accumulate) = data.as_accumulate_mut() else {
-        return Reason::Panic("Could not find accumulate arguments".into());
-    };
+fn yield_<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    data: &mut X,
+) -> Result<ExitCode> {
+    let accumulate = data.as_accumulate_mut()?;
 
     // get the arguments
     let o = state.registers[7];
 
     // get the hash
-    let hash = match state.memory.read_bytes(o as u32, 32) {
-        Ok(rhash) => {
-            let mut hash = [0u8; 32];
-            hash.copy_from_slice(&rhash);
-            hash
-        }
-        Err(e) => return Reason::Panic(e.to_string()),
-    };
+    let hash = state.memory.read_hash(o as u32)?;
 
     accumulate.x.output = Some(hash);
-    Reason::Continue
+    Ok(Exit::Ok as u64)
 }

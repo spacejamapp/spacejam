@@ -1,6 +1,5 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
-use crate::Storage;
 use error::{Error, Result};
 use pvm::Pvm;
 use score::{
@@ -8,11 +7,12 @@ use score::{
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
-        ReadyReport, ReportedWorkPackage, WorkReport,
+        ReadyReport, ReportedWorkPackage, ServiceAccount, WorkReport,
     },
-    vm::StateContext,
+    vm::{Accumulation, StateContext},
 };
 pub use state::{State, StateJson};
+use std::collections::BTreeMap;
 
 mod dep;
 pub mod error;
@@ -22,6 +22,7 @@ mod state;
 mod validator;
 
 /// (b) Accumulate the available work reports
+#[tracing::instrument(skip_all)]
 pub fn accumulate<V: Pvm>(
     // The next timeslot (τ')
     slot: TimeSlot,
@@ -36,19 +37,21 @@ pub fn accumulate<V: Pvm>(
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
-    accounts: &impl Storage,
-) -> anyhow::Result<(OpaqueHash, ReadyQueue, AccumulatedQueue)> {
+    accounts: BTreeMap<u32, ServiceAccount>,
+) -> anyhow::Result<Accumulation> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let accumulated = exec::exec::<V>(
+    let accumulated = exec::outer::<V>(
         gas_limit,
-        accumulatable.clone(),
-        StateContext::default(),
-        accounts,
+        &accumulatable,
+        StateContext {
+            accounts,
+            ..Default::default()
+        },
         &privileges.always_acc,
     );
 
@@ -58,9 +61,19 @@ pub fn accumulate<V: Pvm>(
 
     // update the ready queue (θ')
     let next_ready_queue =
-        self::ready_queue(ready_queue, &next_accumulated_queue, queued, slot, tau);
+        self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
-    Ok((Default::default(), next_ready_queue, next_accumulated_queue))
+    // TODO: note that we need to update account data as well after accumulation
+    //
+    // e.g. integrate transfers
+
+    Ok(Accumulation {
+        root: Default::default(),
+        ready_queue: next_ready_queue,
+        accumulated_queue: next_accumulated_queue,
+        accounts: accumulated.context.accounts,
+        privileges: accumulated.context.privileges,
+    })
 }
 
 /// (ξ') Update the accumulated history
@@ -76,12 +89,15 @@ pub fn accumulated_history(
     }
 
     // Add new accumulated work report hashes
-    let new_accumulated: Vec<OpaqueHash> = accumulatable
+    let mut new_accumulated: Vec<OpaqueHash> = accumulatable
         .iter()
         .take(accumulated)
         .map(|w| w.spec.hash)
         .collect();
 
+    // NOTE: Sort the new accumulated work report hashes again to align the test
+    // vectors, not sure if we missed anything that we have to do it here.
+    new_accumulated.sort();
     next.push(new_accumulated);
 
     // Update the accumulated history (ξ')
@@ -97,28 +113,28 @@ pub fn ready_queue(
     pre: &ReadyQueue,
     history: &AccumulatedQueue,
     reports: Vec<ReadyReport>,
-    slot: TimeSlot,
     tau: TimeSlot,
+    slot: TimeSlot,
 ) -> ReadyQueue {
     let mut ready_queue = pre.clone();
-    let slot_idx = slot / score::EPOCH_LENGTH;
+    let phase = slot % score::EPOCH_LENGTH;
     let accd = history[score::EPOCH_LENGTH as usize - 1].clone();
 
     // update the ready queue (θ')
     let blocks = slot - tau;
-    for idx in 0..slot_idx {
-        let target = slot_idx - idx;
+    for idx in 0..score::EPOCH_LENGTH {
+        let target = ((score::EPOCH_LENGTH + phase - idx) % score::EPOCH_LENGTH) as usize;
         let ready = if idx == 0 {
             queue::edit(reports.clone(), &accd)
         } else if idx >= 1 && idx < blocks {
             Default::default()
         } else if idx >= blocks {
-            queue::edit(pre[target as usize].clone(), &accd)
+            queue::edit(pre[target].clone(), &accd)
         } else {
             continue;
         };
 
-        ready_queue[target as usize] = ready;
+        ready_queue[target] = ready;
     }
 
     ready_queue

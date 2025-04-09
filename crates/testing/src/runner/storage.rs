@@ -1,4 +1,5 @@
 //! Account storage for testing
+#![allow(dead_code)]
 
 use anyhow::Result;
 use score::service::{ServiceAccountData, ServiceItem};

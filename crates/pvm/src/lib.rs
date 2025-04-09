@@ -2,13 +2,25 @@
 
 pub use score::Gas;
 pub use {
+    env::AccumulateContext,
     host::Argument,
     invocation::Invocation,
     memory::Memory,
-    result::{Executed, Reason, Received, Refined, State, Stepped, Transferred},
+    result::{
+        AccumulateResult, Executed, Reason, Received, Refined, Result, State, Stepped, Transferred,
+    },
     value::Value,
 };
 
+/// Bail out with a panic
+#[macro_export]
+macro_rules! bail {
+    ($($arg:tt)*) => {
+        return Err(Reason::Panic(format!($($arg)*)))
+    };
+}
+
+mod env;
 pub mod host;
 mod invocation;
 mod memory;

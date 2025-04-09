@@ -30,18 +30,17 @@ pub fn accumulatable(
     let idx = (slot % score::EPOCH_LENGTH) as usize;
 
     // extract the work package hashes
-    (
-        self::priority(self::edit(
-            [
-                ready_queue[idx..].iter().flatten().cloned().collect(),
-                ready_queue[..idx].iter().flatten().cloned().collect(),
-                pending.clone(),
-            ]
-            .concat(),
-            &self::mapping(&ready),
-        )),
-        pending,
-    )
+    let queue = self::priority(self::edit(
+        [
+            ready_queue[idx..].iter().flatten().cloned().collect(),
+            ready_queue[..idx].iter().flatten().cloned().collect(),
+            pending.clone(),
+        ]
+        .concat(),
+        &self::mapping(&ready),
+    ));
+
+    ([ready, queue].concat(), pending)
 }
 
 /// (D) pairing work reports with their dependencies

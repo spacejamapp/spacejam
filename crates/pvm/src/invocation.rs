@@ -1,13 +1,14 @@
 //! PVM invocation interface
 
 use crate::{
-    host, Argument, Executed, Memory as _, Reason, Received, Refined, State, Stepped, Transferred,
+    host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
+    Refined, State, Stepped, Transferred,
 };
 use parser::{util, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
-    vm::{AccumulateResult, DeferredTransfer, Operand, StateContext},
-    Gas, ServiceId, TimeSlot,
+    vm::{DeferredTransfer, Operand, StateContext},
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;
 
@@ -253,17 +254,42 @@ pub trait Invocation {
     /// as defined per graypaper (B.9)
     fn accumulate(
         // (U) The state context
-        _context: StateContext,
+        context: StateContext,
         // (N_t)  timeslot for the current accumulation
-        _slot: TimeSlot,
+        timeslot: TimeSlot,
         // (N_s)  the service id of the caller
-        _service_id: ServiceId,
+        service: ServiceId,
         // (N_g)  the gas limit for the current operation
-        _gas_limit: Gas,
+        gas: Gas,
         // (O)  the accumulation operands
-        _operands: Vec<Operand>,
+        operands: Vec<Operand>,
+        // entropy'0
+        entropy: OpaqueHash,
     ) -> AccumulateResult {
-        Default::default()
+        let Some(code) = context
+            .accounts
+            .get(&service)
+            .and_then(|account| account.code())
+        else {
+            // TODO: the graypaper could be wrong, no need to run the I function
+            return AccumulateResult {
+                context,
+                ..Default::default()
+            };
+        };
+
+        // create the accumulate context
+        let accumulate = host::Accumulate::new(
+            AccumulateContext {
+                context: context.clone(),
+                service,
+                index: Self::index(service, timeslot, entropy),
+                ..Default::default()
+            },
+            timeslot,
+        );
+        let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }
 
     /// (ΨT): on-transfer invocation
@@ -271,15 +297,57 @@ pub trait Invocation {
     /// Defined per graypaper (B.15)
     fn transfer(
         // (δ) The account storage
-        _accounts: &BTreeMap<ServiceId, ServiceAccount>,
+        accounts: &BTreeMap<ServiceId, ServiceAccount>,
         // (N_t)  timeslot for the current accumulation
-        _slot: TimeSlot,
+        slot: TimeSlot,
         // (N_s)  the service id of the caller
-        _service_id: ServiceId,
+        service: ServiceId,
         // (T)  the deferred transfers
-        _transfers: &[DeferredTransfer],
+        transfers: &[DeferredTransfer],
     ) -> Transferred {
-        Transferred::default()
+        let Some(account) = accounts.get(&service) else {
+            tracing::warn!("no account found for service: {}", service);
+            return Transferred::default();
+        };
+
+        let Some(code) = account.code() else {
+            tracing::warn!("no code found for service: {}", service);
+            return Transferred::default();
+        };
+
+        let code = code.clone();
+        let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
+        let amount = transfers.iter().map(|t| t.amount).sum::<u64>();
+
+        // TODO: update the account balance ???
+        //
+        // this seems not correct.
+        tracing::warn!("FIXME: update the account balance: {}", amount);
+        let mut account = account.clone();
+        account.balance += amount;
+        let general = host::General {
+            account,
+            index: service,
+            accounts: accounts.clone(),
+        };
+
+        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
+        let received = Self::argument(&code, 10, gas, &input, general);
+        Transferred {
+            account: received.data.account,
+            gas: received.gas,
+        }
+    }
+
+    /// (I) Generate a new index from provided environment
+    fn index(service: ServiceId, timeslot: TimeSlot, entropy: OpaqueHash) -> ServiceId {
+        let encoded = codec::encode(&(service, entropy, timeslot)).expect("failed to encode");
+        let hash = crypto::blake2b(&encoded);
+        let mut lebytes = [0; 4];
+        lebytes[0..4].copy_from_slice(&hash[0..4]);
+
+        let base = u32::from_le_bytes(lebytes);
+        base % (u32::MAX - (1 << 9)) + (1 << 8)
     }
 }
 
