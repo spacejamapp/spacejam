@@ -199,7 +199,6 @@ impl<'i, C: Config> Importer<'i, C> {
         }
 
         // check the ticket seal
-
         if let Some(ticket) = ticket {
             tracing::trace!(
                 "verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",

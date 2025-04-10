@@ -1,6 +1,5 @@
 //! JSON RPC library for SpaceJam.
 
-mod api;
-mod client;
-mod server;
-mod spec;
+pub mod api;
+pub mod client;
+pub mod server;

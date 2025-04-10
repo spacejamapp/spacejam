@@ -32,7 +32,7 @@ pub struct StateContext {
 ///
 /// - N: the number of work-results accumulated.
 /// - U: A posterior state-context.
-/// - [T]: resultant deferred-transfers
+/// - \[T\]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
 #[derive(Default, Clone)]
