@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow.workspace = true
 jsonrpsee = { workspace = true, features = ["macros"] }
 score.workspace = true
 serde.workspace = true
-spacejson.workspace = true
 
 [features]
 default = ["client", "server"]

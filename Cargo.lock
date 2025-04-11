@@ -3180,11 +3180,9 @@ dependencies = [
 name = "spacerpc"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "jsonrpsee",
  "serde",
  "spacejam-core",
- "spacejson",
 ]
 
 [[package]]
