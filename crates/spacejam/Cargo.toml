@@ -44,4 +44,11 @@ cmd = ["clap", "serde", "spacejson", "network/cmd"]
 default = ["bin", "metrics", "serde"]
 metrics = ["hyper", "hyper-util", "dep:metrics"]
 node = ["cmd", "tracing-subscriber"]
-serde = ["dep:serde", "serde_json", "toml"]
+serde = [
+    "dep:serde",
+    "serde_json",
+    "toml",
+    "crypto/bls",
+    "crypto/ed25519",
+    "crypto/vrf",
+]

@@ -1,4 +1,5 @@
 //! Fisher-Yates shuffle
+#![cfg(feature = "shuffle")]
 
 use crate::blake2b;
 

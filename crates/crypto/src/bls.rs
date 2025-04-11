@@ -2,7 +2,6 @@
 #![cfg(feature = "bls")]
 
 use std::ops::Deref;
-
 use w3f_bls::TinyBLS381;
 pub use w3f_bls::{DoublePublicKeyScheme, SerializableToBytes};
 
@@ -21,6 +20,7 @@ pub type DoublePublicKey = w3f_bls::DoublePublicKey<TinyBLS381>;
 /// BLS double signature.
 pub type DoubleSignature = w3f_bls::DoubleSignature<TinyBLS381>;
 
+/// BLS key pair.
 pub struct KeyPair {
     inner: w3f_bls::Keypair<TinyBLS381>,
     public: DoublePublicKey,

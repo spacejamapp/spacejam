@@ -1,5 +1,4 @@
-use anyhow::Result;
-use std::{path::Path, process::Command};
+use std::{io::Result, path::Path, process::Command};
 
 const REPO: &str = "https://github.com/davxy/bandersnatch-vrfs-spec.git";
 const INTO: &str = "bandersnatch-vrfs-spec";

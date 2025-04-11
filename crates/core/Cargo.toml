@@ -13,8 +13,12 @@ serde_json.workspace = true
 spacejson.workspace = true
 tracing.workspace = true
 
-# crypto dependencies
-crypto = { workspace = true, optional = true }
+# crypto features
+crypto = { workspace = true, features = [
+    "blake2",
+    "ed25519",
+    "mmr",
+], optional = true }
 
 [features]
 default = []
