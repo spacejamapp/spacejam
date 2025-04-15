@@ -34,6 +34,7 @@ impl Command {
         C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Validator: TryFrom<String>,
+        C::Hook: Default,
     {
         match self {
             Command::Genesis => self.genesis(),

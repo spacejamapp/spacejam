@@ -23,6 +23,7 @@ impl Spawn {
         C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Validator: TryFrom<String>,
+        C::Hook: Default,
     {
         let (network, rx) = self.config.clone().build::<C>().await?;
         node::start(network, rx, self.metrics).await

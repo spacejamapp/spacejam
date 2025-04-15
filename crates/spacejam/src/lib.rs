@@ -14,6 +14,7 @@ impl Config for Development {
     type Validator = validator::LocalValidator;
     type Storage = storage::Sled;
     type Vm = ();
+    type Hook = ();
 }
 
 /// The config of production
@@ -26,6 +27,7 @@ impl Config for Production {
     #[cfg(not(feature = "rocksdb"))]
     type Storage = storage::Sled;
     type Vm = ();
+    type Hook = ();
 }
 
 /// The config of test
@@ -35,4 +37,5 @@ impl Config for Test {
     type Validator = validator::LocalValidator;
     type Storage = storage::MemoryDb;
     type Vm = ();
+    type Hook = ();
 }

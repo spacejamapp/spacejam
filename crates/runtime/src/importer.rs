@@ -1,7 +1,7 @@
 //! Importer for SpaceJam
 
 use crate::{
-    Config, Runtime, Storage,
+    Config, Head, Hook, Runtime, Storage,
     storage::{Branch, KVStorage, SyncStorage},
     tx,
 };
@@ -118,11 +118,19 @@ impl<'i, C: Config> Importer<'i, C> {
             self.runtime.storage.set_next_series(&series)?;
         }
 
-        // 3. drop the previous branch
+        // 3. notify the new finalized block
+        self.runtime.hook.on_finalized_block(Head {
+            hash,
+            slot: block.header.slot,
+        })?;
+
+        // 5. drop the previous branch
+        //
+        // NOTE: the design of branch is deprecated, check if we can remove this line later.
         let branch = Branch::checkout(&self.runtime.storage, prev);
         branch.drop()?;
 
-        // 4. update the grandpa state
+        // 6. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.runtime.storage.next_validators()?)
         } else {
