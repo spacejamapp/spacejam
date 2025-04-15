@@ -2,14 +2,23 @@
 
 use jsonrpsee::types::ErrorObjectOwned;
 use jsonrpsee::{core::SubscriptionResult, proc_macros::rpc};
+pub use params::Parameters;
 use score::{CoreIndex, OpaqueHash, ServiceId, TimeSlot};
 use serde::{Deserialize, Serialize};
+
+mod params;
 
 /// Spacejam JSON RPC methods.
 #[cfg_attr(all(feature = "client", feature = "server"), rpc(client, server))]
 #[cfg_attr(feature = "server", rpc(server))]
 #[cfg_attr(feature = "client", rpc(client))]
 pub trait Api {
+    /// Returns the parameters for the Spacejam node.
+    #[method(name = "parameters")]
+    fn parameters(&self) -> Result<Parameters, ErrorObjectOwned> {
+        Ok(Default::default())
+    }
+
     /// Returns the header hash and slot of the head of the "best" chain.
     #[method(name = "bestBlock")]
     fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;

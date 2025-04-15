@@ -12,17 +12,126 @@ pub mod state;
 pub mod statistic;
 pub mod vm;
 
-/// The count of validators
-pub const VALIDATORS_COUNT: u16 = 6;
+/// (B_I) The balance per item
+pub const BALANCE_PER_ITEM: u64 = 10;
+
+/// (B_L) The balance per octet
+pub const BALANCE_PER_OCTET: u64 = 1;
+
+/// (B_S) The balance per service
+pub const BALANCE_PER_SERVICE: u64 = 100;
 
 /// (C) The count of cores
 pub const CORES_COUNT: usize = 2;
 
-/// The length of an epoch
+/// (D) The period in timeslots after which an unreferenced preimage may be expunged.
+pub const EXPUNGED_TIME: u32 = 192_000;
+
+/// (E) The length of an epoch
 pub const EPOCH_LENGTH: u32 = 12;
 
-/// The maximum number of blocks in the history
+/// (G_A) The gas allocated to invoke a work report's Accumulation logic
+pub const GAS_ACC: u64 = 10_000_000;
+
+/// (G_I) The gas allocated to invoke a work report's IsAuthorized logic
+pub const GAS_IS_AUTHORIZED: u64 = 50_000_000;
+
+/// (G_R) The gas allocated to invoke a work report's Refine logic
+pub const GAS_REFINE: u64 = 5_000_000_000;
+
+/// (G_T) The total gas allocated across for all accumulation
+///
+/// should be no smaller than G_A * C + ∑ privileges
+pub const GAS_ALL_ACC: u64 = 3_500_000_000;
+
+/// (H) The maximum number of blocks in the history
 pub const MAX_BLOCKS_HISTORY: usize = 8;
+
+/// (I) The maximum number of work items in a work package
+pub const MAX_WORK_ITEMS: u8 = 16;
+
+/// (J) The maximum number of dependencies a work report can have.
+pub const MAX_DEPENDENCY_COUNT: usize = 8;
+
+/// (K) The maximum number of tickets which may be submitted in a single extrinsic.
+pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
+
+/// (L) The maximum age of a lookup anchor (24 hrs)
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD;
+
+/// (N) The number of ticket entries per validator
+pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
+
+/// (N_Q) The number of items in the authorization queue
+pub const QUEUE_ITEMS: u64 = 80;
+
+/// (O) The maximum number of items in the authorizations pool
+pub const AUTH_WINDOW: u8 = 8;
+
+/// (Q) The number of items in the authorizations queue
+pub const AUTH_QUEUE_LEN: u8 = 60;
+
+/// (R) The rotation period of validator core assignments, in timeslots.
+pub const ROTATION_PERIOD: u32 = 4;
+
+/// (T) The maximum number of extrinsics in a work package
+pub const MAX_EXTRINSICS: u8 = 128;
+
+/// (U) The period in timeslots after which reported but unavailable work may be replaced.
+pub const AVAILABILITY_TIMEOUT: u8 = 5;
+
+/// (V) The count of validators
+pub const VALIDATORS_COUNT: u16 = 6;
+
+/// (W_B) The maximum size of a work package together with all extrinsic data and imported segments.
+pub const MAX_INPUT: u32 = 12 * 1 << 20;
+
+/// (W_C) The maximum size of Refine/Accumulate code.
+pub const MAX_REFINE_CODE_SIZE: u32 = 4_000_000;
+
+/// (W_E) The number of octets in a erasure-coded piece.
+pub const BASIC_PIECE_LEN: u16 = 684;
+
+/// (W_G) The size of a segment in octets
+pub const SEGMENT_SIZE: usize = 4104;
+
+/// (W_I) The maximum is authorized code size
+pub const MAX_IS_AUTHORIZED_CODE_SIZE: usize = 0;
+
+/// (W_R) The maximum amount of RAM which may be used by Refine/Accumulate code.
+pub const MAX_REFINE_MEMORY: usize = 0;
+
+/// (W_U) The maximum amount of RAM which may be used by IsAuthorized code.
+pub const MAX_IS_AUTHORIZED_MEMORY: usize = 0;
+
+/// (W_M) The maximum number of imports and exports in a work package
+pub const MAX_IMPORTS_EXPORTS: u16 = 3072;
+
+/// (W_P) The number of erasure-coded pieces in a segment
+pub const ERASURE_CODED_PIECES: u8 = 6;
+
+/// (W_T) The size of the transfer memo
+pub const TRANSFER_MEMO_SIZE: u32 = 128;
+
+/// (W_X) The maximum number of exports in a work package
+pub const MAX_EXPORTS: usize = 0;
+
+/// (Y) The number of slots into an epoch at which ticket-submission ends.
+pub const TICKET_SUBMISSION_PERIOD: u32 = 10;
+
+/// The size of the program init data
+///
+/// 2^24 = 16_777_216 bytes
+pub const PROGRAM_INIT_DATA_SIZE: usize = 1 << 24;
+
+/// (Z_P) The size of a page in octets (2^12)
+pub const PAGE_SIZE: usize = 1 << 12;
+
+/// (Z_Z) The size of a zone in octets (2^16)
+pub const ZONE_SIZE: usize = 1 << 16;
+
+/// (Z_I) The size of the init data in octets (2^24)
+pub const PVM_INIT_DATA_SIZE: usize = 1 << 24;
 
 /// The number of validators in a super majority
 pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;
@@ -30,29 +139,11 @@ pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;
 /// The number of bytes in the avail bitfield
 pub const AVAIL_BITFIELD_BYTES: usize = 1;
 
-/// The number of ticket entries per validator
-pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
-
-/// (Y) The number of slots into an epoch at which ticket-submission ends.
-pub const TICKET_SUBMISSION_PERIOD: u32 = 10;
-
-/// The maximum number of tickets which may be submitted in a single extrinsic.
-pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
-
 /// The maximum size of a work report output
 pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;
 
-/// The maximum age of a lookup anchor (24 hrs)
-pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD;
-
-/// The rotation period of validator core assignments, in timeslots.
-pub const ROTATION_PERIOD: u32 = 4;
-
 /// The minimum gas for a service item.
 pub const SERVICE_ITEM_MIN_GAS: u64 = 1000;
-
-/// The maximum number of dependencies a work report can have.
-pub const MAX_DEPENDENCY_COUNT: usize = 8;
 
 /// FIXME: this number is extracted from the tests, I don't think it's correct.
 pub const WORK_REPORT_GAS_LIMIT: u64 = 10_000_000;
@@ -70,37 +161,6 @@ pub const JAM_COMMON_ERA_AFTER_UNIX_EPOCH: u32 = 1_735_689_600;
 /// The period of a timeslot in seconds
 pub const SLOT_PERIOD: u32 = 6;
 
-/// (G_A) The gas allocated to invoke a work report's Accumulation logic
-pub const GAS_ACC: u64 = 10_000_000;
-
-/// (G_I) The gas allocated to invoke a work report's IsAuthorized logic
-pub const GAS_IS_AUTHORIZED: u64 = 50_000_000;
-
-/// (G_R) The gas allocated to invoke a work report's Refine logic
-pub const GAS_REFINE: u64 = 5_000_000_000;
-
-/// (G_T) The total gas allocated across for all accumulation
-///
-/// should be no smaller than G_A * C + ∑ privileges
-pub const GAS_ALL_ACC: u64 = 3_500_000_000;
-
-/// The size of the program init data
-///
-/// 2^24 = 16_777_216 bytes
-pub const PROGRAM_INIT_DATA_SIZE: usize = 1 << 24;
-
-/// (W_G) The size of a segment in octets
-pub const SEGMENT_SIZE: usize = 4104;
-
-/// (Z_P) The size of a page in octets (2^12)
-pub const PAGE_SIZE: usize = 1 << 12;
-
-/// (Z_Z) The size of a zone in octets (2^16)
-pub const ZONE_SIZE: usize = 1 << 16;
-
-/// (Z_I) The size of the init data in octets (2^24)
-pub const PVM_INIT_DATA_SIZE: usize = 1 << 24;
-
 /// The length of pages, p = 2^32 / 2^12
 pub const PAGE_LENGTH: usize = 1 << 20;
 
@@ -109,24 +169,6 @@ pub const PVM_MEMORY_SIZE: usize = 1 << 32;
 
 /// The size of the PVM zone
 pub const PVM_ZONE_SIZE: usize = 1 << 16;
-
-/// (B_I) The balance per item
-pub const BALANCE_PER_ITEM: u64 = 10;
-
-/// (B_L) The balance per octet
-pub const BALANCE_PER_OCTET: u64 = 1;
-
-/// (B_S) The balance per service
-pub const BALANCE_PER_SERVICE: u64 = 100;
-
-/// (N_Q) The number of items in the authorization queue
-pub const QUEUE_ITEMS: u64 = 80;
-
-/// (W_T) The size of the transfer memo
-pub const TRANSFER_MEMO_SIZE: u32 = 128;
-
-/// (D) The period in timeslots after which an unreferenced preimage may be expunged.
-pub const EXPUNGED_TIME: u32 = 192_000;
 
 // Singing Contexts
 
