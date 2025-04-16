@@ -2997,7 +2997,6 @@ dependencies = [
  "spacejson",
  "tokio",
  "toml",
- "tower",
  "tracing",
  "tracing-subscriber",
 ]

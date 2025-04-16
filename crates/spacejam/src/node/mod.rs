@@ -11,7 +11,6 @@ pub use {builder::Builder, genesis::Genesis};
 mod builder;
 mod genesis;
 mod log;
-pub mod metrics;
 
 /// Start the node
 ///
@@ -26,13 +25,8 @@ pub async fn start<C: runtime::Config>(
     let offchain = Offchain::new(network.runtime.clone());
 
     tokio::select! {
-        _ = metrics::serve(metrics, network.metrics.clone()) => {}
         _ = author(&runtime) => {}
-        r = offchain.start(rpc) => {
-            if let Err(e) = r {
-                tracing::error!("Failed to start offchain services: {:?}", e);
-            }
-        }
+        _ = offchain.start(rpc, network.metrics.clone(), metrics) => {}
         _ = network.spawn(rx) => {}
         _ = tokio::signal::ctrl_c() => {}
     }

@@ -72,7 +72,6 @@ tokio-stream = "0.1.17"
 toml = "0.8.19"
 tonic = "0.13"
 tonic-build = "0.13"
-tower = "^0.4"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 trait-variant = "0.1.2"

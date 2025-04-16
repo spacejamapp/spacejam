@@ -1,10 +1,12 @@
 //! The offchain components of SpaceJam
 
+use ::metrics::Metrics;
 use ::rpc::{middleware::rpc::RpcServiceT, types::Request, ApiServer, RpcServiceBuilder, Server};
 use rpc::Rpc;
 use runtime::Runtime;
 use std::{net::SocketAddr, sync::Arc};
 
+mod metrics;
 mod rpc;
 
 /// The entypoint of the offchain services
@@ -22,7 +24,12 @@ impl<C: runtime::Config> Offchain<C> {
     }
 
     /// Start the offchain services
-    pub async fn start(self, rpc: SocketAddr) -> anyhow::Result<()> {
+    pub async fn start(
+        self,
+        rpc: SocketAddr,
+        metrics: Metrics,
+        metrics_addr: SocketAddr,
+    ) -> anyhow::Result<()> {
         let rpc_middleware = RpcServiceBuilder::new().layer_fn(Logger);
         let server = Server::builder()
             .set_rpc_middleware(rpc_middleware)
@@ -32,7 +39,10 @@ impl<C: runtime::Config> Offchain<C> {
         let addr = server.local_addr()?;
         tracing::info!("Listening RPC on {}", addr);
 
-        server.start(self.rpc.into_rpc()).stopped().await;
+        tokio::select! {
+            _ = server.start(self.rpc.into_rpc()).stopped() => {}
+            _ = metrics::serve(metrics_addr, metrics) => {}
+        }
         Ok(())
     }
 }
