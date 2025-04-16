@@ -2,7 +2,7 @@
 
 use crate::{
     Config, Head, Hook, Runtime, Storage,
-    storage::{Branch, KVStorage, SyncStorage},
+    storage::{KVStorage, SyncStorage},
     tx,
 };
 use score::{
@@ -124,13 +124,7 @@ impl<'i, C: Config> Importer<'i, C> {
             slot: block.header.slot,
         })?;
 
-        // 5. drop the previous branch
-        //
-        // NOTE: the design of branch is deprecated, check if we can remove this line later.
-        let branch = Branch::checkout(&self.runtime.storage, prev);
-        branch.drop()?;
-
-        // 6. update the grandpa state
+        // 5. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.runtime.storage.next_validators()?)
         } else {
