@@ -1,15 +1,16 @@
 //! Node for SpaceJam
 
+use crate::offchain::Offchain;
 use network::{Event, Network};
 use score::block;
 use std::{net::SocketAddr, time::Duration};
 use tokio::sync::mpsc;
+
 pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
 mod genesis;
 mod log;
-pub mod metrics;
 
 /// Start the node
 ///
@@ -18,12 +19,14 @@ pub async fn start<C: runtime::Config>(
     network: Network<C>,
     rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
+    rpc: SocketAddr,
 ) -> anyhow::Result<()> {
     let runtime = network.clone();
+    let offchain = Offchain::new(network.runtime.clone());
 
     tokio::select! {
-        _ = metrics::serve(metrics, network.metrics.clone()) => {}
         _ = author(&runtime) => {}
+        _ = offchain.start(rpc, network.metrics.clone(), metrics) => {}
         _ = network.spawn(rx) => {}
         _ = tokio::signal::ctrl_c() => {}
     }
@@ -45,7 +48,9 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
     tokio::time::sleep(Duration::from_secs(10)).await;
 
     loop {
-        self::sleep_to_next_slot().await;
+        let now = block::now().expect("failed to get current time");
+        let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+        tokio::time::sleep(Duration::from_secs(duration)).await;
 
         // get the current epoch
         log::current(runtime).await;
@@ -94,11 +99,4 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
             }
         }
     }
-}
-
-/// Sleep to the next slot
-async fn sleep_to_next_slot() {
-    let now = block::now().expect("failed to get current time");
-    let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
-    tokio::time::sleep(Duration::from_secs(duration)).await;
 }

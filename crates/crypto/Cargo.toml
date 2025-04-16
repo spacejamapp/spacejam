@@ -4,34 +4,30 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-anyhow.workspace = true
-blake2.workspace = true
-ed25519-dalek.workspace = true
-hex.workspace = true
-once_cell.workspace = true
-rand.workspace = true
-tiny-keccak.workspace = true
-tracing.workspace = true
-
-# vrf dependencies
+anyhow = { workspace = true, optional = true }
 ark-ec = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
 ark-vrf = { workspace = true, optional = true }
-ring = { workspace = true, optional = true }
-
-# bls dependencies
-w3f-bls = { workspace = true, optional = true }
-
-# tls dependencies
+blake2 = { workspace = true, optional = true }
+ed25519-dalek = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
 rcgen = { workspace = true, optional = true }
+ring = { workspace = true, optional = true }
+tiny-keccak = { workspace = true, optional = true }
+w3f-bls = { workspace = true, optional = true }
 
 [features]
 default = []
-full = ["bls", "vrf", "tls"]
+blake2 = ["dep:blake2"]
 bls = ["w3f-bls"]
+ed25519 = ["anyhow", "ed25519-dalek"]
+keccak = ["tiny-keccak"]
+mmr = ["blake2", "keccak"]
+rand = ["dep:rand"]
+shuffle = ["blake2"]
 tls = ["rcgen", "ed25519-dalek/pkcs8"]
-vrf = ["ark-vrf", "ark-ec", "ark-serialize", "ring"]
+vrf = ["anyhow", "ark-vrf", "ark-ec", "ark-serialize", "once_cell", "ring"]
 
-[build-dependencies]
-anyhow.workspace = true
-git2.workspace = true
+[dev-dependencies]
+hex.workspace = true

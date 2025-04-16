@@ -14,6 +14,10 @@ pub struct Spawn {
     /// The configuration
     #[command(flatten)]
     pub config: Builder,
+
+    /// The RPC address
+    #[arg(short, long, default_value = "0.0.0.0:6789")]
+    pub rpc: SocketAddr,
 }
 
 impl Spawn {
@@ -23,8 +27,9 @@ impl Spawn {
         C: runtime::Config,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Validator: TryFrom<String>,
+        C::Hook: Default,
     {
         let (network, rx) = self.config.clone().build::<C>().await?;
-        node::start(network, rx, self.metrics).await
+        node::start(network, rx, self.metrics, self.rpc).await
     }
 }

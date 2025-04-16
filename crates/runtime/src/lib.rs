@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Handshake, Head},
+    hook::Hook,
     pool::Pool,
     storage::Storage,
     validator::Validator,
@@ -14,6 +15,7 @@ pub use {
 
 mod author;
 mod grandpa;
+mod hook;
 mod importer;
 mod pool;
 pub mod storage;
@@ -29,6 +31,9 @@ pub struct Runtime<C: Config> {
     /// The storage of SpaceJam
     pub storage: C::Storage,
 
+    /// The hook of SpaceJam
+    pub hook: C::Hook,
+
     /// The extrinsic pool of SpaceJam
     pub expool: Pool,
 
@@ -38,10 +43,11 @@ pub struct Runtime<C: Config> {
 
 impl<C: Config> Runtime<C> {
     /// Create a new runtime with a grandpa instance
-    pub fn new(validator: C::Validator, storage: C::Storage) -> Self {
+    pub fn new(validator: C::Validator, storage: C::Storage, hook: C::Hook) -> Self {
         Self {
             validator,
             storage,
+            hook,
             expool: Default::default(),
             grandpa: Arc::new(RwLock::new(Default::default())),
         }
@@ -59,6 +65,8 @@ impl<C: Config> Runtime<C> {
 }
 
 /// The configuration of the runtime
+///
+/// TODO: introduce hooks for the runtime.
 pub trait Config: Send + Sync + 'static {
     /// The storage of the runtime
     type Storage: Storage + Send + Sync + 'static;
@@ -68,10 +76,14 @@ pub trait Config: Send + Sync + 'static {
 
     /// The virtual machine of the runtime
     type Vm: Pvm + Send + Sync + 'static;
+
+    /// The hook of the runtime
+    type Hook: Hook + Send + Sync + 'static;
 }
 
 impl Config for () {
     type Storage = storage::MemoryDb;
     type Validator = crypto::ed25519::KeyPair;
     type Vm = ();
+    type Hook = ();
 }

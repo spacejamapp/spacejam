@@ -1,8 +1,8 @@
 //! Importer for SpaceJam
 
 use crate::{
-    Config, Runtime, Storage,
-    storage::{Branch, KVStorage, SyncStorage},
+    Config, Head, Hook, Runtime, Storage,
+    storage::{KVStorage, SyncStorage},
     tx,
 };
 use score::{
@@ -118,11 +118,13 @@ impl<'i, C: Config> Importer<'i, C> {
             self.runtime.storage.set_next_series(&series)?;
         }
 
-        // 3. drop the previous branch
-        let branch = Branch::checkout(&self.runtime.storage, prev);
-        branch.drop()?;
+        // 3. notify the new finalized block
+        self.runtime.hook.on_finalized_block(Head {
+            hash,
+            slot: block.header.slot,
+        })?;
 
-        // 4. update the grandpa state
+        // 5. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.runtime.storage.next_validators()?)
         } else {
@@ -199,7 +201,6 @@ impl<'i, C: Config> Importer<'i, C> {
         }
 
         // check the ticket seal
-
         if let Some(ticket) = ticket {
             tracing::trace!(
                 "verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",

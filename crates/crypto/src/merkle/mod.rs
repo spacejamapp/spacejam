@@ -1,5 +1,7 @@
 //! Merkle related utilities
 
+#![cfg(feature = "mmr")]
+
 mod binary;
 pub mod mmr;
 mod trie;

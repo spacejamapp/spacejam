@@ -37,6 +37,7 @@ impl Builder {
         C: runtime::Config,
         C::Validator: TryFrom<String>,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
+        C::Hook: Default,
     {
         let (tx, rx) = mpsc::unbounded_channel();
         let validator = C::Validator::try_from(self.validator.clone())
@@ -46,7 +47,7 @@ impl Builder {
         //
         // TODO: add config to the inner channel
         let storage = C::Storage::try_from(self.db.clone())?;
-        let runtime = Arc::new(Runtime::new(validator, storage));
+        let runtime = Arc::new(Runtime::new(validator, storage, Default::default()));
 
         // Initialize the database
         let importer = runtime.importer();

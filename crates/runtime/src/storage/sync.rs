@@ -1,6 +1,6 @@
 //! Block storage
 
-use crate::Storage;
+use crate::{Head, Storage};
 use anyhow::Result;
 use score::{
     Block, OpaqueHash,
@@ -25,6 +25,38 @@ pub trait SyncStorage: Storage {
         let key = [BLOCK_KEY, hash.as_ref()].concat();
         self.set(&key, &codec::encode(block)?)?;
         Ok(())
+    }
+
+    /// Set the best head
+    fn set_best(&self, head: &Head) -> Result<()> {
+        let key = [BLOCK_KEY, b"best"].concat();
+        self.set(&key, &codec::encode(head)?)?;
+        Ok(())
+    }
+
+    /// Get the best head
+    fn get_best(&self) -> Result<Head> {
+        let key = [BLOCK_KEY, b"best"].concat();
+        let value = self
+            .get(&key)?
+            .ok_or(anyhow::anyhow!("Best head not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
+    /// Set the finalized head
+    fn set_finalized(&self, head: &Head) -> Result<()> {
+        let key = [BLOCK_KEY, b"finalized"].concat();
+        self.set(&key, &codec::encode(head)?)?;
+        Ok(())
+    }
+
+    /// Get the finalized head
+    fn get_finalized(&self) -> Result<Head> {
+        let key = [BLOCK_KEY, b"finalized"].concat();
+        let value = self
+            .get(&key)?
+            .ok_or(anyhow::anyhow!("Finalized head not found"))?;
+        Ok(codec::decode(value.as_ref())?)
     }
 
     /// Fetch the blocks

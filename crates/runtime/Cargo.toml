@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto = { workspace = true, features = ["full"] }
+crypto = { workspace = true, features = ["shuffle", "vrf"] }
 hex.workspace = true
 pvm.workspace = true
 score = { workspace = true, features = ["crypto"] }

@@ -26,6 +26,7 @@ impl Node {
         let runtime = Arc::new(runtime::Runtime::new(
             node.keypair.clone(),
             runtime::storage::MemoryDb::default(),
+            (),
         ));
 
         (
