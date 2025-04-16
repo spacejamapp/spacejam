@@ -57,24 +57,23 @@ impl<C: Config> Rpc<C> {
 #[async_trait]
 impl<C: Config> ApiServer for Rpc<C> {
     fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let best =
-            self.runtime.storage.get_best().map_err(|_| {
-                ErrorObjectOwned::owned(1, "Best head not found", Option::<()>::None)
-            })?;
-        Ok(BlockResponse {
-            hash: best.hash,
-            slot: best.slot,
-        })
+        let best = self
+            .runtime
+            .storage
+            .get_best()
+            .map_err(|_| ErrorObjectOwned::owned(1, "Best head not found", Option::<()>::None))
+            .unwrap_or_default();
+        Ok((best.hash, best.slot))
     }
 
     fn finalized_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let finalized = self.runtime.storage.get_finalized().map_err(|_| {
-            ErrorObjectOwned::owned(1, "Finalized head not found", Option::<()>::None)
-        })?;
-        Ok(BlockResponse {
-            hash: finalized.hash,
-            slot: finalized.slot,
-        })
+        let finalized = self
+            .runtime
+            .storage
+            .get_finalized()
+            .map_err(|_| ErrorObjectOwned::owned(1, "Finalized head not found", Option::<()>::None))
+            .unwrap_or_default();
+        Ok((finalized.hash, finalized.slot))
     }
 
     // TODO: store the parent in the storage
@@ -193,11 +192,12 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     // TODO: need to do snapshot for block state
     fn list_services(&self, _hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+        Ok(vec![])
+        // Err(ErrorObjectOwned::owned(
+        //     1,
+        //     "Not yet implemented, need to do snapshot for block state",
+        //     Option::<()>::None,
+        // ))
     }
 
     async fn subscribe_best_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {

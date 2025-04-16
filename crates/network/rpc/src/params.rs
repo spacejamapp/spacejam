@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Parameters {
     /// The parameters for version 1
+    #[serde(rename = "V1")]
     pub v1: V1,
 }
 

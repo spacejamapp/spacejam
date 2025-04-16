@@ -3,13 +3,15 @@
 use jsonrpsee::proc_macros::rpc;
 #[cfg(feature = "server")]
 pub use jsonrpsee::{
-    core::SubscriptionResult,
-    server::{ConnectionId, PendingSubscriptionSink, Server, ServerHandle, SubscriptionSink},
-    types::ErrorObjectOwned,
+    core::{self, SubscriptionResult},
+    server::{
+        ConnectionId, HttpBody, HttpRequest, HttpResponse, PendingSubscriptionSink,
+        RpcServiceBuilder, Server, ServerHandle, SubscriptionSink, middleware,
+    },
+    types::{self, ErrorObjectOwned},
 };
 pub use params::Parameters;
 use score::{CoreIndex, OpaqueHash, ServiceId, TimeSlot};
-use serde::{Deserialize, Serialize};
 
 mod params;
 
@@ -173,11 +175,4 @@ pub trait Api {
 /// - `finalizedBlock`
 /// - `subscribeFinalizedBlock`
 /// - `parent`
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BlockResponse {
-    /// The header hash
-    pub hash: OpaqueHash,
-
-    /// The slot
-    pub slot: TimeSlot,
-}
+pub type BlockResponse = (OpaqueHash, TimeSlot);

@@ -28,7 +28,11 @@ pub async fn start<C: runtime::Config>(
     tokio::select! {
         _ = metrics::serve(metrics, network.metrics.clone()) => {}
         _ = author(&runtime) => {}
-        _ = offchain.start(rpc) => {}
+        r = offchain.start(rpc) => {
+            if let Err(e) = r {
+                tracing::error!("Failed to start offchain services: {:?}", e);
+            }
+        }
         _ = network.spawn(rx) => {}
         _ = tokio::signal::ctrl_c() => {}
     }
