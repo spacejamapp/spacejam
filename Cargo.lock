@@ -2977,6 +2977,7 @@ name = "spacejam"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "hex",
  "hyper",
@@ -2992,6 +2993,7 @@ dependencies = [
  "spacejam-crypto",
  "spacejam-metrics",
  "spacejam-network",
+ "spacejam-rpc",
  "spacejson",
  "tokio",
  "toml",
@@ -3074,6 +3076,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "serde",
+ "spacejam-core",
+]
+
+[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
@@ -3116,15 +3127,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
-]
-
-[[package]]
-name = "spacerpc"
-version = "0.1.0"
-dependencies = [
- "jsonrpsee",
- "serde",
- "spacejam-core",
 ]
 
 [[package]]

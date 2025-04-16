@@ -19,6 +19,7 @@ network = { path = "crates/network", package = "spacejam-network" }
 pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
+rpc = { path = "crates/network/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "runtime" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
@@ -33,6 +34,7 @@ ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
+async-trait = "0.1.88"
 base32 = "0.5.1"
 blake2 = "0.10.6"
 clap = "4.5.23"

@@ -4,6 +4,7 @@ pub use runtime::{Config, Storage, Validator};
 
 pub mod cmd;
 mod node;
+mod offchain;
 pub mod storage;
 pub mod validator;
 

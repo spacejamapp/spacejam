@@ -1,7 +1,12 @@
 //! Spacejam JSON RPC API.
 
-use jsonrpsee::types::ErrorObjectOwned;
-use jsonrpsee::{core::SubscriptionResult, proc_macros::rpc};
+use jsonrpsee::proc_macros::rpc;
+#[cfg(feature = "server")]
+pub use jsonrpsee::{
+    core::SubscriptionResult,
+    server::{ConnectionId, PendingSubscriptionSink, Server, ServerHandle, SubscriptionSink},
+    types::ErrorObjectOwned,
+};
 pub use params::Parameters;
 use score::{CoreIndex, OpaqueHash, ServiceId, TimeSlot};
 use serde::{Deserialize, Serialize};
@@ -113,11 +118,11 @@ pub trait Api {
 
     /// Subscribe to updates of the head of the "best" chain, as returned by bestBlock.
     #[subscription(name = "subscribeBestBlock", item = BlockResponse)]
-    fn subscribe_best_block(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_best_block(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the latest finalized block, as returned by finalizedBlock.
     #[subscription(name = "subscribeFinalizedBlock", item = BlockResponse)]
-    fn subscribe_finalized_block(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_finalized_block(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the activity statistics stored in chain state. If finalized
     /// is true, the subscription will track the latest finalized block. If finalized is false,
@@ -126,14 +131,14 @@ pub trait Api {
     ///
     /// The statistics are encoded as per the GP.
     #[subscription(name = "subscribeStatistics", item = Vec<u8>)]
-    fn subscribe_statistics(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_statistics(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the service info for the given service ID. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
     /// will track the head of the "best" chain. Note that in the latter case the reported service info
     /// may never be included in the finalized chain. The data are encoded as per the GP.
     #[subscription(name = "subscribeServiceInfo", item = Option<Vec<u8>>)]
-    fn subscribe_service_info(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_service_info(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the value associated with the given service ID and key. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -141,7 +146,7 @@ pub trait Api {
     /// may never be included in the finalized chain. The value field of subscription messages will be
     /// null when there is no value associated with the given service ID and key.
     #[subscription(name = "subscribeServiceValue", item = Option<Vec<u8>>)]
-    fn subscribe_service_value(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_service_value(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the preimage associated with the given service ID and hash. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -149,7 +154,7 @@ pub trait Api {
     /// may never be included in the finalized chain. The preimage field of subscription messages will be
     /// null when there is no preimage associated with the given service ID and hash.
     #[subscription(name = "subscribeServicePreimage", item = Option<Vec<u8>>)]
-    fn subscribe_service_preimage(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_service_preimage(&self) -> SubscriptionResult;
 
     /// Subscribe to updates of the preimage associated with the given service ID and hash. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -157,7 +162,7 @@ pub trait Api {
     /// may never be included in the finalized chain. The request field of subscription messages will be
     /// null when there is no preimage request associated with the given service ID, hash and length.
     #[subscription(name = "subscribeServiceRequest", item = Option<Vec<u8>>)]
-    fn subscribe_service_request(&self) -> Result<SubscriptionResult, ErrorObjectOwned>;
+    async fn subscribe_service_request(&self) -> SubscriptionResult;
 }
 
 /// Response for block info RPC call.

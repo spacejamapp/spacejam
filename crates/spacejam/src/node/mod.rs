@@ -1,9 +1,11 @@
 //! Node for SpaceJam
 
+use crate::offchain::Offchain;
 use network::{Event, Network};
 use score::block;
 use std::{net::SocketAddr, time::Duration};
 use tokio::sync::mpsc;
+
 pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
@@ -18,12 +20,15 @@ pub async fn start<C: runtime::Config>(
     network: Network<C>,
     rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
+    rpc: SocketAddr,
 ) -> anyhow::Result<()> {
     let runtime = network.clone();
+    let offchain = Offchain::new(network.runtime.clone());
 
     tokio::select! {
         _ = metrics::serve(metrics, network.metrics.clone()) => {}
         _ = author(&runtime) => {}
+        _ = offchain.start(rpc) => {}
         _ = network.spawn(rx) => {}
         _ = tokio::signal::ctrl_c() => {}
     }

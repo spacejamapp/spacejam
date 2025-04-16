@@ -84,7 +84,7 @@ pub const AVAILABILITY_TIMEOUT: u8 = 5;
 pub const VALIDATORS_COUNT: u16 = 6;
 
 /// (W_B) The maximum size of a work package together with all extrinsic data and imported segments.
-pub const MAX_INPUT: u32 = 12 * 1 << 20;
+pub const MAX_INPUT: u32 = 12 * (1 << 20);
 
 /// (W_C) The maximum size of Refine/Accumulate code.
 pub const MAX_REFINE_CODE_SIZE: u32 = 4_000_000;
