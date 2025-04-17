@@ -72,9 +72,8 @@ async fn connections() {
     .await;
 
     let ametrics = alice.metrics.clone();
-    let ahandle = alice.spawn();
     tokio::select! {
-        r = ahandle => r,
+        r = alice.spawn() => r,
         r = bob.spawn() => r,
         _ = async {
             let peer_ref = Peer {

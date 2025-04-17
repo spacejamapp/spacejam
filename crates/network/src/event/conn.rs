@@ -8,7 +8,7 @@ use quinn::VarInt;
 use runtime::Validator;
 
 /// Handle the connected event.
-// #[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
+#[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
 pub async fn connect<C: runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 

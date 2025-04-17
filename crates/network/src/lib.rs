@@ -74,11 +74,14 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         // bootstrap dialing
         let bootstrap = config.bootstrap;
         if !bootstrap.is_empty() {
-            for peer in bootstrap {
-                if let Err(e) = this.dial(peer).await {
-                    tracing::warn!("failed to dial bootstrap peer: {e}");
+            let this = this.clone();
+            tokio::spawn(async move {
+                for peer in bootstrap {
+                    if let Err(e) = this.dial(peer).await {
+                        tracing::warn!("failed to dial bootstrap peer: {e}");
+                    }
                 }
-            }
+            });
         } else {
             tracing::debug!("no bootstrap peers, skip dialing ...");
         }
@@ -117,15 +120,12 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn spawn(&self) {
         let runtime = self.clone();
         let transport = self.transport.clone();
-        tracing::debug!("spawning transport ...");
 
         loop {
             let Some(conn) = transport.accept().await else {
                 tracing::error!("endpoint is closed");
                 break;
             };
-
-            tracing::debug!("got connection request");
 
             let Ok(conn) = conn
                 .await
@@ -146,7 +146,6 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
     /// Dial a new connection
     pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
-        tracing::debug!("dialing {addr} ...");
         let conn = self
             .transport
             .connect(addr.addr, addr.peer_id.to_string().as_str())?
