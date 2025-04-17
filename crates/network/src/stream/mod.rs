@@ -36,7 +36,6 @@ pub async fn recv<C: runtime::Config>(
     let mut buf = [0; 1];
     if let Err(e) = recv.read_exact(&mut buf).await {
         tracing::warn!("failed to read stream type: {e:?}");
-        return;
     }
 
     if let Err(e) = match buf[0] {

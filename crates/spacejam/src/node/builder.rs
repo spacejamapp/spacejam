@@ -1,11 +1,10 @@
 //! Configuration for the spacejam node
 
 use crate::node::Genesis;
-use network::{Event, Network};
+use network::Network;
 use runtime::{storage::KVStorage, Runtime};
 use score::{safrole::ValidatorData, Block};
 use std::{fs, path::PathBuf, sync::Arc};
-use tokio::sync::mpsc;
 
 /// Spacejam node builder
 #[derive(Clone, Default)]
@@ -32,14 +31,13 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<C>(self) -> anyhow::Result<(Network<C>, mpsc::UnboundedReceiver<Event>)>
+    pub async fn build<C>(self) -> anyhow::Result<Network<C>>
     where
         C: runtime::Config,
         C::Validator: TryFrom<String>,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Hook: Default,
     {
-        let (tx, rx) = mpsc::unbounded_channel();
         let validator = C::Validator::try_from(self.validator.clone())
             .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
 
@@ -64,6 +62,6 @@ impl Builder {
         }
 
         // Initialize the network
-        Ok((network::Network::new(self.network, runtime, tx).await?, rx))
+        network::Network::new(self.network, runtime).await
     }
 }

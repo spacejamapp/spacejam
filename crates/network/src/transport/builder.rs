@@ -1,10 +1,6 @@
 //! network builder.
 
-use crate::{
-    event,
-    peer::PeerId,
-    transport::{Transport, Verifier},
-};
+use crate::{peer::PeerId, transport::Verifier};
 use crypto::ed25519;
 use quinn::{
     crypto::rustls::{QuicClientConfig, QuicServerConfig},
@@ -21,7 +17,6 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::mpsc;
 use webpki::types::CertificateDer;
 
 /// Supported signature algorithms.
@@ -75,7 +70,7 @@ impl Builder {
     }
 
     /// Build the QUIC server.
-    pub fn build(self, tx: mpsc::UnboundedSender<event::Event>) -> anyhow::Result<Transport> {
+    pub fn build(self) -> anyhow::Result<Endpoint> {
         let dns = PeerId::from(self.ed25519.verifying.to_bytes()).to_string();
         let provider = Self::provider();
 
@@ -135,7 +130,7 @@ impl Builder {
         let mut endpoint = Endpoint::server(server, self.address)?;
         endpoint.set_default_client_config(client);
         tracing::info!("transport listening on {dns}@{:?}", endpoint.local_addr()?);
-        Ok(Transport { endpoint, tx })
+        Ok(endpoint)
     }
 
     fn client(

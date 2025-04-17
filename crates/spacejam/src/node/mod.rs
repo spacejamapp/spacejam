@@ -1,11 +1,9 @@
 //! Node for SpaceJam
 
 use crate::offchain::Offchain;
-use network::{Event, Network};
+use network::Network;
 use score::block;
 use std::{net::SocketAddr, time::Duration};
-use tokio::sync::mpsc;
-
 pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
@@ -17,7 +15,6 @@ mod log;
 /// TODO: make metrics service out of this function?
 pub async fn start<C: runtime::Config>(
     network: Network<C>,
-    rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
     rpc: SocketAddr,
 ) -> anyhow::Result<()> {
@@ -27,7 +24,7 @@ pub async fn start<C: runtime::Config>(
     tokio::select! {
         _ = author(&runtime) => {}
         _ = offchain.start(rpc, network.metrics.clone(), metrics) => {}
-        _ = network.spawn(rx) => {}
+        _ = network.spawn() => {}
         _ = tokio::signal::ctrl_c() => {}
     }
 
@@ -44,8 +41,8 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
         return;
     }
 
-    // sleep for 10 seconds to make sure the network is ready
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    // sleep up to 3 seconds to make sure the network is ready
+    tokio::time::sleep(Duration::from_secs(3)).await;
 
     loop {
         let now = block::now().expect("failed to get current time");

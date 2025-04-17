@@ -6,7 +6,7 @@
 use crate::{
     peer::{Connection, PeerId},
     stream::up0::Handshake,
-    Event, Network,
+    Network,
 };
 use quinn::{RecvStream, SendStream};
 use runtime::Head;
@@ -34,10 +34,7 @@ pub async fn unchecked<C: runtime::Config>(
     conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
         tracing::error!("closing connection with reason: {e}");
-        runtime
-            .transport
-            .close(conn.address.peer_id, e.to_string())
-            .await;
+        runtime.close(conn.address.peer_id, e.to_string()).await;
     }
 }
 

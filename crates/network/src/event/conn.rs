@@ -8,8 +8,8 @@ use quinn::VarInt;
 use runtime::Validator;
 
 /// Handle the connected event.
-#[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
-pub async fn connected<C: runtime::Config>(runtime: Network<C>, conn: Connection) {
+// #[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
+pub async fn connect<C: runtime::Config>(runtime: Network<C>, conn: Connection) {
     let address = conn.address.clone();
 
     // 1. establish the connection in the metrics
@@ -52,7 +52,7 @@ pub async fn connected<C: runtime::Config>(runtime: Network<C>, conn: Connection
 
 /// Handle the closed event.
 #[tracing::instrument(skip_all, name = "close", fields(peer = peer.to_string()))]
-pub async fn closed<C: runtime::Config>(
+pub async fn disconnect<C: runtime::Config>(
     runtime: Network<C>,
     peer: PeerId,
     reason: String,
@@ -84,11 +84,15 @@ pub async fn closed<C: runtime::Config>(
 }
 
 /// Serve a connection.
-async fn serve<C: runtime::Config>(conn: Connection, runtime: Network<C>) {
+async fn serve<C: runtime::Config>(conn: Connection, runtime: Network<C>) -> anyhow::Result<()> {
     // TODO: use limited threads to serve the connection
 
+    let peer_id = conn.address.peer_id;
     while let Ok((send, recv)) = conn.accept_bi().await {
         let runtime = runtime.clone();
-        tokio::spawn(async move { stream::recv(conn.address.peer_id, send, recv, runtime).await });
+        stream::recv(peer_id, send, recv, runtime).await;
+        // tokio::spawn(stream::recv(conn.address.peer_id, send, recv, runtime));
     }
+
+    Ok(())
 }

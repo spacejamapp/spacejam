@@ -1,6 +1,6 @@
 //! Block announcement stream.
 
-use crate::{peer::PeerId, Event, Network};
+use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
 use runtime::{Handshake, Head, Runtime};
 use score::{block::Header, OpaqueHash, TimeSlot};
