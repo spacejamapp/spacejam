@@ -73,10 +73,8 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
         // send ticket
         if let Some(ticket) = ticket {
-            if let Err(e) = runtime.send(Event::DistributeTicket {
-                epoch,
-                ticket: Box::new(ticket),
-            }) {
+            if let Err(e) = network::event::broadcast::ticket(runtime.clone(), epoch, ticket).await
+            {
                 tracing::error!("Failed to send ticket: {:?}", e);
             }
         }

@@ -4,7 +4,6 @@ use crate::{
     peer::{Connection, PeerId},
     Network,
 };
-use score::extrinsic::TicketEnvelope;
 use std::fmt;
 
 pub mod broadcast;
@@ -14,14 +13,6 @@ pub mod sync;
 /// Events for peers.
 #[derive(Debug, Clone)]
 pub enum Event {
-    /// Distribute a ticket.
-    DistributeTicket {
-        /// The epoch.
-        epoch: u32,
-
-        /// The ticket.
-        ticket: Box<TicketEnvelope>,
-    },
     /// A new peer has connected.
     Connected(Connection),
     /// A peer has disconnected.
@@ -38,9 +29,6 @@ impl Event {
     /// Handle the event.
     pub async fn handle<C: runtime::Config>(self, runtime: Network<C>) -> anyhow::Result<()> {
         match self {
-            Self::DistributeTicket { epoch, ticket } => {
-                broadcast::ticket(runtime, epoch, *ticket).await?;
-            }
             Self::Connected(conn) => {
                 conn::connected(runtime, conn).await;
             }
@@ -59,9 +47,6 @@ impl Event {
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DistributeTicket { epoch, ticket: _ } => {
-                write!(f, "DistributeTicket({})", epoch)
-            }
             Self::Connected(conn) => {
                 write!(f, "Connected({})", conn.address.peer_id)
             }
