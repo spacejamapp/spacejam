@@ -46,6 +46,17 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
     loop {
         let now = block::now().expect("failed to get current time");
+        if !author.keys().unwrap_or_default().contains(&author.me) {
+            tracing::warn!("Not in the validator set, sleeping...");
+            tokio::time::sleep(Duration::from_secs(
+                (score::SLOT_PERIOD * score::EPOCH_LENGTH
+                    - now % (score::SLOT_PERIOD * score::EPOCH_LENGTH)) as u64,
+            ))
+            .await;
+            continue;
+        }
+
+        // sleep until the next slot
         let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
         tokio::time::sleep(Duration::from_secs(duration)).await;
 

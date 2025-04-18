@@ -8,6 +8,9 @@ use score::{
 
 /// Validator interface
 pub trait Validator {
+    /// Random validator
+    fn random() -> Self;
+
     /// BLS public key
     fn bls_public_key(&self) -> BlsPublic;
 
@@ -61,6 +64,10 @@ pub trait Validator {
 }
 
 impl Validator for crypto::ed25519::KeyPair {
+    fn random() -> Self {
+        unimplemented!()
+    }
+
     fn ed25519_public_key(&self) -> Ed25519Public {
         *self.verifying.as_bytes()
     }

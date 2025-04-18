@@ -36,6 +36,10 @@ impl LocalValidator {
 }
 
 impl Validator for LocalValidator {
+    fn random() -> Self {
+        Self::random()
+    }
+
     fn bls_public_key(&self) -> BlsPublic {
         self.bls.public()
     }

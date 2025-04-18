@@ -15,7 +15,6 @@ pub use {
 
 pub mod action;
 mod config;
-mod handler;
 pub mod peer;
 mod stream;
 pub mod transport;

@@ -2,7 +2,7 @@
 
 use crate::node::Genesis;
 use network::Network;
-use runtime::{storage::KVStorage, Runtime};
+use runtime::{storage::KVStorage, Runtime, Validator};
 use score::{safrole::ValidatorData, Block};
 use std::{fs, path::PathBuf, sync::Arc};
 
@@ -14,7 +14,7 @@ pub struct Builder {
     ///
     /// TODO: make this field optional, if not provided, the node will not be a validator.
     #[cfg_attr(feature = "cmd", arg(long))]
-    validator: String,
+    validator: Option<String>,
 
     /// The database path
     #[cfg_attr(feature = "cmd", arg(long, default_value = "spacejam.db"))]
@@ -38,8 +38,12 @@ impl Builder {
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Hook: Default,
     {
-        let validator = C::Validator::try_from(self.validator.clone())
-            .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
+        let validator = if let Some(raw) = self.validator {
+            C::Validator::try_from(raw.clone())
+                .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", raw))?
+        } else {
+            C::Validator::random()
+        };
 
         // Initialize the runtime
         //

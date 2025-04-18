@@ -19,9 +19,7 @@ impl<C: runtime::Config> Network<C> {
         // 2. spawn the connection
         let runtime = self.clone();
         let cloned_conn = conn.clone();
-        tokio::spawn(async move {
-            runtime.serve(cloned_conn).await;
-        });
+        tokio::spawn(async move { runtime.serve(cloned_conn).await });
 
         // 3. open the up0 stream if needed
         if conn.outgoing {
@@ -83,14 +81,12 @@ impl<C: runtime::Config> Network<C> {
     }
 
     /// Serve a connection.
-    async fn serve(&self, conn: Connection) -> anyhow::Result<()> {
+    async fn serve(&self, conn: Connection) {
         // TODO: use limited threads to serve the connection
 
         let peer_id = conn.address.peer_id;
         while let Ok((send, recv)) = conn.accept_bi().await {
             self.handle(peer_id, send, recv).await;
         }
-
-        Ok(())
     }
 }
