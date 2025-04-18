@@ -7,6 +7,24 @@ use score::extrinsic::TicketEnvelope;
 use serde::{Deserialize, Serialize};
 use std::mem;
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a safrole ticket distribution.
+    pub async fn recv_ce131(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let size = mem::size_of::<Request>();
+        let mut buf = vec![0; size];
+        recv.read_exact(&mut buf).await?;
+
+        // TODO: verify the proof, handle the ticket, etc.
+        let _request: Request = codec::decode(&buf[..])?;
+        send.finish();
+        Ok(())
+    }
+}
+
 /// Send a safrole ticket distribution.
 pub async fn send(
     mut send: SendStream,
@@ -16,22 +34,6 @@ pub async fn send(
     let mut buf = vec![131];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
-    Ok(())
-}
-
-/// Receive a safrole ticket distribution.
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let size = mem::size_of::<Request>();
-    let mut buf = vec![0; size];
-    recv.read_exact(&mut buf).await?;
-
-    // TODO: verify the proof, handle the ticket, etc.
-    let _request: Request = codec::decode(&buf[..])?;
     send.finish();
     Ok(())
 }

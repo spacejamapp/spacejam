@@ -55,7 +55,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // select the best chain before authoring
-        if let Err(e) = network::event::sync::select_best_chain(runtime.clone(), timeslot).await {
+        if let Err(e) = runtime.select_best_chain(timeslot).await {
             tracing::error!("Failed to select best chain: {:?}", e);
         }
 
@@ -70,8 +70,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
         // send ticket
         if let Some(ticket) = ticket {
-            if let Err(e) = network::event::broadcast::ticket(runtime.clone(), epoch, ticket).await
-            {
+            if let Err(e) = runtime.ticket(epoch, ticket).await {
                 tracing::error!("Failed to send ticket: {:?}", e);
             }
         }
@@ -87,9 +86,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
                 );
             }
 
-            if let Err(e) =
-                network::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await
-            {
+            if let Err(e) = runtime.announce(Box::new(header.clone())).await {
                 tracing::error!("Failed to announce block: {:?}", e);
             }
         }

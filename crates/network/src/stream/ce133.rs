@@ -5,6 +5,14 @@ use quinn::{RecvStream, SendStream};
 use score::{extrinsic::GuaranteesExtrinsic, service::WorkPackage};
 use serde::{Deserialize, Serialize};
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a work package submission.
+    pub async fn recv_ce133(&self, mut send: SendStream, recv: RecvStream) -> anyhow::Result<()> {
+        todo!("decode the extrinsic data of work packages.");
+        Ok(())
+    }
+}
+
 /// Send a work package submission.
 pub async fn send(
     mut send: SendStream,
@@ -16,16 +24,6 @@ pub async fn send(
     send.write_all(&buf).await?;
     send.write_all(&request.extrinsic).await?;
     send.finish();
-    Ok(())
-}
-
-/// Receive a work package submission.
-pub async fn recv<C: runtime::Config>(
-    send: SendStream,
-    recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    todo!("decode the extrinsic data of work packages.");
     Ok(())
 }
 

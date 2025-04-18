@@ -151,7 +151,7 @@ pub async fn recv<C: runtime::Config>(
 
         // broadcast the header to the network
         // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
-        crate::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await?;
+        runtime.announce(Box::new(header.clone())).await?;
     }
 
     anyhow::bail!("announcement receiver stream closed");

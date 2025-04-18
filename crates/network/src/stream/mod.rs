@@ -5,6 +5,7 @@
 
 use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
+use std::ops::Deref;
 
 pub mod ce128;
 pub mod ce129;
@@ -25,46 +26,44 @@ pub mod ce144;
 pub mod ce145;
 pub mod up0;
 
-/// Handle an incoming stream.
-#[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name = "stream")]
-pub async fn recv<C: runtime::Config>(
-    peer: PeerId,
-    send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) {
-    let mut buf = [0; 1];
-    if let Err(e) = recv.read_exact(&mut buf).await {
-        tracing::warn!("failed to read stream type: {e:?}");
-    }
+impl<C: runtime::Config> Network<C> {
+    /// Handle an incoming stream.
+    #[tracing::instrument(skip_all, level = "debug", fields(peer = ?peer.to_string()), name = "stream")]
+    pub async fn handle(&self, peer: PeerId, send: SendStream, mut recv: RecvStream) {
+        let mut buf = [0; 1];
+        if let Err(e) = recv.read_exact(&mut buf).await {
+            tracing::warn!("failed to read stream type: {e:?}");
+        }
 
-    if let Err(e) = match buf[0] {
-        0 => up0::recv(peer, send, recv, runtime).await,
-        128 => ce128::recv(send, recv, runtime).await,
-        129 => ce129::recv(send, recv, runtime).await,
-        131 => ce131::recv(send, recv, runtime).await,
-        132 => ce132::recv(send, recv, runtime).await,
-        133 => ce133::recv(send, recv, runtime).await,
-        134 => ce134::recv(send, recv, runtime).await,
-        135 => ce135::recv(send, recv, runtime).await,
-        136 => ce136::recv(send, recv, runtime).await,
-        137 => ce137::recv(send, recv, runtime).await,
-        138 => ce138::recv(send, recv, runtime).await,
-        139 => ce139::recv(send, recv, runtime).await,
-        140 => ce140::recv(send, recv, runtime).await,
-        141 => ce141::recv(send, recv, runtime).await,
-        142 => ce142::recv(send, recv, runtime).await,
-        143 => ce143::recv(send, recv, runtime).await,
-        144 => ce144::recv(send, recv, runtime).await,
-        145 => ce145::recv(send, recv, runtime).await,
-        unknown => Err(anyhow::anyhow!("unknown stream type: {unknown}")),
-    } {
-        tracing::warn!(
-            "{}: {e:?}",
-            match buf[0] {
-                0 => "up0".into(),
-                n => format!("ce{n}"),
-            }
-        );
+        let runtime = self.clone();
+        if let Err(e) = match buf[0] {
+            0 => self.recv_up0(peer, send, recv).await,
+            128 => self.recv_ce128(send, recv).await,
+            129 => self.recv_ce129(send, recv).await,
+            131 => self.recv_ce131(send, recv).await,
+            132 => self.recv_ce132(send, recv).await,
+            133 => self.recv_ce133(send, recv).await,
+            134 => self.recv_ce134(send, recv).await,
+            135 => self.recv_ce135(send, recv).await,
+            136 => self.recv_ce136(send, recv).await,
+            137 => self.recv_ce137(send, recv).await,
+            138 => self.recv_ce138(send, recv).await,
+            139 => self.recv_ce139(send, recv).await,
+            140 => self.recv_ce140(send, recv).await,
+            141 => self.recv_ce141(send, recv).await,
+            142 => self.recv_ce142(send, recv).await,
+            143 => self.recv_ce143(send, recv).await,
+            144 => self.recv_ce144(send, recv).await,
+            145 => self.recv_ce145(send, recv).await,
+            unknown => Err(anyhow::anyhow!("unknown stream type: {unknown}")),
+        } {
+            tracing::warn!(
+                "{}: {e:?}",
+                match buf[0] {
+                    0 => "up0".into(),
+                    n => format!("ce{n}"),
+                }
+            );
+        }
     }
 }

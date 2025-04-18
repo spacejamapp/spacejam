@@ -9,6 +9,38 @@ use score::{block, extrinsic::TicketEnvelope, Ed25519Public};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a safrole ticket distribution.
+    #[tracing::instrument(skip_all, name = "ce132::recv", parent = None)]
+    pub async fn recv_ce132(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let mut buf = vec![0; 789];
+        recv.read_exact(&mut buf).await?;
+        send.finish();
+
+        // TODO: verify the proof, handle the ticket, etc.
+        let request: Request = codec::decode(&buf[..])?;
+        let epoch = block::timeslot()? / score::EPOCH_LENGTH;
+
+        // insert the ticket into the pool if the epoch is present.
+        if request.epoch == epoch {
+            self.author()
+                .insert_ticket(epoch, request.ticket.clone())
+                .await?;
+        }
+
+        tracing::trace!(
+            "ticket#{} for epoch: {}",
+            request.ticket.attempt,
+            request.epoch
+        );
+        Ok(())
+    }
+}
+
 /// Send a safrole ticket distribution.
 #[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
 pub async fn send(
@@ -23,36 +55,5 @@ pub async fn send(
     // just wait for the response
     let _ = recv.read_to_end(0).await;
     send.finish();
-    Ok(())
-}
-
-/// Receive a safrole ticket distribution.
-#[tracing::instrument(skip_all, name = "ce132::recv", parent = None)]
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let mut buf = vec![0; 789];
-    recv.read_exact(&mut buf).await?;
-    send.finish();
-
-    // TODO: verify the proof, handle the ticket, etc.
-    let request: Request = codec::decode(&buf[..])?;
-    let epoch = block::timeslot()? / score::EPOCH_LENGTH;
-
-    // insert the ticket into the pool if the epoch is present.
-    if request.epoch == epoch {
-        runtime
-            .author()
-            .insert_ticket(epoch, request.ticket.clone())
-            .await?;
-    }
-
-    tracing::trace!(
-        "ticket#{} for epoch: {}",
-        request.ticket.attempt,
-        request.epoch
-    );
     Ok(())
 }

@@ -17,21 +17,23 @@ pub async fn send(
     Ok(())
 }
 
-/// Receive a preimage request.
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let mut hash = [0; 32];
-    recv.read_exact(&mut hash).await?;
+impl<C: runtime::Config> Network<C> {
+    /// Receive a preimage request.
+    pub async fn recv_ce143(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let mut hash = [0; 32];
+        recv.read_exact(&mut hash).await?;
 
-    // fetch the preimage
-    // let preimage = runtime.runtime.storage.fetch_preimage(hash)?;
-    //
-    // TODO: fetch the preimage from the storage
-    let preimage = vec![];
-    send.write_all(&preimage).await?;
-    send.finish();
-    Ok(())
+        // fetch the preimage
+        // let preimage = runtime.runtime.storage.fetch_preimage(hash)?;
+        //
+        // TODO: fetch the preimage from the storage
+        let preimage = vec![];
+        send.write_all(&preimage).await?;
+        send.finish();
+        Ok(())
+    }
 }

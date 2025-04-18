@@ -13,8 +13,9 @@ pub use {
     transport::Builder as TransportBuilder,
 };
 
+pub mod action;
 mod config;
-pub mod event;
+mod handler;
 pub mod peer;
 mod stream;
 pub mod transport;
@@ -118,7 +119,6 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
     /// Spawn a task to handle events
     pub async fn spawn(&self) {
-        let runtime = self.clone();
         let transport = self.transport.clone();
 
         loop {
@@ -140,7 +140,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
                 continue;
             };
 
-            event::conn::connect(runtime.clone(), conn).await;
+            self.connect(conn).await;
         }
     }
 
@@ -158,13 +158,13 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             anyhow::bail!("failed to verify alpn of {addr}");
         };
 
-        event::conn::connect(self.clone(), conn).await;
+        self.connect(conn).await;
         Ok(())
     }
 
     /// Close a connection
     pub async fn close(&self, peer: PeerId, reason: String) -> anyhow::Result<()> {
-        if let Some(_address) = event::conn::disconnect(self.clone(), peer, reason.clone()).await? {
+        if let Some(_address) = self.disconnect(peer, reason.clone()).await? {
             // tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 
             // TODO: re-connect missing peers with an interval

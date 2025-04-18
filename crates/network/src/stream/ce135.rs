@@ -5,6 +5,21 @@ use quinn::{RecvStream, SendStream};
 use score::{service::WorkReport, Ed25519Signature};
 use serde::{Deserialize, Serialize};
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a work report distribution.
+    ///
+    /// TODO: handle the received work report.
+    pub async fn recv_ce135(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let _req: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        send.finish();
+        Ok(())
+    }
+}
+
 /// Send a work report distribution.
 pub async fn send(
     mut send: SendStream,
@@ -14,19 +29,6 @@ pub async fn send(
     let mut buf = vec![135];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
-    Ok(())
-}
-
-/// Receive a work report distribution.
-///
-/// TODO: handle the received work report.
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let _req: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
     send.finish();
     Ok(())
 }
