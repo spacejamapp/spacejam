@@ -1,11 +1,10 @@
 //! Configuration for the spacejam node
 
 use crate::node::Genesis;
-use network::{Event, Network};
-use runtime::{storage::KVStorage, Runtime};
+use network::Network;
+use runtime::{storage::KVStorage, Runtime, Validator};
 use score::{safrole::ValidatorData, Block};
 use std::{fs, path::PathBuf, sync::Arc};
-use tokio::sync::mpsc;
 
 /// Spacejam node builder
 #[derive(Clone, Default)]
@@ -15,7 +14,7 @@ pub struct Builder {
     ///
     /// TODO: make this field optional, if not provided, the node will not be a validator.
     #[cfg_attr(feature = "cmd", arg(long))]
-    validator: String,
+    validator: Option<String>,
 
     /// The database path
     #[cfg_attr(feature = "cmd", arg(long, default_value = "spacejam.db"))]
@@ -32,16 +31,19 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<C>(self) -> anyhow::Result<(Network<C>, mpsc::UnboundedReceiver<Event>)>
+    pub async fn build<C>(self) -> anyhow::Result<Network<C>>
     where
         C: runtime::Config,
         C::Validator: TryFrom<String>,
         C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
         C::Hook: Default,
     {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let validator = C::Validator::try_from(self.validator.clone())
-            .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", self.validator))?;
+        let validator = if let Some(raw) = self.validator {
+            C::Validator::try_from(raw.clone())
+                .map_err(|_| anyhow::anyhow!("Invalid seed {:?}", raw))?
+        } else {
+            C::Validator::random()
+        };
 
         // Initialize the runtime
         //
@@ -64,6 +66,6 @@ impl Builder {
         }
 
         // Initialize the network
-        Ok((network::Network::new(self.network, runtime, tx).await?, rx))
+        network::Network::new(self.network, runtime).await
     }
 }

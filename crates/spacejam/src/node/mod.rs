@@ -1,11 +1,9 @@
 //! Node for SpaceJam
 
 use crate::offchain::Offchain;
-use network::{Event, Network};
+use network::Network;
 use score::block;
 use std::{net::SocketAddr, time::Duration};
-use tokio::sync::mpsc;
-
 pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
@@ -17,7 +15,6 @@ mod log;
 /// TODO: make metrics service out of this function?
 pub async fn start<C: runtime::Config>(
     network: Network<C>,
-    rx: mpsc::UnboundedReceiver<Event>,
     metrics: SocketAddr,
     rpc: SocketAddr,
 ) -> anyhow::Result<()> {
@@ -27,7 +24,7 @@ pub async fn start<C: runtime::Config>(
     tokio::select! {
         _ = author(&runtime) => {}
         _ = offchain.start(rpc, network.metrics.clone(), metrics) => {}
-        _ = network.spawn(rx) => {}
+        _ = network.spawn() => {}
         _ = tokio::signal::ctrl_c() => {}
     }
 
@@ -44,11 +41,22 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
         return;
     }
 
-    // sleep for 10 seconds to make sure the network is ready
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    // sleep up to 3 seconds to make sure the network is ready
+    tokio::time::sleep(Duration::from_secs(3)).await;
 
     loop {
         let now = block::now().expect("failed to get current time");
+        if !author.keys().unwrap_or_default().contains(&author.me) {
+            tracing::warn!("Not in the validator set, sleeping...");
+            tokio::time::sleep(Duration::from_secs(
+                (score::SLOT_PERIOD * score::EPOCH_LENGTH
+                    - now % (score::SLOT_PERIOD * score::EPOCH_LENGTH)) as u64,
+            ))
+            .await;
+            continue;
+        }
+
+        // sleep until the next slot
         let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
         tokio::time::sleep(Duration::from_secs(duration)).await;
 
@@ -58,7 +66,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // select the best chain before authoring
-        if let Err(e) = network::event::sync::select_best_chain(runtime.clone(), timeslot).await {
+        if let Err(e) = runtime.select_best_chain(timeslot).await {
             tracing::error!("Failed to select best chain: {:?}", e);
         }
 
@@ -73,10 +81,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
         // send ticket
         if let Some(ticket) = ticket {
-            if let Err(e) = runtime.send(Event::DistributeTicket {
-                epoch,
-                ticket: Box::new(ticket),
-            }) {
+            if let Err(e) = runtime.ticket(epoch, ticket).await {
                 tracing::error!("Failed to send ticket: {:?}", e);
             }
         }
@@ -92,9 +97,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
                 );
             }
 
-            if let Err(e) =
-                network::event::broadcast::announce(runtime.clone(), Box::new(header.clone())).await
-            {
+            if let Err(e) = runtime.announce(Box::new(header.clone())).await {
                 tracing::error!("Failed to announce block: {:?}", e);
             }
         }

@@ -2,13 +2,12 @@
 
 use crypto::ed25519;
 use metrics::Peer;
-use network::{peer::PeerId, transport, Address, Config, Event, Network};
+use network::{peer::PeerId, transport, Address, Config, Network};
 use spacejam_network::{self as network};
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
 };
-use tokio::sync::mpsc;
 
 /// Test Node
 pub struct Node {
@@ -17,11 +16,7 @@ pub struct Node {
 
 impl Node {
     /// Create a new node
-    pub async fn new(
-        config: Config,
-        keypair: ed25519::KeyPair,
-    ) -> (Network<()>, mpsc::UnboundedReceiver<Event>) {
-        let (tx, rx) = mpsc::unbounded_channel();
+    pub async fn new(config: Config, keypair: ed25519::KeyPair) -> Network<()> {
         let node = Arc::new(Self { keypair });
         let runtime = Arc::new(runtime::Runtime::new(
             node.keypair.clone(),
@@ -29,12 +24,9 @@ impl Node {
             (),
         ));
 
-        (
-            Network::new(config, runtime, tx)
-                .await
-                .expect("failed to init network"),
-            rx,
-        )
+        Network::new(config, runtime)
+            .await
+            .expect("failed to init network")
     }
 }
 
@@ -61,8 +53,7 @@ async fn connections() {
     });
 
     // create nodes
-
-    let (alice, alice_rx) = Node::new(
+    let alice = Node::new(
         Config {
             address: aaddress.addr.clone(),
             ..Default::default()
@@ -70,7 +61,7 @@ async fn connections() {
         akey,
     )
     .await;
-    let (bob, bob_rx) = Node::new(
+    let bob = Node::new(
         Config {
             address: baddress.addr.clone(),
             bootstrap: vec![aaddress],
@@ -82,8 +73,8 @@ async fn connections() {
 
     let ametrics = alice.metrics.clone();
     tokio::select! {
-        r = alice.spawn(alice_rx) => r,
-        r = bob.spawn(bob_rx) => r,
+        r = alice.spawn() => r,
+        r = bob.spawn() => r,
         _ = async {
             let peer_ref = Peer {
                 peer: baddress.to_string(),

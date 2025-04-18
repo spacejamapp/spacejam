@@ -5,22 +5,24 @@ use quinn::{RecvStream, SendStream};
 use score::{Ed25519Signature, OpaqueHash};
 use serde::{Deserialize, Serialize};
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a shard distribution.
+    pub async fn recv_ce141(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let request: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        send.finish();
+        Ok(())
+    }
+}
+
 /// Send a shard distribution.
 pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     let mut buf = vec![137];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
-    Ok(())
-}
-
-/// Receive a shard distribution.
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let request: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
     send.finish();
     Ok(())
 }

@@ -18,17 +18,19 @@ pub async fn send(
     Ok(())
 }
 
-/// Receive judgement publication.
-///
-/// TODO: handle the judgement
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let judgement: Judgement = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-    send.finish();
-    Ok(())
+impl<C: runtime::Config> Network<C> {
+    /// Receive judgement publication.
+    ///
+    /// TODO: handle the judgement
+    pub async fn recv_ce145(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let judgement: Judgement = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        send.finish();
+        Ok(())
+    }
 }
 
 /// Judgement to announce

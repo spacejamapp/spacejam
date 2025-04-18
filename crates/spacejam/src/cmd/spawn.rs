@@ -29,7 +29,7 @@ impl Spawn {
         C::Validator: TryFrom<String>,
         C::Hook: Default,
     {
-        let (network, rx) = self.config.clone().build::<C>().await?;
-        node::start(network, rx, self.metrics, self.rpc).await
+        let network = self.config.clone().build::<C>().await?;
+        node::start(network, self.metrics, self.rpc).await
     }
 }

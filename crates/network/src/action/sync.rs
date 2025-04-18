@@ -5,62 +5,60 @@ use quinn::RecvStream;
 use runtime::{storage::SyncStorage, Head};
 use score::{block::Header, Block, OpaqueHash, TimeSlot};
 
-/// Select the best chain.
-///
-/// This happens on:
-/// - receiving new block announcements
-/// - before authoring blocks
-#[tracing::instrument(
+impl<C: runtime::Config> Network<C> {
+    /// Select the best chain.
+    ///
+    /// This happens on:
+    /// - receiving new block announcements
+    /// - before authoring blocks
+    #[tracing::instrument(
     skip_all,
     name = "finalize",
     parent = None,
     fields(slot = ?slot)
 )]
-pub async fn select_best_chain<C: runtime::Config>(
-    runtime: Network<C>,
-    slot: TimeSlot,
-) -> anyhow::Result<()> {
-    let grandpa = runtime.grandpa.read().await.clone();
-    if slot <= grandpa.handshake.head.slot {
-        tracing::trace!(
-            "upcoming#{slot}, grandpa#{}: skipping best chain selection",
-            grandpa.handshake.head.slot
-        );
-        return Ok(());
-    }
-
-    // select the best head from the grandpa.
-    let Some((best, ancestors)) = grandpa.select_best_head() else {
-        return Ok(());
-    };
-
-    // if the best head is already in the local storage,
-    // run sync from the local storage.
-    if let Ok(head) = runtime.storage.get_block(&best.hash) {
-        self::finalize_local(&runtime, head, ancestors).await
-    } else {
-        BlockSync::new(&runtime, best).await?.sync().await
-    }
-}
-
-/// Finalize blocks from the local chain.
-#[tracing::instrument(skip_all, name = "local")]
-async fn finalize_local<C: runtime::Config>(
-    runtime: &Network<C>,
-    best: Block,
-    mut ancestors: Vec<(OpaqueHash, Header)>,
-) -> anyhow::Result<()> {
-    ancestors.reverse();
-    let grandpa = runtime.grandpa.read().await.clone();
-    let mut finalized = grandpa.handshake.head.clone();
-    let importer = runtime.importer();
-    for (ancestor, header) in ancestors.iter() {
-        if header.slot == best.header.slot {
-            break;
+    pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
+        let grandpa = self.grandpa.read().await.clone();
+        if slot <= grandpa.handshake.head.slot {
+            tracing::trace!(
+                "upcoming#{slot}, grandpa#{}: skipping best chain selection",
+                grandpa.handshake.head.slot
+            );
+            return Ok(());
         }
 
-        if header.parent != finalized.hash {
-            anyhow::bail!(
+        // select the best head from the grandpa.
+        let Some((best, ancestors)) = grandpa.select_best_head() else {
+            return Ok(());
+        };
+
+        // if the best head is already in the local storage,
+        // run sync from the local storage.
+        if let Ok(head) = self.storage.get_block(&best.hash) {
+            self.finalize_local(head, ancestors).await
+        } else {
+            BlockSync::new(self, best).await?.sync().await
+        }
+    }
+
+    /// Finalize blocks from the local chain.
+    #[tracing::instrument(skip_all, name = "local")]
+    async fn finalize_local(
+        &self,
+        best: Block,
+        mut ancestors: Vec<(OpaqueHash, Header)>,
+    ) -> anyhow::Result<()> {
+        ancestors.reverse();
+        let grandpa = self.grandpa.read().await.clone();
+        let mut finalized = grandpa.handshake.head.clone();
+        let importer = self.importer();
+        for (ancestor, header) in ancestors.iter() {
+            if header.slot == best.header.slot {
+                break;
+            }
+
+            if header.parent != finalized.hash {
+                anyhow::bail!(
                 "the parent 0x{} of the ancestor#{}@0x{} is not the latest finalized block#{}@0x{}",
                 hex::encode(&header.parent[..3]),
                 header.slot,
@@ -68,19 +66,18 @@ async fn finalize_local<C: runtime::Config>(
                 finalized.slot,
                 hex::encode(&finalized.hash[..3]),
             );
+            }
+
+            importer.finalize(self.storage.get_block(ancestor)?).await?;
+            finalized = Head {
+                hash: *ancestor,
+                slot: header.slot,
+            };
         }
 
-        importer
-            .finalize(runtime.storage.get_block(ancestor)?)
-            .await?;
-        finalized = Head {
-            hash: *ancestor,
-            slot: header.slot,
-        };
+        importer.finalize(best).await?;
+        Ok(())
     }
-
-    importer.finalize(best).await?;
-    Ok(())
 }
 
 /// An block sync requester.

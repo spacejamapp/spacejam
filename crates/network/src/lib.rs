@@ -2,19 +2,19 @@
 
 use metrics::Metrics;
 use peer::PeerId;
+use quinn::Endpoint;
 use runtime::{Head, Runtime, Validator};
 use score::block::Header;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
-use tokio::sync::{broadcast, mpsc, RwLock};
+use tokio::sync::{broadcast, RwLock};
 pub use {
     config::Config,
-    event::Event,
     peer::{Address, Connection},
-    transport::{Builder as TransportBuilder, Transport},
+    transport::Builder as TransportBuilder,
 };
 
+pub mod action;
 mod config;
-pub mod event;
 pub mod peer;
 mod stream;
 pub mod transport;
@@ -25,7 +25,7 @@ pub const PROTOCOL: &str = "jamnp-s";
 /// The network of Spacejam.
 pub struct Network<C: runtime::Config> {
     /// The transport of the network
-    pub transport: Transport,
+    pub transport: Endpoint,
 
     /// The context of the network
     pub runtime: Arc<Runtime<C>>,
@@ -54,39 +54,39 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
 
 impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     /// Create a new network
-    pub async fn new(
-        config: Config,
-        runtime: Arc<Runtime<C>>,
-        tx: mpsc::UnboundedSender<Event>,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(config: Config, runtime: Arc<Runtime<C>>) -> anyhow::Result<Self> {
         let keypair = runtime.validator.ed25519().unwrap_or_default();
         let peer_id = PeerId::from(keypair.verifying.to_bytes());
         let address = Address::new(config.address, peer_id);
-        let transport = Transport::builder(keypair)
+        let transport = transport::builder(keypair)
             .address(config.address)
             .genesis(config.genesis)
-            .build(tx.clone())?;
+            .build()?;
 
-        // Spawn a task to handle bootstrap dialing
-        let bootstrap = config.bootstrap;
-        if !bootstrap.is_empty() {
-            for peer in bootstrap {
-                if let Err(e) = transport.dial(peer).await {
-                    tracing::warn!("failed to dial bootstrap peer: {e}");
-                }
-            }
-        } else {
-            tracing::debug!("no bootstrap peers, skip dialing ...");
-        }
-
-        transport.clone().spawn().await?;
-        Ok(Self {
+        let this = Self {
             transport,
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
             metrics: Metrics::new(address.to_string().as_str()),
             announce: broadcast::channel(256).0,
-        })
+        };
+
+        // bootstrap dialing
+        let bootstrap = config.bootstrap;
+        if !bootstrap.is_empty() {
+            let this = this.clone();
+            tokio::spawn(async move {
+                for peer in bootstrap {
+                    if let Err(e) = this.dial(peer).await {
+                        tracing::warn!("failed to dial bootstrap peer: {e}");
+                    }
+                }
+            });
+        } else {
+            tracing::debug!("no bootstrap peers, skip dialing ...");
+        }
+
+        Ok(this)
     }
 
     /// Lookup the best head from the network
@@ -116,29 +116,69 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         feeds
     }
 
-    /// Send an event to the network
-    pub fn send(&self, event: Event) -> anyhow::Result<()> {
-        self.transport.tx.send(event).map_err(Into::into)
+    /// Spawn a task to handle events
+    pub async fn spawn(&self) {
+        let transport = self.transport.clone();
+
+        loop {
+            let Some(conn) = transport.accept().await else {
+                tracing::error!("endpoint is closed");
+                break;
+            };
+
+            let Ok(conn) = conn
+                .await
+                .map_err(|e| tracing::warn!("failed to accept connection: {e:?}"))
+            else {
+                continue;
+            };
+
+            let Ok(conn) = Connection::new(conn, false).map_err(|e| {
+                tracing::warn!("failed to verify alpn: {e:?}");
+            }) else {
+                continue;
+            };
+
+            self.connect(conn).await;
+        }
     }
 
-    /// Spawn a task to handle events
-    pub async fn spawn(&self, mut rx: mpsc::UnboundedReceiver<Event>) {
-        while let Some(event) = rx.recv().await {
-            let this = self.clone();
-            if let Err(e) = event.clone().handle(this).await {
-                tracing::error!("failed to handle event {event}: {e}");
-            }
+    /// Dial a new connection
+    pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
+        let conn = self
+            .transport
+            .connect(addr.addr, addr.peer_id.to_string().as_str())?
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e}"))?;
+
+        // we need to verify the peer id before sending the connected event
+        let Ok(conn) = Connection::new(conn.clone(), true) else {
+            conn.close(1u32.into(), "failed to verify alpn".as_bytes());
+            anyhow::bail!("failed to verify alpn of {addr}");
+        };
+
+        self.connect(conn).await;
+        Ok(())
+    }
+
+    /// Close a connection
+    pub async fn close(&self, peer: PeerId, reason: String) -> anyhow::Result<()> {
+        if let Some(_address) = self.disconnect(peer, reason.clone()).await? {
+            // tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+
+            // TODO: re-connect missing peers with an interval
+            //
+            // self.dial(address).await?;
         }
+
+        Ok(())
     }
 
     /// Get a connection from the pool
     pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
         let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
             tracing::trace!("closing connection for peer: {peer}");
-            self.transport.tx.send(Event::Closed {
-                peer,
-                reason: "No connection found".to_string(),
-            })?;
+            self.close(peer, "No connection found".to_string()).await?;
             return Err(anyhow::anyhow!("no connection found for peer: {peer}"));
         };
 

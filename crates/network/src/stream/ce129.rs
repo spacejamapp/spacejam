@@ -7,6 +7,27 @@ use quinn::{RecvStream, SendStream};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a state request.
+    pub async fn recv_ce129(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let size = mem::size_of::<Request>();
+        let mut buf = vec![0; size];
+        recv.read_exact(&mut buf).await?;
+        let request: Request = codec::decode(&buf[..])?;
+        // let response = runtime.runtime.storage.fetch_state(request)?;
+        //
+        // TODO: fetch the state from the storage
+        let response = Response::default();
+        send.write_all(&codec::encode(&response)?).await?;
+        send.finish();
+        Ok(())
+    }
+}
+
 /// Send a state request.
 pub async fn send(
     mut send: SendStream,
@@ -23,25 +44,6 @@ pub async fn send(
     recv.read_exact(&mut buf).await?;
     let response: Response = codec::decode(&buf[..])?;
     Ok(response)
-}
-
-/// Receive a state request.
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let size = mem::size_of::<Request>();
-    let mut buf = vec![0; size];
-    recv.read_exact(&mut buf).await?;
-    let request: Request = codec::decode(&buf[..])?;
-    // let response = runtime.runtime.storage.fetch_state(request)?;
-    //
-    // TODO: fetch the state from the storage
-    let response = Response::default();
-    send.write_all(&codec::encode(&response)?).await?;
-    send.finish();
-    Ok(())
 }
 
 /// A state request.

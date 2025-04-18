@@ -312,7 +312,7 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Get the bandersnatch keys of the current validators
-    fn keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
+    pub fn keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
         let validators = self.runtime.storage.current_validators()?;
         Ok(validators
             .iter()

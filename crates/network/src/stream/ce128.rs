@@ -7,6 +7,34 @@ use score::{Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use std::mem;
 
+impl<C: runtime::Config> Network<C> {
+    /// Receive a block request.
+    #[tracing::instrument(skip_all, name = "ce128::recv", parent = None)]
+    pub async fn recv_ce128(
+        &self,
+        mut send: SendStream,
+        mut recv: RecvStream,
+    ) -> anyhow::Result<()> {
+        let mut buf = [0; 37];
+        recv.read_exact(&mut buf).await?;
+
+        let request: Request = codec::decode(&buf)?;
+        let grandpa = self.grandpa.read().await;
+        let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
+
+        // fetch and write the blocks
+        for (hash, header) in lookup {
+            let Ok(block) = self.storage.get_block(&hash) else {
+                break;
+            };
+            send.write(&codec::encode(&block)?).await?;
+        }
+
+        send.finish();
+        Ok(())
+    }
+}
+
 /// Send a block request.
 #[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
 pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStream, RecvStream)> {
@@ -20,32 +48,6 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStr
 
     // returns the recv stream
     Ok((send, recv))
-}
-
-/// Receive a block request.
-#[tracing::instrument(skip_all, name = "ce128::recv", parent = None)]
-pub async fn recv<C: runtime::Config>(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    runtime: Network<C>,
-) -> anyhow::Result<()> {
-    let mut buf = [0; 37];
-    recv.read_exact(&mut buf).await?;
-
-    let request: Request = codec::decode(&buf)?;
-    let grandpa = runtime.grandpa.read().await;
-    let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
-
-    // fetch and write the blocks
-    for (hash, header) in lookup {
-        let Ok(block) = runtime.storage.get_block(&hash) else {
-            break;
-        };
-        send.write(&codec::encode(&block)?).await?;
-    }
-
-    send.finish();
-    Ok(())
 }
 
 /// A block request.
