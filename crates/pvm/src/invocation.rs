@@ -311,7 +311,6 @@ pub trait Invocation {
         };
 
         let Some(code) = account.code() else {
-            tracing::warn!("no code found for service: {}", service);
             return Transferred::default();
         };
 

@@ -65,6 +65,7 @@ pub fn parallel<V: Pvm>(
 ) -> Accumulated {
     // TODO: use a local task pool for spawning this calculation.
     let services = table.keys().collect::<Vec<_>>();
+    tracing::trace!("parallel accumulation for services {:?}", services);
     let results = services
         .iter()
         .map(|service| {

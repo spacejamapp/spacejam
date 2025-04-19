@@ -2,6 +2,7 @@
 
 use ::pvm::Invocation;
 use anyhow::Result;
+use pvmi::Interpreter;
 use runtime::tx;
 use score::block::History;
 use specjam::{Section, Test};
@@ -28,7 +29,7 @@ impl Runner {
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let accumulation = tx::guarantee::accumulate::<()>(
+                let accumulation = tx::guarantee::accumulate::<Interpreter>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
