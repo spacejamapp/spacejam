@@ -53,21 +53,6 @@ pub struct ValidatorData {
     pub metadata: ValidatorMetadata,
 }
 
-impl ValidatorData {
-    #[cfg(feature = "crypto")]
-    /// Verify the input assurance.
-    pub fn verify_assurance(
-        &self,
-        assurance: &crate::extrinsic::AvailAssurance,
-    ) -> anyhow::Result<()> {
-        crypto::ed25519::verify(
-            &assurance.singing_message(),
-            assurance.signature,
-            self.ed25519,
-        )
-    }
-}
-
 impl Default for ValidatorData {
     fn default() -> Self {
         ValidatorData {
@@ -75,6 +60,38 @@ impl Default for ValidatorData {
             ed25519: Default::default(),
             bls: [0; 144],
             metadata: [0; 128],
+        }
+    }
+}
+
+/// Validator iterator utilities
+pub trait ValidatorIter {
+    /// Get the bandersnatch keys
+    fn bandersnatch(&self) -> Vec<BandersnatchPublic>;
+}
+
+impl ValidatorIter for ValidatorsData {
+    fn bandersnatch(&self) -> Vec<BandersnatchPublic> {
+        self.iter().map(|v| v.bandersnatch).collect()
+    }
+}
+
+#[cfg(feature = "crypto")]
+mod crypto_impl {
+    use super::ValidatorData;
+
+    impl ValidatorData {
+        #[cfg(feature = "crypto")]
+        /// Verify the input assurance.
+        pub fn verify_assurance(
+            &self,
+            assurance: &crate::extrinsic::AvailAssurance,
+        ) -> anyhow::Result<()> {
+            crypto::ed25519::verify(
+                &assurance.singing_message(),
+                assurance.signature,
+                self.ed25519,
+            )
         }
     }
 }

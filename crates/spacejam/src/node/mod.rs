@@ -2,13 +2,30 @@
 
 use crate::offchain::Offchain;
 use network::Network;
-use score::block;
+use runtime::storage::Storage;
+use score::{block, safrole::ValidatorIter};
 use std::{net::SocketAddr, time::Duration};
 pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
 mod genesis;
 mod log;
+
+#[allow(unused)]
+/// The specification of the node
+pub enum NodeSpec {
+    /// Validating node
+    Validating,
+
+    /// Light node
+    Light,
+
+    /// Development node
+    Dev,
+
+    /// Testing node
+    Testing,
+}
 
 /// Start the node
 ///
@@ -46,7 +63,14 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
     loop {
         let now = block::now().expect("failed to get current time");
-        if !author.keys().unwrap_or_default().contains(&author.me) {
+        if !author
+            .runtime
+            .storage
+            .current_validators()
+            .unwrap_or_default()
+            .bandersnatch()
+            .contains(&author.me)
+        {
             tracing::warn!("Not in the validator set, sleeping...");
             tokio::time::sleep(Duration::from_secs(
                 (score::SLOT_PERIOD * score::EPOCH_LENGTH

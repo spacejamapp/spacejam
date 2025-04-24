@@ -17,6 +17,7 @@ mod author;
 mod grandpa;
 mod hook;
 mod importer;
+mod ext;
 mod pool;
 pub mod storage;
 pub mod tx;
@@ -65,8 +66,6 @@ impl<C: Config> Runtime<C> {
 }
 
 /// The configuration of the runtime
-///
-/// TODO: introduce hooks for the runtime.
 pub trait Config: Send + Sync + 'static {
     /// The storage of the runtime
     type Storage: Storage + Send + Sync + 'static;

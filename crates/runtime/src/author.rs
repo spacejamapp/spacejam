@@ -2,9 +2,10 @@
 
 use crate::{Config, Head, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
 use score::{
-    BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
+    BandersnatchPublic, OpaqueHash, TimeSlot,
     block::{self, Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
+    safrole::ValidatorIter,
 };
 use std::{
     collections::VecDeque,
@@ -94,7 +95,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. update the authoring slots
         let mut slots = VecDeque::new();
         let mut fallback = false;
-        match self.series()? {
+        match self.runtime.storage.series()? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -125,7 +126,7 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Author a block
     pub async fn author(&self) -> anyhow::Result<Header> {
-        let keys = self.keys()?;
+        let keys = self.runtime.storage.current_validators()?.bandersnatch();
         // 1. get the last block
         let blocks = self.runtime.storage.recent_blocks()?;
         let parent = blocks
@@ -156,7 +157,13 @@ impl<'a, C: Config> Author<'a, C> {
         let block = self.seal(builder.into(), &keys)?;
 
         // 7. save the block to the fork storage
-        let header = self.save_block(block).await?;
+        self.runtime.storage.set_block(&block)?;
+        self.runtime
+            .grandpa
+            .write()
+            .await
+            .add_leaf(block.header.clone())?;
+        let header = block.header;
 
         // 8. notify the best block
         //
@@ -180,8 +187,8 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 2. generate a ticket
-        let entropy = self.entropy()?;
-        let next_keys = self.next_keys()?;
+        let entropy = self.runtime.storage.entropy()?;
+        let next_keys = self.runtime.storage.next_validators()?.bandersnatch();
         let envelope = TicketEnvelope {
             attempt,
             signature: self.runtime.validator.bandersnatch_ring_sign(
@@ -205,8 +212,8 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Seal a block
     fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let series = self.series()?;
-        let entropy = self.entropy()?;
+        let series = self.runtime.storage.series()?;
+        let entropy = self.runtime.storage.entropy()?;
         let context = codec::encode(&block.header)?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
@@ -277,8 +284,8 @@ impl<'a, C: Config> Author<'a, C> {
         _epoch: u32,
         ticket: TicketEnvelope,
     ) -> anyhow::Result<OpaqueHash> {
-        let keys = self.next_keys()?;
-        let entropy = self.entropy()?;
+        let keys = self.runtime.storage.next_validators()?.bandersnatch();
+        let entropy = self.runtime.storage.entropy()?;
         let verifier = crypto::ring::verifier(keys);
         let id = match verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &entropy[2]),
@@ -298,44 +305,5 @@ impl<'a, C: Config> Author<'a, C> {
         let mut tickets = self.runtime.expool.tickets.lock().await;
         tickets.insert((id, ticket));
         Ok(id)
-    }
-
-    /// Save a block to the fork storage
-    async fn save_block(&self, block: Block) -> anyhow::Result<Header> {
-        self.runtime.storage.set_block(&block)?;
-        self.runtime
-            .grandpa
-            .write()
-            .await
-            .add_leaf(block.header.clone())?;
-        Ok(block.header)
-    }
-
-    /// Get the bandersnatch keys of the current validators
-    pub fn keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
-        let validators = self.runtime.storage.current_validators()?;
-        Ok(validators
-            .iter()
-            .map(|v| v.bandersnatch)
-            .collect::<Vec<_>>())
-    }
-
-    /// Get the bandersnatch keys for the next validators
-    fn next_keys(&self) -> anyhow::Result<Vec<BandersnatchPublic>> {
-        let validators = self.runtime.storage.next_validators()?;
-        Ok(validators
-            .iter()
-            .map(|v| v.bandersnatch)
-            .collect::<Vec<_>>())
-    }
-
-    /// Get the entropy
-    fn entropy(&self) -> anyhow::Result<EntropyBuffer> {
-        self.runtime.storage.entropy()
-    }
-
-    /// Get the series
-    fn series(&self) -> anyhow::Result<TicketsOrKeys> {
-        self.runtime.storage.series()
     }
 }
