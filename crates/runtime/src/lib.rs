@@ -1,6 +1,6 @@
 //! Runtime utilities of SpaceJam
 
-use ext::{Author, Importer};
+use ext::Author;
 use pvm::Pvm;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -54,11 +54,6 @@ impl<C: Config> Runtime<C> {
     /// Get the authoring context
     pub fn author(&self) -> Author<C> {
         Author::new(self)
-    }
-
-    /// Get the importer
-    pub fn importer(&self) -> Importer<C> {
-        Importer::new(self)
     }
 }
 
