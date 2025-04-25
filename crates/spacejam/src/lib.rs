@@ -6,6 +6,7 @@ pub mod cmd;
 mod node;
 mod offchain;
 pub mod storage;
+mod utils;
 pub mod validator;
 
 /// The config of development

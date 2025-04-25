@@ -56,8 +56,8 @@ impl Pool {
         let mut extrinsics = Extrinsic::default();
 
         {
-            // collect tickets
-            let timeslot = block::timeslot()?;
+            // get the current timeslot and epoch
+            let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
 
             // collect tickets

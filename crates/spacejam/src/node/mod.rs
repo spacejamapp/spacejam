@@ -1,6 +1,6 @@
 //! Node for SpaceJam
 
-use crate::offchain::Offchain;
+use crate::{offchain::Offchain, utils::log};
 use network::Network;
 use runtime::storage::Storage;
 use score::{block, safrole::ValidatorIter};
@@ -9,7 +9,6 @@ pub use {builder::Builder, genesis::Genesis};
 
 mod builder;
 mod genesis;
-mod log;
 
 #[allow(unused)]
 /// The specification of the node
@@ -62,7 +61,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     loop {
-        let now = block::now().expect("failed to get current time");
+        let now = block::now();
         if !author
             .storage
             .current_validators()
@@ -85,7 +84,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
 
         // get the current epoch
         log::current(runtime).await;
-        let timeslot = block::timeslot().expect("failed to get current timeslot");
+        let timeslot = block::timeslot();
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // select the best chain before authoring
