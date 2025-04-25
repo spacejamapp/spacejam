@@ -95,7 +95,7 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
         }
 
         // author block and maybe generate ticket
-        let (header, ticket) = match author.next().await {
+        let (header, ticket) = match author.on_timeslot(timeslot).await {
             Ok((header, ticket)) => (header, ticket),
             Err(e) => {
                 tracing::error!("Authoring error: {:?}", e);

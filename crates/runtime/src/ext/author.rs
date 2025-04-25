@@ -3,7 +3,7 @@
 use crate::{Config, Head, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
 use score::{
     BandersnatchPublic, OpaqueHash, TimeSlot,
-    block::{self, Block, Header},
+    block::{Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
 };
@@ -49,8 +49,10 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Run to the next timeslot
-    pub async fn next(&mut self) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
-        let timeslot = block::timeslot()?;
+    pub async fn on_timeslot(
+        &mut self,
+        timeslot: TimeSlot,
+    ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
         let slot = timeslot % score::EPOCH_LENGTH;
         let mut next = (None, None);
 

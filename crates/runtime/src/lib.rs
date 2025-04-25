@@ -1,7 +1,6 @@
 //! Runtime utilities of SpaceJam
 
-use author::Author;
-use importer::Importer;
+use ext::{Author, Importer};
 use pvm::Pvm;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -13,11 +12,9 @@ pub use {
     validator::Validator,
 };
 
-mod author;
+mod ext;
 mod grandpa;
 mod hook;
-mod importer;
-mod ext;
 mod pool;
 pub mod storage;
 pub mod tx;
