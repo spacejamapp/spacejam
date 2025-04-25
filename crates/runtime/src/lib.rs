@@ -1,7 +1,7 @@
 //! Runtime utilities of SpaceJam
 
-use ext::Author;
 use pvm::Pvm;
+use score::BandersnatchPublic;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
@@ -51,9 +51,9 @@ impl<C: Config> Runtime<C> {
         }
     }
 
-    /// Get the authoring context
-    pub fn author(&self) -> Author<C> {
-        Author::new(self)
+    /// Get the local validator
+    pub fn me(&self) -> BandersnatchPublic {
+        self.validator.bandersnatch_public_key()
     }
 }
 

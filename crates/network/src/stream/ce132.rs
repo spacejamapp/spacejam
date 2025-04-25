@@ -27,9 +27,7 @@ impl<C: runtime::Config> Network<C> {
 
         // insert the ticket into the pool if the epoch is present.
         if request.epoch == epoch {
-            self.author()
-                .insert_ticket(epoch, request.ticket.clone())
-                .await?;
+            self.insert_ticket(epoch, request.ticket.clone()).await?;
         }
 
         tracing::trace!(

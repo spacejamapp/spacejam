@@ -64,12 +64,11 @@ async fn author<C: runtime::Config>(runtime: &Network<C>) {
     loop {
         let now = block::now().expect("failed to get current time");
         if !author
-            .runtime
             .storage
             .current_validators()
             .unwrap_or_default()
             .bandersnatch()
-            .contains(&author.me)
+            .contains(&author.me())
         {
             tracing::warn!("Not in the validator set, sleeping...");
             tokio::time::sleep(Duration::from_secs(

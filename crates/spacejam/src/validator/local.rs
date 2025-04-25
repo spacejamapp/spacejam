@@ -17,7 +17,10 @@ pub struct LocalValidator {
     pub ed25519: ed25519::KeyPair,
 
     /// Banersnatch key pair.
-    pub banersnatch: vrf::KeyPair,
+    pub bandersnatch: vrf::KeyPair,
+
+    /// Banersnatch public key.
+    bandersnatch_public: BandersnatchPublic,
 }
 
 impl Default for LocalValidator {
@@ -49,9 +52,7 @@ impl Validator for LocalValidator {
     }
 
     fn bandersnatch_public_key(&self) -> BandersnatchPublic {
-        self.banersnatch
-            .public()
-            .expect("invalid bandersnatch public key")
+        self.bandersnatch_public
     }
 
     fn bandersnatch_sign(
@@ -60,7 +61,7 @@ impl Validator for LocalValidator {
         context: &[u8],
         message: &[u8],
     ) -> anyhow::Result<BandersnatchVrfSignature> {
-        self.banersnatch.ietf_sign(keys.to_vec(), message, context)
+        self.bandersnatch.ietf_sign(keys.to_vec(), message, context)
     }
 
     fn bandersnatch_ring_sign(
@@ -69,7 +70,7 @@ impl Validator for LocalValidator {
         context: &[u8],
         message: &[u8],
     ) -> anyhow::Result<BandersnatchRingVrfSignature> {
-        self.banersnatch.ring_sign(keys.to_vec(), message, context)
+        self.bandersnatch.ring_sign(keys.to_vec(), message, context)
     }
 
     fn metadata(&self) -> ValidatorMetadata {
@@ -83,10 +84,16 @@ impl Validator for LocalValidator {
 
 impl From<[u8; 32]> for LocalValidator {
     fn from(seed: [u8; 32]) -> Self {
+        let bandersnatch = vrf::KeyPair::from(seed);
+        let bandersnatch_public = bandersnatch
+            .public()
+            .expect("invalid bandersnatch public key");
+
         Self {
             bls: bls::KeyPair::from(seed),
             ed25519: ed25519::KeyPair::from(seed),
-            banersnatch: vrf::KeyPair::from(seed),
+            bandersnatch,
+            bandersnatch_public,
         }
     }
 }
@@ -106,7 +113,7 @@ mod serde_config {
         pub ed25519: String,
 
         /// Banersnatch key pair.
-        pub banersnatch: String,
+        pub bandersnatch: String,
     }
 
     impl TryFrom<String> for LocalValidatorConfig {
@@ -135,14 +142,20 @@ mod serde_config {
             let ed25519_seed: [u8; 32] = hex::decode(config.ed25519)?
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("invalid ed25519 seed length"))?;
-            let banersnatch_seed: [u8; 32] = hex::decode(config.banersnatch)?
+            let bandersnatch_seed: [u8; 32] = hex::decode(config.bandersnatch)?
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("invalid banersnatch seed length"))?;
+
+            let bandersnatch = vrf::KeyPair::from(bandersnatch_seed);
+            let bandersnatch_public = bandersnatch
+                .public()
+                .expect("invalid bandersnatch public key");
 
             Ok(Self {
                 bls: bls::KeyPair::from(bls_seed),
                 ed25519: ed25519::KeyPair::from(ed25519_seed),
-                banersnatch: vrf::KeyPair::from(banersnatch_seed),
+                bandersnatch,
+                bandersnatch_public,
             })
         }
     }
