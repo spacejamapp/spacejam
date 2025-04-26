@@ -54,7 +54,11 @@ impl Builder {
         .await?;
 
         if self.dev {
-            return Ok(SpaceJam::Dev(spec::Dev(runtime)));
+            return Ok(SpaceJam::Dev(spec::Dev {
+                runtime,
+                rpc: self.rpc,
+                metrics: self.metrics,
+            }));
         }
 
         let network = Network::new(self.network.clone(), Arc::new(runtime)).await?;
