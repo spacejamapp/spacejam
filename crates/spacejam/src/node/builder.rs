@@ -2,7 +2,6 @@
 
 use crate::node::{spec, SpaceJam};
 use network::Network;
-use runtime::Runtime;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
 /// Spacejam node builder
@@ -22,8 +21,8 @@ pub struct Builder {
     light: bool,
 
     /// The genesis path
-    #[cfg_attr(feature = "cmd", arg(long, default_value = "genesis.json"))]
-    genesis: PathBuf,
+    #[cfg_attr(feature = "cmd", arg(long))]
+    genesis: Option<PathBuf>,
 
     /// The metrics address
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:0"))]
@@ -47,7 +46,13 @@ pub struct Builder {
 impl Builder {
     /// Build the node
     pub async fn build<C: spec::RuntimeSpec>(self) -> anyhow::Result<SpaceJam<C>> {
-        let runtime = self.runtime::<C>().await?;
+        let runtime = C::runtime(
+            self.validator.as_deref(),
+            self.db.clone(),
+            self.genesis.clone(),
+        )
+        .await?;
+
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev(runtime)));
         }
@@ -63,23 +68,13 @@ impl Builder {
 
         Ok(SpaceJam::Validating(spec::Validating(network)))
     }
-
-    /// Build the runtime
-    async fn runtime<C: spec::RuntimeSpec>(&self) -> anyhow::Result<Runtime<C>> {
-        C::runtime(
-            self.validator.as_deref(),
-            self.db.clone(),
-            self.genesis.clone(),
-        )
-        .await
-    }
 }
 
 impl Default for Builder {
     fn default() -> Self {
         Self {
             db: PathBuf::from("spacejam.db"),
-            genesis: PathBuf::from("genesis.json"),
+            genesis: None,
             metrics: SocketAddr::from(([0, 0, 0, 0], 0)),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),

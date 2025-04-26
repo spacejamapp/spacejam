@@ -1,5 +1,6 @@
 //! The configuration of SpaceJam
 
+use crate::validator::LocalValidator;
 use runtime::Validator;
 use score::{
     block::{header::EValidator, Block, BlockJson},
@@ -7,8 +8,6 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-
-use crate::validator::LocalValidator;
 
 /// The genesis configuration
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,7 +24,7 @@ impl Genesis {
     pub fn new(validators: Vec<ValidatorData>) -> Self {
         let mut ekeys = [EValidator::default(); score::VALIDATORS_COUNT as usize];
         for (i, v) in validators.iter().enumerate() {
-            ekeys[i as usize] = EValidator {
+            ekeys[i] = EValidator {
                 bandersnatch: v.bandersnatch,
                 ed25519: v.ed25519,
             };

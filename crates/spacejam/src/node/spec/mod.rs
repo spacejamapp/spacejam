@@ -47,7 +47,7 @@ pub trait RuntimeSpec:
     fn runtime(
         validator: Option<&str>,
         db: PathBuf,
-        genesis: PathBuf,
+        genesis: Option<PathBuf>,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
         async move {
             let validator = Self::validator(validator)?;
@@ -59,7 +59,11 @@ pub trait RuntimeSpec:
             //
             // TODO: validate the genesis block matches the storage if not empty
             if KVStorage::is_empty(&runtime.storage) {
-                let genesis: Genesis = serde_json::from_slice(fs::read(&genesis)?.as_slice())?;
+                let genesis: Genesis = if let Some(genesis) = genesis {
+                    serde_json::from_slice(fs::read(&genesis)?.as_slice())?
+                } else {
+                    Genesis::default()
+                };
                 let block = Block::try_from(genesis.block)?;
                 let validators = genesis
                     .validators
