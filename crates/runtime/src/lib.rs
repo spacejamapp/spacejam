@@ -1,8 +1,7 @@
 //! Runtime utilities of SpaceJam
 
-use author::Author;
-use importer::Importer;
 use pvm::Pvm;
+use score::BandersnatchPublic;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
@@ -13,10 +12,9 @@ pub use {
     validator::Validator,
 };
 
-mod author;
+mod ext;
 mod grandpa;
 mod hook;
-mod importer;
 mod pool;
 pub mod storage;
 pub mod tx;
@@ -53,20 +51,13 @@ impl<C: Config> Runtime<C> {
         }
     }
 
-    /// Get the authoring context
-    pub fn author(&self) -> Author<C> {
-        Author::new(self)
-    }
-
-    /// Get the importer
-    pub fn importer(&self) -> Importer<C> {
-        Importer::new(self)
+    /// Get the local validator
+    pub fn me(&self) -> BandersnatchPublic {
+        self.validator.bandersnatch_public_key()
     }
 }
 
 /// The configuration of the runtime
-///
-/// TODO: introduce hooks for the runtime.
 pub trait Config: Send + Sync + 'static {
     /// The storage of the runtime
     type Storage: Storage + Send + Sync + 'static;

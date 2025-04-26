@@ -49,7 +49,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
         .len();
 
     // print the current status
-    let timeslot = block::timeslot().unwrap_or_default();
+    let timeslot = block::timeslot();
     tracing::info!(
         "timeslot: #{}, epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
         timeslot,

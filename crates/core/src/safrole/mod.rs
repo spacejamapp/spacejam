@@ -1,10 +1,12 @@
+//! Safrole types
+
 use crate::{
     block::header::{EValidator, EpochMark, TicketsMark},
     extrinsic::{TicketBody, TicketsAccumulator, TicketsOrKeys},
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
-pub use validator::{ValidatorData, ValidatorDataJson, Validators, ValidatorsData};
+pub use validator::{ValidatorData, ValidatorDataJson, ValidatorIter, Validators, ValidatorsData};
 
 mod validator;
 

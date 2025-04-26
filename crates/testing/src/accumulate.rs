@@ -1,7 +1,5 @@
 //! Accumulate tests
 
-use std::collections::BTreeMap;
-
 use score::{
     service::{
         AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount, ServiceItem,
@@ -11,6 +9,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+use std::collections::BTreeMap;
 
 /// Accumulate test
 #[derive(Debug, Serialize, Deserialize, Json)]

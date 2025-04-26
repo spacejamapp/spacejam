@@ -51,7 +51,6 @@ impl<C: runtime::Config> Network<C> {
         ancestors.reverse();
         let grandpa = self.grandpa.read().await.clone();
         let mut finalized = grandpa.handshake.head.clone();
-        let importer = self.importer();
         for (ancestor, header) in ancestors.iter() {
             if header.slot == best.header.slot {
                 break;
@@ -68,14 +67,14 @@ impl<C: runtime::Config> Network<C> {
             );
             }
 
-            importer.finalize(self.storage.get_block(ancestor)?).await?;
+            self.finalize(self.storage.get_block(ancestor)?).await?;
             finalized = Head {
                 hash: *ancestor,
                 slot: header.slot,
             };
         }
 
-        importer.finalize(best).await?;
+        self.finalize(best).await?;
         Ok(())
     }
 }
@@ -147,7 +146,6 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// we should finalize it from our storage directly.
     pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
         let mut buffer = Vec::new();
-        let importer = self.runtime.importer();
         while let Some(chunk) = recv.read_chunk(1, true).await? {
             buffer.extend_from_slice(&chunk.bytes);
             let Ok(block) = codec::decode::<Block>(&buffer) else {
@@ -175,7 +173,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
 
             // finalize the block.
             let head: Head = block.header.clone().try_into()?;
-            importer.finalize(block).await?;
+            self.runtime.finalize(block).await?;
 
             // update the request.
             self.request.maximum = self.request.maximum.saturating_sub(1);

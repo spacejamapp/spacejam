@@ -1,11 +1,13 @@
 //! The runtime of SpaceJam
 
+pub use node::SpaceJam;
 pub use runtime::{Config, Storage, Validator};
 
 pub mod cmd;
 mod node;
 mod offchain;
 pub mod storage;
+mod utils;
 pub mod validator;
 
 /// The config of development
