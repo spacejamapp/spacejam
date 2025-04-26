@@ -1,6 +1,6 @@
 //! Command line interface for spacejam
 
-use crate::{node::Genesis, validator::LocalValidator};
+use crate::{node::spec, node::Genesis, validator::LocalValidator};
 use clap::Parser;
 use runtime::{Storage, Validator};
 use score::{block::header::EValidator, Block};
@@ -29,13 +29,7 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub async fn run<C>(&self) -> anyhow::Result<()>
-    where
-        C: runtime::Config,
-        C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
-        C::Validator: TryFrom<String>,
-        C::Hook: Default,
-    {
+    pub async fn run<C: spec::RuntimeSpec>(&self) -> anyhow::Result<()> {
         match self {
             Command::Genesis => self.genesis(),
             Command::State { db } => self.state::<C>(db),
