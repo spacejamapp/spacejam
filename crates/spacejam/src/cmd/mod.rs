@@ -1,10 +1,8 @@
 //! Command line interface for spacejam
 
-use crate::{node::spec, node::Genesis, validator::LocalValidator};
+use crate::{node::spec, node::Genesis};
 use clap::Parser;
-use runtime::{Storage, Validator};
-use score::{block::header::EValidator, Block};
-use spacejson::Json;
+use runtime::Storage;
 pub use spawn::Spawn;
 use std::path::{Path, PathBuf};
 
@@ -49,25 +47,7 @@ impl Command {
     }
 
     fn genesis(&self) -> anyhow::Result<()> {
-        let mut validators = Vec::new();
-        let mut bkeys = [EValidator::default(); score::VALIDATORS_COUNT as usize];
-        for i in 0..score::VALIDATORS_COUNT {
-            let validator = LocalValidator::from([i as u8; 32]);
-            let data = validator.data();
-            bkeys[i as usize] = EValidator {
-                bandersnatch: data.bandersnatch,
-                ed25519: data.ed25519,
-            };
-            validators.push(data.to_json());
-        }
-
-        // print the genesis block
-        let genesis = Block::genesis(bkeys);
-        let genesis = Genesis {
-            block: genesis.to_json(),
-            validators,
-        };
-
+        let genesis = Genesis::default();
         println!("{}", serde_json::to_string_pretty(&genesis)?);
         Ok(())
     }

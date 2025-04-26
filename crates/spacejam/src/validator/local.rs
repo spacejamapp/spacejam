@@ -39,6 +39,10 @@ impl LocalValidator {
 }
 
 impl Validator for LocalValidator {
+    fn dev() -> Self {
+        Self::from([0; 32])
+    }
+
     fn random() -> Self {
         Self::random()
     }

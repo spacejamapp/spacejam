@@ -1,7 +1,7 @@
 //! Development node implementation
 
 use crate::node::spec::NodeSpec;
-use runtime::Runtime;
+use runtime::{Runtime, Validator};
 use score::block;
 use std::time::Duration;
 
@@ -9,7 +9,10 @@ use std::time::Duration;
 pub struct Dev<C: runtime::Config>(pub(crate) Runtime<C>);
 
 impl<C: runtime::Config> NodeSpec for Dev<C> {
-    async fn start(self) -> anyhow::Result<()> {
+    async fn start(mut self) -> anyhow::Result<()> {
+        tracing::info!("Running spacejam in dev mode");
+        tracing::debug!("development seed: 0x{}", hex::encode([0; 32]));
+        self.0.validator = C::Validator::dev();
         let author = self.0.author();
         loop {
             let now = block::now();

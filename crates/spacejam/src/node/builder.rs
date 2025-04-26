@@ -13,11 +13,11 @@ pub struct Builder {
     #[cfg_attr(feature = "cmd", arg(long, default_value = "spacejam.db"))]
     db: PathBuf,
 
-    /// Wether running in dev mode
+    /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
     dev: bool,
 
-    /// Wether running in light mode
+    /// Whether running in light mode
     #[cfg_attr(feature = "cmd", arg(long))]
     light: bool,
 

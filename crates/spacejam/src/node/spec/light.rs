@@ -15,6 +15,7 @@ pub struct Light<C: runtime::Config> {
 
 impl<C: runtime::Config> NodeSpec for Light<C> {
     async fn start(self) -> anyhow::Result<()> {
+        tracing::info!("Running spacejam in light mode");
         let runtime = self.network.clone();
         let offchain = Offchain::new(runtime.runtime.clone());
 

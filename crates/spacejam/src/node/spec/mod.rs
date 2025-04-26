@@ -4,7 +4,6 @@ use super::Genesis;
 use runtime::{storage::KVStorage, Runtime, Validator};
 use score::{safrole::ValidatorData, Block};
 use std::{fs, path::PathBuf};
-
 pub use {dev::Dev, light::Light, validating::Validating};
 
 mod dev;

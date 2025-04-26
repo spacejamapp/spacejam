@@ -8,6 +8,9 @@ use score::{
 
 /// Validator interface
 pub trait Validator {
+    /// Get the development validator
+    fn dev() -> Self;
+
     /// Random validator
     fn random() -> Self;
 
@@ -64,6 +67,10 @@ pub trait Validator {
 }
 
 impl Validator for crypto::ed25519::KeyPair {
+    fn dev() -> Self {
+        Self::from([0; 32])
+    }
+
     fn random() -> Self {
         unimplemented!()
     }
