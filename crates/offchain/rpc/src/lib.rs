@@ -6,13 +6,14 @@ pub use jsonrpsee::{
     core::{self, SubscriptionResult},
     server::{
         ConnectionId, HttpBody, HttpRequest, HttpResponse, PendingSubscriptionSink,
-        RpcServiceBuilder, Server, ServerHandle, SubscriptionSink, middleware,
+        RpcServiceBuilder, Server, ServerHandle, SubscriptionSink,
     },
     types::{self, ErrorObjectOwned},
 };
 pub use params::Parameters;
 use score::{CoreIndex, OpaqueHash, ServiceId, TimeSlot};
 
+pub mod middleware;
 mod params;
 
 /// Spacejam JSON RPC methods.

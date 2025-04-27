@@ -3,13 +3,16 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use rpc::{
-    ApiServer, BlockResponse, ConnectionId, ErrorObjectOwned, PendingSubscriptionSink,
-    SubscriptionResult, SubscriptionSink,
+    middleware, ApiServer, BlockResponse, ConnectionId, ErrorObjectOwned, PendingSubscriptionSink,
+    RpcServiceBuilder, Server, SubscriptionResult, SubscriptionSink,
 };
 use runtime::{storage::SyncStorage, Config, Runtime};
 use score::{CoreIndex, OpaqueHash, ServiceId};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
+
+/// Subscription handler
+pub type Subscription = Arc<Mutex<HashMap<ConnectionId, SubscriptionSink>>>;
 
 /// The RPC server for the offchain components of SpaceJam
 pub struct Rpc<C: Config> {
@@ -17,25 +20,25 @@ pub struct Rpc<C: Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The best block subscription sinks
-    pub best_block_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub best_block_sub: Subscription,
 
     /// The finalized block subscription sinks
-    pub finalized_block_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub finalized_block_sub: Subscription,
 
     /// The statistics subscription sinks
-    pub statistics_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub statistics_sub: Subscription,
 
     /// The service info subscription sinks
-    pub service_info_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub service_info_sub: Subscription,
 
     /// The service value subscription sinks
-    pub service_value_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub service_value_sub: Subscription,
 
     /// The service preimage subscription sinks
-    pub service_preimage_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub service_preimage_sub: Subscription,
 
     /// The service request subscription sinks
-    pub service_request_sub: Mutex<HashMap<ConnectionId, SubscriptionSink>>,
+    pub service_request_sub: Subscription,
 }
 
 impl<C: Config> Rpc<C> {
@@ -43,13 +46,42 @@ impl<C: Config> Rpc<C> {
     pub fn new(runtime: Arc<Runtime<C>>) -> Self {
         Self {
             runtime,
-            best_block_sub: Mutex::new(HashMap::new()),
-            finalized_block_sub: Mutex::new(HashMap::new()),
-            statistics_sub: Mutex::new(HashMap::new()),
-            service_info_sub: Mutex::new(HashMap::new()),
-            service_value_sub: Mutex::new(HashMap::new()),
-            service_preimage_sub: Mutex::new(HashMap::new()),
-            service_request_sub: Mutex::new(HashMap::new()),
+            best_block_sub: Arc::new(Mutex::new(HashMap::new())),
+            finalized_block_sub: Arc::new(Mutex::new(HashMap::new())),
+            statistics_sub: Arc::new(Mutex::new(HashMap::new())),
+            service_info_sub: Arc::new(Mutex::new(HashMap::new())),
+            service_value_sub: Arc::new(Mutex::new(HashMap::new())),
+            service_preimage_sub: Arc::new(Mutex::new(HashMap::new())),
+            service_request_sub: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Start the JSON-RPC service
+    pub async fn start(self, addr: SocketAddr) -> anyhow::Result<()> {
+        let rpc_middleware = RpcServiceBuilder::new().layer_fn(middleware::Logger);
+        let server = Server::builder()
+            .set_rpc_middleware(rpc_middleware)
+            .build(addr)
+            .await?;
+
+        // start the rpc server
+        let addr = server.local_addr()?;
+        tracing::info!("Listening RPC on {}", addr);
+        server.start(self.into_rpc()).stopped().await;
+        Ok(())
+    }
+
+    /// Clone the RPC server
+    pub fn cloned(&self) -> Self {
+        Self {
+            runtime: self.runtime.clone(),
+            best_block_sub: self.best_block_sub.clone(),
+            finalized_block_sub: self.finalized_block_sub.clone(),
+            statistics_sub: self.statistics_sub.clone(),
+            service_info_sub: self.service_info_sub.clone(),
+            service_value_sub: self.service_value_sub.clone(),
+            service_preimage_sub: self.service_preimage_sub.clone(),
+            service_request_sub: self.service_request_sub.clone(),
         }
     }
 }

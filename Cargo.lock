@@ -3095,6 +3095,7 @@ dependencies = [
  "jsonrpsee",
  "serde",
  "spacejam-core",
+ "tracing",
 ]
 
 [[package]]

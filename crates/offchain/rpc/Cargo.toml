@@ -8,7 +8,10 @@ jsonrpsee = { workspace = true, features = ["macros"] }
 score.workspace = true
 serde.workspace = true
 
+# server dependencies
+tracing = { workspace = true, optional = true }
+
 [features]
 default = ["client", "server"]
 client = ["jsonrpsee/client"]
-server = ["jsonrpsee/server"]
+server = ["jsonrpsee/server", "tracing"]
