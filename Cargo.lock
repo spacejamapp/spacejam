@@ -2980,8 +2980,6 @@ dependencies = [
  "async-trait",
  "clap",
  "hex",
- "hyper",
- "hyper-util",
  "jamcodec",
  "rand 0.8.5",
  "rocksdb",
@@ -2991,9 +2989,8 @@ dependencies = [
  "sled",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-metrics",
  "spacejam-network",
- "spacejam-rpc",
+ "spacejam-offchain",
  "spacejson",
  "tokio",
  "toml",
@@ -3073,6 +3070,22 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "spacejam-offchain"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hyper",
+ "hyper-util",
+ "runtime",
+ "spacejam-core",
+ "spacejam-metrics",
+ "spacejam-rpc",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

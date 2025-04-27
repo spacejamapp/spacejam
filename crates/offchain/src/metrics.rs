@@ -1,5 +1,4 @@
 //! Metrics http service.
-#![cfg(feature = "metrics")]
 
 use anyhow::Result;
 use hyper::{body::Incoming, header, server::conn::http1, service::service_fn, Request, Response};
