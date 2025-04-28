@@ -56,8 +56,8 @@ pub trait Api {
     ///
     /// null is returned if the block's posterior state is not known. Some(None) is returned if
     /// there is no value associated with the given service ID.
-    #[method(name = "serviceInfo")]
-    fn service_info(
+    #[method(name = "serviceData")]
+    fn service_data(
         &self,
         hash: OpaqueHash,
         service: ServiceId,
@@ -134,14 +134,18 @@ pub trait Api {
     ///
     /// The statistics are encoded as per the GP.
     #[subscription(name = "subscribeStatistics", item = Vec<u8>)]
-    async fn subscribe_statistics(&self) -> SubscriptionResult;
+    async fn subscribe_statistics(&self, _finalized: bool) -> SubscriptionResult;
 
     /// Subscribe to updates of the service info for the given service ID. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
     /// will track the head of the "best" chain. Note that in the latter case the reported service info
     /// may never be included in the finalized chain. The data are encoded as per the GP.
-    #[subscription(name = "subscribeServiceInfo", item = Option<Vec<u8>>)]
-    async fn subscribe_service_info(&self) -> SubscriptionResult;
+    #[subscription(name = "subscribeServiceData", item = Option<Vec<u8>>)]
+    async fn subscribe_service_data(
+        &self,
+        service: ServiceId,
+        finalized: bool,
+    ) -> SubscriptionResult;
 
     /// Subscribe to updates of the value associated with the given service ID and key. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -149,7 +153,12 @@ pub trait Api {
     /// may never be included in the finalized chain. The value field of subscription messages will be
     /// null when there is no value associated with the given service ID and key.
     #[subscription(name = "subscribeServiceValue", item = Option<Vec<u8>>)]
-    async fn subscribe_service_value(&self) -> SubscriptionResult;
+    async fn subscribe_service_value(
+        &self,
+        service: ServiceId,
+        key: Vec<u8>,
+        finalized: bool,
+    ) -> SubscriptionResult;
 
     /// Subscribe to updates of the preimage associated with the given service ID and hash. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -157,7 +166,12 @@ pub trait Api {
     /// may never be included in the finalized chain. The preimage field of subscription messages will be
     /// null when there is no preimage associated with the given service ID and hash.
     #[subscription(name = "subscribeServicePreimage", item = Option<Vec<u8>>)]
-    async fn subscribe_service_preimage(&self) -> SubscriptionResult;
+    async fn subscribe_service_preimage(
+        &self,
+        service: ServiceId,
+        hash: OpaqueHash,
+        finalized: bool,
+    ) -> SubscriptionResult;
 
     /// Subscribe to updates of the preimage associated with the given service ID and hash. If finalized is true,
     /// the subscription will track the latest finalized block. If finalized is false, the subscription
@@ -165,7 +179,13 @@ pub trait Api {
     /// may never be included in the finalized chain. The request field of subscription messages will be
     /// null when there is no preimage request associated with the given service ID, hash and length.
     #[subscription(name = "subscribeServiceRequest", item = Option<Vec<u8>>)]
-    async fn subscribe_service_request(&self) -> SubscriptionResult;
+    async fn subscribe_service_request(
+        &self,
+        service: ServiceId,
+        hash: OpaqueHash,
+        length: u32,
+        finalized: bool,
+    ) -> SubscriptionResult;
 }
 
 /// Response for block info RPC call.

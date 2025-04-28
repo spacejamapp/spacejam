@@ -69,6 +69,7 @@ impl<C: runtime::Config> RpcHook<C> {
         Ok(())
     }
 
+    // TODO: migrate services on state diff
     async fn migrate_services(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
         let services = self.runtime.storage.prefix_iter(&[255])?;
         let list = services

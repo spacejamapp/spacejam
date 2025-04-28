@@ -32,8 +32,8 @@ pub struct Rpc<C: Config> {
     /// The statistics subscription sinks
     pub statistics_sub: Subscription,
 
-    /// The service info subscription sinks
-    pub service_info_sub: Subscription,
+    /// The service data subscription sinks
+    pub service_data_sub: Subscription,
 
     /// The service value subscription sinks
     pub service_value_sub: Subscription,
@@ -53,7 +53,7 @@ impl<C: Config> Rpc<C> {
             best_block_sub: Arc::new(Mutex::new(HashMap::new())),
             finalized_block_sub: Arc::new(Mutex::new(HashMap::new())),
             statistics_sub: Arc::new(Mutex::new(HashMap::new())),
-            service_info_sub: Arc::new(Mutex::new(HashMap::new())),
+            service_data_sub: Arc::new(Mutex::new(HashMap::new())),
             service_value_sub: Arc::new(Mutex::new(HashMap::new())),
             service_preimage_sub: Arc::new(Mutex::new(HashMap::new())),
             service_request_sub: Arc::new(Mutex::new(HashMap::new())),
@@ -108,7 +108,7 @@ impl<C: Config> Rpc<C> {
             best_block_sub: self.best_block_sub.clone(),
             finalized_block_sub: self.finalized_block_sub.clone(),
             statistics_sub: self.statistics_sub.clone(),
-            service_info_sub: self.service_info_sub.clone(),
+            service_data_sub: self.service_data_sub.clone(),
             service_value_sub: self.service_value_sub.clone(),
             service_preimage_sub: self.service_preimage_sub.clone(),
             service_request_sub: self.service_request_sub.clone(),
@@ -181,7 +181,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     }
 
     // TODO: need to do snapshot for block state
-    fn service_info(
+    fn service_data(
         &self,
         _hash: OpaqueHash,
         _service: ServiceId,
@@ -292,6 +292,7 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     async fn subscribe_best_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
         let accepted = sink.accept().await?;
+
         self.best_block_sub
             .lock()
             .await
@@ -308,7 +309,11 @@ impl<C: Config> ApiServer for Rpc<C> {
         Ok(())
     }
 
-    async fn subscribe_statistics(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
+    async fn subscribe_statistics(
+        &self,
+        sink: PendingSubscriptionSink,
+        _finalized: bool,
+    ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
         self.statistics_sub
             .lock()
@@ -317,16 +322,27 @@ impl<C: Config> ApiServer for Rpc<C> {
         Ok(())
     }
 
-    async fn subscribe_service_info(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
+    async fn subscribe_service_data(
+        &self,
+        sink: PendingSubscriptionSink,
+        service: ServiceId,
+        _finalized: bool,
+    ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
-        self.service_info_sub
+        self.service_data_sub
             .lock()
             .await
             .insert(accepted.connection_id(), accepted);
         Ok(())
     }
 
-    async fn subscribe_service_value(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
+    async fn subscribe_service_value(
+        &self,
+        sink: PendingSubscriptionSink,
+        service: ServiceId,
+        key: Vec<u8>,
+        _finalized: bool,
+    ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
         self.service_value_sub
             .lock()
@@ -338,6 +354,9 @@ impl<C: Config> ApiServer for Rpc<C> {
     async fn subscribe_service_preimage(
         &self,
         sink: PendingSubscriptionSink,
+        service: ServiceId,
+        hash: OpaqueHash,
+        _finalized: bool,
     ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
         self.service_preimage_sub
@@ -347,7 +366,14 @@ impl<C: Config> ApiServer for Rpc<C> {
         Ok(())
     }
 
-    async fn subscribe_service_request(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
+    async fn subscribe_service_request(
+        &self,
+        sink: PendingSubscriptionSink,
+        service: ServiceId,
+        hash: OpaqueHash,
+        length: u32,
+        _finalized: bool,
+    ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
         self.service_request_sub
             .lock()
