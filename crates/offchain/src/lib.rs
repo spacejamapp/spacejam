@@ -24,7 +24,7 @@ impl<C: runtime::Config> Offchain<C> {
 
     /// Get the hook
     pub fn hook(&self) -> OffchainHook<C> {
-        OffchainHook::new(self.rpc.cloned())
+        OffchainHook::new(self.rpc.clone())
     }
 
     /// Start the offchain services

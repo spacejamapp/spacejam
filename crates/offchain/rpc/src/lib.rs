@@ -13,8 +13,8 @@ pub use jsonrpsee::{
 pub use params::Parameters;
 use score::{CoreIndex, OpaqueHash, ServiceId, TimeSlot};
 
-pub mod middleware;
 mod params;
+pub mod server;
 
 /// Spacejam JSON RPC methods.
 #[cfg_attr(all(feature = "client", feature = "server"), rpc(client, server))]

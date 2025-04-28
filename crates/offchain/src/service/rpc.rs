@@ -3,46 +3,23 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use rpc::{
-    core::server::SubscriptionMessage, middleware, ApiServer, BlockResponse, ConnectionId,
-    ErrorObjectOwned, PendingSubscriptionSink, RpcServiceBuilder, Server, SubscriptionResult,
-    SubscriptionSink,
+    server::middleware, server::SubscriptionManager, ApiServer, BlockResponse, ErrorObjectOwned,
+    PendingSubscriptionSink, RpcServiceBuilder, Server, SubscriptionResult,
 };
 use runtime::{
     storage::{KVStorage, SyncStorage},
     Config, Runtime,
 };
 use score::{state::key, CoreIndex, OpaqueHash, ServiceId};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
-use tokio::sync::Mutex;
-
-/// Subscription handler
-pub type Subscription = Arc<Mutex<HashMap<ConnectionId, SubscriptionSink>>>;
+use std::{net::SocketAddr, ops::Deref, sync::Arc};
 
 /// The RPC server for the offchain components of SpaceJam
 pub struct Rpc<C: Config> {
     /// The runtime of the node
     pub runtime: Arc<Runtime<C>>,
 
-    /// The best block subscription sinks
-    pub best_block_sub: Subscription,
-
-    /// The finalized block subscription sinks
-    pub finalized_block_sub: Subscription,
-
-    /// The statistics subscription sinks
-    pub statistics_sub: Subscription,
-
-    /// The service data subscription sinks
-    pub service_data_sub: Subscription,
-
-    /// The service value subscription sinks
-    pub service_value_sub: Subscription,
-
-    /// The service preimage subscription sinks
-    pub service_preimage_sub: Subscription,
-
-    /// The service request subscription sinks
-    pub service_request_sub: Subscription,
+    /// The subscription manager
+    pub manager: SubscriptionManager,
 }
 
 impl<C: Config> Rpc<C> {
@@ -50,13 +27,7 @@ impl<C: Config> Rpc<C> {
     pub fn new(runtime: Arc<Runtime<C>>) -> Self {
         Self {
             runtime,
-            best_block_sub: Arc::new(Mutex::new(HashMap::new())),
-            finalized_block_sub: Arc::new(Mutex::new(HashMap::new())),
-            statistics_sub: Arc::new(Mutex::new(HashMap::new())),
-            service_data_sub: Arc::new(Mutex::new(HashMap::new())),
-            service_value_sub: Arc::new(Mutex::new(HashMap::new())),
-            service_preimage_sub: Arc::new(Mutex::new(HashMap::new())),
-            service_request_sub: Arc::new(Mutex::new(HashMap::new())),
+            manager: SubscriptionManager::default(),
         }
     }
 
@@ -73,46 +44,6 @@ impl<C: Config> Rpc<C> {
         tracing::info!("Listening RPC on {}", addr);
         server.start(self.into_rpc()).stopped().await;
         Ok(())
-    }
-
-    /// Dispatch the best block
-    pub async fn dispatch_best_block(&self, hash: &OpaqueHash, slot: u64) -> Result<()> {
-        for sink in self.best_block_sub.lock().await.values() {
-            sink.send(SubscriptionMessage::from_json(&(hash, slot))?)
-                .await?;
-        }
-        Ok(())
-    }
-
-    /// Dispatch the finalized block
-    pub async fn dispatch_finalized_block(&self, hash: &OpaqueHash, slot: u64) -> Result<()> {
-        for sink in self.finalized_block_sub.lock().await.values() {
-            sink.send(SubscriptionMessage::from_json(&(hash, slot))?)
-                .await?;
-        }
-        Ok(())
-    }
-
-    /// Dispatch the statistics
-    pub async fn dispatch_statistics(&self, blob: &[u8]) -> Result<()> {
-        for sink in self.statistics_sub.lock().await.values() {
-            sink.send(SubscriptionMessage::from_json(&blob)?).await?;
-        }
-        Ok(())
-    }
-
-    /// Clone the RPC server
-    pub fn cloned(&self) -> Self {
-        Self {
-            runtime: self.runtime.clone(),
-            best_block_sub: self.best_block_sub.clone(),
-            finalized_block_sub: self.finalized_block_sub.clone(),
-            statistics_sub: self.statistics_sub.clone(),
-            service_data_sub: self.service_data_sub.clone(),
-            service_value_sub: self.service_value_sub.clone(),
-            service_preimage_sub: self.service_preimage_sub.clone(),
-            service_request_sub: self.service_request_sub.clone(),
-        }
     }
 }
 
@@ -292,20 +223,13 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     async fn subscribe_best_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
         let accepted = sink.accept().await?;
-
-        self.best_block_sub
-            .lock()
-            .await
-            .insert(accepted.connection_id(), accepted);
+        self.best_block_sub.lock().await.push(accepted);
         Ok(())
     }
 
     async fn subscribe_finalized_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
         let accepted = sink.accept().await?;
-        self.finalized_block_sub
-            .lock()
-            .await
-            .insert(accepted.connection_id(), accepted);
+        self.finalized_block_sub.lock().await.push(accepted);
         Ok(())
     }
 
@@ -315,10 +239,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         _finalized: bool,
     ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
-        self.statistics_sub
-            .lock()
-            .await
-            .insert(accepted.connection_id(), accepted);
+        self.statistics_sub.lock().await.push(accepted);
         Ok(())
     }
 
@@ -329,10 +250,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         _finalized: bool,
     ) -> SubscriptionResult {
         let accepted = sink.accept().await?;
-        self.service_data_sub
-            .lock()
-            .await
-            .insert(accepted.connection_id(), accepted);
+        self.service_data_sub.lock().await.push((service, accepted));
         Ok(())
     }
 
@@ -347,7 +265,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         self.service_value_sub
             .lock()
             .await
-            .insert(accepted.connection_id(), accepted);
+            .push(((service, key).into(), accepted));
         Ok(())
     }
 
@@ -362,7 +280,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         self.service_preimage_sub
             .lock()
             .await
-            .insert(accepted.connection_id(), accepted);
+            .push(((service, hash).into(), accepted));
         Ok(())
     }
 
@@ -378,7 +296,24 @@ impl<C: Config> ApiServer for Rpc<C> {
         self.service_request_sub
             .lock()
             .await
-            .insert(accepted.connection_id(), accepted);
+            .push(((service, hash, length).into(), accepted));
         Ok(())
+    }
+}
+
+impl<C: Config> Deref for Rpc<C> {
+    type Target = SubscriptionManager;
+
+    fn deref(&self) -> &Self::Target {
+        &self.manager
+    }
+}
+
+impl<C: Config> Clone for Rpc<C> {
+    fn clone(&self) -> Self {
+        Self {
+            runtime: self.runtime.clone(),
+            manager: self.manager.clone(),
+        }
     }
 }

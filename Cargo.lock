@@ -3093,9 +3093,11 @@ dependencies = [
 name = "spacejam-rpc"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "jsonrpsee",
  "serde",
  "spacejam-core",
+ "tokio",
  "tracing",
 ]
 
