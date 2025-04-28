@@ -11,7 +11,7 @@ use spacejson::Json;
 use std::time::{Duration, UNIX_EPOCH};
 pub use {
     builder::Builder,
-    header::{Header, HeaderJson},
+    header::{Head, Header, HeaderJson},
     history::{Mmr, MmrJson},
 };
 

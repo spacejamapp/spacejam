@@ -1,6 +1,6 @@
 //! Handshake data
 
-use crate::grandpa::Head;
+use score::block::Head;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 

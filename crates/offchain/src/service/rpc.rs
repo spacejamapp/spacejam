@@ -3,11 +3,15 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use rpc::{
-    middleware, ApiServer, BlockResponse, ConnectionId, ErrorObjectOwned, PendingSubscriptionSink,
-    RpcServiceBuilder, Server, SubscriptionResult, SubscriptionSink,
+    core::server::SubscriptionMessage, middleware, ApiServer, BlockResponse, ConnectionId,
+    ErrorObjectOwned, PendingSubscriptionSink, RpcServiceBuilder, Server, SubscriptionResult,
+    SubscriptionSink,
 };
-use runtime::{storage::SyncStorage, Config, Runtime};
-use score::{CoreIndex, OpaqueHash, ServiceId};
+use runtime::{
+    storage::{KVStorage, SyncStorage},
+    Config, Runtime,
+};
+use score::{state::key, CoreIndex, OpaqueHash, ServiceId};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -71,6 +75,32 @@ impl<C: Config> Rpc<C> {
         Ok(())
     }
 
+    /// Dispatch the best block
+    pub async fn dispatch_best_block(&self, hash: &OpaqueHash, slot: u64) -> Result<()> {
+        for sink in self.best_block_sub.lock().await.values() {
+            sink.send(SubscriptionMessage::from_json(&(hash, slot))?)
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Dispatch the finalized block
+    pub async fn dispatch_finalized_block(&self, hash: &OpaqueHash, slot: u64) -> Result<()> {
+        for sink in self.finalized_block_sub.lock().await.values() {
+            sink.send(SubscriptionMessage::from_json(&(hash, slot))?)
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Dispatch the statistics
+    pub async fn dispatch_statistics(&self, blob: &[u8]) -> Result<()> {
+        for sink in self.statistics_sub.lock().await.values() {
+            sink.send(SubscriptionMessage::from_json(&blob)?).await?;
+        }
+        Ok(())
+    }
+
     /// Clone the RPC server
     pub fn cloned(&self) -> Self {
         Self {
@@ -93,7 +123,13 @@ impl<C: Config> ApiServer for Rpc<C> {
             .runtime
             .storage
             .get_best()
-            .map_err(|_| ErrorObjectOwned::owned(1, "Best head not found", Option::<()>::None))
+            .map_err(|e| {
+                ErrorObjectOwned::owned(
+                    1,
+                    format!("Best head not found, {e:?}"),
+                    Option::<()>::None,
+                )
+            })
             .unwrap_or_default();
         Ok((best.hash, best.slot))
     }
@@ -103,36 +139,45 @@ impl<C: Config> ApiServer for Rpc<C> {
             .runtime
             .storage
             .get_finalized()
-            .map_err(|_| ErrorObjectOwned::owned(1, "Finalized head not found", Option::<()>::None))
+            .map_err(|e| {
+                ErrorObjectOwned::owned(
+                    1,
+                    format!("Finalized head not found, {e:?}"),
+                    Option::<()>::None,
+                )
+            })
             .unwrap_or_default();
         Ok((finalized.hash, finalized.slot))
     }
 
-    // TODO: store the parent in the storage
-    fn parent(&self, _hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to store the parent in the storage instead of memory",
-            Option::<()>::None,
-        ))
+    fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned> {
+        let parent = self.runtime.storage.get_parent(&hash).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Parent not found: {e:?}"), Option::<()>::None)
+        })?;
+        Ok(Some((parent.hash, parent.slot)))
     }
 
-    // TODO: need to do snapshot for block state
-    fn state_root(&self, _hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+    fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned> {
+        let state_root = self.runtime.storage.get_state_root(&hash).map_err(|e| {
+            ErrorObjectOwned::owned(
+                1,
+                format!("State root not found: {e:?}"),
+                Option::<()>::None,
+            )
+        })?;
+        Ok(Some(state_root))
     }
 
-    // TODO: need to do snapshot for block state
-    fn statistics(&self, _hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+    fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
+        let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
+        let statistics = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(
+                1,
+                format!("Statistics not found: {e:?}"),
+                Option::<()>::None,
+            )
+        })?;
+        Ok(statistics)
     }
 
     // TODO: need to do snapshot for block state
@@ -186,12 +231,16 @@ impl<C: Config> ApiServer for Rpc<C> {
     }
 
     // TODO: need to do snapshot for block state
-    fn beefy_root(&self, _hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+    fn beefy_root(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
+        let key = [hash.as_ref(), b"beefy_root"].concat();
+        let beefy_root = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(
+                1,
+                format!("Beefy root not found: {e:?}"),
+                Option::<()>::None,
+            )
+        })?;
+        Ok(beefy_root)
     }
 
     // TODO: need to figure out the usage of core and package

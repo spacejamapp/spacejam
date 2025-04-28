@@ -6,8 +6,11 @@
 
 use ancestry::Ancestry;
 pub use handshake::Handshake;
-use score::{OpaqueHash, TimeSlot, block::Header, safrole::ValidatorsData};
-use serde::{Deserialize, Serialize};
+use score::{
+    OpaqueHash,
+    block::{Head, Header},
+    safrole::ValidatorsData,
+};
 use std::{
     collections::{BTreeMap, HashSet},
     ops::{Deref, DerefMut},
@@ -239,26 +242,5 @@ impl Deref for Grandpa {
 impl DerefMut for Grandpa {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.ancestry
-    }
-}
-
-/// The head of the chain
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
-pub struct Head {
-    /// The hash of the head of the chain.
-    pub hash: OpaqueHash,
-
-    /// The slot of this head.
-    pub slot: TimeSlot,
-}
-
-impl TryFrom<Header> for Head {
-    type Error = anyhow::Error;
-
-    fn try_from(header: Header) -> Result<Self, Self::Error> {
-        Ok(Self {
-            hash: header.hash()?,
-            slot: header.slot,
-        })
     }
 }

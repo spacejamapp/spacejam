@@ -3,8 +3,8 @@
 use metrics::Metrics;
 use peer::PeerId;
 use quinn::Endpoint;
-use runtime::{Head, Runtime, Validator};
-use score::block::Header;
+use runtime::{Runtime, Validator};
+use score::block::{Head, Header};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
 pub use {

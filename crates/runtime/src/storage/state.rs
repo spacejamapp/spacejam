@@ -247,10 +247,10 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the activity statistics
-    fn statistics(&self) -> Result<Option<Statistics>> {
+    fn statistics(&self) -> Result<Statistics> {
         self.get(key::STATISTICS)?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("statistics not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode statistics: {e}"))
     }
 

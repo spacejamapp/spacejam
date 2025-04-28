@@ -2,8 +2,11 @@
 
 use crate::{stream::ce128, Network};
 use quinn::RecvStream;
-use runtime::{storage::SyncStorage, Head};
-use score::{block::Header, Block, OpaqueHash, TimeSlot};
+use runtime::storage::SyncStorage;
+use score::{
+    block::{Head, Header},
+    Block, OpaqueHash, TimeSlot,
+};
 
 impl<C: runtime::Config> Network<C> {
     /// Select the best chain.

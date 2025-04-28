@@ -5,7 +5,7 @@ use score::BandersnatchPublic;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
-    grandpa::{Grandpa, Handshake, Head},
+    grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
     storage::Storage,

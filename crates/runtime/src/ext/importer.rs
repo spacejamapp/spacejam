@@ -1,7 +1,7 @@
 //! Importer for SpaceJam
 
 use crate::{
-    Config, Head, Hook, Runtime, Storage,
+    Config, Hook, Runtime, Storage,
     storage::{KVStorage, SyncStorage},
     tx,
 };
@@ -95,13 +95,7 @@ impl<C: Config> Runtime<C> {
             self.storage.set_next_series(&series)?;
         }
 
-        // 3. notify the new finalized block
-        self.hook.on_finalized_block(Head {
-            hash,
-            slot: block.header.slot,
-        })?;
-
-        // 5. update the grandpa state
+        // 3. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.storage.next_validators()?)
         } else {
@@ -111,6 +105,9 @@ impl<C: Config> Runtime<C> {
             .write()
             .await
             .finalize(block.header.clone(), next)?;
+
+        // 4. notify the new finalized block
+        self.hook.on_finalized_block(block).await?;
 
         Ok(())
     }

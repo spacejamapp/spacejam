@@ -9,8 +9,7 @@ use crate::{
     Network,
 };
 use quinn::{RecvStream, SendStream};
-use runtime::Head;
-use score::block::Header;
+use score::block::{Head, Header};
 use std::{
     collections::HashSet,
     sync::{atomic::Ordering, Arc},
