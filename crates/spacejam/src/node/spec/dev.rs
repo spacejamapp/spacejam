@@ -1,7 +1,7 @@
 //! Development node implementation
 
-use crate::{node::spec::NodeSpec, offchain::Offchain};
-use metrics::Metrics;
+use crate::node::spec::NodeSpec;
+use offchain::Offchain;
 use runtime::{Runtime, Validator};
 use score::block;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
@@ -43,7 +43,7 @@ impl<C: runtime::Config> NodeSpec for Dev<C> {
 
         tokio::select! {
             _ = Self::author(runtime) => {}
-            _ = offchain.start(self.rpc, Metrics::new("dev"), self.metrics) => {}
+            _ = offchain.start(self.rpc, Default::default(), self.metrics) => {}
             _ = tokio::signal::ctrl_c() => {}
         }
 

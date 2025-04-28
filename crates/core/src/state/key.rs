@@ -58,10 +58,10 @@ pub const ACCUMULATION_QUEUE: OpaqueHash = to_key!(14);
 pub const ACCUMULATION_HISTORY: OpaqueHash = to_key!(15);
 
 /// The prefix of account storage (u32::MAX - 1)
-pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [254, 255, 255, 255];
+pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [255, 255, 255, 255];
 
 /// The prefix of account preimage (u32::MAX - 2)
-pub const ACCOUNT_PREIMAGE_PREFIX: [u8; 4] = [253, 255, 255, 255];
+pub const ACCOUNT_PREIMAGE_PREFIX: [u8; 4] = [254, 255, 255, 255];
 
 /// The constant keys
 pub const CONSTANT_KEYS: [OpaqueHash; 15] = [
@@ -133,6 +133,9 @@ impl StorageKey for (u32, [u8; 32]) {
 }
 
 /// Generate a prefix for a storage
+///
+/// service: [0, 2, 4, 6]
+/// prefix: [1, 3, 5, 7]
 pub fn prefix(service: u32, prefix: &[u8; 4]) -> [u8; 8] {
     let mut key = [0; 8];
     service
@@ -141,8 +144,8 @@ pub fn prefix(service: u32, prefix: &[u8; 4]) -> [u8; 8] {
         .zip(prefix.iter())
         .enumerate()
         .for_each(|(i, (a, b))| {
-            key[i] = *a;
-            key[i + 4] = *b;
+            key[i * 2] = *a;
+            key[(i + 1) * 2 - 1] = *b;
         });
     key
 }

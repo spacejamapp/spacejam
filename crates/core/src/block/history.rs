@@ -41,14 +41,15 @@ mod crypto_impl {
             reported: Vec<ReportedWorkPackage>,
         ) {
             let Some(last) = self.last_mut() else {
-                self.push(BlockInfo {
+                let new_block = BlockInfo {
                     header_hash,
                     mmr: Mmr {
                         peaks: vec![Some(accumulated_root)],
                     },
                     state_root: OpaqueHash::default(),
                     reported,
-                });
+                };
+                self.push(new_block.clone());
                 return;
             };
 

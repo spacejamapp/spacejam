@@ -1,9 +1,9 @@
 //! Authoring service
 
-use crate::{Config, Head, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
+use crate::{Config, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
 use score::{
     BandersnatchPublic, OpaqueHash, TimeSlot,
-    block::{Block, Header},
+    block::{Block, Head, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
 };

@@ -113,3 +113,24 @@ impl Default for Header {
         }
     }
 }
+
+/// The head of the chain
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub struct Head {
+    /// The hash of the head of the chain.
+    pub hash: OpaqueHash,
+
+    /// The slot of this head.
+    pub slot: TimeSlot,
+}
+
+impl TryFrom<Header> for Head {
+    type Error = anyhow::Error;
+
+    fn try_from(header: Header) -> Result<Self, Self::Error> {
+        Ok(Self {
+            hash: header.hash()?,
+            slot: header.slot,
+        })
+    }
+}

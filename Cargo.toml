@@ -4,22 +4,27 @@ members = [
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
-    "crates/network/rpc",
+    "crates/offchain/rpc",
     "crates/pvm/parser",
     "crates/pvm/interpreter",
 ]
 resolver = "1"
 
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+
 [workspace.dependencies]
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
-metrics = { path = "crates/metrics", package = "spacejam-metrics" }
+metrics = { path = "crates/offchain/metrics", package = "spacejam-metrics" }
 network = { path = "crates/network", package = "spacejam-network" }
+offchain = { path = "crates/offchain", package = "spacejam-offchain" }
 pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
-rpc = { path = "crates/network/rpc", package = "spacejam-rpc" }
+rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "runtime" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }

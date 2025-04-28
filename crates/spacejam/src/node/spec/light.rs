@@ -2,8 +2,9 @@
 //!
 //! TODO: introduce hook that stores blocks in the database
 
-use crate::{node::spec::NodeSpec, offchain::Offchain};
+use crate::node::spec::NodeSpec;
 use network::Network;
+use offchain::Offchain;
 use std::net::SocketAddr;
 
 /// Importing and finalizing blocks with grandpa with JSON-RPC provided

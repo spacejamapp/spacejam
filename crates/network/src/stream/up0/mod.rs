@@ -2,8 +2,11 @@
 
 use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
-use runtime::{Handshake, Head, Runtime};
-use score::{block::Header, OpaqueHash, TimeSlot};
+use runtime::{Handshake, Runtime};
+use score::{
+    block::{Head, Header},
+    OpaqueHash, TimeSlot,
+};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

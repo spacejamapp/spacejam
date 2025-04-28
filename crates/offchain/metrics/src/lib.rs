@@ -43,3 +43,9 @@ impl Metrics {
         Ok(buffer)
     }
 }
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new("dev")
+    }
+}

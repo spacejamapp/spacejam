@@ -1,9 +1,10 @@
 //! Block storage
 
-use crate::{Head, Storage};
+use crate::Storage;
 use anyhow::Result;
 use score::{
     Block, OpaqueHash,
+    block::Head,
     extrinsic::{TicketBody, TicketsOrKeys},
 };
 
@@ -56,6 +57,58 @@ pub trait SyncStorage: Storage {
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Finalized head not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
+    /// Set the parent
+    fn set_parent(&self, block: &OpaqueHash, parent: &Head) -> Result<()> {
+        let mut key = [BLOCK_KEY, b"parent"].concat();
+        key.extend_from_slice(block.as_ref());
+        self.set(&key, &codec::encode(parent)?)?;
+        Ok(())
+    }
+
+    /// Get the parent
+    fn get_parent(&self, block: &OpaqueHash) -> Result<Head> {
+        let mut key = [BLOCK_KEY, b"parent"].concat();
+        key.extend_from_slice(block.as_ref());
+        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Parent not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
+    /// Set the state root
+    fn set_state_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
+        let mut key = [BLOCK_KEY, b"state_root"].concat();
+        key.extend_from_slice(block.as_ref());
+        self.set(&key, &codec::encode(root)?)?;
+        Ok(())
+    }
+
+    /// Get the state root
+    fn get_state_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
+        let mut key = [BLOCK_KEY, b"state_root"].concat();
+        key.extend_from_slice(block.as_ref());
+        let value = self
+            .get(&key)?
+            .ok_or(anyhow::anyhow!("State root not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
+    /// Set the beefy root
+    fn set_beefy_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
+        let mut key = [BLOCK_KEY, b"beefy_root"].concat();
+        key.extend_from_slice(block.as_ref());
+        self.set(&key, &codec::encode(root)?)?;
+        Ok(())
+    }
+
+    /// Get the beefy root
+    fn get_beefy_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
+        let mut key = [BLOCK_KEY, b"beefy_root"].concat();
+        key.extend_from_slice(block.as_ref());
+        let value = self
+            .get(&key)?
+            .ok_or(anyhow::anyhow!("Beefy root not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
