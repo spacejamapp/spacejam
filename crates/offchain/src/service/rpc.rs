@@ -271,14 +271,23 @@ impl<C: Config> ApiServer for Rpc<C> {
         ))
     }
 
-    // TODO: need to do snapshot for block state
-    fn list_services(&self, _hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
-        Ok(vec![])
-        // Err(ErrorObjectOwned::owned(
-        //     1,
-        //     "Not yet implemented, need to do snapshot for block state",
-        //     Option::<()>::None,
-        // ))
+    fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
+        let key = [hash.as_ref(), b"services"].concat();
+        let services = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Services not found: {e:?}"), Option::<()>::None)
+        })?;
+
+        let Some(services) = services else {
+            return Ok(vec![]);
+        };
+
+        codec::decode(&services).map_err(|e| {
+            ErrorObjectOwned::owned(
+                1,
+                format!("Failed to decode services: {e:?}"),
+                Option::<()>::None,
+            )
+        })
     }
 
     async fn subscribe_best_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {

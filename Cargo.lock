@@ -3080,6 +3080,7 @@ dependencies = [
  "async-trait",
  "hyper",
  "hyper-util",
+ "jamcodec",
  "runtime",
  "spacejam-core",
  "spacejam-metrics",

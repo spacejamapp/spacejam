@@ -5,7 +5,7 @@ use runtime::{
     storage::{KVStorage, SyncStorage},
     Storage,
 };
-use score::{state::key, Block, OpaqueHash};
+use score::{state::key, Block, OpaqueHash, ServiceId};
 use std::ops::Deref;
 
 /// Hook implementation for offchain
@@ -71,6 +71,30 @@ impl<C: runtime::Config> OffchainHook<C> {
         self.runtime.storage.set(&key, beefy_root)?;
         Ok(())
     }
+
+    async fn migrate_services(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
+        let services = self.runtime.storage.prefix_iter(&[255])?;
+        let list = services
+            .filter_map(|pair| {
+                if let Ok((key, _)) = pair {
+                    if key.len() != 9 {
+                        return None;
+                    }
+                    let mut buffer = [0u8; 4];
+                    buffer[0] = key[1];
+                    buffer[1] = key[3];
+                    buffer[2] = key[5];
+                    buffer[3] = key[7];
+                    Some(ServiceId::from_le_bytes(buffer))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let key = [hash.as_ref(), b"services"].concat();
+        self.runtime.storage.set(&key, &codec::encode(&list)?)
+    }
 }
 
 impl<C: runtime::Config> runtime::Hook for OffchainHook<C> {
@@ -90,6 +114,7 @@ impl<C: runtime::Config> runtime::Hook for OffchainHook<C> {
             .await?;
 
         // 2. migrate states
+        self.migrate_services(&head.hash).await?;
         self.migrate_statistics(&head.hash).await?;
         self.migrate_beefy_root(&head.hash).await?;
         self.migrate_parent(

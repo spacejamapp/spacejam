@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+codec.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
 metrics.workspace = true
