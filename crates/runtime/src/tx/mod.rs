@@ -22,9 +22,10 @@ pub fn transit<V: Pvm>(
     mut block: Block,
     storage: &impl Storage,
     validator: &impl Validator,
-) -> Result<()> {
+) -> Result<HashMap<OpaqueHash, Vec<u8>>> {
     let diff = self::simulate::<V>(&mut block, storage, validator)?;
-    storage.batch_write(diff.into_iter().map(|(k, v)| (k.to_vec(), v)).collect())
+    storage.batch_write(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
+    Ok(diff)
 }
 
 /// Simulate state transition with new block

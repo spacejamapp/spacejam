@@ -3,7 +3,7 @@
 use crate::service::Rpc;
 use runtime::storage::{KVStorage, Storage, SyncStorage};
 use score::{state::key, Block, OpaqueHash, ServiceId};
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 
 /// The RPC hook
 pub struct RpcHook<C: runtime::Config> {
@@ -70,7 +70,11 @@ impl<C: runtime::Config> RpcHook<C> {
     }
 
     // TODO: migrate services on state diff
-    async fn migrate_services(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
+    async fn migrate_services(
+        &self,
+        hash: &OpaqueHash,
+        _diff: HashMap<OpaqueHash, Vec<u8>>,
+    ) -> anyhow::Result<()> {
         let services = self.runtime.storage.prefix_iter(&[255])?;
         let list = services
             .filter_map(|pair| {
@@ -98,7 +102,11 @@ impl<C: runtime::Config> RpcHook<C> {
 impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.
-    async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
+    async fn on_finalized_block(
+        &self,
+        block: Block,
+        diff: HashMap<OpaqueHash, Vec<u8>>,
+    ) -> anyhow::Result<()> {
         let head = block.header.clone().try_into()?;
         self.runtime.storage.set_best(&head)?;
         self.runtime.storage.set_finalized(&head)?;
@@ -110,7 +118,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
             .await?;
 
         // 2. migrate states
-        self.migrate_services(&head.hash).await?;
+        self.migrate_services(&head.hash, diff).await?;
         self.migrate_statistics(&head.hash).await?;
         self.migrate_beefy_root(&head.hash).await?;
         self.migrate_parent(

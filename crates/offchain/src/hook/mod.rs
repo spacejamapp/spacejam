@@ -1,8 +1,10 @@
 //! Hook implementation for offchain
 
+use std::collections::HashMap;
+
 use crate::service::Rpc;
 use rpc::RpcHook;
-use score::Block;
+use score::{Block, OpaqueHash};
 
 mod rpc;
 
@@ -23,7 +25,11 @@ impl<C: runtime::Config> OffchainHook<C> {
 }
 
 impl<C: runtime::Config> runtime::Hook for OffchainHook<C> {
-    async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
-        self.rpc.on_finalized_block(block).await
+    async fn on_finalized_block(
+        &self,
+        block: Block,
+        diff: HashMap<OpaqueHash, Vec<u8>>,
+    ) -> anyhow::Result<()> {
+        self.rpc.on_finalized_block(block, diff).await
     }
 }

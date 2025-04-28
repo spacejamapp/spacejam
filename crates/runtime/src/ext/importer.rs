@@ -76,7 +76,7 @@ impl<C: Config> Runtime<C> {
 
         // 1. transit the global state
         let hash = block.header.hash()?;
-        tx::transit::<C::Vm>(block.clone(), &self.storage, &self.validator)?;
+        let diff = tx::transit::<C::Vm>(block.clone(), &self.storage, &self.validator)?;
         tracing::info!(
             "finalized block#{}@{}, previous block#{}@{}",
             block.header.slot,
@@ -107,7 +107,7 @@ impl<C: Config> Runtime<C> {
             .finalize(block.header.clone(), next)?;
 
         // 4. notify the new finalized block
-        self.hook.on_finalized_block(block).await?;
+        self.hook.on_finalized_block(block, diff).await?;
 
         Ok(())
     }
