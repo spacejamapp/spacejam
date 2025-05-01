@@ -69,11 +69,15 @@ pub trait SyncStorage: Storage {
     }
 
     /// Get the parent
-    fn get_parent(&self, block: &OpaqueHash) -> Result<Head> {
+    fn get_parent(&self, block: &OpaqueHash) -> Result<Option<Head>> {
         let mut key = [BLOCK_KEY, b"parent"].concat();
         key.extend_from_slice(block.as_ref());
-        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Parent not found"))?;
-        Ok(codec::decode(value.as_ref())?)
+        let value = self.get(&key)?;
+        if let Some(value) = value {
+            Ok(Some(codec::decode(value.as_ref())?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Set the state root
@@ -85,13 +89,15 @@ pub trait SyncStorage: Storage {
     }
 
     /// Get the state root
-    fn get_state_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
+    fn get_state_root(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
         let mut key = [BLOCK_KEY, b"state_root"].concat();
         key.extend_from_slice(block.as_ref());
-        let value = self
-            .get(&key)?
-            .ok_or(anyhow::anyhow!("State root not found"))?;
-        Ok(codec::decode(value.as_ref())?)
+        let value = self.get(&key)?;
+        if let Some(value) = value {
+            Ok(Some(codec::decode(value.as_ref())?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Set the beefy root

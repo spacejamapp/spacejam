@@ -53,18 +53,7 @@ impl<C: Config> Rpc<C> {
 #[async_trait]
 impl<C: Config> ApiServer for Rpc<C> {
     fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let best = self
-            .runtime
-            .storage
-            .get_best()
-            .map_err(|e| {
-                ErrorObjectOwned::owned(
-                    1,
-                    format!("Best head not found, {e:?}"),
-                    Option::<()>::None,
-                )
-            })
-            .unwrap_or_default();
+        let best = self.runtime.storage.get_best().map_err(to_owned_error)?;
         Ok((best.hash, best.slot))
     }
 
@@ -73,44 +62,31 @@ impl<C: Config> ApiServer for Rpc<C> {
             .runtime
             .storage
             .get_finalized()
-            .map_err(|e| {
-                ErrorObjectOwned::owned(
-                    1,
-                    format!("Finalized head not found, {e:?}"),
-                    Option::<()>::None,
-                )
-            })
-            .unwrap_or_default();
+            .map_err(to_owned_error)?;
         Ok((finalized.hash, finalized.slot))
     }
 
     fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned> {
-        let parent = self.runtime.storage.get_parent(&hash).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Parent not found: {e:?}"), Option::<()>::None)
-        })?;
-        Ok(Some((parent.hash, parent.slot)))
+        let parent = self
+            .runtime
+            .storage
+            .get_parent(&hash)
+            .map_err(to_owned_error)?;
+        Ok(parent.map(|parent| (parent.hash, parent.slot)))
     }
 
     fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned> {
-        let state_root = self.runtime.storage.get_state_root(&hash).map_err(|e| {
-            ErrorObjectOwned::owned(
-                1,
-                format!("State root not found: {e:?}"),
-                Option::<()>::None,
-            )
-        })?;
-        Ok(Some(state_root))
+        let state_root = self
+            .runtime
+            .storage
+            .get_state_root(&hash)
+            .map_err(to_owned_error)?;
+        Ok(state_root)
     }
 
     fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
-        let statistics = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(
-                1,
-                format!("Statistics not found: {e:?}"),
-                Option::<()>::None,
-            )
-        })?;
+        let statistics = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         Ok(statistics)
     }
 
@@ -121,9 +97,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let info = account::info(service);
         let key = [hash.as_ref(), info.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
-        })?;
+        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -135,9 +109,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let value = account::storage(service, key);
         let key = [hash.as_ref(), value.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
-        })?;
+        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -149,9 +121,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let pkey = account::preimage(service, key);
         let key = [hash.as_ref(), pkey.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
-        })?;
+        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -164,21 +134,13 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u32>>, ErrorObjectOwned> {
         let lkey = account::lookup(service, length, hash);
         let key = [header_hash.as_ref(), lkey.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
-        })?;
+        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
 
         let Some(data) = data else {
             return Ok(None);
         };
 
-        let data = codec::decode(&data).map_err(|e| {
-            ErrorObjectOwned::owned(
-                1,
-                format!("Failed to decode data: {e:?}"),
-                Option::<()>::None,
-            )
-        })?;
+        let data = codec::decode(&data).map_err(to_owned_error)?;
 
         Ok(Some(data))
     }
@@ -196,17 +158,14 @@ impl<C: Config> ApiServer for Rpc<C> {
         Ok(beefy_root)
     }
 
-    // TODO: need to figure out the usage of core and package
     fn submit_work_package(
         &self,
         _core: CoreIndex,
         _package: Vec<u8>,
         _extrinsics: Vec<Vec<u8>>,
     ) -> Result<(), ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
+        Err(to_owned_error(
             "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
         ))
     }
 
@@ -216,30 +175,20 @@ impl<C: Config> ApiServer for Rpc<C> {
         _preimage: Vec<u8>,
         _hash: OpaqueHash,
     ) -> Result<(), ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
+        Err(to_owned_error(
             "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
         ))
     }
 
     fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
         let key = [hash.as_ref(), b"services"].concat();
-        let services = self.runtime.storage.get(&key).map_err(|e| {
-            ErrorObjectOwned::owned(1, format!("Services not found: {e:?}"), Option::<()>::None)
-        })?;
-
+        let services = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         let Some(services) = services else {
             return Ok(vec![]);
         };
 
-        codec::decode(&services).map_err(|e| {
-            ErrorObjectOwned::owned(
-                1,
-                format!("Failed to decode services: {e:?}"),
-                Option::<()>::None,
-            )
-        })
+        let services = codec::decode(&services).map_err(to_owned_error)?;
+        Ok(services)
     }
 
     async fn subscribe_best_block(&self, sink: PendingSubscriptionSink) -> SubscriptionResult {
@@ -337,4 +286,9 @@ impl<C: Config> Clone for Rpc<C> {
             manager: self.manager.clone(),
         }
     }
+}
+
+/// Convert the error to an owned error
+fn to_owned_error(e: impl ToString) -> ErrorObjectOwned {
+    ErrorObjectOwned::owned(1, e.to_string(), Option::<()>::None)
 }
