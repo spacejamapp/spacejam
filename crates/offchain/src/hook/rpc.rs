@@ -93,6 +93,10 @@ impl<C: runtime::Config> RpcHook<C> {
                 continue;
             }
 
+            // save the service related data to storage.
+            let bkey = [hash.as_ref(), key.as_ref()].concat();
+            self.runtime.storage.set(&bkey, &value)?;
+
             // service info storage
             if key[8..].iter().all(|b| *b == 0) {
                 let mut service = [0u8; 4];
@@ -131,7 +135,6 @@ impl<C: runtime::Config> RpcHook<C> {
                 key::ACCOUNT_PREIMAGE_PREFIX => {
                     preimage.insert(service, (key.to_vec(), value));
                 }
-
                 length => {
                     let length = u32::from_le_bytes(length);
                     request.insert(service, (length, key.to_vec(), value));
@@ -228,6 +231,7 @@ impl<C: runtime::Config> RpcHook<C> {
         Ok(())
     }
 }
+
 impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.

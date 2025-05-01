@@ -71,7 +71,7 @@ pub trait Api {
         &self,
         hash: OpaqueHash,
         service: ServiceId,
-        key: Vec<u8>,
+        key: OpaqueHash,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
 
     /// Returns the preimage for the given service ID and key in the posterior state of the block
@@ -89,7 +89,13 @@ pub trait Api {
     /// state of the block with the given header hash. null is returned if there is no preimage request
     /// associated with the given service ID, hash and length.
     #[method(name = "serviceRequest")]
-    fn service_request(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
+    fn service_request(
+        &self,
+        header_hash: OpaqueHash,
+        service: ServiceId,
+        hash: OpaqueHash,
+        length: u32,
+    ) -> Result<Option<Vec<u32>>, ErrorObjectOwned>;
 
     /// Returns the BEEFY root of the block with the given header hash, or null if this is not known.
     #[method(name = "beefyRoot")]

@@ -10,7 +10,10 @@ use runtime::{
     storage::{KVStorage, SyncStorage},
     Config, Runtime,
 };
-use score::{state::key, CoreIndex, OpaqueHash, ServiceId};
+use score::{
+    state::{account, key},
+    CoreIndex, OpaqueHash, ServiceId,
+};
 use std::{net::SocketAddr, ops::Deref, sync::Arc};
 
 /// The RPC server for the offchain components of SpaceJam
@@ -111,54 +114,73 @@ impl<C: Config> ApiServer for Rpc<C> {
         Ok(statistics)
     }
 
-    // TODO: need to do snapshot for block state
     fn service_data(
         &self,
-        _hash: OpaqueHash,
-        _service: ServiceId,
+        hash: OpaqueHash,
+        service: ServiceId,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+        let info = account::info(service);
+        let key = [hash.as_ref(), info.as_ref()].concat();
+        let data = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
+        })?;
+        Ok(data)
     }
 
-    // TODO: need to do snapshot for block state
     fn service_value(
         &self,
-        _hash: OpaqueHash,
-        _service: ServiceId,
-        _key: Vec<u8>,
+        hash: OpaqueHash,
+        service: ServiceId,
+        key: OpaqueHash,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+        let value = account::storage(service, key);
+        let key = [hash.as_ref(), value.as_ref()].concat();
+        let data = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
+        })?;
+        Ok(data)
     }
 
-    // TODO: need to do snapshot for block state
     fn service_preimage(
         &self,
-        _hash: OpaqueHash,
-        _service: ServiceId,
-        _key: OpaqueHash,
+        hash: OpaqueHash,
+        service: ServiceId,
+        key: OpaqueHash,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+        let pkey = account::preimage(service, key);
+        let key = [hash.as_ref(), pkey.as_ref()].concat();
+        let data = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
+        })?;
+        Ok(data)
     }
 
-    // TODO: need to do snapshot for block state
-    fn service_request(&self, _hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        Err(ErrorObjectOwned::owned(
-            1,
-            "Not yet implemented, need to do snapshot for block state",
-            Option::<()>::None,
-        ))
+    fn service_request(
+        &self,
+        header_hash: OpaqueHash,
+        service: ServiceId,
+        hash: OpaqueHash,
+        length: u32,
+    ) -> Result<Option<Vec<u32>>, ErrorObjectOwned> {
+        let lkey = account::lookup(service, length, hash);
+        let key = [header_hash.as_ref(), lkey.as_ref()].concat();
+        let data = self.runtime.storage.get(&key).map_err(|e| {
+            ErrorObjectOwned::owned(1, format!("Data not found: {e:?}"), Option::<()>::None)
+        })?;
+
+        let Some(data) = data else {
+            return Ok(None);
+        };
+
+        let data = codec::decode(&data).map_err(|e| {
+            ErrorObjectOwned::owned(
+                1,
+                format!("Failed to decode data: {e:?}"),
+                Option::<()>::None,
+            )
+        })?;
+
+        Ok(Some(data))
     }
 
     // TODO: need to do snapshot for block state
@@ -188,7 +210,6 @@ impl<C: Config> ApiServer for Rpc<C> {
         ))
     }
 
-    // TODO: need to do snapshot for block state
     fn submit_preimage(
         &self,
         _service: ServiceId,

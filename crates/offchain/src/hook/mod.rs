@@ -1,10 +1,9 @@
 //! Hook implementation for offchain
 
-use std::collections::HashMap;
-
 use crate::service::Rpc;
 use rpc::RpcHook;
 use score::{Block, OpaqueHash};
+use std::collections::HashMap;
 
 mod rpc;
 
