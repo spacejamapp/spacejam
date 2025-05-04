@@ -1,5 +1,7 @@
 //! The configuration of SpaceJam
 
+use std::{fs, path::PathBuf};
+
 use crate::validator::LocalValidator;
 use runtime::Validator;
 use score::{
@@ -44,5 +46,18 @@ impl Default for Genesis {
             .collect::<Vec<_>>();
 
         Self::new(validators)
+    }
+}
+
+impl TryFrom<Option<PathBuf>> for Genesis {
+    type Error = anyhow::Error;
+
+    fn try_from(path: Option<PathBuf>) -> Result<Self, Self::Error> {
+        if let Some(path) = path {
+            let genesis = serde_json::from_slice(&fs::read(&path)?)?;
+            Ok(genesis)
+        } else {
+            Ok(Genesis::default())
+        }
     }
 }

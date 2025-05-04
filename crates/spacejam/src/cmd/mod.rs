@@ -66,7 +66,8 @@ impl Command {
         block: &Path,
         genesis: Option<&Path>,
     ) -> anyhow::Result<()> {
-        let runtime = C::runtime(None, db.to_path_buf(), genesis.map(|p| p.to_path_buf())).await?;
+        let genesis = genesis.map(|p| p.to_path_buf()).try_into()?;
+        let runtime = C::runtime(None, db.to_path_buf(), genesis).await?;
 
         let block = fs::read_to_string(block)?;
         let block: BlockJson = serde_json::from_str(&block)?;

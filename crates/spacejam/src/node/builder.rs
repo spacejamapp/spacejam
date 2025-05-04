@@ -1,8 +1,8 @@
 //! Configuration for the spacejam node
 
-use crate::node::{spec, SpaceJam};
+use crate::node::{spec, Genesis, SpaceJam};
 use network::Network;
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 
 /// Spacejam node builder
 #[derive(Clone)]
@@ -46,12 +46,12 @@ pub struct Builder {
 impl Builder {
     /// Build the node
     pub async fn build<C: spec::RuntimeSpec>(self) -> anyhow::Result<SpaceJam<C>> {
-        let runtime = C::runtime(
-            self.validator.as_deref(),
-            self.db.clone(),
-            self.genesis.clone(),
-        )
-        .await?;
+        let genesis = if let Some(genesis) = self.genesis {
+            serde_json::from_slice(fs::read(&genesis)?.as_slice())?
+        } else {
+            Genesis::default()
+        };
+        let runtime = C::runtime(self.validator.as_deref(), self.db.clone(), genesis).await?;
 
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
