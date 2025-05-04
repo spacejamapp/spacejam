@@ -8,6 +8,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::{fs, path::PathBuf};
 
 /// The genesis configuration
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,5 +45,18 @@ impl Default for Genesis {
             .collect::<Vec<_>>();
 
         Self::new(validators)
+    }
+}
+
+impl TryFrom<Option<PathBuf>> for Genesis {
+    type Error = anyhow::Error;
+
+    fn try_from(path: Option<PathBuf>) -> Result<Self, Self::Error> {
+        if let Some(path) = path {
+            let genesis = serde_json::from_slice(&fs::read(&path)?)?;
+            Ok(genesis)
+        } else {
+            Ok(Genesis::default())
+        }
     }
 }

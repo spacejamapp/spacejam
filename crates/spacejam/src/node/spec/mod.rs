@@ -3,7 +3,7 @@
 use super::Genesis;
 use runtime::{storage::KVStorage, Runtime, Validator};
 use score::{safrole::ValidatorData, Block};
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 pub use {dev::Dev, light::Light, validating::Validating};
 
 mod dev;
@@ -21,7 +21,6 @@ pub trait RuntimeSpec:
     runtime::Config<
         Validator: TryFrom<String, Error = anyhow::Error>,
         Storage: TryFrom<PathBuf, Error = anyhow::Error>,
-        Hook: Default,
     > + Sized
 {
     /// Build the validator
@@ -38,32 +37,34 @@ pub trait RuntimeSpec:
         Self::Storage::try_from(path)
     }
 
-    /// Build the hook
-    fn hook() -> Self::Hook {
-        Default::default()
-    }
-
     /// Build the runtime
     fn runtime(
         validator: Option<&str>,
         db: PathBuf,
-        genesis: Option<PathBuf>,
+        genesis: Genesis,
+    ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send
+    where
+        <Self as runtime::Config>::Hook: Default,
+    {
+        async move { Self::runtime_with_hook(validator, db, genesis, Self::Hook::default()).await }
+    }
+
+    /// Build the runtime with a hook
+    fn runtime_with_hook(
+        validator: Option<&str>,
+        db: PathBuf,
+        genesis: Genesis,
+        hook: Self::Hook,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
         async move {
             let validator = Self::validator(validator)?;
             let storage = Self::storage(db)?;
-            let hook = Self::hook();
             let runtime = Runtime::new(validator, storage, hook);
 
             // Initialize the database
             //
             // TODO: validate the genesis block matches the storage if not empty
             if KVStorage::is_empty(&runtime.storage) {
-                let genesis: Genesis = if let Some(genesis) = genesis {
-                    serde_json::from_slice(fs::read(&genesis)?.as_slice())?
-                } else {
-                    Genesis::default()
-                };
                 let block = Block::try_from(genesis.block)?;
                 let validators = genesis
                     .validators
@@ -83,6 +84,10 @@ where
     T: runtime::Config,
     T::Validator: TryFrom<String, Error = anyhow::Error>,
     T::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
-    T::Hook: Default,
 {
 }
+
+/// Runtime configuration for nodes in the current crate
+pub trait RuntimeSpecSelf: RuntimeSpec<Hook: Default> {}
+
+impl<T: RuntimeSpec<Hook: Default>> RuntimeSpecSelf for T {}

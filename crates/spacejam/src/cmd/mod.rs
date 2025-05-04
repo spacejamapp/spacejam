@@ -50,7 +50,7 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub async fn run<C: spec::RuntimeSpec>(self) -> anyhow::Result<()> {
+    pub async fn run<C: spec::RuntimeSpecSelf>(self) -> anyhow::Result<()> {
         match self {
             Command::Genesis => Self::genesis(),
             Command::Import { db, block, genesis } => {
@@ -61,12 +61,13 @@ impl Command {
         }
     }
 
-    async fn import<C: spec::RuntimeSpec>(
+    async fn import<C: spec::RuntimeSpecSelf>(
         db: &Path,
         block: &Path,
         genesis: Option<&Path>,
     ) -> anyhow::Result<()> {
-        let runtime = C::runtime(None, db.to_path_buf(), genesis.map(|p| p.to_path_buf())).await?;
+        let genesis = genesis.map(|p| p.to_path_buf()).try_into()?;
+        let runtime = C::runtime(None, db.to_path_buf(), genesis).await?;
 
         let block = fs::read_to_string(block)?;
         let block: BlockJson = serde_json::from_str(&block)?;

@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use rocksdb::{WriteBatch, DB};
-use score::runtime::storage::KVStorage;
+use runtime::storage::KVStorage;
 
 /// The RocksDB storage of SpaceJam
 pub struct RocksDB {

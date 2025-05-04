@@ -67,7 +67,7 @@ where
 }
 
 /// A JSON representation of a `Result`.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ResultJson<M, N> {
     /// The OK value.
     pub ok: Option<M>,
