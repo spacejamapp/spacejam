@@ -45,11 +45,7 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<C>(self) -> anyhow::Result<SpaceJam<C>>
-    where
-        C: spec::RuntimeSpec,
-        <C as runtime::Config>::Hook: Default,
-    {
+    pub async fn build<C: spec::RuntimeSpecSelf>(self) -> anyhow::Result<SpaceJam<C>> {
         let genesis = if let Some(genesis) = self.genesis {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {

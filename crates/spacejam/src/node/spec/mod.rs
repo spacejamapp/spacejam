@@ -86,3 +86,8 @@ where
     T::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
 {
 }
+
+/// Runtime configuration for nodes in the current crate
+pub trait RuntimeSpecSelf: RuntimeSpec<Hook: Default> {}
+
+impl<T: RuntimeSpec<Hook: Default>> RuntimeSpecSelf for T {}

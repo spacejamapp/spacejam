@@ -50,11 +50,7 @@ pub enum Command {
 
 impl Command {
     /// Run the command
-    pub async fn run<C>(self) -> anyhow::Result<()>
-    where
-        C: spec::RuntimeSpec,
-        <C as runtime::Config>::Hook: Default,
-    {
+    pub async fn run<C: spec::RuntimeSpecSelf>(self) -> anyhow::Result<()> {
         match self {
             Command::Genesis => Self::genesis(),
             Command::Import { db, block, genesis } => {
@@ -65,11 +61,11 @@ impl Command {
         }
     }
 
-    async fn import<C>(db: &Path, block: &Path, genesis: Option<&Path>) -> anyhow::Result<()>
-    where
-        C: spec::RuntimeSpec,
-        <C as runtime::Config>::Hook: Default,
-    {
+    async fn import<C: spec::RuntimeSpecSelf>(
+        db: &Path,
+        block: &Path,
+        genesis: Option<&Path>,
+    ) -> anyhow::Result<()> {
         let genesis = genesis.map(|p| p.to_path_buf()).try_into()?;
         let runtime = C::runtime(None, db.to_path_buf(), genesis).await?;
 
