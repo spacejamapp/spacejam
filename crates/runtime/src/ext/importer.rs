@@ -107,7 +107,8 @@ impl<C: Config> Runtime<C> {
             .finalize(block.header.clone(), next)?;
 
         // 4. notify the new finalized block
-        self.hook.on_finalized_block(block, diff).await?;
+        self.hook.on_finalized_block(block).await?;
+        self.hook.on_diff(hash, diff).await?;
 
         Ok(())
     }

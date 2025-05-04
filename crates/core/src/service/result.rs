@@ -34,7 +34,7 @@ pub struct WorkResult {
 }
 
 /// Represents the result of a work execution.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorkExecResult {
     Ok(Vec<u8>),
     OutOfGas,
@@ -44,7 +44,7 @@ pub enum WorkExecResult {
 }
 
 // TODO: support enum in Json macro
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkExecResultJson {
     pub ok: Option<String>,
     #[serde(default = "default_some_unit")]

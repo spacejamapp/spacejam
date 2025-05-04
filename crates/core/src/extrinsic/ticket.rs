@@ -123,7 +123,7 @@ impl Default for TicketsOrKeys {
 }
 
 /// Represents the JSON representation of either tickets or keys.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TicketsOrKeysJson {
     tickets: Option<Vec<TicketBodyJson>>,
     keys: Option<Vec<String>>,

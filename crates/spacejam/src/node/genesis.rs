@@ -1,7 +1,5 @@
 //! The configuration of SpaceJam
 
-use std::{fs, path::PathBuf};
-
 use crate::validator::LocalValidator;
 use runtime::Validator;
 use score::{
@@ -10,6 +8,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::{fs, path::PathBuf};
 
 /// The genesis configuration
 #[derive(Debug, Serialize, Deserialize)]

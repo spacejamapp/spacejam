@@ -8,7 +8,7 @@ use rpc::{
 use runtime::storage::{KVStorage, Storage, SyncStorage};
 use score::{state::key, Block, OpaqueHash, ServiceId};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     ops::Deref,
 };
 
@@ -80,11 +80,7 @@ impl<C: runtime::Config> RpcHook<C> {
 impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.
-    async fn on_finalized_block(
-        &self,
-        block: Block,
-        diff: HashMap<OpaqueHash, Vec<u8>>,
-    ) -> anyhow::Result<()> {
+    async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
         let head = block.header.clone().try_into()?;
         self.runtime.storage.set_best(&head)?;
         self.runtime.storage.set_finalized(&head)?;
@@ -96,7 +92,6 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
             .await?;
 
         // 2. migrate states
-        self.on_diff(head.hash, diff).await?;
         self.migrate_statistics(&head.hash).await?;
         self.migrate_beefy_root(&head.hash).await?;
         self.migrate_parent(

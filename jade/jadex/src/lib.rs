@@ -3,7 +3,7 @@
 pub use config::Config;
 pub use hook::JadexHook;
 pub use runtime::Hook;
-pub use service::{JadexSpec, Node};
+pub use service::start;
 
 mod config;
 mod hook;

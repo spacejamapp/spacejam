@@ -12,11 +12,7 @@ pub trait Hook: Send + Sync {
     }
 
     /// Called when a new finalized block is imported
-    fn on_finalized_block(
-        &self,
-        _block: Block,
-        _diff: HashMap<OpaqueHash, Vec<u8>>,
-    ) -> impl Future<Output = Result<()>> + Send {
+    fn on_finalized_block(&self, _block: Block) -> impl Future<Output = Result<()>> + Send {
         async { Ok(()) }
     }
 

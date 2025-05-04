@@ -18,7 +18,7 @@ pub struct TestInput {
 }
 
 /// Test output.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json)]
 pub struct TestOutput {
     #[json(ResultJson<OutputJson, Error>)]
     pub output: Result<Output>,

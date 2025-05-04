@@ -172,7 +172,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     // 4. Append attributes to the json struct
     json.attrs.extend(vec![syn::parse_quote! {
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     }]);
 
     quote! {
