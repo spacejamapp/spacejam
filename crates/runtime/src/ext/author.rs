@@ -65,7 +65,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 3. check authoring blocks
         if self.slots.contains(&slot) {
-            next.0 = Some(self.author(timeslot).await?);
+            next.0 = Some(self.author(timeslot).await?.header);
             self.slots.pop_front();
         }
 
@@ -115,7 +115,7 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Author a block
-    pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Header> {
+    pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         let keys = self.storage.current_validators()?.bandersnatch();
         // 1. get the last block
         let blocks = self.storage.recent_blocks()?;
@@ -149,7 +149,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 7. save the block to the fork storage
         self.storage.set_block(&block)?;
         self.grandpa.write().await.add_leaf(block.header.clone())?;
-        let header = block.header;
+        let header = block.header.clone();
 
         // 8. notify the best block
         //
@@ -159,7 +159,7 @@ impl<'a, C: Config> Author<'a, C> {
             slot: header.slot,
         })?;
 
-        Ok(header)
+        Ok(block)
     }
 
     /// Generate a ticket

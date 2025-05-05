@@ -2,12 +2,6 @@
 
 use crate::Config;
 
-mod node;
-
-/// Start the Jadex service
-pub async fn start<Hook: runtime::Hook + Default + Send + Sync + 'static>(
-    config: &Config,
-    hook: Hook,
-) -> anyhow::Result<()> {
-    node::start(config, hook).await
-}
+pub mod graphql;
+pub mod node;
+pub mod postgres;

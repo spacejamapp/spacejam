@@ -23,12 +23,13 @@ impl<C: runtime::Config> Dev<C> {
             tokio::time::sleep(Duration::from_secs(duration)).await;
 
             let timeslot = block::timeslot();
-            let header = author.author(timeslot).await?;
+            let block = author.author(timeslot).await?;
             tracing::info!(
                 "block#{}@0x{}",
-                header.slot,
-                hex::encode(&header.hash()?[..3])
+                block.header.slot,
+                hex::encode(&block.header.hash()?[..3])
             );
+            author.finalize(block).await?;
         }
     }
 }
