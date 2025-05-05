@@ -475,8 +475,7 @@ dependencies = [
 [[package]]
 name = "async-graphql"
 version = "7.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3ee559e72d983e7e04001ba3bf32e6b71c1d670595780723727fd8a29d36e87"
+source = "git+https://github.com/yasamoka/async-graphql.git?branch=graphiqlsource-react#15fed95142019722e7da2c214ff9d8e2e755c9e5"
 dependencies = [
  "async-graphql-derive",
  "async-graphql-parser",
@@ -525,8 +524,7 @@ dependencies = [
 [[package]]
 name = "async-graphql-derive"
 version = "7.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29db05b624fb6352fc11bfe30c54ab1b16a1fe937d7c05a783f4e88ef1292b3b"
+source = "git+https://github.com/yasamoka/async-graphql.git?branch=graphiqlsource-react#15fed95142019722e7da2c214ff9d8e2e755c9e5"
 dependencies = [
  "Inflector",
  "async-graphql-parser",
@@ -542,8 +540,7 @@ dependencies = [
 [[package]]
 name = "async-graphql-parser"
 version = "7.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4904895044116aab098ca82c6cec831ec43ed99efd04db9b70a390419bc88c5b"
+source = "git+https://github.com/yasamoka/async-graphql.git?branch=graphiqlsource-react#15fed95142019722e7da2c214ff9d8e2e755c9e5"
 dependencies = [
  "async-graphql-value",
  "pest",
@@ -554,8 +551,7 @@ dependencies = [
 [[package]]
 name = "async-graphql-value"
 version = "7.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0cde74de18e3a00c5dd5cfa002ab6f532e1a06c2a79ee6671e2fc353b400b92"
+source = "git+https://github.com/yasamoka/async-graphql.git?branch=graphiqlsource-react#15fed95142019722e7da2c214ff9d8e2e755c9e5"
 dependencies = [
  "bytes",
  "indexmap",
@@ -1694,6 +1690,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "header"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-graphql",
+ "hex",
+ "jadex",
+ "runtime",
+ "spacejam-core",
+ "sqlx",
+ "tokio",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2054,12 +2065,14 @@ dependencies = [
  "async-graphql-axum",
  "axum",
  "clap",
+ "hex",
  "runtime",
  "spacejam",
  "spacejam-core",
  "spacejam-network",
  "sqlx",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3885,6 +3898,8 @@ dependencies = [
  "sha2",
  "smallvec",
  "thiserror 2.0.12",
+ "tokio",
+ "tokio-stream",
  "tracing",
  "url",
 ]
@@ -3924,6 +3939,7 @@ dependencies = [
  "sqlx-sqlite",
  "syn 2.0.100",
  "tempfile",
+ "tokio",
  "url",
 ]
 

@@ -3,15 +3,55 @@
 use crate::Config;
 use anyhow::Result;
 use network::Network;
-use score::Block;
+use runtime::{Runtime, Validator};
+use score::{block, Block};
 use spacejam::{storage::Sled, validator::LocalValidator, Genesis, RuntimeSpec};
-use std::{marker, sync::Arc};
+use std::{marker, sync::Arc, time::Duration};
 
 /// Start the node service
-pub async fn start<Hook: runtime::Hook + Default + Send + Sync + 'static>(
+pub async fn start<Hook: runtime::Hook + Send + Sync + 'static>(
     config: &Config,
     hook: Hook,
 ) -> Result<()> {
+    let (runtime, networkcfg) = self::runtime(config, hook).await?;
+    let network = Network::<JadexSpec<Hook>>::new(networkcfg, Arc::new(runtime)).await?;
+    network.spawn().await;
+    Ok(())
+}
+
+/// Start the development node service
+pub async fn dev<Hook: runtime::Hook + Send + Sync + 'static>(
+    config: &Config,
+    hook: Hook,
+) -> Result<()> {
+    let (mut runtime, _) = self::runtime(config, hook).await?;
+    runtime.validator = <JadexSpec<Hook> as runtime::Config>::Validator::dev();
+    let author = runtime.author();
+
+    tracing::info!("Starting development spacejam node");
+    loop {
+        let now = block::now();
+        let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+        tokio::time::sleep(Duration::from_secs(duration)).await;
+
+        let timeslot = block::timeslot();
+        let block = author.author(timeslot).await?;
+        tracing::trace!(
+            "block#{}@0x{}",
+            block.header.slot,
+            hex::encode(&block.header.hash()?[..3])
+        );
+
+        author.finalize(block).await?;
+    }
+    Ok(())
+}
+
+/// Build the runtime from config
+async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
+    config: &Config,
+    hook: Hook,
+) -> Result<(Runtime<JadexSpec<Hook>>, network::Config)> {
     let chain = config.data.join("chain");
 
     // fetch the genesis block
@@ -27,15 +67,13 @@ pub async fn start<Hook: runtime::Hook + Default + Send + Sync + 'static>(
     };
 
     let runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;
-    let network = Network::<JadexSpec<Hook>>::new(networkcfg, Arc::new(runtime)).await?;
-    network.spawn().await;
-    Ok(())
+    Ok((runtime, networkcfg))
 }
 
 /// The Jadex runtime spec
-pub struct JadexSpec<Hook: runtime::Hook + Default>(marker::PhantomData<Hook>);
+pub struct JadexSpec<Hook: runtime::Hook>(marker::PhantomData<Hook>);
 
-impl<Hook: runtime::Hook + Default + Send + Sync + 'static> runtime::Config for JadexSpec<Hook> {
+impl<Hook: runtime::Hook + Send + Sync + 'static> runtime::Config for JadexSpec<Hook> {
     type Storage = Sled;
     type Validator = LocalValidator;
     type Vm = ();

@@ -10,6 +10,7 @@ members = [
     "crates/pvm/parser",
     "jade",
     "jade/jadex",
+    "jade/jadex/examples/*",
     "jade/cli",
 ]
 resolver = "1"
@@ -95,3 +96,6 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 trait-variant = "0.1.2"
 w3f-bls = "0.1.8"
 x509-parser = "0.17.0"
+
+[patch.crates-io]
+async-graphql = { version = "7.0.16", git = "https://github.com/yasamoka/async-graphql.git", branch = "graphiqlsource-react" }

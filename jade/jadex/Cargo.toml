@@ -9,9 +9,11 @@ async-graphql.workspace = true
 async-graphql-axum.workspace = true
 axum.workspace = true
 clap.workspace = true
+hex.workspace = true
 network.workspace = true
 runtime.workspace = true
+tracing.workspace = true
 score.workspace = true
 spacejam.workspace = true
-sqlx = { workspace = true, features = ["postgres"] }
+sqlx = { workspace = true, features = ["postgres", "runtime-tokio"] }
 tokio.workspace = true
