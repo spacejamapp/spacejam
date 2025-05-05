@@ -1,5 +1,5 @@
 > ![IMPORTANT]
-> The development of jadex is halt until we have the `ABI` defination of JAM programs.
+> The development of jadex is halt until we have the `ABI` definition of JAM programs.
 
 TODOs:
 
