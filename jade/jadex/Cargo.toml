@@ -6,9 +6,12 @@ version.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-graphql.workspace = true
+async-graphql-axum.workspace = true
+axum.workspace = true
 clap.workspace = true
 network.workspace = true
 runtime.workspace = true
 score.workspace = true
 spacejam.workspace = true
-sqlx.workspace = true
+sqlx = { workspace = true, features = ["postgres"] }
+tokio.workspace = true
