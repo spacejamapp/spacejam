@@ -1,9 +1,7 @@
 //! Stores header data in postgres
 
-use async_graphql::{Context, Object};
-use async_graphql::{EmptyMutation, EmptySubscription};
-use jadex::Config;
-use jadex::service;
+use async_graphql::{Context, EmptyMutation, EmptySubscription, Object};
+use jadex::{Config, service};
 use sqlx::{Executor, PgPool};
 use tracing_subscriber::EnvFilter;
 
@@ -54,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     let pool = PgPool::connect(&config.postgres).await?;
     let hook = HeaderHook(pool);
 
-    let r = tokio::select! {
+    tokio::select! {
         r = service::node::dev(&config, hook.clone()) => r,
         r = service::graphql::start(
             QueryRoot,
@@ -63,8 +61,6 @@ async fn main() -> anyhow::Result<()> {
             hook,
             config.graphql,
         ) => r,
-    };
-
-    r?;
-    Ok(())
+        _ = tokio::signal::ctrl_c() => Ok(()),
+    }
 }

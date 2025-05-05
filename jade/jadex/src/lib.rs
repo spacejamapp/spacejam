@@ -2,9 +2,7 @@
 
 #![allow(unused)]
 
-pub use config::Config;
-pub use hook::JadexHook;
-pub use runtime::Hook;
+pub use {config::Config, hook::JadexHook, runtime::Hook};
 
 mod config;
 mod hook;
