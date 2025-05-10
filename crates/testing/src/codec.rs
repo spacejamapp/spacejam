@@ -12,10 +12,13 @@ use score::{
     },
     service::{RefineContext, WorkItem, WorkPackage, WorkReport, WorkResult},
 };
+use specjam::Registry;
+use std::path::PathBuf;
 
 macro_rules! impl_codec_tests {
     ($name:ident) => {{
-        let test = paste::paste!([< TEST_CODEC_ $name:upper >]);
+        let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
+        let test = registry.entry("codec").unwrap().test(stringify!($name)).unwrap();
         let json = test.input.to_string();
         let data = hex::decode(&test.output)?;
 

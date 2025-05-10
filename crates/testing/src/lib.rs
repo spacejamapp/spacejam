@@ -14,7 +14,7 @@ pub fn init_tracing() {
 pub mod accumulate;
 pub mod assurances;
 pub mod authorizations;
-// pub mod codec;
+pub mod codec;
 pub mod disputes;
 pub mod history;
 pub mod preimage;
