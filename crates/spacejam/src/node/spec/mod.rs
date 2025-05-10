@@ -46,7 +46,11 @@ pub trait RuntimeSpec:
     where
         <Self as runtime::Config>::Hook: Default,
     {
-        async move { Self::runtime_with_hook(validator, db, genesis, Self::Hook::default()).await }
+        async move {
+            let storage = Self::storage(db)?;
+            Self::runtime_with_hook_and_storage(validator, storage, genesis, Self::Hook::default())
+                .await
+        }
     }
 
     /// Build the runtime with a hook
@@ -57,8 +61,20 @@ pub trait RuntimeSpec:
         hook: Self::Hook,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
         async move {
-            let validator = Self::validator(validator)?;
             let storage = Self::storage(db)?;
+            Self::runtime_with_hook_and_storage(validator, storage, genesis, hook).await
+        }
+    }
+
+    /// Build the runtime with a hook and storage
+    fn runtime_with_hook_and_storage(
+        validator: Option<&str>,
+        storage: Self::Storage,
+        genesis: Genesis,
+        hook: Self::Hook,
+    ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
+        async move {
+            let validator = Self::validator(validator)?;
             let runtime = Runtime::new(validator, storage, hook);
 
             // Initialize the database

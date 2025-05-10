@@ -7,6 +7,7 @@ use sled::{Batch, Db};
 use std::path::PathBuf;
 
 /// Sled storage
+#[derive(Clone)]
 pub struct Sled {
     db: Db,
 }

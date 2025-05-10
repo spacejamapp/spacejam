@@ -12,8 +12,9 @@ use std::{marker, sync::Arc, time::Duration};
 pub async fn start<Hook: runtime::Hook + Send + Sync + 'static>(
     config: &Config,
     hook: Hook,
+    storage: Option<Sled>,
 ) -> Result<()> {
-    let (runtime, networkcfg) = self::runtime(config, hook).await?;
+    let (runtime, networkcfg) = self::runtime(config, hook, storage).await?;
     let network = Network::<JadexSpec<Hook>>::new(networkcfg, Arc::new(runtime)).await?;
     network.spawn().await;
     Ok(())
@@ -23,8 +24,9 @@ pub async fn start<Hook: runtime::Hook + Send + Sync + 'static>(
 pub async fn dev<Hook: runtime::Hook + Send + Sync + 'static>(
     config: &Config,
     hook: Hook,
+    storage: Option<Sled>,
 ) -> Result<()> {
-    let (mut runtime, _) = self::runtime(config, hook).await?;
+    let (mut runtime, _) = self::runtime(config, hook, storage).await?;
     runtime.validator = <JadexSpec<Hook> as runtime::Config>::Validator::dev();
     let author = runtime.author();
 
@@ -51,6 +53,7 @@ pub async fn dev<Hook: runtime::Hook + Send + Sync + 'static>(
 async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
     config: &Config,
     hook: Hook,
+    storage: Option<Sled>,
 ) -> Result<(Runtime<JadexSpec<Hook>>, network::Config)> {
     let chain = config.data.join("chain");
 
@@ -66,7 +69,10 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
         genesis: block.header.hash()?,
     };
 
-    let runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;
+    let storage = storage.unwrap_or(Sled::try_from(chain)?);
+    let runtime =
+        JadexSpec::<Hook>::runtime_with_hook_and_storage(None, storage, genesis, hook).await?;
+
     Ok((runtime, networkcfg))
 }
 
