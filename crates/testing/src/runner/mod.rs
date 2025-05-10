@@ -24,8 +24,8 @@ impl Runner {
             Section::Accumulate => {
                 use crate::accumulate;
 
-                let input = accumulate::TestInput::from_json(test.input)?;
-                let output = accumulate::TestOutput::from_json(test.output)?;
+                let input = accumulate::TestInput::from_json(&test.input)?;
+                let output = accumulate::TestOutput::from_json(&test.output)?;
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
@@ -51,9 +51,9 @@ impl Runner {
             Section::Assurances => {
                 use crate::assurances;
 
-                let mut input = assurances::TestInput::from_json(test.input)?;
+                let mut input = assurances::TestInput::from_json(&test.input)?;
                 let assurances::TestOutput { output, post_state } =
-                    assurances::TestOutput::from_json(test.output)?;
+                    assurances::TestOutput::from_json(&test.output)?;
 
                 assert_eq!(input.pre_state.curr_validators, post_state.curr_validators);
 
@@ -88,8 +88,8 @@ impl Runner {
             Section::Authorizations => {
                 use crate::authorizations;
 
-                let input = authorizations::TestInput::from_json(test.input)?;
-                let output = authorizations::TestOutput::from_json(test.output)?;
+                let input = authorizations::TestInput::from_json(&test.input)?;
+                let output = authorizations::TestOutput::from_json(&test.output)?;
                 let state: score::State = input.pre_state.clone().into();
                 let post: score::State = output.post_state.clone().into();
 
@@ -107,8 +107,8 @@ impl Runner {
             Section::Disputes => {
                 use crate::disputes;
 
-                let mut input = disputes::TestInput::from_json(test.input)?;
-                let output = disputes::TestOutput::from_json(test.output)?;
+                let mut input = disputes::TestInput::from_json(&test.input)?;
+                let output = disputes::TestOutput::from_json(&test.output)?;
                 let result = tx::dispute::disputes(
                     input.pre_state.tau,
                     &input.pre_state.kappa,
@@ -134,8 +134,8 @@ impl Runner {
             Section::History => {
                 use crate::history;
 
-                let input = history::TestInput::from_json(test.input)?;
-                let output = history::TestOutput::from_json(test.output)?;
+                let input = history::TestInput::from_json(&test.input)?;
+                let output = history::TestOutput::from_json(&test.output)?;
                 let mut history = input.pre_state.beta.clone();
                 history.import(
                     input.input.header_hash,
@@ -148,8 +148,8 @@ impl Runner {
             Section::Preimages => {
                 use crate::preimage;
 
-                let input = preimage::TestInput::from_json(test.input)?;
-                let output = preimage::TestOutput::from_json(test.output)?;
+                let input = preimage::TestInput::from_json(&test.input)?;
+                let output = preimage::TestOutput::from_json(&test.output)?;
 
                 // Validate post state
                 let accounts = preimage::to_accounts(input.pre_state.accounts.clone());
@@ -165,9 +165,9 @@ impl Runner {
                 use crate::reports;
 
                 let reports::TestInput { input, pre_state } =
-                    reports::TestInput::from_json(test.input)?;
+                    reports::TestInput::from_json(&test.input)?;
                 let reports::TestOutput { output, post_state } =
-                    reports::TestOutput::from_json(test.output)?;
+                    reports::TestOutput::from_json(&test.output)?;
 
                 assert_eq!(pre_state.curr_validators, post_state.curr_validators);
                 assert_eq!(pre_state.prev_validators, post_state.prev_validators);
@@ -207,8 +207,8 @@ impl Runner {
             Section::Safrole => {
                 use crate::safrole;
 
-                let mut input = safrole::TestInput::from_json(test.input)?;
-                let output = safrole::TestOutput::from_json(test.output)?;
+                let mut input = safrole::TestInput::from_json(&test.input)?;
+                let output = safrole::TestOutput::from_json(&test.output)?;
                 let result = input.pre_state.enact(&input.input);
 
                 assert_eq!(result, output.output);
@@ -217,8 +217,8 @@ impl Runner {
             Section::Statistics => {
                 use crate::statistics;
 
-                let input = statistics::TestInput::from_json(test.input)?;
-                let output = statistics::TestOutput::from_json(test.output)?;
+                let input = statistics::TestInput::from_json(&test.input)?;
+                let output = statistics::TestOutput::from_json(&test.output)?;
 
                 // validate
                 let state = input.pre_state.statistics.update(
@@ -231,8 +231,8 @@ impl Runner {
             Section::Pvm => {
                 use crate::pvm;
 
-                let input: pvm::TestInput = serde_json::from_str(test.input)?;
-                let output: pvm::TestOutput = serde_json::from_str(test.output)?;
+                let input: pvm::TestInput = serde_json::from_str(&test.input)?;
+                let output: pvm::TestOutput = serde_json::from_str(&test.output)?;
                 let mut registers = [0; 13];
                 registers.copy_from_slice(&input.initial_regs);
 

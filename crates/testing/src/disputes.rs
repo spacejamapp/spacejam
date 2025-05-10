@@ -62,33 +62,4 @@ pub struct State {
     pub lambda: ValidatorsData,
 }
 
-crate::impl_tests! {
-    disputes,
-    @scale
-    progress_invalidates_avail_assignments_1,
-    progress_with_bad_signatures_1,
-    progress_with_bad_signatures_2,
-    progress_with_culprits_1,
-    progress_with_culprits_2,
-    progress_with_culprits_3,
-    progress_with_culprits_4,
-    progress_with_culprits_5,
-    progress_with_culprits_6,
-    progress_with_culprits_7,
-    progress_with_faults_1,
-    progress_with_faults_2,
-    progress_with_faults_3,
-    progress_with_faults_4,
-    progress_with_faults_5,
-    progress_with_faults_6,
-    progress_with_faults_7,
-    progress_with_no_verdicts_1,
-    progress_with_verdict_signatures_from_previous_set_1,
-    progress_with_verdict_signatures_from_previous_set_2,
-    progress_with_verdicts_1,
-    progress_with_verdicts_2,
-    progress_with_verdicts_3,
-    progress_with_verdicts_4,
-    progress_with_verdicts_5,
-    progress_with_verdicts_6
-}
+include!(concat!(env!("OUT_DIR"), "/disputes.rs"));

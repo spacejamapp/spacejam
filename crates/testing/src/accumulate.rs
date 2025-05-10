@@ -150,33 +150,5 @@ pub struct AlwaysAccumulateMapItem {
     /// The gas
     pub gas: Gas,
 }
-crate::impl_tests! {
-    accumulate,
-    @scale
-    accumulate_ready_queued_reports_1,
-    enqueue_and_unlock_chain_wraps_1,
-    enqueue_and_unlock_chain_wraps_2,
-    enqueue_and_unlock_chain_wraps_3,
-    enqueue_and_unlock_chain_wraps_4,
-    enqueue_and_unlock_chain_wraps_5,
-    enqueue_and_unlock_chain_1,
-    enqueue_and_unlock_chain_2,
-    enqueue_and_unlock_chain_3,
-    enqueue_and_unlock_chain_4,
-    enqueue_and_unlock_simple_1,
-    enqueue_and_unlock_simple_2,
-    enqueue_and_unlock_with_sr_lookup_1,
-    enqueue_and_unlock_with_sr_lookup_2,
-    enqueue_self_referential_1,
-    enqueue_self_referential_2,
-    enqueue_self_referential_3,
-    enqueue_self_referential_4,
-    no_available_reports_1,
-    process_one_immediate_report_1,
-    queues_are_shifted_1,
-    queues_are_shifted_2,
-    ready_queue_editing_1,
-    ready_queue_editing_2,
-    ready_queue_editing_3
 
-}
+include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));

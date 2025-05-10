@@ -12,7 +12,6 @@ use score::{
     },
     service::{RefineContext, WorkItem, WorkPackage, WorkReport, WorkResult},
 };
-use specjam::registry::tests::*;
 
 macro_rules! impl_codec_tests {
     ($name:ident) => {{

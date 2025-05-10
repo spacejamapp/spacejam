@@ -50,10 +50,4 @@ pub struct State {
     pub curr_validators: ValidatorsData,
 }
 
-crate::impl_tests! {
-    statistics,
-    @scale
-    stats_with_empty_extrinsic_1,
-    stats_with_epoch_change_1,
-    stats_with_some_extrinsic_1
-}
+include!(concat!(env!("OUT_DIR"), "/statistics.rs"));

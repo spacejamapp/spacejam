@@ -62,10 +62,4 @@ pub struct TestOutput {
     pub post_state: TestState,
 }
 
-crate::impl_tests! {
-    authorizations,
-    @scale
-    progress_authorizations_1,
-    progress_authorizations_2,
-    progress_authorizations_3
-}
+include!(concat!(env!("OUT_DIR"), "/authorizations.rs"));
