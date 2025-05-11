@@ -44,10 +44,4 @@ pub struct TestOutput {
     pub post_state: State,
 }
 
-crate::impl_tests! {
-    history,
-    progress_blocks_history_1,
-    progress_blocks_history_2,
-    progress_blocks_history_3,
-    progress_blocks_history_4
-}
+include!(concat!(env!("OUT_DIR"), "/history.rs"));

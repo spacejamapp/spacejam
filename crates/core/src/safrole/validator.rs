@@ -68,11 +68,18 @@ impl Default for ValidatorData {
 pub trait ValidatorIter {
     /// Get the bandersnatch keys
     fn bandersnatch(&self) -> Vec<BandersnatchPublic>;
+
+    /// Get the ed25519 keys
+    fn ed25519(&self) -> Vec<Ed25519Public>;
 }
 
 impl ValidatorIter for ValidatorsData {
     fn bandersnatch(&self) -> Vec<BandersnatchPublic> {
         self.iter().map(|v| v.bandersnatch).collect()
+    }
+
+    fn ed25519(&self) -> Vec<Ed25519Public> {
+        self.iter().map(|v| v.ed25519).collect()
     }
 }
 

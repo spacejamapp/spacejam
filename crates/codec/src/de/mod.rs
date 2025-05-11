@@ -237,6 +237,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        // TODO: decode large sequences
         let len = self.next_byte()? as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }

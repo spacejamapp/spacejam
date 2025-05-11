@@ -2,7 +2,9 @@
 
 use crypto::merkle;
 use serde::{Deserialize, Serialize};
+use specjam::Registry;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
 pub struct TestInput {
@@ -15,12 +17,14 @@ pub struct TestOutput {
 }
 
 #[test]
-fn jam() {
-    let test = specjam::registry::tests::TEST_TRIE_TRIE;
+fn trie() {
+    let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
+    let test = registry.trie().unwrap().get(0).unwrap();
+
     let tests: Vec<TestInput> =
-        serde_json::from_str(test.input).expect("failed to parse trie test input");
+        serde_json::from_str(&test.input).expect("failed to parse trie test input");
     let output: Vec<TestOutput> =
-        serde_json::from_str(test.output).expect("failed to parse trie test output");
+        serde_json::from_str(&test.output).expect("failed to parse trie test output");
 
     for (input, output) in tests
         .into_iter()

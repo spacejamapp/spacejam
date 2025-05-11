@@ -7,10 +7,10 @@ pub use error::{Error, Result};
 use score::{
     EPOCH_LENGTH, Ed25519Public, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
-    safrole::ValidatorsData,
+    safrole::{ValidatorIter, ValidatorsData},
     service::AvailabilityAssignments,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 pub mod error;
 
@@ -25,12 +25,18 @@ pub fn disputes(
     let mut next_psi = psi.clone();
     let mut records = dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
 
+    // get validators for the current slot
+    let validators: HashSet<Ed25519Public> = [kappa.ed25519(), lambda.ed25519()]
+        .concat()
+        .into_iter()
+        .collect();
+
     // handle culprits
-    let offenders = dispute::culprits(psi, &records.bad, &extrinsic.culprits)?;
+    let offenders = dispute::culprits(&validators, psi, &records.bad, &extrinsic.culprits)?;
     records.offenders.extend(&offenders);
 
     // handle faults
-    let offenders = dispute::faults(psi, &records.good, &extrinsic.faults)?;
+    let offenders = dispute::faults(&validators, psi, &records.good, &extrinsic.faults)?;
     records.offenders.extend(&offenders);
 
     // update psi
@@ -116,6 +122,7 @@ fn verdicts(
                     tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
                     return Err(Error::BadSignature);
                 }
+                // TODO: sub 1 could be a problem here.
             } else if verdict.age == current_epoch.saturating_sub(1) {
                 if let Err(e) = crypto::ed25519::verify(
                     message,
@@ -156,6 +163,7 @@ fn verdicts(
 
 /// (ψ) Update offenders based on verdicts
 fn culprits(
+    validators: &HashSet<Ed25519Public>,
     records: &DisputesRecords,
     bad: &[OpaqueHash],
     culprits: &[Culprit],
@@ -165,6 +173,10 @@ fn culprits(
     let mut offenders = vec![];
 
     for culprit in culprits {
+        if !validators.contains(&culprit.key) {
+            return Err(Error::BadGuarantorKey);
+        }
+
         if let Err(e) = culprit.verify() {
             tracing::error!("Invalid signature in culprit: {e}");
             return Err(Error::BadSignature);
@@ -208,6 +220,7 @@ fn culprits(
 
 /// (ψ) Update offenders based on verdicts
 fn faults(
+    validators: &HashSet<Ed25519Public>,
     records: &DisputesRecords,
     good: &[OpaqueHash],
     faults: &[Fault],
@@ -217,6 +230,10 @@ fn faults(
     let mut new_offenders = vec![];
 
     for fault in faults {
+        if !validators.contains(&fault.key) {
+            return Err(Error::BadAuditorKey);
+        }
+
         if records.good.contains(&fault.target)
             || records.bad.contains(&fault.target)
             || records.wonky.contains(&fault.target)

@@ -194,9 +194,10 @@ impl GuaranteeValidator<'_> {
             return Err(Error::InsufficientGuarantees);
         }
 
-        let message = guarantee
-            .signing_message()
-            .map_err(|_| Error::BadSignature)?;
+        let message = guarantee.signing_message().map_err(|e| {
+            tracing::error!("Error constructing guarantee signing message: {e:?}");
+            Error::BadSignature
+        })?;
 
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
@@ -209,7 +210,10 @@ impl GuaranteeValidator<'_> {
                 sig.signature,
                 self.validators[validator_index].ed25519,
             )
-            .map_err(|_| Error::BadSignature)?
+            .map_err(|e| {
+                tracing::error!("Error verifying ed25519 signature: {e:?}");
+                Error::BadSignature
+            })?
         }
 
         Ok(())
@@ -259,7 +263,7 @@ impl GuaranteeValidator<'_> {
         for result in guarantee.report.results.iter() {
             if let WorkExecResult::Ok(blob) = &result.result {
                 output_len += blob.len();
-                if output_len >= MAX_WORK_REPORT_OUTPUT_SIZE {
+                if output_len > MAX_WORK_REPORT_OUTPUT_SIZE {
                     return Err(Error::WorkReportTooBig);
                 }
             }

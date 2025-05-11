@@ -27,20 +27,7 @@ pub struct TestOutput {
     pub post_state: State,
 }
 
-crate::impl_tests! {
-    assurances,
-    @scale
-    assurance_for_not_engaged_core_1,
-    assurance_with_bad_attestation_parent_1,
-    assurances_for_stale_report_1,
-    assurances_with_bad_signature_1,
-    assurances_with_bad_validator_index_1,
-    assurers_not_sorted_or_unique_1,
-    assurers_not_sorted_or_unique_2,
-    no_assurances_with_stale_report_1,
-    no_assurances_1,
-    some_assurances_1
-}
+include!(concat!(env!("OUT_DIR"), "/assurances.rs"));
 
 mod types {
     use score::{

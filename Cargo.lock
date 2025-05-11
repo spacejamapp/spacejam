@@ -3824,18 +3824,13 @@ dependencies = [
 
 [[package]]
 name = "specjam"
-version = "0.0.8"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6619b82c2064335547547a132954727963d00fa77210e3c8167270b1c050b4f2"
+checksum = "9d2806d57550ea9bff55e7de0f5b68c9b3553099ccded3cde2feff55e49bb9ee"
 dependencies = [
  "anyhow",
- "heck",
  "hex",
- "paste",
- "proc-macro2",
- "quote",
  "serde_json",
- "syn 2.0.100",
 ]
 
 [[package]]

@@ -41,31 +41,7 @@ pub struct TestOutput {
     pub post_state: State,
 }
 
-crate::impl_tests! {
-    safrole,
-    @scale
-    enact_epoch_change_with_no_tickets_1,
-    enact_epoch_change_with_no_tickets_2,
-    enact_epoch_change_with_no_tickets_3,
-    enact_epoch_change_with_no_tickets_4,
-    enact_epoch_change_with_padding_1,
-    publish_tickets_no_mark_1,
-    publish_tickets_no_mark_2,
-    publish_tickets_no_mark_3,
-    publish_tickets_no_mark_4,
-    publish_tickets_no_mark_5,
-    publish_tickets_no_mark_6,
-    publish_tickets_no_mark_7,
-    publish_tickets_no_mark_8,
-    publish_tickets_no_mark_9,
-    publish_tickets_with_mark_1,
-    publish_tickets_with_mark_2,
-    publish_tickets_with_mark_3,
-    publish_tickets_with_mark_4,
-    publish_tickets_with_mark_5,
-    skip_epoch_tail_1,
-    skip_epochs_1
-}
+include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
 /// Represents the Output marks
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]

@@ -1,6 +1,6 @@
 //! JAMCodec serialization implementation
 
-use crate::{Error, Result};
+use crate::{compact::vlen, Error, Result};
 use serde::ser;
 
 /// Serializer for JAMCodec
@@ -144,8 +144,8 @@ impl ser::Serializer for &mut Serializer {
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = len {
             if len > 0xff {
-                // TODO: support longer sequences
-                return Err(anyhow::anyhow!("Seq too long").into());
+                let length = vlen::encode(len as u64);
+                self.output.extend_from_slice(&length);
             }
 
             self.output.push(len as u8);
@@ -296,15 +296,6 @@ impl ser::SerializeTupleStruct for &mut Serializer {
     }
 }
 
-// Tuple variants are a little different. Refer back to the
-// `serialize_tuple_variant` method above:
-//
-//    self.output += "{";
-//    variant.serialize(&mut *self)?;
-//    self.output += ":[";
-//
-// So the `end` method in this impl is responsible for closing both the `]` and
-// the `}`.
 impl ser::SerializeTupleVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;

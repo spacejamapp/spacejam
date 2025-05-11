@@ -41,17 +41,7 @@ pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
     accounts
 }
 
-crate::impl_tests! {
-    preimages,
-    preimage_needed_1,
-    preimage_needed_2,
-    preimage_not_needed_1,
-    preimage_not_needed_2,
-    preimages_order_check_1,
-    preimages_order_check_2,
-    preimages_order_check_3,
-    preimages_order_check_4
-}
+include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 // TODO: clean types later
 mod types {

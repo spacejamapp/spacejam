@@ -1,7 +1,7 @@
 //! Number encoding and decoding
 
 pub mod num;
-mod vlen;
+pub mod vlen;
 
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};

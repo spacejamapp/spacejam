@@ -2,6 +2,8 @@
 
 use crypto::shuffle;
 use serde::{Deserialize, Serialize};
+use specjam::Registry;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TestInput {
@@ -16,9 +18,10 @@ pub struct TestOutput {
 #[test]
 fn tests() -> anyhow::Result<()> {
     // grab `shuffle_tests.json`
-    let test = specjam::registry::tests::TEST_SHUFFLE_SHUFFLE_TESTS;
-    let input: Vec<TestInput> = serde_json::from_str(test.input)?;
-    let output: Vec<TestOutput> = serde_json::from_str(test.output)?;
+    let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
+    let test = registry.shuffle()?.get(0)?;
+    let input: Vec<TestInput> = serde_json::from_str(&test.input)?;
+    let output: Vec<TestOutput> = serde_json::from_str(&test.output)?;
 
     for (source, target) in input.into_iter().zip(output.into_iter()) {
         let mut input = vec![0; source.input as usize];
