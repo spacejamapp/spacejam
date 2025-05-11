@@ -11,12 +11,11 @@ use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
 
     // set up the registry
-    self::try_download(&workspace)?;
-    let stf = workspace.join("../../res/jam-test-vectors");
-    let registry = Registry::new(stf.to_path_buf());
+    try_download(&workspace)?;
+    let registry = Registry::new(workspace.join("res/jam-test-vectors"));
 
     // build all tests
     build_tests(
@@ -76,7 +75,7 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
 }
 
 fn try_download(workspace: &Path) -> Result<()> {
-    if !workspace.join("res").exists() {
+    if !workspace.join("res/jam-test-vectors").exists() {
         fs::create_dir_all(workspace.join("res"))?;
         Command::new("git")
             .args([
