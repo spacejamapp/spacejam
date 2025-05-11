@@ -2,16 +2,18 @@
 
 pub use {
     compact::{Compact, Numeric},
-    de::{visitor::FixedBytesVisitor, Deserializer},
+    de::Deserializer,
     error::{Error, Result},
     ser::Serializer,
-    with::{bytes, var},
+    visitor::FixedBytesVisitor,
+    with::{bytes, vlen},
 };
 
 pub mod compact;
 mod de;
 mod error;
 mod ser;
+mod visitor;
 mod with;
 
 /// Trait for types that can be encoded and decoded using JAMCodec

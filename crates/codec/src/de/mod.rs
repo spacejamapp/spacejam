@@ -4,7 +4,6 @@ use crate::{Error, Result};
 use serde::de::{self, Visitor};
 
 pub mod access;
-pub mod visitor;
 
 /// Deserializer for JAMCodec
 pub struct Deserializer<'de> {

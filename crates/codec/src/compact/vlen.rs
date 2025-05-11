@@ -30,7 +30,13 @@ pub fn encode(value: u64) -> Vec<u8> {
     for (_, base, _, bits, threshold) in THRESHOLDS.into_iter() {
         if value < threshold {
             let mut encoded = vec![base + (value / bits) as u8];
-            encoded.extend_from_slice(&(value % bits).encode());
+            let remainder = (value % bits).encode();
+            if remainder.is_empty() {
+                encoded.push(0);
+            } else {
+                encoded.extend_from_slice(&remainder);
+            }
+
             return encoded;
         }
     }
