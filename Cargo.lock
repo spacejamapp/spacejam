@@ -3824,9 +3824,9 @@ dependencies = [
 
 [[package]]
 name = "specjam"
-version = "0.0.11"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2c53acc894f47a24d8d4e0568ca882af9d504c086192d6bebad26c80726079b"
+checksum = "9d2806d57550ea9bff55e7de0f5b68c9b3553099ccded3cde2feff55e49bb9ee"
 dependencies = [
  "anyhow",
  "hex",
