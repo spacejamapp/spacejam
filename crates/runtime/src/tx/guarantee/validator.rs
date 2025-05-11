@@ -194,13 +194,10 @@ impl GuaranteeValidator<'_> {
             return Err(Error::InsufficientGuarantees);
         }
 
-        tracing::debug!("verifying signing message");
         let message = guarantee.signing_message().map_err(|e| {
-            tracing::error!("error verifying signing message: {e:?}");
+            tracing::error!("Error constructing guarantee signing message: {e:?}");
             Error::BadSignature
         })?;
-
-        tracing::debug!("verified signing message");
 
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
@@ -213,7 +210,10 @@ impl GuaranteeValidator<'_> {
                 sig.signature,
                 self.validators[validator_index].ed25519,
             )
-            .map_err(|_| Error::BadSignature)?
+            .map_err(|e| {
+                tracing::error!("Error verifying ed25519 signature: {e:?}");
+                Error::BadSignature
+            })?
         }
 
         Ok(())

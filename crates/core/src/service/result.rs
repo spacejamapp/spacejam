@@ -36,7 +36,7 @@ pub struct WorkResult {
 /// Represents the result of a work execution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorkExecResult {
-    Ok(#[serde(with = "codec::var")] Vec<u8>),
+    Ok(Vec<u8>),
     OutOfGas,
     Panic,
     BadCode,

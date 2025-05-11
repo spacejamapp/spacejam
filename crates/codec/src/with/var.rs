@@ -9,8 +9,7 @@ pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     value: &T,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error> {
-    let len = vlen::encode(value.as_ref().len() as u64);
-    let mut output = len;
+    let mut output = vlen::encode(value.as_ref().len() as u64);
     output.extend_from_slice(value.as_ref());
     serializer.serialize_bytes(&output)
 }

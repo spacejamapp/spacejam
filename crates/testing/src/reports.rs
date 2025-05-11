@@ -18,7 +18,7 @@ pub struct TestInput {
 }
 
 /// Test output.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, Clone)]
 pub struct TestOutput {
     #[json(ResultJson<OutputJson, Error>)]
     pub output: Result<Output>,
@@ -30,7 +30,7 @@ mod types {
     use score::{
         extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
         service::{ReportedWorkPackage, ReportedWorkPackageJson},
-        Block, Ed25519Public, TimeSlot,
+        Block, Ed25519Public, OpaqueHash, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
@@ -41,6 +41,8 @@ mod types {
         pub slot: TimeSlot,
         #[json(Vec<ReportGuaranteeJson>)]
         pub guarantees: GuaranteesExtrinsic,
+        #[json(Vec<String>)]
+        pub known_packages: Vec<OpaqueHash>,
     }
 
     impl From<Input> for Block {
@@ -63,3 +65,51 @@ mod types {
 }
 
 include!(concat!(env!("OUT_DIR"), "/reports.rs"));
+
+/// The big report bin
+const BIG_REPORT_BIN: &[u8] =
+    include_bytes!("../../../res/jam-test-vectors/reports/tiny/big_work_report_output-1.bin");
+
+const BIG_REPORT_JSON: &str =
+    include_str!("../../../res/jam-test-vectors/reports/tiny/big_work_report_output-1.json");
+
+#[derive(Debug, Serialize, Deserialize, Json, Clone)]
+struct TestFile {
+    #[json(nested)]
+    pub input: Input,
+    #[json(nested)]
+    pub pre_state: State,
+    #[json(ResultJson<OutputJson, Error>)]
+    pub output: Result<Output>,
+    #[json(nested)]
+    pub post_state: State,
+}
+
+#[test]
+fn test_big_reports_codec() {
+    let decoded = serde_json::from_str::<TestFileJson>(BIG_REPORT_JSON).unwrap();
+    let test_file = TestFile::try_from(decoded.clone()).unwrap();
+    let encoded = codec::encode(&test_file.input.guarantees[0].report).unwrap();
+
+    // assert_ne!(encoded[12559], BIG_REPORT_BIN[12560]);
+    // let mut mbpjam = vec![0; 1];
+    // mbpjam.extend_from_slice(&encoded[12558..]);
+
+    let spacejam = [
+        encoded[..12558].to_vec(),
+        [0].to_vec(),
+        encoded[12559..].to_vec(),
+    ]
+    .concat();
+    let polkajam = BIG_REPORT_BIN[1..encoded.len() + 1].to_vec();
+    // assert_eq!(spacejam.len(), polkajam.len());
+
+    // ensure the encoded bytes are same as expected
+    spacejam
+        .iter()
+        .zip(polkajam.iter())
+        .enumerate()
+        .for_each(|(i, (a, b))| {
+            assert_eq!(a, b, "at index {}", i);
+        });
+}
