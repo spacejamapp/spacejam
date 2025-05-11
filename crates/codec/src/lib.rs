@@ -1,18 +1,18 @@
 //! JAMCodec based on the parity scale codec
 
-pub mod compact;
-mod de;
-mod error;
-mod ser;
-mod with;
-
 pub use {
     compact::{Compact, Numeric},
     de::{visitor::FixedBytesVisitor, Deserializer},
     error::{Error, Result},
     ser::Serializer,
-    with::bytes,
+    with::{bytes, var},
 };
+
+pub mod compact;
+mod de;
+mod error;
+mod ser;
+mod with;
 
 /// Trait for types that can be encoded and decoded using JAMCodec
 pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {

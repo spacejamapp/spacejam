@@ -139,7 +139,7 @@ pub const VALIDATORS_SUPER_MAJORITY: u16 = 5;
 /// The number of bytes in the avail bitfield
 pub const AVAIL_BITFIELD_BYTES: usize = 1;
 
-/// The maximum size of a work report output
+/// (W_R) The maximum size of a work report output
 pub const MAX_WORK_REPORT_OUTPUT_SIZE: usize = 48 * 1024;
 
 /// The minimum gas for a service item.

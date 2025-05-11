@@ -89,14 +89,6 @@ pub struct Header {
     pub seal: BandersnatchVrfSignature,
 }
 
-#[cfg(feature = "crypto")]
-impl Header {
-    /// Get the hash of the header
-    pub fn hash(&self) -> anyhow::Result<HeaderHash> {
-        Ok(crypto::blake2b(&codec::encode(self)?))
-    }
-}
-
 impl Default for Header {
     fn default() -> Self {
         Self {
@@ -124,13 +116,25 @@ pub struct Head {
     pub slot: TimeSlot,
 }
 
-impl TryFrom<Header> for Head {
-    type Error = anyhow::Error;
+#[cfg(feature = "crypto")]
+mod crypto_impl {
+    use super::*;
 
-    fn try_from(header: Header) -> Result<Self, Self::Error> {
-        Ok(Self {
-            hash: header.hash()?,
-            slot: header.slot,
-        })
+    impl Header {
+        /// Get the hash of the header
+        pub fn hash(&self) -> anyhow::Result<HeaderHash> {
+            Ok(crypto::blake2b(&codec::encode(self)?))
+        }
+    }
+
+    impl TryFrom<Header> for Head {
+        type Error = anyhow::Error;
+
+        fn try_from(header: Header) -> Result<Self, Self::Error> {
+            Ok(Self {
+                hash: header.hash()?,
+                slot: header.slot,
+            })
+        }
     }
 }

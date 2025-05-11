@@ -54,7 +54,7 @@ fn main() -> Result<()> {
 /// Builds the PVM tests
 fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
-    let section = entry.section.clone();
+    let section = entry.section;
     let ss = section.as_ref();
 
     for (i, test) in entry.into_iter().enumerate() {
@@ -79,14 +79,14 @@ fn try_download(workspace: &Path) -> Result<()> {
     if !workspace.join("res").exists() {
         fs::create_dir_all(workspace.join("res"))?;
         Command::new("git")
-            .args(&[
+            .args([
                 "clone",
                 "https://github.com/spacejamapp/jam-test-vectors",
                 "res/jam-test-vectors",
                 "--depth",
                 "1",
             ])
-            .current_dir(&workspace)
+            .current_dir(workspace)
             .output()?;
     }
 

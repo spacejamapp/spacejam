@@ -145,7 +145,7 @@ impl ser::Serializer for &mut Serializer {
         if let Some(len) = len {
             if len > 0xff {
                 // TODO: support longer sequences
-                return Err(anyhow::anyhow!("Seq too long").into());
+                return Err(anyhow::anyhow!("Seq too long: {len}").into());
             }
 
             self.output.push(len as u8);
@@ -296,15 +296,6 @@ impl ser::SerializeTupleStruct for &mut Serializer {
     }
 }
 
-// Tuple variants are a little different. Refer back to the
-// `serialize_tuple_variant` method above:
-//
-//    self.output += "{";
-//    variant.serialize(&mut *self)?;
-//    self.output += ":[";
-//
-// So the `end` method in this impl is responsible for closing both the `]` and
-// the `}`.
 impl ser::SerializeTupleVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;

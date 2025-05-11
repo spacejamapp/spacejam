@@ -26,8 +26,6 @@ pub struct TestOutput {
     pub post_state: State,
 }
 
-include!(concat!(env!("OUT_DIR"), "/reports.rs"));
-
 mod types {
     use score::{
         extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
@@ -63,3 +61,5 @@ mod types {
         pub reporters: Vec<Ed25519Public>,
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/reports.rs"));
