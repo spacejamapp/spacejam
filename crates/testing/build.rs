@@ -1,7 +1,7 @@
 use anyhow::Result;
 use proc_macro2::Span;
 use quote::ToTokens;
-use specjam::{Entry, Registry, Scale};
+use specjam::{Entry, Registry, Scale, Trace};
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -46,6 +46,18 @@ fn main() -> Result<()> {
         &out_dir.join("statistics.rs"),
     )?;
     build_tests(registry.trie()?, &out_dir.join("trie.rs"))?;
+    build_tests(
+        registry.trace(Trace::Fallback)?,
+        &out_dir.join("traces_fallback.rs"),
+    )?;
+    build_tests(
+        registry.trace(Trace::Fallback)?,
+        &out_dir.join("traces_safrole.rs"),
+    )?;
+    build_tests(
+        registry.trace(Trace::ReportsL0)?,
+        &out_dir.join("traces_reports_l0.rs"),
+    )?;
 
     Ok(())
 }

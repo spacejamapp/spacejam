@@ -321,7 +321,16 @@ impl Runner {
                     output.expected_memory
                 );
             }
-            _ => {}
+            Section::Trace(_) => {
+                use crate::traces;
+
+                let _input = traces::TestInput::from_json(&test.input)?;
+                let _output = traces::TestOutput::from_json(&test.output)?;
+                // let block: Block = input.block.into();
+
+                // tx::transit()
+            }
+            Section::Codec | Section::Shuffle | Section::Trie => {}
         }
 
         Ok(())

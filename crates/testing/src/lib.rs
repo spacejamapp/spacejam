@@ -24,4 +24,5 @@ pub mod runner;
 pub mod safrole;
 pub mod shuffle;
 pub mod statistics;
+pub mod traces;
 pub mod trie;
