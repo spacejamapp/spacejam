@@ -37,12 +37,15 @@ fn test_vlen_foo() {
     assert_eq!(foo.data, decoded.data);
 }
 
-// #[test]
-// fn test_vlen_foo_large() {
-//     let foo = VlenFoo {
-//         data: vec![0u8; 12288],
-//     };
-//     let encoded = codec::encode(&foo).unwrap();
-//     let decoded = codec::decode::<VlenFoo>(&encoded).unwrap();
-//     assert_eq!(foo.data, decoded.data);
-// }
+#[test]
+fn test_vlen_foo_large() {
+    let foo = VlenFoo {
+        data: vec![0u8; 12288],
+    };
+    let encoded = codec::encode(&foo).unwrap();
+    assert_eq!(encoded.len(), 12290);
+    assert_eq!(encoded[..2], vec![176, 0]);
+
+    let decoded = codec::decode::<VlenFoo>(&encoded).unwrap();
+    assert_eq!(foo.data, decoded.data);
+}

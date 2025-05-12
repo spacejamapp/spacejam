@@ -66,36 +66,3 @@ mod types {
 
 // TODO: fix the codec of big work reports
 include!(concat!(env!("OUT_DIR"), "/reports.rs"));
-
-/// The big report bin
-const BIG_REPORT_BIN: &[u8] =
-    include_bytes!("../../../res/jam-test-vectors/reports/tiny/big_work_report_output-1.bin");
-
-const BIG_REPORT_JSON: &str =
-    include_str!("../../../res/jam-test-vectors/reports/tiny/big_work_report_output-1.json");
-
-#[derive(Debug, Serialize, Deserialize, Json, Clone)]
-struct TestFile {
-    #[json(nested)]
-    pub input: Input,
-    #[json(nested)]
-    pub pre_state: State,
-    #[json(ResultJson<OutputJson, Error>)]
-    pub output: Result<Output>,
-    #[json(nested)]
-    pub post_state: State,
-}
-
-#[test]
-fn test_big_reports_codec() {
-    let decoded = serde_json::from_str::<TestFileJson>(BIG_REPORT_JSON).unwrap();
-    let test_file = TestFile::try_from(decoded.clone()).unwrap();
-    let _encoded = codec::encode(&test_file.input.guarantees[0].report).unwrap();
-
-    println!(
-        "{:?}",
-        hex::decode("9a3a97d1950356ef6d3c20acb5ab6699be454b1498ecd513bdc6d849497e42eb")
-    );
-
-    println!("{:?}", BIG_REPORT_BIN);
-}
