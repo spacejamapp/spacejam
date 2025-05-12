@@ -5,7 +5,6 @@ pub use {
     de::Deserializer,
     error::{Error, Result},
     ser::Serializer,
-    visitor::FixedBytesVisitor,
     with::{bytes, vlen},
 };
 
@@ -13,7 +12,7 @@ pub mod compact;
 mod de;
 mod error;
 mod ser;
-mod visitor;
+pub mod visitor;
 mod with;
 
 /// Trait for types that can be encoded and decoded using JAMCodec

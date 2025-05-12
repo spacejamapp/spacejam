@@ -1,6 +1,6 @@
 //! Serialize and deserialize variable length byte arrays.
 
-use crate::compact::vlen;
+use crate::{compact::vlen, visitor::VlenBytesVisitor};
 use serde::de;
 
 /// Serialize fixed byte array that larger than 32 bytes.
@@ -13,11 +13,11 @@ pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
     serializer.serialize_bytes(&output)
 }
 
-/// Deserialize fixed byte array that larger than 32 bytes.
+/// Deserialize variable length byte array
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: TryFrom<Vec<u8>>>(
     deserializer: D,
 ) -> std::result::Result<T, D::Error> {
-    let bytes = deserializer.deserialize_bytes(crate::visitor::VlenBytesVisitor)?;
+    let bytes = deserializer.deserialize_bytes(VlenBytesVisitor)?;
     T::try_from(bytes)
         .map_err(|_| de::Error::custom("Failed to deserialize bytes with variable length"))
 }

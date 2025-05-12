@@ -3,7 +3,9 @@
 use core::fmt;
 use serde::de;
 
-// Add this new visitor for Vec<u8>
+/// Visitor for variable-length byte arrays.
+/// This visitor correctly handles the vlen encoded format where the length
+/// is encoded as a prefix before the actual data.
 pub struct VlenBytesVisitor;
 
 impl<'de> de::Visitor<'de> for VlenBytesVisitor {
@@ -17,8 +19,6 @@ impl<'de> de::Visitor<'de> for VlenBytesVisitor {
     where
         E: de::Error,
     {
-        // For the var module, the actual decoding of the length prefix has already been done
-        // by the time we get here, so we just need to return the full byte array
         Ok(bytes.to_vec())
     }
 
@@ -26,25 +26,13 @@ impl<'de> de::Visitor<'de> for VlenBytesVisitor {
     where
         A: de::SeqAccess<'de>,
     {
-        // Collect all bytes
+        // Collect bytes into a Vec
         let mut bytes = Vec::new();
         while let Some(byte) = seq.next_element()? {
             bytes.push(byte);
         }
 
-        // No need to process the length prefix - just return the full byte array
-        Ok(bytes)
-    }
-}
-
-// Add this implementation for deserializing Vec<u8> directly
-impl<'de> de::DeserializeSeed<'de> for VlenBytesVisitor {
-    type Value = Vec<u8>;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(self)
+        // Process the bytes using the visit_bytes method
+        self.visit_bytes(&bytes)
     }
 }

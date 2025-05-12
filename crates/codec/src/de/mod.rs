@@ -1,6 +1,6 @@
 //! JAMCodec deserialization implementation
 
-use crate::{Error, Result};
+use crate::{compact::vlen, Error, Result};
 use serde::de::{self, Visitor};
 
 pub mod access;
@@ -23,13 +23,15 @@ impl<'de> Deserializer<'de> {
             .ok_or_else(|| anyhow::anyhow!("EOF").into())
     }
 
-    fn next_byte(&mut self) -> Result<u8> {
+    /// Get the next byte from the input.
+    pub fn next_byte(&mut self) -> Result<u8> {
         let byte = self.peek_byte()?;
         self.index += 1;
         Ok(byte)
     }
 
-    fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
+    /// Get the next bytes from the input.
+    pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.index + len > self.input.len() {
             return Err(anyhow::anyhow!("EOF").into());
         }
@@ -184,12 +186,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
+    // we are default using the variable length decoding.
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        let len = self.next_byte()? as usize;
-        let bytes = self.next_bytes(len)?;
+        let length = vlen::decode_from_de(self)?;
+        let bytes = self.next_bytes(length as usize)?;
         visitor.visit_borrowed_bytes(bytes)
     }
 
@@ -236,7 +239,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        // TODO: decode large sequences
+        // TODO: decode large sequences?
         let len = self.next_byte()? as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }

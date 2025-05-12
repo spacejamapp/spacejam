@@ -1,6 +1,6 @@
 //! Serialize and deserialize fixed byte array that larger than 32 bytes.
 
-use crate::FixedBytesVisitor;
+use crate::visitor::FixedBytesVisitor;
 
 /// Serialize fixed byte array that larger than 32 bytes.
 pub fn serialize<S: serde::ser::Serializer, T: AsRef<[u8]>>(
