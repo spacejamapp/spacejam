@@ -1,0 +1,15 @@
+[package]
+name = "specjam"
+version = "0.0.13"
+edition = "2021"
+description = "A tool spawns binary runner for testing the JAM spec"
+license = "GPL-3.0"
+documentation = "https://docs.rs/specjam"
+repository = "https://github.com/spacejamapp/specjam"
+homepage = "https://github.com/spacejamapp/specjam"
+exclude = ["jamtestvectors"]
+
+[dependencies]
+anyhow.workspace = true
+hex.workspace = true
+serde_json.workspace = true
