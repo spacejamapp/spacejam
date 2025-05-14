@@ -94,7 +94,8 @@ pub trait Storage: KVStorage {
             }
 
             let mut key = [0; 32];
-            key.copy_from_slice(&k);
+            let len = k.len().min(32);
+            key[..len].copy_from_slice(&k[..len]);
             kvs.push((key, v));
         }
 
