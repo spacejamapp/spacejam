@@ -21,6 +21,9 @@ pub trait KVStorage {
     /// Remove a key-value pair from the storage
     fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
 
+    /// Iterate over the storage
+    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
+
     /// Iterate over the storage with a prefix
     fn prefix_iter(
         &self,
@@ -90,6 +93,19 @@ impl KVStorage for MemoryDb {
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
         data.remove(key.as_ref());
         Ok(())
+    }
+
+    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        let data = self
+            .data
+            .read()
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
+
+        // Clone all entries to avoid holding the lock during iteration
+        let entries: Vec<(Vec<u8>, Vec<u8>)> =
+            data.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+
+        Ok(entries.into_iter().map(Ok))
     }
 
     fn prefix_iter(
