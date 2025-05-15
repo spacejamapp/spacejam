@@ -8,10 +8,12 @@ use crate::{
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT,
 };
+pub use info::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub mod account;
+pub mod info;
 pub mod key;
 
 /// The state of SpaceJam
