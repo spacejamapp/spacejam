@@ -72,12 +72,23 @@ fn test_state_keys() {
     for keyval in output.post_state.keyvals {
         let key = keyval.key.as_state_key();
 
-        println!("key: 0x{}, info: {:?}", hex::encode(key), key.info());
-        kvs.push((key, keyval.value));
+        let mut key31 = [0; 31];
+        key31.copy_from_slice(&key[..31]);
+
+        println!("key: 0x{}, info: {:?}", hex::encode(key31), key.info());
+        kvs.push((key31, keyval.value));
     }
 
-    let root = merkle::trie(&kvs, 0);
+    // kvs.sort_by_key(|k| k.0);
+    let root = merkle::trie31(&kvs);
+
+    // got 0x03ade85eed0bfb197cc6e1591f6fd0e746ad0920714c0b1feb7643dd70e476cf
     println!("state root: 0x{}", hex::encode(root));
+    // expected 0xd7b25f6a2fc5c044485634121e50caf075ef54326608a36485f3e8233820d1da
+    println!(
+        "expected state root: 0x{}",
+        hex::encode(output.post_state.state_root)
+    );
 }
 
 mod fallback {

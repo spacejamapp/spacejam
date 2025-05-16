@@ -52,7 +52,7 @@ pub enum StateKey {
     /// The entropy (η)
     Entropy,
     /// The validators (ι, κ, λ)
-    Validators,
+    Validators { kind: ValidatorKind },
     /// The pending reports (ρ)
     PendingReports,
     /// The timeslot (τ)
@@ -84,6 +84,17 @@ pub enum ServiceField {
     Lookup { length: u32 },
 }
 
+/// The kind of validator
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidatorKind {
+    /// The current validator (ι)
+    Current,
+    /// The previous validator (κ)
+    Previous,
+    /// The next validator (λ)
+    Next,
+}
+
 impl StateKeyInfo for [u8; 32] {
     fn info(&self) -> StateKey {
         match *self {
@@ -93,9 +104,15 @@ impl StateKeyInfo for [u8; 32] {
             key::SAFROLE => StateKey::Safrole,
             key::DISPUTES => StateKey::Disputes,
             key::ENTROPY => StateKey::Entropy,
-            key::NEXT_VALIDATORS => StateKey::Validators,
-            key::CURRENT_VALIDATORS => StateKey::Validators,
-            key::PREVIOUS_VALIDATORS => StateKey::Validators,
+            key::NEXT_VALIDATORS => StateKey::Validators {
+                kind: ValidatorKind::Next,
+            },
+            key::CURRENT_VALIDATORS => StateKey::Validators {
+                kind: ValidatorKind::Current,
+            },
+            key::PREVIOUS_VALIDATORS => StateKey::Validators {
+                kind: ValidatorKind::Previous,
+            },
             key::PENDING_REPORTS => StateKey::PendingReports,
             key::TIMESLOT => StateKey::Timeslot,
             key::PRIVILEGED_SERVICE => StateKey::Privileges,
