@@ -18,7 +18,7 @@ impl StateKeyLike for Vec<u8> {
     fn as_state_key(&self) -> OpaqueHash {
         let mut buf = [0u8; 32];
         let len = self.len();
-        buf[..len].copy_from_slice(&self);
+        buf[..len].copy_from_slice(self);
         buf
     }
 }

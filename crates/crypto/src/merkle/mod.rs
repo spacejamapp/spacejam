@@ -9,4 +9,4 @@ pub mod trie31;
 
 pub use binary::MerkleTree;
 pub use trie::merkle as trie;
-pub use trie31::merkle as trie31;
+pub use trie31::trie as trie31;

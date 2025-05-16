@@ -1,11 +1,6 @@
 //! state transition traces
 
-use crypto::merkle;
-use score::{
-    block::BlockJson,
-    state::{StateKeyInfo, StateKeyLike},
-    Block, OpaqueHash,
-};
+use score::{block::BlockJson, state::StateKeyLike, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -63,31 +58,20 @@ fn test_state_keys() {
         .test("00000000")
         .expect("failed to load fallback test");
 
-    // let input = TestInput::from_json(&fallback.input).expect("failed to parse input");
     let output = TestOutput::from_json(&fallback.output).expect("failed to parse output");
-    println!("keyvals count: {:?}", output.post_state.keyvals.len());
-
-    // prints the state keys info and calculate the state root
     let mut kvs = Vec::new();
     for keyval in output.post_state.keyvals {
         let key = keyval.key.as_state_key();
-
         let mut key31 = [0; 31];
-        key31.copy_from_slice(&key[..31]);
 
-        println!("key: 0x{}, info: {:?}", hex::encode(key31), key.info());
-        kvs.push((key31, keyval.value));
+        key31.copy_from_slice(&key[..31]);
+        kvs.push((key31, keyval.value.clone()));
     }
 
-    // kvs.sort_by_key(|k| k.0);
-    let root = merkle::trie31(&kvs);
-
-    // got 0x03ade85eed0bfb197cc6e1591f6fd0e746ad0920714c0b1feb7643dd70e476cf
-    println!("state root: 0x{}", hex::encode(root));
-    // expected 0xd7b25f6a2fc5c044485634121e50caf075ef54326608a36485f3e8233820d1da
-    println!(
-        "expected state root: 0x{}",
-        hex::encode(output.post_state.state_root)
+    let state_root = crypto::merkle::trie31(&kvs);
+    assert_eq!(
+        state_root, output.post_state.state_root,
+        "Calculated state root does not match expected value"
     );
 }
 
