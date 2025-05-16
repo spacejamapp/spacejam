@@ -1,22 +1,24 @@
 //! State information
 
-use crate::{state::key, OpaqueHash};
+use crate::{state::key, OpaqueHash, StorageKey};
 
 /// State key like interface
 pub trait StateKeyLike {
     /// Get the state key
-    fn as_state_key(&self) -> OpaqueHash;
+    fn as_state_key(&self) -> StorageKey;
 }
 
 impl StateKeyLike for OpaqueHash {
-    fn as_state_key(&self) -> OpaqueHash {
-        *self
+    fn as_state_key(&self) -> StorageKey {
+        let mut buf = [0u8; 31];
+        buf[..31].copy_from_slice(self);
+        buf
     }
 }
 
 impl StateKeyLike for Vec<u8> {
-    fn as_state_key(&self) -> OpaqueHash {
-        let mut buf = [0u8; 32];
+    fn as_state_key(&self) -> StorageKey {
+        let mut buf = [0u8; 31];
         let len = self.len();
         buf[..len].copy_from_slice(self);
         buf
@@ -24,8 +26,8 @@ impl StateKeyLike for Vec<u8> {
 }
 
 impl StateKeyLike for &[u8] {
-    fn as_state_key(&self) -> OpaqueHash {
-        let mut buf = [0u8; 32];
+    fn as_state_key(&self) -> StorageKey {
+        let mut buf = [0u8; 31];
         let len = self.len();
         buf[..len].copy_from_slice(self);
         buf
@@ -95,7 +97,7 @@ pub enum ValidatorKind {
     Next,
 }
 
-impl StateKeyInfo for [u8; 32] {
+impl StateKeyInfo for StorageKey {
     fn info(&self) -> StateKey {
         match *self {
             key::AUTHORIZATION_POOLS => StateKey::AuthorizationPools,

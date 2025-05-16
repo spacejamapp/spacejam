@@ -1,6 +1,6 @@
 //! state transition traces
 
-use score::{block::BlockJson, state::StateKeyLike, Block, OpaqueHash};
+use score::{block::BlockJson, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

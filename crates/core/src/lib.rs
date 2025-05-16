@@ -195,6 +195,9 @@ pub const JAM_FALLBACK_SEAL: [u8; 17] = *b"jam_fallback_seal";
 
 // crypto types
 
+/// The type for a storage key
+pub type StorageKey = [u8; 31];
+
 /// The type for a bandersnatch public key
 pub type BandersnatchPublic = [u8; 32];
 
