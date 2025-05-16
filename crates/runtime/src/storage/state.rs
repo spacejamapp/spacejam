@@ -93,13 +93,13 @@ pub trait Storage: KVStorage {
                 continue;
             }
 
-            let mut key = [0; 32];
-            let len = k.len().min(32);
+            let mut key = [0; 31];
+            let len = k.len().min(31);
             key[..len].copy_from_slice(&k[..len]);
             kvs.push((key, v));
         }
 
-        Ok(merkle::trie(&kvs, 0))
+        Ok(merkle::trie31(&kvs))
     }
 
     /// Fetch the authorization pools from the storage
