@@ -1,7 +1,7 @@
 //! Hooks for the runtime
 
 use anyhow::Result;
-use score::{Block, OpaqueHash, ServiceId, block::Head, state::key};
+use score::{Block, OpaqueHash, ServiceId, StorageKey, block::Head, state::key};
 use std::collections::{BTreeMap, HashMap};
 
 /// Hooks for the runtime
@@ -17,7 +17,7 @@ pub trait Hook: Send + Sync {
     }
 
     /// Called when a key-value pair is updated
-    fn on_key_value(&self, _hash: OpaqueHash, _key: OpaqueHash, _value: &[u8]) -> Result<()> {
+    fn on_key_value(&self, _hash: OpaqueHash, _key: StorageKey, _value: &[u8]) -> Result<()> {
         Ok(())
     }
 
@@ -25,7 +25,7 @@ pub trait Hook: Send + Sync {
     fn on_diff(
         &self,
         hash: OpaqueHash,
-        diff: HashMap<OpaqueHash, Vec<u8>>,
+        diff: HashMap<StorageKey, Vec<u8>>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             let mut data = BTreeMap::new();

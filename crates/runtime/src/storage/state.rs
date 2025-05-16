@@ -2,8 +2,9 @@
 //!
 //! TODO: tests for IO. e.g. encoding / decoding of kvs.
 
-use crate::storage::KVStorage;
+use crate::storage::{KVStorage, sync};
 use anyhow::{Context, Result};
+use crypto::merkle;
 use score::{
     CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, TimeSlot,
     block::BlockInfo,
@@ -23,30 +24,6 @@ use score::{
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
 pub trait Storage: KVStorage {
-    /// Batch read a set of key-value pairs from the storage
-    ///
-    /// TODO: rename this method to something else since this for
-    /// fetching jam specified prefix data only.
-    fn prefix_collect(&self, prefix: [u8; 4]) -> Result<Vec<([u8; 32], Vec<u8>)>> {
-        let mut kvs = vec![];
-        let mut index = 0;
-        loop {
-            let Ok(mut storage_iter) = self.prefix_iter(key::prefix(index, &prefix)) else {
-                break;
-            };
-
-            while let Some(Ok((key, value))) = storage_iter.next() {
-                let mut hkey = [0; 32];
-                hkey.copy_from_slice(&key);
-                kvs.push((hkey, value));
-            }
-
-            index += 1;
-        }
-
-        Ok(kvs)
-    }
-
     /// Fetch state from the storage
     ///
     /// We don't decode account data in this batch since it will be too large.
@@ -105,34 +82,24 @@ pub trait Storage: KVStorage {
     }
 
     /// Calculate the root of the state from storage.
+    ///
+    /// FIXME: it is not ideal to store all data in memory
+    /// for calculating the root.
     fn root(&self) -> Result<OpaqueHash> {
-        let mut kvs = vec![];
-        for key in key::CONSTANT_KEYS {
-            kvs.push((key, self.get(key)?.unwrap_or_default()));
+        let mut kvs = Vec::new();
+        for pair in self.iter()? {
+            let (k, v) = pair?;
+            if k.starts_with(sync::BLOCK_KEY) || k.starts_with(sync::SERIES_KEY) {
+                continue;
+            }
+
+            let mut key = [0; 31];
+            let len = k.len().min(31);
+            key[..len].copy_from_slice(&k[..len]);
+            kvs.push((key, v));
         }
 
-        // fetch account state
-        let mut service = 0;
-        while let Some(state) = self.get(account::info(service))? {
-            kvs.push((account::info(service), state));
-            service += 1;
-        }
-
-        // fetch account storage and preimage
-        for prefix in [key::ACCOUNT_STORAGE_PREFIX, key::ACCOUNT_PREIMAGE_PREFIX] {
-            kvs.extend(self.prefix_collect(prefix)?);
-        }
-
-        // fetch lookup data
-        //
-        // TODO: double check how to iterate the lookup data
-        let mut service: u32 = 0;
-        while let Ok(lookup) = self.prefix_collect(service.to_le_bytes()) {
-            kvs.extend(lookup);
-            service += 1;
-        }
-
-        Ok(crypto::merkle::trie(&kvs, 0))
+        Ok(merkle::trie31(&kvs))
     }
 
     /// Fetch the authorization pools from the storage

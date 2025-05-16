@@ -4,7 +4,7 @@ use crate::{Storage, Validator};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    Block, OpaqueHash,
+    Block, StorageKey,
     block::History,
     state::{account, key},
 };
@@ -22,7 +22,7 @@ pub fn transit<V: Pvm>(
     mut block: Block,
     storage: &impl Storage,
     validator: &impl Validator,
-) -> Result<HashMap<OpaqueHash, Vec<u8>>> {
+) -> Result<HashMap<StorageKey, Vec<u8>>> {
     let diff = self::simulate::<V>(&mut block, storage, validator)?;
     storage.batch_write(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
     Ok(diff)
@@ -33,7 +33,7 @@ pub fn simulate<V: Pvm>(
     block: &mut Block,
     storage: &impl Storage,
     validator: &impl Validator,
-) -> Result<HashMap<OpaqueHash, Vec<u8>>> {
+) -> Result<HashMap<StorageKey, Vec<u8>>> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();
 

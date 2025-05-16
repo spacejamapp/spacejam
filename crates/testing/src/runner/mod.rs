@@ -3,8 +3,11 @@
 use ::pvm::Invocation;
 use anyhow::Result;
 use pvmi::Interpreter;
-use runtime::tx;
-use score::block::History;
+use runtime::{
+    storage::{KVStorage, MemoryDb},
+    tx, Storage,
+};
+use score::block::{Block, History};
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
@@ -321,7 +324,26 @@ impl Runner {
                     output.expected_memory
                 );
             }
-            _ => {}
+            Section::Trace(_) => {
+                use crate::traces;
+
+                let input = traces::TestInput::from_json(&test.input)?;
+                let _output = traces::TestOutput::from_json(&test.output)?;
+                let _block: Block = input.block.into();
+                let memdb = MemoryDb::default();
+
+                // 1. verify the state root in pre-state
+                let keyvals = input.pre_state.keyvals;
+                for keyval in keyvals {
+                    memdb
+                        .set(keyval.key, keyval.value)
+                        .expect("failed to set keyval");
+                }
+
+                let state_root = memdb.root().expect("failed to get state root");
+                assert_eq!(state_root, input.pre_state.state_root);
+            }
+            Section::Codec | Section::Shuffle | Section::Trie => {}
         }
 
         Ok(())

@@ -8,8 +8,11 @@ use score::{
     extrinsic::{TicketBody, TicketsOrKeys},
 };
 
-const BLOCK_KEY: &[u8] = b"block";
-const SERIES_KEY: &[u8] = b"series";
+/// The key for the block storage
+pub const BLOCK_KEY: &[u8] = b"block";
+
+/// The key for the series storage
+pub const SERIES_KEY: &[u8] = b"series";
 
 /// Sync storage
 pub trait SyncStorage: Storage {

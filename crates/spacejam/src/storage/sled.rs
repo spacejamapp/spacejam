@@ -35,6 +35,14 @@ impl KVStorage for Sled {
         Ok(())
     }
 
+    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        let iter = self.db.iter();
+        Ok(iter.map(|r| {
+            let (k, v) = r?;
+            Ok((k.to_vec(), v.to_vec()))
+        }))
+    }
+
     fn prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,

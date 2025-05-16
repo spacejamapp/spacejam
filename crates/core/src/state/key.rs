@@ -1,61 +1,61 @@
 //! State key constructor
 
-use crate::OpaqueHash;
+use crate::StorageKey;
 
 macro_rules! to_key {
     ($key:expr) => {
         [
             $key, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0,
+            0, 0, 0,
         ]
     };
 }
 
 /// C(1) - The authorization pools (α)
-pub const AUTHORIZATION_POOLS: OpaqueHash = to_key!(1);
+pub const AUTHORIZATION_POOLS: StorageKey = to_key!(1);
 
 /// C(2) - The authorization queue (φ)
-pub const AUTHORIZATION_QUEUE: OpaqueHash = to_key!(2);
+pub const AUTHORIZATION_QUEUE: StorageKey = to_key!(2);
 
 /// C(3) - The recent blocks (β)
-pub const RECENT_BLOCKS: OpaqueHash = to_key!(3);
+pub const RECENT_BLOCKS: StorageKey = to_key!(3);
 
 /// C(4) - State concerning Safrole (γ)
-pub const SAFROLE: OpaqueHash = to_key!(4);
+pub const SAFROLE: StorageKey = to_key!(4);
 
 /// C(5) - Past judgments (disputes) on work-reports and validators (ψ)
-pub const DISPUTES: OpaqueHash = to_key!(5);
+pub const DISPUTES: StorageKey = to_key!(5);
 
 /// C(6) - The entropy accumulator and epochal randomness (η)
-pub const ENTROPY: OpaqueHash = to_key!(6);
+pub const ENTROPY: StorageKey = to_key!(6);
 
 /// C(7) - The next validators (ι)
-pub const NEXT_VALIDATORS: OpaqueHash = to_key!(7);
+pub const NEXT_VALIDATORS: StorageKey = to_key!(7);
 
 /// C(8) - The current validators (κ)
-pub const CURRENT_VALIDATORS: OpaqueHash = to_key!(8);
+pub const CURRENT_VALIDATORS: StorageKey = to_key!(8);
 
 /// C(9) - The previous validators (λ)
-pub const PREVIOUS_VALIDATORS: OpaqueHash = to_key!(9);
+pub const PREVIOUS_VALIDATORS: StorageKey = to_key!(9);
 
 /// C(10) - The pending reports, per core, which are being made available prior to
 /// accumulation. (ρ)
-pub const PENDING_REPORTS: OpaqueHash = to_key!(10);
+pub const PENDING_REPORTS: StorageKey = to_key!(10);
 
 /// C(11) - The current timeslot (τ)
-pub const TIMESLOT: OpaqueHash = to_key!(11);
+pub const TIMESLOT: StorageKey = to_key!(11);
 
 /// C(12) - The privileged service indices (χ)
-pub const PRIVILEGED_SERVICE: OpaqueHash = to_key!(12);
+pub const PRIVILEGED_SERVICE: StorageKey = to_key!(12);
 
 /// C(13) - The activity statistics for the validators (π)
-pub const STATISTICS: OpaqueHash = to_key!(13);
+pub const STATISTICS: StorageKey = to_key!(13);
 
 /// C(14) - The accumulation queue (θ)
-pub const ACCUMULATION_QUEUE: OpaqueHash = to_key!(14);
+pub const ACCUMULATION_QUEUE: StorageKey = to_key!(14);
 
 /// C(15) - The accumulation history (ξ)
-pub const ACCUMULATION_HISTORY: OpaqueHash = to_key!(15);
+pub const ACCUMULATION_HISTORY: StorageKey = to_key!(15);
 
 /// The prefix of account storage (u32::MAX - 1)
 pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [255, 255, 255, 255];
@@ -64,7 +64,7 @@ pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [255, 255, 255, 255];
 pub const ACCOUNT_PREIMAGE_PREFIX: [u8; 4] = [254, 255, 255, 255];
 
 /// The constant keys
-pub const CONSTANT_KEYS: [OpaqueHash; 15] = [
+pub const CONSTANT_KEYS: [StorageKey; 15] = [
     AUTHORIZATION_POOLS,
     AUTHORIZATION_QUEUE,
     RECENT_BLOCKS,
@@ -83,23 +83,23 @@ pub const CONSTANT_KEYS: [OpaqueHash; 15] = [
 ];
 
 /// A trait for state key construction
-pub(crate) trait StorageKey {
+pub(crate) trait StorageKeyEncode {
     /// The key of the state
-    fn key(&self) -> OpaqueHash;
+    fn key(&self) -> StorageKey;
 }
 
-impl StorageKey for u8 {
-    fn key(&self) -> OpaqueHash {
-        let mut key = [0u8; 32];
+impl StorageKeyEncode for u8 {
+    fn key(&self) -> StorageKey {
+        let mut key = [0u8; 31];
         key[0] = *self;
         key
     }
 }
 
 // for service indices
-impl StorageKey for (u8, u32) {
-    fn key(&self) -> OpaqueHash {
-        let mut key = [0u8; 32];
+impl StorageKeyEncode for (u8, u32) {
+    fn key(&self) -> StorageKey {
+        let mut key = [0u8; 31];
         let (i, s) = *self;
         let n = s.to_le_bytes();
 
@@ -118,9 +118,9 @@ impl StorageKey for (u8, u32) {
 }
 
 // used for service account state keys
-impl StorageKey for (u32, [u8; 32]) {
-    fn key(&self) -> OpaqueHash {
-        let mut key = [0u8; 32];
+impl StorageKeyEncode for (u32, [u8; 32]) {
+    fn key(&self) -> StorageKey {
+        let mut key = [0u8; 31];
         let (s, h) = *self;
 
         // Format: [n0, h0, n1, h1, n2, h2, n3, h3, h4, h5, ..., h27]

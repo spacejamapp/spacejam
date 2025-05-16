@@ -1,6 +1,6 @@
 //! Length prefix encoding.
 
-use crate::compact::Numeric;
+use crate::{compact::Numeric, de::Deserializer, Result};
 
 /// The thresholds for the length prefix encoding.
 const THRESHOLDS: [(usize, u8, u8, u64, u64); 7] = [
@@ -30,7 +30,13 @@ pub fn encode(value: u64) -> Vec<u8> {
     for (_, base, _, bits, threshold) in THRESHOLDS.into_iter() {
         if value < threshold {
             let mut encoded = vec![base + (value / bits) as u8];
-            encoded.extend_from_slice(&(value % bits).encode());
+            let remainder = (value % bits).encode();
+            if remainder.is_empty() {
+                encoded.push(0);
+            } else {
+                encoded.extend_from_slice(&remainder);
+            }
+
             return encoded;
         }
     }
@@ -66,6 +72,27 @@ pub fn decode_from(encoded: &[u8]) -> (u64, usize) {
     }
 
     (u64::decode(&encoded[1..9]), 9)
+}
+
+/// Decode a length prefix from a deserializer.
+pub fn decode_from_de(de: &mut Deserializer<'_>) -> Result<u64> {
+    let Ok(prefix) = de.next_byte() else {
+        return Ok(0);
+    };
+
+    if prefix < 0x80 {
+        return Ok(prefix as u64);
+    }
+
+    // loop instead match for returning the length
+    for (length, base, next, bits, _) in THRESHOLDS.into_iter() {
+        if prefix < next {
+            let bytes = de.next_bytes(length)?;
+            return Ok((prefix - base) as u64 * bits + u64::decode(bytes));
+        }
+    }
+
+    Ok(u64::decode(de.next_bytes(8)?))
 }
 
 #[test]
