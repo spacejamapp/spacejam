@@ -157,9 +157,8 @@ impl GuaranteeValidator<'_> {
         //     return Err(Error::BadCoreIndex);
         // }
 
-        if !self.state.auth_pools[guarantee.report.core_index as usize]
-            .contains(&guarantee.report.authorizer_hash)
-        {
+        let core_index = guarantee.report.core_index.cloned() as usize;
+        if !self.state.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
             return Err(Error::CoreUnauthorized);
         }
 
@@ -220,7 +219,7 @@ impl GuaranteeValidator<'_> {
     }
 
     fn validate_guarantors(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
-        let core_index = guarantee.report.core_index as usize;
+        let core_index = guarantee.report.core_index.cloned() as usize;
         let guarantors = guarantee
             .signatures
             .iter()

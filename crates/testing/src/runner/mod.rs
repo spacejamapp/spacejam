@@ -78,7 +78,7 @@ impl Runner {
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
                     for work in available {
-                        assignments[work.core_index as usize] = None;
+                        assignments[work.core_index.cloned() as usize] = None;
                     }
                     input.pre_state.avail_assignments = assignments;
                 }

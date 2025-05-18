@@ -33,7 +33,7 @@ impl<'de> Deserializer<'de> {
     /// Get the next bytes from the input.
     pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.index + len > self.input.len() {
-            return Err(anyhow::anyhow!("EOF").into());
+            return Err(anyhow::anyhow!("EOF: index: {}, len: {}", self.index, len).into());
         }
         let bytes = &self.input[self.index..self.index + len];
         self.index += len;
@@ -239,7 +239,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        // TODO: decode large sequences?
         let len = self.next_byte()? as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }

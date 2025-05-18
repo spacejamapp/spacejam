@@ -25,7 +25,8 @@ pub struct WorkReport {
     pub context: RefineContext,
 
     /// The core index
-    pub core_index: CoreIndex,
+    #[json(compact)]
+    pub core_index: Compact<CoreIndex>,
 
     /// The authorizer hash
     #[json(hex)]

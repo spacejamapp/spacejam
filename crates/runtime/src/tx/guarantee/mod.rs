@@ -148,7 +148,7 @@ pub fn reports(
 ) -> Result<AvailabilityAssignments> {
     let mut next = prev.clone();
     for guarantee in guarantees.iter() {
-        let core_index = guarantee.report.core_index as usize;
+        let core_index = guarantee.report.core_index.cloned() as usize;
         if core_index >= CORES_COUNT {
             return Err(Error::BadCoreIndex);
         }
@@ -183,14 +183,15 @@ pub fn pools(
     let mut processed = Vec::new();
     for guarantee in guarantees {
         // Consume the authorizer from the pool
-        pools[guarantee.report.core_index as usize] = pools[guarantee.report.core_index as usize]
+        let core_index = guarantee.report.core_index.cloned() as usize;
+        pools[core_index] = pools[core_index]
             .iter()
             .filter(|pool| **pool != guarantee.report.authorizer_hash)
             .cloned()
             .collect();
 
         // mark the core as processed
-        processed.push(guarantee.report.core_index as usize);
+        processed.push(core_index);
     }
 
     // add new authorizers from queue to the pools
