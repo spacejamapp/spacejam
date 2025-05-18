@@ -17,10 +17,9 @@ impl<'de> Deserializer<'de> {
     }
 
     fn peek_byte(&self) -> Result<u8> {
-        self.input
-            .get(self.index)
-            .copied()
-            .ok_or_else(|| anyhow::anyhow!("EOF").into())
+        self.input.get(self.index).copied().ok_or_else(|| {
+            anyhow::anyhow!("Failed to peek bytes, EOF: index: {}", self.index).into()
+        })
     }
 
     /// Get the next byte from the input.
@@ -200,7 +199,14 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_bytes(visitor)
+        println!("deserializing byte_buf ...");
+        let prefix = self.peek_byte()?;
+        if prefix < 0x80 {
+            let data = self.next_byte()?;
+            return visitor.visit_bytes(&[data]);
+        } else {
+            self.deserialize_bytes(visitor)
+        }
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>

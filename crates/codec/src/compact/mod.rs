@@ -3,8 +3,10 @@
 pub mod num;
 pub mod vlen;
 
+use crate::visitor::VlenBytesVisitor;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
+
 pub use {
     num::Numeric,
     vlen::{decode, decode_from, encode},
@@ -55,7 +57,7 @@ impl<'de, T: Numeric> Deserialize<'de> for Compact<T> {
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes = <Vec<u8>>::deserialize(deserializer)?;
+        let bytes = deserializer.deserialize_byte_buf(VlenBytesVisitor)?;
         Ok(Compact(T::compact_decode(&bytes)))
     }
 }
