@@ -32,7 +32,7 @@ pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [Opaq
 
 /// (ι', κ', λ') Returns the next state of validators.
 pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validators) -> Validators {
-    let mut validators = validators.clone();
+    let mut validators = *validators;
     if !new_epoch {
         return validators;
     }

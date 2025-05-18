@@ -70,7 +70,15 @@ pub trait RuntimeSpec:
                     .validators
                     .into_iter()
                     .map(ValidatorData::try_from)
-                    .collect::<anyhow::Result<Vec<_>>>()?;
+                    .collect::<anyhow::Result<Vec<_>>>()?
+                    .try_into()
+                    .map_err(|e: Vec<ValidatorData>| {
+                        anyhow::anyhow!(
+                            "failed to convert validators expected length: {}, got: {}",
+                            score::VALIDATORS_COUNT,
+                            e.len()
+                        )
+                    })?;
 
                 runtime.import_genesis(block, &validators).await?;
             }

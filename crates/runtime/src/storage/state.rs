@@ -9,7 +9,7 @@ use score::{
     CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, TimeSlot,
     block::BlockInfo,
     extrinsic::DisputesRecords,
-    safrole::{Safrole, ValidatorData},
+    safrole::{Safrole, ValidatorsData},
     service::{
         Privileges, ServiceAccountData, ServiceAccountState, ServiceItem, ServicePreimage,
         WorkReport,
@@ -157,7 +157,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the next validators
-    fn next_validators(&self) -> Result<Vec<ValidatorData>> {
+    fn next_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
                 .get(key::NEXT_VALIDATORS)?
@@ -167,7 +167,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the current validators
-    fn current_validators(&self) -> Result<Vec<ValidatorData>> {
+    fn current_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
                 .get(key::CURRENT_VALIDATORS)?
@@ -177,7 +177,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the previous validators
-    fn previous_validators(&self) -> Result<Vec<ValidatorData>> {
+    fn previous_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
                 .get(key::PREVIOUS_VALIDATORS)?

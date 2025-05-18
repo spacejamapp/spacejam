@@ -106,8 +106,8 @@ impl Grandpa {
 
         // if new epoch start
         if let Some(mark) = next_validators {
-            self.grid.prev = self.grid.curr.clone();
-            self.grid.curr = self.grid.next.clone();
+            self.grid.prev = self.grid.curr;
+            self.grid.curr = self.grid.next;
             self.grid.next = mark;
         }
 
