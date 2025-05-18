@@ -38,14 +38,17 @@ pub struct ActivityRecord {
 pub struct Statistics {
     /// Current epoch statistics
     #[json(nested)]
+    #[serde(rename = "vals_curr_stats")]
     pub vals_current: Vec<ActivityRecord>,
 
     /// Last epoch statistics
     #[json(nested)]
+    #[serde(rename = "vals_last_stats")]
     pub vals_last: Vec<ActivityRecord>,
 
     /// Current core activity records
     #[json(nested)]
+    #[serde(default)]
     pub cores: Vec<CoreActivityRecord>,
 }
 

@@ -40,6 +40,7 @@ pub struct TestOutput {
 pub struct State {
     /// The statistics state
     #[json(nested)]
+    #[serde(flatten)]
     pub statistics: Statistics,
 
     /// The current time slot
