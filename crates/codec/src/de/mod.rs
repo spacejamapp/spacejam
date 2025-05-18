@@ -203,7 +203,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         let prefix = self.peek_byte()?;
         if prefix < 0x80 {
             let data = self.next_byte()?;
-            return visitor.visit_bytes(&[data]);
+            visitor.visit_bytes(&[data])
         } else {
             self.deserialize_bytes(visitor)
         }

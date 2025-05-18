@@ -52,7 +52,7 @@ pub fn safrole(
     validators: &Validators,
     tickets: &TicketsExtrinsic,
 ) -> Result<Safrole> {
-    if slot <= tau {
+    if slot <= tau && tau != 0 {
         tracing::error!("slot {} is less than tau {}", slot, tau);
         return Err(Error::BadSlot);
     }

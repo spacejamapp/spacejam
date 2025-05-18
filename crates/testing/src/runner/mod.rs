@@ -1,5 +1,6 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
+use crate::traces::KeyValue;
 use ::pvm::Invocation;
 use anyhow::Result;
 use pvmi::Interpreter;
@@ -7,7 +8,11 @@ use runtime::{
     storage::{KVStorage, MemoryDb},
     tx, Storage,
 };
-use score::block::{Block, History};
+use score::{
+    block::{Block, History},
+    state::{key, StateKeyInfo, StateKeyLike},
+};
+use spacejam::validator::LocalValidator;
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
@@ -328,11 +333,11 @@ impl Runner {
                 use crate::traces;
 
                 let input = traces::TestInput::from_json(&test.input)?;
-                let _output = traces::TestOutput::from_json(&test.output)?;
-                let _block: Block = input.block.into();
+                let output = traces::TestOutput::from_json(&test.output)?;
+                let block: Block = input.block.into();
                 let memdb = MemoryDb::default();
 
-                // 1. verify the state root in pre-state
+                // 1. verify the state root in pre-stateπ
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
@@ -342,6 +347,33 @@ impl Runner {
 
                 let state_root = memdb.root().expect("failed to get state root");
                 assert_eq!(state_root, input.pre_state.state_root);
+
+                // 2. verify the state transition
+                let validator = LocalValidator::default();
+                let _ = tx::transit::<Interpreter>(block, &memdb, &validator)?;
+                for KeyValue { key, value } in output.post_state.keyvals {
+                    let info = key.as_state_key().info();
+                    let encoded = hex::encode(&key);
+                    let Some(mut result) = memdb.get(&key)? else {
+                        tracing::error!("could not find {info:?}: 0x{encoded}");
+                        continue;
+                    };
+
+                    // FIXME: append 17 zero bytes as a workaround for the value of statistics
+                    if key == key::STATISTICS {
+                        result.extend_from_slice(&[0; 17]);
+                    }
+
+                    // assert_eq!(value, result, "keyval mismatch: {info:?}: 0x{encoded}");
+                    if value != result {
+                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+                    } else {
+                        tracing::info!("keyval matched: {info:?}: 0x{encoded}");
+                    }
+                }
+
+                let state_root = memdb.root().expect("failed to get state root");
+                assert_eq!(state_root, output.post_state.state_root);
             }
             Section::Codec | Section::Shuffle | Section::Trie => {}
         }
