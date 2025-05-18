@@ -12,7 +12,6 @@ use score::{
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
 };
-use spacejam::validator::LocalValidator;
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
@@ -349,24 +348,27 @@ impl Runner {
                 assert_eq!(state_root, input.pre_state.state_root);
 
                 // 2. verify the state transition
-                let validator = LocalValidator::default();
-                let _ = tx::transit::<Interpreter>(block, &memdb, &validator)?;
+                let _ = tx::transit::<Interpreter>(block, &memdb)?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
-                    let Some(mut result) = memdb.get(&key)? else {
+                    let Some(result) = memdb.get(&key)? else {
                         tracing::error!("could not find {info:?}: 0x{encoded}");
                         continue;
                     };
 
-                    // FIXME: append 17 zero bytes as a workaround for the value of statistics
-                    if key == key::STATISTICS {
-                        result.extend_from_slice(&[0; 17]);
-                    }
-
                     // assert_eq!(value, result, "keyval mismatch: {info:?}: 0x{encoded}");
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+                        if key == key::ENTROPY {
+                            assert_eq!(
+                                value,
+                                result,
+                                "entropy mismatched expected \n0x{}\n, got \n0x{}",
+                                hex::encode(&value),
+                                hex::encode(&result)
+                            );
+                        }
                     } else {
                         tracing::info!("keyval matched: {info:?}: 0x{encoded}");
                     }

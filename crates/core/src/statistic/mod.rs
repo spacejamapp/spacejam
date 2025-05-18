@@ -25,6 +25,10 @@ pub struct Statistics {
     #[json(Vec<ValidatorActivityRecordJson>)]
     #[serde(rename = "vals_last_stats")]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
+
+    // FIXME: workaround for async with polkavm encoding.
+    #[serde(default)]
+    pub workaorund: [u8; 17],
     /*  /// Current core activity records
     #[json(Vec<CoreActivityRecordJson>)]
     #[serde(default)]

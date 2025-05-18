@@ -1,6 +1,6 @@
 //! Block sync validation
 
-use crate::{Storage, Validator};
+use crate::Storage;
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -21,9 +21,8 @@ pub mod ticket;
 pub fn transit<V: Pvm>(
     mut block: Block,
     storage: &impl Storage,
-    validator: &impl Validator,
 ) -> Result<HashMap<StorageKey, Vec<u8>>> {
-    let diff = self::simulate::<V>(&mut block, storage, validator)?;
+    let diff = self::simulate::<V>(&mut block, storage)?;
     storage.batch_write(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
     Ok(diff)
 }
@@ -32,7 +31,6 @@ pub fn transit<V: Pvm>(
 pub fn simulate<V: Pvm>(
     block: &mut Block,
     storage: &impl Storage,
-    validator: &impl Validator,
 ) -> Result<HashMap<StorageKey, Vec<u8>>> {
     let mut state = storage.state()?;
     let mut diff = HashMap::new();
@@ -44,7 +42,7 @@ pub fn simulate<V: Pvm>(
     // The first round computation
     {
         // (η') Update entropy (6.22)
-        let entropy = validator.entropy(state.entropy[0], &block.header.entropy_source)?;
+        let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         diff.insert(key::ENTROPY, codec::encode(&state.entropy)?);
 
