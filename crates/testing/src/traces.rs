@@ -45,7 +45,6 @@ pub struct KeyValue {
 
     /// The value
     #[json(hex)]
-    #[serde(with = "codec::vlen")]
     pub value: Vec<u8>,
 }
 

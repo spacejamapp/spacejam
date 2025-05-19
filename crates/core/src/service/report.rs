@@ -34,7 +34,6 @@ pub struct WorkReport {
 
     /// The auth output
     #[json(hex)]
-    #[serde(with = "codec::vlen")]
     pub auth_output: Vec<u8>,
 
     /// The segment root lookup directory

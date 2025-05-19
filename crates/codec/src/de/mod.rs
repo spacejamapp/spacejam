@@ -185,7 +185,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    // we are default using the variable length decoding.
+    // NOTE: this is only used for the compact decoding for `Vec<u8>`
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -195,11 +195,13 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         visitor.visit_borrowed_bytes(bytes)
     }
 
+    /// NOTE: this is only used for the compact decoding for numeric types
+    ///
+    /// TODO: waiting for using compact form for all numbers in JAM.
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        println!("deserializing byte_buf ...");
         let prefix = self.peek_byte()?;
         if prefix < 0x80 {
             let data = self.next_byte()?;
@@ -245,7 +247,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len = self.next_byte()? as usize;
+        let len = vlen::decode_from_de(self)? as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 

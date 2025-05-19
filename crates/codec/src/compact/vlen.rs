@@ -121,3 +121,8 @@ fn roundtrip() {
         assert_eq!(value, decoded);
     }
 }
+
+#[test]
+fn vlen_zero() {
+    assert_eq!(encode(0), vec![0]);
+}
