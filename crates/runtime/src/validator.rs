@@ -3,7 +3,7 @@
 use anyhow::Result;
 use score::{
     BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
-    Ed25519Public, OpaqueHash, ValidatorMetadata, safrole::ValidatorData,
+    Ed25519Public, ValidatorMetadata, safrole::ValidatorData,
 };
 
 /// Validator interface
@@ -55,14 +55,6 @@ pub trait Validator {
             bandersnatch: self.bandersnatch_public_key(),
             metadata: self.metadata(),
         }
-    }
-
-    /// Generate entropy from the given block header GP: (6.22)
-    fn entropy(&self, entropy: OpaqueHash, source: &BandersnatchVrfSignature) -> Result<[u8; 32]> {
-        let output = crypto::vrf::ietf_output(*source).unwrap_or_default();
-        let mut input = entropy.to_vec();
-        input.extend_from_slice(&output);
-        Ok(crypto::blake2b(&input))
     }
 }
 

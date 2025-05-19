@@ -13,15 +13,18 @@ mod validator;
 /// Safrole consensus state
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Safrole {
-    /// Sealing-key contest ticket accumulator (gamma_a)
-    pub accumulator: TicketsAccumulator,
     /// Next epoch's validators (gamma_k)
     pub validators: ValidatorsData,
-    /// Sealing-key series of the current epoch (gamma_s)
-    pub series: TicketsOrKeys,
+
     /// Bandersnatch ring commitment (gamma_z)
     #[serde(with = "codec::bytes")]
     pub ring_commitment: BandersnatchRingCommitment,
+
+    /// Sealing-key series of the current epoch (gamma_s)
+    pub series: TicketsOrKeys,
+
+    /// Sealing-key contest ticket accumulator (gamma_a)
+    pub accumulator: TicketsAccumulator,
 }
 
 impl Safrole {
@@ -33,19 +36,18 @@ impl Safrole {
         offenders: &[Ed25519Public],
     ) -> ValidatorsData {
         if !new_epoch {
-            return self.validators.clone();
+            return self.validators;
         }
 
-        drawn
-            .iter()
-            .map(|validator| {
-                if offenders.contains(&validator.ed25519) {
-                    Default::default()
-                } else {
-                    validator.clone()
-                }
-            })
-            .collect()
+        let mut next = [ValidatorData::default(); crate::VALIDATORS_COUNT as usize];
+        for (i, validator) in drawn.iter().enumerate() {
+            next[i] = if offenders.contains(&validator.ed25519) {
+                Default::default()
+            } else {
+                *validator
+            };
+        }
+        next
     }
 
     /// Collects the epoch mark.
@@ -104,7 +106,7 @@ impl Default for Safrole {
     fn default() -> Self {
         Self {
             accumulator: vec![],
-            validators: vec![],
+            validators: Default::default(),
             series: TicketsOrKeys::default(),
             ring_commitment: [0u8; 144],
         }

@@ -141,7 +141,7 @@ impl<'a, C: Config> Author<'a, C> {
         builder = builder.author_index(author_index as u16);
 
         // 5. simulate the block
-        tx::simulate::<C::Vm>(&mut builder, &self.storage, &self.validator)?;
+        tx::simulate::<C::Vm>(&mut builder, &self.storage)?;
 
         // 6. seal the block
         let block = self.seal(builder.into(), &keys)?;

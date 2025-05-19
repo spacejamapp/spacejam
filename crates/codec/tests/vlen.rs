@@ -21,7 +21,6 @@ fn test_vlen() {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct VlenFoo {
-    #[serde(with = "codec::vlen")]
     data: Vec<u8>,
 }
 
@@ -48,4 +47,14 @@ fn test_vlen_foo_large() {
 
     let decoded = codec::decode::<VlenFoo>(&encoded).unwrap();
     assert_eq!(foo.data, decoded.data);
+}
+
+#[test]
+fn just_vec() {
+    let vec = vec![1u8, 2, 3];
+    let encoded = codec::encode(&vec).unwrap();
+    assert_eq!(encoded, vec![3, 1, 2, 3]);
+
+    let decoded: Vec<u8> = codec::decode(&encoded).unwrap();
+    assert_eq!(decoded, vec![1u8, 2, 3]);
 }

@@ -5,7 +5,7 @@ pub use {
     de::Deserializer,
     error::{Error, Result},
     ser::Serializer,
-    with::{bytes, vlen},
+    with::bytes,
 };
 
 pub mod compact;

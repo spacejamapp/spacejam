@@ -32,7 +32,7 @@ pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [Opaq
 
 /// (ι', κ', λ') Returns the next state of validators.
 pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validators) -> Validators {
-    let mut validators = validators.clone();
+    let mut validators = *validators;
     if !new_epoch {
         return validators;
     }
@@ -52,7 +52,7 @@ pub fn safrole(
     validators: &Validators,
     tickets: &TicketsExtrinsic,
 ) -> Result<Safrole> {
-    if slot <= tau {
+    if slot <= tau && tau != 0 {
         tracing::error!("slot {} is less than tau {}", slot, tau);
         return Err(Error::BadSlot);
     }

@@ -1,4 +1,6 @@
 //! Variable length byte array visitor
+//!
+//! TODO: this visitor should be removed in the next optimization.
 
 use core::fmt;
 use serde::de;
@@ -8,7 +10,7 @@ use serde::de;
 /// is encoded as a prefix before the actual data.
 pub struct VlenBytesVisitor;
 
-impl<'de> de::Visitor<'de> for VlenBytesVisitor {
+impl de::Visitor<'_> for VlenBytesVisitor {
     type Value = Vec<u8>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -20,19 +22,5 @@ impl<'de> de::Visitor<'de> for VlenBytesVisitor {
         E: de::Error,
     {
         Ok(bytes.to_vec())
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: de::SeqAccess<'de>,
-    {
-        // Collect bytes into a Vec
-        let mut bytes = Vec::new();
-        while let Some(byte) = seq.next_element()? {
-            bytes.push(byte);
-        }
-
-        // Process the bytes using the visit_bytes method
-        self.visit_bytes(&bytes)
     }
 }

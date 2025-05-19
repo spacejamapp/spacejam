@@ -139,7 +139,7 @@ pub trait SyncStorage: Storage {
     fn on_new_epoch(&self) -> Result<()> {
         let next_series = [SERIES_KEY, b"next"].concat();
         if let Some(value) = self.get(&next_series)? {
-            let series: Vec<TicketBody> = codec::decode(&value)?;
+            let series: [TicketBody; score::EPOCH_LENGTH as usize] = codec::decode(&value)?;
             self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
         } else {
             self.remove(SERIES_KEY)?;

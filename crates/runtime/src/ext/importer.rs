@@ -9,7 +9,7 @@ use score::{
     Block, EntropyBuffer,
     block::{BlockInfo, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
-    safrole::{Safrole, ValidatorData},
+    safrole::{Safrole, ValidatorsData},
     state::key,
 };
 
@@ -18,7 +18,7 @@ impl<C: Config> Runtime<C> {
     pub async fn import_genesis(
         &self,
         block: Block,
-        validators: &[ValidatorData],
+        validators: &ValidatorsData,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
         self.storage.set_block(&block)?;
@@ -44,16 +44,16 @@ impl<C: Config> Runtime<C> {
             TicketsOrKeys::fallback(validators.iter().map(|v| v.bandersnatch).collect(), entropy);
         let safrole = Safrole {
             series: series.clone(),
-            validators: validators.to_vec(),
+            validators: *validators,
             ..Default::default()
         };
         self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
 
         // 5. initialize the grandpa state
         let mut grandpa = self.grandpa.write().await;
-        grandpa.grid.next = validators.to_vec();
-        grandpa.grid.curr = grandpa.grid.next.clone();
-        grandpa.grid.prev = grandpa.grid.curr.clone();
+        grandpa.grid.next = *validators;
+        grandpa.grid.curr = grandpa.grid.next;
+        grandpa.grid.prev = grandpa.grid.curr;
         grandpa.finalize(block.header.clone(), None)?;
 
         Ok(())
@@ -76,7 +76,7 @@ impl<C: Config> Runtime<C> {
 
         // 1. transit the global state
         let hash = block.header.hash()?;
-        let diff = tx::transit::<C::Vm>(block.clone(), &self.storage, &self.validator)?;
+        let diff = tx::transit::<C::Vm>(block.clone(), &self.storage)?;
         tracing::info!(
             "finalized block#{}@{}, previous block#{}@{}",
             block.header.slot,

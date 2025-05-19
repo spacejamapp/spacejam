@@ -35,7 +35,7 @@ impl<C: runtime::Config> Network<C> {
     /// Broadcast a ticket to all current validators in the network.
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
     pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) -> anyhow::Result<()> {
-        let validators = self.grandpa.read().await.grid.curr.clone();
+        let validators = self.grandpa.read().await.grid.curr;
         let pool = self.pool.read().await.clone();
 
         tracing::trace!("broadcasting to {} peers", pool.len());

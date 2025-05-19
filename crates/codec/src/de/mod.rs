@@ -17,10 +17,9 @@ impl<'de> Deserializer<'de> {
     }
 
     fn peek_byte(&self) -> Result<u8> {
-        self.input
-            .get(self.index)
-            .copied()
-            .ok_or_else(|| anyhow::anyhow!("EOF").into())
+        self.input.get(self.index).copied().ok_or_else(|| {
+            anyhow::anyhow!("Failed to peek bytes, EOF: index: {}", self.index).into()
+        })
     }
 
     /// Get the next byte from the input.
@@ -33,7 +32,7 @@ impl<'de> Deserializer<'de> {
     /// Get the next bytes from the input.
     pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.index + len > self.input.len() {
-            return Err(anyhow::anyhow!("EOF").into());
+            return Err(anyhow::anyhow!("EOF: index: {}, len: {}", self.index, len).into());
         }
         let bytes = &self.input[self.index..self.index + len];
         self.index += len;
@@ -186,7 +185,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    // we are default using the variable length decoding.
+    // NOTE: this is only used for the compact decoding for `Vec<u8>`
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -196,11 +195,20 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         visitor.visit_borrowed_bytes(bytes)
     }
 
+    /// NOTE: this is only used for the compact decoding for numeric types
+    ///
+    /// TODO: waiting for using compact form for all numbers in JAM.
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_bytes(visitor)
+        let prefix = self.peek_byte()?;
+        if prefix < 0x80 {
+            let data = self.next_byte()?;
+            visitor.visit_bytes(&[data])
+        } else {
+            self.deserialize_bytes(visitor)
+        }
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
@@ -239,8 +247,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        // TODO: decode large sequences?
-        let len = self.next_byte()? as usize;
+        let len = vlen::decode_from_de(self)? as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
@@ -279,6 +286,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        tracing::trace!("deserialize_struct: {_name}, {:?}", _fields);
         visitor.visit_seq(access::SeqAccess::new(self, _fields.len()))
     }
 
@@ -291,6 +299,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        tracing::trace!("deserialize_enum: {_name}, {:?}", _variants);
         let variant = self.next_byte()?;
         visitor.visit_enum(access::EnumAccess::new(self, variant))
     }

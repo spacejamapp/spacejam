@@ -6,47 +6,37 @@ use spacejson::Json;
 pub use {
     acc::{AccumulationRecord, AccumulationRecordJson, TransferRecord, TransferRecordJson},
     core::{CoreActivityRecord, CoreActivityRecordJson},
+    service::{ServiceActivityRecord, ServiceActivityRecordJson},
+    val::{ValidatorActivityRecord, ValidatorActivityRecordJson},
 };
 
 mod acc;
 mod core;
-
-/// Represents an activity record.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct ActivityRecord {
-    /// Number of blocks produced
-    pub blocks: u32,
-
-    /// Number of tickets
-    pub tickets: u32,
-
-    /// Number of pre-images
-    pub pre_images: u32,
-
-    /// Size of pre-images
-    pub pre_images_size: u32,
-
-    /// Number of guarantees
-    pub guarantees: u32,
-
-    /// Number of assurances
-    pub assurances: u32,
-}
+mod service;
+mod val;
 
 /// Represents statistics.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct Statistics {
     /// Current epoch statistics
-    #[json(nested)]
-    pub vals_current: Vec<ActivityRecord>,
+    #[json(Vec<ValidatorActivityRecordJson>)]
+    #[serde(rename = "vals_curr_stats")]
+    pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Last epoch statistics
-    #[json(nested)]
-    pub vals_last: Vec<ActivityRecord>,
+    #[json(Vec<ValidatorActivityRecordJson>)]
+    #[serde(rename = "vals_last_stats")]
+    pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Current core activity records
-    #[json(nested)]
-    pub cores: Vec<CoreActivityRecord>,
+    #[json(Vec<CoreActivityRecordJson>)]
+    #[serde(default)]
+    pub cores: [CoreActivityRecord; crate::CORES_COUNT],
+
+    /// Current service activity records
+    #[json(Vec<ServiceActivityRecordJson>)]
+    #[serde(default)]
+    pub services: Vec<ServiceActivityRecord>,
 }
 
 impl Statistics {
@@ -59,14 +49,9 @@ impl Statistics {
 
         // Reset accumulator if epoch changed
         if new_epoch {
-            next.vals_last = next.vals_current.clone();
-            next.vals_current = vec![ActivityRecord::default(); next.vals_current.len()];
-        }
-
-        // TODO: wrap this resize to the logic above.
-        if next.vals_current.len() <= index as usize {
-            next.vals_current
-                .resize(index as usize + 1, ActivityRecord::default());
+            next.vals_last = next.vals_current;
+            next.vals_current =
+                [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
         }
 
         // Update block production count for author

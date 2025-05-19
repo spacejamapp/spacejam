@@ -1,9 +1,12 @@
 //! Number encoding and decoding
 
 use crate::compact;
+use serde::Serialize;
 
 /// Trait for types that can be encoded and decoded using JAMCodec
-pub trait Numeric: Sized + Default + Copy {
+pub trait Numeric: Sized + Default + Copy + Serialize {
+    const LENGTH: usize;
+
     /// Encode the value into a byte vector
     fn encode(&self) -> Vec<u8>;
 
@@ -15,6 +18,9 @@ pub trait Numeric: Sized + Default + Copy {
 
     /// Decode the value from a compact byte vector
     fn compact_decode(source: &[u8]) -> Self;
+
+    /// Create a numeric value from a u64
+    fn from_u64(value: u64) -> Self;
 }
 
 /// Implement the `Numeric` trait for the given types.
@@ -22,6 +28,8 @@ macro_rules! impl_numeric {
     ($(($t:ty, $len:expr)),+) => {
         $(
             impl Numeric for $t {
+                const LENGTH: usize = $len;
+
                 fn encode(&self) -> Vec<u8> {
                     let bytes = self.to_le_bytes().to_vec();
                     let end = $len - self.leading_zeros() as usize / 8;
@@ -41,6 +49,10 @@ macro_rules! impl_numeric {
 
                 fn compact_decode(source: &[u8]) -> Self {
                     compact::decode(source) as $t
+                }
+
+                fn from_u64(value: u64) -> Self {
+                    value as $t
                 }
             }
         )+
@@ -144,6 +156,7 @@ fn i64() {
         [0, 0, 0, 0, 255, 0, 0, 0],
         [0, 0, 0, 0, 0, 255, 0, 0],
         [0, 0, 0, 0, 0, 0, 255, 0],
+        [0, 0, 0, 0, 0, 0, 0, 255],
     ];
     for source in values {
         test_codec!(i64, source);
@@ -159,6 +172,7 @@ fn u64() {
         [0, 0, 0, 255, 0, 0, 0, 0],
         [0, 0, 0, 0, 255, 0, 0, 0],
         [0, 0, 0, 0, 0, 255, 0, 0],
+        [0, 0, 0, 0, 0, 0, 255, 0],
         [0, 0, 0, 0, 0, 0, 0, 255],
     ];
     for source in values {

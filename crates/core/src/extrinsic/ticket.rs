@@ -56,10 +56,11 @@ impl TicketBody {
     }
 
     /// Sequences the tickets with Z function (outside-in)
-    pub fn sequence(tickets: &[TicketBody]) -> Vec<TicketBody> {
+    pub fn sequence(tickets: &[TicketBody]) -> [TicketBody; crate::EPOCH_LENGTH as usize] {
         let mut ordered_tickets = Vec::with_capacity(tickets.len());
         let mid = tickets.len() / 2;
 
+        // TODO: remove the usage of Vec
         for i in 0..mid {
             ordered_tickets.push(tickets[i]);
             if i + mid < tickets.len() {
@@ -67,7 +68,10 @@ impl TicketBody {
             }
         }
 
-        ordered_tickets
+        // copy to the fixed-size array
+        let mut ordered = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
+        ordered.copy_from_slice(&ordered_tickets);
+        ordered
     }
 
     /// Get the ticket at the given slot
@@ -94,22 +98,22 @@ pub type TicketsAccumulator = Vec<TicketBody>;
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
-    Keys(Vec<BandersnatchPublic>),
-    Tickets(Vec<TicketBody>),
+    Tickets([TicketBody; crate::EPOCH_LENGTH as usize]),
+    Keys([BandersnatchPublic; crate::EPOCH_LENGTH as usize]),
 }
 
 impl TicketsOrKeys {
     #[cfg(feature = "crypto")]
     /// Create a fallback series
     pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: crate::EntropyBuffer) -> Self {
-        let mut keys = Vec::with_capacity(crate::EPOCH_LENGTH as usize);
+        let mut keys = [BandersnatchPublic::default(); crate::EPOCH_LENGTH as usize];
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy[2].as_slice(), &i.to_le_bytes()].concat();
             let hash = crypto::blake2b(&input);
             let mut bytes = [0u8; 4];
             bytes.copy_from_slice(&hash[0..4]);
             let index = u32::from_le_bytes(bytes) % (ring.len() as u32);
-            keys.push(ring[index as usize]);
+            keys[i as usize] = ring[index as usize];
         }
 
         Self::Keys(keys)
@@ -136,7 +140,15 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
                 tickets
                     .into_iter()
                     .map(<TicketBody as Json<TicketBodyJson>>::from_json)
-                    .collect::<anyhow::Result<Vec<_>>>()?,
+                    .collect::<anyhow::Result<Vec<_>>>()?
+                    .try_into()
+                    .map_err(|e: Vec<TicketBody>| {
+                        anyhow::anyhow!(
+                            "failed to convert tickets expected length: {}, got: {}",
+                            crate::EPOCH_LENGTH,
+                            e.len()
+                        )
+                    })?,
             )
         } else if let Some(keys) = json.keys {
             Self::Keys(
@@ -146,7 +158,15 @@ impl Json<TicketsOrKeysJson> for TicketsOrKeys {
                         hex::decode(k.trim_start_matches("0x")).map(|d| r.copy_from_slice(&d))?;
                         Ok(r)
                     })
-                    .collect::<anyhow::Result<Vec<_>>>()?,
+                    .collect::<anyhow::Result<Vec<_>>>()?
+                    .try_into()
+                    .map_err(|e: Vec<BandersnatchPublic>| {
+                        anyhow::anyhow!(
+                            "failed to convert keys expected length: {}, got: {}",
+                            crate::EPOCH_LENGTH,
+                            e.len()
+                        )
+                    })?,
             )
         } else {
             Self::default()

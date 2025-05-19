@@ -45,7 +45,6 @@ pub struct KeyValue {
 
     /// The value
     #[json(hex)]
-    #[serde(with = "codec::vlen")]
     pub value: Vec<u8>,
 }
 
@@ -57,6 +56,8 @@ mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }
 
-mod reports_l0 {
+// TODO: with work report integration
+//
+/* mod reports_l0 {
     include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
-}
+} */

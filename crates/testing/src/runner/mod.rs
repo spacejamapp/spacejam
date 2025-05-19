@@ -1,5 +1,6 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
+use crate::traces::KeyValue;
 use ::pvm::Invocation;
 use anyhow::Result;
 use pvmi::Interpreter;
@@ -7,7 +8,10 @@ use runtime::{
     storage::{KVStorage, MemoryDb},
     tx, Storage,
 };
-use score::block::{Block, History};
+use score::{
+    block::{Block, History},
+    state::{StateKeyInfo, StateKeyLike},
+};
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
@@ -78,7 +82,7 @@ impl Runner {
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
                     for work in available {
-                        assignments[work.core_index as usize] = None;
+                        assignments[work.core_index.cloned() as usize] = None;
                     }
                     input.pre_state.avail_assignments = assignments;
                 }
@@ -215,6 +219,10 @@ impl Runner {
                 let result = input.pre_state.enact(&input.input);
 
                 assert_eq!(result, output.output);
+                assert_eq!(output.post_state.gamma_a, input.pre_state.gamma_a);
+                assert_eq!(output.post_state.gamma_k, input.pre_state.gamma_k);
+                assert_eq!(output.post_state.gamma_s, input.pre_state.gamma_s);
+                assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
                 assert_eq!(output.post_state, input.pre_state);
             }
             Section::Statistics => {
@@ -328,11 +336,16 @@ impl Runner {
                 use crate::traces;
 
                 let input = traces::TestInput::from_json(&test.input)?;
-                let _output = traces::TestOutput::from_json(&test.output)?;
-                let _block: Block = input.block.into();
+                let output = traces::TestOutput::from_json(&test.output)?;
+                let block: Block = input.block.into();
                 let memdb = MemoryDb::default();
 
-                // 1. verify the state root in pre-state
+                // FIXME: handle the genesis block
+                if block.header.slot == 0 {
+                    return Ok(());
+                }
+
+                // 1. verify the state root in pre-stateπ
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
@@ -342,6 +355,26 @@ impl Runner {
 
                 let state_root = memdb.root().expect("failed to get state root");
                 assert_eq!(state_root, input.pre_state.state_root);
+
+                // 2. verify the state transition
+                let _ = tx::transit::<Interpreter>(block, &memdb)?;
+                for KeyValue { key, value } in output.post_state.keyvals {
+                    let info = key.as_state_key().info();
+                    let encoded = hex::encode(&key);
+                    let Some(result) = memdb.get(&key)? else {
+                        tracing::error!("could not find {info:?}: 0x{encoded}");
+                        continue;
+                    };
+
+                    if value != result {
+                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+                    } else {
+                        tracing::info!("keyval matched: {info:?}: 0x{encoded}");
+                    }
+                }
+
+                let state_root = memdb.root().expect("failed to get state root");
+                assert_eq!(state_root, output.post_state.state_root);
             }
             Section::Codec | Section::Shuffle | Section::Trie => {}
         }

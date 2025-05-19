@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Data of validators
-pub type ValidatorsData = Vec<ValidatorData>;
+pub type ValidatorsData = [ValidatorData; crate::VALIDATORS_COUNT as usize];
 
 /// The validators (ι, κ, λ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Validators {
     /// The validator keys and metadata to be drawn from next (ι)
     pub next: ValidatorsData,
@@ -22,24 +22,24 @@ impl Validators {
     /// (λ') Returns the validators for the previous epoch.
     pub fn previous(&self, new_epoch: bool) -> ValidatorsData {
         if new_epoch {
-            self.current.clone()
+            self.current
         } else {
-            self.previous.clone()
+            self.previous
         }
     }
 
     /// (κ') Returns the validators for the current epoch.
     pub fn current(&self, new_epoch: bool, next: &ValidatorsData) -> ValidatorsData {
         if new_epoch {
-            next.clone()
+            *next
         } else {
-            self.current.clone()
+            self.current
         }
     }
 }
 
 /// Represents the ValidatorData structure from ASN.1
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Copy)]
 pub struct ValidatorData {
     #[json(hex)]
     pub bandersnatch: BandersnatchPublic,

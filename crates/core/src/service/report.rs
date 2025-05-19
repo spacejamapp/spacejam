@@ -25,7 +25,8 @@ pub struct WorkReport {
     pub context: RefineContext,
 
     /// The core index
-    pub core_index: CoreIndex,
+    #[json(compact)]
+    pub core_index: Compact<CoreIndex>,
 
     /// The authorizer hash
     #[json(hex)]
@@ -33,7 +34,6 @@ pub struct WorkReport {
 
     /// The auth output
     #[json(hex)]
-    #[serde(with = "codec::vlen")]
     pub auth_output: Vec<u8>,
 
     /// The segment root lookup directory

@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 /// Context of the reporting module.
 pub(super) struct GuaranteeValidator<'s> {
     pub state: &'s State,
-    pub validators: Vec<ValidatorData>,
+    pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
     pub deps: Dependencies,
     pub core_assignments: Vec<Vec<u16>>,
     pub guarantors: BTreeMap<usize, Vec<u16>>,
@@ -157,9 +157,8 @@ impl GuaranteeValidator<'_> {
         //     return Err(Error::BadCoreIndex);
         // }
 
-        if !self.state.auth_pools[guarantee.report.core_index as usize]
-            .contains(&guarantee.report.authorizer_hash)
-        {
+        let core_index = guarantee.report.core_index.cloned() as usize;
+        if !self.state.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
             return Err(Error::CoreUnauthorized);
         }
 
@@ -220,7 +219,7 @@ impl GuaranteeValidator<'_> {
     }
 
     fn validate_guarantors(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
-        let core_index = guarantee.report.core_index as usize;
+        let core_index = guarantee.report.core_index.cloned() as usize;
         let guarantors = guarantee
             .signatures
             .iter()
@@ -299,11 +298,11 @@ impl GuaranteeValidator<'_> {
         //
         // The test case or the GP is not correct.
         if gslot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
-            self.validators = self.state.curr_validators.clone();
+            self.validators = self.state.curr_validators;
             self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
         } else {
-            self.validators = self.state.prev_validators.clone();
+            self.validators = self.state.prev_validators;
             self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.state.entropy[3]);
         }
 
@@ -318,7 +317,7 @@ impl GuaranteeValidator<'_> {
 impl<'s> From<&'s State> for GuaranteeValidator<'s> {
     fn from(state: &'s State) -> Self {
         Self {
-            validators: state.curr_validators.clone(),
+            validators: state.curr_validators,
             state,
             core_assignments: vec![],
             guarantors: BTreeMap::new(),

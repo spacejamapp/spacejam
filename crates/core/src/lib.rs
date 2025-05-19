@@ -170,6 +170,9 @@ pub const PVM_MEMORY_SIZE: usize = 1 << 32;
 /// The size of the PVM zone
 pub const PVM_ZONE_SIZE: usize = 1 << 16;
 
+/// The maximum size of the authorization pool
+pub const AUTH_POOL_MAX_SIZE: usize = 8;
+
 // Singing Contexts
 
 /// The signing context for the jam available key
