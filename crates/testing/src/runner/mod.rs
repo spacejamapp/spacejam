@@ -3,7 +3,6 @@
 use crate::traces::KeyValue;
 use ::pvm::Invocation;
 use anyhow::Result;
-use codec::JamCodec;
 use pvmi::Interpreter;
 use runtime::{
     storage::{KVStorage, MemoryDb},
@@ -11,7 +10,6 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    safrole::Safrole,
     state::{key, StateKeyInfo, StateKeyLike},
 };
 use specjam::{Section, Test};
@@ -370,17 +368,12 @@ impl Runner {
                         continue;
                     };
 
-                    // assert_eq!(value, result, "keyval mismatch: {info:?}: 0x{encoded}");
                     if value != result {
-                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
-                        if key == key::SAFROLE {
+                        if key == key::AUTHORIZATION_POOLS {
                             assert_eq!(value.len(), result.len());
-                            let result = Safrole::decode(&result).unwrap();
-                            let expected = Safrole::decode(&value).unwrap();
-                            tracing::error!(
-                                "safrole mismatched expected \n{expected:?}\n, got \n{result:?}",
-                            );
                         }
+
+                        assert_eq!(value, result);
                     } else {
                         tracing::info!("keyval matched: {info:?}: 0x{encoded}");
                     }

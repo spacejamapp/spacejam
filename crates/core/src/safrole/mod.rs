@@ -24,8 +24,6 @@ pub struct Safrole {
     pub series: TicketsOrKeys,
 
     /// Sealing-key contest ticket accumulator (gamma_a)
-    ///
-    /// FIXME: use compact encoding
     pub accumulator: TicketsAccumulator,
 }
 

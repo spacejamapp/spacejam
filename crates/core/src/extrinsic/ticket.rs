@@ -98,8 +98,8 @@ pub type TicketsAccumulator = Vec<TicketBody>;
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
-    Keys([BandersnatchPublic; crate::EPOCH_LENGTH as usize]),
     Tickets([TicketBody; crate::EPOCH_LENGTH as usize]),
+    Keys([BandersnatchPublic; crate::EPOCH_LENGTH as usize]),
 }
 
 impl TicketsOrKeys {
