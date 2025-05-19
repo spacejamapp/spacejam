@@ -142,7 +142,6 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        println!("serialize_seq: {:?}", len);
         if let Some(len) = len {
             let length = vlen::encode(len as u64);
             self.output.extend_from_slice(&length);

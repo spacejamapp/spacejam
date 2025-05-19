@@ -169,44 +169,36 @@ pub fn reports(
 }
 
 /// (α') Update authorization pools.
-///
-/// TODO: check indices
 pub fn pools(
     slot: TimeSlot,
     pools: &[Vec<OpaqueHash>; score::CORES_COUNT],
     authorizations: &[Vec<OpaqueHash>; score::CORES_COUNT],
     guarantees: &GuaranteesExtrinsic,
 ) -> [Vec<OpaqueHash>; score::CORES_COUNT] {
-    let mut pools = pools.clone();
-
-    // Process each guarantee
-    let mut processed = Vec::new();
-    for guarantee in guarantees {
-        // Consume the authorizer from the pool
-        let core_index = guarantee.report.core_index.cloned() as usize;
-        pools[core_index] = pools[core_index]
-            .iter()
-            .filter(|pool| **pool != guarantee.report.authorizer_hash)
-            .cloned()
-            .collect();
-
-        // mark the core as processed
-        processed.push(core_index);
-    }
-
-    // add new authorizers from queue to the pools
-    for (core_index, pool) in pools.iter_mut().enumerate() {
-        if !processed.contains(&core_index) && !pool.is_empty() {
-            *pool = pool[1..].into();
-        }
-
-        // TODO: recheck this logic
+    let mut new_pools: [Vec<OpaqueHash>; score::CORES_COUNT] = Default::default();
+    for (core_index, pool) in pools.iter().enumerate() {
+        let mut new_pool = vec![];
         if let Some(auth) = authorizations[core_index].get(slot as usize) {
-            pool.push(*auth);
+            new_pool.push(*auth);
         }
+
+        // remove old authorizers from the pool
+        new_pool.extend(pool);
+        for guarantee in guarantees {
+            if guarantee.report.core_index.cloned() as usize == core_index {
+                new_pool.retain(|auth| *auth != guarantee.report.authorizer_hash);
+            }
+        }
+
+        // truncate the pool to the max size
+        if let Some(old) = new_pool.len().checked_sub(score::AUTH_POOL_MAX_SIZE) {
+            new_pool = new_pool[old..].into();
+        }
+
+        new_pools[core_index] = new_pool;
     }
 
-    pools
+    new_pools
 }
 
 /// Report the work packages

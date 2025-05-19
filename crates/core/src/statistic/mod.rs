@@ -6,11 +6,13 @@ use spacejson::Json;
 pub use {
     acc::{AccumulationRecord, AccumulationRecordJson, TransferRecord, TransferRecordJson},
     core::{CoreActivityRecord, CoreActivityRecordJson},
+    service::{ServiceActivityRecord, ServiceActivityRecordJson},
     val::{ValidatorActivityRecord, ValidatorActivityRecordJson},
 };
 
 mod acc;
 mod core;
+mod service;
 mod val;
 
 /// Represents statistics.
@@ -25,10 +27,16 @@ pub struct Statistics {
     #[json(Vec<ValidatorActivityRecordJson>)]
     #[serde(rename = "vals_last_stats")]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
-    /*  /// Current core activity records
+
+    /// Current core activity records
     #[json(Vec<CoreActivityRecordJson>)]
     #[serde(default)]
-    pub cores: [CoreActivityRecord; crate::CORES_COUNT as usize], */
+    pub cores: [CoreActivityRecord; crate::CORES_COUNT],
+
+    /// Current service activity records
+    #[json(Vec<ServiceActivityRecordJson>)]
+    #[serde(default)]
+    pub services: Vec<ServiceActivityRecord>,
 }
 
 impl Statistics {
