@@ -11,10 +11,6 @@ use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 #[derive(Clone)]
 #[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Builder {
-    /// The database path
-    #[cfg_attr(feature = "cmd", arg(long, default_value = "spacejam.db"))]
-    db: PathBuf,
-
     /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
     dev: bool,
@@ -31,24 +27,25 @@ pub struct Builder {
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:0"))]
     metrics: SocketAddr,
 
-    /// The RPC address
-    #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:6789"))]
-    rpc: SocketAddr,
-
     /// The network configuration
     #[cfg_attr(feature = "cmd", command(flatten))]
     network: network::Config,
 
+    /// The RPC address
+    #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:6789"))]
+    rpc: SocketAddr,
+
     /// The seed of the validator
-    ///
-    /// TODO: make this field optional, if not provided, the node will not be a validator.
     #[cfg_attr(feature = "cmd", arg(long))]
     validator: Option<String>,
 }
 
 impl Builder {
     /// Build the node
-    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
+    pub async fn build<C: spec::RuntimeSpecSelf>(
+        mut self,
+        data: PathBuf,
+    ) -> anyhow::Result<SpaceJam<C>> {
         let genesis = if let Some(genesis) = self.genesis {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
@@ -63,7 +60,15 @@ impl Builder {
         }
 
         // prepare the runtime
-        let runtime = C::runtime(self.validator.as_deref(), self.db.clone(), genesis).await?;
+        let data = {
+            let data = data.join(genesis.id.to_string());
+            if !data.exists() {
+                fs::create_dir_all(&data)?;
+            }
+            data
+        };
+
+        let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
@@ -88,7 +93,6 @@ impl Builder {
 impl Default for Builder {
     fn default() -> Self {
         Self {
-            db: PathBuf::from("spacejam.db"),
             genesis: None,
             metrics: SocketAddr::from(([0, 0, 0, 0], 0)),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),

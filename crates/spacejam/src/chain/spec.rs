@@ -1,5 +1,6 @@
 //! Chain Specifications
 
+use crate::chain::ChainId;
 use anyhow::Result;
 use network::Address;
 use score::block::Header;
@@ -51,7 +52,7 @@ impl Spec {
                 .iter()
                 .map(|s| s.parse())
                 .collect::<Result<Vec<_>>>()?,
-            id: self.id,
+            id: self.id.parse()?,
             genesis_state,
             genesis_header,
         })
@@ -64,7 +65,7 @@ pub struct ParsedSpec {
     pub bootnodes: Vec<Address>,
 
     /// The chain id
-    pub id: String,
+    pub id: ChainId,
 
     /// genesis state kv map
     pub genesis_state: HashMap<[u8; 31], Vec<u8>>,
