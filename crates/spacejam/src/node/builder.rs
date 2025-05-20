@@ -1,6 +1,9 @@
 //! Configuration for the spacejam node
 
-use crate::node::{spec, Genesis, SpaceJam};
+use crate::{
+    chain,
+    node::{spec, SpaceJam},
+};
 use network::Network;
 use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 
@@ -49,7 +52,7 @@ impl Builder {
         let genesis = if let Some(genesis) = self.genesis {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
-            Genesis::default()
+            chain::Spec::dev()
         };
         let runtime = C::runtime(self.validator.as_deref(), self.db.clone(), genesis).await?;
 

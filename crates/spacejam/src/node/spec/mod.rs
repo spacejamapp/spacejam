@@ -1,8 +1,7 @@
 //! Node specification
 
-use super::Genesis;
+use crate::chain;
 use runtime::{storage::KVStorage, Runtime, Validator};
-use score::{safrole::ValidatorData, Block};
 use std::path::PathBuf;
 pub use {dev::Dev, light::Light, validating::Validating};
 
@@ -41,7 +40,7 @@ pub trait RuntimeSpec:
     fn runtime(
         validator: Option<&str>,
         db: PathBuf,
-        genesis: Genesis,
+        genesis: chain::Spec,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send
     where
         <Self as runtime::Config>::Hook: Default,
@@ -53,7 +52,7 @@ pub trait RuntimeSpec:
     fn runtime_with_hook(
         validator: Option<&str>,
         db: PathBuf,
-        genesis: Genesis,
+        _genesis: chain::Spec,
         hook: Self::Hook,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
         async move {
@@ -65,22 +64,7 @@ pub trait RuntimeSpec:
             //
             // TODO: validate the genesis block matches the storage if not empty
             if KVStorage::is_empty(&runtime.storage) {
-                let block = Block::try_from(genesis.block)?;
-                let validators = genesis
-                    .validators
-                    .into_iter()
-                    .map(ValidatorData::try_from)
-                    .collect::<anyhow::Result<Vec<_>>>()?
-                    .try_into()
-                    .map_err(|e: Vec<ValidatorData>| {
-                        anyhow::anyhow!(
-                            "failed to convert validators expected length: {}, got: {}",
-                            score::VALIDATORS_COUNT,
-                            e.len()
-                        )
-                    })?;
-
-                runtime.import_genesis(block, &validators).await?;
+                // TODO: import genesis state
             }
             Ok(runtime)
         }

@@ -4,9 +4,12 @@ use crate::Config;
 use anyhow::Result;
 use network::Network;
 use runtime::{Runtime, Validator};
-use score::{block, Block};
-use spacejam::{storage::Sled, validator::LocalValidator, Genesis, RuntimeSpec};
-use std::{marker, sync::Arc, time::Duration};
+use score::{
+    block::{self, Header},
+    Block,
+};
+use spacejam::{chain, storage::Sled, validator::LocalValidator, RuntimeSpec};
+use std::{fs, marker, sync::Arc, time::Duration};
 
 /// Start the node service
 pub async fn start<Hook: runtime::Hook + Send + Sync + 'static>(
@@ -55,15 +58,19 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
     let chain = config.data.join("chain");
 
     // fetch the genesis block
-    let genesis = config.genesis.as_ref().map(|p| p.join("genesis.json"));
-    let genesis: Genesis = genesis.try_into()?;
-    let block: Block = genesis.block.clone().try_into()?;
+    let genesis = if let Some(path) = config.genesis.as_ref().map(|p| p.join("genesis.json")) {
+        serde_json::from_slice(fs::read(&path)?.as_slice())?
+    } else {
+        chain::Spec::dev()
+    };
+
+    let header: Header = codec::decode(&hex::decode(&genesis.genesis_header)?)?;
 
     // build the network config
     let networkcfg = network::Config {
         address: config.quic,
         bootstrap: vec![],
-        genesis: block.header.hash()?,
+        genesis: header.hash()?,
     };
 
     let runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;
