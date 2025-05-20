@@ -1,15 +1,16 @@
 //! Importer for SpaceJam
 
+use std::collections::HashMap;
+
 use crate::{
     Config, Hook, Runtime, Storage,
     storage::{KVStorage, SyncStorage},
     tx,
 };
 use score::{
-    Block, EntropyBuffer,
-    block::{BlockInfo, Header},
+    Block,
+    block::Header,
     extrinsic::{TicketBody, TicketsOrKeys},
-    safrole::{Safrole, ValidatorsData},
     state::key,
 };
 
@@ -17,45 +18,35 @@ impl<C: Config> Runtime<C> {
     /// Import the genesis block
     pub async fn import_genesis(
         &self,
-        block: Block,
-        validators: &ValidatorsData,
+        header: Header,
+        state: &HashMap<[u8; 31], Vec<u8>>,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        self.storage.set_block(&block)?;
-
-        // 2. initialize the recent blocks
-        let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
-        self.storage
-            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
-
-        // 3. initialize the validator set
-        let encoded = codec::encode(&validators)?;
-        self.storage
-            .set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::NEXT_VALIDATORS, encoded)?;
-
-        // 4. set the entropy
-        let entropy = EntropyBuffer::default();
-        self.storage.set(key::ENTROPY, codec::encode(&entropy)?)?;
-
-        // 5. set the safrole state
-        let series =
-            TicketsOrKeys::fallback(validators.iter().map(|v| v.bandersnatch).collect(), entropy);
-        let safrole = Safrole {
-            series: series.clone(),
-            validators: *validators,
+        let block = Block {
+            header: header.clone(),
             ..Default::default()
         };
-        self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
+        self.storage.set_block(&block)?;
 
-        // 5. initialize the grandpa state
+        // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;
-        grandpa.grid.next = *validators;
-        grandpa.grid.curr = grandpa.grid.next;
-        grandpa.grid.prev = grandpa.grid.curr;
-        grandpa.finalize(block.header.clone(), None)?;
+        for (key, value) in state {
+            self.storage.set(key, value)?;
+            match *key {
+                key::PREVIOUS_VALIDATORS => {
+                    grandpa.grid.prev = codec::decode(value)?;
+                }
+                key::CURRENT_VALIDATORS => {
+                    grandpa.grid.curr = codec::decode(value)?;
+                }
+                key::NEXT_VALIDATORS => {
+                    grandpa.grid.next = codec::decode(value)?;
+                }
+                _ => {}
+            }
+        }
 
+        grandpa.finalize(block.header, None)?;
         Ok(())
     }
 

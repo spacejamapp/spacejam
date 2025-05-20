@@ -48,14 +48,22 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<C: spec::RuntimeSpecSelf>(self) -> anyhow::Result<SpaceJam<C>> {
+    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
         let genesis = if let Some(genesis) = self.genesis {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
             chain::Spec::dev()
-        };
-        let runtime = C::runtime(self.validator.as_deref(), self.db.clone(), genesis).await?;
+        }
+        .parse()?;
 
+        // apply config from the spec file
+        self.network.genesis = genesis.genesis_header.hash()?;
+        if self.network.bootnodes.is_empty() {
+            self.network.bootnodes = genesis.bootnodes.clone();
+        }
+
+        // prepare the runtime
+        let runtime = C::runtime(self.validator.as_deref(), self.db.clone(), genesis).await?;
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,

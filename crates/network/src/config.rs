@@ -14,21 +14,20 @@ pub struct Config {
 
     /// The bootstrap addresses.
     #[cfg_attr(feature = "cmd", arg(long))]
-    pub bootstrap: Vec<Address>,
+    pub bootnodes: Vec<Address>,
 
     /// The genesis hash.
     ///
     /// This should be overridden by the genesis file.
     #[cfg_attr(feature = "cmd", clap(skip))]
     pub genesis: [u8; 32],
-    // TODO: some other network configs.
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             address: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
-            bootstrap: vec![],
+            bootnodes: vec![],
             genesis: [0; 32],
         }
     }

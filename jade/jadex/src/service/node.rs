@@ -62,15 +62,14 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
         serde_json::from_slice(fs::read(&path)?.as_slice())?
     } else {
         chain::Spec::dev()
-    };
-
-    let header: Header = codec::decode(&hex::decode(&genesis.genesis_header)?)?;
+    }
+    .parse()?;
 
     // build the network config
     let networkcfg = network::Config {
         address: config.quic,
-        bootstrap: vec![],
-        genesis: header.hash()?,
+        bootnodes: genesis.bootnodes.clone(),
+        genesis: genesis.genesis_header.hash()?,
     };
 
     let runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;

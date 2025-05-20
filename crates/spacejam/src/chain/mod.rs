@@ -1,6 +1,9 @@
 //! Chain Configurations
 
-pub use {config::Config, spec::Spec};
+pub use {
+    config::Config,
+    spec::{ParsedSpec, Spec},
+};
 
 mod config;
 mod spec;

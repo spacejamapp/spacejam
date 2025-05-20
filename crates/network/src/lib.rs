@@ -71,12 +71,12 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             announce: broadcast::channel(256).0,
         };
 
-        // bootstrap dialing
-        let bootstrap = config.bootstrap;
-        if !bootstrap.is_empty() {
+        // bootnodes dialing
+        let bootnodes = config.bootnodes;
+        if !bootnodes.is_empty() {
             let this = this.clone();
             tokio::spawn(async move {
-                for peer in bootstrap {
+                for peer in bootnodes {
                     if let Err(e) = this.dial(peer).await {
                         tracing::warn!("failed to dial bootstrap peer: {e}");
                     }

@@ -40,7 +40,7 @@ pub trait RuntimeSpec:
     fn runtime(
         validator: Option<&str>,
         db: PathBuf,
-        genesis: chain::Spec,
+        genesis: chain::ParsedSpec,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send
     where
         <Self as runtime::Config>::Hook: Default,
@@ -52,7 +52,7 @@ pub trait RuntimeSpec:
     fn runtime_with_hook(
         validator: Option<&str>,
         db: PathBuf,
-        _genesis: chain::Spec,
+        genesis: chain::ParsedSpec,
         hook: Self::Hook,
     ) -> impl std::future::Future<Output = anyhow::Result<Runtime<Self>>> + Send {
         async move {
@@ -61,10 +61,10 @@ pub trait RuntimeSpec:
             let runtime = Runtime::new(validator, storage, hook);
 
             // Initialize the database
-            //
-            // TODO: validate the genesis block matches the storage if not empty
             if KVStorage::is_empty(&runtime.storage) {
-                // TODO: import genesis state
+                runtime
+                    .import_genesis(genesis.genesis_header, &genesis.genesis_state)
+                    .await?;
             }
             Ok(runtime)
         }

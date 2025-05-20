@@ -64,7 +64,7 @@ async fn connections() {
     let bob = Node::new(
         Config {
             address: baddress.addr.clone(),
-            bootstrap: vec![aaddress],
+            bootnodes: vec![aaddress],
             ..Default::default()
         },
         bkey,
