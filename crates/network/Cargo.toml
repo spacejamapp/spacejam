@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-base32.workspace = true
 codec.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
 crypto = { workspace = true, features = ["ed25519", "rand", "tls"] }
@@ -22,6 +21,7 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
+uint.workspace = true
 
 [features]
 default = ["bin"]
