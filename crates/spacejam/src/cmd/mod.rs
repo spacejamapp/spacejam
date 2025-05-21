@@ -23,7 +23,7 @@ pub struct App {
     #[arg(short, action = ArgAction::Count, global = true)]
     verbose: u8,
 
-    /// The path to the data directory
+    /// The path to the root data directory
     #[arg(short, long, default_value_t = default::data_path())]
     data_path: String,
 }
