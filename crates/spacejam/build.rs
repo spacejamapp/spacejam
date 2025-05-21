@@ -6,12 +6,13 @@ const TINY_DEV_SPEC: &str = "https://gist.githubusercontent.com/zdave-parity/72e
 
 fn main() {
     println!("cargo:rerun-if-changed=src/chain/spec.rs");
+    println!("cargo:rerun-if-changed=build.rs");
     let root = std::path::PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
     );
 
     let dev = root.join("spec/dev");
-    let target = root.join("spec.json");
+    let target = dev.join("spec.json");
     if target.exists() {
         return;
     }

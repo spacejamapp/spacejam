@@ -1,6 +1,7 @@
 //! Block announcement stream.
 
 use crate::{peer::PeerId, Network};
+use anyhow::Context;
 use quinn::{RecvStream, SendStream};
 use runtime::{Handshake, Runtime};
 use score::{
@@ -16,7 +17,7 @@ impl<C: runtime::Config> Network<C> {
     /// Send a block announcement.
     pub async fn send_up0(&self, peer: PeerId) -> anyhow::Result<()> {
         let conn = self.get_conn(peer).await?;
-        let (mut send, mut recv) = conn.open_bi().await?;
+        let (mut send, mut recv) = conn.open_bi().await.context("failed to open bi-stream")?;
 
         // 1. send the handshake
         let grandpa = self.grandpa.read().await;

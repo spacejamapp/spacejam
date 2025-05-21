@@ -1,6 +1,7 @@
 //! Safrole ticket distribution stream (second step).
 
 use crate::{peer::PeerId, stream::ce131, Network};
+use anyhow::Context;
 pub use ce131::Request;
 use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
@@ -48,7 +49,7 @@ pub async fn send(
 ) -> anyhow::Result<()> {
     let mut buf = vec![132];
     buf.extend_from_slice(&codec::encode(&request)?);
-    send.write_all(&buf).await?;
+    send.write_all(&buf).await.context("failed to send CE132")?;
 
     // just wait for the response
     let _ = recv.read_to_end(0).await;

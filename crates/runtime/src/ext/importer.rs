@@ -46,7 +46,8 @@ impl<C: Config> Runtime<C> {
             }
         }
 
-        grandpa.finalize(block.header, None)?;
+        grandpa.finalize(block.header.clone(), None)?;
+        self.finalize(block).await?;
         Ok(())
     }
 
