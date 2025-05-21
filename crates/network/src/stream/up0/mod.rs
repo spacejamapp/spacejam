@@ -76,5 +76,5 @@ async fn handshake(recv: &mut RecvStream) -> anyhow::Result<Handshake> {
         }
     }
 
-    anyhow::bail!("failed to read handshake");
+    anyhow::bail!("failed to read handshake, buffer: {:?}", buf);
 }

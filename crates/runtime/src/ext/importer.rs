@@ -22,11 +22,13 @@ impl<C: Config> Runtime<C> {
         state: &HashMap<[u8; 31], Vec<u8>>,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
+        let head = header.clone().try_into()?;
         let block = Block {
             header: header.clone(),
             ..Default::default()
         };
         self.storage.set_block(&block)?;
+        self.storage.set_finalized(&head)?;
 
         // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;
@@ -46,8 +48,24 @@ impl<C: Config> Runtime<C> {
             }
         }
 
-        grandpa.finalize(block.header.clone(), None)?;
-        self.finalize(block).await?;
+        grandpa.handshake.head = head;
+        Ok(())
+    }
+
+    /// Initialize the runtime from the database
+    pub async fn init_from_db(&self) -> anyhow::Result<()> {
+        let finalized = self.storage.get_finalized()?;
+        let mut grandpa = self.grandpa.write().await;
+        grandpa.handshake.head = finalized;
+
+        // apply validators
+        let prev = self.storage.previous_validators().unwrap_or_default();
+        let curr = self.storage.current_validators().unwrap_or_default();
+        let next = self.storage.next_validators().unwrap_or_default();
+
+        grandpa.grid.prev = prev;
+        grandpa.grid.curr = curr;
+        grandpa.grid.next = next;
         Ok(())
     }
 
@@ -55,6 +73,8 @@ impl<C: Config> Runtime<C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
+    ///
+    /// TODO: use block reference
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.grandpa.read().await.handshake.head.clone();
 
@@ -98,7 +118,11 @@ impl<C: Config> Runtime<C> {
             .await
             .finalize(block.header.clone(), next)?;
 
-        // 4. notify the new finalized block
+        // 4. set the head as finalized
+        self.storage
+            .set_finalized(&block.header.clone().try_into()?)?;
+
+        // 5. notify the new finalized block
         self.hook.on_finalized_block(block).await?;
         self.hook.on_diff(hash, diff).await?;
 

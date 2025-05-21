@@ -65,7 +65,10 @@ pub trait RuntimeSpec:
                 runtime
                     .import_genesis(genesis.genesis_header, &genesis.genesis_state)
                     .await?;
+            } else {
+                runtime.init_from_db().await?;
             }
+
             Ok(runtime)
         }
     }

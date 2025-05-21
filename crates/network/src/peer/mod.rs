@@ -22,7 +22,7 @@ impl PeerId {
 
 impl fmt::Display for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "e{}", format::encode(&self.0))
+        write!(f, "{}", format::encode(&self.0))
     }
 }
 
