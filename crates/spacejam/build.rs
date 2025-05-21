@@ -10,12 +10,13 @@ fn main() {
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
     );
 
-    let target = root.join("spec/dev/spec.json");
+    let dev = root.join("spec/dev");
+    let target = root.join("spec.json");
     if target.exists() {
         return;
     }
 
-    fs::create_dir_all(&target).expect("failed to create tiny spec dir");
+    fs::create_dir_all(&dev).expect("failed to create tiny spec dir");
     Command::new("curl")
         .args([
             TINY_DEV_SPEC,
