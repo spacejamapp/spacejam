@@ -146,7 +146,7 @@ impl<C: Config> Runtime<C> {
         }
 
         // present the verifying components
-        let new_epoch = remote_epoch == local_epoch + 1;
+        let new_epoch = remote_epoch > local_epoch;
         let slot = (header.slot % score::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.storage.entropy()?;
         let mut ticket = None;
@@ -201,7 +201,7 @@ impl<C: Config> Runtime<C> {
             );
         } else {
             tracing::trace!(
-                "verifying header seal with entropy: 0x{},",
+                "verifying header seal with entropy: 0x{}",
                 hex::encode(entropy.as_ref())
             );
         }

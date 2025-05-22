@@ -24,21 +24,18 @@ impl<C: runtime::Config> Network<C> {
         let mut buf = [0; 4];
         recv.read_exact(&mut buf).await?;
         let length = u32::from_le_bytes(buf);
-
-        tracing::info!("received handshake length from remote, {:?}", length);
         let mut buf = vec![0; length as usize];
         recv.read_exact(&mut buf).await?;
         let handshake: Handshake = codec::decode(&buf)?;
-        tracing::info!("received handshake from remote, {:?}", &handshake);
         conn.handshake.write().await.head = handshake.head;
 
         // 3. send the handshake
         let grandpa = self.grandpa.read().await;
         let encoded = codec::encode(&grandpa.handshake)?;
         let length = encoded.len() as u32;
-        tracing::info!("sending handshake length to remote, {:?}", length);
         send.write(&length.to_le_bytes()).await?;
         send.write(&encoded).await?;
+        tracing::trace!("up0 established");
 
         // 4. announcement loop
         let runtime = self.clone();
@@ -56,7 +53,6 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        tracing::info!("recv up0");
         let conn = self.get_conn(peer).await?;
 
         // 1. read the grandpa data
