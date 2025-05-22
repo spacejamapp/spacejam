@@ -1,8 +1,9 @@
 //! The runtime of SpaceJam
 
-pub use node::{Genesis, RuntimeSpec, SpaceJam};
+pub use node::{RuntimeSpec, SpaceJam};
 pub use runtime::{Config, Storage, Validator};
 
+pub mod chain;
 pub mod cmd;
 mod node;
 pub mod storage;

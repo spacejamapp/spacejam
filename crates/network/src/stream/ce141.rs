@@ -12,18 +12,19 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let request: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-        send.finish();
+        let _request: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        send.finish()?;
         Ok(())
     }
 }
 
 /// Send a shard distribution.
-pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
-    let mut buf = vec![137];
+#[allow(unused)]
+pub async fn send(mut send: SendStream, request: Request) -> anyhow::Result<()> {
+    let mut buf = vec![141];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 

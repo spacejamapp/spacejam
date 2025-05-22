@@ -1,14 +1,13 @@
 //! Block announcement stream.
 
-use crate::{peer::PeerId, Network};
-use quinn::{RecvStream, SendStream};
-use runtime::{Handshake, Runtime};
-use score::{
-    block::{Head, Header},
-    OpaqueHash, TimeSlot,
+use crate::{
+    peer::PeerId,
+    stream::ext::{Read, Write},
+    Network,
 };
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use anyhow::Context;
+use quinn::{RecvStream, SendStream};
+use runtime::Handshake;
 
 mod announce;
 
@@ -16,20 +15,29 @@ impl<C: runtime::Config> Network<C> {
     /// Send a block announcement.
     pub async fn send_up0(&self, peer: PeerId) -> anyhow::Result<()> {
         let conn = self.get_conn(peer).await?;
-        let (mut send, mut recv) = conn.open_bi().await?;
+        let (mut send, mut recv) = conn.open_bi().await.context("failed to open bi-stream")?;
 
-        // 1. send the handshake
-        let grandpa = self.grandpa.read().await;
-        let handshake = grandpa.handshake.clone();
-        let mut buf = vec![0];
-        buf.extend_from_slice(&codec::encode(&handshake)?);
-        send.write(&buf).await?;
+        // 1. send the stream type
+        send.write(&[0]).await?;
 
-        // 2. get the handshake from remote
-        let handshake = self::handshake(&mut recv).await?;
+        // 2. wait for the handshake
+        let mut buf = [0; 4];
+        recv.read_exact(&mut buf).await?;
+        let length = u32::from_le_bytes(buf);
+        let mut buf = vec![0; length as usize];
+        recv.read_exact(&mut buf).await?;
+        let handshake: Handshake = codec::decode(&buf)?;
         conn.handshake.write().await.head = handshake.head;
 
-        // 3. announcement loop
+        // 3. send the handshake
+        let grandpa = self.grandpa.read().await;
+        let encoded = codec::encode(&grandpa.handshake)?;
+        let length = encoded.len() as u32;
+        send.write(&length.to_le_bytes()).await?;
+        send.write(&encoded).await?;
+        tracing::trace!("up0 established");
+
+        // 4. announcement loop
         let runtime = self.clone();
         tokio::spawn(async move {
             announce::unchecked(runtime.clone(), send, recv, conn).await;
@@ -48,12 +56,12 @@ impl<C: runtime::Config> Network<C> {
         let conn = self.get_conn(peer).await?;
 
         // 1. read the grandpa data
-        let handshake = self::handshake(&mut recv).await?;
+        let handshake = Handshake::read(&mut recv).await?;
         conn.handshake.write().await.head = handshake.head;
 
         // 2. send the handshake data.
         let grandpa = self.grandpa.read().await;
-        send.write(&codec::encode(&grandpa.handshake)?).await?;
+        grandpa.handshake.write(&mut send, None).await?;
 
         // 3. announcement loop.
         let runtime = self.clone();
@@ -63,17 +71,4 @@ impl<C: runtime::Config> Network<C> {
 
         Ok(())
     }
-}
-
-/// Read the handshake from the stream.
-async fn handshake(recv: &mut RecvStream) -> anyhow::Result<Handshake> {
-    let mut buf = vec![];
-    while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
-        buf.extend_from_slice(&chunk.bytes);
-        if let Ok(handshake) = codec::decode(&buf) {
-            return Ok(handshake);
-        }
-    }
-
-    anyhow::bail!("failed to read handshake");
 }

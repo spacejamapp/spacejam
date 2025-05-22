@@ -6,15 +6,12 @@ use score::{Ed25519Signature, OpaqueHash};
 use serde::{Deserialize, Serialize};
 
 /// Send judgement publication.
-pub async fn send(
-    mut send: SendStream,
-    recv: RecvStream,
-    judgement: Judgement,
-) -> anyhow::Result<()> {
+#[allow(unused)]
+pub async fn send(mut send: SendStream, judgement: Judgement) -> anyhow::Result<()> {
     let mut buf = vec![145];
     buf.extend_from_slice(&codec::encode(&judgement)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 
@@ -27,8 +24,8 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let judgement: Judgement = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-        send.finish();
+        let _judgement: Judgement = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        send.finish()?;
         Ok(())
     }
 }

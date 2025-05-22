@@ -1,15 +1,16 @@
 //! Importer for SpaceJam
 
+use std::collections::HashMap;
+
 use crate::{
     Config, Hook, Runtime, Storage,
     storage::{KVStorage, SyncStorage},
     tx,
 };
 use score::{
-    Block, EntropyBuffer,
-    block::{BlockInfo, Header},
+    Block,
+    block::Header,
     extrinsic::{TicketBody, TicketsOrKeys},
-    safrole::{Safrole, ValidatorsData},
     state::key,
 };
 
@@ -17,45 +18,54 @@ impl<C: Config> Runtime<C> {
     /// Import the genesis block
     pub async fn import_genesis(
         &self,
-        block: Block,
-        validators: &ValidatorsData,
+        header: Header,
+        state: &HashMap<[u8; 31], Vec<u8>>,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        self.storage.set_block(&block)?;
-
-        // 2. initialize the recent blocks
-        let recent: Vec<BlockInfo> = vec![block.header.clone().into()];
-        self.storage
-            .set(key::RECENT_BLOCKS, codec::encode(&recent)?)?;
-
-        // 3. initialize the validator set
-        let encoded = codec::encode(&validators)?;
-        self.storage
-            .set(key::PREVIOUS_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::CURRENT_VALIDATORS, encoded.clone())?;
-        self.storage.set(key::NEXT_VALIDATORS, encoded)?;
-
-        // 4. set the entropy
-        let entropy = EntropyBuffer::default();
-        self.storage.set(key::ENTROPY, codec::encode(&entropy)?)?;
-
-        // 5. set the safrole state
-        let series =
-            TicketsOrKeys::fallback(validators.iter().map(|v| v.bandersnatch).collect(), entropy);
-        let safrole = Safrole {
-            series: series.clone(),
-            validators: *validators,
+        let head = header.clone().try_into()?;
+        let block = Block {
+            header: header.clone(),
             ..Default::default()
         };
-        self.storage.set(key::SAFROLE, codec::encode(&safrole)?)?;
+        self.storage.set_block(&block)?;
+        self.storage.set_finalized(&head)?;
 
-        // 5. initialize the grandpa state
+        // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;
-        grandpa.grid.next = *validators;
-        grandpa.grid.curr = grandpa.grid.next;
-        grandpa.grid.prev = grandpa.grid.curr;
-        grandpa.finalize(block.header.clone(), None)?;
+        for (key, value) in state {
+            self.storage.set(key, value)?;
+            match *key {
+                key::PREVIOUS_VALIDATORS => {
+                    grandpa.grid.prev = codec::decode(value)?;
+                }
+                key::CURRENT_VALIDATORS => {
+                    grandpa.grid.curr = codec::decode(value)?;
+                }
+                key::NEXT_VALIDATORS => {
+                    grandpa.grid.next = codec::decode(value)?;
+                }
+                _ => {}
+            }
+        }
 
+        grandpa.handshake.head = head;
+        Ok(())
+    }
+
+    /// Initialize the runtime from the database
+    pub async fn init_from_db(&self) -> anyhow::Result<()> {
+        let finalized = self.storage.get_finalized()?;
+        let mut grandpa = self.grandpa.write().await;
+        grandpa.handshake.head = finalized;
+
+        // apply validators
+        let prev = self.storage.previous_validators().unwrap_or_default();
+        let curr = self.storage.current_validators().unwrap_or_default();
+        let next = self.storage.next_validators().unwrap_or_default();
+
+        grandpa.grid.prev = prev;
+        grandpa.grid.curr = curr;
+        grandpa.grid.next = next;
         Ok(())
     }
 
@@ -63,6 +73,8 @@ impl<C: Config> Runtime<C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
+    ///
+    /// TODO: use block reference
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.grandpa.read().await.handshake.head.clone();
 
@@ -106,7 +118,11 @@ impl<C: Config> Runtime<C> {
             .await
             .finalize(block.header.clone(), next)?;
 
-        // 4. notify the new finalized block
+        // 4. set the head as finalized
+        self.storage
+            .set_finalized(&block.header.clone().try_into()?)?;
+
+        // 5. notify the new finalized block
         self.hook.on_finalized_block(block).await?;
         self.hook.on_diff(hash, diff).await?;
 
@@ -130,7 +146,7 @@ impl<C: Config> Runtime<C> {
         }
 
         // present the verifying components
-        let new_epoch = remote_epoch == local_epoch + 1;
+        let new_epoch = remote_epoch > local_epoch;
         let slot = (header.slot % score::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.storage.entropy()?;
         let mut ticket = None;
@@ -185,7 +201,7 @@ impl<C: Config> Runtime<C> {
             );
         } else {
             tracing::trace!(
-                "verifying header seal with entropy: 0x{},",
+                "verifying header seal with entropy: 0x{}",
                 hex::encode(entropy.as_ref())
             );
         }

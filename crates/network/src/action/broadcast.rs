@@ -1,6 +1,7 @@
 //! Broadcast events
 
 use crate::{stream::ce132, Network};
+use anyhow::Context;
 use score::{block::Header, extrinsic::TicketEnvelope};
 
 impl<C: runtime::Config> Network<C> {
@@ -42,7 +43,7 @@ impl<C: runtime::Config> Network<C> {
         for conn in pool.values() {
             let peer: [u8; 32] = conn.address.peer_id.into();
             if validators.iter().any(|v| v.ed25519 == peer) {
-                let (send, recv) = conn.open_bi().await?;
+                let (send, recv) = conn.open_bi().await.context("failed to open bi-stream")?;
                 ce132::send(
                     send,
                     recv,

@@ -34,6 +34,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     let neighbours = grandpa
         .grid
         .neighbours(runtime.validator.ed25519_public_key());
+
     let connected_neighbours = pool
         .iter()
         .filter(|(peer, conn)| neighbours.contains(peer.as_ref()) && conn.ready())

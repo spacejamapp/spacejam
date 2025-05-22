@@ -5,11 +5,12 @@ use quinn::{RecvStream, SendStream};
 use score::{service::WorkReport, OpaqueHash};
 
 /// Send a work report request.
-pub async fn send(mut send: SendStream, recv: RecvStream, hash: OpaqueHash) -> anyhow::Result<()> {
+#[allow(unused)]
+pub async fn send(mut send: SendStream, hash: OpaqueHash) -> anyhow::Result<()> {
     let mut buf = vec![136];
     buf.extend_from_slice(&codec::encode(&hash)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 
@@ -20,7 +21,7 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let hash: OpaqueHash = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
+        let _hash: OpaqueHash = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
         // let work_report = runtime.runtime.fetch_work_report(hash)?;
         //
         // TODO: fetch the work report from the storage
@@ -30,7 +31,7 @@ impl<C: runtime::Config> Network<C> {
         let mut buf = vec![];
         buf.extend_from_slice(&codec::encode(&work_report)?);
         send.write_all(&buf).await?;
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }

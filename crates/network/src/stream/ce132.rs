@@ -1,13 +1,9 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{peer::PeerId, stream::ce131, Network};
+use crate::{stream::ce131, Network};
 pub use ce131::Request;
-use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
-use runtime::Storage;
-use score::{block, extrinsic::TicketEnvelope, Ed25519Public};
-use serde::{Deserialize, Serialize};
-use std::mem;
+use score::block;
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
@@ -19,7 +15,7 @@ impl<C: runtime::Config> Network<C> {
     ) -> anyhow::Result<()> {
         let mut buf = vec![0; 789];
         recv.read_exact(&mut buf).await?;
-        send.finish();
+        send.finish()?;
 
         // TODO: verify the proof, handle the ticket, etc.
         let request: Request = codec::decode(&buf[..])?;
@@ -46,12 +42,15 @@ pub async fn send(
     mut recv: RecvStream,
     request: Request,
 ) -> anyhow::Result<()> {
-    let mut buf = vec![132];
-    buf.extend_from_slice(&codec::encode(&request)?);
-    send.write_all(&buf).await?;
+    send.write(&[132]).await?;
 
-    // just wait for the response
-    let _ = recv.read_to_end(0).await;
-    send.finish();
+    // 1. send the request
+    let encoded = codec::encode(&request)?;
+    send.write(&encoded.len().to_le_bytes()).await?;
+    send.write(&encoded).await?;
+
+    // 2. just wait for the response
+    recv.read_to_end(0).await?;
+    send.finish()?;
     Ok(())
 }

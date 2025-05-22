@@ -1,11 +1,9 @@
 //! Streams for the network.
 //!
 //! Functional handlers for streams.
-#![allow(unused)]
 
 use crate::{peer::PeerId, Network};
 use quinn::{RecvStream, SendStream};
-use std::ops::Deref;
 
 pub mod ce128;
 pub mod ce129;
@@ -35,7 +33,12 @@ impl<C: runtime::Config> Network<C> {
             tracing::warn!("failed to read stream type: {e:?}");
         }
 
-        let runtime = self.clone();
+        let bufs = match buf[0] {
+            0 => "up0".into(),
+            n => format!("ce{n}"),
+        };
+
+        tracing::debug!("received stream type: {}", bufs);
         if let Err(e) = match buf[0] {
             0 => self.recv_up0(peer, send, recv).await,
             128 => self.recv_ce128(send, recv).await,
@@ -57,13 +60,52 @@ impl<C: runtime::Config> Network<C> {
             145 => self.recv_ce145(send, recv).await,
             unknown => Err(anyhow::anyhow!("unknown stream type: {unknown}")),
         } {
-            tracing::warn!(
-                "{}: {e:?}",
-                match buf[0] {
-                    0 => "up0".into(),
-                    n => format!("ce{n}"),
-                }
-            );
+            tracing::warn!("{bufs}: {e:?}");
+        }
+    }
+}
+
+mod ext {
+    use quinn::{RecvStream, SendStream};
+    use serde::{de::DeserializeOwned, Serialize};
+
+    /// Write extension trait for `SendStream`
+    pub trait Write {
+        /// Write a message to the stream.
+        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()>;
+    }
+
+    impl<T: Serialize> Write for T {
+        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()> {
+            let mut buf = vec![];
+            if let Some(ty) = ty {
+                buf.push(ty);
+            }
+
+            let encoded = codec::encode(&self)?;
+            let length = encoded.len();
+            buf.extend_from_slice(&length.to_le_bytes());
+            buf.extend_from_slice(&encoded);
+            stream.write_all(&buf).await?;
+            Ok(())
+        }
+    }
+    /// Read extension trait for `RecvStream`
+    pub trait Read: Sized {
+        /// Read a message from the stream.
+        async fn read(recv: &mut RecvStream) -> anyhow::Result<Self>;
+    }
+
+    impl<T: DeserializeOwned> Read for T {
+        async fn read(recv: &mut RecvStream) -> anyhow::Result<Self> {
+            let mut buf = [0; 4];
+            recv.read_exact(&mut buf).await?;
+            let length = u32::from_le_bytes(buf) as usize;
+
+            let mut buf = vec![0; length];
+            recv.read_exact(&mut buf).await?;
+            let data: Self = codec::decode(&buf)?;
+            Ok(data)
         }
     }
 }

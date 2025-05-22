@@ -77,17 +77,25 @@ impl Builder {
         // setup cert
         let key = PrivatePkcs8KeyDer::from(self.ed25519.private_pkcs8_der()?);
         let keypair = rcgen::KeyPair::from_remote(Box::new(self.ed25519.clone()))?;
-        let mut params = CertificateParams::new(vec![dns.clone()])?;
 
-        // Set key usages for client and server auth
-        params.key_usages = vec![
-            rcgen::KeyUsagePurpose::KeyCertSign,
-            rcgen::KeyUsagePurpose::DigitalSignature,
-        ];
-        params.extended_key_usages = vec![
-            rcgen::ExtendedKeyUsagePurpose::ClientAuth,
-            rcgen::ExtendedKeyUsagePurpose::ServerAuth,
-        ];
+        // Create a MINIMAL certificate strictly following the JAMNP-S spec
+        // The spec only requires:
+        // 1. Ed25519 signature algorithm (handled by the keypair)
+        // 2. Use the peer's Ed25519 key (handled by the keypair)
+        // 3. Have a single alternative name derived from the Ed25519 public key (dns)
+        //
+        // MINIMAL approach: remove ALL possible extensions that could be marked critical
+        let mut params = CertificateParams::new(vec![dns.clone()])?;
+        params.key_usages = vec![]; // No key usage extension at all
+        params.extended_key_usages = vec![]; // No extended key usage extension
+        params.is_ca = rcgen::IsCa::NoCa; // Not a CA
+        params.use_authority_key_identifier_extension = false;
+        params.custom_extensions = vec![];
+        params.name_constraints = None;
+
+        // Set long validity period to avoid time-related issues
+        params.not_before = rcgen::date_time_ymd(2020, 1, 1);
+        params.not_after = rcgen::date_time_ymd(2050, 1, 1);
 
         let cert = params.self_signed(&keypair)?;
         let cert_der = cert.der().clone();
@@ -107,11 +115,12 @@ impl Builder {
             "jamnp-s/{}/{}",
             self.version,
             &hex::encode(self.genesis)[..8]
-        )
-        .as_bytes()
-        .to_vec();
+        );
+
+        tracing::debug!("using ALPN {alpn}");
 
         // client and server config setup
+        let alpn = alpn.as_bytes().to_vec();
         let server = Self::server(
             alpn.clone(),
             cert_der.to_vec(),
@@ -147,14 +156,10 @@ impl Builder {
             &provider,
         )?);
 
-        // Set up root certificate store - we trust all peer certificates
-        let mut root_store = rustls::RootCertStore::empty();
-        root_store.add(cert_der.clone())?;
-
-        // Create client config with our root store and client cert
+        // Simple client config with empty root store - we don't need to verify server certs against roots
         let mut crypto =
             rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-                .with_root_certificates(root_store)
+                .with_root_certificates(rustls::RootCertStore::empty())
                 .with_client_cert_resolver(Arc::new(single));
 
         // Configure client to use ED25519 and our custom verifier
@@ -176,7 +181,7 @@ impl Builder {
         key: PrivatePkcs8KeyDer,
         transport_config: Arc<quinn::TransportConfig>,
     ) -> anyhow::Result<quinn::ServerConfig> {
-        // Create server config with our certificate and verifier
+        // Create server config with our certificate and minimal verification
         let mut crypto =
             rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
                 .with_client_cert_verifier(Arc::new(Verifier))

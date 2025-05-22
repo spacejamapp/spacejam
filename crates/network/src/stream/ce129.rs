@@ -17,18 +17,19 @@ impl<C: runtime::Config> Network<C> {
         let size = mem::size_of::<Request>();
         let mut buf = vec![0; size];
         recv.read_exact(&mut buf).await?;
-        let request: Request = codec::decode(&buf[..])?;
+        let _request: Request = codec::decode(&buf[..])?;
         // let response = runtime.runtime.storage.fetch_state(request)?;
         //
         // TODO: fetch the state from the storage
         let response = Response::default();
         send.write_all(&codec::encode(&response)?).await?;
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }
 
 /// Send a state request.
+#[allow(unused)]
 pub async fn send(
     mut send: SendStream,
     mut recv: RecvStream,
@@ -37,7 +38,7 @@ pub async fn send(
     let mut buf = vec![129];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
 
     // read the response
     let mut buf = vec![0; request.maximum as usize];

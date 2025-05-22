@@ -43,11 +43,9 @@ impl<C: runtime::Config> NodeSpec for Dev<C> {
         let offchain = Offchain::new(runtime.clone());
 
         tokio::select! {
-            _ = Self::author(runtime) => {}
-            _ = offchain.start(self.rpc, Default::default(), self.metrics) => {}
-            _ = tokio::signal::ctrl_c() => {}
+            r = Self::author(runtime) => r,
+            r = offchain.start(self.rpc, Default::default(), self.metrics) => r,
+            _ = tokio::signal::ctrl_c() => Ok(())
         }
-
-        Ok(())
     }
 }

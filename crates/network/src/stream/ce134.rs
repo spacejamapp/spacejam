@@ -4,10 +4,11 @@ use crate::Network;
 use quinn::{RecvStream, SendStream};
 
 /// Send a work package sharing.
+#[allow(unused)]
 pub async fn send<C: runtime::Config>(
-    send: SendStream,
-    recv: RecvStream,
-    runtime: Network<C>,
+    _send: SendStream,
+    _recv: RecvStream,
+    _runtime: Network<C>,
 ) -> anyhow::Result<()> {
     Ok(())
 }

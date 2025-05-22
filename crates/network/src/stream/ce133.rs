@@ -2,28 +2,24 @@
 
 use crate::Network;
 use quinn::{RecvStream, SendStream};
-use score::{extrinsic::GuaranteesExtrinsic, service::WorkPackage};
+use score::service::WorkPackage;
 use serde::{Deserialize, Serialize};
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a work package submission.
-    pub async fn recv_ce133(&self, mut send: SendStream, recv: RecvStream) -> anyhow::Result<()> {
+    pub async fn recv_ce133(&self, _send: SendStream, _recv: RecvStream) -> anyhow::Result<()> {
         todo!("decode the extrinsic data of work packages.");
-        Ok(())
     }
 }
 
 /// Send a work package submission.
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+#[allow(unused)]
+pub async fn send(mut send: SendStream, request: Request) -> anyhow::Result<()> {
     let mut buf = vec![133];
     buf.extend_from_slice(&codec::encode(&request.message)?);
     send.write_all(&buf).await?;
     send.write_all(&request.extrinsic).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 

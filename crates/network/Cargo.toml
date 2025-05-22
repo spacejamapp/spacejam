@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-base32.workspace = true
 codec.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
 crypto = { workspace = true, features = ["ed25519", "rand", "tls"] }
@@ -18,10 +17,13 @@ rustls-webpki.workspace = true
 runtime.workspace = true
 score.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+spacejson.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
+uint.workspace = true
 
 [features]
 default = ["bin"]

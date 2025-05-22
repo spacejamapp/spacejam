@@ -11,6 +11,7 @@ impl<C: runtime::Config> Network<C> {
 }
 
 /// Send a shard distribution.
+#[allow(unused)]
 pub async fn send<C: runtime::Config>(
     send: SendStream,
     recv: RecvStream,

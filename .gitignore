@@ -2,6 +2,7 @@
 /crates/testing/jamtestvectors
 /crates/crypto/bandersnatch-vrfs-spec
 /crates/pvm/rvparser/riscv-opcodes
+/crates/spacejam/spec
 /docs/js
 /docker/node
 /monitor/data

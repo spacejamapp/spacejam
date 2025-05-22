@@ -1,94 +1,94 @@
 //! Command line interface for spacejam
 
 use crate::{
-    node::Genesis,
     node::{spec, Builder},
+    Development,
 };
-use clap::Parser;
-use runtime::Storage;
-use score::block::BlockJson;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use clap::{ArgAction, CommandFactory, Parser};
+use std::path::PathBuf;
+use tracing_subscriber::EnvFilter;
+
+mod key;
+
+/// The command line interface for SpaceJam
+#[derive(Parser)]
+#[command(arg_required_else_help = true)]
+#[command(version)]
+pub struct App {
+    /// The command to run
+    #[command(subcommand)]
+    cmd: Option<Command>,
+
+    /// The verbosity level (repeat for more verbosity)
+    #[arg(short, action = ArgAction::Count, global = true)]
+    verbose: u8,
+
+    /// The path to the root data directory
+    #[arg(short, long, default_value_t = default::data_path())]
+    data_path: String,
+}
+
+impl App {
+    /// Run the command
+    pub async fn run() {
+        let app = App::parse();
+        let name = App::command().get_name().to_string();
+        let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
+            0 => format!("{name}=info"),
+            1 => format!("{name}=debug"),
+            2 => "debug".into(),
+            _ => "trace".into(),
+        }));
+
+        // Initialize tracing
+        let mut subscriber = tracing_subscriber::fmt()
+            .with_env_filter(env)
+            .with_target(false);
+
+        if app.verbose > 0 {
+            subscriber = subscriber.with_target(true);
+        }
+
+        subscriber.init();
+
+        let Some(cmd) = app.cmd else {
+            return;
+        };
+
+        if let Err(e) = cmd.run::<Development>(PathBuf::from(app.data_path)).await {
+            eprintln!("Failed to run spacejam: {e}");
+        }
+    }
+}
 
 /// The command line interface for spacejam
 #[derive(Parser)]
 pub enum Command {
-    /// Generate random data
-    Genesis,
-
-    /// Import a block
-    Import {
-        /// The database path
-        #[arg(long)]
-        db: PathBuf,
-
-        /// The genesis path
-        #[arg(long)]
-        genesis: Option<PathBuf>,
-
-        /// The path of block file
-        #[arg(long)]
-        block: PathBuf,
-    },
-
     /// Start the SpaceJam node
-    Spawn(Box<Builder>),
+    Run(Box<Builder>),
 
-    /// Print the state
-    State {
-        /// The database path
-        #[arg(long)]
-        db: PathBuf,
-
-        /// The hash of the block header
-        #[arg(long)]
-        hash: Option<String>,
-    },
+    /// SpaceJam key utils
+    #[command(subcommand)]
+    Key(key::Key),
 }
 
 impl Command {
     /// Run the command
-    pub async fn run<C: spec::RuntimeSpecSelf>(self) -> anyhow::Result<()> {
+    pub async fn run<C: spec::RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
         match self {
-            Command::Genesis => Self::genesis(),
-            Command::Import { db, block, genesis } => {
-                Self::import::<C>(&db, &block, genesis.as_deref()).await
-            }
-            Command::State { db, hash } => Self::state::<C>(&db, hash.as_deref()),
-            Command::Spawn(spawn) => spawn.build::<C>().await?.start().await,
+            Command::Run(run) => run.build::<C>(data).await?.start().await,
+            Command::Key(key) => key.run(),
         }
     }
+}
 
-    async fn import<C: spec::RuntimeSpecSelf>(
-        db: &Path,
-        block: &Path,
-        genesis: Option<&Path>,
-    ) -> anyhow::Result<()> {
-        let genesis = genesis.map(|p| p.to_path_buf()).try_into()?;
-        let runtime = C::runtime(None, db.to_path_buf(), genesis).await?;
-
-        let block = fs::read_to_string(block)?;
-        let block: BlockJson = serde_json::from_str(&block)?;
-        runtime.finalize(block.try_into()?).await?;
-        Ok(())
-    }
-
-    fn state<C>(db: &Path, _hash: Option<&str>) -> anyhow::Result<()>
-    where
-        C: runtime::Config,
-        C::Storage: TryFrom<PathBuf, Error = anyhow::Error>,
-    {
-        let storage = C::Storage::try_from(db.to_path_buf())?;
-        let state = storage.state()?;
-        println!("{}", serde_json::to_string_pretty(&state)?);
-        Ok(())
-    }
-
-    fn genesis() -> anyhow::Result<()> {
-        let genesis = Genesis::default();
-        println!("{}", serde_json::to_string_pretty(&genesis)?);
-        Ok(())
+mod default {
+    /// The default data path
+    pub fn data_path() -> String {
+        dirs::data_dir()
+            .unwrap_or_default()
+            .join("spacejam")
+            .to_string_lossy()
+            .to_string()
     }
 }

@@ -1,10 +1,9 @@
 //! Node for SpaceJam
 
 use spec::NodeSpec;
-pub use {builder::Builder, genesis::Genesis, spec::RuntimeSpec};
+pub use {builder::Builder, spec::RuntimeSpec};
 
 mod builder;
-mod genesis;
 pub mod spec;
 
 /// SpaceJam node
