@@ -5,6 +5,7 @@ use quinn::{RecvStream, SendStream};
 use score::OpaqueHash;
 
 /// Send a preimage request.
+#[allow(unused)]
 pub async fn send(
     mut send: SendStream,
     recv: RecvStream,
@@ -13,7 +14,7 @@ pub async fn send(
     let mut buf = vec![143];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 
@@ -33,7 +34,7 @@ impl<C: runtime::Config> Network<C> {
         // TODO: fetch the preimage from the storage
         let preimage = vec![];
         send.write_all(&preimage).await?;
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }

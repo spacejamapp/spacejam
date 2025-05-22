@@ -1,7 +1,7 @@
 //! Safrole ticket distribution stream (first step).
 
 use crate::Network;
-use crypto::vrf::RingVrfSignature;
+use codec::Compact;
 use quinn::{RecvStream, SendStream};
 use score::extrinsic::TicketEnvelope;
 use serde::{Deserialize, Serialize};
@@ -20,21 +20,18 @@ impl<C: runtime::Config> Network<C> {
 
         // TODO: verify the proof, handle the ticket, etc.
         let _request: Request = codec::decode(&buf[..])?;
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }
 
 /// Send a safrole ticket distribution.
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+#[allow(unused)]
+pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     let mut buf = vec![131];
     buf.extend_from_slice(&codec::encode(&request)?);
     send.write_all(&buf).await?;
-    send.finish();
+    send.finish()?;
     Ok(())
 }
 
@@ -42,7 +39,7 @@ pub async fn send(
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 pub struct Request {
     /// The epoch index
-    pub epoch: u32,
+    pub epoch: Compact<u32>,
 
     /// The ticket
     pub ticket: TicketEnvelope,

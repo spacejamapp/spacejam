@@ -20,6 +20,10 @@ impl<C: runtime::Config> Network<C> {
     parent = None,
     fields(slot = ?slot)
 )]
+    /// Select the best chain.
+    ///
+    /// TODO: ignore blocks authored by ourselves till
+    /// other nodes have finalized it.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
         let grandpa = self.grandpa.read().await.clone();
         if slot <= grandpa.handshake.head.slot {

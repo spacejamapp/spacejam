@@ -3,9 +3,8 @@
 use crate::{Connection, Network};
 use quinn::{RecvStream, SendStream};
 use runtime::storage::SyncStorage;
-use score::{Block, OpaqueHash};
+use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
-use std::mem;
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a block request.
@@ -23,14 +22,14 @@ impl<C: runtime::Config> Network<C> {
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
         // fetch and write the blocks
-        for (hash, header) in lookup {
+        for (hash, _header) in lookup {
             let Ok(block) = self.storage.get_block(&hash) else {
                 break;
             };
             send.write(&codec::encode(&block)?).await?;
         }
 
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }

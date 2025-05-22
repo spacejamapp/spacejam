@@ -1,14 +1,10 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{peer::PeerId, stream::ce131, Network};
+use crate::{stream::ce131, Network};
 use anyhow::Context;
 pub use ce131::Request;
-use crypto::vrf::RingVrfSignature;
 use quinn::{RecvStream, SendStream};
-use runtime::Storage;
-use score::{block, extrinsic::TicketEnvelope, Ed25519Public};
-use serde::{Deserialize, Serialize};
-use std::mem;
+use score::block;
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
@@ -20,22 +16,20 @@ impl<C: runtime::Config> Network<C> {
     ) -> anyhow::Result<()> {
         let mut buf = vec![0; 789];
         recv.read_exact(&mut buf).await?;
-        send.finish();
+        send.finish()?;
 
         // TODO: verify the proof, handle the ticket, etc.
         let request: Request = codec::decode(&buf[..])?;
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
 
         // insert the ticket into the pool if the epoch is present.
-        if request.epoch == epoch {
+        let repoch: u32 = request.epoch.cloned();
+        if repoch == epoch {
             self.insert_ticket(epoch, request.ticket.clone()).await?;
         }
 
-        tracing::trace!(
-            "ticket#{} for epoch: {}",
-            request.ticket.attempt,
-            request.epoch
-        );
+        tracing::debug!("request: {:?}", request);
+        tracing::trace!("ticket#{} for epoch: {}", request.ticket.attempt, repoch);
         Ok(())
     }
 }
@@ -53,6 +47,6 @@ pub async fn send(
 
     // just wait for the response
     let _ = recv.read_to_end(0).await;
-    send.finish();
+    send.finish()?;
     Ok(())
 }

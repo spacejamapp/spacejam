@@ -4,6 +4,7 @@ use crate::Network;
 use quinn::{RecvStream, SendStream};
 
 /// Send a segment shard request.
+#[allow(unused)]
 pub async fn send<C: runtime::Config>(
     send: SendStream,
     recv: RecvStream,

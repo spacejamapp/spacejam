@@ -3,25 +3,17 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{
-    peer::{Connection, PeerId},
-    stream::up0::Handshake,
-    Network,
-};
+use crate::{peer::Connection, Network};
 use quinn::{RecvStream, SendStream};
 use score::block::{Head, Header};
-use std::{
-    collections::HashSet,
-    sync::{atomic::Ordering, Arc},
-};
-use tokio::sync::RwLock;
+use std::sync::atomic::Ordering;
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
 pub async fn unchecked<C: runtime::Config>(
     runtime: Network<C>,
-    mut send: SendStream,
-    mut recv: RecvStream,
+    send: SendStream,
+    recv: RecvStream,
     conn: Connection,
 ) {
     conn.ready.store(true, Ordering::Relaxed);
@@ -33,7 +25,7 @@ pub async fn unchecked<C: runtime::Config>(
     conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
         tracing::error!("closing connection with reason: {e}");
-        runtime.close(conn.address.peer_id, e.to_string()).await;
+        let _ = runtime.close(conn.address.peer_id, e.to_string()).await;
     }
 }
 
@@ -44,7 +36,6 @@ pub async fn send<C: runtime::Config>(
     mut send: SendStream,
     conn: Connection,
 ) -> anyhow::Result<()> {
-    let peer = conn.address.peer_id;
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
@@ -54,7 +45,7 @@ pub async fn send<C: runtime::Config>(
         // check if the block is acceptable for the remote peer.
         match grandpa.accept_remote(&header, &handshake).await {
             Ok(head) => {
-                let hash = header.hash()?;
+                let hash = head.hash;
                 let shash = hex::encode(&hash.as_ref()[..3]);
                 let handshake = conn.handshake.read().await;
                 tracing::trace!(
@@ -89,7 +80,7 @@ pub async fn recv<C: runtime::Config>(
     conn: Connection,
 ) -> anyhow::Result<()> {
     let mut buffer = Vec::new();
-    while let Ok(Some(chunk)) = recv.read_chunk(1, true).await {
+    while let Some(chunk) = recv.read_chunk(1, true).await? {
         buffer.extend_from_slice(&chunk.bytes);
         let Ok((header, head)) = codec::decode::<(Header, Head)>(buffer.as_ref()) else {
             continue;

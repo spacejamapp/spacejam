@@ -48,7 +48,7 @@ impl<C: runtime::Config> Network<C> {
                     send,
                     recv,
                     ce132::Request {
-                        epoch,
+                        epoch: epoch.into(),
                         ticket: ticket.clone(),
                     },
                 )

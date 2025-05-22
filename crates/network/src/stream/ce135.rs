@@ -15,12 +15,13 @@ impl<C: runtime::Config> Network<C> {
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
         let _req: Request = codec::decode(&recv.read_to_end(usize::MAX).await?)?;
-        send.finish();
+        send.finish()?;
         Ok(())
     }
 }
 
 /// Send a work report distribution.
+#[allow(unused)]
 pub async fn send(
     mut send: SendStream,
     mut recv: RecvStream,
