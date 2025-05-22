@@ -1,7 +1,6 @@
 //! Safrole ticket distribution stream (second step).
 
 use crate::{stream::ce131, Network};
-use anyhow::Context;
 pub use ce131::Request;
 use quinn::{RecvStream, SendStream};
 use score::block;
@@ -23,13 +22,15 @@ impl<C: runtime::Config> Network<C> {
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
 
         // insert the ticket into the pool if the epoch is present.
-        let repoch: u32 = request.epoch.cloned();
-        if repoch == epoch {
+        if request.epoch == epoch {
             self.insert_ticket(epoch, request.ticket.clone()).await?;
         }
 
-        tracing::debug!("request: {:?}", request);
-        tracing::trace!("ticket#{} for epoch: {}", request.ticket.attempt, repoch);
+        tracing::trace!(
+            "ticket#{} for epoch: {}",
+            request.ticket.attempt,
+            request.epoch
+        );
         Ok(())
     }
 }
@@ -41,12 +42,15 @@ pub async fn send(
     mut recv: RecvStream,
     request: Request,
 ) -> anyhow::Result<()> {
-    let mut buf = vec![132];
-    buf.extend_from_slice(&codec::encode(&request)?);
-    send.write_all(&buf).await.context("failed to send CE132")?;
+    send.write(&[132]).await?;
 
-    // just wait for the response
-    let _ = recv.read_to_end(0).await;
+    // 1. send the request
+    let encoded = codec::encode(&request)?;
+    send.write(&encoded.len().to_le_bytes()).await?;
+    send.write(&encoded).await?;
+
+    // 2. just wait for the response
+    recv.read_to_end(0).await?;
     send.finish()?;
     Ok(())
 }

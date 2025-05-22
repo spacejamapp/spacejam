@@ -33,6 +33,12 @@ impl<C: runtime::Config> Network<C> {
             tracing::warn!("failed to read stream type: {e:?}");
         }
 
+        let bufs = match buf[0] {
+            0 => "up0".into(),
+            n => format!("ce{n}"),
+        };
+
+        tracing::debug!("received stream type: {}", bufs);
         if let Err(e) = match buf[0] {
             0 => self.recv_up0(peer, send, recv).await,
             128 => self.recv_ce128(send, recv).await,
@@ -54,13 +60,7 @@ impl<C: runtime::Config> Network<C> {
             145 => self.recv_ce145(send, recv).await,
             unknown => Err(anyhow::anyhow!("unknown stream type: {unknown}")),
         } {
-            tracing::warn!(
-                "{}: {e:?}",
-                match buf[0] {
-                    0 => "up0".into(),
-                    n => format!("ce{n}"),
-                }
-            );
+            tracing::warn!("{bufs}: {e:?}");
         }
     }
 }

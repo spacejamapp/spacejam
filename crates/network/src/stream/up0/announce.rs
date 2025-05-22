@@ -65,8 +65,10 @@ pub async fn send<C: runtime::Config>(
         }
 
         // send the announcement to the remote peer.
-        send.write_all(&codec::encode(&(header, grandpa.handshake.head))?)
-            .await?;
+        let data = (header, grandpa.handshake.head);
+        let encoded = codec::encode(&data)?;
+        // send.write_all(&encoded.len().to_le_bytes()).await?;
+        send.write_all(&encoded).await?;
     }
 
     anyhow::bail!("announcement sender stream closed");
@@ -79,16 +81,18 @@ pub async fn recv<C: runtime::Config>(
     mut recv: RecvStream,
     conn: Connection,
 ) -> anyhow::Result<()> {
-    let mut buffer = Vec::new();
-    while let Some(chunk) = recv.read_chunk(1, true).await? {
-        buffer.extend_from_slice(&chunk.bytes);
-        let Ok((header, head)) = codec::decode::<(Header, Head)>(buffer.as_ref()) else {
-            continue;
-        };
+    loop {
+        // 1. read the length of the announcement
+        let mut buf = [0; 4];
+        recv.read_exact(&mut buf).await?;
+        let length = u32::from_le_bytes(buf);
 
-        buffer.clear();
+        // 2. decode the announcement
+        let mut buf = vec![0; length as usize];
+        recv.read_exact(&mut buf).await?;
+        let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
-        // update the remote peer's handshake data.
+        // 3. update the remote peer's handshake data.
         let grandpa = runtime.grandpa.read().await.clone();
         {
             let mut handshake = conn.handshake.write().await;
@@ -96,7 +100,7 @@ pub async fn recv<C: runtime::Config>(
             grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
-        // validate the header
+        // 4. validate the header
         let hash = header.hash()?;
         if grandpa.ancestry.header(&hash).is_some() {
             continue;
@@ -111,7 +115,7 @@ pub async fn recv<C: runtime::Config>(
             continue;
         }
 
-        // trace the announcement data.
+        // 5.trace the announcement data.
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
@@ -125,7 +129,7 @@ pub async fn recv<C: runtime::Config>(
             );
         }
 
-        // skip if the header exists
+        // 6. skip if the header exists
         {
             let grandpa = runtime.grandpa.read().await.clone();
             if grandpa.ancestry.header(&hash).is_some() {
@@ -133,16 +137,17 @@ pub async fn recv<C: runtime::Config>(
             }
         }
 
-        // Add this header to local leaves
+        // 7. Add this header to local leaves
         //
         // Note that we don't verify the header here since we may
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
+        // TODO: we should only broadcast the header only if we
+        // have verified it.
+        //
         // broadcast the header to the network
         // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
         runtime.announce(Box::new(header.clone())).await?;
     }
-
-    anyhow::bail!("announcement receiver stream closed");
 }

@@ -1,7 +1,6 @@
 //! Safrole ticket distribution stream (first step).
 
 use crate::Network;
-use codec::Compact;
 use quinn::{RecvStream, SendStream};
 use score::extrinsic::TicketEnvelope;
 use serde::{Deserialize, Serialize};
@@ -39,7 +38,7 @@ pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 pub struct Request {
     /// The epoch index
-    pub epoch: Compact<u32>,
+    pub epoch: u32,
 
     /// The ticket
     pub ticket: TicketEnvelope,
