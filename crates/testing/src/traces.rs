@@ -61,3 +61,128 @@ mod safrole {
 /* mod reports_l0 {
     include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
 } */
+
+/// importer tests
+pub mod importer {
+    use runtime::{storage::SyncStorage, Storage};
+    use score::{
+        block::Header,
+        extrinsic::{TicketBody, TicketsOrKeys},
+        safrole::ValidatorIter,
+    };
+
+    /// Validate a header
+    pub fn validate(header: &Header, storage: &impl Storage) -> anyhow::Result<()> {
+        let slot = storage.timeslot()?;
+        let local_epoch = slot / score::EPOCH_LENGTH;
+        let remote_epoch = header.slot / score::EPOCH_LENGTH;
+        let new_epoch = remote_epoch > local_epoch;
+        tracing::trace!("new_epoch: {}", new_epoch);
+
+        let entropy_buffer = storage.entropy()?;
+        tracing::trace!(
+            "entropy_buffer: {:#?}",
+            entropy_buffer
+                .iter()
+                .map(|b| format!("0x{}", hex::encode(b)))
+                .collect::<Vec<_>>()
+        );
+        let entropy = if header.epoch_mark.is_some() {
+            entropy_buffer[2]
+        } else {
+            entropy_buffer[3]
+        };
+        let mut ticket = None;
+
+        // check the ticket mark
+        let slot = (header.slot % score::EPOCH_LENGTH) as usize;
+        if new_epoch {
+            if let Ok(tickets) = storage.next_series() {
+                ticket = Some(tickets[slot]);
+            }
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = storage.series() {
+            ticket = Some(tickets[slot as usize]);
+        }
+
+        // indicate the keys to be used
+        let keys = if new_epoch {
+            storage.next_validators()?
+        } else {
+            storage.current_validators()?
+        }
+        .bandersnatch();
+
+        tracing::trace!("keys: {}", keys.len());
+
+        // construct the message
+        let mut oheader = header.clone();
+        oheader.seal = [0; 96];
+        // oheader.entropy_source = [0; 96];
+        let rcontext = codec::encode(&oheader)?;
+
+        tracing::trace!("rcontext: {:?}", rcontext);
+        let context = rcontext[..rcontext.len() - 96].to_vec();
+
+        // construct the context
+        let mut message = Vec::new();
+        if let Some(ticket) = ticket {
+            message = TicketBody::message(ticket.attempt, &entropy);
+        } else {
+            tracing::trace!("using fallback seal");
+            message.extend_from_slice(&score::JAM_FALLBACK_SEAL);
+            message.extend_from_slice(&entropy);
+        }
+
+        // check the ticket seal
+        if let Some(ticket) = ticket {
+            tracing::trace!(
+                "[safrole] verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",
+                hex::encode(entropy.as_ref()),
+                ticket.attempt,
+                hex::encode(ticket.id),
+                header.author_index
+            );
+        } else {
+            tracing::trace!(
+                "[fallback] verifying header seal with entropy: 0x{}",
+                hex::encode(entropy.as_ref())
+            );
+        }
+        let author_index = header.author_index;
+        let verifier = crypto::ring::verifier(keys.clone());
+        let output = verifier
+            .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
+            .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
+
+        tracing::trace!("vrf verification output: 0x{}", hex::encode(output));
+        if let Some(ticket) = ticket {
+            if ticket.id != output {
+                let TicketsOrKeys::Tickets(tickets) = storage.series()? else {
+                    anyhow::bail!("ticket series not found");
+                };
+                tracing::error!(
+                    "ticket series: {:?}",
+                    tickets.into_iter().map(|t| t.id).collect::<Vec<_>>()
+                );
+                anyhow::bail!("header seal mismatched");
+            }
+        }
+
+        // verify entropy source
+        verifier
+            .ietf_vrf_verify(
+                &[],
+                &[
+                    &score::JAM_ENTROPY[..],
+                    &crypto::vrf::ietf_output(header.seal)?[..],
+                ]
+                .concat(),
+                &header.entropy_source,
+                author_index as usize,
+            )
+            .map(|_| ())
+            .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
+
+        Ok(())
+    }
+}

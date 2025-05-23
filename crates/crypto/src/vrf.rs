@@ -282,7 +282,7 @@ impl Verifier {
         let public = &self.ring[signer_key_index];
         public
             .verify(input, output, aux_data, &signature.proof)
-            .map_err(|_| anyhow::anyhow!("Ietf signature verification failure"))?;
+            .map_err(|e| anyhow::anyhow!("Ietf signature verification failure: {e:?}"))?;
 
         // This is the actual value used as ticket-id/score
         // NOTE: as far as vrf_input_data is the same, this matches the one produced

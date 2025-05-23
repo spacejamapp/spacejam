@@ -15,8 +15,6 @@ use score::{
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
-mod storage;
-
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
 
@@ -355,6 +353,9 @@ impl Runner {
 
                 let state_root = memdb.root().expect("failed to get state root");
                 assert_eq!(state_root, input.pre_state.state_root);
+
+                // 2. validate the header
+                // traces::importer::validate(&block.header, &memdb)?;
 
                 // 2. verify the state transition
                 let _ = tx::transit::<Interpreter>(block, &memdb)?;
