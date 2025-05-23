@@ -355,7 +355,7 @@ impl Runner {
                 assert_eq!(state_root, input.pre_state.state_root);
 
                 // 2. validate the header
-                // traces::importer::validate(&block.header, &memdb)?;
+                traces::importer::validate(&block.header, &memdb)?;
 
                 // 2. verify the state transition
                 let _ = tx::transit::<Interpreter>(block, &memdb)?;

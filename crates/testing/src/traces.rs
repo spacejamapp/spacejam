@@ -112,20 +112,18 @@ pub mod importer {
         }
         .bandersnatch();
 
-        tracing::trace!("keys: {}", keys.len());
-
         // construct the message
-        let mut oheader = header.clone();
-        oheader.seal = [0; 96];
-        // oheader.entropy_source = [0; 96];
-        let rcontext = codec::encode(&oheader)?;
-
-        tracing::trace!("rcontext: {:?}", rcontext);
-        let context = rcontext[..rcontext.len() - 96].to_vec();
+        let context = codec::encode(&header)?;
+        let context = context[..context.len() - 96].to_vec();
 
         // construct the context
         let mut message = Vec::new();
         if let Some(ticket) = ticket {
+            tracing::trace!(
+                "using ticket#{}@0x{}",
+                ticket.attempt,
+                hex::encode(ticket.id)
+            );
             message = TicketBody::message(ticket.attempt, &entropy);
         } else {
             tracing::trace!("using fallback seal");
@@ -171,12 +169,12 @@ pub mod importer {
         // verify entropy source
         verifier
             .ietf_vrf_verify(
-                &[],
                 &[
-                    &score::JAM_ENTROPY[..],
-                    &crypto::vrf::ietf_output(header.seal)?[..],
+                    score::JAM_ENTROPY.as_slice(),
+                    crypto::vrf::ietf_output(header.seal)?.as_slice(),
                 ]
                 .concat(),
+                &[],
                 &header.entropy_source,
                 author_index as usize,
             )

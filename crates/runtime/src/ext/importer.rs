@@ -176,10 +176,8 @@ impl<C: Config> Runtime<C> {
         .collect::<Vec<_>>();
 
         // construct the message
-        let mut oheader = header.clone();
-        oheader.seal = [0; 96];
-        oheader.entropy_source = [0; 96];
-        let context = codec::encode(&oheader)?;
+        let encoded = codec::encode(&header)?;
+        let context = encoded[..encoded.len() - 96].to_vec();
 
         // construct the context
         let mut message = Vec::new();
@@ -228,12 +226,12 @@ impl<C: Config> Runtime<C> {
         // verify entropy source
         verifier
             .ietf_vrf_verify(
-                &[],
                 &[
                     &score::JAM_ENTROPY[..],
                     &crypto::vrf::ietf_output(header.seal)?[..],
                 ]
                 .concat(),
+                &[],
                 &header.entropy_source,
                 author_index as usize,
             )
