@@ -223,13 +223,11 @@ impl<C: Config> Runtime<C> {
         }
 
         // verify entropy source
+        let extracted_vrf_output = crypto::vrf::ietf_output(header.seal)?;
+        let entropy_message = [&score::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
         verifier
             .ietf_vrf_verify(
-                &[
-                    &score::JAM_ENTROPY[..],
-                    &crypto::vrf::ietf_output(header.seal)?[..],
-                ]
-                .concat(),
+                &entropy_message,
                 &[],
                 &header.entropy_source,
                 author_index as usize,

@@ -49,6 +49,10 @@ impl Validator for TestValidator {
         self.banersnatch.ring_sign(keys.to_vec(), message, context)
     }
 
+    fn ietf_vrf_output(&self, message: &[u8]) -> anyhow::Result<[u8; 32]> {
+        self.banersnatch.output_hash(message)
+    }
+
     fn metadata(&self) -> ValidatorMetadata {
         [0u8; 128]
     }

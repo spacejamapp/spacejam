@@ -1,7 +1,6 @@
 //! Authoring service
 
 use crate::{Config, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
-use anyhow::Context;
 use score::{
     BandersnatchPublic, OpaqueHash, TimeSlot,
     block::{Block, Head, Header},
@@ -219,14 +218,20 @@ impl<'a, C: Config> Author<'a, C> {
                 let ticket = tickets[slot];
                 (TicketBody::message(ticket.attempt, &entropy), Some(ticket))
             }
-            TicketsOrKeys::Keys(_) => (score::JAM_FALLBACK_SEAL.to_vec(), None),
+            TicketsOrKeys::Keys(_) => {
+                let mut message = score::JAM_FALLBACK_SEAL.to_vec();
+                message.extend_from_slice(&entropy);
+                (message, None)
+            }
         };
 
         // construct the entropy source
         block.header.entropy_source = {
-            let mut context = score::JAM_ENTROPY.to_vec();
-            context.extend_from_slice(&self.validator.ietf_vrf_output(&message)?);
-            self.validator.bandersnatch_sign(&keys, &context, &[])?
+            let mut entropy_message = score::JAM_ENTROPY.to_vec();
+            let vrf_output = self.validator.ietf_vrf_output(&message)?;
+            entropy_message.extend_from_slice(&vrf_output);
+            self.validator
+                .bandersnatch_sign(&keys, &[], &entropy_message)?
         };
 
         // construct the seal
@@ -257,19 +262,6 @@ impl<'a, C: Config> Author<'a, C> {
                 anyhow::bail!("ticket seal mismatched");
             }
         }
-
-        verifier
-            .ietf_vrf_verify(
-                &[
-                    &score::JAM_ENTROPY[..],
-                    &crypto::vrf::ietf_output(block.header.seal)?,
-                ]
-                .concat(),
-                &[],
-                &block.header.entropy_source,
-                block.header.author_index as usize,
-            )
-            .context("entropy source verification failed")?;
 
         Ok(block)
     }
