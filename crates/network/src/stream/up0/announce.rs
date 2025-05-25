@@ -75,6 +75,10 @@ pub async fn send<C: runtime::Config>(
 }
 
 /// Receive the block announcement from a remote peer.
+///
+/// TODO:
+///
+/// - avoid validating the same header for serveral times.
 #[tracing::instrument(skip_all)]
 pub async fn recv<C: runtime::Config>(
     runtime: Network<C>,
@@ -114,6 +118,11 @@ pub async fn recv<C: runtime::Config>(
             );
             continue;
         }
+        tracing::trace!(
+            "validated header: {}@0x{}",
+            header.slot,
+            hex::encode(&hash[..3])
+        );
 
         // 5.trace the announcement data.
         {
@@ -143,11 +152,11 @@ pub async fn recv<C: runtime::Config>(
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
-        // TODO: we should only broadcast the header only if we
-        // have verified it.
-        //
-        // broadcast the header to the network
-        // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
-        runtime.announce(Box::new(header.clone())).await?;
+        // // TODO: we should only broadcast the header only if we
+        // // have fetched it.
+        // //
+        // // broadcast the header to the network
+        // // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
+        // runtime.announce(Box::new(header.clone())).await?;
     }
 }

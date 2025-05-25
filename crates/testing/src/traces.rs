@@ -77,16 +77,9 @@ pub mod importer {
         let local_epoch = slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
         let new_epoch = remote_epoch > local_epoch;
-        tracing::trace!("new_epoch: {}", new_epoch);
 
+        // select the entropy
         let entropy_buffer = storage.entropy()?;
-        tracing::trace!(
-            "entropy_buffer: {:#?}",
-            entropy_buffer
-                .iter()
-                .map(|b| format!("0x{}", hex::encode(b)))
-                .collect::<Vec<_>>()
-        );
         let entropy = if header.epoch_mark.is_some() {
             entropy_buffer[2]
         } else {
@@ -126,7 +119,6 @@ pub mod importer {
             );
             message = TicketBody::message(ticket.attempt, &entropy);
         } else {
-            tracing::trace!("using fallback seal");
             message.extend_from_slice(&score::JAM_FALLBACK_SEAL);
             message.extend_from_slice(&entropy);
         }

@@ -1,6 +1,7 @@
 //! Authoring service
 
 use crate::{Config, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
+use anyhow::Context;
 use score::{
     BandersnatchPublic, OpaqueHash, TimeSlot,
     block::{Block, Head, Header},
@@ -203,7 +204,6 @@ impl<'a, C: Config> Author<'a, C> {
     fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
         let series = self.storage.series()?;
         let entropy = self.storage.entropy()?;
-        let context = codec::encode(&block.header)?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
             keys = mark.validators.iter().map(|v| v.bandersnatch).collect();
@@ -212,54 +212,64 @@ impl<'a, C: Config> Author<'a, C> {
             entropy[3]
         };
 
-        block.header.seal = match series {
+        // construct the seal message
+        let (message, ticket) = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
                 let ticket = tickets[slot];
-                tracing::trace!(
-                    "sealing block with entropy: 0x{}, ticket#{}@0x{}",
-                    hex::encode(entropy.as_ref()),
-                    ticket.attempt,
-                    hex::encode(ticket.id)
-                );
-                let message = TicketBody::message(ticket.attempt, &entropy);
-                let seal = self
-                    .runtime
-                    .validator
-                    .bandersnatch_sign(&keys, &context, &message)?;
-
-                let verifier = crypto::ring::verifier(keys.clone());
-                let output = verifier.ietf_vrf_verify(
-                    &message,
-                    &context,
-                    &seal,
-                    block.header.author_index as usize,
-                )?;
-                if output != ticket.id {
-                    tracing::error!(
-                        "ticket seal mismatched, expected: 0x{}, got: 0x{}",
-                        hex::encode(ticket.id),
-                        hex::encode(output)
-                    );
-                    anyhow::bail!("ticket seal mismatched");
-                }
-
-                seal
+                (TicketBody::message(ticket.attempt, &entropy), Some(ticket))
             }
-            TicketsOrKeys::Keys(_) => {
-                let mut message = score::JAM_FALLBACK_SEAL.to_vec();
-                message.extend_from_slice(&entropy);
-                self.validator
-                    .bandersnatch_sign(&keys, &context, &message)?
-            }
+            TicketsOrKeys::Keys(_) => (score::JAM_FALLBACK_SEAL.to_vec(), None),
         };
 
-        // set the entropy source
+        // construct the entropy source
         block.header.entropy_source = {
             let mut context = score::JAM_ENTROPY.to_vec();
-            context.extend_from_slice(&crypto::vrf::ietf_output(block.header.seal)?);
+            context.extend_from_slice(&self.validator.ietf_vrf_output(&message)?);
             self.validator.bandersnatch_sign(&keys, &context, &[])?
         };
+
+        // construct the seal
+        let context = {
+            let encoded = codec::encode(&block.header)?;
+            encoded[..encoded.len() - 96].to_vec()
+        };
+        block.header.seal = self
+            .runtime
+            .validator
+            .bandersnatch_sign(&keys, &context, &message)?;
+
+        // verify the ticket id
+        let verifier = crypto::ring::verifier(keys.clone());
+        if let Some(ticket) = ticket {
+            let output = verifier.ietf_vrf_verify(
+                &message,
+                &context,
+                &block.header.seal,
+                block.header.author_index as usize,
+            )?;
+            if output != ticket.id {
+                tracing::error!(
+                    "ticket seal mismatched, expected: 0x{}, got: 0x{}",
+                    hex::encode(ticket.id),
+                    hex::encode(output)
+                );
+                anyhow::bail!("ticket seal mismatched");
+            }
+        }
+
+        verifier
+            .ietf_vrf_verify(
+                &[
+                    &score::JAM_ENTROPY[..],
+                    &crypto::vrf::ietf_output(block.header.seal)?,
+                ]
+                .concat(),
+                &[],
+                &block.header.entropy_source,
+                block.header.author_index as usize,
+            )
+            .context("entropy source verification failed")?;
 
         Ok(block)
     }

@@ -1,6 +1,6 @@
 use crate::{
-    runtime::Validator, BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature,
-    BlsPublic, Ed25519Public, ValidatorMetadata,
+    BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
+    Ed25519Public, ValidatorMetadata, runtime::Validator,
 };
 use crypto::{bls, ed25519, vrf};
 

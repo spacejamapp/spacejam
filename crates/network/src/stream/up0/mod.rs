@@ -35,7 +35,6 @@ impl<C: runtime::Config> Network<C> {
         let length = encoded.len() as u32;
         send.write(&length.to_le_bytes()).await?;
         send.write(&encoded).await?;
-        tracing::trace!("up0 established");
 
         // 4. announcement loop
         let runtime = self.clone();

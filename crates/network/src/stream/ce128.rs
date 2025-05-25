@@ -14,6 +14,13 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
+        let mut buf = [0; 4];
+        recv.read_exact(&mut buf).await?;
+        let length = u32::from_le_bytes(buf);
+        if length != 37 {
+            anyhow::bail!("invalid length of block request message, expected 37, got {length}");
+        }
+
         let mut buf = [0; 37];
         recv.read_exact(&mut buf).await?;
 
@@ -40,6 +47,7 @@ pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStr
     let (mut send, recv) = conn.open_bi().await?;
 
     let mut buf = vec![128];
+    buf.extend_from_slice(&37u32.to_le_bytes()); // size of the request
     buf.extend_from_slice(request.hash.as_ref());
     buf.extend_from_slice(&request.direction.to_le_bytes());
     buf.extend_from_slice(&request.maximum.to_le_bytes());

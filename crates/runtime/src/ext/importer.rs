@@ -1,7 +1,5 @@
 //! Importer for SpaceJam
 
-use std::collections::HashMap;
-
 use crate::{
     Config, Hook, Runtime, Storage,
     storage::{KVStorage, SyncStorage},
@@ -13,6 +11,7 @@ use score::{
     extrinsic::{TicketBody, TicketsOrKeys},
     state::key,
 };
+use std::collections::HashMap;
 
 impl<C: Config> Runtime<C> {
     /// Import the genesis block
@@ -139,7 +138,7 @@ impl<C: Config> Runtime<C> {
         // if the epoch greater than the next, skip the validation.
         if local_epoch != 0 && remote_epoch > local_epoch + 1 {
             anyhow::bail!(
-                "invalid epoch: local: {}, remote: {}",
+                "unhandled epoch: local: {}, remote: {}",
                 local_epoch,
                 remote_epoch
             );
@@ -150,7 +149,7 @@ impl<C: Config> Runtime<C> {
         let slot = (header.slot % score::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.storage.entropy()?;
         let mut ticket = None;
-        let entropy = if header.epoch_mark.is_some() {
+        let entropy = if new_epoch {
             entropy_buffer[2]
         } else {
             entropy_buffer[3]
@@ -238,6 +237,7 @@ impl<C: Config> Runtime<C> {
             .map(|_| ())
             .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
 
+        tracing::trace!("validated header: {}", header.slot);
         Ok(())
     }
 }
