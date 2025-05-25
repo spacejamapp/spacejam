@@ -13,12 +13,15 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let mut buf = vec![0; 789];
+        let mut buf = [0; 4];
         recv.read_exact(&mut buf).await?;
-        send.finish()?;
+        let length = u32::from_le_bytes(buf);
+
+        let mut buf = vec![0; length as usize];
+        recv.read_exact(&mut buf).await?;
 
         // TODO: verify the proof, handle the ticket, etc.
-        let request: Request = codec::decode(&buf[..])?;
+        let request: Request = codec::decode(&buf)?;
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
 
         // insert the ticket into the pool if the epoch is present.
@@ -31,6 +34,7 @@ impl<C: runtime::Config> Network<C> {
             request.ticket.attempt,
             request.epoch
         );
+        send.finish()?;
         Ok(())
     }
 }
@@ -49,8 +53,12 @@ pub async fn send(
     send.write(&encoded.len().to_le_bytes()).await?;
     send.write(&encoded).await?;
 
-    // 2. just wait for the response
-    recv.read_to_end(0).await?;
+    // 2. finish sending and wait for the response to be fully received
     send.finish()?;
+
+    // 3. read any remaining data from recv stream to properly close the connection
+    // let mut buf = Vec::new();
+    recv.read_to_end(0).await?;
+
     Ok(())
 }

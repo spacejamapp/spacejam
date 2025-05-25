@@ -67,8 +67,8 @@ pub async fn send<C: runtime::Config>(
         // send the announcement to the remote peer.
         let data = (header, grandpa.handshake.head);
         let encoded = codec::encode(&data)?;
-        // send.write_all(&encoded.len().to_le_bytes()).await?;
-        send.write_all(&encoded).await?;
+        send.write(&encoded.len().to_le_bytes()).await?;
+        send.write(&encoded).await?;
     }
 
     anyhow::bail!("announcement sender stream closed");
