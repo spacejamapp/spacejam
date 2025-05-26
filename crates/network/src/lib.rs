@@ -76,6 +76,10 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         if !bootnodes.is_empty() {
             let this = this.clone();
             for peer in bootnodes {
+                if this.pool.read().await.contains_key(&peer.peer_id) {
+                    continue;
+                }
+
                 if let Err(e) = this.dial(peer).await {
                     tracing::warn!("failed to dial bootstrap peer: {e}");
                 }

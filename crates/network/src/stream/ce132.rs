@@ -1,11 +1,12 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{stream::ce131, Network};
+use crate::{
+    stream::{ce131, ext::Write},
+    Network,
+};
 pub use ce131::Request;
 use quinn::{RecvStream, SendStream};
 use score::block;
-
-use super::ext::Write;
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
@@ -32,11 +33,10 @@ impl<C: runtime::Config> Network<C> {
         }
 
         tracing::trace!(
-            "ticket#{}@{} for epoch: {}, current tickets: {}",
+            "ticket#{}@{} for epoch: {}",
             request.ticket.attempt,
             hex::encode(&request.ticket.signature[..3]),
             request.epoch,
-            self.author().tickets.len()
         );
         send.finish()?;
         Ok(())

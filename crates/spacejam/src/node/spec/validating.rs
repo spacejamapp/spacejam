@@ -21,9 +21,6 @@ impl<C: runtime::Config> Validating<C> {
             return;
         }
 
-        // sleep up to 3 seconds to make sure the network is ready
-        tokio::time::sleep(Duration::from_secs(3)).await;
-
         loop {
             let now = block::now();
             if !author
@@ -51,10 +48,12 @@ impl<C: runtime::Config> Validating<C> {
             log::current(runtime).await;
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-
-            // select the best chain before authoring
-            if let Err(e) = runtime.select_best_chain(timeslot).await {
-                tracing::error!("Failed to select best chain: {:?}", e);
+            let prev = timeslot.saturating_sub(1);
+            if runtime.grandpa.read().await.handshake.head.slot < prev {
+                // select the best chain before authoring
+                if let Err(e) = runtime.select_best_chain(prev).await {
+                    tracing::error!("Failed to select best chain: {:?}", e);
+                }
             }
 
             // author block and maybe generate ticket

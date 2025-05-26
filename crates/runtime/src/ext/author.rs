@@ -66,7 +66,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author(timeslot).await?.header);
-            self.slots.pop_front();
+            // self.slots.pop_front();
         }
 
         Ok(next)

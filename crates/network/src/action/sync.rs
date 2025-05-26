@@ -143,6 +143,8 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 );
                 continue;
             }
+
+            break;
         }
 
         Ok(())
