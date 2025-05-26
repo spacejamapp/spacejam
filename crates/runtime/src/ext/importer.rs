@@ -1,7 +1,5 @@
 //! Importer for SpaceJam
 
-use std::collections::HashMap;
-
 use crate::{
     Config, Hook, Runtime, Storage,
     storage::{KVStorage, SyncStorage},
@@ -13,6 +11,7 @@ use score::{
     extrinsic::{TicketBody, TicketsOrKeys},
     state::key,
 };
+use std::collections::HashMap;
 
 impl<C: Config> Runtime<C> {
     /// Import the genesis block
@@ -139,7 +138,7 @@ impl<C: Config> Runtime<C> {
         // if the epoch greater than the next, skip the validation.
         if local_epoch != 0 && remote_epoch > local_epoch + 1 {
             anyhow::bail!(
-                "invalid epoch: local: {}, remote: {}",
+                "unhandled epoch: local: {}, remote: {}",
                 local_epoch,
                 remote_epoch
             );
@@ -150,7 +149,7 @@ impl<C: Config> Runtime<C> {
         let slot = (header.slot % score::EPOCH_LENGTH) as usize;
         let entropy_buffer = self.storage.entropy()?;
         let mut ticket = None;
-        let entropy = if header.epoch_mark.is_some() {
+        let entropy = if new_epoch {
             entropy_buffer[2]
         } else {
             entropy_buffer[3]
@@ -176,10 +175,8 @@ impl<C: Config> Runtime<C> {
         .collect::<Vec<_>>();
 
         // construct the message
-        let mut oheader = header.clone();
-        oheader.seal = [0; 96];
-        oheader.entropy_source = [0; 96];
-        let context = codec::encode(&oheader)?;
+        let encoded = codec::encode(&header)?;
+        let context = encoded[..encoded.len() - 96].to_vec();
 
         // construct the context
         let mut message = Vec::new();
@@ -191,27 +188,12 @@ impl<C: Config> Runtime<C> {
         }
 
         // check the ticket seal
-        if let Some(ticket) = ticket {
-            tracing::trace!(
-                "verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",
-                hex::encode(entropy.as_ref()),
-                ticket.attempt,
-                hex::encode(ticket.id),
-                header.author_index
-            );
-        } else {
-            tracing::trace!(
-                "verifying header seal with entropy: 0x{}",
-                hex::encode(entropy.as_ref())
-            );
-        }
         let author_index = header.author_index;
         let verifier = crypto::ring::verifier(keys.clone());
         let output = verifier
             .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
             .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
 
-        tracing::trace!("vrf verification output: 0x{}", hex::encode(output));
         if let Some(ticket) = ticket {
             if ticket.id != output {
                 let TicketsOrKeys::Tickets(tickets) = self.storage.series()? else {
@@ -226,14 +208,12 @@ impl<C: Config> Runtime<C> {
         }
 
         // verify entropy source
+        let extracted_vrf_output = crypto::vrf::ietf_output(header.seal)?;
+        let entropy_message = [&score::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
         verifier
             .ietf_vrf_verify(
+                &entropy_message,
                 &[],
-                &[
-                    &score::JAM_ENTROPY[..],
-                    &crypto::vrf::ietf_output(header.seal)?[..],
-                ]
-                .concat(),
                 &header.entropy_source,
                 author_index as usize,
             )

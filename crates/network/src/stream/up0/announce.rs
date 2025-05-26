@@ -3,30 +3,31 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{peer::Connection, Network};
+use crate::{peer::Connection, stream::ext::Write, Network};
+use anyhow::Result;
 use quinn::{RecvStream, SendStream};
 use score::block::{Head, Header};
-use std::sync::atomic::Ordering;
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
-pub async fn unchecked<C: runtime::Config>(
+pub async fn spawn<C: runtime::Config>(
     runtime: Network<C>,
     send: SendStream,
     recv: RecvStream,
     conn: Connection,
-) {
-    conn.ready.store(true, Ordering::Relaxed);
+) -> Result<()> {
     let r = tokio::select! {
         r = self::send(runtime.clone(), send, conn.clone()) => r,
         r = self::recv(runtime.clone(), recv, conn.clone()) => r,
     };
 
-    conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
-        tracing::error!("closing connection with reason: {e}");
-        let _ = runtime.close(conn.address.peer_id, e.to_string()).await;
+        let _ = runtime
+            .disconnect(conn.address.peer_id, e.to_string())
+            .await?;
     }
+
+    Ok(())
 }
 
 /// Announce the block to the peer.
@@ -41,6 +42,7 @@ pub async fn send<C: runtime::Config>(
     while let Ok(header) = rx.recv().await {
         let grandpa = runtime.grandpa.read().await.clone();
         let handshake = conn.handshake.read().await;
+        tracing::debug!("sending announcement: #{}", header.slot);
 
         // check if the block is acceptable for the remote peer.
         match grandpa.accept_remote(&header, &handshake).await {
@@ -66,15 +68,17 @@ pub async fn send<C: runtime::Config>(
 
         // send the announcement to the remote peer.
         let data = (header, grandpa.handshake.head);
-        let encoded = codec::encode(&data)?;
-        // send.write_all(&encoded.len().to_le_bytes()).await?;
-        send.write_all(&encoded).await?;
+        data.write(&mut send).await?;
     }
 
     anyhow::bail!("announcement sender stream closed");
 }
 
 /// Receive the block announcement from a remote peer.
+///
+/// TODO:
+///
+/// - avoid validating the same header for several times.
 #[tracing::instrument(skip_all)]
 pub async fn recv<C: runtime::Config>(
     runtime: Network<C>,
@@ -108,7 +112,7 @@ pub async fn recv<C: runtime::Config>(
 
         if let Err(e) = runtime.validate(&header).await {
             tracing::warn!(
-                "failed to validate header#{}@0x{}: {e}. \n\nTODO: if this is caused by the epoch, we should request the ancestors of the block then handle it",
+                "failed to validate header#{}@0x{}: {e}.",
                 header.slot,
                 hex::encode(&hash[..3]),
             );
@@ -143,11 +147,11 @@ pub async fn recv<C: runtime::Config>(
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
 
-        // TODO: we should only broadcast the header only if we
-        // have verified it.
-        //
-        // broadcast the header to the network
-        // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
-        runtime.announce(Box::new(header.clone())).await?;
+        // // TODO: we should only broadcast the header only if we
+        // // have fetched it.
+        // //
+        // // broadcast the header to the network
+        // // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
+        // runtime.announce(Box::new(header.clone())).await?;
     }
 }

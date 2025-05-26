@@ -51,7 +51,7 @@ fn main() -> Result<()> {
         &out_dir.join("traces_fallback.rs"),
     )?;
     build_tests(
-        registry.trace(Trace::Fallback)?,
+        registry.trace(Trace::Safrole)?,
         &out_dir.join("traces_safrole.rs"),
     )?;
     build_tests(

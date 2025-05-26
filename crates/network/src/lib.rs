@@ -72,19 +72,21 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         };
 
         // bootnodes dialing
-        let bootnodes = config.bootnodes;
+        /* let bootnodes = config.bootnodes;
         if !bootnodes.is_empty() {
             let this = this.clone();
-            tokio::spawn(async move {
-                for peer in bootnodes {
-                    if let Err(e) = this.dial(peer).await {
-                        tracing::warn!("failed to dial bootstrap peer: {e}");
-                    }
+            for peer in bootnodes {
+                if this.pool.read().await.contains_key(&peer.peer_id) {
+                    continue;
                 }
-            });
+
+                if let Err(e) = this.dial(peer).await {
+                    tracing::warn!("failed to dial bootstrap peer: {e}");
+                }
+            }
         } else {
             tracing::debug!("no bootstrap peers, skip dialing ...");
-        }
+        } */
 
         Ok(this)
     }
@@ -161,24 +163,11 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         Ok(())
     }
 
-    /// Close a connection
-    pub async fn close(&self, peer: PeerId, reason: String) -> anyhow::Result<()> {
-        if let Some(_address) = self.disconnect(peer, reason.clone()).await? {
-            // tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-
-            // TODO: re-connect missing peers with an interval
-            //
-            // self.dial(address).await?;
-        }
-
-        Ok(())
-    }
-
     /// Get a connection from the pool
     pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
         let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
-            tracing::trace!("closing connection for peer: {peer}");
-            self.close(peer, "No connection found".to_string()).await?;
+            self.disconnect(peer, "clean died connection".to_string())
+                .await?;
             return Err(anyhow::anyhow!("no connection found for peer: {peer}"));
         };
 

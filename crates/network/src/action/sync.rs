@@ -21,9 +21,6 @@ impl<C: runtime::Config> Network<C> {
     fields(slot = ?slot)
 )]
     /// Select the best chain.
-    ///
-    /// TODO: ignore blocks authored by ourselves till
-    /// other nodes have finalized it.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
         let grandpa = self.grandpa.read().await.clone();
         if slot <= grandpa.handshake.head.slot {
@@ -100,6 +97,8 @@ pub struct BlockSync<'r, C: runtime::Config> {
 
 impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// Create a new block sync requester.
+    ///
+    /// TODO: indicate the request direction by the maximum blocks.
     pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
         let grandpa = runtime.grandpa.read().await.clone();
         let request = ce128::Request {
@@ -127,7 +126,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 break;
             }
 
-            tracing::debug!(
+            tracing::trace!(
                 "request {} for block#{}@0x{} with maximum {} blocks",
                 feed.address.peer_id.to_string(),
                 self.best.slot,
@@ -135,13 +134,17 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 self.request.maximum,
             );
 
-            let (mut send, recv) = ce128::send(feed.clone(), self.request.clone()).await?;
+            let recv = ce128::send(feed.clone(), self.request.clone()).await?;
             if let Err(e) = self.request(recv).await {
-                tracing::warn!("failed to sync from {}: {}", feed.address.peer_id, e);
+                tracing::debug!(
+                    "failed to sync from {}: {}, switching to the next feed",
+                    feed.address.peer_id,
+                    e
+                );
+                continue;
             }
 
-            send.finish()?;
-            continue;
+            break;
         }
 
         Ok(())
@@ -152,20 +155,16 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// TODO: If our local storage contains one of the upcoming blocks,
     /// we should finalize it from our storage directly.
     pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
-        let mut buffer = Vec::new();
-        while let Some(chunk) = recv.read_chunk(1, true).await? {
-            buffer.extend_from_slice(&chunk.bytes);
-            let Ok(block) = codec::decode::<Block>(&buffer) else {
-                continue;
-            };
+        let mut buf = [0; 4];
+        recv.read_exact(&mut buf).await?;
+        let length = u32::from_le_bytes(buf);
 
-            buffer.clear();
-            tracing::debug!(
-                "received block#{}@{}",
-                block.header.slot,
-                hex::encode(&block.header.hash()?[..3])
-            );
+        let mut buffer = vec![0; length as usize];
+        recv.read_exact(&mut buffer).await?;
+        let block: Block = codec::decode(&buffer)?;
+        let blocks = vec![block];
 
+        for block in blocks {
             // if the block is considered as a descendant of the current head, skip it.
             {
                 let grandpa = self.runtime.grandpa.read().await.clone();
@@ -179,14 +178,9 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             }
 
             // finalize the block.
-            let head: Head = block.header.clone().try_into()?;
             self.runtime.finalize(block).await?;
-
-            // update the request.
-            self.request.maximum = self.request.maximum.saturating_sub(1);
-            self.request.hash = head.hash;
-            self.best = head;
         }
+
         Ok(())
     }
 }

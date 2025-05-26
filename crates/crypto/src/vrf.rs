@@ -268,21 +268,21 @@ impl Verifier {
     /// On success returns the VRF output hash.
     pub fn ietf_vrf_verify(
         &self,
-        vrf_input_data: &[u8],
-        aux_data: &[u8],
+        input: &[u8],
+        aux: &[u8],
         signature: &[u8],
         signer_key_index: usize,
     ) -> anyhow::Result<[u8; 32]> {
         use ark_vrf::ietf::Verifier as _;
 
         let signature = IetfVrfSignature::deserialize_compressed(signature)?;
-        let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
+        let input = Input::new(input).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
 
         let public = &self.ring[signer_key_index];
         public
-            .verify(input, output, aux_data, &signature.proof)
-            .map_err(|_| anyhow::anyhow!("Ietf signature verification failure"))?;
+            .verify(input, output, aux, &signature.proof)
+            .map_err(|e| anyhow::anyhow!("Ietf signature verification failure: {e:?}"))?;
 
         // This is the actual value used as ticket-id/score
         // NOTE: as far as vrf_input_data is the same, this matches the one produced

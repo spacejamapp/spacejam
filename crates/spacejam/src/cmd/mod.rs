@@ -8,6 +8,7 @@ use clap::{ArgAction, CommandFactory, Parser};
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
+mod iter;
 mod key;
 
 /// The command line interface for SpaceJam
@@ -70,6 +71,9 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
+
+    /// Iterate over the storage
+    Iter,
 }
 
 impl Command {
@@ -78,6 +82,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>(data).await?.start().await,
             Command::Key(key) => key.run(),
+            Command::Iter => iter::run(data).await,
         }
     }
 }

@@ -39,6 +39,11 @@ pub trait Validator {
         message: &[u8],
     ) -> Result<BandersnatchRingVrfSignature>;
 
+    /// IETF VRF output
+    fn ietf_vrf_output(&self, _message: &[u8]) -> Result<[u8; 32]> {
+        Ok([0; 32])
+    }
+
     /// Metadata of the validator
     fn metadata(&self) -> ValidatorMetadata;
 

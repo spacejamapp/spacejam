@@ -122,3 +122,31 @@ fn serde_vrf_signature() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn vrf_output_consistency() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let message = b"message";
+    let context = b"context";
+
+    // Method 1: Compute VRF output directly
+    let direct_output = ring[0].output_hash(message)?;
+
+    // Method 2: Create signature and extract VRF output
+    let signature = ring[0].ietf_sign(keys, message, context)?;
+    let extracted_output = vrf::ietf_output(signature)?;
+
+    // They should be identical
+    assert_eq!(direct_output, extracted_output);
+    println!("Direct output:    0x{}", hex::encode(direct_output));
+    println!("Extracted output: 0x{}", hex::encode(extracted_output));
+
+    Ok(())
+}

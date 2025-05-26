@@ -1,6 +1,9 @@
 //! Safrole ticket distribution stream (second step).
 
-use crate::{stream::ce131, Network};
+use crate::{
+    stream::{ce131, ext::Write},
+    Network,
+};
 pub use ce131::Request;
 use quinn::{RecvStream, SendStream};
 use score::block;
@@ -13,12 +16,15 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let mut buf = vec![0; 789];
+        let mut buf = [0; 4];
         recv.read_exact(&mut buf).await?;
-        send.finish()?;
+        let length = u32::from_le_bytes(buf);
+
+        let mut buf = vec![0; length as usize];
+        recv.read_exact(&mut buf).await?;
 
         // TODO: verify the proof, handle the ticket, etc.
-        let request: Request = codec::decode(&buf[..])?;
+        let request: Request = codec::decode(&buf)?;
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
 
         // insert the ticket into the pool if the epoch is present.
@@ -27,30 +33,26 @@ impl<C: runtime::Config> Network<C> {
         }
 
         tracing::trace!(
-            "ticket#{} for epoch: {}",
+            "ticket#{}@{} for epoch: {}",
             request.ticket.attempt,
-            request.epoch
+            hex::encode(&request.ticket.signature[..3]),
+            request.epoch,
         );
+        send.finish()?;
         Ok(())
     }
 }
 
 /// Send a safrole ticket distribution.
 #[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     send.write(&[132]).await?;
 
     // 1. send the request
-    let encoded = codec::encode(&request)?;
-    send.write(&encoded.len().to_le_bytes()).await?;
-    send.write(&encoded).await?;
+    request.write(&mut send).await?;
 
-    // 2. just wait for the response
-    recv.read_to_end(0).await?;
+    // 2. finish sending and wait for the response to be fully received
     send.finish()?;
+
     Ok(())
 }

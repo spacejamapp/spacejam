@@ -21,7 +21,13 @@ impl<C: runtime::Config> Network<C> {
         let cloned_conn = conn.clone();
         tokio::spawn(async move { runtime.serve(cloned_conn).await });
 
-        // 3. open the up0 stream if needed
+        // 3. insert the connection into the manager
+        self.pool
+            .write()
+            .await
+            .insert(address.peer_id, conn.clone());
+
+        // 4. open the up0 stream if needed
         if conn.outgoing {
             let grandpa = self.grandpa.read().await.clone();
             let neighbours = grandpa.grid.neighbours(self.validator.ed25519_public_key());
@@ -29,37 +35,27 @@ impl<C: runtime::Config> Network<C> {
             if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
                 let address = address.clone();
                 let runtime = self.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = runtime.send_up0(address.peer_id).await {
-                        tracing::warn!("failed to send up0 stream: {e:?} for {address}");
-                    }
-                });
-            } else {
-                tracing::trace!("peer is not a neighbour, skipping up0 stream");
+                if let Err(e) = runtime.send_up0(address.peer_id).await {
+                    tracing::warn!("failed to send up0 stream: {e:?} for {address}");
+                }
             }
         }
 
-        // 4. insert the connection into the manager
-        self.pool
-            .write()
-            .await
-            .insert(address.peer_id, conn.clone());
-        tracing::trace!("connected");
+        tracing::debug!("connection established");
     }
 
     /// Handle the closed event.
-    #[tracing::instrument(skip_all, name = "close", fields(peer = peer.to_string()))]
+    #[tracing::instrument(skip_all, name = "disconnect", fields(peer = peer.to_string()))]
     pub async fn disconnect(
         &self,
         peer: PeerId,
         reason: String,
     ) -> anyhow::Result<Option<Address>> {
+        tracing::debug!("{reason}");
         let pool = self.pool.clone();
         let Some(conn) = pool.write().await.remove(&peer) else {
             return Ok(None);
         };
-
-        tracing::warn!("closing connection with reason: {reason}");
 
         // close the connection in the pool and metrics
         let address = Address::new(conn.remote_address(), peer);
@@ -82,11 +78,17 @@ impl<C: runtime::Config> Network<C> {
 
     /// Serve a connection.
     async fn serve(&self, conn: Connection) {
-        // TODO: use limited threads to serve the connection
-
         let peer_id = conn.address.peer_id;
-        while let Ok((send, recv)) = conn.accept_bi().await {
-            self.handle(peer_id, send, recv).await;
+        loop {
+            match conn.accept_bi().await {
+                Ok((send, recv)) => {
+                    self.handle(peer_id, send, recv).await;
+                }
+                Err(e) => {
+                    tracing::debug!("connection {}, {}", conn.address.to_string(), e.to_string());
+                    break;
+                }
+            }
         }
     }
 }

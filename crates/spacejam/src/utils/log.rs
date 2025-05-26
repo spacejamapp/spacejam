@@ -37,7 +37,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
 
     let connected_neighbours = pool
         .iter()
-        .filter(|(peer, conn)| neighbours.contains(peer.as_ref()) && conn.ready())
+        .filter(|(peer, _conn)| neighbours.contains(peer.as_ref()))
         .count();
     let total_neighbours = neighbours.len();
 

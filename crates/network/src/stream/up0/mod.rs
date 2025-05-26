@@ -35,12 +35,13 @@ impl<C: runtime::Config> Network<C> {
         let length = encoded.len() as u32;
         send.write(&length.to_le_bytes()).await?;
         send.write(&encoded).await?;
-        tracing::trace!("up0 established");
 
         // 4. announcement loop
         let runtime = self.clone();
         tokio::spawn(async move {
-            announce::unchecked(runtime.clone(), send, recv, conn).await;
+            if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {
+                tracing::error!("failed to spawn announcement loop: {e:?}");
+            }
         });
 
         Ok(())
@@ -53,20 +54,39 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
+        tracing::debug!("receiving up0 stream from {peer}");
         let conn = self.get_conn(peer).await?;
 
-        // 1. read the grandpa data
-        let handshake = Handshake::read(&mut recv).await?;
-        conn.handshake.write().await.head = handshake.head;
+        // 1. send and receive the handshake data.
+        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
+            async {
+                let grandpa = self.grandpa.read().await;
+                let mut handshake = grandpa.handshake.clone();
+                handshake.leaves.insert(handshake.head.clone());
 
-        // 2. send the handshake data.
-        let grandpa = self.grandpa.read().await;
-        grandpa.handshake.write(&mut send, None).await?;
+                handshake
+                    .write(&mut send)
+                    .await
+                    .context("failed to send handshake")
+            },
+            async {
+                let handshake = Handshake::read(&mut recv)
+                    .await
+                    .context("failed to read handshake")?;
+                conn.handshake.write().await.head = handshake.head;
+                Ok(())
+            }
+        );
+
+        hsend?;
+        hrecv?;
 
         // 3. announcement loop.
         let runtime = self.clone();
         tokio::spawn(async move {
-            announce::unchecked(runtime.clone(), send, recv, conn).await;
+            if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {
+                tracing::error!("failed to spawn announcement loop: {e:?}");
+            }
         });
 
         Ok(())

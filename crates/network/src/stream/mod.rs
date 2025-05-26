@@ -30,7 +30,7 @@ impl<C: runtime::Config> Network<C> {
     pub async fn handle(&self, peer: PeerId, send: SendStream, mut recv: RecvStream) {
         let mut buf = [0; 1];
         if let Err(e) = recv.read_exact(&mut buf).await {
-            tracing::warn!("failed to read stream type: {e:?}");
+            tracing::debug!("failed to read stream type: {e:?}");
         }
 
         let bufs = match buf[0] {
@@ -38,7 +38,6 @@ impl<C: runtime::Config> Network<C> {
             n => format!("ce{n}"),
         };
 
-        tracing::debug!("received stream type: {}", bufs);
         if let Err(e) = match buf[0] {
             0 => self.recv_up0(peer, send, recv).await,
             128 => self.recv_ce128(send, recv).await,
@@ -69,24 +68,19 @@ mod ext {
     use quinn::{RecvStream, SendStream};
     use serde::{de::DeserializeOwned, Serialize};
 
+    #[allow(unused)]
     /// Write extension trait for `SendStream`
     pub trait Write {
         /// Write a message to the stream.
-        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()>;
+        async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()>;
     }
 
     impl<T: Serialize> Write for T {
-        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()> {
-            let mut buf = vec![];
-            if let Some(ty) = ty {
-                buf.push(ty);
-            }
-
+        async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()> {
             let encoded = codec::encode(&self)?;
-            let length = encoded.len();
-            buf.extend_from_slice(&length.to_le_bytes());
-            buf.extend_from_slice(&encoded);
-            stream.write_all(&buf).await?;
+            let length = encoded.len() as u32;
+            stream.write(&length.to_le_bytes()).await?;
+            stream.write(&encoded).await?;
             Ok(())
         }
     }

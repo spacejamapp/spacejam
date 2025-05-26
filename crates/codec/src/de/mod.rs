@@ -286,7 +286,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        tracing::trace!("deserialize_struct: {_name}, {:?}", _fields);
         visitor.visit_seq(access::SeqAccess::new(self, _fields.len()))
     }
 
@@ -299,7 +298,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        tracing::trace!("deserialize_enum: {_name}, {:?}", _variants);
         let variant = self.next_byte()?;
         visitor.visit_enum(access::EnumAccess::new(self, variant))
     }

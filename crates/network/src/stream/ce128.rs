@@ -1,6 +1,6 @@
 //! Block request stream.
 
-use crate::{Connection, Network};
+use crate::{stream::ext::Write, Connection, Network};
 use quinn::{RecvStream, SendStream};
 use runtime::storage::SyncStorage;
 use score::OpaqueHash;
@@ -14,9 +14,17 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
+        let mut buf = [0; 4];
+        recv.read_exact(&mut buf).await?;
+        let length = u32::from_le_bytes(buf);
+        if length != 37 {
+            anyhow::bail!("invalid length of block request message, expected 37, got {length}");
+        }
+
         let mut buf = [0; 37];
         recv.read_exact(&mut buf).await?;
 
+        // parse the block request
         let request: Request = codec::decode(&buf)?;
         let grandpa = self.grandpa.read().await;
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
@@ -26,7 +34,12 @@ impl<C: runtime::Config> Network<C> {
             let Ok(block) = self.storage.get_block(&hash) else {
                 break;
             };
-            send.write(&codec::encode(&block)?).await?;
+            block.write(&mut send).await?;
+            tracing::trace!(
+                "sent block#{}@{}",
+                block.header.slot,
+                hex::encode(&block.header.hash()?[..3])
+            );
         }
 
         send.finish()?;
@@ -36,17 +49,15 @@ impl<C: runtime::Config> Network<C> {
 
 /// Send a block request.
 #[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
-pub async fn send(conn: Connection, request: Request) -> anyhow::Result<(SendStream, RecvStream)> {
+pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
 
-    let mut buf = vec![128];
-    buf.extend_from_slice(request.hash.as_ref());
-    buf.extend_from_slice(&request.direction.to_le_bytes());
-    buf.extend_from_slice(&request.maximum.to_le_bytes());
-    send.write_all(&buf).await?;
+    send.write(&[128]).await?;
+    request.write(&mut send).await?;
+    send.finish()?;
 
     // returns the recv stream
-    Ok((send, recv))
+    Ok(recv)
 }
 
 /// A block request.

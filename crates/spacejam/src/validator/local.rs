@@ -86,6 +86,10 @@ impl Validator for LocalValidator {
         self.bandersnatch.ring_sign(keys.to_vec(), message, context)
     }
 
+    fn ietf_vrf_output(&self, message: &[u8]) -> Result<[u8; 32]> {
+        self.bandersnatch.output_hash(message)
+    }
+
     fn metadata(&self) -> ValidatorMetadata {
         [0u8; 128]
     }

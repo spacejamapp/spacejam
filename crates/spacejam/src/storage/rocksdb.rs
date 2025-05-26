@@ -2,7 +2,7 @@
 #![cfg(feature = "rocksdb")]
 
 use anyhow::Result;
-use rocksdb::{WriteBatch, DB};
+use rocksdb::{IteratorMode, WriteBatch, DB};
 use runtime::storage::KVStorage;
 
 /// The RocksDB storage of SpaceJam
@@ -18,6 +18,14 @@ impl KVStorage for RocksDB {
 
     fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         Ok(self.db.get(key.as_ref())?.map(|v| v.to_vec()))
+    }
+
+    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        let iter = self.db.iterator(IteratorMode::Start);
+        Ok(iter.map(|r| {
+            let (k, v) = r?;
+            Ok((k.to_vec(), v.to_vec()))
+        }))
     }
 
     fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
