@@ -7,7 +7,6 @@ use crate::{peer::Connection, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
 use score::block::{Head, Header};
-use std::sync::atomic::Ordering;
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
@@ -17,13 +16,11 @@ pub async fn spawn<C: runtime::Config>(
     recv: RecvStream,
     conn: Connection,
 ) -> Result<()> {
-    conn.ready.store(true, Ordering::Relaxed);
     let r = tokio::select! {
         r = self::send(runtime.clone(), send, conn.clone()) => r,
         r = self::recv(runtime.clone(), recv, conn.clone()) => r,
     };
 
-    conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
         let _ = runtime
             .disconnect(conn.address.peer_id, e.to_string())

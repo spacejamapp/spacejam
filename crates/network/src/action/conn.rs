@@ -40,6 +40,8 @@ impl<C: runtime::Config> Network<C> {
                 }
             }
         }
+
+        tracing::debug!("connection established");
     }
 
     /// Handle the closed event.
@@ -49,6 +51,7 @@ impl<C: runtime::Config> Network<C> {
         peer: PeerId,
         reason: String,
     ) -> anyhow::Result<Option<Address>> {
+        tracing::debug!("{reason}");
         let pool = self.pool.clone();
         let Some(conn) = pool.write().await.remove(&peer) else {
             return Ok(None);
@@ -82,7 +85,7 @@ impl<C: runtime::Config> Network<C> {
                     self.handle(peer_id, send, recv).await;
                 }
                 Err(e) => {
-                    tracing::debug!("connection {} closed, {e:?}:", conn.address.to_string());
+                    tracing::debug!("connection {}, {}", conn.address.to_string(), e.to_string());
                     break;
                 }
             }

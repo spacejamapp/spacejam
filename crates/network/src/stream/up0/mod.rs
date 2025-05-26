@@ -57,13 +57,29 @@ impl<C: runtime::Config> Network<C> {
         tracing::debug!("receiving up0 stream from {peer}");
         let conn = self.get_conn(peer).await?;
 
-        // 1. read the grandpa data
-        let handshake = Handshake::read(&mut recv).await?;
-        conn.handshake.write().await.head = handshake.head;
+        // 1. send and receive the handshake data.
+        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
+            async {
+                let grandpa = self.grandpa.read().await;
+                let mut handshake = grandpa.handshake.clone();
+                handshake.leaves.insert(handshake.head.clone());
 
-        // 2. send the handshake data.
-        let grandpa = self.grandpa.read().await;
-        grandpa.handshake.write(&mut send, None).await?;
+                handshake
+                    .write(&mut send)
+                    .await
+                    .context("failed to send handshake")
+            },
+            async {
+                let handshake = Handshake::read(&mut recv)
+                    .await
+                    .context("failed to read handshake")?;
+                conn.handshake.write().await.head = handshake.head;
+                Ok(())
+            }
+        );
+
+        hsend?;
+        hrecv?;
 
         // 3. announcement loop.
         let runtime = self.clone();

@@ -68,24 +68,19 @@ mod ext {
     use quinn::{RecvStream, SendStream};
     use serde::{de::DeserializeOwned, Serialize};
 
+    #[allow(unused)]
     /// Write extension trait for `SendStream`
     pub trait Write {
         /// Write a message to the stream.
-        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()>;
+        async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()>;
     }
 
     impl<T: Serialize> Write for T {
-        async fn write(&self, stream: &mut SendStream, ty: Option<u8>) -> anyhow::Result<()> {
-            let mut buf = vec![];
-            if let Some(ty) = ty {
-                buf.push(ty);
-            }
-
+        async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()> {
             let encoded = codec::encode(&self)?;
-            let length = encoded.len();
-            buf.extend_from_slice(&length.to_le_bytes());
-            buf.extend_from_slice(&encoded);
-            stream.write_all(&buf).await?;
+            let length = encoded.len() as u32;
+            stream.write(&length.to_le_bytes()).await?;
+            stream.write(&encoded).await?;
             Ok(())
         }
     }
