@@ -78,7 +78,7 @@ pub async fn send<C: runtime::Config>(
 ///
 /// TODO:
 ///
-/// - avoid validating the same header for serveral times.
+/// - avoid validating the same header for several times.
 #[tracing::instrument(skip_all)]
 pub async fn recv<C: runtime::Config>(
     runtime: Network<C>,

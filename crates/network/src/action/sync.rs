@@ -137,7 +137,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             let recv = ce128::send(feed.clone(), self.request.clone()).await?;
             if let Err(e) = self.request(recv).await {
                 tracing::debug!(
-                    "failed to sync from {}: {}, swithing to the next feed",
+                    "failed to sync from {}: {}, switching to the next feed",
                     feed.address.peer_id,
                     e
                 );
