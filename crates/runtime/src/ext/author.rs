@@ -96,6 +96,13 @@ impl<'a, C: Config> Author<'a, C> {
             }
             TicketsOrKeys::Keys(keys) => {
                 fallback = true;
+                tracing::info!(
+                    "fallback keys: {:#?}",
+                    keys.iter()
+                        .enumerate()
+                        .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
+                        .collect::<Vec<_>>()
+                );
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me() {
                         slots.push_back(i as TimeSlot);
@@ -121,6 +128,15 @@ impl<'a, C: Config> Author<'a, C> {
         // In fallback mode, verify that this validator is actually assigned to this slot
         let slot = timeslot % score::EPOCH_LENGTH;
         if let TicketsOrKeys::Keys(fallback_keys) = self.storage.series()? {
+            tracing::info!(
+                "fallback keys: {:#?}",
+                fallback_keys
+                    .iter()
+                    .enumerate()
+                    .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
+                    .collect::<Vec<_>>()
+            );
+
             let assigned_key = fallback_keys[slot as usize];
             if assigned_key != self.me() {
                 anyhow::bail!(
