@@ -120,9 +120,8 @@ impl Builder {
             &hex::encode(self.genesis)[..8]
         );
 
-        tracing::debug!("using ALPN {alpn}");
-
         // client and server config setup
+        tracing::debug!("using ALPN {alpn}");
         let alpn = alpn.as_bytes().to_vec();
         let server = Self::server(
             alpn.clone(),

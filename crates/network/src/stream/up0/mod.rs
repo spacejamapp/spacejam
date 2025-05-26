@@ -39,7 +39,9 @@ impl<C: runtime::Config> Network<C> {
         // 4. announcement loop
         let runtime = self.clone();
         tokio::spawn(async move {
-            announce::unchecked(runtime.clone(), send, recv, conn).await;
+            if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {
+                tracing::error!("failed to spawn announcement loop: {e:?}");
+            }
         });
 
         Ok(())
@@ -52,6 +54,7 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
+        tracing::debug!("receiving up0 stream from {peer}\n\n");
         let conn = self.get_conn(peer).await?;
 
         // 1. read the grandpa data
@@ -65,7 +68,9 @@ impl<C: runtime::Config> Network<C> {
         // 3. announcement loop.
         let runtime = self.clone();
         tokio::spawn(async move {
-            announce::unchecked(runtime.clone(), send, recv, conn).await;
+            if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {
+                tracing::error!("failed to spawn announcement loop: {e:?}");
+            }
         });
 
         Ok(())

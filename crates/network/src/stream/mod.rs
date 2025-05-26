@@ -38,7 +38,6 @@ impl<C: runtime::Config> Network<C> {
             n => format!("ce{n}"),
         };
 
-        tracing::debug!("received stream type: {}", bufs);
         if let Err(e) = match buf[0] {
             0 => self.recv_up0(peer, send, recv).await,
             128 => self.recv_ce128(send, recv).await,

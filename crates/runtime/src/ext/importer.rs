@@ -188,27 +188,12 @@ impl<C: Config> Runtime<C> {
         }
 
         // check the ticket seal
-        if let Some(ticket) = ticket {
-            tracing::trace!(
-                "verifying header seal with entropy: 0x{}, using ticket#{}@0x{}, author_index: {}",
-                hex::encode(entropy.as_ref()),
-                ticket.attempt,
-                hex::encode(ticket.id),
-                header.author_index
-            );
-        } else {
-            tracing::trace!(
-                "verifying header seal with entropy: 0x{}",
-                hex::encode(entropy.as_ref())
-            );
-        }
         let author_index = header.author_index;
         let verifier = crypto::ring::verifier(keys.clone());
         let output = verifier
             .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
             .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
 
-        tracing::trace!("vrf verification output: 0x{}", hex::encode(output));
         if let Some(ticket) = ticket {
             if ticket.id != output {
                 let TicketsOrKeys::Tickets(tickets) = self.storage.series()? else {
@@ -235,7 +220,6 @@ impl<C: Config> Runtime<C> {
             .map(|_| ())
             .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
 
-        tracing::trace!("validated header: {}", header.slot);
         Ok(())
     }
 }

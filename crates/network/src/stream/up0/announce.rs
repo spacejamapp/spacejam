@@ -4,18 +4,19 @@
 //! finalized block with no known children).
 
 use crate::{peer::Connection, Network};
+use anyhow::Result;
 use quinn::{RecvStream, SendStream};
 use score::block::{Head, Header};
 use std::sync::atomic::Ordering;
 
 /// Announce the block to the peer.
 #[tracing::instrument(skip_all, fields(peer = %conn.address.peer_id), name = "up0")]
-pub async fn unchecked<C: runtime::Config>(
+pub async fn spawn<C: runtime::Config>(
     runtime: Network<C>,
     send: SendStream,
     recv: RecvStream,
     conn: Connection,
-) {
+) -> Result<()> {
     conn.ready.store(true, Ordering::Relaxed);
     let r = tokio::select! {
         r = self::send(runtime.clone(), send, conn.clone()) => r,
@@ -24,9 +25,12 @@ pub async fn unchecked<C: runtime::Config>(
 
     conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
-        tracing::error!("closing up0 connection with reason: {e:?}");
-        let _ = runtime.close(conn.address.peer_id, e.to_string()).await;
+        let _ = runtime
+            .disconnect(conn.address.peer_id, e.to_string())
+            .await?;
     }
+
+    Ok(())
 }
 
 /// Announce the block to the peer.
@@ -41,6 +45,7 @@ pub async fn send<C: runtime::Config>(
     while let Ok(header) = rx.recv().await {
         let grandpa = runtime.grandpa.read().await.clone();
         let handshake = conn.handshake.read().await;
+        tracing::debug!("sending announcement: #{}", header.slot);
 
         // check if the block is acceptable for the remote peer.
         match grandpa.accept_remote(&header, &handshake).await {
