@@ -117,6 +117,21 @@ impl<'a, C: Config> Author<'a, C> {
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         let keys = self.storage.current_validators()?.bandersnatch();
+
+        // In fallback mode, verify that this validator is actually assigned to this slot
+        let slot = timeslot % score::EPOCH_LENGTH;
+        if let TicketsOrKeys::Keys(fallback_keys) = self.storage.series()? {
+            let assigned_key = fallback_keys[slot as usize];
+            if assigned_key != self.me() {
+                anyhow::bail!(
+                    "validator not assigned to slot {}: assigned to 0x{}, but we are 0x{}",
+                    slot,
+                    hex::encode(assigned_key),
+                    hex::encode(self.me())
+                );
+            }
+        }
+
         // 1. get the last block
         let blocks = self.storage.recent_blocks()?;
         let parent = blocks
