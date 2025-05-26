@@ -82,10 +82,7 @@ impl<C: runtime::Config> Network<C> {
                     self.handle(peer_id, send, recv).await;
                 }
                 Err(e) => {
-                    tracing::debug!(
-                        "connection closed, {e:?}, reason: {:?}",
-                        conn.close_reason()
-                    );
+                    tracing::debug!("connection {} closed, {e:?}:", conn.address.to_string());
                     break;
                 }
             }

@@ -72,7 +72,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         };
 
         // bootnodes dialing
-        let bootnodes = config.bootnodes;
+        /* let bootnodes = config.bootnodes;
         if !bootnodes.is_empty() {
             let this = this.clone();
             for peer in bootnodes {
@@ -82,7 +82,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             }
         } else {
             tracing::debug!("no bootstrap peers, skip dialing ...");
-        }
+        } */
 
         Ok(this)
     }

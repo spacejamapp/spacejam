@@ -54,7 +54,7 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        tracing::debug!("receiving up0 stream from {peer}\n\n");
+        tracing::debug!("receiving up0 stream from {peer}");
         let conn = self.get_conn(peer).await?;
 
         // 1. read the grandpa data
