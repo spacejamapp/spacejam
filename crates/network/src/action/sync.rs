@@ -21,9 +21,6 @@ impl<C: runtime::Config> Network<C> {
     fields(slot = ?slot)
 )]
     /// Select the best chain.
-    ///
-    /// TODO: ignore blocks authored by ourselves till
-    /// other nodes have finalized it.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
         let grandpa = self.grandpa.read().await.clone();
         if slot <= grandpa.handshake.head.slot {
@@ -129,7 +126,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 break;
             }
 
-            tracing::debug!(
+            tracing::trace!(
                 "request {} for block#{}@0x{} with maximum {} blocks",
                 feed.address.peer_id.to_string(),
                 self.best.slot,
@@ -166,12 +163,6 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
         let blocks = vec![block];
 
         for block in blocks {
-            tracing::debug!(
-                "received block#{}@{}",
-                block.header.slot,
-                hex::encode(&block.header.hash()?[..3])
-            );
-
             // if the block is considered as a descendant of the current head, skip it.
             {
                 let grandpa = self.runtime.grandpa.read().await.clone();

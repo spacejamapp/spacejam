@@ -112,17 +112,12 @@ pub async fn recv<C: runtime::Config>(
 
         if let Err(e) = runtime.validate(&header).await {
             tracing::warn!(
-                "failed to validate header#{}@0x{}: {e}. \n\nTODO: if this is caused by the epoch, we should request the ancestors of the block then handle it",
+                "failed to validate header#{}@0x{}: {e}.",
                 header.slot,
                 hex::encode(&hash[..3]),
             );
             continue;
         }
-        tracing::trace!(
-            "validated header: {}@0x{}",
-            header.slot,
-            hex::encode(&hash[..3])
-        );
 
         // 5.trace the announcement data.
         {

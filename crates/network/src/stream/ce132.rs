@@ -32,9 +32,11 @@ impl<C: runtime::Config> Network<C> {
         }
 
         tracing::trace!(
-            "ticket#{} for epoch: {}",
+            "ticket#{}@{} for epoch: {}, current tickets: {}",
             request.ticket.attempt,
-            request.epoch
+            hex::encode(&request.ticket.signature[..3]),
+            request.epoch,
+            self.author().tickets.len()
         );
         send.finish()?;
         Ok(())
