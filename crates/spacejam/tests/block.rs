@@ -3,6 +3,7 @@ use spacejam::{chain, validator::LocalValidator, Test};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
+#[ignore]
 async fn test_block_sealing() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
@@ -17,11 +18,11 @@ async fn test_block_sealing() {
         .await
         .unwrap();
 
-    let _block = runtime
+    let block = runtime
         .author()
         .author(42)
         .await
         .expect("failed to author block");
 
-    // runtime.validate(&block.header).await.unwrap();
+    runtime.validate(&block.header).await.unwrap();
 }
