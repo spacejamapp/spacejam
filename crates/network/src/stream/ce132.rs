@@ -5,6 +5,8 @@ pub use ce131::Request;
 use quinn::{RecvStream, SendStream};
 use score::block;
 
+use super::ext::Write;
+
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
     #[tracing::instrument(skip_all, name = "ce132::recv", parent = None)]
@@ -41,24 +43,14 @@ impl<C: runtime::Config> Network<C> {
 
 /// Send a safrole ticket distribution.
 #[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     send.write(&[132]).await?;
 
     // 1. send the request
-    let encoded = codec::encode(&request)?;
-    send.write(&encoded.len().to_le_bytes()).await?;
-    send.write(&encoded).await?;
+    request.write(&mut send).await?;
 
     // 2. finish sending and wait for the response to be fully received
     send.finish()?;
-
-    // 3. read any remaining data from recv stream to properly close the connection
-    // let mut buf = Vec::new();
-    recv.read_to_end(0).await?;
 
     Ok(())
 }
