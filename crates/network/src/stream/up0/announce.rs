@@ -3,7 +3,7 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{peer::Connection, Network};
+use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
 use score::block::{Head, Header};
@@ -68,9 +68,7 @@ pub async fn send<C: runtime::Config>(
 
         // send the announcement to the remote peer.
         let data = (header, grandpa.handshake.head);
-        let encoded = codec::encode(&data)?;
-        send.write(&encoded.len().to_le_bytes()).await?;
-        send.write(&encoded).await?;
+        data.write(&mut send).await?;
     }
 
     anyhow::bail!("announcement sender stream closed");

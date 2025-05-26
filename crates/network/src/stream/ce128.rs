@@ -24,6 +24,7 @@ impl<C: runtime::Config> Network<C> {
         let mut buf = [0; 37];
         recv.read_exact(&mut buf).await?;
 
+        // parse the block request
         let request: Request = codec::decode(&buf)?;
         let grandpa = self.grandpa.read().await;
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
@@ -33,7 +34,12 @@ impl<C: runtime::Config> Network<C> {
             let Ok(block) = self.storage.get_block(&hash) else {
                 break;
             };
-            send.write(&codec::encode(&block)?).await?;
+            block.write(&mut send).await?;
+            tracing::trace!(
+                "sent block#{}@{}",
+                block.header.slot,
+                hex::encode(&block.header.hash()?[..3])
+            );
         }
 
         send.finish()?;
