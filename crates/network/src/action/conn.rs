@@ -82,11 +82,21 @@ impl<C: runtime::Config> Network<C> {
 
     /// Serve a connection.
     async fn serve(&self, conn: Connection) {
-        // TODO: use limited threads to serve the connection
-
         let peer_id = conn.address.peer_id;
-        while let Ok((send, recv)) = conn.accept_bi().await {
-            self.handle(peer_id, send, recv).await;
+        loop {
+            match conn.accept_bi().await {
+                Ok((send, recv)) => {
+                    self.handle(peer_id, send, recv).await;
+                }
+                Err(e) => {
+                    if let Some(reason) = conn.close_reason() {
+                        tracing::debug!("connection closed by peer: {reason}");
+                    } else {
+                        tracing::error!("connection closed: {e:?}");
+                    }
+                    break;
+                }
+            }
         }
     }
 }

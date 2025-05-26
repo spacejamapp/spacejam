@@ -103,10 +103,13 @@ impl Builder {
         // Configure QUIC transport parameters
         let transport_config = Arc::new({
             let mut transport = quinn::TransportConfig::default();
-            transport.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
+            transport.keep_alive_interval(Some(std::time::Duration::from_secs(15)));
             transport.max_idle_timeout(Some(quinn::IdleTimeout::from(quinn::VarInt::from_u32(
-                10_000,
+                60_000,
             ))));
+            transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
+            transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
+            transport.send_window(8 * 1024 * 1024);
             transport
         });
 

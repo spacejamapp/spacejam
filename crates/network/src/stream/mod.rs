@@ -30,7 +30,7 @@ impl<C: runtime::Config> Network<C> {
     pub async fn handle(&self, peer: PeerId, send: SendStream, mut recv: RecvStream) {
         let mut buf = [0; 1];
         if let Err(e) = recv.read_exact(&mut buf).await {
-            tracing::warn!("failed to read stream type: {e:?}");
+            tracing::debug!("failed to read stream type: {e:?}");
         }
 
         let bufs = match buf[0] {

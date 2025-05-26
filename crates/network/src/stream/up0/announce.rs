@@ -24,7 +24,7 @@ pub async fn unchecked<C: runtime::Config>(
 
     conn.ready.store(false, Ordering::Relaxed);
     if let Err(e) = r {
-        tracing::error!("closing connection with reason: {e}");
+        tracing::error!("closing up0 connection with reason: {e:?}");
         let _ = runtime.close(conn.address.peer_id, e.to_string()).await;
     }
 }
