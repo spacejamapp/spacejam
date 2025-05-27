@@ -48,7 +48,9 @@ impl<'a, C: Config> Author<'a, C> {
         let mut next = (None, None);
 
         // check if the epoch is changed
-        
+        if slot == 0 {
+            self.on_new_epoch().await?;
+        }
 
         // 1. check generating tickets
         //
