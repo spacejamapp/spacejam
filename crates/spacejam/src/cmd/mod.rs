@@ -37,13 +37,15 @@ impl App {
         let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
             0 => format!("{name}=info"),
             1 => format!("{name}=debug"),
-            2 => "debug".into(),
+            2 => format!("{name}=trace"),
+            3 => "debug".into(),
             _ => "trace".into(),
         }));
 
         // Initialize tracing
         let mut subscriber = tracing_subscriber::fmt()
             .with_env_filter(env)
+            .with_timer(fmt::Time)
             .with_target(false);
 
         if app.verbose > 0 {
@@ -95,5 +97,30 @@ mod default {
             .join("spacejam")
             .to_string_lossy()
             .to_string()
+    }
+}
+
+mod fmt {
+    use time::OffsetDateTime;
+    use tracing_subscriber::fmt::{format::Writer, time::FormatTime};
+
+    /// The time format
+    pub struct Time;
+
+    impl FormatTime for Time {
+        fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+            let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
+            write!(
+                w,
+                "{}",
+                now.format(
+                    &time::format_description::parse(
+                        "[year]-[month]-[day] [hour]:[minute]:[second]"
+                    )
+                    .expect("could not parse time format")
+                )
+                .expect("could not format time")
+            )
+        }
     }
 }

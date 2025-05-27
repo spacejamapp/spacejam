@@ -2,17 +2,13 @@
 #![allow(unused)]
 
 use score::{
-    BandersnatchPublic, Ed25519Public, Entropy, EntropyBuffer, OpaqueHash, block,
+    OpaqueHash, block,
     extrinsic::{
         AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketBody,
         TicketEnvelope, Verdict,
     },
-    safrole::ValidatorData,
 };
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 use tokio::sync::Mutex;
 
 /// Memory pool for SpaceJam
@@ -52,6 +48,8 @@ impl Pool {
     /// 2. remove invalid extrinsics
     /// 3. remove duplicated extrinsics
     /// 4. pack the extrinsics into a single extrinsic
+    ///
+    /// NOTE: currently we only collect 3 tickets on each block.
     pub async fn collect(&self, tickets: Vec<TicketBody>) -> anyhow::Result<Extrinsic> {
         let mut extrinsics = Extrinsic::default();
 
@@ -69,7 +67,6 @@ impl Pool {
                     .clone()
                     .into_iter()
                     .collect::<Vec<_>>();
-                self.tickets.lock().await.clear();
 
                 // remove the tickets that are already in the pool
                 envelopes.retain(|(id, envelope)| {
@@ -80,6 +77,7 @@ impl Pool {
 
                 // sort the envelopes by the id
                 envelopes.sort_by(|a, b| a.0.cmp(&b.0));
+                envelopes.truncate(3);
                 extrinsics.tickets = envelopes.into_iter().map(|(_, ticket)| ticket).collect();
             }
         }

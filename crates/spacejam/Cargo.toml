@@ -26,6 +26,7 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sled = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
+time = { workspace = true, optional = true, features = ["local-offset"] }
 toml = { workspace = true, optional = true }
 tokio = { workspace = true, features = [
     "rt",
@@ -36,13 +37,23 @@ tokio = { workspace = true, features = [
     "signal",
 ] }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true, features = [
+    "fmt",
+    "time",
+] }
 
 [features]
 bin = ["node", "sled"]
-cmd = ["clap", "serde", "spacejson", "network/cmd"]
+cmd = [
+    "clap",
+    "network/cmd",
+    "serde",
+    "spacejson",
+    "time",
+    "tracing-subscriber",
+]
 default = ["bin", "serde"]
-node = ["cmd", "tracing-subscriber"]
+node = ["cmd"]
 serde = [
     "dep:serde",
     "serde_json",

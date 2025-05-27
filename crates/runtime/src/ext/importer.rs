@@ -112,7 +112,11 @@ impl<C: Config> Runtime<C> {
         if let Some(series) = block.header.tickets_mark {
             tracing::info!(
                 "next tickets: {:#?}",
-                series.iter().map(|t| hex::encode(t.id)).collect::<Vec<_>>()
+                series
+                    .iter()
+                    .enumerate()
+                    .map(|(i, t)| format!("{:02}: 0x{}", i, hex::encode(t.id)))
+                    .collect::<Vec<_>>()
             );
             self.storage.set_next_series(series)?;
         }
@@ -165,36 +169,12 @@ impl<C: Config> Runtime<C> {
             entropy_buffer[3]
         };
 
-        tracing::info!(
-            "new epoch: {}, using entropy {} from {:#?} to validate header",
-            new_epoch,
-            hex::encode(entropy),
-            entropy_buffer
-                .iter()
-                .map(|b| hex::encode(b))
-                .collect::<Vec<_>>()
-        );
-
         // check the ticket mark
         if new_epoch {
             if let Ok(tickets) = self.storage.next_series() {
-                tracing::trace!(
-                    "[safrole] using tickets from the next series: {:#?}",
-                    tickets
-                        .iter()
-                        .map(|t| hex::encode(t.id))
-                        .collect::<Vec<_>>()
-                );
                 ticket = Some(tickets[slot]);
             }
         } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series() {
-            tracing::trace!(
-                "[safrole] using tickets of the current series: {:?}",
-                tickets
-                    .iter()
-                    .map(|t| hex::encode(t.id))
-                    .collect::<Vec<_>>()
-            );
             ticket = Some(tickets[slot]);
         }
 
@@ -215,13 +195,8 @@ impl<C: Config> Runtime<C> {
         // construct the context
         let mut message = Vec::new();
         if let Some(ticket) = ticket {
-            tracing::trace!(
-                "[safrole] using ticket: 0x{} to verify the header",
-                hex::encode(ticket.id)
-            );
             message = TicketBody::message(ticket.attempt, &entropy);
         } else {
-            tracing::trace!("[fallback] using fallback seal");
             message.extend_from_slice(&score::JAM_FALLBACK_SEAL);
             message.extend_from_slice(&entropy);
         }
