@@ -149,17 +149,19 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 1. get the last block
         let blocks = self.storage.recent_blocks()?;
-        let parent = blocks
+        let mut parent = blocks
             .last()
-            .ok_or(anyhow::anyhow!("genesis block not found"))?;
+            .ok_or(anyhow::anyhow!("genesis block not found"))?
+            .clone();
 
         // 2. collect the extrinsics
         let envelopes = self.storage.safrole()?.accumulator;
         let extrinsic = self.expool.collect(envelopes).await?;
 
         // 3. init the builder
+        parent.state_root = self.storage.root()?;
         let mut builder = Block::builder()
-            .parent(parent)?
+            .parent(&parent)?
             .extrinsic(extrinsic)?
             .timeslot(timeslot);
 
@@ -172,9 +174,14 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 5. simulate the block
         tx::simulate::<C::Vm>(&mut builder, &self.storage)?;
+        let block: Block = builder.into();
+        tracing::debug!(
+            "parent state root: 0x{}",
+            hex::encode(block.header.parent_state_root)
+        );
 
         // 6. seal the block
-        let block = self.seal(builder.into(), &keys)?;
+        let block = self.seal(block, &keys)?;
 
         // 7. save the block to the fork storage
         self.storage.set_block(&block)?;

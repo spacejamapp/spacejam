@@ -43,12 +43,17 @@ impl Iterator for Lookup<'_> {
         }
 
         // get the next hash
-        let hash = if self.direction == 0 {
-            self.ancestry.child.get(&self.current)
-        } else {
-            self.ancestry.parent.get(&self.current)
-        }
-        .cloned()?;
+        let hash = match self.direction {
+            0 => self.ancestry.child.get(&self.current).cloned(),
+            1 => {
+                if self.count == 0 {
+                    Some(self.current)
+                } else {
+                    self.ancestry.child.get(&self.current).cloned()
+                }
+            }
+            _ => None,
+        }?;
 
         // get the header
         let header = self.ancestry.header(&hash).cloned()?;
