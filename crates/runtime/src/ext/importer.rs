@@ -87,11 +87,12 @@ impl<C: Config> Runtime<C> {
         }
 
         // 2. check the state root
-        if block.header.parent_state_root != self.storage.root()? {
+        let root = self.storage.root()?;
+        if block.header.parent_state_root != root {
             anyhow::bail!(
-                "invalid state root: 0x{} != 0x{}",
+                "invalid parent state root: 0x{} != 0x{}",
                 hex::encode(block.header.parent_state_root),
-                hex::encode(self.storage.root()?)
+                hex::encode(root)
             );
         }
 
