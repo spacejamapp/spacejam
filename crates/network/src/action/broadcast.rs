@@ -1,7 +1,6 @@
 //! Broadcast events
 
 use crate::{stream::ce132, Network};
-use anyhow::Context;
 use score::{block::Header, extrinsic::TicketEnvelope};
 
 impl<C: runtime::Config> Network<C> {
@@ -34,8 +33,10 @@ impl<C: runtime::Config> Network<C> {
     }
 
     /// Broadcast a ticket to all current validators in the network.
+    ///
+    /// TODO: do it async instead of a blocking loop
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
-    pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) -> anyhow::Result<()> {
+    pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) {
         let validators = self.grandpa.read().await.grid.curr;
         let pool = self.pool.read().await.clone();
 
@@ -43,8 +44,12 @@ impl<C: runtime::Config> Network<C> {
         for conn in pool.values() {
             let peer: [u8; 32] = conn.address.peer_id.into();
             if validators.iter().any(|v| v.ed25519 == peer) {
-                let (send, recv) = conn.open_bi().await.context("failed to open bi-stream")?;
-                ce132::send(
+                let Ok((send, recv)) = conn.open_bi().await else {
+                    tracing::warn!("failed to open bi-stream: {}", conn.address);
+                    continue;
+                };
+
+                if let Err(e) = ce132::send(
                     send,
                     recv,
                     ce132::Request {
@@ -52,10 +57,11 @@ impl<C: runtime::Config> Network<C> {
                         ticket: ticket.clone(),
                     },
                 )
-                .await?;
+                .await
+                {
+                    tracing::warn!("failed to send ticket: {e}");
+                }
             }
         }
-
-        Ok(())
     }
 }
