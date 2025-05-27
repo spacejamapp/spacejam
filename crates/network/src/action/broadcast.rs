@@ -46,6 +46,12 @@ impl<C: runtime::Config> Network<C> {
             if validators.iter().any(|v| v.ed25519 == peer) {
                 let Ok((send, recv)) = conn.open_bi().await else {
                     tracing::warn!("failed to open bi-stream: {}", conn.address);
+                    if let Err(e) = self
+                        .disconnect(conn.address.peer_id, "failed to open bi-stream".to_string())
+                        .await
+                    {
+                        tracing::error!("failed to disconnect: {e}");
+                    }
                     continue;
                 };
 

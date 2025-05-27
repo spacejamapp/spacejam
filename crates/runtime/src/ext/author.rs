@@ -175,10 +175,6 @@ impl<'a, C: Config> Author<'a, C> {
         // 5. simulate the block
         tx::simulate::<C::Vm>(&mut builder, &self.storage)?;
         let block: Block = builder.into();
-        tracing::debug!(
-            "parent state root: 0x{}",
-            hex::encode(block.header.parent_state_root)
-        );
 
         // 6. seal the block
         let block = self.seal(block, &keys)?;
