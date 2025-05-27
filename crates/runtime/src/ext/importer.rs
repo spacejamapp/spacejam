@@ -77,6 +77,7 @@ impl<C: Config> Runtime<C> {
     pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
         let prev = self.grandpa.read().await.handshake.head.clone();
 
+        // 1. check the parent
         if block.header.parent != prev.hash {
             anyhow::bail!(
                 "invalid parent: 0x{} != 0x{}",
@@ -85,7 +86,16 @@ impl<C: Config> Runtime<C> {
             );
         }
 
-        // 1. transit the global state
+        // 2. check the state root
+        if block.header.parent_state_root != self.storage.root()? {
+            anyhow::bail!(
+                "invalid state root: 0x{} != 0x{}",
+                hex::encode(block.header.parent_state_root),
+                hex::encode(self.storage.root()?)
+            );
+        }
+
+        // 3. transit the global state
         let hash = block.header.hash()?;
         let diff = tx::transit::<C::Vm>(block.clone(), &self.storage)?;
         tracing::info!(
@@ -96,7 +106,7 @@ impl<C: Config> Runtime<C> {
             hex::encode(prev.hash[..3].as_ref())
         );
 
-        // 2. save the block to the storage
+        // 4. save the block to the storage
         self.storage.set_block(&block)?;
         if let Some(series) = block.header.tickets_mark {
             tracing::info!(
@@ -105,7 +115,8 @@ impl<C: Config> Runtime<C> {
             );
             self.storage.set_next_series(&series)?;
         }
-        // 3. update the grandpa state
+
+        // 5. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.storage.next_validators()?)
         } else {
@@ -116,11 +127,11 @@ impl<C: Config> Runtime<C> {
             .await
             .finalize(block.header.clone(), next)?;
 
-        // 4. set the head as finalized
+        // 6. set the head as finalized
         self.storage
             .set_finalized(&block.header.clone().try_into()?)?;
 
-        // 5. notify the new finalized block
+        // 7. notify the new finalized block
         self.hook.on_finalized_block(block).await?;
         self.hook.on_diff(hash, diff).await?;
         Ok(())
