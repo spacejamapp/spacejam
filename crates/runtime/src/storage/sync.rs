@@ -144,7 +144,7 @@ pub trait SyncStorage: Storage {
     }
 
     /// Set the next series
-    fn set_next_series(&self, series: &[TicketBody]) -> Result<()> {
+    fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
         let key = [SERIES_KEY, b"next"].concat();
         self.set(&key, &codec::encode(&series)?)?;
         Ok(())
