@@ -105,7 +105,6 @@ impl<C: Config> Runtime<C> {
             );
             self.storage.set_next_series(&series)?;
         }
-
         // 3. update the grandpa state
         let next = if block.header.epoch_mark.is_some() {
             Some(self.storage.next_validators()?)
@@ -124,7 +123,6 @@ impl<C: Config> Runtime<C> {
         // 5. notify the new finalized block
         self.hook.on_finalized_block(block).await?;
         self.hook.on_diff(hash, diff).await?;
-
         Ok(())
     }
 

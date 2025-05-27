@@ -169,6 +169,7 @@ pub fn sealing_key_series(
         return next;
     }
 
+    // FIXME: should be curr_epoch > prev_epoch
     if curr_epoch == prev_epoch + 1
         && prev_slot_phase >= score::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == score::EPOCH_LENGTH as usize
@@ -177,7 +178,7 @@ pub fn sealing_key_series(
     } else {
         next = TicketsOrKeys::fallback(
             curr_validators.iter().map(|v| v.bandersnatch).collect(),
-            entropy,
+            entropy[2],
         );
     }
 
