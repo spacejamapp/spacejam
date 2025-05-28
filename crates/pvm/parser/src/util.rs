@@ -125,7 +125,7 @@ pub fn deblob(blob: &[u8]) -> Result<ProgramBlob> {
 /// decoder function Y
 ///
 /// let E3(∣o∣)⌢ E3(∣w∣)⌢ E2(z)⌢ E3(s)⌢ o⌢ w⌢ E4(∣c∣)⌢ c = p
-pub fn standard(format: &[u8]) -> anyhow::Result<StandardProgramBlob> {
+pub fn standard(format: &[u8], _args: &[u8]) -> anyhow::Result<StandardProgramBlob> {
     let len = format.len();
     if len < 15 {
         anyhow::bail!("Invalid format length")

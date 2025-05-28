@@ -181,15 +181,15 @@ pub trait Invocation {
         // (x) the host function input data
         data: X,
     ) -> Received<X> {
-        let blob = [blob, args].concat();
+        tracing::trace!("calling in argument with arguments: {:?}", args);
         let StandardProgramBlob {
             code,
             registers,
             memory,
-        } = match StandardProgramBlob::try_from(blob.as_slice()) {
+        } = match util::standard(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
-                tracing::warn!("failed to deblob the standard program blob: {e:?}");
+                tracing::error!("failed to deblob the standard program blob: {e:?}");
                 return Received::new(0, Reason::Panic(e.to_string()), data);
             }
         };

@@ -57,10 +57,10 @@ pub struct StandardProgramBlob {
     pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
 }
 
-impl TryFrom<&[u8]> for StandardProgramBlob {
+impl TryFrom<(&[u8], &[u8])> for StandardProgramBlob {
     type Error = anyhow::Error;
 
-    fn try_from(blob: &[u8]) -> Result<Self> {
-        util::standard(blob)
+    fn try_from((blob, args): (&[u8], &[u8])) -> Result<Self> {
+        util::standard(blob, args)
     }
 }

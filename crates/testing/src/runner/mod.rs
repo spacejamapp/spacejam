@@ -46,7 +46,7 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let _accounts = accumulation
+                let accounts = accumulation
                     .accounts
                     .into_iter()
                     .map(|(id, account)| ServiceItem {
@@ -61,9 +61,10 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-                // tracing::info!("cal: {:?}", accounts[0].data.service);
-                // tracing::info!("exp: {:?}", output.post_state.accounts[0].data.service);
-                // assert_eq!(accounts, output.post_state.accounts);
+                assert_eq!(
+                    accounts[0].data.storage, output.post_state.accounts[0].data.storage,
+                    "storage mismatch"
+                );
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
