@@ -13,12 +13,10 @@ pub mod validator;
 /// The config of development
 pub struct Development;
 
+#[cfg(feature = "parity")]
 impl Config for Development {
     type Validator = validator::LocalValidator;
-    #[cfg(feature = "parity")]
     type Storage = storage::Parity;
-    #[cfg(feature = "sled")]
-    type Storage = storage::Sled;
     type Vm = ();
     type Hook = ();
 }
@@ -26,14 +24,10 @@ impl Config for Development {
 /// The config of production
 pub struct Production;
 
+#[cfg(feature = "parity")]
 impl Config for Production {
     type Validator = validator::LocalValidator;
-    #[cfg(feature = "rocksdb")]
-    type Storage = storage::RocksDB;
-    #[cfg(feature = "parity")]
     type Storage = storage::Parity;
-    #[cfg(feature = "sled")]
-    type Storage = storage::Sled;
     type Vm = ();
     type Hook = ();
 }
