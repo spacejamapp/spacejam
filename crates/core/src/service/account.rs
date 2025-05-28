@@ -55,9 +55,7 @@ impl ServiceAccount {
     pub fn code(&self) -> Option<&Vec<u8>> {
         self.preimage.get(&self.code)
     }
-}
 
-impl ServiceAccount {
     /// The number of items in storage
     pub fn items(&self) -> u32 {
         2 * self.lookup.len() as u32 + self.storage.len() as u32

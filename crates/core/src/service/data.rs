@@ -2,6 +2,8 @@
 //!
 //! Probably just used for testing.
 
+use std::collections::BTreeMap;
+
 use crate::{
     service::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
     OpaqueHash,
@@ -62,26 +64,32 @@ impl From<ServiceAccount> for ServiceAccountData {
     }
 }
 
-impl From<ServiceAccountState> for ServiceAccountData {
-    fn from(state: ServiceAccountState) -> Self {
-        ServiceAccountData {
-            service: state,
-            preimages: vec![],
-            storage: vec![],
-        }
-    }
-}
-
 impl From<ServiceAccountData> for ServiceAccount {
     fn from(data: ServiceAccountData) -> Self {
+        let mut lookup = BTreeMap::new();
+        for preimage in &data.preimages {
+            lookup.insert(
+                (preimage.hash, preimage.blob.len() as u32),
+                Default::default(),
+            );
+        }
+
         ServiceAccount {
-            storage: Default::default(),
+            storage: data
+                .storage
+                .into_iter()
+                .map(|s| {
+                    let mut key = [0; 32];
+                    key.copy_from_slice(&s.key);
+                    (key, s.value)
+                })
+                .collect(),
             preimage: data
                 .preimages
                 .into_iter()
                 .map(|p| (p.hash, p.blob))
                 .collect(),
-            lookup: Default::default(),
+            lookup,
             code: data.service.code,
             balance: data.service.balance,
             gas: data.service.gas,
