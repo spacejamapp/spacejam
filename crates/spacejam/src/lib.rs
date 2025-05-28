@@ -15,6 +15,9 @@ pub struct Development;
 
 impl Config for Development {
     type Validator = validator::LocalValidator;
+    #[cfg(feature = "parity")]
+    type Storage = storage::Parity;
+    #[cfg(feature = "sled")]
     type Storage = storage::Sled;
     type Vm = ();
     type Hook = ();
@@ -27,7 +30,9 @@ impl Config for Production {
     type Validator = validator::LocalValidator;
     #[cfg(feature = "rocksdb")]
     type Storage = storage::RocksDB;
-    #[cfg(not(feature = "rocksdb"))]
+    #[cfg(feature = "parity")]
+    type Storage = storage::Parity;
+    #[cfg(feature = "sled")]
     type Storage = storage::Sled;
     type Vm = ();
     type Hook = ();

@@ -28,14 +28,14 @@ pub trait SyncStorage: Storage {
     fn set_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
         let key = [BLOCK_KEY, hash.as_ref()].concat();
-        self.set(&key, &codec::encode(block)?)?;
+        self.commit(vec![(key, codec::encode(block)?)])?;
         Ok(())
     }
 
     /// Set the best head
     fn set_best(&self, head: &Head) -> Result<()> {
         let key = [BLOCK_KEY, b"best"].concat();
-        self.set(&key, &codec::encode(head)?)?;
+        self.commit(vec![(key, codec::encode(head)?)])?;
         Ok(())
     }
 
@@ -51,7 +51,7 @@ pub trait SyncStorage: Storage {
     /// Set the finalized head
     fn set_finalized(&self, head: &Head) -> Result<()> {
         let key = [BLOCK_KEY, b"finalized"].concat();
-        self.set(&key, &codec::encode(head)?)?;
+        self.commit(vec![(key, codec::encode(head)?)])?;
         Ok(())
     }
 
@@ -68,7 +68,7 @@ pub trait SyncStorage: Storage {
     fn set_parent(&self, block: &OpaqueHash, parent: &Head) -> Result<()> {
         let mut key = [BLOCK_KEY, b"parent"].concat();
         key.extend_from_slice(block.as_ref());
-        self.set(&key, &codec::encode(parent)?)?;
+        self.commit(vec![(key, codec::encode(parent)?)])?;
         Ok(())
     }
 
@@ -88,7 +88,7 @@ pub trait SyncStorage: Storage {
     fn set_state_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
         let mut key = [BLOCK_KEY, b"state_root"].concat();
         key.extend_from_slice(block.as_ref());
-        self.set(&key, &codec::encode(root)?)?;
+        self.commit(vec![(key, codec::encode(root)?)])?;
         Ok(())
     }
 
@@ -108,7 +108,7 @@ pub trait SyncStorage: Storage {
     fn set_beefy_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
         let mut key = [BLOCK_KEY, b"beefy_root"].concat();
         key.extend_from_slice(block.as_ref());
-        self.set(&key, &codec::encode(root)?)?;
+        self.commit(vec![(key, codec::encode(root)?)])?;
         Ok(())
     }
 
@@ -146,7 +146,7 @@ pub trait SyncStorage: Storage {
     /// Set the next series
     fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
         let key = [SERIES_KEY, b"next"].concat();
-        self.set(&key, &codec::encode(&series)?)?;
+        self.commit(vec![(key, codec::encode(&series)?)])?;
         Ok(())
     }
 
@@ -162,12 +162,15 @@ pub trait SyncStorage: Storage {
     /// On new epoch handler for rotating the series
     fn on_new_epoch(&self) -> Result<()> {
         if let Ok(series) = self.next_series() {
-            self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
+            self.commit(vec![(
+                SERIES_KEY.to_vec(),
+                codec::encode(&TicketsOrKeys::Tickets(series))?,
+            )])?;
         } else {
             let keys = self.next_validators()?.bandersnatch();
             let entropy = self.entropy()?;
             let series = TicketsOrKeys::fallback(keys, entropy[1]);
-            self.set(SERIES_KEY, codec::encode(&series)?)?;
+            self.commit(vec![(SERIES_KEY.to_vec(), codec::encode(&series)?)])?;
         }
 
         Ok(())

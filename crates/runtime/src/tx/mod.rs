@@ -23,7 +23,7 @@ pub fn transit<V: Pvm>(
     storage: &impl Storage,
 ) -> Result<HashMap<StorageKey, Vec<u8>>> {
     let diff = self::simulate::<V>(&mut block, storage)?;
-    storage.batch_write(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
+    storage.commit(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
     Ok(diff)
 }
 

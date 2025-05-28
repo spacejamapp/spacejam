@@ -347,7 +347,7 @@ impl Runner {
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
-                        .set(keyval.key, keyval.value)
+                        .commit(vec![(keyval.key, keyval.value)])
                         .expect("failed to set keyval");
                 }
 
