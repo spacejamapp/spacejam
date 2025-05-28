@@ -6,7 +6,7 @@ use score::{
     service::WorkReport,
     vm::{Accumulated, StateContext},
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// (Δ+) outer accumulation
 ///
@@ -30,24 +30,33 @@ pub fn outer<V: Pvm>(
     context: StateContext,
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
-    // NOTE: the graypaper is using max(N|w| + 1), I believe it is a typo.
-    let count = reports
+    // NOTE: we might need to sort the reports by the gas limit,
+    // need to double check if we have already done it.
+    //
+    // do we need to check the gas used in always accumulate as well?
+    let mut cumulative_gas = 0;
+    let index = reports
         .iter()
-        .filter(|r| r.results.iter().map(|r| r.accumulate_gas).sum::<Gas>() <= gas_limit)
+        .take_while(|r| {
+            let report_gas: Gas = r.results.iter().map(|r| r.accumulate_gas).sum();
+            cumulative_gas += report_gas;
+            cumulative_gas <= gas_limit
+        })
         .count();
-    if count == 0 {
+
+    if index == 0 {
         return Accumulated {
             context,
             ..Default::default()
         };
     }
 
-    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..count], gas_table);
+    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..index], gas_table);
     let rest = self::outer::<V>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
-        &reports[count..],
+        &reports[index..],
         accumulated.context.clone(),
-        &Default::default(),
+        &gas_table,
     );
 
     accumulated.accumulated += rest.accumulated;
@@ -64,17 +73,39 @@ pub fn parallel<V: Pvm>(
     table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated {
     // TODO: use a local task pool for spawning this calculation.
-    let services = table.keys().collect::<Vec<_>>();
+    let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
+    for report in reports {
+        for result in &report.results {
+            services.insert(result.service_id);
+        }
+    }
+
     tracing::trace!("parallel accumulation for services {:?}", services);
     let results = services
         .iter()
         .map(|service| {
             (
-                **service,
-                self::once::<V>(context.clone(), reports, table, **service),
+                *service,
+                self::once::<V>(context.clone(), reports, table, *service),
             )
         })
         .collect::<Vec<_>>();
+    tracing::trace!(
+        "results: {:?}",
+        results
+            .iter()
+            .map(|(service, result)| {
+                (
+                    service,
+                    result
+                        .context
+                        .accounts
+                        .get(service)
+                        .map(|a| a.storage.len()),
+                )
+            })
+            .collect::<Vec<_>>()
+    );
 
     // assemble the result
     let mut accounts = context.accounts.clone();
@@ -154,7 +185,9 @@ pub fn once<V: Pvm>(
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
             .iter()
-            .map(|r| r.results.iter().map(|r| r.accumulate_gas).sum::<Gas>())
+            .flat_map(|r| &r.results)
+            .filter(|result| result.service_id == service)
+            .map(|result| result.accumulate_gas)
             .sum::<Gas>();
 
     let operands = reports
@@ -162,6 +195,7 @@ pub fn once<V: Pvm>(
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
 
+    tracing::trace!("accumulating service {service}");
     V::accumulate(context, 0, service, gas, operands, [0; 32])
 }
 

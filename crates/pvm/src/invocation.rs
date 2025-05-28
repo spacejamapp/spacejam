@@ -188,9 +188,13 @@ pub trait Invocation {
             memory,
         } = match StandardProgramBlob::try_from(blob.as_slice()) {
             Ok(standard) => standard,
-            Err(e) => return Received::new(0, Reason::Panic(e.to_string()), data),
+            Err(e) => {
+                tracing::warn!("failed to deblob the standard program blob: {e:?}");
+                return Received::new(0, Reason::Panic(e.to_string()), data);
+            }
         };
 
+        tracing::trace!("calling in argument with arguments: {:?}", args);
         let stepped = Self::call(
             &code,
             pc,
@@ -289,6 +293,7 @@ pub trait Invocation {
             timeslot,
         );
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        tracing::trace!("argument calling {service} in accumulate");
         Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }
 

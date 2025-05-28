@@ -61,6 +61,6 @@ impl TryFrom<&[u8]> for StandardProgramBlob {
     type Error = anyhow::Error;
 
     fn try_from(blob: &[u8]) -> Result<Self> {
-        util::init(blob)
+        util::standard(blob)
     }
 }
