@@ -6,6 +6,7 @@ use score::{
     Block, OpaqueHash,
     block::Head,
     extrinsic::{TicketBody, TicketsOrKeys},
+    safrole::ValidatorIter,
 };
 
 /// The key for the block storage
@@ -135,28 +136,15 @@ pub trait SyncStorage: Storage {
             .collect::<Vec<_>>())
     }
 
-    /// On new epoch handler for rotating the series
-    fn on_new_epoch(&self) -> Result<()> {
-        let next_series = [SERIES_KEY, b"next"].concat();
-        if let Some(value) = self.get(&next_series)? {
-            let series: [TicketBody; score::EPOCH_LENGTH as usize] = codec::decode(&value)?;
-            self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
-        } else {
-            self.remove(SERIES_KEY)?;
-        }
-
-        Ok(())
-    }
-
     /// Get the next series
-    fn next_series(&self) -> Result<Vec<TicketBody>> {
+    fn next_series(&self) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
         let key = [SERIES_KEY, b"next"].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Set the next series
-    fn set_next_series(&self, series: &[TicketBody]) -> Result<()> {
+    fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
         let key = [SERIES_KEY, b"next"].concat();
         self.set(&key, &codec::encode(&series)?)?;
         Ok(())
@@ -169,5 +157,19 @@ pub trait SyncStorage: Storage {
         } else {
             Ok(self.safrole()?.series)
         }
+    }
+
+    /// On new epoch handler for rotating the series
+    fn on_new_epoch(&self) -> Result<()> {
+        if let Ok(series) = self.next_series() {
+            self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
+        } else {
+            let keys = self.next_validators()?.bandersnatch();
+            let entropy = self.entropy()?;
+            let series = TicketsOrKeys::fallback(keys, entropy[1]);
+            self.set(SERIES_KEY, codec::encode(&series)?)?;
+        }
+
+        Ok(())
     }
 }

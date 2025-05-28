@@ -121,9 +121,11 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     #[tracing::instrument(skip_all, name = "remote")]
     pub async fn sync(&mut self) -> anyhow::Result<()> {
         let feeds = self.runtime.lookup(&self.best).await;
-        for feed in feeds {
+
+        // TODO: switch to the next feed if networking error
+        if let Some(feed) = feeds.first() {
             if self.request.maximum == 0 {
-                break;
+                return Ok(());
             }
 
             tracing::trace!(
@@ -141,10 +143,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                     feed.address.peer_id,
                     e
                 );
-                continue;
             }
-
-            break;
         }
 
         Ok(())

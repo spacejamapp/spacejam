@@ -26,6 +26,12 @@ impl<C: runtime::Config> Network<C> {
 
         // parse the block request
         let request: Request = codec::decode(&buf)?;
+        tracing::trace!(
+            "received block request for block @{}, direction={}, maximum={}",
+            hex::encode(&request.hash[..3]),
+            request.direction,
+            request.maximum,
+        );
         let grandpa = self.grandpa.read().await;
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 

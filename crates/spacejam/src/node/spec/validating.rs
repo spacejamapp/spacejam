@@ -40,6 +40,12 @@ impl<C: runtime::Config> Validating<C> {
                 continue;
             }
 
+            // dial lost connections
+            let handshake = runtime.grandpa.read().await.handshake.clone();
+            if handshake.head.slot != 0 && handshake.head.slot % score::EPOCH_LENGTH > 1 {
+                runtime.dial_validators().await;
+            }
+
             // sleep until the next slot
             let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
             tokio::time::sleep(Duration::from_secs(duration)).await;
@@ -49,7 +55,7 @@ impl<C: runtime::Config> Validating<C> {
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
             let prev = timeslot.saturating_sub(1);
-            if runtime.grandpa.read().await.handshake.head.slot < prev {
+            if handshake.head.slot < prev {
                 // select the best chain before authoring
                 if let Err(e) = runtime.select_best_chain(prev).await {
                     tracing::error!("Failed to select best chain: {:?}", e);
@@ -67,9 +73,10 @@ impl<C: runtime::Config> Validating<C> {
 
             // send ticket
             if let Some(ticket) = ticket {
-                if let Err(e) = runtime.ticket(epoch, ticket).await {
-                    tracing::error!("Failed to send ticket: {:?}", e);
-                }
+                tokio::spawn({
+                    let runtime = runtime.clone();
+                    async move { runtime.ticket(epoch, ticket).await }
+                });
             }
 
             // author block

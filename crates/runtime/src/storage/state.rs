@@ -89,7 +89,7 @@ pub trait Storage: KVStorage {
         let mut kvs = Vec::new();
         for pair in self.iter()? {
             let (k, v) = pair?;
-            if k.starts_with(sync::BLOCK_KEY) || k.starts_with(sync::SERIES_KEY) {
+            if k.starts_with(sync::BLOCK_KEY) || k.starts_with(sync::SERIES_KEY) || k.len() != 31 {
                 continue;
             }
 

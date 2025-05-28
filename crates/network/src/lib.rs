@@ -36,6 +36,9 @@ pub struct Network<C: runtime::Config> {
     /// The metrics of the network
     pub metrics: Metrics,
 
+    /// The bootnodes of the network
+    pub bootnodes: Vec<Address>,
+
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
 }
@@ -47,6 +50,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             runtime: self.runtime.clone(),
             pool: self.pool.clone(),
             metrics: self.metrics.clone(),
+            bootnodes: self.bootnodes.clone(),
             announce: self.announce.clone(),
         }
     }
@@ -68,25 +72,9 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
             metrics: Metrics::new(address.to_string().as_str()),
+            bootnodes: config.bootnodes,
             announce: broadcast::channel(256).0,
         };
-
-        // bootnodes dialing
-        /* let bootnodes = config.bootnodes;
-        if !bootnodes.is_empty() {
-            let this = this.clone();
-            for peer in bootnodes {
-                if this.pool.read().await.contains_key(&peer.peer_id) {
-                    continue;
-                }
-
-                if let Err(e) = this.dial(peer).await {
-                    tracing::warn!("failed to dial bootstrap peer: {e}");
-                }
-            }
-        } else {
-            tracing::debug!("no bootstrap peers, skip dialing ...");
-        } */
 
         Ok(this)
     }
@@ -161,6 +149,25 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
         self.connect(conn).await;
         Ok(())
+    }
+
+    /// Dial the validators
+    pub async fn dial_validators(&self) {
+        let me = self.me();
+        let pool = self.pool.read().await.clone();
+        for address in self.bootnodes.clone() {
+            let key = address.peer_id.as_ref();
+            if key == &me
+                || (key[31] > 127 && me[31] > 127 && (key < &me))
+                || pool.contains_key(&address.peer_id)
+            {
+                continue;
+            }
+
+            if let Err(e) = self.dial(address).await {
+                tracing::warn!("failed to dial bootstrap peer: {e}");
+            }
+        }
     }
 
     /// Get a connection from the pool
