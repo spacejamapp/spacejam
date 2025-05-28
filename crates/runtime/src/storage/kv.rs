@@ -1,10 +1,7 @@
 //! Key-value storage abstraction
 
 use anyhow::Result;
-use score::{
-    TimeSlot,
-    state::{StateKeyInfo, StateKeyLike, key},
-};
+use score::{TimeSlot, state::key};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -61,12 +58,6 @@ impl KVStorage for MemoryDb {
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
         for (key, value) in kvs {
-            tracing::debug!(
-                "batch_write: {:?}(0x{}) -> bytes({})",
-                key.as_state_key().info(),
-                hex::encode(&key),
-                value.len()
-            );
             data.insert(key, value);
         }
         Ok(())

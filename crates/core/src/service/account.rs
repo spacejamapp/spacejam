@@ -2,22 +2,11 @@
 
 use crate::{
     service::{GasLimit, GasLimitJson},
-    OpaqueHash, ServiceId, TimeSlot,
+    OpaqueHash, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
-
-/// Represents a service item.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceItem {
-    /// The id of the service item
-    pub id: ServiceId,
-
-    /// The info of the service item
-    #[json(nested)]
-    pub data: ServiceAccountData,
-}
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
@@ -128,55 +117,4 @@ impl ServiceAccountState {
             + crate::BALANCE_PER_ITEM * self.items as u64
             + crate::BALANCE_PER_OCTET * self.total
     }
-}
-
-/// Represents the service account data.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServiceAccountData {
-    /// The service account state
-    #[json(nested)]
-    pub service: ServiceAccountState,
-
-    /// (a_p) The preimages
-    #[serde(default)]
-    #[json(nested)]
-    pub preimages: Vec<ServicePreimage>,
-}
-
-impl From<ServiceAccountState> for ServiceAccountData {
-    fn from(state: ServiceAccountState) -> Self {
-        ServiceAccountData {
-            service: state,
-            preimages: vec![],
-        }
-    }
-}
-
-impl From<ServiceAccountData> for ServiceAccount {
-    fn from(data: ServiceAccountData) -> Self {
-        ServiceAccount {
-            storage: Default::default(),
-            preimage: data
-                .preimages
-                .into_iter()
-                .map(|p| (p.hash, p.blob))
-                .collect(),
-            lookup: Default::default(),
-            code: data.service.code,
-            balance: data.service.balance,
-            gas: data.service.gas,
-        }
-    }
-}
-
-/// Represents a service preimage.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-pub struct ServicePreimage {
-    /// The hash of the preimage
-    #[json(hex)]
-    pub hash: OpaqueHash,
-
-    /// The blob of the preimage
-    #[json(hex)]
-    pub blob: Vec<u8>,
 }

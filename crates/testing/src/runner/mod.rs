@@ -41,7 +41,7 @@ impl Runner {
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
-                    accounts,
+                    accounts.clone(),
                 )?;
 
                 assert_eq!(accumulation.root, output.output.unwrap());

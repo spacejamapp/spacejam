@@ -1,14 +1,14 @@
 //! Service module
 
-use std::collections::BTreeMap;
-
 use crate::{Gas, ServiceId, WorkPackageHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::collections::BTreeMap;
 pub use {
-    account::{
-        ServiceAccount, ServiceAccountData, ServiceAccountDataJson, ServiceAccountState,
-        ServiceItem, ServiceItemJson, ServicePreimage, ServicePreimageJson,
+    account::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson},
+    data::{
+        ServiceAccountData, ServiceAccountDataJson, ServiceItem, ServiceItemJson, ServicePreimage,
+        ServiceStorage,
     },
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{
@@ -22,6 +22,7 @@ pub use {
 };
 
 mod account;
+mod data;
 mod refine;
 mod report;
 mod result;

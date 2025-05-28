@@ -12,7 +12,7 @@ use score::{
     safrole::{Safrole, ValidatorsData},
     service::{
         Privileges, ServiceAccountData, ServiceAccountState, ServiceItem, ServicePreimage,
-        WorkReport,
+        ServiceStorage, WorkReport,
     },
     state::{State, account, key},
     statistic::Statistics,
@@ -244,11 +244,13 @@ pub trait Storage: KVStorage {
     fn account(&self, service: u32) -> Result<ServiceItem> {
         let info = self.account_info(service)?;
         let preimages = self.account_preimages(service)?;
+        let storage = self.account_storage_full(service)?;
         Ok(ServiceItem {
             id: service,
             data: ServiceAccountData {
                 service: info,
                 preimages,
+                storage,
             },
         })
     }
@@ -277,6 +279,7 @@ pub trait Storage: KVStorage {
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
     }
 
+    /// Fetch the account preimages
     fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
         self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
             .map(|kv| {
@@ -286,6 +289,12 @@ pub trait Storage: KVStorage {
                     ServicePreimage { hash, blob: value }
                 })
             })
+            .collect()
+    }
+
+    fn account_storage_full(&self, service: u32) -> Result<Vec<ServiceStorage>> {
+        self.prefix_iter(key::prefix(service, &key::ACCOUNT_STORAGE_PREFIX))?
+            .map(|kv| kv.map(|(key, value)| ServiceStorage { key, value }))
             .collect()
     }
 

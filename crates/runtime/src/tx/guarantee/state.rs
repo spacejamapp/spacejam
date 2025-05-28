@@ -97,6 +97,7 @@ impl From<score::State> for State {
                     data: ServiceAccountData {
                         service: service.state(),
                         preimages: vec![],
+                        storage: vec![],
                     },
                 })
                 .collect(),
