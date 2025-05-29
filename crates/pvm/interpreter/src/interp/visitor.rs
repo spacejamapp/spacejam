@@ -266,6 +266,11 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_ecalli(&mut self, format: format::I) -> Result<()> {
+        let format::I { imm0 } = format;
+        Err(crate::Error::HostCall(imm0 as u32))
+    }
+
     // TODO: re-check the fallthrough logic
     fn visit_fallthrough(&mut self) -> Result<()> {
         Ok(())
@@ -694,6 +699,17 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0: _, reg1 } = format;
+        let increment = self.registers[reg1 as usize];
+
+        // Put the increment in reg7 for the host call
+        self.registers[7] = increment;
+
+        // Trigger host call 4 (sbrk)
+        Err(crate::Error::HostCall(4))
+    }
+
     fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         if (self.registers[reg1 as usize] as i32) > (imm0 as i32) {
@@ -1086,16 +1102,5 @@ impl Visitor for Interpreter {
         let format::RR { reg0, reg1 } = format;
         self.registers[reg0 as usize] = self.registers[reg1 as usize] as u16 as u64;
         Ok(())
-    }
-
-    fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
-        let format::RR { reg0: _, reg1 } = format;
-        let increment = self.registers[reg1 as usize];
-
-        // Put the increment in reg7 for the host call
-        self.registers[7] = increment;
-
-        // Trigger host call 4 (sbrk)
-        Err(crate::Error::HostCall(4))
     }
 }
