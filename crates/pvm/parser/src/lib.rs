@@ -2,6 +2,7 @@
 
 pub use {
     instruction::Instruction,
+    memory::Memory,
     opcode::Opcode,
     program::{deblob, preimage, standard, PreimageBlob, ProgramBlob, StandardProgramBlob},
     reader::Reader,
@@ -10,6 +11,7 @@ pub use {
 
 pub mod format;
 pub mod instruction;
+mod memory;
 pub mod opcode;
 pub mod program;
 pub mod reader;

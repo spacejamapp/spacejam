@@ -1,9 +1,9 @@
 //! Standard program blob.
 
-use crate::program::Program;
+use crate::{program::Program, Memory};
 use anyhow::Result;
 use codec::{io, Reader};
-use std::{borrow::Cow, collections::BTreeMap};
+use std::borrow::Cow;
 
 /// The standard program blob
 pub struct StandardProgramBlob<'a> {
@@ -24,13 +24,8 @@ impl<'a> StandardProgramBlob<'a> {
     ///
     /// decode the registers (ω) and the memory (µ)
     pub fn init(&self, args: &'a [u8]) -> Result<Program<'a>> {
-        let funp = |x: u64| x.div_ceil(crate::PAGE_SIZE) * crate::PAGE_SIZE;
         let funz = |x: u64| x.div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
-        let (ro_len, rw_len, args_len) = (
-            self.ro_data.len() as u64,
-            self.rw_data.len() as u64,
-            args.len() as u64,
-        );
+        let (ro_len, rw_len) = (self.ro_data.len() as u64, self.rw_data.len() as u64);
 
         // with o, w, decode the memory and registers
         if (5 * crate::ZONE_SIZE
@@ -50,55 +45,9 @@ impl<'a> StandardProgramBlob<'a> {
         registers[7] = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         registers[8] = args.len() as u64;
 
-        // decode the memory (µ)
-        let mut memory = BTreeMap::<u32, (Vec<u8>, bool)>::new();
-        let mut insert_page = |data: Vec<u8>, start: u64, write: bool| {
-            let pages = data
-                .chunks(crate::PAGE_SIZE as usize)
-                .map(|page| page.to_vec())
-                .collect::<Vec<_>>();
-            let pagenum = (start / crate::PAGE_SIZE) as u32;
-            for (i, page) in pages.iter().enumerate() {
-                memory.insert(pagenum + i as u32, (page.to_vec(), write));
-            }
-        };
-
-        // insert o pages
-        let mut start = crate::ZONE_SIZE;
-        insert_page(self.ro_data.to_vec(), start, false);
-
-        // insert pages from Z_Z + |o| to Z_Z + P(|o|)
-        let len = funp(ro_len) as usize - ro_len as usize;
-        start += ro_len;
-        insert_page(vec![0; len], start, true);
-
-        // insert pages between 2Z_Z + Z(|o|) and 2Z_Z + Z(|o|) + Z(|w|)
-        start += crate::ZONE_SIZE;
-        insert_page(self.rw_data.to_vec(), start, true);
-
-        // insert pages between 2Z_Z + Z(|o|) + Z(|w|) and 2Z_Z + Z(|o|) + P(|w|) + z * Z_P
-        let len = (funp(rw_len) + self.rw_data_padding_pages as u64 * crate::PAGE_SIZE) as usize
-            - rw_len as usize;
-        start += rw_len;
-        insert_page(vec![0; len], start, true);
-
-        // insert pages between 2^32 - Z-Z - Z_I - P(s) and 2^32 - 2Z_Z - Z_I
-        let len = funp(self.stack_size as u64) as usize - self.stack_size as usize;
-        start = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE - len as u64;
-        insert_page(vec![0; len], start, true);
-
-        // insert pages between 2^32 - Z-Z - Z_I and 2^32 - Z_Z - Z_I + |a|
-        start += len as u64;
-        insert_page(args.to_vec(), start, false);
-
-        // insert pages between 2^32 - Z_Z - Z_I + |a| and 2^32 - Z_Z - Z_I + P(|a|)
-        start += args_len;
-        let len = funp(args_len) as usize - args_len as usize;
-        insert_page(vec![0; len], start, false);
-
         Ok(Program {
             registers,
-            memory,
+            memory: Memory::init(self, args).memory,
             code: self.code_blob.clone(),
         })
     }
