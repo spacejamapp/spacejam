@@ -23,7 +23,7 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u32, offset: u32) -> Result<V> {
-        let start = address + offset;
+        let start = address.wrapping_add(offset);
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
 
@@ -57,7 +57,7 @@ impl Memory {
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
-        let start = address + offset;
+        let start = address.wrapping_add(offset);
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
         if offset + V::SIZE as u32 > PAGE_SIZE {

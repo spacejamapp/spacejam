@@ -15,9 +15,9 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 ) -> Stepped<Memory, X> {
     let mut data = data;
     let reason = match call {
-        0..5 => general::call(call, &mut state, Default::default(), &mut data),
-        5..17 => accumulate::call(call, &mut state, &mut data),
-        17..27 => refine::call(call, &mut state, &mut data),
+        0..6 => general::call(call, &mut state, Default::default(), &mut data),
+        6..18 => accumulate::call(call, &mut state, &mut data),
+        18..28 => refine::call(call, &mut state, &mut data),
         _ => Ok(Exit::What as u64),
     };
 

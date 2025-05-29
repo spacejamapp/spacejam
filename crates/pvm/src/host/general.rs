@@ -50,7 +50,7 @@ impl General {
 ///
 /// parameters: ϱ,ω,µ,s,...
 ///
-/// with the range 0..4
+/// with the range 0..5
 pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
@@ -62,7 +62,8 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         1 => self::lookup(state, data),
         2 => self::read(state, data),
         3 => self::write(state, data),
-        4 => self::info(state, data),
+        4 => self::sbrk(state, data),
+        5 => self::info(state, data),
         _ => Ok(Exit::What as u64),
     }
 }
@@ -186,6 +187,39 @@ fn write<X: Argument, Memory: crate::Memory>(
     } else {
         crate::bail!("failed to upsert storage");
     }
+}
+
+/// (ΩS) sbrk - adjust program break
+fn sbrk<X: Argument, Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    _data: &mut X,
+) -> Result<ExitCode> {
+    let increment = state.registers[7] as i64;
+
+    // sbrk(0) returns current break without changing it
+    if increment == 0 {
+        // For now, return a placeholder break address
+        // In a real implementation, this would track the current heap break
+        return Ok(0x10000); // Placeholder heap start address
+    }
+
+    // For positive increment, allocate memory
+    if increment > 0 {
+        // TODO: Implement actual memory allocation
+        // This would need to:
+        // 1. Find current heap break
+        // 2. Allocate `increment` bytes
+        // 3. Update heap break
+        // 4. Return previous break address
+
+        // For now, return a success value indicating allocation succeeded
+        return Ok(0x10000); // Previous break address
+    }
+
+    // For negative increment, deallocate memory
+    // TODO: Implement memory deallocation
+    // For now, return error for negative increments
+    Ok(Exit::What as u64)
 }
 
 /// (ΩI) fetch info

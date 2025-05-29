@@ -1088,4 +1088,29 @@ impl Visitor for Interpreter {
         self.registers[reg0 as usize] = self.registers[reg1 as usize] as u16 as u64;
         Ok(())
     }
+
+    fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0, reg1 } = format;
+        let increment = self.registers[reg1 as usize];
+
+        // According to PVM spec, sbrk finds the minimum address x >= heap_start
+        // where we can allocate `increment` bytes and make them writable
+        // For now, we'll use a simple implementation that triggers a host call
+        // since memory management is complex and should be handled by the host
+
+        // Put the increment in reg7 for the host call and trigger host call 4 (sbrk)
+        self.registers[7] = increment;
+
+        // For now, implement a simple stub that returns success
+        // TODO: This should properly trigger host call 4 and handle the response
+        self.registers[reg0 as usize] = if increment == 0 {
+            0x10000 // Return current break address
+        } else if increment > 0 {
+            0x10000 // Return previous break address on successful allocation
+        } else {
+            u64::MAX // Return error for negative increment
+        };
+
+        Ok(())
+    }
 }
