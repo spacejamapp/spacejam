@@ -176,7 +176,7 @@ mod local {
         // let accounts = input.pre_state.accounts();
 
         let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
-        let program = parser::util::to_standard(blob).unwrap();
+        let program = parser::program::to_standard(blob).unwrap();
         println!("program: {:?}", program.code.len());
     }
 }

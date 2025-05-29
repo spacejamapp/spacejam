@@ -4,7 +4,7 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
-use parser::{util, ProgramBlob, StandardProgramBlob};
+use parser::{program, ProgramBlob, StandardProgramBlob};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{DeferredTransfer, Operand, StateContext},
@@ -46,7 +46,7 @@ pub trait Invocation {
             instructions,
             bitmask,
             jump_table: jump,
-        } = match util::deblob(blob) {
+        } = match program::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
                 return Stepped::new(Reason::Panic(e.to_string()), state);
@@ -186,7 +186,7 @@ pub trait Invocation {
             code,
             registers,
             memory,
-        } = match util::standard(blob, args) {
+        } = match program::to_standard(blob) {
             Ok(standard) => standard,
             Err(e) => {
                 tracing::error!("failed to deblob the standard program blob: {e:?}");
