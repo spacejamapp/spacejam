@@ -24,7 +24,7 @@ impl From<&[u8]> for RIO {
         RIO {
             reg0: (bytes[0] % 16).min(12),
             imm0: u64::read_imm(&bytes[1..mid]),
-            off0: u64::read(&bytes[mid..]).0 as i32,
+            off0: u64::read_imm(&bytes[mid..]) as i32,
         }
     }
 }
