@@ -196,13 +196,14 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
 ) -> Result<ExitCode> {
     let increment = state.registers[7] as i64;
 
-    // TODO: For now, implement a simple heap that starts at 0x10000
-    // In a real implementation, this should track the current heap break
-    // and properly find available memory regions according to PVM spec
+    // TODO: For now, implement a simple heap that starts after the RW data region
+    // The RO data starts at ZONE_SIZE (0x10000), and RW data starts at 2*ZONE_SIZE + funz(ro_len)
+    // We'll start the heap at a safe address that doesn't conflict with pre-allocated regions
+    // Using 0x100000 (1MB) as a safe starting point for dynamic heap allocation
 
     // Current break is stored in a fixed location for simplicity
     // In production, this would be tracked by the host system
-    static mut CURRENT_BREAK: u64 = 0x10000;
+    static mut CURRENT_BREAK: u64 = 0x100000; // Start heap at 1MB to avoid conflicts
 
     // sbrk(0) returns current break without changing it
     if increment == 0 {
@@ -244,7 +245,7 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
             let new_break = old_break.saturating_sub((-increment) as u64);
 
             // Don't allow break to go below initial heap start
-            if new_break < 0x10000 {
+            if new_break < 0x100000 {
                 return Ok(Exit::What as u64);
             }
 

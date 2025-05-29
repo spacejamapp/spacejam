@@ -114,11 +114,9 @@ pub fn parallel<V: Pvm>(
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.into_iter() {
-        // new accounts
+        // Update all accounts from the result, not just new ones
         for (id, account) in result.context.accounts.iter() {
-            if !services.contains(id) {
-                accounts.insert(*id, account.clone());
-            }
+            accounts.insert(*id, account.clone());
         }
 
         // removed accounts
