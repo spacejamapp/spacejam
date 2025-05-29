@@ -149,8 +149,9 @@ pub fn standard(format: &[u8], _args: &[u8]) -> anyhow::Result<StandardProgramBl
     let w = format[oend..wend].to_vec();
 
     // decode code
-    let code_start = oend + wlen + 4;
-    let code_len = u64::decode(&format[code_start..code_start + 4]) as usize;
+    let code_len_start = wend; // Code length starts right after w
+    let code_len = u64::decode(&format[code_len_start..code_len_start + 4]) as usize;
+    let code_start = code_len_start + 4; // Code data starts after the 4-byte length
     if code_start + code_len > len {
         anyhow::bail!("Failed to decode program blob, invalid format length")
     }
@@ -232,4 +233,16 @@ pub fn standard(format: &[u8], _args: &[u8]) -> anyhow::Result<StandardProgramBl
         registers,
         memory,
     })
+}
+
+/// Convert a preimage blob to a standard program blob
+///
+/// As found that the preimage blob in the test vectors are not standard program blobs
+/// but a format made by the jam-program-blob crate.
+///
+/// This function converts the preimage blob to a standard program blob.
+pub fn to_standard(blob: &[u8]) -> Result<StandardProgramBlob> {
+    let program = crate::program::workaround::ProgramBlob::from_bytes(blob)
+        .ok_or(anyhow::anyhow!("Invalid preimage blob"))?;
+    Ok(program.into())
 }

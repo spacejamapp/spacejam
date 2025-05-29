@@ -152,3 +152,31 @@ pub struct AlwaysAccumulateMapItem {
 }
 
 include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
+
+mod local {
+    use super::*;
+    use specjam::Registry;
+    use tracing_subscriber::EnvFilter;
+
+    #[test]
+    fn test_parse_service() {
+        tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+
+        let registry = Registry::new("../../res/jam-test-vectors");
+        let test = registry
+            .accumulate(specjam::Scale::Tiny)
+            .unwrap()
+            .test("process_one_immediate_report-1")
+            .unwrap();
+
+        let input = TestInput::from_json(&test.input).unwrap();
+        // let output = TestOutput::from_json(&test.output).unwrap();
+        // let accounts = input.pre_state.accounts();
+
+        let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
+        let program = parser::util::to_standard(blob).unwrap();
+        println!("program: {:?}", program.code.len());
+    }
+}
