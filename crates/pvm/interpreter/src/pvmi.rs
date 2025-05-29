@@ -53,6 +53,16 @@ impl Invocation for Interpreter {
         let stepped = pvmi.visit(instr.value);
         let reason = if let Err(e) = stepped {
             pvmi.gas = pvmi.gas.saturating_sub(e.extra_gas());
+
+            // For host calls, advance the PC to the next instruction before triggering the call
+            if matches!(e, crate::Error::HostCall(_)) {
+                if let Some(pos) = pvmi.jump.take() {
+                    pvmi.pc = pos;
+                } else {
+                    pvmi.pc = reader.position;
+                }
+            }
+
             e.into()
         } else {
             if let Some(pos) = pvmi.jump.take() {

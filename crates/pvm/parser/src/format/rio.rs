@@ -21,10 +21,19 @@ impl From<&[u8]> for RIO {
         }
 
         let mid = (bytes[0] / 16 % 8).min(4) as usize + 1;
+        let offset_bytes = &bytes[mid..];
+        let offset_len = offset_bytes.len().min(4);
+
+        // Read the raw offset value without sign extension
+        let (raw_offset, _) = u64::read(&offset_bytes[..offset_len]);
+
+        // Sign-extend the offset based on its actual length
+        let signed_offset = raw_offset.sign_extend(offset_len) as i32;
+
         RIO {
             reg0: (bytes[0] % 16).min(12),
             imm0: u64::read_imm(&bytes[1..mid]),
-            off0: u64::read_imm(&bytes[mid..]) as i32,
+            off0: signed_offset,
         }
     }
 }

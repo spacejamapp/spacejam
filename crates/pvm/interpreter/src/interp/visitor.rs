@@ -337,8 +337,7 @@ impl Visitor for Interpreter {
     fn visit_load_imm_jump(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         self.registers[reg0 as usize] = imm0;
-        self.jump = Some(self.pc.wrapping_add(off0 as usize));
-        Ok(())
+        self.branch(off0, true)
     }
 
     fn visit_load_imm_jump_ind(&mut self, format: format::RRII) -> Result<()> {
@@ -1090,27 +1089,13 @@ impl Visitor for Interpreter {
     }
 
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
-        let format::RR { reg0, reg1 } = format;
+        let format::RR { reg0: _, reg1 } = format;
         let increment = self.registers[reg1 as usize];
 
-        // According to PVM spec, sbrk finds the minimum address x >= heap_start
-        // where we can allocate `increment` bytes and make them writable
-        // For now, we'll use a simple implementation that triggers a host call
-        // since memory management is complex and should be handled by the host
-
-        // Put the increment in reg7 for the host call and trigger host call 4 (sbrk)
+        // Put the increment in reg7 for the host call
         self.registers[7] = increment;
 
-        // For now, implement a simple stub that returns success
-        // TODO: This should properly trigger host call 4 and handle the response
-        self.registers[reg0 as usize] = if increment == 0 {
-            0x10000 // Return current break address
-        } else if increment > 0 {
-            0x10000 // Return previous break address on successful allocation
-        } else {
-            u64::MAX // Return error for negative increment
-        };
-
-        Ok(())
+        // Trigger host call 4 (sbrk)
+        Err(crate::Error::HostCall(4))
     }
 }

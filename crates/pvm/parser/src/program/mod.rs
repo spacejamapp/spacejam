@@ -33,7 +33,3 @@ pub struct Memory<'a> {
     /// The memory (µ).
     pub memory: BTreeMap<u32, (Cow<'a, [u8]>, bool)>,
 }
-
-impl<'a> Memory<'a> {
-    
-}

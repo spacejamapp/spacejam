@@ -69,6 +69,9 @@ impl Memory {
 
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
+        // Allocate page if it doesn't exist
+        self.allocate_page(page)?;
+
         let page = self.mutate(page)?;
 
         // extend page if necessary
@@ -141,6 +144,16 @@ impl Memory {
 
         Ok(page)
     }
+
+    /// Allocate a memory page if it doesn't exist
+    pub fn allocate_page(&mut self, page_num: u32) -> Result<()> {
+        self.pages.entry(page_num).or_insert(Page {
+            data: SmallVec::new(),
+            access: Access::Mutable,
+        });
+
+        Ok(())
+    }
 }
 
 impl pvm::Memory for Memory {
@@ -180,7 +193,25 @@ impl pvm::Memory for Memory {
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
         let page = from / PAGE_SIZE;
         let offset = from % PAGE_SIZE;
-        self.write_bytes(page, offset, bytes).map_err(Into::into)
+
+        // For cross-page writes, we need to handle them properly
+        let mut remaining = bytes;
+        let mut current_page = page;
+        let mut current_offset = offset;
+
+        while !remaining.is_empty() {
+            let bytes_in_page = (PAGE_SIZE - current_offset).min(remaining.len() as u32) as usize;
+            let chunk = &remaining[..bytes_in_page];
+
+            self.write_bytes(current_page, current_offset, chunk)
+                .map_err(|e| -> Reason { e.into() })?;
+
+            remaining = &remaining[bytes_in_page..];
+            current_page += 1;
+            current_offset = 0;
+        }
+
+        Ok(())
     }
 }
 

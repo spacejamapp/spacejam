@@ -196,29 +196,63 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
 ) -> Result<ExitCode> {
     let increment = state.registers[7] as i64;
 
+    // TODO: For now, implement a simple heap that starts at 0x10000
+    // In a real implementation, this should track the current heap break
+    // and properly find available memory regions according to PVM spec
+
+    // Current break is stored in a fixed location for simplicity
+    // In production, this would be tracked by the host system
+    static mut CURRENT_BREAK: u64 = 0x10000;
+
     // sbrk(0) returns current break without changing it
     if increment == 0 {
-        // For now, return a placeholder break address
-        // In a real implementation, this would track the current heap break
-        return Ok(0x10000); // Placeholder heap start address
+        unsafe { return Ok(CURRENT_BREAK) };
     }
 
     // For positive increment, allocate memory
     if increment > 0 {
-        // TODO: Implement actual memory allocation
-        // This would need to:
-        // 1. Find current heap break
-        // 2. Allocate `increment` bytes
-        // 3. Update heap break
-        // 4. Return previous break address
+        unsafe {
+            let old_break = CURRENT_BREAK;
+            let new_break = old_break + increment as u64;
 
-        // For now, return a success value indicating allocation succeeded
-        return Ok(0x10000); // Previous break address
+            // Allocate pages from old_break to new_break
+            let page_size = 4096u32;
+            let start_page = (old_break as u32) / page_size;
+            let end_page = ((new_break - 1) as u32) / page_size;
+
+            // For each page that needs to be allocated, add it to memory
+            for page_num in start_page..=end_page {
+                // Try to write to ensure the page exists and is writable
+                // This will trigger page allocation if needed
+                let page_addr = page_num * page_size;
+                if let Err(e) = state.memory.write_bytes(page_addr, &[0]) {
+                    // If allocation fails, return error
+                    tracing::warn!("failed to write to page {page_addr}: {e}");
+                    return Ok(Exit::OOB as u64);
+                }
+            }
+
+            CURRENT_BREAK = new_break;
+            return Ok(old_break);
+        }
     }
 
     // For negative increment, deallocate memory
-    // TODO: Implement memory deallocation
-    // For now, return error for negative increments
+    if increment < 0 {
+        unsafe {
+            let old_break = CURRENT_BREAK;
+            let new_break = old_break.saturating_sub((-increment) as u64);
+
+            // Don't allow break to go below initial heap start
+            if new_break < 0x10000 {
+                return Ok(Exit::What as u64);
+            }
+
+            CURRENT_BREAK = new_break;
+            return Ok(old_break);
+        }
+    }
+
     Ok(Exit::What as u64)
 }
 
