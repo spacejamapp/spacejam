@@ -98,6 +98,12 @@ impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {
         let code_blob = io::read_cow(&mut blob, code_blob_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading code"))?;
 
+        tracing::trace!("RO data: {:?}", ro_data.len());
+        tracing::trace!("RW data: {:?}", rw_data.len());
+        tracing::trace!("Stack size: {:?}", stack_size);
+        tracing::trace!("RW data padding pages: {:?}", rw_data_padding_pages);
+        tracing::trace!("Code blob: {:?}", code_blob.len());
+
         Ok(Self {
             rw_data_padding_pages,
             stack_size,

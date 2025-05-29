@@ -172,11 +172,7 @@ mod local {
             .unwrap();
 
         let input = TestInput::from_json(&test.input).unwrap();
-        // let output = TestOutput::from_json(&test.output).unwrap();
-        // let accounts = input.pre_state.accounts();
-
         let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
-        let program = parser::program::preimage(blob, &[]).unwrap();
-        println!("program: {:?}", program.code.len());
+        assert!(parser::program::preimage(blob, &[]).is_ok())
     }
 }

@@ -184,12 +184,11 @@ pub trait Invocation {
         // (x) the host function input data
         data: X,
     ) -> Received<X> {
-        tracing::trace!("calling in argument with arguments: {:?}", args);
         let Program {
             code,
             registers,
             memory,
-        } = match program::standard(blob, args) {
+        } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
                 tracing::error!("failed to deblob the standard program blob: {e:?}");
@@ -197,7 +196,6 @@ pub trait Invocation {
             }
         };
 
-        tracing::trace!("calling in argument with arguments: {:?}", args);
         let stepped = Self::call(
             &code,
             pc,
@@ -296,7 +294,7 @@ pub trait Invocation {
             timeslot,
         );
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
-        tracing::trace!("argument calling {service} in accumulate");
+        tracing::trace!("argument calling service {service} in accumulate");
         Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }
 
