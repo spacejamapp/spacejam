@@ -175,8 +175,8 @@ mod local {
         // let output = TestOutput::from_json(&test.output).unwrap();
         // let accounts = input.pre_state.accounts();
 
-        let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
+        /* let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
         let program = parser::program::to_standard(blob).unwrap();
-        println!("program: {:?}", program.code.len());
+        println!("program: {:?}", program.code.len()); */
     }
 }

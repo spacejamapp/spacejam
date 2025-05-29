@@ -56,7 +56,7 @@ pub fn outer<V: Pvm>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
         &reports[index..],
         accumulated.context.clone(),
-        &gas_table,
+        gas_table,
     );
 
     accumulated.accumulated += rest.accumulated;
@@ -116,7 +116,7 @@ pub fn parallel<V: Pvm>(
     for (service_id, result) in results.into_iter() {
         // new accounts
         for (id, account) in result.context.accounts.iter() {
-            if !services.contains(&id) {
+            if !services.contains(id) {
                 accounts.insert(*id, account.clone());
             }
         }
@@ -125,7 +125,7 @@ pub fn parallel<V: Pvm>(
         //
         // TODO: find a better way to do this.
         for service in result.context.accounts.keys() {
-            if !services.contains(&service) {
+            if !services.contains(service) {
                 removed.push(*service);
             }
         }

@@ -4,7 +4,10 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
-use parser::{program, ProgramBlob, StandardProgramBlob};
+use parser::{
+    program::{self, Program},
+    ProgramBlob,
+};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{DeferredTransfer, Operand, StateContext},
@@ -182,11 +185,11 @@ pub trait Invocation {
         data: X,
     ) -> Received<X> {
         tracing::trace!("calling in argument with arguments: {:?}", args);
-        let StandardProgramBlob {
+        let Program {
             code,
             registers,
             memory,
-        } = match program::to_standard(blob) {
+        } = match program::standard(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
                 tracing::error!("failed to deblob the standard program blob: {e:?}");

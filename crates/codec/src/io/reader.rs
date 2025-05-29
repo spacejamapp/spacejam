@@ -16,6 +16,9 @@ pub trait Reader {
 
     /// Read a 16-bit integer
     fn read_u16(&mut self) -> Option<u16>;
+
+    /// Read a 8-bit integer
+    fn read_u8(&mut self) -> Option<u8>;
 }
 
 impl Reader for &[u8] {
@@ -52,6 +55,16 @@ impl Reader for &[u8] {
 
         let value = u16::from_le_bytes([self[0], self[1]]);
         *self = &self[2..];
+        Some(value)
+    }
+
+    fn read_u8(&mut self) -> Option<u8> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let value = self[0];
+        *self = &self[1..];
         Some(value)
     }
 }

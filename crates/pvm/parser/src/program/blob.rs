@@ -2,7 +2,8 @@
 
 use crate::reader::Reader;
 use anyhow::Result;
-use codec::compact::Numeric;
+use codec::{compact::Numeric, io, Reader as _};
+use std::borrow::Cow;
 
 /// The code section.
 ///
@@ -18,28 +19,28 @@ use codec::compact::Numeric;
 ///
 /// `p` = E(∣j∣)⌢ E1(z)⌢ E(∣c∣)⌢ Ez(j)⌢ E(c)⌢ E(k), ∣k∣= ∣c∣
 #[derive(Default)]
-pub struct ProgramBlob {
+pub struct ProgramBlob<'a> {
     /// The instructions (c).
-    pub instructions: Vec<u8>,
+    pub instructions: Cow<'a, [u8]>,
 
     /// The bitmask of the instruction data (k).
-    pub bitmask: Vec<u8>,
+    pub bitmask: Cow<'a, [u8]>,
 
     /// The jump table (j).
     pub jump_table: Vec<u64>,
 }
 
-impl ProgramBlob {
+impl ProgramBlob<'_> {
     /// Get the reader.
     pub fn reader(&self) -> Reader<'_> {
         Reader::new(&self.instructions, &self.bitmask)
     }
 }
 
-impl TryFrom<&[u8]> for ProgramBlob {
+impl<'a> TryFrom<&'a [u8]> for ProgramBlob<'a> {
     type Error = anyhow::Error;
 
-    fn try_from(blob: &[u8]) -> Result<Self> {
+    fn try_from(blob: &'a [u8]) -> Result<Self> {
         self::deblob(blob)
     }
 }
@@ -57,62 +58,48 @@ impl TryFrom<&[u8]> for ProgramBlob {
 /// octets. This length, term z above, is itself encoded prior.
 ///
 /// `p` = E(∣j∣)⌢ E1(z)⌢ E(∣c∣)⌢ Ez(j)⌢ E(c)⌢ E(k), ∣k∣= ∣c∣
-#[allow(clippy::type_complexity)]
-pub fn deblob(blob: &[u8]) -> Result<ProgramBlob> {
-    let mut pos = 0;
+pub fn deblob(mut blob: &[u8]) -> Result<ProgramBlob<'_>> {
+    // E(|j|) decode the jump table length
+    let jump_table_len = blob
+        .read_var()
+        .ok_or_else(|| anyhow::anyhow!("EOF while reading jump table length"))?;
 
-    // decode the jump table length
-    //
-    // E(|j|)
-    let (len, next) = codec::compact::decode_from(blob);
-    let jump_table_len = len as usize;
-    pos += next;
+    // E₁(z) decode the jump table entry size
+    let jump_table_entry_size = blob
+        .read_u8()
+        .ok_or_else(|| anyhow::anyhow!("EOF while reading jump table entry size"))?;
 
-    // decode the jump table entry size
-    //
-    // E₁(z)
-    let jump_table_entry_size = blob[pos] as usize;
-    pos += 1;
+    // E(|c|) decode the instruction data length
+    let instruction_len = blob
+        .read_var()
+        .ok_or_else(|| anyhow::anyhow!("EOF while reading instruction length"))?;
 
-    // decode the instruction data length
-    //
-    // E(|c|)
-    let (len, next) = codec::compact::decode_from(&blob[pos..]);
-    let instruction_len = len as usize;
-    pos += next;
-
-    // decode the jump table
-    //
-    // E_z(j)
-    let jump = if jump_table_entry_size > 0 {
-        let length = jump_table_len * jump_table_entry_size;
-        let table = blob[pos..pos + length].to_vec();
-        let jump = table
-            .chunks(jump_table_entry_size)
+    // E_z(j) decode the jump table
+    let mut jump = vec![];
+    if jump_table_entry_size > 0 {
+        let length = jump_table_len * jump_table_entry_size as u32;
+        let table = io::read_cow(&mut blob, length)
+            .ok_or_else(|| anyhow::anyhow!("EOF while reading jump table"))?;
+        jump = table
+            .chunks(jump_table_entry_size as usize)
             .map(u64::decode)
             .collect();
+    }
 
-        pos += length;
-        jump
-    } else {
-        vec![]
-    };
-
-    // decode the instruction data
-    //
-    // E(c)
-    let instructions = blob[pos..pos + instruction_len].to_vec();
-    pos += instruction_len;
+    // E(c) decode the instruction data
+    let instructions = io::read_cow(&mut blob, instruction_len)
+        .ok_or_else(|| anyhow::anyhow!("EOF while reading instruction data"))?;
 
     // check that the program blob is not empty
     if instructions.is_empty() {
         anyhow::bail!("empty program blob");
     }
 
-    // decode the bitmask
-    //
-    // E(k)
-    let bitmask = blob[pos..].to_vec();
+    // E(k) decode the bitmask
+    let len = blob.len();
+    let bitmask = io::read_cow(&mut blob, len as u32)
+        .ok_or_else(|| anyhow::anyhow!("EOF while reading bitmask"))?;
+
     // TODO: bitmask length check
     //
     // if bitmask.len() * 8 != instructions.len() {

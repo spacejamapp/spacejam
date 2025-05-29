@@ -355,4 +355,8 @@ impl Reader for Deserializer<'_> {
         let bytes = self.next_bytes(2).ok()?;
         Some(u16::from_le_bytes([bytes[0], bytes[1]]))
     }
+
+    fn read_u8(&mut self) -> Option<u8> {
+        self.next_byte().ok()
+    }
 }
