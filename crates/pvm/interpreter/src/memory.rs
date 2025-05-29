@@ -154,15 +154,15 @@ impl pvm::Memory for Memory {
 
     fn from_raw(memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>) -> Self {
         let mut pages = BTreeMap::new();
-        for (addr, (data, is_immutable)) in memory {
+        for (addr, (data, is_writable)) in memory {
             pages.insert(
                 addr,
                 Page {
-                    data: data.as_ref().into(), // Convert Cow<[u8]> to SmallVec
-                    access: if is_immutable {
-                        Access::Immutable
-                    } else {
+                    data: data.as_ref().into(),
+                    access: if is_writable {
                         Access::Mutable
+                    } else {
+                        Access::Immutable
                     },
                 },
             );

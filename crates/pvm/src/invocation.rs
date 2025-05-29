@@ -205,6 +205,8 @@ pub trait Invocation {
             data,
         );
 
+        tracing::trace!("stepped result: {:?}", stepped.reason);
+
         // get the output
         let mut output = vec![];
         let registers = stepped.state.registers;

@@ -15,44 +15,76 @@ impl<'a> Memory<'a> {
     pub fn init(blob: &StandardProgramBlob<'a>, args: &'a [u8]) -> Self {
         let mut memory = Self::default();
         let funp = |x: u64| x.div_ceil(crate::PAGE_SIZE) * crate::PAGE_SIZE;
+        let funz = |x: u64| x.div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
         let (ro_len, rw_len, args_len) = (
             blob.ro_data.len() as u64,
             blob.rw_data.len() as u64,
             args.len() as u64,
         );
 
-        // insert o pages
+        // RO data: Z_Z ≤ i < Z_Z + |o|
         let mut start = crate::ZONE_SIZE;
         memory.insert_pages_cow(blob.ro_data.clone(), start, false, crate::PAGE_SIZE);
 
-        // insert pages from Z_Z + |o| to Z_Z + P(|o|)
-        let len = funp(ro_len) as usize - ro_len as usize;
+        // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
+        let ro_padding_len = funp(ro_len) - ro_len;
         start += ro_len;
-        memory.insert_pages_owned(vec![0; len], start, true, crate::PAGE_SIZE);
+        if ro_padding_len > 0 {
+            memory.insert_pages_owned(
+                vec![0; ro_padding_len as usize],
+                start,
+                false,
+                crate::PAGE_SIZE,
+            );
+        }
 
-        // insert pages between 2Z_Z + Z(|o|) and 2Z_Z + Z(|o|) + Z(|w|)
-        start += crate::ZONE_SIZE;
+        // RW data: 2*Z_Z + Z(|o|) ≤ i < 2*Z_Z + Z(|o|) + |w|
+        start = 2 * crate::ZONE_SIZE + funz(ro_len);
         memory.insert_pages_cow(blob.rw_data.clone(), start, true, crate::PAGE_SIZE);
 
-        // insert pages between 2Z_Z + Z(|o|) + Z(|w|) and 2Z_Z + Z(|o|) + P(|w|) + z * Z_P
-        let len = (funp(rw_len) + blob.rw_data_padding_pages as u64 * crate::PAGE_SIZE) as usize
-            - rw_len as usize;
+        // RW padding + heap: 2*Z_Z + Z(|o|) + |w| ≤ i < 2*Z_Z + Z(|o|) + P(|w|) + z*Z_P
         start += rw_len;
-        memory.insert_pages_owned(vec![0; len], start, true, crate::PAGE_SIZE);
+        let rw_padding_len = funp(rw_len) - rw_len;
+        let heap_len = blob.rw_data_padding_pages as u64 * crate::PAGE_SIZE;
+        let total_rw_padding_heap_len = rw_padding_len + heap_len;
+        if total_rw_padding_heap_len > 0 {
+            memory.insert_pages_owned(
+                vec![0; total_rw_padding_heap_len as usize],
+                start,
+                true,
+                crate::PAGE_SIZE,
+            );
+        }
 
-        // insert pages between 2^32 - Z-Z - Z_I - P(s) and 2^32 - 2Z_Z - Z_I
-        let len = funp(blob.stack_size as u64) as usize - blob.stack_size as usize;
-        start = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE - len as u64;
-        memory.insert_pages_owned(vec![0; len], start, true, crate::PAGE_SIZE);
+        // Stack: 2^32 - 2*Z_Z - Z_I - P(s) ≤ i < 2^32 - 2*Z_Z - Z_I
+        let stack_padded_len = funp(blob.stack_size as u64);
+        start = crate::PVM_MEMORY_SIZE
+            - 2 * crate::ZONE_SIZE
+            - crate::PVM_INIT_DATA_SIZE
+            - stack_padded_len;
+        memory.insert_pages_owned(
+            vec![0; stack_padded_len as usize],
+            start,
+            true,
+            crate::PAGE_SIZE,
+        );
 
-        // insert pages between 2^32 - Z-Z - Z_I and 2^32 - Z_Z - Z_I + |a|
-        start += len as u64;
+        // Args: 2^32 - Z_Z - Z_I ≤ i < 2^32 - Z_Z - Z_I + |a|
+        start = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         memory.insert_pages_cow(Cow::Borrowed(args), start, false, crate::PAGE_SIZE);
 
-        // insert pages between 2^32 - Z_Z - Z_I + |a| and 2^32 - Z_Z - Z_I + P(|a|)
+        // Args padding: 2^32 - Z_Z - Z_I + |a| ≤ i < 2^32 - Z_Z - Z_I + P(|a|)
         start += args_len;
-        let len = funp(args_len) as usize - args_len as usize;
-        memory.insert_pages_owned(vec![0; len], start, false, crate::PAGE_SIZE);
+        let args_padded_len = funp(args_len);
+        let args_padding_len = args_padded_len - args_len;
+        if args_padding_len > 0 {
+            memory.insert_pages_owned(
+                vec![0; args_padding_len as usize],
+                start,
+                false,
+                crate::PAGE_SIZE,
+            );
+        }
         memory
     }
 
