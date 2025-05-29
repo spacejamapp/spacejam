@@ -4,6 +4,7 @@ pub use {
     compact::{Compact, Numeric},
     de::Deserializer,
     error::{Error, Result},
+    io::{Reader, Writer},
     ser::Serializer,
     with::bytes,
 };
@@ -11,6 +12,7 @@ pub use {
 pub mod compact;
 mod de;
 mod error;
+pub mod io;
 mod ser;
 pub mod visitor;
 mod with;

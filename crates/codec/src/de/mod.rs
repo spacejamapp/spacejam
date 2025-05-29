@@ -1,14 +1,14 @@
 //! JAMCodec deserialization implementation
 
-use crate::{compact::vlen, Error, Result};
+use crate::{compact::vlen, Error, Reader, Result};
 use serde::de::{self, Visitor};
 
 pub mod access;
 
 /// Deserializer for JAMCodec
 pub struct Deserializer<'de> {
-    input: &'de [u8],
-    index: usize,
+    pub(crate) input: &'de [u8],
+    pub(crate) index: usize,
 }
 
 impl<'de> Deserializer<'de> {
@@ -190,8 +190,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let length = vlen::decode_from_de(self)?;
-        let bytes = self.next_bytes(length as usize)?;
+        let length = self
+            .read_var()
+            .ok_or_else(|| anyhow::anyhow!("EOF while reading variable length"))?
+            as usize;
+        let bytes = self.next_bytes(length)?;
         visitor.visit_borrowed_bytes(bytes)
     }
 
@@ -247,7 +250,10 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len = vlen::decode_from_de(self)? as usize;
+        let len = self
+            .read_var()
+            .ok_or_else(|| anyhow::anyhow!("EOF while reading variable length"))?
+            as usize;
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
@@ -321,5 +327,32 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         self.deserialize_any(visitor)
+    }
+}
+
+impl Reader for Deserializer<'_> {
+    fn read_var(&mut self) -> Option<u32> {
+        if self.index >= self.input.len() {
+            return None;
+        }
+
+        let (value, length) = vlen::decode_from(&self.input[self.index..]);
+        self.index += length;
+        Some(value as u32)
+    }
+
+    fn read_u32(&mut self) -> Option<u32> {
+        let bytes = self.next_bytes(4).ok()?;
+        Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+
+    fn read_u24(&mut self) -> Option<u32> {
+        let bytes = self.next_bytes(3).ok()?;
+        Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]))
+    }
+
+    fn read_u16(&mut self) -> Option<u16> {
+        let bytes = self.next_bytes(2).ok()?;
+        Some(u16::from_le_bytes([bytes[0], bytes[1]]))
     }
 }
