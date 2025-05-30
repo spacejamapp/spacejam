@@ -63,7 +63,7 @@ mod crypto_impl {
 
             // set storage
             for (key, value) in &account.storage {
-                diff.push((self::storage(*index, key.clone()), value.clone()));
+                diff.push((self::storage(*index, *key), value.clone()));
             }
 
             // set preimage
