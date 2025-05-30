@@ -4,7 +4,10 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
-use parser::{util, ProgramBlob, StandardProgramBlob};
+use parser::{
+    program::{self, Program},
+    ProgramBlob,
+};
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{DeferredTransfer, Operand, StateContext},
@@ -46,7 +49,7 @@ pub trait Invocation {
             instructions,
             bitmask,
             jump_table: jump,
-        } = match util::deblob(blob) {
+        } = match program::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
                 return Stepped::new(Reason::Panic(e.to_string()), state);
@@ -181,14 +184,16 @@ pub trait Invocation {
         // (x) the host function input data
         data: X,
     ) -> Received<X> {
-        let blob = [blob, args].concat();
-        let StandardProgramBlob {
+        let Program {
             code,
             registers,
             memory,
-        } = match StandardProgramBlob::try_from(blob.as_slice()) {
+        } = match program::preimage(blob, args) {
             Ok(standard) => standard,
-            Err(e) => return Received::new(0, Reason::Panic(e.to_string()), data),
+            Err(e) => {
+                tracing::error!("failed to deblob the standard program blob: {e:?}");
+                return Received::new(0, Reason::Panic(e.to_string()), data);
+            }
         };
 
         let stepped = Self::call(
@@ -199,6 +204,8 @@ pub trait Invocation {
             Self::Memory::from_raw(memory),
             data,
         );
+
+        tracing::trace!("stepped result: {:?}", stepped.reason);
 
         // get the output
         let mut output = vec![];
@@ -266,6 +273,14 @@ pub trait Invocation {
         // entropy'0
         entropy: OpaqueHash,
     ) -> AccumulateResult {
+        tracing::debug!(
+            "accumulate invocation: service={}, timeslot={}, gas={}, operands_count={}",
+            service,
+            timeslot,
+            gas,
+            operands.len()
+        );
+
         let Some(code) = context
             .accounts
             .get(&service)
@@ -289,6 +304,12 @@ pub trait Invocation {
             timeslot,
         );
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        tracing::debug!(
+            "encoded args length: {}, first 32 bytes: {:?}",
+            args.len(),
+            &args[..32.min(args.len())]
+        );
+        tracing::trace!("argument calling service {service} in accumulate");
         Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }
 

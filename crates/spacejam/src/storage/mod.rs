@@ -1,12 +1,18 @@
 //! The storage of SpaceJam
 
-pub mod rocksdb;
-pub mod sled;
+pub mod parity;
 
+use runtime::storage::KVStorage;
 pub use runtime::storage::MemoryDb;
+use std::path::PathBuf;
 
-#[cfg(feature = "rocksdb")]
-pub use rocksdb::RocksDB;
+#[cfg(feature = "parity")]
+pub use parity::Parity;
 
-#[cfg(feature = "sled")]
-pub use sled::Sled;
+/// Open the database
+pub fn open(path: PathBuf) -> anyhow::Result<impl KVStorage> {
+    #[cfg(feature = "parity")]
+    {
+        Parity::try_from(path)
+    }
+}

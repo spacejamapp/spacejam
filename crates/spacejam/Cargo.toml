@@ -18,13 +18,12 @@ dirs.workspace = true
 hex.workspace = true
 network.workspace = true
 offchain.workspace = true
+parity-db = { workspace = true, optional = true }
 rand.workspace = true
-rocksdb = { workspace = true, optional = true }
 runtime.workspace = true
 score = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-sled = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
 time = { workspace = true, optional = true, features = ["local-offset"] }
 toml = { workspace = true, optional = true }
@@ -43,7 +42,7 @@ tracing-subscriber = { workspace = true, optional = true, features = [
 ] }
 
 [features]
-bin = ["node", "sled"]
+bin = ["node", "parity"]
 cmd = [
     "clap",
     "network/cmd",
@@ -54,6 +53,7 @@ cmd = [
 ]
 default = ["bin", "serde"]
 node = ["cmd"]
+parity = ["parity-db"]
 serde = [
     "dep:serde",
     "serde_json",

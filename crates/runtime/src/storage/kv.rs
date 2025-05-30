@@ -1,10 +1,7 @@
 //! Key-value storage abstraction
 
 use anyhow::Result;
-use score::{
-    TimeSlot,
-    state::{StateKeyInfo, StateKeyLike, key},
-};
+use score::{TimeSlot, state::key};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -12,17 +9,11 @@ use std::{
 
 /// Key-value storage
 pub trait KVStorage {
-    /// Set a value in the storage
-    fn set(&self, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()>;
-
     /// Batch write a set of key-value pairs to the storage
-    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()>;
+    fn commit(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()>;
 
     /// Get a value from the storage
     fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
-
-    /// Remove a key-value pair from the storage
-    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()>;
 
     /// Iterate over the storage
     fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
@@ -61,27 +52,12 @@ pub struct MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        data.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
-        Ok(())
-    }
-
-    fn batch_write(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
+    fn commit(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
         let mut data = self
             .data
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
         for (key, value) in kvs {
-            tracing::debug!(
-                "batch_write: {:?}(0x{}) -> bytes({})",
-                key.as_state_key().info(),
-                hex::encode(&key),
-                value.len()
-            );
             data.insert(key, value);
         }
         Ok(())
@@ -93,15 +69,6 @@ impl KVStorage for MemoryDb {
             .read()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
         Ok(data.get(key.as_ref()).cloned())
-    }
-
-    fn remove(&self, key: impl AsRef<[u8]>) -> Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        data.remove(key.as_ref());
-        Ok(())
     }
 
     fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {

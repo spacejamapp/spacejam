@@ -23,7 +23,7 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&self, address: u32, offset: u32) -> Result<V> {
-        let start = address + offset;
+        let start = address.wrapping_add(offset);
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
 
@@ -57,7 +57,7 @@ impl Memory {
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
-        let start = address + offset;
+        let start = address.wrapping_add(offset);
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
         if offset + V::SIZE as u32 > PAGE_SIZE {
@@ -69,6 +69,11 @@ impl Memory {
 
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
+        // Check if page exists, don't auto-allocate
+        if !self.pages.contains_key(&page) {
+            return Err(Error::MemoryInaccessible(page));
+        }
+
         let page = self.mutate(page)?;
 
         // extend page if necessary
@@ -141,6 +146,16 @@ impl Memory {
 
         Ok(page)
     }
+
+    /// Allocate a memory page if it doesn't exist
+    pub fn allocate_page(&mut self, page_num: u32) -> Result<()> {
+        self.pages.entry(page_num).or_insert(Page {
+            data: SmallVec::new(),
+            access: Access::Mutable,
+        });
+
+        Ok(())
+    }
 }
 
 impl pvm::Memory for Memory {
@@ -152,17 +167,17 @@ impl pvm::Memory for Memory {
             .any(|page| page.data.windows(len).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>) -> Self {
+    fn from_raw(memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>) -> Self {
         let mut pages = BTreeMap::new();
-        for (addr, (data, is_immutable)) in memory {
+        for (addr, (data, is_writable)) in memory {
             pages.insert(
                 addr,
                 Page {
-                    data: data.into(),
-                    access: if is_immutable {
-                        Access::Immutable
-                    } else {
+                    data: data.as_ref().into(),
+                    access: if is_writable {
                         Access::Mutable
+                    } else {
+                        Access::Immutable
                     },
                 },
             );
@@ -180,7 +195,25 @@ impl pvm::Memory for Memory {
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
         let page = from / PAGE_SIZE;
         let offset = from % PAGE_SIZE;
-        self.write_bytes(page, offset, bytes).map_err(Into::into)
+
+        // For cross-page writes, we need to handle them properly
+        let mut remaining = bytes;
+        let mut current_page = page;
+        let mut current_offset = offset;
+
+        while !remaining.is_empty() {
+            let bytes_in_page = (PAGE_SIZE - current_offset).min(remaining.len() as u32) as usize;
+            let chunk = &remaining[..bytes_in_page];
+
+            self.write_bytes(current_page, current_offset, chunk)
+                .map_err(|e| -> Reason { e.into() })?;
+
+            remaining = &remaining[bytes_in_page..];
+            current_page += 1;
+            current_offset = 0;
+        }
+
+        Ok(())
     }
 }
 

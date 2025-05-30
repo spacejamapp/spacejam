@@ -12,7 +12,7 @@ use score::{
     safrole::{Safrole, ValidatorsData},
     service::{
         Privileges, ServiceAccountData, ServiceAccountState, ServiceItem, ServicePreimage,
-        WorkReport,
+        ServiceStorage, WorkReport,
     },
     state::{State, account, key},
     statistic::Statistics,
@@ -244,11 +244,13 @@ pub trait Storage: KVStorage {
     fn account(&self, service: u32) -> Result<ServiceItem> {
         let info = self.account_info(service)?;
         let preimages = self.account_preimages(service)?;
+        let storage = self.account_storage_full(service)?;
         Ok(ServiceItem {
             id: service,
             data: ServiceAccountData {
                 service: info,
                 preimages,
+                storage,
             },
         })
     }
@@ -277,6 +279,7 @@ pub trait Storage: KVStorage {
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
     }
 
+    /// Fetch the account preimages
     fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
         self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
             .map(|kv| {
@@ -286,6 +289,12 @@ pub trait Storage: KVStorage {
                     ServicePreimage { hash, blob: value }
                 })
             })
+            .collect()
+    }
+
+    fn account_storage_full(&self, service: u32) -> Result<Vec<ServiceStorage>> {
+        self.prefix_iter(key::prefix(service, &key::ACCOUNT_STORAGE_PREFIX))?
+            .map(|kv| kv.map(|(key, value)| ServiceStorage { key, value }))
             .collect()
     }
 
@@ -300,43 +309,5 @@ pub trait Storage: KVStorage {
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
-    }
-
-    /// Set the service account info
-    fn set_info(&self, service: u32, acc: &ServiceAccountState) -> Result<()> {
-        let mut value = Vec::new();
-        value.extend_from_slice(&acc.code);
-        value.extend_from_slice(&codec::encode(&(
-            &acc.balance,
-            &acc.gas.accumulate,
-            &acc.gas.transfer,
-            &acc.total,
-        ))?);
-        value.extend_from_slice(&acc.items.to_le_bytes());
-        self.set(account::info(service), value)
-    }
-
-    /// Set the service account storage
-    fn set_storage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
-        self.set(account::storage(service, key), value)
-    }
-
-    /// Set the service account preimage
-    fn set_preimage(&self, service: u32, key: OpaqueHash, value: impl AsRef<[u8]>) -> Result<()> {
-        self.set(account::preimage(service, key), value)
-    }
-
-    /// Set the service account lookup
-    fn set_lookup(
-        &self,
-        service: u32,
-        lookup: u32,
-        key: OpaqueHash,
-        slots: [TimeSlot; 3],
-    ) -> Result<()> {
-        self.set(
-            account::lookup(service, lookup, key),
-            codec::encode(&slots)?,
-        )
     }
 }

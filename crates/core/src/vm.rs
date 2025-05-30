@@ -76,23 +76,26 @@ pub struct Accumulation {
 /// defined per GP (12.19)
 #[derive(Serialize, Deserialize)]
 pub struct Operand {
-    /// (d) The work execution result
-    pub data: WorkExecResult,
+    /// (h) The hash of the work package
+    pub hash: OpaqueHash,
 
     /// (e) The erasure root
     pub erasure_root: OpaqueHash,
 
-    /// (o) The authorizer output
-    pub authorizer_output: Vec<u8>,
+    /// (a) anchor header hash
+    pub anchor: OpaqueHash,
 
     /// (y) The payload blob hash
     pub payload: OpaqueHash,
 
-    /// (h) The hash of the work package
-    pub hash: OpaqueHash,
-
-    /// (n) The accumulate gas
+    /// (g) The accumulate gas
     pub gas: Gas,
+
+    /// (d) The work execution result
+    pub data: WorkExecResult,
+
+    /// (o) The authorizer output
+    pub authorizer_output: Vec<u8>,
 }
 
 /// A deferred transfer item

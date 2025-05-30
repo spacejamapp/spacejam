@@ -31,8 +31,9 @@ impl<C: Config> Runtime<C> {
 
         // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;
+        let mut kvs = Vec::new();
         for (key, value) in state {
-            self.storage.set(key, value)?;
+            kvs.push((key.to_vec(), value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     grandpa.grid.prev = codec::decode(value)?;
@@ -47,6 +48,7 @@ impl<C: Config> Runtime<C> {
             }
         }
 
+        self.storage.commit(kvs)?;
         grandpa.handshake.head = head;
         Ok(())
     }

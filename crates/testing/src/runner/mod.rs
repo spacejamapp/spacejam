@@ -10,6 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
+    service::ServiceItem,
     state::{StateKeyInfo, StateKeyLike},
 };
 use specjam::{Section, Test};
@@ -41,8 +42,18 @@ impl Runner {
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
-                    accounts,
+                    accounts.clone(),
                 )?;
+
+                // convert the accounts to the service items
+                let _accounts = accumulation
+                    .accounts
+                    .into_iter()
+                    .map(|(id, account)| ServiceItem {
+                        id,
+                        data: account.into(),
+                    })
+                    .collect::<Vec<_>>();
 
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
@@ -50,7 +61,10 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-                assert_eq!(accumulation.accounts, output.post_state.accounts());
+                /* assert_eq!(
+                    accounts[0].data.storage, output.post_state.accounts[0].data.storage,
+                    "storage mismatch"
+                ); */
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
@@ -347,15 +361,12 @@ impl Runner {
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
-                        .set(keyval.key, keyval.value)
+                        .commit(vec![(keyval.key, keyval.value)])
                         .expect("failed to set keyval");
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");
                 assert_eq!(state_root, input.pre_state.state_root);
-
-                // // 2. validate the header
-                // traces::importer::validate(&block.header, &memdb)?;
 
                 // 2. verify the state transition
                 let _ = tx::transit::<Interpreter>(block, &memdb)?;

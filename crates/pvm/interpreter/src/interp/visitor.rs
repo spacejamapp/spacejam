@@ -266,6 +266,11 @@ impl Visitor for Interpreter {
         Ok(())
     }
 
+    fn visit_ecalli(&mut self, format: format::I) -> Result<()> {
+        let format::I { imm0 } = format;
+        Err(crate::Error::HostCall(imm0 as u32))
+    }
+
     // TODO: re-check the fallthrough logic
     fn visit_fallthrough(&mut self) -> Result<()> {
         Ok(())
@@ -337,8 +342,7 @@ impl Visitor for Interpreter {
     fn visit_load_imm_jump(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         self.registers[reg0 as usize] = imm0;
-        self.jump = Some(self.pc.wrapping_add(off0 as usize));
-        Ok(())
+        self.branch(off0, true)
     }
 
     fn visit_load_imm_jump_ind(&mut self, format: format::RRII) -> Result<()> {
@@ -693,6 +697,17 @@ impl Visitor for Interpreter {
         let value = imm0.rotate_right(rotation as u32);
         self.registers[reg0 as usize] = value;
         Ok(())
+    }
+
+    fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
+        let format::RR { reg0: _, reg1 } = format;
+        let increment = self.registers[reg1 as usize];
+
+        // Put the increment in reg7 for the host call
+        self.registers[7] = increment;
+
+        // Trigger host call 4 (sbrk)
+        Err(crate::Error::HostCall(4))
     }
 
     fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {

@@ -1,16 +1,17 @@
 //! The PVM parser.
 
-use anyhow::Result;
 pub use {
     instruction::Instruction,
+    memory::Memory,
     opcode::Opcode,
-    program::{ProgramBlob, StandardProgramBlob},
+    program::{deblob, preimage, standard, PreimageBlob, ProgramBlob, StandardProgramBlob},
     reader::Reader,
     visitor::Visitor,
 };
 
 pub mod format;
 pub mod instruction;
+mod memory;
 pub mod opcode;
 pub mod program;
 pub mod reader;
@@ -39,8 +40,3 @@ pub const PVM_ZONE_SIZE: u64 = 1 << 16;
 
 /// The type of the registers.
 pub type Register = u64;
-
-/// Parse a PVM program blob.
-pub fn parse(blob: Vec<u8>) -> Result<ProgramBlob> {
-    ProgramBlob::try_from(blob.as_ref())
-}

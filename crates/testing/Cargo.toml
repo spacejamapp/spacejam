@@ -11,6 +11,7 @@ hex.workspace = true
 paste.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
+pvm-parser.workspace = true
 runtime.workspace = true
 spacejam.workspace = true
 specjam.workspace = true

@@ -22,6 +22,9 @@ pub enum Error {
 
     /// The trap instruction was executed.
     Trap(bool),
+
+    /// Host call.
+    HostCall(u32),
 }
 
 impl Error {
@@ -47,6 +50,7 @@ impl From<Error> for Reason {
             Error::InvalidDynamicJump => Reason::Panic("invalid dynamic jump".into()),
             Error::Trap(_) => Reason::Panic("trap".into()),
             Error::OOG => Reason::OOG,
+            Error::HostCall(call) => Reason::HostCall(call),
         }
     }
 }

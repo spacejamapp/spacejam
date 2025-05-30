@@ -8,7 +8,7 @@ use score::{
     block::{self, Header},
     Block,
 };
-use spacejam::{chain, storage::Sled, validator::LocalValidator, RuntimeSpec};
+use spacejam::{chain, storage::Parity, validator::LocalValidator, RuntimeSpec};
 use std::{fs, marker, sync::Arc, time::Duration};
 
 /// Start the node service
@@ -80,7 +80,7 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
 pub struct JadexSpec<Hook: runtime::Hook>(marker::PhantomData<Hook>);
 
 impl<Hook: runtime::Hook + Send + Sync + 'static> runtime::Config for JadexSpec<Hook> {
-    type Storage = Sled;
+    type Storage = Parity;
     type Validator = LocalValidator;
     type Vm = ();
     type Hook = Hook;

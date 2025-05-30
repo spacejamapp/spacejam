@@ -1,6 +1,7 @@
 //! Iterate over the storage
 
-use crate::chain;
+use crate::{chain, storage};
+use runtime::storage::KVStorage;
 use score::{
     extrinsic::TicketsOrKeys,
     safrole::{Safrole, ValidatorIter, ValidatorsData},
@@ -39,8 +40,8 @@ pub async fn run(data: PathBuf) -> anyhow::Result<()> {
     );
 
     let mut blocks = Vec::new();
-    let db = sled::open(data.join("dev"))?;
-    db.iter().for_each(|entry| {
+    let db = storage::open(data.join("dev"))?;
+    db.iter()?.for_each(|entry| {
         let (key, value) = entry.unwrap();
         if key.starts_with(b"block") && key.len() == 37 {
             let block: Block = codec::decode(value.as_ref()).unwrap();
