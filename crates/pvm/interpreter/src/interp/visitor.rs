@@ -283,7 +283,8 @@ impl Visitor for Interpreter {
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        self.djump(self.registers[reg0 as usize].wrapping_add(imm0) as u32)
+        let jump_address = self.registers[reg0 as usize].wrapping_add(imm0) as u32;
+        self.djump(jump_address)
     }
 
     // # NOTE
@@ -353,9 +354,15 @@ impl Visitor for Interpreter {
             imm1,
         } = format;
 
-        let result = self.djump(self.registers[reg1 as usize].wrapping_add(imm1) as u32);
+        // CRITICAL FIX: Calculate jump address BEFORE modifying registers
+        // This ensures that when reg0 == reg1, we use the old value for jumping
+        let jump_address = self.registers[reg1 as usize].wrapping_add(imm1) as u32;
+
+        // Load immediate into register (this might overwrite the register used for jumping)
         self.registers[reg0 as usize] = imm0;
-        result
+
+        // Perform the dynamic jump using the pre-calculated address
+        self.djump(jump_address)
     }
 
     fn visit_load_ind_i8(&mut self, format: format::RRI) -> Result<()> {
