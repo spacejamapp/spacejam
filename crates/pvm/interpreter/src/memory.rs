@@ -20,12 +20,12 @@ pub struct Memory {
 
 impl Memory {
     /// Read a value from the memory.
-    pub fn read<V: Value>(&self, address: u32) -> Result<V> {
+    pub fn read<V: Value>(&mut self, address: u32) -> Result<V> {
         self.read_offset(address, 0)
     }
 
     /// Read a value from the memory at an offset.
-    pub fn read_offset<V: Value>(&self, address: u32, offset: u32) -> Result<V> {
+    pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
         let start = address.wrapping_add(offset);
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
@@ -72,8 +72,7 @@ impl Memory {
 
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        // Check if page exists, don't auto-allocate
-        if !self.pages.contains_key(&page) {
+        if offset + bytes.len() as u32 > PAGE_SIZE {
             return Err(Error::MemoryInaccessible(page));
         }
 
@@ -87,8 +86,7 @@ impl Memory {
         }
 
         // copy data
-        page.data[offset as usize..(offset + to_write) as usize]
-            .copy_from_slice(&bytes[..to_write as usize]);
+        page.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
         Ok(())
     }
 
@@ -228,6 +226,23 @@ impl Memory {
         self.current_heap_pointer = new_heap_pointer;
         Ok(old_heap_pointer)
     }
+
+    /// Allocate specific low memory pages (for service execution contexts)
+    pub fn allocate_low_memory_pages(&mut self, max_page: u32) -> Result<()> {
+        for page_num in 0..=max_page {
+            if !self.pages.contains_key(&page_num) {
+                tracing::debug!(
+                    "allocating low memory page {} for service execution",
+                    page_num
+                );
+                self.pages.entry(page_num).or_insert(Page {
+                    data: SmallVec::new(),
+                    access: Access::Mutable,
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 impl pvm::Memory for Memory {
@@ -264,7 +279,24 @@ impl pvm::Memory for Memory {
     fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
         let page = address / PAGE_SIZE;
         let offset = address % PAGE_SIZE;
-        self.read_bytes(page, offset, len).map_err(Into::into)
+
+        // For read operations from the trait, we use the non-allocating version
+        if let Some(page_data) = self.pages.get(&page) {
+            let data = page_data.data.as_slice();
+            let data_len = data.len() as u32;
+
+            // fill with 0s if necessary
+            let mut bytes = vec![0; len as usize];
+            let to_copy = (len).min(data_len.saturating_sub(offset));
+            if to_copy > 0 {
+                bytes[..to_copy as usize]
+                    .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
+            }
+            Ok(bytes)
+        } else {
+            // Return zeros for non-existent pages (this matches expected behavior)
+            Ok(vec![0; len as usize])
+        }
     }
 
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
@@ -288,6 +320,14 @@ impl pvm::Memory for Memory {
             current_offset = 0;
         }
 
+        Ok(())
+    }
+
+    fn allocate_page(&mut self, page_num: u32) -> std::result::Result<(), Reason> {
+        self.pages.entry(page_num).or_insert(Page {
+            data: SmallVec::new(),
+            access: Access::Mutable,
+        });
         Ok(())
     }
 }

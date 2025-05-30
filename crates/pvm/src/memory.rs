@@ -23,6 +23,11 @@ pub trait Memory: Default + Clone {
 
     /// write bytes to the memory
     fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason>;
+
+    /// Allocate a memory page if it doesn't exist
+    fn allocate_page(&mut self, _page_num: u32) -> Result<(), Reason> {
+        Err(Reason::Panic("page allocation not supported".into()))
+    }
 }
 
 impl Memory for () {

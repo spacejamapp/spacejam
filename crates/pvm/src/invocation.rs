@@ -281,9 +281,6 @@ pub trait Invocation {
             operands.len()
         );
 
-        // Reset heap pointer for this service execution
-        host::reset_heap_pointer();
-
         let Some(code) = context
             .accounts
             .get(&service)
