@@ -116,7 +116,7 @@ pub fn parallel<V: Pvm>(
     for (service_id, result) in results.into_iter() {
         // Update all accounts from the result, not just new ones
         for (id, account) in result.context.accounts.iter() {
-                accounts.insert(*id, account.clone());
+            accounts.insert(*id, account.clone());
         }
 
         // removed accounts
