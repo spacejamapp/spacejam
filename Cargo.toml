@@ -12,7 +12,7 @@ members = [
     "jade",
     "jade/jadex",
     "jade/jadex/examples/*",
-    "jade/cli",
+    "jade/cli", "res/jam-test-vectors/accumulate/script",
 ]
 resolver = "1"
 

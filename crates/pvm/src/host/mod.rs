@@ -18,6 +18,8 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         0..6 => general::call(call, &mut state, Default::default(), &mut data),
         6..18 => accumulate::call(call, &mut state, &mut data),
         18..28 => refine::call(call, &mut state, &mut data),
+        // JIP1 logging, currently skipped
+        100 => Ok(Exit::Ok as u64),
         _ => Ok(Exit::What as u64),
     };
 
