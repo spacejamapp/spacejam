@@ -71,7 +71,7 @@ impl WorkReport {
                 authorizer_output: self.auth_output.clone(),
                 payload: work.payload_hash,
                 hash: self.spec.hash,
-                gas: work.accumulate_gas,
+                // gas: work.accumulate_gas,
             });
         }
         operands

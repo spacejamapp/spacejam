@@ -13,7 +13,12 @@ mod standard;
 
 /// Convert a preimage blob to a program.
 pub fn preimage<'a>(blob: &'a [u8], args: &'a [u8]) -> anyhow::Result<Program<'a>> {
-    PreimageBlob::from_bytes(blob)?.blob.init(args)
+    let preimage = PreimageBlob::from_bytes(blob)?;
+    tracing::debug!(
+        "metadata: {:?}",
+        String::from_utf8_lossy(&preimage.metadata)
+    );
+    preimage.blob.init(args)
 }
 
 /// A PVM program.

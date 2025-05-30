@@ -193,6 +193,7 @@ pub fn once<V: Pvm>(
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
 
+    tracing::debug!("accumulating service with operands {:?}", operands);
     tracing::trace!("accumulating service {service}");
     V::accumulate(context, 0, service, gas, operands, [0; 32])
 }

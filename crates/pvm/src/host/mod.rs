@@ -94,7 +94,15 @@ impl Argument for Accumulate {
     }
 
     fn update_general(&mut self, general: General) -> crate::Result<()> {
-        self.x.context.accounts = general.accounts;
+        // Update the specific service account with storage modifications
+        self.x
+            .context
+            .accounts
+            .insert(general.index, general.account);
+        // Also update any other modified accounts from the general context
+        for (id, account) in general.accounts {
+            self.x.context.accounts.insert(id, account);
+        }
         self.x.service = general.index;
         Ok(())
     }

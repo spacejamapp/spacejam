@@ -73,8 +73,11 @@ pub struct Accumulation {
 
 /// An operand of the accumulation
 ///
+/// NOTE: we are currently following the order of jam-types instead
+/// of graypaper.
+///
 /// defined per GP (12.19)
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Operand {
     /// (h) The hash of the work package
     pub hash: OpaqueHash,
@@ -85,17 +88,19 @@ pub struct Operand {
     /// (a) anchor header hash
     pub anchor: OpaqueHash,
 
+    /// (o) The authorizer output
+    pub authorizer_output: Vec<u8>,
+
     /// (y) The payload blob hash
     pub payload: OpaqueHash,
 
+    /*
+    // JAM_TYPES currently does not include this field
     /// (g) The accumulate gas
     pub gas: Gas,
-
+    */
     /// (d) The work execution result
     pub data: WorkExecResult,
-
-    /// (o) The authorizer output
-    pub authorizer_output: Vec<u8>,
 }
 
 /// A deferred transfer item
@@ -127,5 +132,41 @@ impl DeferredTransfer {
             .filter(|t| t.recipient == dest)
             .cloned()
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod accumulate_item {
+
+    use jam_types::{
+        AccumulateItem, AuthOutput, AuthorizerHash, Encode, PayloadHash, SegmentTreeRoot,
+        WorkOutput, WorkPackageHash,
+    };
+
+    use super::*;
+
+    #[test]
+    fn operand_codec() {
+        let operand = Operand {
+            hash: [0; 32],
+            erasure_root: [0; 32],
+            anchor: [0; 32],
+            authorizer_output: vec![0; 32],
+            payload: [0; 32],
+            data: WorkExecResult::Ok(vec![0; 32]),
+        };
+
+        let accumulate_item = AccumulateItem {
+            authorizer_hash: AuthorizerHash([0; 32]),
+            package: WorkPackageHash([0; 32]),
+            exports_root: SegmentTreeRoot([0; 32]),
+            auth_output: AuthOutput(vec![0; 32]),
+            payload: PayloadHash([0; 32]),
+            result: Ok(WorkOutput(vec![0; 32])),
+        };
+
+        let space_encoded = codec::encode(&operand).unwrap();
+        let jam_encoded = accumulate_item.encode();
+        assert_eq!(space_encoded, jam_encoded);
     }
 }
