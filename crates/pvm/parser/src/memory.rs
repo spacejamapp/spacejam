@@ -24,12 +24,24 @@ impl<'a> Memory<'a> {
 
         // RO data: Z_Z ≤ i < Z_Z + |o|
         let mut start = crate::ZONE_SIZE;
+        tracing::debug!(
+            "Memory layout - RO data: 0x{:x}..0x{:x} (len={})",
+            start,
+            start + ro_len,
+            ro_len
+        );
         memory.insert_pages_cow(blob.ro_data.clone(), start, false, crate::PAGE_SIZE);
 
         // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
         let ro_padding_len = funp(ro_len) - ro_len;
         start += ro_len;
         if ro_padding_len > 0 {
+            tracing::debug!(
+                "Memory layout - RO padding: 0x{:x}..0x{:x} (len={})",
+                start,
+                start + ro_padding_len,
+                ro_padding_len
+            );
             memory.insert_pages_owned(
                 vec![0; ro_padding_len as usize],
                 start,
@@ -40,6 +52,13 @@ impl<'a> Memory<'a> {
 
         // RW data: 2*Z_Z + Z(|o|) ≤ i < 2*Z_Z + Z(|o|) + |w|
         start = 2 * crate::ZONE_SIZE + funz(ro_len);
+        tracing::debug!(
+            "Memory layout - RW data: 0x{:x}..0x{:x} (len={}, funz(ro_len)=0x{:x})",
+            start,
+            start + rw_len,
+            rw_len,
+            funz(ro_len)
+        );
         memory.insert_pages_cow(blob.rw_data.clone(), start, true, crate::PAGE_SIZE);
 
         // RW padding + heap: 2*Z_Z + Z(|o|) + |w| ≤ i < 2*Z_Z + Z(|o|) + P(|w|) + z*Z_P

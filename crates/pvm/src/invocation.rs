@@ -273,6 +273,14 @@ pub trait Invocation {
         // entropy'0
         entropy: OpaqueHash,
     ) -> AccumulateResult {
+        tracing::debug!(
+            "accumulate invocation: service={}, timeslot={}, gas={}, operands_count={}",
+            service,
+            timeslot,
+            gas,
+            operands.len()
+        );
+
         let Some(code) = context
             .accounts
             .get(&service)
@@ -296,6 +304,11 @@ pub trait Invocation {
             timeslot,
         );
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        tracing::debug!(
+            "encoded args length: {}, first 32 bytes: {:?}",
+            args.len(),
+            &args[..32.min(args.len())]
+        );
         tracing::trace!("argument calling service {service} in accumulate");
         Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
     }

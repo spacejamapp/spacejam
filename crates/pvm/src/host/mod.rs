@@ -13,16 +13,33 @@ pub fn call<X: Argument, Memory: crate::Memory>(
     mut state: State<Memory>,
     data: X,
 ) -> Stepped<Memory, X> {
+    tracing::debug!("host call dispatcher: call={}", call);
     let mut data = data;
     let reason = match call {
-        0..6 => general::call(call, &mut state, Default::default(), &mut data),
-        6..18 => accumulate::call(call, &mut state, &mut data),
-        18..28 => refine::call(call, &mut state, &mut data),
+        0..6 => {
+            tracing::debug!("routing to general::call");
+            general::call(call, &mut state, Default::default(), &mut data)
+        }
+        6..18 => {
+            tracing::debug!("routing to accumulate::call");
+            accumulate::call(call, &mut state, &mut data)
+        }
+        18..28 => {
+            tracing::debug!("routing to refine::call");
+            refine::call(call, &mut state, &mut data)
+        }
         // JIP1 logging, currently skipped
-        100 => Ok(Exit::Ok as u64),
-        _ => Ok(Exit::What as u64),
+        100 => {
+            tracing::debug!("routing to logging (100)");
+            Ok(Exit::Ok as u64)
+        }
+        _ => {
+            tracing::debug!("unknown host call: {}", call);
+            Ok(Exit::What as u64)
+        }
     };
 
+    tracing::debug!("host call {} result: {:?}", call, reason);
     match reason {
         Ok(exit) => {
             state.registers[7] = exit;

@@ -173,6 +173,20 @@ mod local {
 
         let input = TestInput::from_json(&test.input).unwrap();
         let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
-        assert!(parser::program::preimage(blob, &[]).is_ok())
+        let program = parser::program::preimage(blob, &[]).unwrap();
+        let code = parser::deblob(&program.code).unwrap();
+        let mut reader = code.reader();
+
+        while let Ok(instr) = reader.read() {
+            tracing::debug!(
+                "{}..{} | {}",
+                instr.range.start,
+                instr.range.end,
+                instr.value
+            );
+            if reader.eof() {
+                break;
+            }
+        }
     }
 }
