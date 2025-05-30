@@ -1,7 +1,7 @@
 //! Host functions
 
 use crate::{Reason, State, Stepped};
-pub use {accumulate::Accumulate, general::General, refine::Refine};
+pub use {accumulate::Accumulate, general::reset_heap_pointer, general::General, refine::Refine};
 
 mod accumulate;
 mod general;

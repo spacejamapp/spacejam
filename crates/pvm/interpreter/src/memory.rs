@@ -13,6 +13,9 @@ pub const PAGE_SIZE: u32 = 4096;
 pub struct Memory {
     /// The pages of the memory.
     pub pages: BTreeMap<u32, Page>,
+
+    /// Current heap pointer for sbrk implementation
+    pub current_heap_pointer: u32,
 }
 
 impl Memory {
@@ -156,6 +159,75 @@ impl Memory {
 
         Ok(())
     }
+
+    /// Initialize heap pointer based on memory layout
+    pub fn init_heap_pointer(&mut self, ro_len: u32, rw_len: u32) {
+        // Following the Go implementation from README:
+        // rw_data_address = 2 * Z_Z
+        // rw_data_address_end = rw_data_address + Z_func(ro_len)
+        // current_heap_pointer = rw_data_address_end + Z_P (extra Z_P is debatable)
+
+        const Z_Z: u32 = 0x10000; // 2^16
+        const Z_P: u32 = 0x1000; // PAGE_SIZE
+
+        let rw_data_address = 2 * Z_Z;
+        let z_func_ro_len = ((ro_len + Z_Z - 1) / Z_Z) * Z_Z; // Quantized RO data size
+        let rw_data_address_end = rw_data_address + z_func_ro_len;
+
+        // Heap starts after RW data section with page alignment
+        self.current_heap_pointer = rw_data_address_end + rw_len + Z_P;
+
+        tracing::debug!(
+            "heap initialized: ro_len={}, rw_len={}, rw_data_end=0x{:x}, heap_start=0x{:x}",
+            ro_len,
+            rw_len,
+            rw_data_address_end,
+            self.current_heap_pointer
+        );
+    }
+
+    /// Allocate pages for heap expansion (following Go implementation)
+    pub fn allocate_heap_pages(&mut self, start_page: u32, page_count: u32) -> Result<()> {
+        for i in 0..page_count {
+            let page_num = start_page + i;
+            self.pages.entry(page_num).or_insert(Page {
+                data: SmallVec::new(),
+                access: Access::Mutable,
+            });
+        }
+        Ok(())
+    }
+
+    /// Get current heap pointer
+    pub fn get_heap_pointer(&self) -> u32 {
+        self.current_heap_pointer
+    }
+
+    /// Advance heap pointer and allocate pages if needed
+    pub fn advance_heap(&mut self, bytes: u32) -> Result<u32> {
+        let old_heap_pointer = self.current_heap_pointer;
+        let new_heap_pointer = self.current_heap_pointer + bytes;
+
+        // Check if we need to allocate new pages
+        let old_page_boundary = ((old_heap_pointer + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+        let new_page_boundary = ((new_heap_pointer + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+
+        if new_heap_pointer > old_page_boundary {
+            let start_page = old_page_boundary / PAGE_SIZE;
+            let end_page = new_page_boundary / PAGE_SIZE;
+            let page_count = end_page - start_page;
+
+            tracing::debug!(
+                "allocating pages: start_page={}, page_count={}, old_boundary=0x{:x}, new_boundary=0x{:x}",
+                start_page, page_count, old_page_boundary, new_page_boundary
+            );
+
+            self.allocate_heap_pages(start_page, page_count)?;
+        }
+
+        self.current_heap_pointer = new_heap_pointer;
+        Ok(old_heap_pointer)
+    }
 }
 
 impl pvm::Memory for Memory {
@@ -183,7 +255,10 @@ impl pvm::Memory for Memory {
             );
         }
 
-        Self { pages }
+        Self {
+            pages,
+            current_heap_pointer: 0, // Will be initialized properly in sbrk
+        }
     }
 
     fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {

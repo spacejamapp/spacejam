@@ -65,8 +65,18 @@ impl<'a> Memory<'a> {
         start += rw_len;
         let rw_padding_len = funp(rw_len) - rw_len;
         let heap_len = blob.rw_data_padding_pages as u64 * crate::PAGE_SIZE;
-        let total_rw_padding_heap_len = rw_padding_len + heap_len;
+        // Increase heap allocation to provide much more space for services that need it
+        let extra_heap_len = 64 * crate::PAGE_SIZE; // Add 64 more pages (256KB extra)
+        let total_rw_padding_heap_len = rw_padding_len + heap_len + extra_heap_len;
         if total_rw_padding_heap_len > 0 {
+            tracing::debug!(
+                "Memory layout - RW padding + heap: 0x{:x}..0x{:x} (rw_padding={}, heap={}, extra_heap={})",
+                start,
+                start + total_rw_padding_heap_len,
+                rw_padding_len,
+                heap_len,
+                extra_heap_len
+            );
             memory.insert_pages_owned(
                 vec![0; total_rw_padding_heap_len as usize],
                 start,
