@@ -80,7 +80,7 @@ impl From<ServiceAccountData> for ServiceAccount {
                 .into_iter()
                 .map(|s| {
                     let mut key = [0; 32];
-                    key.copy_from_slice(&s.key);
+                    key[..s.key.len()].copy_from_slice(&s.key);
                     (key, s.value)
                 })
                 .collect(),

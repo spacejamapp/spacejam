@@ -5,6 +5,7 @@ pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
 mod general;
+mod jip;
 mod refine;
 
 /// Call the host function
@@ -31,7 +32,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         // JIP1 logging, currently skipped
         100 => {
             tracing::debug!("routing to logging (100)");
-            Ok(Exit::Ok as u64)
+            jip::log(&mut state)
         }
         _ => {
             tracing::debug!("unknown host call: {}", call);

@@ -69,8 +69,10 @@ impl Memory {
 
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        // Allocate page if it doesn't exist
-        self.allocate_page(page)?;
+        // Check if page exists, don't auto-allocate
+        if !self.pages.contains_key(&page) {
+            return Err(Error::MemoryInaccessible(page));
+        }
 
         let page = self.mutate(page)?;
 

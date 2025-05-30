@@ -65,6 +65,7 @@ impl WorkReport {
             }
 
             operands.push(Operand {
+                anchor: self.context.anchor,
                 data: work.result.clone(),
                 erasure_root: self.spec.erasure_root,
                 authorizer_output: self.auth_output.clone(),
