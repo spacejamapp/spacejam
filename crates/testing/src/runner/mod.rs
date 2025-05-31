@@ -24,6 +24,7 @@ impl Runner {
     pub fn step(test: &Test) -> Result<()> {
         tracing_subscriber::fmt::Subscriber::builder()
             .with_env_filter(EnvFilter::from_default_env())
+            .without_time()
             .init();
 
         match test.section {

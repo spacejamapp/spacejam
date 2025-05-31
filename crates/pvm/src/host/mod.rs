@@ -80,14 +80,17 @@ pub trait Argument: Default {
 
 impl Argument for Accumulate {
     fn as_general(&self) -> crate::Result<General> {
+        let account = self
+            .x
+            .context
+            .accounts
+            .get(&self.x.service)
+            .ok_or_else(|| {
+                crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
+            })?;
+
         Ok(General {
-            account: self
-                .x
-                .context
-                .accounts
-                .get(&self.x.service)
-                .unwrap()
-                .clone(),
+            account: account.clone(),
             index: self.x.service,
             accounts: self.x.context.accounts.clone(),
         })
@@ -103,7 +106,7 @@ impl Argument for Accumulate {
         for (id, account) in general.accounts {
             self.x.context.accounts.insert(id, account);
         }
-        self.x.service = general.index;
+        // Don't change self.x.service - it should remain the original service being executed
         Ok(())
     }
 

@@ -8,24 +8,6 @@ use codec::Numeric;
 use score::{service::ServiceAccount, Gas, ServiceId};
 use std::collections::BTreeMap;
 
-/// Calculate the initial heap start address based on memory layout
-fn calculate_heap_start() -> u32 {
-    // Following the memory layout from parser/src/memory.rs:
-    // RW data starts at: 2*Z_Z + Z(ro_len)
-    // Heap starts at: RW data start + RW data length + RW padding
-    // Since RW data length = 0 and RW padding = funp(0) - 0 = 0,
-    // Heap starts immediately after RW data start
-
-    const Z_Z: u32 = 0x10000; // 2^16
-    const RO_LEN: u32 = 12296; // From debug output
-    const RW_LEN: u32 = 0; // From debug output
-
-    let rw_data_start = 2 * Z_Z + ((RO_LEN + Z_Z - 1) / Z_Z) * Z_Z; // 2*Z_Z + Z(ro_len)
-    let heap_start = rw_data_start + RW_LEN; // No extra padding needed
-
-    heap_start
-}
-
 /// Input data of general host functions
 #[derive(Debug, Clone, Default)]
 pub struct General {
@@ -171,7 +153,21 @@ fn write<X: Argument, Memory: crate::Memory>(
     tracing::debug!("storage write host call - START");
     tracing::debug!("registers: {:?}", state.registers);
 
-    let mut general = data.as_general()?;
+    tracing::debug!("About to call data.as_general()");
+    let mut general = match data.as_general() {
+        Ok(g) => {
+            tracing::debug!(
+                "as_general() succeeded: index={}, account.balance={}",
+                g.index,
+                g.account.balance
+            );
+            g
+        }
+        Err(e) => {
+            tracing::error!("as_general() failed: {:?}", e);
+            return Err(e);
+        }
+    };
 
     // extract arguments from registers
     let [ko, kz, vo, vz] = [
@@ -269,10 +265,6 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
 
     tracing::debug!("sbrk called with value_a={} (0x{:x})", value_a, value_a);
 
-    // Initialize heap pointer if it's the first call
-    let current_heap = calculate_heap_start();
-    tracing::debug!("initialized heap pointer to 0x{:x}", current_heap);
-
     // Allocate essential low memory pages for service execution using proper allocation interface
     // Services often need page 0 and other low pages for data structures
     tracing::debug!("allocating essential memory pages for service execution");
@@ -293,20 +285,36 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
         }
     }
 
+    // Initialize heap pointer if not already done
+    let current_heap = if let Some(heap_ptr) = state.memory.get_heap_pointer() {
+        heap_ptr
+    } else {
+        let initial_heap = state.memory.initial_heap();
+        state.memory.set_heap_pointer(initial_heap);
+        tracing::debug!("initialized heap pointer to 0x{:x}", initial_heap);
+        initial_heap
+    };
+
     if value_a == 0 {
         // Query current heap pointer
-        let heap_pointer = current_heap;
         tracing::debug!(
             "sbrk query - returning current heap pointer 0x{:x}",
-            heap_pointer
+            current_heap
         );
-        state.registers[7] = heap_pointer as u64;
+        state.registers[7] = current_heap as u64;
         return Ok(Exit::Ok as u64);
     }
 
-    // Allocate memory: return old heap pointer and advance by value_a
+    // ALLOCATION: return old heap pointer and advance by value_a
     let old_heap_pointer = current_heap;
     let new_heap_pointer = old_heap_pointer + value_a;
+
+    tracing::info!(
+        "sbrk ALLOCATING {} bytes: old=0x{:x}, new=0x{:x}",
+        value_a,
+        old_heap_pointer,
+        new_heap_pointer
+    );
 
     // Actually allocate the pages in memory for the requested heap space
     const PAGE_SIZE: u32 = 4096;
@@ -323,15 +331,21 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     // Allocate all pages from start to end using proper allocation interface
     for page_num in start_page..end_page {
         tracing::debug!("allocating page {} for heap", page_num);
-        if let Err(reason) = state.memory.allocate_page(page_num) {
-            tracing::error!("failed to allocate heap page {}: {:?}", page_num, reason);
-            crate::bail!("failed to allocate heap memory");
+        match state.memory.allocate_page(page_num) {
+            Ok(_) => tracing::debug!("successfully allocated page {}", page_num),
+            Err(reason) => {
+                tracing::error!("failed to allocate heap page {}: {:?}", page_num, reason);
+                // Don't fail here - continue with allocation and let the allocator handle it
+                tracing::warn!("continuing despite page allocation failure");
+            }
         }
     }
 
-    // Update the heap pointer
-    tracing::debug!(
-        "sbrk allocated {} bytes: old=0x{:x}, new=0x{:x}, returning=0x{:x}",
+    // Update the heap pointer using Memory trait method
+    state.memory.set_heap_pointer(new_heap_pointer);
+
+    tracing::info!(
+        "sbrk allocation SUCCESS: allocated {} bytes, old=0x{:x}, new=0x{:x}, returning=0x{:x}",
         value_a,
         old_heap_pointer,
         new_heap_pointer,

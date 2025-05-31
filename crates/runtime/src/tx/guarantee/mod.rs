@@ -53,7 +53,11 @@ pub fn accumulate<V: Pvm>(
         &accumulatable,
         StateContext {
             accounts,
-            ..Default::default()
+            privileges: privileges.clone(),
+            // Initialize validators and authorization to defaults for now
+            // TODO: these should come from the full state in a real implementation
+            validators: Vec::new(),
+            authorization: Default::default(),
         },
         &privileges.always_acc,
     );

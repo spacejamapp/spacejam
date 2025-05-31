@@ -144,14 +144,18 @@ pub fn parallel<V: Pvm>(
     // get next context
     //
     // TODO: use a local task pool for spawning this calculation.
-    let results = [
+    let privilege_services = [
         context.privileges.bless,
         context.privileges.designate,
         context.privileges.assign,
-    ]
-    .iter()
-    .map(|service| self::once::<V>(context.clone(), reports, table, *service))
-    .collect::<Vec<_>>();
+    ];
+
+    // TODO: check accounts for privilege service execution
+    let results = privilege_services
+        .iter()
+        // .filter(|&service| context.accounts.contains_key(service)) // Only execute if account exists
+        .map(|service| self::once::<V>(context.clone(), reports, table, *service))
+        .collect::<Vec<_>>();
 
     let (privileges, validators, authorization) = (
         results[0].context.privileges.clone(),

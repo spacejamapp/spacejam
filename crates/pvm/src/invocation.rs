@@ -188,6 +188,7 @@ pub trait Invocation {
             code,
             registers,
             memory,
+            initial_heap,
         } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
@@ -201,11 +202,9 @@ pub trait Invocation {
             pc,
             gas,
             registers,
-            Self::Memory::from_raw(memory),
+            Self::Memory::from_raw(memory, initial_heap),
             data,
         );
-
-        tracing::trace!("stepped result: {:?}", stepped.reason);
 
         // get the output
         let mut output = vec![];

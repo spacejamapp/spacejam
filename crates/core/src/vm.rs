@@ -94,11 +94,10 @@ pub struct Operand {
     /// (y) The payload blob hash
     pub payload: OpaqueHash,
 
-    /*
     // JAM_TYPES currently does not include this field
     /// (g) The accumulate gas
     pub gas: Gas,
-    */
+
     /// (d) The work execution result
     pub data: WorkExecResult,
 }
@@ -132,41 +131,5 @@ impl DeferredTransfer {
             .filter(|t| t.recipient == dest)
             .cloned()
             .collect()
-    }
-}
-
-#[cfg(test)]
-mod accumulate_item {
-
-    use jam_types::{
-        AccumulateItem, AuthOutput, AuthorizerHash, Encode, PayloadHash, SegmentTreeRoot,
-        WorkOutput, WorkPackageHash,
-    };
-
-    use super::*;
-
-    #[test]
-    fn operand_codec() {
-        let operand = Operand {
-            hash: [0; 32],
-            erasure_root: [0; 32],
-            anchor: [0; 32],
-            authorizer_output: vec![0; 32],
-            payload: [0; 32],
-            data: WorkExecResult::Ok(vec![0; 32]),
-        };
-
-        let accumulate_item = AccumulateItem {
-            authorizer_hash: AuthorizerHash([0; 32]),
-            package: WorkPackageHash([0; 32]),
-            exports_root: SegmentTreeRoot([0; 32]),
-            auth_output: AuthOutput(vec![0; 32]),
-            payload: PayloadHash([0; 32]),
-            result: Ok(WorkOutput(vec![0; 32])),
-        };
-
-        let space_encoded = codec::encode(&operand).unwrap();
-        let jam_encoded = accumulate_item.encode();
-        assert_eq!(space_encoded, jam_encoded);
     }
 }

@@ -31,6 +31,9 @@ pub struct Program<'a> {
 
     /// The memory (µ).
     pub memory: BTreeMap<u32, (Cow<'a, [u8]>, bool)>,
+
+    /// The initial heap pointer.
+    pub initial_heap: u64,
 }
 
 /// (µ) The memory of a program.

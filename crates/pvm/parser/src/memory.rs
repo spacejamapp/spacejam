@@ -153,8 +153,15 @@ impl<'a> Memory<'a> {
         let start_page = (start / page_size) as u32;
 
         for (i, chunk) in data.chunks(page_size_usize).enumerate() {
+            let page_num = start_page + i as u32;
+
+            // Check if page already exists to avoid overwriting RO data with padding
+            if self.memory.contains_key(&page_num) {
+                continue;
+            }
+
             self.memory
-                .insert(start_page + i as u32, (Cow::Owned(chunk.to_vec()), write));
+                .insert(page_num, (Cow::Owned(chunk.to_vec()), write));
         }
     }
 }

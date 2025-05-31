@@ -16,6 +16,9 @@ pub struct Memory {
 
     /// Current heap pointer for sbrk implementation
     pub current_heap_pointer: u32,
+
+    /// The initial heap pointer
+    initial_heap: u32,
 }
 
 impl Memory {
@@ -87,6 +90,7 @@ impl Memory {
 
         // copy data
         page.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
+
         Ok(())
     }
 
@@ -254,11 +258,14 @@ impl pvm::Memory for Memory {
             .any(|page| page.data.windows(len).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>) -> Self {
+    fn from_raw(
+        memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>,
+        initial_heap: u64,
+    ) -> Self {
         let mut pages = BTreeMap::new();
-        for (addr, (data, is_writable)) in memory {
+        for (page_num, (data, is_writable)) in memory {
             pages.insert(
-                addr,
+                page_num,
                 Page {
                     data: data.as_ref().into(),
                     access: if is_writable {
@@ -272,7 +279,8 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            current_heap_pointer: 0, // Will be initialized properly in sbrk
+            current_heap_pointer: initial_heap as u32,
+            initial_heap: initial_heap as u32,
         }
     }
 
