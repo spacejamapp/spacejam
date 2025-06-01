@@ -59,7 +59,6 @@ impl Memory {
 
         // fill with 0s if necessary
         let mut bytes = vec![0; len as usize];
-
         if offset < data_len {
             let to_copy = (data_len - offset).min(len) as usize;
             bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
@@ -152,10 +151,7 @@ impl Memory {
         match self.pages.get(&page) {
             Some(page_data) => Ok(page_data),
             None => {
-                // Page doesn't exist, log this but don't error
                 tracing::warn!("memory page {page} not allocated");
-                // We now return a MemoryInaccessible error, which will be converted to a Reason::Fault
-                // This is consistent with our approach of not erroring on read_bytes
                 Err(Error::MemoryInaccessible { page })
             }
         }

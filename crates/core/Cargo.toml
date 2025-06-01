@@ -20,6 +20,9 @@ crypto = { workspace = true, features = [
     "mmr",
 ], optional = true }
 
+[dev-dependencies]
+jam-types.workspace = true
+
 
 [features]
 default = []

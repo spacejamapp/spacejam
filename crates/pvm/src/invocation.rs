@@ -4,13 +4,14 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
+use codec::Compact;
 use parser::{
     program::{self, Program},
     ProgramBlob,
 };
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
-    vm::{DeferredTransfer, Operand, StateContext},
+    vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;
@@ -306,7 +307,12 @@ pub trait Invocation {
             "encoding accumulate operands, slot: {timeslot}, service: {service}, operands: {}",
             operands.len()
         );
-        let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
+        let args = codec::encode(&AccumulateParams {
+            slot: Compact::new(timeslot),
+            id: Compact::new(service),
+            results: operands,
+        })
+        .expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue {
             tracing::warn!(
@@ -358,7 +364,8 @@ pub trait Invocation {
             accounts: accounts.clone(),
         };
 
-        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
+        let input = codec::encode(&(Compact::new(slot), Compact::new(service), transfers))
+            .expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
             account: received.data.account,

@@ -22,8 +22,8 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     let msg_len = state.registers[11] as u32;
     let message = match state.memory.read_bytes(msg_addr, msg_len) {
         Ok(data) => {
+            tracing::debug!("message bytes: {:?}", data);
             let msg_str = String::from_utf8_lossy(&data).to_string();
-
             msg_str
         }
         Err(reason) => {

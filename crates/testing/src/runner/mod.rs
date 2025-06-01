@@ -25,6 +25,7 @@ impl Runner {
         tracing_subscriber::fmt::Subscriber::builder()
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
+            .with_ansi(false)
             .init();
 
         match test.section {
