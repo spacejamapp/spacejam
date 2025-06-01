@@ -8,7 +8,7 @@ fn inaccessible() {
     let memory = Memory::default();
     assert_eq!(
         memory.read_bytes(0, 0, 1),
-        Err(Error::MemoryInaccessible(0))
+        Err(Error::MemoryInaccessible { page: 0 })
     );
 }
 
@@ -24,7 +24,7 @@ fn immutable() {
     );
     assert_eq!(
         memory.write_bytes(0, 0, &[0]),
-        Err(Error::MemoryImmutable(0))
+        Err(Error::MemoryImmutable { page: 0 })
     );
 }
 
@@ -77,6 +77,6 @@ fn read_inaccessible() {
     assert!(memory.write_bytes(0, 0, &data).is_ok());
     assert_eq!(
         memory.read_bytes(0, 0, PAGE_SIZE + 1),
-        Err(Error::MemoryInaccessible(page as u32))
+        Err(Error::MemoryInaccessible { page })
     );
 }

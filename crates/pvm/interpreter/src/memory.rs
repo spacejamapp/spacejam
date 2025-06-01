@@ -34,7 +34,7 @@ impl Memory {
         let page = start / PAGE_SIZE;
 
         let bytes = self.read_bytes(page, start % PAGE_SIZE, V::SIZE as u32)?;
-        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page))
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible { page })
     }
 
     /// Read bytes from the memory.
@@ -65,7 +65,7 @@ impl Memory {
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
         if offset + V::SIZE as u32 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page));
+            return Err(Error::MemoryInaccessible { page });
         }
 
         self.write_bytes(page, offset, &value.to_vec())
@@ -74,7 +74,7 @@ impl Memory {
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
         if offset + bytes.len() as u32 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page));
+            return Err(Error::MemoryInaccessible { page });
         }
 
         let page = self.mutate(page)?;
@@ -134,7 +134,9 @@ impl Memory {
 
     /// Get the access type of a memory slot.
     fn access(&self, page: u32) -> Result<&Page> {
-        self.pages.get(&page).ok_or(Error::MemoryInaccessible(page))
+        self.pages
+            .get(&page)
+            .ok_or(Error::MemoryInaccessible { page })
     }
 
     /// Get the access type of a page.
@@ -142,9 +144,9 @@ impl Memory {
         let page = self
             .pages
             .get_mut(&pagenum)
-            .ok_or(Error::MemoryInaccessible(pagenum))?;
+            .ok_or(Error::MemoryInaccessible { page: pagenum })?;
         if page.is_immutable() {
-            return Err(Error::MemoryImmutable(pagenum));
+            return Err(Error::MemoryImmutable { page: pagenum });
         }
 
         Ok(page)
@@ -298,6 +300,7 @@ impl pvm::Memory for Memory {
 
             Ok(bytes)
         } else {
+            tracing::error!("memory read: page {page} not found");
             Err(Reason::Fault { page })
         }
     }
@@ -308,6 +311,7 @@ impl pvm::Memory for Memory {
 
         // bounds check
         if offset + bytes.len() as u32 > PAGE_SIZE {
+            tracing::error!("memory write: page {page} not found");
             return Err(Reason::Fault { page });
         }
 
@@ -317,6 +321,7 @@ impl pvm::Memory for Memory {
         if let Some(page_data) = self.pages.get_mut(&page) {
             // Check if page is writable
             if page_data.is_immutable() {
+                tracing::error!("memory write: page {page} is immutable");
                 return Err(Reason::Fault { page });
             }
 
@@ -332,6 +337,7 @@ impl pvm::Memory for Memory {
 
             Ok(())
         } else {
+            tracing::error!("memory write: page {page} not found");
             Err(Reason::Fault { page })
         }
     }

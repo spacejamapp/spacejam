@@ -148,7 +148,7 @@ pub trait Invocation {
             return Stepped::new(reason, state).with(input);
         };
 
-        // (state'') call the host function, returns if page fault occurs
+        tracing::debug!("host call: {call}");
         let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => {
@@ -304,7 +304,6 @@ pub trait Invocation {
 
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
-
         if result.reason != Reason::Continue {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
