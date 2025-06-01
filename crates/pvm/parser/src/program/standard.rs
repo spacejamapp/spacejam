@@ -45,18 +45,6 @@ impl<'a> StandardProgramBlob<'a> {
         registers[7] = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         registers[8] = args.len() as u64;
 
-        tracing::debug!(
-            "Program registers initialized: r0=0x{:x}, r1(stack)=0x{:x}, r7=0x{:x}, r8=0x{:x}",
-            registers[0],
-            registers[1],
-            registers[7],
-            registers[8]
-        );
-        tracing::debug!(
-            "Stack pointer r1 page: {}, Stack area should be at high memory",
-            registers[1] / 4096
-        );
-
         Ok(Program {
             registers,
             memory: Memory::init(self, args).memory,

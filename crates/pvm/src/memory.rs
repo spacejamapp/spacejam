@@ -1,12 +1,12 @@
 //! Memory abstraction
 
 use crate::Reason;
-use std::{borrow::Cow, collections::BTreeMap};
+use std::collections::BTreeMap;
 
 /// The memory trait.
 pub trait Memory: Default + Clone {
     /// Create a new mwemory from a raw memory.
-    fn from_raw(memory: BTreeMap<u32, (Cow<'_, [u8]>, bool)>, initial_heap: u64) -> Self;
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, initial_heap: u64) -> Self;
 
     /// Check if the memory contains the given data.
     fn contains(&self, data: &[u8]) -> bool;
@@ -44,7 +44,7 @@ pub trait Memory: Default + Clone {
 }
 
 impl Memory for () {
-    fn from_raw(_memory: BTreeMap<u32, (Cow<'_, [u8]>, bool)>, _initial_heap: u64) -> Self {}
+    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _initial_heap: u64) -> Self {}
 
     fn contains(&self, _data: &[u8]) -> bool {
         false

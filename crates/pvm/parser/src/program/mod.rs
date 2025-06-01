@@ -30,7 +30,7 @@ pub struct Program<'a> {
     pub registers: [u64; 13],
 
     /// The memory (µ).
-    pub memory: BTreeMap<u32, (Cow<'a, [u8]>, bool)>,
+    pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
 
     /// The initial heap pointer.
     pub initial_heap: u64,

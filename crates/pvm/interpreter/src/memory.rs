@@ -3,7 +3,6 @@
 use crate::{Error, Result};
 use pvm::{Reason, Value};
 use smallvec::SmallVec;
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 /// The size of a page in the memory.
@@ -32,11 +31,6 @@ impl Memory {
     pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
         let start = address + offset;
         let page = start / PAGE_SIZE;
-
-        // For read operations, allocate page if it doesn't exist
-        // This is necessary for storage operations to work correctly
-        //
-        // FIXME: This is a workaround for the known issue where accumulate logs are placed in low memory
         if !self.pages.contains_key(&page) {
             self.pages.insert(
                 page,
@@ -64,26 +58,6 @@ impl Memory {
             bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
         }
 
-        // For page 16, if we read zeros and there's data in the shadow page, use shadow data
-        if page == 16 && bytes.iter().all(|&b| b == 0) {
-            if let Ok(shadow_data) = self.access(15) {
-                let shadow_bytes = shadow_data.data.as_slice();
-                if shadow_bytes.len() > offset as usize {
-                    let shadow_data_len = shadow_bytes.len() as u32;
-                    let to_copy = (len).min(shadow_data_len.saturating_sub(offset));
-                    if to_copy > 0 {
-                        bytes[..to_copy as usize].copy_from_slice(
-                            &shadow_bytes[offset as usize..(offset + to_copy) as usize],
-                        );
-                        tracing::debug!(
-                            "MEMORY ALIAS READ: Using shadow data from page 15 for page 16, offset={}, len={}",
-                            offset, len
-                        );
-                    }
-                }
-            }
-        }
-
         Ok(bytes)
     }
 
@@ -98,6 +72,7 @@ impl Memory {
         let page = start / PAGE_SIZE;
         let offset = start % PAGE_SIZE;
         if offset + V::SIZE as u32 > PAGE_SIZE {
+            tracing::error!("page {page} not found");
             return Err(Error::MemoryInaccessible { page });
         }
 
@@ -110,36 +85,8 @@ impl Memory {
             return Err(Error::MemoryInaccessible { page });
         }
 
-        // Trace all writes to critical pages to help debug
-        if page <= 17 {
-            tracing::debug!(
-                "WRITE to page {}: offset={}, len={}, data={:?}",
-                page,
-                offset,
-                bytes.len(),
-                if bytes.len() <= 16 {
-                    format!("{:?}", bytes)
-                } else {
-                    format!("{:?}...", &bytes[..16])
-                }
-            );
-        }
-
-        // Memory aliasing: redirect writes to page 16 (RO data) to page 15 (writable shadow)
-        // This allows string formatting to work without corrupting read-only constants
-        let target_page = if page == 16 {
-            tracing::debug!(
-                "MEMORY ALIAS: Redirecting write from page 16 (RO) to page 15 (shadow) offset={}",
-                offset
-            );
-            15
-        } else {
-            page
-        };
-
-        let page_data = self.mutate(target_page)?;
-
         // extend page if necessary
+        let page_data = self.mutate(page)?;
         let data_len = page_data.data.len() as u32;
         let to_write = bytes.len() as u32;
         if data_len < to_write + offset {
@@ -150,7 +97,6 @@ impl Memory {
 
         // copy data
         page_data.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
-
         Ok(())
     }
 
@@ -213,6 +159,7 @@ impl Memory {
             .get_mut(&pagenum)
             .ok_or(Error::MemoryInaccessible { page: pagenum })?;
         if page.is_immutable() {
+            tracing::error!("memory write: page {pagenum} is immutable");
             return Err(Error::MemoryImmutable { page: pagenum });
         }
 
@@ -233,26 +180,6 @@ impl Memory {
         }
 
         Ok(())
-    }
-
-    /// Initialize heap pointer based on memory layout
-    pub fn init_heap_pointer(&mut self, ro_len: u32, rw_len: u32) {
-        let (ro_len, rw_len) = (ro_len as u64, rw_len as u64);
-        let rw_data_address = 2 * parser::ZONE_SIZE;
-        let z_func_ro_len =
-            ((ro_len + parser::ZONE_SIZE - 1) / parser::ZONE_SIZE) * parser::ZONE_SIZE;
-        let rw_data_address_end = rw_data_address + z_func_ro_len;
-
-        // Heap starts after RW data section with page alignment
-        self.current_heap_pointer = (rw_data_address_end + rw_len + parser::PAGE_SIZE) as u32;
-
-        tracing::debug!(
-            "heap initialized: ro_len={}, rw_len={}, rw_data_end=0x{:x}, heap_start=0x{:x}",
-            ro_len,
-            rw_len,
-            rw_data_address_end,
-            self.current_heap_pointer
-        );
     }
 
     /// Allocate pages for heap expansion
@@ -324,27 +251,9 @@ impl pvm::Memory for Memory {
             .any(|page| page.data.windows(data.len()).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (Cow<'_, [u8]>, bool)>, initial_heap: u64) -> Self {
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, initial_heap: u64) -> Self {
         let mut pages = BTreeMap::new();
-
-        tracing::debug!("from_raw: Loading {} pages from parser", memory.len());
         for (page_num, (data, writable)) in memory {
-            tracing::debug!(
-                "from_raw: Loading page {} (writable: {}, size: {} bytes)",
-                page_num,
-                writable,
-                data.len()
-            );
-            if page_num <= 17 {
-                tracing::debug!("from_raw: Page {} is in critical range (0-17)", page_num);
-                if !data.is_empty() {
-                    tracing::debug!(
-                        "from_raw: Page {} contains {} bytes of data",
-                        page_num,
-                        data.len()
-                    );
-                }
-            }
             pages.insert(
                 page_num,
                 Page {
@@ -358,22 +267,14 @@ impl pvm::Memory for Memory {
             );
         }
 
-        let mut memory = Self {
+        Self {
             pages,
             current_heap_pointer: initial_heap as u32,
             initial_heap: initial_heap as u32,
-        };
-
-        tracing::debug!(
-            "from_raw: Memory initialization complete with {} pages",
-            memory.pages.len()
-        );
-        // Note: We don't call allocate_low_memory_pages here because it would overwrite
-        // actual program data that was loaded from the parser
-
-        memory
+        }
     }
 
+    #[tracing::instrument(skip_all)]
     fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
         // First 64KB of memory is always inaccessible per graypaper
         // Note: We removed the restriction on accessing the first 64KB of memory
@@ -395,10 +296,7 @@ impl pvm::Memory for Memory {
                         bytes[..to_copy as usize].copy_from_slice(
                             &shadow_bytes[offset as usize..(offset + to_copy) as usize],
                         );
-                        tracing::debug!(
-                            "TRAIT READ ALIAS: Reading from page 15 (shadow) for page 16 request, address=0x{:x}, len={}",
-                            address, len
-                        );
+
                         return Ok(bytes);
                     }
                 }
@@ -410,7 +308,7 @@ impl pvm::Memory for Memory {
         if let Some(page_data) = self.pages.get(&page) {
             // Next, check if the page is accessible
             if page_data.is_inaccessible() {
-                tracing::error!("memory page {page} inaccessible");
+                tracing::error!("memory read: memory page {page} inaccessible");
                 return Err(Reason::Fault { page });
             }
 
@@ -424,13 +322,12 @@ impl pvm::Memory for Memory {
             }
             Ok(bytes)
         } else {
-            // According to the graypaper and test vector documentation, reading from non-existent pages
-            // should return zeros rather than triggering a fault for typical memory behavior
-            tracing::debug!("memory page {page} not allocated, returning zeros");
+            tracing::debug!("memory read: memory page {page} not allocated, returning zeros");
             Ok(bytes)
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
         let page = from / PAGE_SIZE;
         let offset = from % PAGE_SIZE;
@@ -469,7 +366,6 @@ impl pvm::Memory for Memory {
     }
 
     fn allocate_page(&mut self, page_num: u32) -> std::result::Result<(), Reason> {
-        // Only insert if the page doesn't already exist to avoid overwriting existing data
         if !self.pages.contains_key(&page_num) {
             self.pages.insert(
                 page_num,
