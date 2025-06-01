@@ -44,8 +44,10 @@ impl Error {
 impl From<Error> for Reason {
     fn from(error: Error) -> Self {
         match error {
-            Error::MemoryInaccessible(address) => Reason::Fault(address),
-            Error::MemoryImmutable(address) => Reason::Fault(address),
+            Error::MemoryInaccessible(address) => Reason::Fault {
+                page: address / crate::PAGE_SIZE,
+            },
+            Error::MemoryImmutable(page) => Reason::Fault { page },
             Error::Terminate => Reason::Halt,
             Error::InvalidDynamicJump => Reason::Panic("invalid dynamic jump".into()),
             Error::Trap(_) => Reason::Panic("trap".into()),

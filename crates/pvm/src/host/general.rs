@@ -126,7 +126,7 @@ fn read<X: Argument, Memory: crate::Memory>(
     let mut input = codec::encode(&index).expect("should not fail");
     let shash = state
         .memory
-        .read_bytes(ko as u32, (ko + kz) as u32)
+        .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
     input.extend_from_slice(&shash);
 
@@ -174,13 +174,18 @@ fn write<X: Argument, Memory: crate::Memory>(
             .expect("should not fail"),
     );
     let key = crypto::blake2b(&input);
+    tracing::trace!(
+        "writing storage with key: {:?}, value: {:?}",
+        key,
+        state.memory.read_bytes(vo as u32, vz as u32)
+    );
 
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
         data.update_general(general)?;
         Ok(Exit::None as u64)
-    } else if let Ok(value) = state.memory.read_bytes(vo as u32, (vo + vz) as u32) {
+    } else if let Ok(value) = state.memory.read_bytes(vo as u32, vz as u32) {
         let account = general.account.state();
         if account.threshold() > account.balance {
             Ok(Exit::Full as u64)
@@ -229,22 +234,6 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
 ) -> Result<ExitCode> {
     let value_a = state.registers[7] as u32;
 
-    // Try to allocate low memory pages (0-2) that services commonly use
-    // This will succeed for service execution contexts but fail silently for instruction tests
-    for page_num in 0..=2 {
-        match state.memory.allocate_page(page_num) {
-            Ok(_) => tracing::debug!(
-                "allocated essential page {} for service execution",
-                page_num
-            ),
-            Err(reason) => tracing::debug!(
-                "skipped allocation of page {} (reason: {:?})",
-                page_num,
-                reason
-            ),
-        }
-    }
-
     // Initialize heap pointer if not already done
     let current_heap = if let Some(heap_ptr) = state.memory.get_heap_pointer() {
         heap_ptr
@@ -254,27 +243,35 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
         initial_heap
     };
 
+    // If value_a is 0, just return current heap pointer
     if value_a == 0 {
         state.registers[7] = current_heap as u64;
         return Ok(Exit::Ok as u64);
     }
 
-    // Actually allocate the pages in memory for the requested heap space
+    // Calculate new heap pointer and allocate pages on demand
     let old_heap_pointer = current_heap;
     let new_heap_pointer = old_heap_pointer + value_a;
-    let start_page = old_heap_pointer / score::PAGE_SIZE as u32;
-    let end_page = (new_heap_pointer + score::PAGE_SIZE as u32 - 1) / score::PAGE_SIZE as u32;
 
-    // Allocate all pages from start to end using proper allocation interface
+    // Use the same PAGE_SIZE as the memory implementation (4096)
+    const MEM_PAGE_SIZE: u32 = 4096;
+
+    // Calculate which pages need to be allocated
+    let start_page = old_heap_pointer / MEM_PAGE_SIZE;
+    let end_page = (new_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE;
+
+    // Allocate all pages from start to end
     for page_num in start_page..end_page {
         match state.memory.allocate_page(page_num) {
-            Ok(_) => tracing::debug!("successfully allocated page {}", page_num),
+            Ok(_) => tracing::debug!("allocated page {}", page_num),
             Err(reason) => {
-                tracing::warn!("failed to allocate heap page {}: {:?}", page_num, reason);
+                tracing::warn!("failed to allocate page {}: {:?}", page_num, reason);
+                return Err(reason);
             }
         }
     }
 
+    // Update heap pointer and return old value
     state.memory.set_heap_pointer(new_heap_pointer);
     state.registers[7] = old_heap_pointer as u64;
     Ok(Exit::Ok as u64)

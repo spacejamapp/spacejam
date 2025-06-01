@@ -14,11 +14,9 @@ pub fn call<X: Argument, Memory: crate::Memory>(
     mut state: State<Memory>,
     data: X,
 ) -> Stepped<Memory, X> {
-    tracing::debug!("host call dispatcher: call={}", call);
     let mut data = data;
     let reason = match call {
         0..6 => {
-            tracing::debug!("routing to general::call");
             let general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
@@ -26,26 +24,15 @@ pub fn call<X: Argument, Memory: crate::Memory>(
             let account = general.account.clone();
             general::call(call, &mut state, account, &mut data)
         }
-        6..18 => {
-            tracing::debug!("routing to accumulate::call");
-            accumulate::call(call, &mut state, &mut data)
-        }
-        18..28 => {
-            tracing::debug!("routing to refine::call");
-            refine::call(call, &mut state, &mut data)
-        }
-        // JIP1 logging, currently skipped
-        100 => {
-            tracing::debug!("routing to logging (100)");
-            jip::log(&mut state)
-        }
+        6..18 => accumulate::call(call, &mut state, &mut data),
+        18..28 => refine::call(call, &mut state, &mut data),
+        100 => jip::log(&mut state),
         _ => {
             tracing::debug!("unknown host call: {}", call);
             Ok(Exit::What as u64)
         }
     };
 
-    tracing::debug!("host call {} result: {:?}", call, reason);
     match reason {
         Ok(exit) => {
             state.registers[7] = exit;
@@ -85,35 +72,14 @@ pub trait Argument: Default {
 
 impl Argument for Accumulate {
     fn as_general(&self) -> crate::Result<General> {
-        tracing::debug!(
-            "as_general() called - self.x.service: {}, timeslot: {}",
-            self.x.service,
-            self.timeslot
-        );
-        tracing::debug!(
-            "available accounts in context: {:?}",
-            self.x.context.accounts.keys().collect::<Vec<_>>()
-        );
-
         let account = self
             .x
             .context
             .accounts
             .get(&self.x.service)
             .ok_or_else(|| {
-                tracing::error!(
-                    "Account {} not found in context during as_general(). Available accounts: {:?}",
-                    self.x.service,
-                    self.x.context.accounts.keys().collect::<Vec<_>>()
-                );
                 crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
             })?;
-
-        tracing::debug!(
-            "as_general() success - service: {}, account balance: {}",
-            self.x.service,
-            account.balance
-        );
 
         Ok(General {
             account: account.clone(),
@@ -123,33 +89,15 @@ impl Argument for Accumulate {
     }
 
     fn update_general(&mut self, general: General) -> crate::Result<()> {
-        tracing::debug!(
-            "update_general called - incoming general.index: {}, account balance: {}",
-            general.index,
-            general.account.balance
-        );
-        tracing::debug!(
-            "BEFORE update - self.x.service: {}, self.x.context.accounts: {:?}",
-            self.x.service,
-            self.x.context.accounts.keys().collect::<Vec<_>>()
-        );
-
-        // Update the specific service account with storage modifications
         self.x
             .context
             .accounts
             .insert(general.index, general.account);
+
         // Also update any other modified accounts from the general context
         for (id, account) in general.accounts {
             self.x.context.accounts.insert(id, account);
         }
-        // Don't change self.x.service - it should remain the original service being executed
-
-        tracing::debug!(
-            "AFTER update - self.x.service: {}, self.x.context.accounts: {:?}",
-            self.x.service,
-            self.x.context.accounts.keys().collect::<Vec<_>>()
-        );
 
         Ok(())
     }

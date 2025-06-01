@@ -12,7 +12,7 @@ pub trait Memory: Default + Clone {
     fn contains(&self, data: &[u8]) -> bool;
 
     /// read bytes from the memory
-    fn read_bytes(&self, _from: u32, _len: u32) -> Result<Vec<u8>, Reason>;
+    fn read_bytes(&self, ptr: u32, len: u32) -> Result<Vec<u8>, Reason>;
 
     /// read a hash from the memory
     fn read_hash(&self, from: u32) -> Result<[u8; 32], Reason> {

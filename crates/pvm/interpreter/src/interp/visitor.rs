@@ -377,21 +377,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.registers[reg1 as usize];
 
-        // Debug logging for memory access failures
-        if let Err(e) = self.memory.read_offset::<u8>(addr as u32, imm0 as u32) {
-            tracing::error!(
-                "LoadIndU8 fault: addr=0x{:x} (reg{}=0x{:x}) + offset=0x{:x}, page={}, error={:?}",
-                addr + imm0,
-                reg1,
-                addr,
-                imm0,
-                (addr + imm0) / 4096,
-                e
-            );
-            return Err(e);
-        }
-
-        let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: i8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
         self.registers[reg0 as usize] = value.as_u64();
         Ok(())
     }
@@ -1032,19 +1018,6 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
 
-        // Debug logging for memory access failures
-        if let Err(e) = self.memory.write_offset(
-            address as u32,
-            imm0 as u32,
-            self.registers[reg0 as usize] as u8,
-        ) {
-            tracing::error!(
-                "StoreIndU8 fault: addr=0x{:x} (reg{}=0x{:x}) + offset=0x{:x}, page={}, value=0x{:x}, error={:?}", 
-                address + imm0, reg1, address, imm0, (address + imm0) / 4096, self.registers[reg0 as usize] as u8, e
-            );
-            return Err(e);
-        }
-
         self.memory.write_offset(
             address as u32,
             imm0 as u32,
@@ -1075,6 +1048,7 @@ impl Visitor for Interpreter {
     fn visit_store_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
+
         self.memory
             .write_offset(address as u32, imm0 as u32, self.registers[reg0 as usize])
     }

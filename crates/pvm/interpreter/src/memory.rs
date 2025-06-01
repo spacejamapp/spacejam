@@ -3,6 +3,7 @@
 use crate::{Error, Result};
 use pvm::{Reason, Value};
 use smallvec::SmallVec;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 /// The size of a page in the memory.
@@ -29,30 +30,27 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
-        let start = address.wrapping_add(offset);
+        let start = address + offset;
         let page = start / PAGE_SIZE;
-        let offset = start % PAGE_SIZE;
 
-        // read bytes
-        let bytes = self.read_bytes(page, offset, V::SIZE as u32)?;
+        let bytes = self.read_bytes(page, start % PAGE_SIZE, V::SIZE as u32)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page))
     }
 
     /// Read bytes from the memory.
     pub fn read_bytes(&self, page: u32, offset: u32, len: u32) -> Result<Vec<u8>> {
-        if offset + len > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page));
-        }
-
-        let page = self.access(page)?;
-        let data = page.data.as_slice();
+        let page_data = self.access(page)?;
+        let data = page_data.data.as_slice();
         let data_len = data.len() as u32;
 
         // fill with 0s if necessary
         let mut bytes = vec![0; len as usize];
-        let to_copy = (len).min(data_len.saturating_sub(offset));
-        bytes[..to_copy as usize]
-            .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
+
+        if offset < data_len {
+            let to_copy = (data_len - offset).min(len) as usize;
+            bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
+        }
+
         Ok(bytes)
     }
 
@@ -250,25 +248,22 @@ impl Memory {
 }
 
 impl pvm::Memory for Memory {
-    // TODO: optimize this without using windows
     fn contains(&self, data: &[u8]) -> bool {
-        let len = data.len();
+        // Simple implementation: check if the data matches any page content
         self.pages
             .values()
-            .any(|page| page.data.windows(len).any(|window| window == data))
+            .any(|page| page.data.windows(data.len()).any(|window| window == data))
     }
 
-    fn from_raw(
-        memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>,
-        initial_heap: u64,
-    ) -> Self {
+    fn from_raw(memory: BTreeMap<u32, (Cow<'_, [u8]>, bool)>, initial_heap: u64) -> Self {
         let mut pages = BTreeMap::new();
-        for (page_num, (data, is_writable)) in memory {
+
+        for (page_num, (data, writable)) in memory {
             pages.insert(
                 page_num,
                 Page {
-                    data: data.as_ref().into(),
-                    access: if is_writable {
+                    data: SmallVec::from_slice(&data),
+                    access: if writable {
                         Access::Mutable
                     } else {
                         Access::Immutable
@@ -300,10 +295,10 @@ impl pvm::Memory for Memory {
                 bytes[..to_copy as usize]
                     .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
             }
+
             Ok(bytes)
         } else {
-            // Return zeros for non-existent pages (this matches expected behavior)
-            Ok(vec![0; len as usize])
+            Err(Reason::Fault { page })
         }
     }
 
@@ -311,24 +306,34 @@ impl pvm::Memory for Memory {
         let page = from / PAGE_SIZE;
         let offset = from % PAGE_SIZE;
 
-        // For cross-page writes, we need to handle them properly
-        let mut remaining = bytes;
-        let mut current_page = page;
-        let mut current_offset = offset;
-
-        while !remaining.is_empty() {
-            let bytes_in_page = (PAGE_SIZE - current_offset).min(remaining.len() as u32) as usize;
-            let chunk = &remaining[..bytes_in_page];
-
-            self.write_bytes(current_page, current_offset, chunk)
-                .map_err(|e| -> Reason { e.into() })?;
-
-            remaining = &remaining[bytes_in_page..];
-            current_page += 1;
-            current_offset = 0;
+        // bounds check
+        if offset + bytes.len() as u32 > PAGE_SIZE {
+            return Err(Reason::Fault { page });
         }
 
-        Ok(())
+        // For write operations from the trait, we allocate if needed
+        self.allocate_page(page)?;
+
+        if let Some(page_data) = self.pages.get_mut(&page) {
+            // Check if page is writable
+            if page_data.is_immutable() {
+                return Err(Reason::Fault { page });
+            }
+
+            // Extend page data if necessary
+            let required_size = offset + bytes.len() as u32;
+            if page_data.data.len() < required_size as usize {
+                page_data.data.resize(required_size as usize, 0);
+            }
+
+            // Copy data to page
+            page_data.data[offset as usize..(offset + bytes.len() as u32) as usize]
+                .copy_from_slice(bytes);
+
+            Ok(())
+        } else {
+            Err(Reason::Fault { page })
+        }
     }
 
     fn allocate_page(&mut self, page_num: u32) -> std::result::Result<(), Reason> {
@@ -337,6 +342,18 @@ impl pvm::Memory for Memory {
             access: Access::Mutable,
         });
         Ok(())
+    }
+
+    fn initial_heap(&self) -> u32 {
+        self.initial_heap
+    }
+
+    fn get_heap_pointer(&self) -> Option<u32> {
+        Some(self.current_heap_pointer)
+    }
+
+    fn set_heap_pointer(&mut self, heap_ptr: u32) {
+        self.current_heap_pointer = heap_ptr;
     }
 }
 

@@ -151,8 +151,8 @@ pub trait Invocation {
         // (state'') call the host function, returns if page fault occurs
         let stepped = host::call(call, state, input);
         match stepped.reason {
-            Reason::Fault(addr) => {
-                Stepped::new(Reason::Fault(addr), stepped.state).with(stepped.data)
+            Reason::Fault { page } => {
+                Stepped::new(Reason::Fault { page }, stepped.state).with(stepped.data)
             }
             // TODO: this recursive call should be optimized in production.
             //
@@ -296,6 +296,12 @@ pub trait Invocation {
         };
 
         let accumulate = host::Accumulate::new(accumulate_context, timeslot);
+
+        // TODO: throw error properly
+        for operand in &operands {
+            tracing::debug!("operand: {:?}", operand.data);
+        }
+
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
 

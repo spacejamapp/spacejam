@@ -22,15 +22,26 @@ impl<'a> Memory<'a> {
             args.len() as u64,
         );
 
+        // Safe low memory pages: 0 ≤ i < 8 (expanded allocation for string formatting)
+        // Guard pages will be added to prevent overflow into RO data at page 16
+        for page_num in 0..8 {
+            memory.memory.insert(
+                page_num,
+                (Cow::Owned(vec![0; crate::PAGE_SIZE as usize]), true),
+            );
+        }
+
+        // Guard pages: 8 ≤ i < 16 (inaccessible to catch overflows)
+        for page_num in 8..16 {
+            memory.memory.insert(
+                page_num,
+                (Cow::Owned(vec![0; crate::PAGE_SIZE as usize]), false), // Read-only to catch writes
+            );
+        }
+
         // RO data: Z_Z ≤ i < Z_Z + |o|
         let mut start = crate::ZONE_SIZE;
-        tracing::debug!(
-            "Memory layout - RO data: 0x{:x}..0x{:x} (len={})",
-            start,
-            start + ro_len,
-            ro_len
-        );
-        memory.insert_pages_cow(blob.ro_data.clone(), start, false, crate::PAGE_SIZE);
+        memory.insert_pages_cow(blob.ro_data.clone(), start, true, crate::PAGE_SIZE);
 
         // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
         let ro_padding_len = funp(ro_len) - ro_len;
@@ -45,20 +56,13 @@ impl<'a> Memory<'a> {
             memory.insert_pages_owned(
                 vec![0; ro_padding_len as usize],
                 start,
-                false,
+                true,
                 crate::PAGE_SIZE,
             );
         }
 
         // RW data: 2*Z_Z + Z(|o|) ≤ i < 2*Z_Z + Z(|o|) + |w|
         start = 2 * crate::ZONE_SIZE + funz(ro_len);
-        tracing::debug!(
-            "Memory layout - RW data: 0x{:x}..0x{:x} (len={}, funz(ro_len)=0x{:x})",
-            start,
-            start + rw_len,
-            rw_len,
-            funz(ro_len)
-        );
         memory.insert_pages_cow(blob.rw_data.clone(), start, true, crate::PAGE_SIZE);
 
         // RW padding + heap: 2*Z_Z + Z(|o|) + |w| ≤ i < 2*Z_Z + Z(|o|) + P(|w|) + z*Z_P
@@ -69,14 +73,6 @@ impl<'a> Memory<'a> {
         let extra_heap_len = 64 * crate::PAGE_SIZE; // Add 64 more pages (256KB extra)
         let total_rw_padding_heap_len = rw_padding_len + heap_len + extra_heap_len;
         if total_rw_padding_heap_len > 0 {
-            tracing::debug!(
-                "Memory layout - RW padding + heap: 0x{:x}..0x{:x} (rw_padding={}, heap={}, extra_heap={})",
-                start,
-                start + total_rw_padding_heap_len,
-                rw_padding_len,
-                heap_len,
-                extra_heap_len
-            );
             memory.insert_pages_owned(
                 vec![0; total_rw_padding_heap_len as usize],
                 start,
