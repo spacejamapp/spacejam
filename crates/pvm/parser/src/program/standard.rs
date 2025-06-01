@@ -58,12 +58,6 @@ impl<'a> StandardProgramBlob<'a> {
             heap: initial_heap as u32..(initial_heap + heap_size) as u32,
         })
     }
-
-    /// Get the heap start address.
-    pub fn initial_heap(&self) -> u64 {
-        2 * crate::ZONE_SIZE
-            + (self.ro_data.len() as u64).div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE
-    }
 }
 
 impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {

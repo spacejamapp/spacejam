@@ -31,16 +31,6 @@ impl Memory {
     pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
         let start = address + offset;
         let page = start / PAGE_SIZE;
-        if !self.pages.contains_key(&page) {
-            self.pages.insert(
-                page,
-                Page {
-                    data: SmallVec::new(),
-                    access: Access::Mutable,
-                },
-            );
-        }
-
         let bytes = self.read_bytes(page, start % PAGE_SIZE, V::SIZE as u32)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible { page })
     }
@@ -52,10 +42,13 @@ impl Memory {
         let data_len = data.len() as u32;
 
         // fill with 0s if necessary
+        tracing::trace!("read_bytes, page={page}, offset={offset}, len={len}");
         let mut bytes = vec![0; len as usize];
         if offset < data_len {
             let to_copy = (data_len - offset).min(len) as usize;
             bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
+        } else {
+            tracing::error!("unhandled read_bytes, page={page}, offset={offset}, len={len}");
         }
 
         Ok(bytes)
@@ -86,17 +79,14 @@ impl Memory {
             return Err(Error::MemoryInaccessible { page });
         }
 
-        // extend page if necessary
-        let page_data = self.mutate(page)?;
-        let data_len = page_data.data.len() as u32;
         let to_write = bytes.len() as u32;
-        if data_len < to_write + offset {
-            page_data
-                .data
-                .resize(to_write as usize + offset as usize, 0);
+        tracing::trace!("write_bytes, page={page}, offset={offset}, len={to_write}");
+        if offset + to_write > PAGE_SIZE as u32 {
+            tracing::error!("unhandled write_bytes, page={page}, offset={offset}, len={to_write}");
         }
 
         // copy data
+        let page_data = self.mutate(page)?;
         page_data.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
         Ok(())
     }
@@ -201,90 +191,16 @@ impl pvm::Memory for Memory {
 
     #[tracing::instrument(skip_all)]
     fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
-        // First 64KB of memory is always inaccessible per graypaper
-        // Note: We removed the restriction on accessing the first 64KB of memory
-        // to allow reading from heap memory for logging and other purposes
-
         let page = address / PAGE_SIZE;
         let offset = address % PAGE_SIZE;
-        let mut bytes = vec![0; len as usize];
-
-        // Handle memory aliasing for page 16 - try shadow page 15 first for dynamic content
-        if page == 16 {
-            if let Some(shadow_data) = self.pages.get(&15) {
-                let shadow_bytes = shadow_data.data.as_slice();
-                if shadow_bytes.len() > offset as usize {
-                    // Found data in shadow page, use it preferentially for dynamic content
-                    let shadow_data_len = shadow_bytes.len() as u32;
-                    let to_copy = (len).min(shadow_data_len.saturating_sub(offset));
-                    if to_copy > 0 {
-                        bytes[..to_copy as usize].copy_from_slice(
-                            &shadow_bytes[offset as usize..(offset + to_copy) as usize],
-                        );
-
-                        return Ok(bytes);
-                    }
-                }
-            }
-            // Fall through to read from actual RO data if shadow is empty
-        }
-
-        // First, check if the page exists in the pages map
-        if let Some(page_data) = self.pages.get(&page) {
-            // Next, check if the page is accessible
-            if page_data.is_inaccessible() {
-                tracing::error!("memory read: memory page {page} inaccessible");
-                return Err(Reason::Fault { page });
-            }
-
-            // Page exists and is accessible, so copy data if available
-            let data = page_data.data.as_slice();
-            let data_len = data.len() as u32;
-            let to_copy = (len).min(data_len.saturating_sub(offset));
-            if to_copy > 0 {
-                bytes[..to_copy as usize]
-                    .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
-            }
-            Ok(bytes)
-        } else {
-            tracing::debug!("memory read: memory page {page} not allocated, returning zeros");
-            Ok(bytes)
-        }
+        self.read_bytes(page, offset, len).map_err(Reason::from)
     }
 
     #[tracing::instrument(skip_all)]
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
         let page = from / PAGE_SIZE;
         let offset = from % PAGE_SIZE;
-
-        // bounds check
-        if offset + bytes.len() as u32 > PAGE_SIZE {
-            tracing::error!("memory write: page {page} not found");
-            return Err(Reason::Fault { page });
-        }
-
-        if let Some(page_data) = self.pages.get_mut(&page) {
-            // Check if page is writable
-            if page_data.is_immutable() {
-                tracing::error!("memory write: page {page} is immutable");
-                return Err(Reason::Fault { page });
-            }
-
-            // Extend page data if necessary
-            let required_size = offset + bytes.len() as u32;
-            if page_data.data.len() < required_size as usize {
-                page_data.data.resize(required_size as usize, 0);
-            }
-
-            // Copy data to page
-            page_data.data[offset as usize..(offset + bytes.len() as u32) as usize]
-                .copy_from_slice(bytes);
-
-            Ok(())
-        } else {
-            tracing::error!("memory write: page {page} not found");
-            Err(Reason::Fault { page })
-        }
+        self.write_bytes(page, offset, bytes).map_err(Reason::from)
     }
 }
 
