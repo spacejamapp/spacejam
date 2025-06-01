@@ -149,6 +149,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
+    tracing::debug!("Storage write starting");
     let mut general = match data.as_general() {
         Ok(g) => g,
         Err(e) => {
@@ -156,6 +157,12 @@ fn write<X: Argument, Memory: crate::Memory>(
             return Err(e);
         }
     };
+
+    tracing::debug!(
+        "Storage write - got general for service {}, current storage entries: {}",
+        general.index,
+        general.account.storage.len()
+    );
 
     // extract arguments from registers
     let [ko, kz, vo, vz] = [
@@ -174,6 +181,8 @@ fn write<X: Argument, Memory: crate::Memory>(
         }
     };
 
+    tracing::debug!("Storage write - key bytes: {:?}", key_bytes);
+
     // get the key by hashing account index + key bytes
     let mut input = codec::encode(&general.index).expect("should not fail");
     input.extend_from_slice(&key_bytes);
@@ -182,6 +191,10 @@ fn write<X: Argument, Memory: crate::Memory>(
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
+        tracing::debug!(
+            "Storage write - removed key, storage entries: {}",
+            general.account.storage.len()
+        );
         data.update_general(general)?;
         Ok(Exit::None as u64)
     } else {
@@ -193,12 +206,20 @@ fn write<X: Argument, Memory: crate::Memory>(
             }
         };
 
+        tracing::debug!("Storage write - value bytes: {:?}", value);
+
         let account = general.account.state();
         if account.threshold() > account.balance {
+            tracing::debug!("Storage write - insufficient balance");
             Ok(Exit::Full as u64)
         } else {
             general.account.storage.insert(key, value.clone());
+            tracing::debug!(
+                "Storage write - inserted key, storage entries: {}",
+                general.account.storage.len()
+            );
             data.update_general(general)?;
+            tracing::debug!("Storage write - completed update_general");
             Ok(Exit::Ok as u64)
         }
     }
@@ -239,11 +260,18 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     // Get requested heap increment from A0 register (register 7)
     let value_a = state.registers[7] as u32;
 
+    tracing::debug!("sbrk called with increment: {}", value_a);
+
     // Initialize heap pointer if not already done
     let current_heap = if let Some(heap_ptr) = state.memory.get_heap_pointer() {
         heap_ptr
     } else {
         let initial_heap = state.memory.initial_heap();
+        tracing::debug!(
+            "sbrk initializing heap pointer to: 0x{:x} (page {})",
+            initial_heap,
+            initial_heap / 4096
+        );
         state.memory.set_heap_pointer(initial_heap);
         initial_heap
     };
@@ -251,12 +279,20 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     // If valueA is 0, just return the current heap pointer
     if value_a == 0 {
         state.registers[7] = current_heap as u64;
+        tracing::debug!("sbrk returning current heap: 0x{:x}", current_heap);
         return Ok(Exit::Ok as u64);
     }
 
     // Record old heap pointer to return and calculate new heap pointer
     let old_heap_pointer = current_heap;
     let new_heap_pointer = old_heap_pointer + value_a;
+
+    tracing::debug!(
+        "sbrk expanding heap from 0x{:x} to 0x{:x} (increment: {})",
+        old_heap_pointer,
+        new_heap_pointer,
+        value_a
+    );
 
     const MEM_PAGE_SIZE: u32 = 4096;
 
@@ -271,12 +307,21 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
         let start_page = next_page_boundary / MEM_PAGE_SIZE;
         let end_page = final_boundary / MEM_PAGE_SIZE;
 
+        tracing::debug!(
+            "sbrk needs to allocate pages {} to {} (RO data is at page 16)",
+            start_page,
+            end_page - 1
+        );
+
         // Allocate all pages in the range
         for page_num in start_page..end_page {
+            if page_num == 16 {
+                tracing::error!("sbrk attempting to allocate page 16 (READ-ONLY DATA PAGE)!");
+            }
             match state.memory.allocate_page(page_num) {
-                Ok(_) => tracing::debug!("allocated page {}", page_num),
+                Ok(_) => tracing::debug!("sbrk allocated page {}", page_num),
                 Err(reason) => {
-                    tracing::warn!("failed to allocate page {}: {:?}", page_num, reason);
+                    tracing::warn!("sbrk failed to allocate page {}: {:?}", page_num, reason);
                     return Err(reason);
                 }
             }
@@ -286,5 +331,9 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     // Set the new heap pointer and return the old one
     state.memory.set_heap_pointer(new_heap_pointer);
     state.registers[7] = old_heap_pointer as u64;
+    tracing::debug!(
+        "sbrk completed, returning old heap: 0x{:x}",
+        old_heap_pointer
+    );
     Ok(Exit::Ok as u64)
 }

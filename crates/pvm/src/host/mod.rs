@@ -89,14 +89,87 @@ impl Argument for Accumulate {
     }
 
     fn update_general(&mut self, general: General) -> crate::Result<()> {
+        tracing::debug!(
+            "Accumulate update_general called for service {}, storage entries: {}",
+            general.index,
+            general.account.storage.len()
+        );
+        tracing::debug!(
+            "Accumulate context before update - accounts: {:?}",
+            self.x.context.accounts.keys().collect::<Vec<_>>()
+        );
+        tracing::debug!(
+            "Accumulate context before update - service {} storage entries: {}",
+            general.index,
+            self.x
+                .context
+                .accounts
+                .get(&general.index)
+                .map(|a| a.storage.len())
+                .unwrap_or(0)
+        );
+
+        tracing::debug!(
+            "About to insert account with {} storage entries",
+            general.account.storage.len()
+        );
         self.x
             .context
             .accounts
-            .insert(general.index, general.account);
+            .insert(general.index, general.account.clone());
+
+        // Directly verify what was inserted
+        if let Some(inserted_account) = self.x.context.accounts.get(&general.index) {
+            tracing::debug!(
+                "Verification: inserted account has {} storage entries",
+                inserted_account.storage.len()
+            );
+        } else {
+            tracing::debug!("Verification: failed to find inserted account!");
+        }
 
         // Also update any other modified accounts from the general context
+        tracing::debug!(
+            "About to process general.accounts: {:?}",
+            general.accounts.keys().collect::<Vec<_>>()
+        );
         for (id, account) in general.accounts {
+            // Skip the main service account to avoid overwriting the updated account with stale data
+            if id == general.index {
+                tracing::debug!(
+                    "Skipping main service {} from general.accounts to preserve updated storage",
+                    id
+                );
+                continue;
+            }
+            tracing::debug!(
+                "Inserting account {} from general.accounts with {} storage entries",
+                id,
+                account.storage.len()
+            );
             self.x.context.accounts.insert(id, account);
+        }
+
+        // Final verification using the same logic as the "after update" check
+        let final_storage_count = self
+            .x
+            .context
+            .accounts
+            .get(&general.index)
+            .map(|a| a.storage.len())
+            .unwrap_or(0);
+        tracing::debug!(
+            "Accumulate context after update - service {} storage entries: {}",
+            general.index,
+            final_storage_count
+        );
+
+        // Additional debug: check if the account objects are the same
+        if let Some(final_account) = self.x.context.accounts.get(&general.index) {
+            tracing::debug!(
+                "Final account storage keys: {:?}",
+                final_account.storage.keys().take(3).collect::<Vec<_>>()
+            );
         }
 
         Ok(())

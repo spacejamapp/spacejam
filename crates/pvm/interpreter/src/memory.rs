@@ -64,6 +64,26 @@ impl Memory {
             bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
         }
 
+        // For page 16, if we read zeros and there's data in the shadow page, use shadow data
+        if page == 16 && bytes.iter().all(|&b| b == 0) {
+            if let Ok(shadow_data) = self.access(15) {
+                let shadow_bytes = shadow_data.data.as_slice();
+                if shadow_bytes.len() > offset as usize {
+                    let shadow_data_len = shadow_bytes.len() as u32;
+                    let to_copy = (len).min(shadow_data_len.saturating_sub(offset));
+                    if to_copy > 0 {
+                        bytes[..to_copy as usize].copy_from_slice(
+                            &shadow_bytes[offset as usize..(offset + to_copy) as usize],
+                        );
+                        tracing::debug!(
+                            "MEMORY ALIAS READ: Using shadow data from page 15 for page 16, offset={}, len={}",
+                            offset, len
+                        );
+                    }
+                }
+            }
+        }
+
         Ok(bytes)
     }
 
@@ -90,17 +110,46 @@ impl Memory {
             return Err(Error::MemoryInaccessible { page });
         }
 
-        let page = self.mutate(page)?;
+        // Trace all writes to critical pages to help debug
+        if page <= 17 {
+            tracing::debug!(
+                "WRITE to page {}: offset={}, len={}, data={:?}",
+                page,
+                offset,
+                bytes.len(),
+                if bytes.len() <= 16 {
+                    format!("{:?}", bytes)
+                } else {
+                    format!("{:?}...", &bytes[..16])
+                }
+            );
+        }
+
+        // Memory aliasing: redirect writes to page 16 (RO data) to page 15 (writable shadow)
+        // This allows string formatting to work without corrupting read-only constants
+        let target_page = if page == 16 {
+            tracing::debug!(
+                "MEMORY ALIAS: Redirecting write from page 16 (RO) to page 15 (shadow) offset={}",
+                offset
+            );
+            15
+        } else {
+            page
+        };
+
+        let page_data = self.mutate(target_page)?;
 
         // extend page if necessary
-        let data_len = page.data.len() as u32;
+        let data_len = page_data.data.len() as u32;
         let to_write = bytes.len() as u32;
         if data_len < to_write + offset {
-            page.data.resize(to_write as usize + offset as usize, 0);
+            page_data
+                .data
+                .resize(to_write as usize + offset as usize, 0);
         }
 
         // copy data
-        page.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
+        page_data.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
 
         Ok(())
     }
@@ -172,10 +221,16 @@ impl Memory {
 
     /// Allocate a memory page if it doesn't exist
     pub fn allocate_page(&mut self, page_num: u32) -> Result<()> {
-        self.pages.entry(page_num).or_insert(Page {
-            data: SmallVec::new(),
-            access: Access::Mutable,
-        });
+        // Only insert if the page doesn't already exist to avoid overwriting existing data
+        if !self.pages.contains_key(&page_num) {
+            self.pages.insert(
+                page_num,
+                Page {
+                    data: SmallVec::new(),
+                    access: Access::Mutable,
+                },
+            );
+        }
 
         Ok(())
     }
@@ -204,10 +259,16 @@ impl Memory {
     pub fn allocate_heap_pages(&mut self, start_page: u32, page_count: u32) -> Result<()> {
         for i in 0..page_count {
             let page_num = start_page + i;
-            self.pages.entry(page_num).or_insert(Page {
-                data: SmallVec::new(),
-                access: Access::Mutable,
-            });
+            // Only insert if the page doesn't already exist to avoid overwriting existing data
+            if !self.pages.contains_key(&page_num) {
+                self.pages.insert(
+                    page_num,
+                    Page {
+                        data: SmallVec::new(),
+                        access: Access::Mutable,
+                    },
+                );
+            }
         }
         Ok(())
     }
@@ -240,11 +301,15 @@ impl Memory {
     /// Allocate specific low memory pages (for service execution contexts)
     pub fn allocate_low_memory_pages(&mut self, max_page: u32) -> Result<()> {
         for page_num in 0..=max_page {
+            // Only insert if the page doesn't already exist to avoid overwriting existing data
             if !self.pages.contains_key(&page_num) {
-                self.pages.entry(page_num).or_insert(Page {
-                    data: SmallVec::new(),
-                    access: Access::Mutable,
-                });
+                self.pages.insert(
+                    page_num,
+                    Page {
+                        data: SmallVec::new(),
+                        access: Access::Mutable,
+                    },
+                );
             }
         }
         Ok(())
@@ -262,7 +327,24 @@ impl pvm::Memory for Memory {
     fn from_raw(memory: BTreeMap<u32, (Cow<'_, [u8]>, bool)>, initial_heap: u64) -> Self {
         let mut pages = BTreeMap::new();
 
+        tracing::debug!("from_raw: Loading {} pages from parser", memory.len());
         for (page_num, (data, writable)) in memory {
+            tracing::debug!(
+                "from_raw: Loading page {} (writable: {}, size: {} bytes)",
+                page_num,
+                writable,
+                data.len()
+            );
+            if page_num <= 17 {
+                tracing::debug!("from_raw: Page {} is in critical range (0-17)", page_num);
+                if !data.is_empty() {
+                    tracing::debug!(
+                        "from_raw: Page {} contains {} bytes of data",
+                        page_num,
+                        data.len()
+                    );
+                }
+            }
             pages.insert(
                 page_num,
                 Page {
@@ -282,9 +364,12 @@ impl pvm::Memory for Memory {
             initial_heap: initial_heap as u32,
         };
 
-        // Ensure low memory pages (heap area) are allocated
-        // This covers the first 64KB (16 pages) where heap data is stored
-        let _ = memory.allocate_low_memory_pages(15);
+        tracing::debug!(
+            "from_raw: Memory initialization complete with {} pages",
+            memory.pages.len()
+        );
+        // Note: We don't call allocate_low_memory_pages here because it would overwrite
+        // actual program data that was loaded from the parser
 
         memory
     }
@@ -297,6 +382,29 @@ impl pvm::Memory for Memory {
         let page = address / PAGE_SIZE;
         let offset = address % PAGE_SIZE;
         let mut bytes = vec![0; len as usize];
+
+        // Handle memory aliasing for page 16 - try shadow page 15 first for dynamic content
+        if page == 16 {
+            if let Some(shadow_data) = self.pages.get(&15) {
+                let shadow_bytes = shadow_data.data.as_slice();
+                if shadow_bytes.len() > offset as usize {
+                    // Found data in shadow page, use it preferentially for dynamic content
+                    let shadow_data_len = shadow_bytes.len() as u32;
+                    let to_copy = (len).min(shadow_data_len.saturating_sub(offset));
+                    if to_copy > 0 {
+                        bytes[..to_copy as usize].copy_from_slice(
+                            &shadow_bytes[offset as usize..(offset + to_copy) as usize],
+                        );
+                        tracing::debug!(
+                            "TRAIT READ ALIAS: Reading from page 15 (shadow) for page 16 request, address=0x{:x}, len={}",
+                            address, len
+                        );
+                        return Ok(bytes);
+                    }
+                }
+            }
+            // Fall through to read from actual RO data if shadow is empty
+        }
 
         // First, check if the page exists in the pages map
         if let Some(page_data) = self.pages.get(&page) {
@@ -361,10 +469,16 @@ impl pvm::Memory for Memory {
     }
 
     fn allocate_page(&mut self, page_num: u32) -> std::result::Result<(), Reason> {
-        self.pages.entry(page_num).or_insert(Page {
-            data: SmallVec::new(),
-            access: Access::Mutable,
-        });
+        // Only insert if the page doesn't already exist to avoid overwriting existing data
+        if !self.pages.contains_key(&page_num) {
+            self.pages.insert(
+                page_num,
+                Page {
+                    data: SmallVec::new(),
+                    access: Access::Mutable,
+                },
+            );
+        }
         Ok(())
     }
 

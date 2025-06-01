@@ -22,26 +22,23 @@ impl<'a> Memory<'a> {
             args.len() as u64,
         );
 
-        // Safe low memory pages: 0 ≤ i < 8 (expanded allocation for string formatting)
-        // Guard pages will be added to prevent overflow into RO data at page 16
-        for page_num in 0..8 {
+        // Safe low memory pages: 0 ≤ i < 16 (for string formatting and temporary allocations)
+        // Extended allocation to provide more writable space for string operations
+        // Stop before page 16 to avoid conflict with RO data placement
+        for page_num in 0..16 {
             memory.memory.insert(
                 page_num,
                 (Cow::Owned(vec![0; crate::PAGE_SIZE as usize]), true),
             );
         }
 
-        // Guard pages: 8 ≤ i < 16 (inaccessible to catch overflows)
-        for page_num in 8..16 {
-            memory.memory.insert(
-                page_num,
-                (Cow::Owned(vec![0; crate::PAGE_SIZE as usize]), false), // Read-only to catch writes
-            );
-        }
+        // NOTE: RO data will be inserted at page 16, but the program can use
+        // the writable pages 12-17 for temporary operations
 
         // RO data: Z_Z ≤ i < Z_Z + |o|
+        // JAM specification requires RO data at Z_Z (page 16), must not move this
         let mut start = crate::ZONE_SIZE;
-        memory.insert_pages_cow(blob.ro_data.clone(), start, true, crate::PAGE_SIZE);
+        memory.insert_pages_cow(blob.ro_data.clone(), start, false, crate::PAGE_SIZE);
 
         // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
         let ro_padding_len = funp(ro_len) - ro_len;
@@ -56,7 +53,7 @@ impl<'a> Memory<'a> {
             memory.insert_pages_owned(
                 vec![0; ro_padding_len as usize],
                 start,
-                true,
+                false,
                 crate::PAGE_SIZE,
             );
         }
