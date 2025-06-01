@@ -191,7 +191,7 @@ pub trait Invocation {
             code,
             registers,
             memory,
-            initial_heap,
+            heap,
         } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
@@ -205,7 +205,7 @@ pub trait Invocation {
             pc,
             gas,
             registers,
-            Self::Memory::from_raw(memory, initial_heap),
+            Self::Memory::from_raw(memory, heap),
             data,
         );
 

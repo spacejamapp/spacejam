@@ -1,6 +1,6 @@
 //! Program blob.
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, ops::Range};
 pub use {
     blob::{deblob, ProgramBlob},
     preimage::PreimageBlob,
@@ -33,7 +33,7 @@ pub struct Program<'a> {
     pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
 
     /// The initial heap pointer.
-    pub initial_heap: u64,
+    pub heap: Range<u32>,
 }
 
 /// (µ) The memory of a program.

@@ -254,86 +254,9 @@ fn info<X: Argument, Memory: crate::Memory>(
 
 /// (ΩS) sbrk - adjust program break
 fn sbrk<X: Argument, Memory: crate::Memory>(
-    state: &mut State<Memory>,
+    _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
-    // Get requested heap increment from A0 register (register 7)
-    let value_a = state.registers[7] as u32;
-
-    tracing::debug!("sbrk called with increment: {}", value_a);
-
-    // Initialize heap pointer if not already done
-    let current_heap = if let Some(heap_ptr) = state.memory.get_heap_pointer() {
-        heap_ptr
-    } else {
-        let initial_heap = state.memory.initial_heap();
-        tracing::debug!(
-            "sbrk initializing heap pointer to: 0x{:x} (page {})",
-            initial_heap,
-            initial_heap / 4096
-        );
-        state.memory.set_heap_pointer(initial_heap);
-        initial_heap
-    };
-
-    // If valueA is 0, just return the current heap pointer
-    if value_a == 0 {
-        state.registers[7] = current_heap as u64;
-        tracing::debug!("sbrk returning current heap: 0x{:x}", current_heap);
-        return Ok(Exit::Ok as u64);
-    }
-
-    // Record old heap pointer to return and calculate new heap pointer
-    let old_heap_pointer = current_heap;
-    let new_heap_pointer = old_heap_pointer + value_a;
-
-    tracing::debug!(
-        "sbrk expanding heap from 0x{:x} to 0x{:x} (increment: {})",
-        old_heap_pointer,
-        new_heap_pointer,
-        value_a
-    );
-
-    const MEM_PAGE_SIZE: u32 = 4096;
-
-    // Calculate the next page boundary and final boundary after allocation
-    let next_page_boundary =
-        ((old_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE;
-
-    // Allocate pages if we cross a page boundary
-    if new_heap_pointer > next_page_boundary {
-        let final_boundary =
-            ((new_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE;
-        let start_page = next_page_boundary / MEM_PAGE_SIZE;
-        let end_page = final_boundary / MEM_PAGE_SIZE;
-
-        tracing::debug!(
-            "sbrk needs to allocate pages {} to {} (RO data is at page 16)",
-            start_page,
-            end_page - 1
-        );
-
-        // Allocate all pages in the range
-        for page_num in start_page..end_page {
-            if page_num == 16 {
-                tracing::error!("sbrk attempting to allocate page 16 (READ-ONLY DATA PAGE)!");
-            }
-            match state.memory.allocate_page(page_num) {
-                Ok(_) => tracing::debug!("sbrk allocated page {}", page_num),
-                Err(reason) => {
-                    tracing::warn!("sbrk failed to allocate page {}: {:?}", page_num, reason);
-                    return Err(reason);
-                }
-            }
-        }
-    }
-
-    // Set the new heap pointer and return the old one
-    state.memory.set_heap_pointer(new_heap_pointer);
-    state.registers[7] = old_heap_pointer as u64;
-    tracing::debug!(
-        "sbrk completed, returning old heap: 0x{:x}",
-        old_heap_pointer
-    );
+    tracing::error!("sbrk not implemented");
     Ok(Exit::Ok as u64)
 }

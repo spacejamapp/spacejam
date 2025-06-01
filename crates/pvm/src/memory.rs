@@ -1,12 +1,12 @@
 //! Memory abstraction
 
 use crate::Reason;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Range};
 
 /// The memory trait.
 pub trait Memory: Default + Clone {
     /// Create a new mwemory from a raw memory.
-    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, initial_heap: u64) -> Self;
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, heap: Range<u32>) -> Self;
 
     /// Check if the memory contains the given data.
     fn contains(&self, data: &[u8]) -> bool;
@@ -23,28 +23,12 @@ pub trait Memory: Default + Clone {
 
     /// write bytes to the memory
     fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason>;
-
-    /// Allocate a memory page if it doesn't exist
-    fn allocate_page(&mut self, _page_num: u32) -> Result<(), Reason> {
-        Err(Reason::Panic("page allocation not supported".into()))
-    }
-
-    /// Get the initial heap pointer
-    fn initial_heap(&self) -> u32 {
-        0
-    }
-
-    /// Get current heap pointer (for sbrk implementation)
-    fn get_heap_pointer(&self) -> Option<u32> {
-        None
-    }
-
-    /// Set heap pointer (for sbrk implementation)
-    fn set_heap_pointer(&mut self, _heap_ptr: u32) {}
 }
 
 impl Memory for () {
-    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _initial_heap: u64) -> Self {}
+    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _heap: Range<u32>) -> Self {
+        ()
+    }
 
     fn contains(&self, _data: &[u8]) -> bool {
         false

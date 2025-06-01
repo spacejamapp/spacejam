@@ -3,7 +3,7 @@
 use crate::{Error, Result};
 use pvm::{Reason, Value};
 use smallvec::SmallVec;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Range};
 
 /// The size of a page in the memory.
 pub const PAGE_SIZE: u32 = 4096;
@@ -15,10 +15,10 @@ pub struct Memory {
     pub pages: BTreeMap<u32, Page>,
 
     /// Current heap pointer for sbrk implementation
-    pub current_heap_pointer: u32,
+    pub heap_ptr: u32,
 
-    /// The initial heap pointer
-    initial_heap: u32,
+    /// The heap range.
+    pub heap: Range<u32>,
 }
 
 impl Memory {
@@ -82,6 +82,7 @@ impl Memory {
     /// Write bytes to the memory.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
         if offset + bytes.len() as u32 > PAGE_SIZE {
+            tracing::error!("write_bytes, {page} inaccessible");
             return Err(Error::MemoryInaccessible { page });
         }
 
@@ -159,87 +160,11 @@ impl Memory {
             .get_mut(&pagenum)
             .ok_or(Error::MemoryInaccessible { page: pagenum })?;
         if page.is_immutable() {
-            tracing::error!("memory write: page {pagenum} is immutable");
+            tracing::error!("mutate, memory write: page {pagenum} is immutable");
             return Err(Error::MemoryImmutable { page: pagenum });
         }
 
         Ok(page)
-    }
-
-    /// Allocate a memory page if it doesn't exist
-    pub fn allocate_page(&mut self, page_num: u32) -> Result<()> {
-        // Only insert if the page doesn't already exist to avoid overwriting existing data
-        if !self.pages.contains_key(&page_num) {
-            self.pages.insert(
-                page_num,
-                Page {
-                    data: SmallVec::new(),
-                    access: Access::Mutable,
-                },
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Allocate pages for heap expansion
-    pub fn allocate_heap_pages(&mut self, start_page: u32, page_count: u32) -> Result<()> {
-        for i in 0..page_count {
-            let page_num = start_page + i;
-            // Only insert if the page doesn't already exist to avoid overwriting existing data
-            if !self.pages.contains_key(&page_num) {
-                self.pages.insert(
-                    page_num,
-                    Page {
-                        data: SmallVec::new(),
-                        access: Access::Mutable,
-                    },
-                );
-            }
-        }
-        Ok(())
-    }
-
-    /// Get current heap pointer
-    pub fn get_heap_pointer(&self) -> u32 {
-        self.current_heap_pointer
-    }
-
-    /// Advance heap pointer and allocate pages if needed
-    pub fn advance_heap(&mut self, bytes: u32) -> Result<u32> {
-        let old_heap_pointer = self.current_heap_pointer;
-        let new_heap_pointer = self.current_heap_pointer + bytes;
-
-        // Check if we need to allocate new pages
-        let old_page_boundary = ((old_heap_pointer + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-        let new_page_boundary = ((new_heap_pointer + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-
-        if new_heap_pointer > old_page_boundary {
-            let start_page = old_page_boundary / PAGE_SIZE;
-            let end_page = new_page_boundary / PAGE_SIZE;
-            let page_count = end_page - start_page;
-            self.allocate_heap_pages(start_page, page_count)?;
-        }
-
-        self.current_heap_pointer = new_heap_pointer;
-        Ok(old_heap_pointer)
-    }
-
-    /// Allocate specific low memory pages (for service execution contexts)
-    pub fn allocate_low_memory_pages(&mut self, max_page: u32) -> Result<()> {
-        for page_num in 0..=max_page {
-            // Only insert if the page doesn't already exist to avoid overwriting existing data
-            if !self.pages.contains_key(&page_num) {
-                self.pages.insert(
-                    page_num,
-                    Page {
-                        data: SmallVec::new(),
-                        access: Access::Mutable,
-                    },
-                );
-            }
-        }
-        Ok(())
     }
 }
 
@@ -251,7 +176,7 @@ impl pvm::Memory for Memory {
             .any(|page| page.data.windows(data.len()).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, initial_heap: u64) -> Self {
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, heap: Range<u32>) -> Self {
         let mut pages = BTreeMap::new();
         for (page_num, (data, writable)) in memory {
             pages.insert(
@@ -269,8 +194,8 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            current_heap_pointer: initial_heap as u32,
-            initial_heap: initial_heap as u32,
+            heap_ptr: heap.start,
+            heap,
         }
     }
 
@@ -338,9 +263,6 @@ impl pvm::Memory for Memory {
             return Err(Reason::Fault { page });
         }
 
-        // For write operations from the trait, we allocate if needed
-        self.allocate_page(page)?;
-
         if let Some(page_data) = self.pages.get_mut(&page) {
             // Check if page is writable
             if page_data.is_immutable() {
@@ -363,31 +285,6 @@ impl pvm::Memory for Memory {
             tracing::error!("memory write: page {page} not found");
             Err(Reason::Fault { page })
         }
-    }
-
-    fn allocate_page(&mut self, page_num: u32) -> std::result::Result<(), Reason> {
-        if !self.pages.contains_key(&page_num) {
-            self.pages.insert(
-                page_num,
-                Page {
-                    data: SmallVec::new(),
-                    access: Access::Mutable,
-                },
-            );
-        }
-        Ok(())
-    }
-
-    fn initial_heap(&self) -> u32 {
-        self.initial_heap
-    }
-
-    fn get_heap_pointer(&self) -> Option<u32> {
-        Some(self.current_heap_pointer)
-    }
-
-    fn set_heap_pointer(&mut self, heap_ptr: u32) {
-        self.current_heap_pointer = heap_ptr;
     }
 }
 

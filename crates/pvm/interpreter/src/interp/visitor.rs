@@ -708,14 +708,13 @@ impl Visitor for Interpreter {
     }
 
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
-        let format::RR { reg0: _, reg1 } = format;
+        let format::RR { reg0, reg1 } = format;
         let increment = self.registers[reg1 as usize];
 
-        // Put the increment in reg7 for the host call
-        self.registers[7] = increment;
-
-        // Trigger host call 4 (sbrk)
-        Err(crate::Error::HostCall(4))
+        tracing::debug!("sbrk, ptr({reg0}): increment({reg1}): {increment}");
+        self.memory.heap_ptr += increment as u32;
+        self.registers[reg0 as usize] = self.memory.heap_ptr as u64;
+        Ok(())
     }
 
     fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {

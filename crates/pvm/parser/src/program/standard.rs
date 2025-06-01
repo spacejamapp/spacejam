@@ -45,24 +45,24 @@ impl<'a> StandardProgramBlob<'a> {
         registers[7] = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         registers[8] = args.len() as u64;
 
+        // heap parameters
+        let initial_heap = 2 * crate::ZONE_SIZE
+            + (self.ro_data.len() as u64).div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
+        let heap_size = self.rw_data_padding_pages as u64 * crate::ZONE_SIZE + crate::PAGE_SIZE
+            - self.rw_data.len() as u64;
+
         Ok(Program {
             registers,
             memory: Memory::init(self, args).memory,
             code: self.code_blob.clone(),
-            initial_heap: self.initial_heap(),
+            heap: initial_heap as u32..(initial_heap + heap_size) as u32,
         })
     }
 
     /// Get the heap start address.
     pub fn initial_heap(&self) -> u64 {
-        let (ro_len, rw_len) = (self.ro_data.len() as u64, self.rw_data.len() as u64);
-
-        let rw_data_address = 2 * crate::ZONE_SIZE;
-        let z_func_ro_len = ((ro_len + crate::ZONE_SIZE - 1) / crate::ZONE_SIZE) * crate::ZONE_SIZE; // Quantized RO data size
-        let rw_data_address_end = rw_data_address + z_func_ro_len;
-
-        // Heap starts after RW data section with page alignment
-        rw_data_address_end + rw_len + crate::PAGE_SIZE
+        2 * crate::ZONE_SIZE
+            + (self.ro_data.len() as u64).div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE
     }
 }
 
