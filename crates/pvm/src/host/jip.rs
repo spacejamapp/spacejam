@@ -20,17 +20,30 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     let target_len = state.registers[9] as u32;
     let msg_addr = state.registers[10] as u32;
     let msg_len = state.registers[11] as u32;
-
-    // Read the log message from memory
     let message = match state.memory.read_bytes(msg_addr, msg_len) {
-        Ok(data) => String::from_utf8_lossy(&data).to_string(),
-        Err(reason) => return Err(reason),
+        Ok(data) => {
+            let msg_str = String::from_utf8_lossy(&data).to_string();
+
+            msg_str
+        }
+        Err(reason) => {
+            tracing::error!(
+                "Failed to read message bytes at addr=0x{:x}, len={}: {:?}",
+                msg_addr,
+                msg_len,
+                reason
+            );
+            return Err(reason);
+        }
     };
 
     // Read target if provided (for structured logging)
     let target = if target_len > 0 {
         match state.memory.read_bytes(target_addr, target_len) {
-            Ok(data) => Some(String::from_utf8_lossy(&data).to_string()),
+            Ok(data) => {
+                tracing::debug!("message bytes: {:?}", data);
+                Some(String::from_utf8_lossy(&data).to_string())
+            }
             Err(reason) => return Err(reason),
         }
     } else {

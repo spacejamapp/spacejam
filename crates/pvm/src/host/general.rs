@@ -165,38 +165,42 @@ fn write<X: Argument, Memory: crate::Memory>(
         state.registers[10],
     ];
 
-    // get the key
+    // Get key bytes from memory, log both address and length to help with debugging
+    let key_bytes = match state.memory.read_bytes(ko as u32, kz as u32) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            tracing::error!("Failed to read key bytes: {:?}", err);
+            return Ok(Exit::OOB as u64);
+        }
+    };
+
+    // get the key by hashing account index + key bytes
     let mut input = codec::encode(&general.index).expect("should not fail");
-    input.extend_from_slice(
-        &state
-            .memory
-            .read_bytes(ko as u32, kz as u32)
-            .expect("should not fail"),
-    );
+    input.extend_from_slice(&key_bytes);
     let key = crypto::blake2b(&input);
-    tracing::trace!(
-        "writing storage with key: {:?}, value: {:?}",
-        key,
-        state.memory.read_bytes(vo as u32, vz as u32)
-    );
 
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
         data.update_general(general)?;
         Ok(Exit::None as u64)
-    } else if let Ok(value) = state.memory.read_bytes(vo as u32, vz as u32) {
+    } else {
+        let value = match state.memory.read_bytes(vo as u32, vz as u32) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                tracing::error!("Failed to read value bytes: {:?}", err);
+                return Ok(Exit::OOB as u64);
+            }
+        };
+
         let account = general.account.state();
         if account.threshold() > account.balance {
             Ok(Exit::Full as u64)
         } else {
             general.account.storage.insert(key, value.clone());
             data.update_general(general)?;
-
             Ok(Exit::Ok as u64)
         }
-    } else {
-        crate::bail!("failed to upsert storage");
     }
 }
 
@@ -232,6 +236,7 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
+    // Get requested heap increment from A0 register (register 7)
     let value_a = state.registers[7] as u32;
 
     // Initialize heap pointer if not already done
@@ -243,35 +248,42 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
         initial_heap
     };
 
-    // If value_a is 0, just return current heap pointer
+    // If valueA is 0, just return the current heap pointer
     if value_a == 0 {
         state.registers[7] = current_heap as u64;
         return Ok(Exit::Ok as u64);
     }
 
-    // Calculate new heap pointer and allocate pages on demand
+    // Record old heap pointer to return and calculate new heap pointer
     let old_heap_pointer = current_heap;
     let new_heap_pointer = old_heap_pointer + value_a;
 
-    // Use the same PAGE_SIZE as the memory implementation (4096)
     const MEM_PAGE_SIZE: u32 = 4096;
 
-    // Calculate which pages need to be allocated
-    let start_page = old_heap_pointer / MEM_PAGE_SIZE;
-    let end_page = (new_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE;
+    // Calculate the next page boundary and final boundary after allocation
+    let next_page_boundary =
+        ((old_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE;
 
-    // Allocate all pages from start to end
-    for page_num in start_page..end_page {
-        match state.memory.allocate_page(page_num) {
-            Ok(_) => tracing::debug!("allocated page {}", page_num),
-            Err(reason) => {
-                tracing::warn!("failed to allocate page {}: {:?}", page_num, reason);
-                return Err(reason);
+    // Allocate pages if we cross a page boundary
+    if new_heap_pointer > next_page_boundary {
+        let final_boundary =
+            ((new_heap_pointer + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE;
+        let start_page = next_page_boundary / MEM_PAGE_SIZE;
+        let end_page = final_boundary / MEM_PAGE_SIZE;
+
+        // Allocate all pages in the range
+        for page_num in start_page..end_page {
+            match state.memory.allocate_page(page_num) {
+                Ok(_) => tracing::debug!("allocated page {}", page_num),
+                Err(reason) => {
+                    tracing::warn!("failed to allocate page {}: {:?}", page_num, reason);
+                    return Err(reason);
+                }
             }
         }
     }
 
-    // Update heap pointer and return old value
+    // Set the new heap pointer and return the old one
     state.memory.set_heap_pointer(new_heap_pointer);
     state.registers[7] = old_heap_pointer as u64;
     Ok(Exit::Ok as u64)

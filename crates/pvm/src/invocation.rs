@@ -302,6 +302,10 @@ pub trait Invocation {
             tracing::debug!("operand: {:?}", operand.data);
         }
 
+        tracing::debug!(
+            "encoding accumulate operands, slot: {timeslot}, service: {service}, operands: {}",
+            operands.len()
+        );
         let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue {
