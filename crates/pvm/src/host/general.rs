@@ -4,7 +4,6 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Reason, Result, State,
 };
-use codec::Numeric;
 use score::{service::ServiceAccount, Gas, ServiceId};
 use std::collections::BTreeMap;
 
@@ -150,19 +149,8 @@ fn write<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    tracing::debug!("storage write host call - START");
-    tracing::debug!("registers: {:?}", state.registers);
-
-    tracing::debug!("About to call data.as_general()");
     let mut general = match data.as_general() {
-        Ok(g) => {
-            tracing::debug!(
-                "as_general() succeeded: index={}, account.balance={}",
-                g.index,
-                g.account.balance
-            );
-            g
-        }
+        Ok(g) => g,
         Err(e) => {
             tracing::error!("as_general() failed: {:?}", e);
             return Err(e);
@@ -177,14 +165,6 @@ fn write<X: Argument, Memory: crate::Memory>(
         state.registers[10],
     ];
 
-    tracing::debug!(
-        "storage write params: ko={}, kz={}, vo={}, vz={}",
-        ko,
-        kz,
-        vo,
-        vz
-    );
-
     // get the key
     let mut input = codec::encode(&general.index).expect("should not fail");
     input.extend_from_slice(
@@ -195,36 +175,22 @@ fn write<X: Argument, Memory: crate::Memory>(
     );
     let key = crypto::blake2b(&input);
 
-    tracing::debug!(
-        "service_id: {}, raw_key: {:?}, blake2b_key: {:?}",
-        general.index,
-        state
-            .memory
-            .read_bytes(ko as u32, kz as u32)
-            .unwrap_or_default(),
-        key
-    );
-
     // update storage
     if vz == 0 {
-        tracing::debug!("removing storage key");
         general.account.storage.remove(&key);
         data.update_general(general)?;
         Ok(Exit::None as u64)
     } else if let Ok(value) = state.memory.read_bytes(vo as u32, (vo + vz) as u32) {
         let account = general.account.state();
         if account.threshold() > account.balance {
-            tracing::warn!("storage write failed: insufficient balance");
             Ok(Exit::Full as u64)
         } else {
-            tracing::debug!("inserting storage: key={:?}, value={:?}", key, value);
             general.account.storage.insert(key, value.clone());
             data.update_general(general)?;
-            tracing::debug!("storage write SUCCESS, returning: {}", u64::decode(&value));
-            Ok(u64::decode(&value))
+
+            Ok(Exit::Ok as u64)
         }
     } else {
-        tracing::error!("failed to read storage value from memory");
         crate::bail!("failed to upsert storage");
     }
 }
@@ -263,12 +229,6 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
 ) -> Result<ExitCode> {
     let value_a = state.registers[7] as u32;
 
-    tracing::debug!("sbrk called with value_a={} (0x{:x})", value_a, value_a);
-
-    // Allocate essential low memory pages for service execution using proper allocation interface
-    // Services often need page 0 and other low pages for data structures
-    tracing::debug!("allocating essential memory pages for service execution");
-
     // Try to allocate low memory pages (0-2) that services commonly use
     // This will succeed for service execution contexts but fail silently for instruction tests
     for page_num in 0..=2 {
@@ -291,69 +251,31 @@ fn sbrk<X: Argument, Memory: crate::Memory>(
     } else {
         let initial_heap = state.memory.initial_heap();
         state.memory.set_heap_pointer(initial_heap);
-        tracing::debug!("initialized heap pointer to 0x{:x}", initial_heap);
         initial_heap
     };
 
     if value_a == 0 {
-        // Query current heap pointer
-        tracing::debug!(
-            "sbrk query - returning current heap pointer 0x{:x}",
-            current_heap
-        );
         state.registers[7] = current_heap as u64;
         return Ok(Exit::Ok as u64);
     }
 
-    // ALLOCATION: return old heap pointer and advance by value_a
+    // Actually allocate the pages in memory for the requested heap space
     let old_heap_pointer = current_heap;
     let new_heap_pointer = old_heap_pointer + value_a;
-
-    tracing::info!(
-        "sbrk ALLOCATING {} bytes: old=0x{:x}, new=0x{:x}",
-        value_a,
-        old_heap_pointer,
-        new_heap_pointer
-    );
-
-    // Actually allocate the pages in memory for the requested heap space
-    const PAGE_SIZE: u32 = 4096;
-    let start_page = old_heap_pointer / PAGE_SIZE;
-    let end_page = (new_heap_pointer + PAGE_SIZE - 1) / PAGE_SIZE;
-
-    tracing::debug!(
-        "allocating pages for heap: start_page={}, end_page={}, pages_to_allocate={}",
-        start_page,
-        end_page,
-        end_page - start_page
-    );
+    let start_page = old_heap_pointer / score::PAGE_SIZE as u32;
+    let end_page = (new_heap_pointer + score::PAGE_SIZE as u32 - 1) / score::PAGE_SIZE as u32;
 
     // Allocate all pages from start to end using proper allocation interface
     for page_num in start_page..end_page {
-        tracing::debug!("allocating page {} for heap", page_num);
         match state.memory.allocate_page(page_num) {
             Ok(_) => tracing::debug!("successfully allocated page {}", page_num),
             Err(reason) => {
-                tracing::error!("failed to allocate heap page {}: {:?}", page_num, reason);
-                // Don't fail here - continue with allocation and let the allocator handle it
-                tracing::warn!("continuing despite page allocation failure");
+                tracing::warn!("failed to allocate heap page {}: {:?}", page_num, reason);
             }
         }
     }
 
-    // Update the heap pointer using Memory trait method
     state.memory.set_heap_pointer(new_heap_pointer);
-
-    tracing::info!(
-        "sbrk allocation SUCCESS: allocated {} bytes, old=0x{:x}, new=0x{:x}, returning=0x{:x}",
-        value_a,
-        old_heap_pointer,
-        new_heap_pointer,
-        old_heap_pointer
-    );
-
-    // Return the old heap pointer (standard sbrk behavior)
     state.registers[7] = old_heap_pointer as u64;
-
     Ok(Exit::Ok as u64)
 }

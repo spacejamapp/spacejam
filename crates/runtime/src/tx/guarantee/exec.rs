@@ -80,32 +80,13 @@ pub fn parallel<V: Pvm>(
         }
     }
 
-    tracing::trace!("parallel accumulation for services {:?}", services);
     let results = services
         .iter()
         .map(|service| {
-            (
-                *service,
-                self::once::<V>(context.clone(), reports, table, *service),
-            )
+            let result = self::once::<V>(context.clone(), reports, table, *service);
+            (*service, result)
         })
         .collect::<Vec<_>>();
-    tracing::trace!(
-        "results: {:?}",
-        results
-            .iter()
-            .map(|(service, result)| {
-                (
-                    service,
-                    result
-                        .context
-                        .accounts
-                        .get(service)
-                        .map(|a| a.storage.len()),
-                )
-            })
-            .collect::<Vec<_>>()
-    );
 
     // assemble the result
     let mut accounts = context.accounts.clone();
@@ -113,6 +94,7 @@ pub fn parallel<V: Pvm>(
     let mut removed: Vec<ServiceId> = vec![];
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
+
     for (service_id, result) in results.into_iter() {
         // Update all accounts from the result, not just new ones
         for (id, account) in result.context.accounts.iter() {
@@ -124,6 +106,7 @@ pub fn parallel<V: Pvm>(
         // TODO: find a better way to do this.
         for service in result.context.accounts.keys() {
             if !services.contains(service) {
+                tracing::debug!("Marking service {} for removal", service);
                 removed.push(*service);
             }
         }
@@ -141,35 +124,97 @@ pub fn parallel<V: Pvm>(
         accounts.remove(&service);
     }
 
+    // Create updated context with merged accounts for privilege service accumulation
+    let updated_context = StateContext {
+        accounts: accounts.clone(),
+        privileges: context.privileges.clone(),
+        validators: context.validators.clone(),
+        authorization: context.authorization.clone(),
+    };
+
     // get next context
     //
     // TODO: use a local task pool for spawning this calculation.
-    let privilege_services = [
+
+    // Accumulate privilege services - they should be able to run even without explicit accounts
+    // as they are system services that may have implicit accounts or special handling
+    let bless_result = self::once::<V>(
+        updated_context.clone(),
+        reports,
+        table,
         context.privileges.bless,
-        context.privileges.designate,
-        context.privileges.assign,
-    ];
-
-    // TODO: check accounts for privilege service execution
-    let results = privilege_services
-        .iter()
-        // .filter(|&service| context.accounts.contains_key(service)) // Only execute if account exists
-        .map(|service| self::once::<V>(context.clone(), reports, table, *service))
-        .collect::<Vec<_>>();
-
-    let (privileges, validators, authorization) = (
-        results[0].context.privileges.clone(),
-        results[1].context.validators.clone(),
-        results[2].context.authorization.clone(),
     );
+
+    let designate_result = self::once::<V>(
+        updated_context.clone(),
+        reports,
+        table,
+        context.privileges.designate,
+    );
+
+    let assign_result = self::once::<V>(
+        updated_context.clone(),
+        reports,
+        table,
+        context.privileges.assign,
+    );
+
+    for (id, privilege_account) in bless_result.context.accounts.iter() {
+        if let Some(existing_account) = accounts.get(id) {
+            if privilege_account.storage.len() > existing_account.storage.len() {
+                accounts.insert(*id, privilege_account.clone());
+            }
+        } else {
+            accounts.insert(*id, privilege_account.clone());
+        }
+    }
+
+    for (id, privilege_account) in designate_result.context.accounts.iter() {
+        if let Some(existing_account) = accounts.get(id) {
+            if privilege_account.storage.len() > existing_account.storage.len() {
+                accounts.insert(*id, privilege_account.clone());
+            }
+        } else {
+            accounts.insert(*id, privilege_account.clone());
+        }
+    }
+
+    for (id, privilege_account) in assign_result.context.accounts.iter() {
+        if let Some(existing_account) = accounts.get(id) {
+            if privilege_account.storage.len() > existing_account.storage.len() {
+                accounts.insert(*id, privilege_account.clone());
+            }
+        } else {
+            accounts.insert(*id, privilege_account.clone());
+        }
+    }
+
+    // accumulate gas from privilege services
+    gas.insert(context.privileges.bless, bless_result.gas);
+    transfers.extend(bless_result.transfers.iter().cloned());
+    if let Some(hash) = bless_result.hash {
+        pairings.insert(context.privileges.bless, hash);
+    }
+
+    gas.insert(context.privileges.designate, designate_result.gas);
+    transfers.extend(designate_result.transfers.iter().cloned());
+    if let Some(hash) = designate_result.hash {
+        pairings.insert(context.privileges.designate, hash);
+    }
+
+    gas.insert(context.privileges.assign, assign_result.gas);
+    transfers.extend(assign_result.transfers.iter().cloned());
+    if let Some(hash) = assign_result.hash {
+        pairings.insert(context.privileges.assign, hash);
+    }
 
     Accumulated {
         accumulated: reports.len(),
         context: StateContext {
             accounts,
-            privileges,
-            validators,
-            authorization,
+            privileges: context.privileges.clone(),
+            validators: context.validators.clone(),
+            authorization: context.authorization.clone(),
         },
         transfers,
         pairings,
@@ -196,9 +241,6 @@ pub fn once<V: Pvm>(
         .iter()
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
-
-    tracing::debug!("accumulating service with operands {:?}", operands);
-    tracing::trace!("accumulating service {service}");
     V::accumulate(context, 0, service, gas, operands, [0; 32])
 }
 

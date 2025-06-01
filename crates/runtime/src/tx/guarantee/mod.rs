@@ -43,16 +43,13 @@ pub fn accumulate<V: Pvm>(
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
-    tracing::trace!("privileges: {:?}", privileges);
-    tracing::trace!("accumulatable: {:?}", accumulatable.len());
-
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
     let accumulated = exec::outer::<V>(
         gas_limit,
         &accumulatable,
         StateContext {
-            accounts,
+            accounts: accounts.clone(),
             privileges: privileges.clone(),
             // Initialize validators and authorization to defaults for now
             // TODO: these should come from the full state in a real implementation

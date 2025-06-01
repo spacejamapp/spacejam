@@ -163,18 +163,44 @@ impl<X: Default> Received<X> {
 impl Received<Accumulate> {
     /// Convert the received result to an accumulate result
     pub fn to_result(self, gas: Gas) -> AccumulateResult {
-        if self.reason != Reason::Continue {
-            return self.data.y.to_result(gas);
-        }
+        tracing::debug!("to_result called - reason: {:?}, gas: {}", self.reason, gas);
+        tracing::debug!(
+            "self.data.x - service: {}, accounts: {:?}",
+            self.data.x.service,
+            self.data.x.context.accounts.keys().collect::<Vec<_>>()
+        );
+        tracing::debug!(
+            "self.data.y - service: {}, accounts: {:?}",
+            self.data.y.service,
+            self.data.y.context.accounts.keys().collect::<Vec<_>>()
+        );
 
-        let mut result = self.data.x.to_result(gas);
-        if self.output.len() == 32 {
-            let mut hash = [0; 32];
-            hash.copy_from_slice(&self.output);
-            result.hash = Some(hash);
+        // Treat Continue and Halt as successful completion
+        // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
+        match self.reason {
+            Reason::Continue | Reason::Halt => {
+                tracing::debug!("PVM execution completed successfully with reason: {:?}, returning X context (regular dimension)", self.reason);
+                let mut result = self.data.x.to_result(gas);
+                if self.output.len() == 32 {
+                    let mut hash = [0; 32];
+                    hash.copy_from_slice(&self.output);
+                    result.hash = Some(hash);
+                }
+                result
+            }
+            _ => {
+                tracing::warn!(
+                    "PVM execution failed with reason: {:?}, returning Y context (exceptional dimension)",
+                    self.reason
+                );
+                tracing::debug!(
+                    "Y context has service: {}, accounts: {:?}",
+                    self.data.y.service,
+                    self.data.y.context.accounts.keys().collect::<Vec<_>>()
+                );
+                self.data.y.to_result(gas)
+            }
         }
-
-        result
     }
 }
 

@@ -7,7 +7,7 @@ description = "Polkadot Virtual Machine"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto.workspace = true
+crypto = { workspace = true, features = ["blake2"] }
 score.workspace = true
 tracing.workspace = true
 pvm-parser.workspace = true
