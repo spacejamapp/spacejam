@@ -52,8 +52,22 @@ impl Invocation for Interpreter {
             }
         };
 
-        // charge extra gas for host calls
-        if matches!(instr.value, Instruction::Ecalli(_)) && pvmi.burn(10).is_err() {
+        // charge extra gas for host calls based on the specification
+        let extra_gas = match instr.value {
+            Instruction::Ecalli(call_format) => {
+                let call_number = call_format.imm0 as u32;
+                match call_number {
+                    // transfer: Gas cost is 10 + ω₉ (10 + register 9 value)
+                    11 => 10 + registers[9],
+                    // log: Gas cost is 0 as defined in JIP-1
+                    100 => 0,
+                    // All other host calls: Gas cost is 10
+                    _ => 10,
+                }
+            }
+            _ => 0,
+        };
+        if extra_gas > 0 && pvmi.burn(extra_gas).is_err() {
             return Stepped::new(Reason::OOG, pvmi.into());
         }
 

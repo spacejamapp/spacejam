@@ -26,7 +26,7 @@ impl Memory {
 
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
-        let start = address + offset;
+        let start = address.wrapping_add(offset);
         let page = start / parser::PAGE_SIZE as u32;
         let bytes = self.read_bytes(page, start % parser::PAGE_SIZE as u32, V::SIZE as u32)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible { page })
