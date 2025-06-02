@@ -63,10 +63,19 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-                assert_eq!(
-                    accounts[0].data.storage, output.post_state.accounts[0].data.storage,
-                    "storage mismatch"
-                );
+                accounts
+                    .iter()
+                    .zip(output.post_state.accounts.iter())
+                    .for_each(|(a, b)| {
+                        assert_eq!(a.id, b.id);
+                        assert_eq!(
+                            a.data.service, b.data.service,
+                            "service {} state got override",
+                            a.id
+                        );
+                        assert_eq!(a.data.preimages, b.data.preimages);
+                        assert_eq!(a.data.storage, b.data.storage);
+                    });
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {

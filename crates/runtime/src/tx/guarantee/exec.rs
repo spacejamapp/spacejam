@@ -80,152 +80,134 @@ pub fn parallel<V: Pvm>(
         }
     }
 
-    let results = services
+    let results: BTreeMap<ServiceId, AccumulateResult> = services
         .iter()
         .map(|service| {
             let result = self::once::<V>(context.clone(), reports, table, *service);
             (*service, result)
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    // assemble the result
-    let mut accounts = context.accounts.clone();
+    // According to the specification in accumulation.tex:
+    // d' = P((d ∪ n) ∖ m, p)
+    // where:
+    // n = ⋃_{s ∈ s}({(Δ₁(o, w, f, s)_o)_d ∖ keys{d ∖ {s}}})
+    // m = ⋃_{s ∈ s}(keys{d} ∖ keys{(Δ₁(o, w, f, s)_o)_d})
+    let original_accounts = &context.accounts;
+    let mut new_accounts = BTreeSet::new(); // 𝐧
+    let mut removed_accounts = BTreeSet::new(); // 𝐦
     let mut gas = BTreeMap::new();
-    let mut removed: Vec<ServiceId> = vec![];
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
+    let _preimage_provisions: BTreeMap<ServiceId, Vec<u8>> = BTreeMap::new(); // 𝐩
 
-    for (service_id, result) in results.into_iter() {
-        // Update all accounts from the result, not just new ones
-        for (id, account) in result.context.accounts.iter() {
-            accounts.insert(*id, account.clone());
-        }
-
-        // removed accounts
-        //
-        // TODO: find a better way to do this.
-        for service in result.context.accounts.keys() {
-            if !services.contains(service) {
-                removed.push(*service);
+    // Process each service result according to the specification
+    for (service_id, result) in results.iter() {
+        // Calculate new accounts for this service (accounts not in original except the service itself)
+        for account_id in result.context.accounts.keys() {
+            if !original_accounts.contains_key(account_id)
+                || *account_id == *service_id && !original_accounts.contains_key(service_id)
+            {
+                new_accounts.insert(*account_id);
             }
         }
 
-        // update other fields
-        gas.insert(service_id, result.gas);
-        transfers.extend(result.transfers);
+        // Calculate removed accounts for this service (original accounts not in result)
+        for account_id in original_accounts.keys() {
+            if !result.context.accounts.contains_key(account_id) {
+                removed_accounts.insert(*account_id);
+            }
+        }
+
+        // Collect other outputs
+        gas.insert(*service_id, result.gas);
+        transfers.extend(result.transfers.clone());
         if let Some(hash) = result.hash {
-            pairings.insert(service_id, hash);
+            pairings.insert(*service_id, hash);
+        }
+
+        // Collect preimage provisions (hashes from service outputs)
+        // TODO: Extract preimage provisions from result context - this would require
+        // additional data from the PVM result to implement the 𝐏 function from the spec
+    }
+
+    // Build the final account state according to: (𝐝 ∪ 𝐧) ∖ 𝐦
+    let mut final_accounts = original_accounts.clone();
+
+    // Add new accounts and update existing ones from service executions
+    for (service_id, result) in results.iter() {
+        for (account_id, account) in result.context.accounts.iter() {
+            if new_accounts.contains(account_id)
+                || (original_accounts.contains_key(account_id) && *account_id == *service_id)
+            {
+                // Only update accounts that are new or belong to the current service
+                final_accounts.insert(*account_id, account.clone());
+            }
         }
     }
 
-    // remove the removed accounts
-    for service in removed {
-        accounts.remove(&service);
+    // Remove accounts that were removed by any service
+    for account_id in removed_accounts {
+        final_accounts.remove(&account_id);
     }
 
-    // Create updated context with merged accounts for privilege service accumulation
+    // Create updated context for privilege service accumulation
     let updated_context = StateContext {
-        accounts: accounts.clone(),
+        accounts: final_accounts.clone(),
         privileges: context.privileges.clone(),
         validators: context.validators.clone(),
         authorization: context.authorization.clone(),
     };
 
-    // get next context
-    //
-    // TODO: use a local task pool for spawning this calculation.
-
-    // Accumulate privilege services - they should be able to run even without explicit accounts
-    // as they are system services that may have implicit accounts or special handling
-    let bless_result = self::once::<V>(
-        updated_context.clone(),
-        reports,
-        table,
+    // Process privilege services (χₘ, χᵥ, χₐ)
+    // These should be processed after regular services and can modify the final state
+    let privilege_services = [
         context.privileges.bless,
-    );
-
-    let designate_result = self::once::<V>(
-        updated_context.clone(),
-        reports,
-        table,
         context.privileges.designate,
-    );
-
-    let assign_result = self::once::<V>(
-        updated_context.clone(),
-        reports,
-        table,
         context.privileges.assign,
-    );
+    ];
 
-    for (id, privilege_account) in bless_result.context.accounts.iter() {
-        if let Some(existing_account) = accounts.get_mut(id) {
-            // Merge storage: preserve existing entries and add new ones from privilege account
-            for (key, value) in &privilege_account.storage {
-                existing_account.storage.insert(key.clone(), value.clone());
-            }
-            // Update other account fields if needed
-            if privilege_account.balance != existing_account.balance {
+    for &privilege_service in &privilege_services {
+        let privilege_result =
+            self::once::<V>(updated_context.clone(), reports, table, privilege_service);
+
+        // For privilege services, we allow them to modify any account
+        // but we still need to be careful about conflicts
+        for (account_id, privilege_account) in privilege_result.context.accounts.iter() {
+            if let Some(existing_account) = final_accounts.get_mut(account_id) {
+                // Merge storage: privilege services can update existing accounts
+                for (key, value) in &privilege_account.storage {
+                    existing_account.storage.insert(key.clone(), value.clone());
+                }
+                // Update other account fields
                 existing_account.balance = privilege_account.balance;
+                existing_account.gas = privilege_account.gas.clone();
+                existing_account.code = privilege_account.code;
+                // Merge preimages and lookup tables
+                for (hash, preimage) in &privilege_account.preimage {
+                    existing_account.preimage.insert(*hash, preimage.clone());
+                }
+                for (lookup_key, slots) in &privilege_account.lookup {
+                    existing_account.lookup.insert(*lookup_key, slots.clone());
+                }
+            } else {
+                // New account created by privilege service
+                final_accounts.insert(*account_id, privilege_account.clone());
             }
-        } else {
-            accounts.insert(*id, privilege_account.clone());
         }
-    }
 
-    for (id, privilege_account) in designate_result.context.accounts.iter() {
-        if let Some(existing_account) = accounts.get_mut(id) {
-            // Merge storage: preserve existing entries and add new ones from privilege account
-            for (key, value) in &privilege_account.storage {
-                existing_account.storage.insert(key.clone(), value.clone());
-            }
-            // Update other account fields if needed
-            if privilege_account.balance != existing_account.balance {
-                existing_account.balance = privilege_account.balance;
-            }
-        } else {
-            accounts.insert(*id, privilege_account.clone());
+        // Collect privilege service outputs
+        gas.insert(privilege_service, privilege_result.gas);
+        transfers.extend(privilege_result.transfers);
+        if let Some(hash) = privilege_result.hash {
+            pairings.insert(privilege_service, hash);
         }
-    }
-
-    for (id, privilege_account) in assign_result.context.accounts.iter() {
-        if let Some(existing_account) = accounts.get_mut(id) {
-            // Merge storage: preserve existing entries and add new ones from privilege account
-            for (key, value) in &privilege_account.storage {
-                existing_account.storage.insert(key.clone(), value.clone());
-            }
-            // Update other account fields if needed
-            if privilege_account.balance != existing_account.balance {
-                existing_account.balance = privilege_account.balance;
-            }
-        } else {
-            accounts.insert(*id, privilege_account.clone());
-        }
-    }
-
-    // accumulate gas from privilege services
-    gas.insert(context.privileges.bless, bless_result.gas);
-    transfers.extend(bless_result.transfers.iter().cloned());
-    if let Some(hash) = bless_result.hash {
-        pairings.insert(context.privileges.bless, hash);
-    }
-
-    gas.insert(context.privileges.designate, designate_result.gas);
-    transfers.extend(designate_result.transfers.iter().cloned());
-    if let Some(hash) = designate_result.hash {
-        pairings.insert(context.privileges.designate, hash);
-    }
-
-    gas.insert(context.privileges.assign, assign_result.gas);
-    transfers.extend(assign_result.transfers.iter().cloned());
-    if let Some(hash) = assign_result.hash {
-        pairings.insert(context.privileges.assign, hash);
     }
 
     Accumulated {
         accumulated: reports.len(),
         context: StateContext {
-            accounts,
+            accounts: final_accounts,
             privileges: context.privileges.clone(),
             validators: context.validators.clone(),
             authorization: context.authorization.clone(),
