@@ -702,8 +702,6 @@ impl Visitor for Interpreter {
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let increment = self.registers[reg1 as usize];
-
-        tracing::debug!("sbrk, ptr({reg0}): increment({reg1}): {increment}");
         self.memory.heap_ptr += increment as u32;
         self.registers[reg0 as usize] = self.memory.heap_ptr as u64;
         Ok(())
@@ -1039,7 +1037,6 @@ impl Visitor for Interpreter {
     fn visit_store_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
-
         self.memory
             .write_offset(address as u32, imm0 as u32, self.registers[reg0 as usize])
     }

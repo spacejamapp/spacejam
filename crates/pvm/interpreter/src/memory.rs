@@ -34,19 +34,18 @@ impl Memory {
 
     /// Read bytes from the memory.
     pub fn read_bytes(&self, page: u32, offset: u32, len: u32) -> Result<Vec<u8>> {
+        if offset + len > parser::PAGE_SIZE as u32 {
+            return Err(Error::MemoryInaccessible { page });
+        }
+
         let page_data = self.access(page)?;
-        let data = page_data.data.as_slice();
-        let data_len = data.len() as u32;
+        let mut data = page_data.data.as_slice().to_vec();
 
         // fill with 0 if necessary
         let mut bytes = vec![0; len as usize];
-        if offset < data_len {
-            let to_copy = (data_len - offset).min(len) as usize;
-            bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
-        } else {
-            tracing::debug!("reading from uninitialized area: page={page}, offset={offset}, len={len}, returning 0xff");
-        }
-
+        let end = (offset + len) as usize;
+        data.resize(end, 0);
+        bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
         Ok(bytes)
     }
 
@@ -62,6 +61,7 @@ impl Memory {
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
         let start = address.wrapping_add(offset);
+        tracing::debug!("write_offset: address={address}, offset={offset}, start={start}");
         let page = start / parser::PAGE_SIZE as u32;
         let offset = start % parser::PAGE_SIZE as u32;
         if offset + V::SIZE as u32 > parser::PAGE_SIZE as u32 {
@@ -76,6 +76,11 @@ impl Memory {
     ///
     /// TODO: cross page writes are not supported yet.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
+        tracing::debug!(
+            "write_bytes: page={page}, offset={offset}, bytes={:?}",
+            bytes
+        );
+
         let to_write = bytes.len() as u32;
         let end = (offset + to_write) as usize;
         if end > parser::PAGE_SIZE as usize {
