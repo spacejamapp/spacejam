@@ -878,7 +878,7 @@ impl Visitor for Interpreter {
 
     fn visit_shlo_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
+        let shift = self.registers[reg1 as usize] % 64;
         let value = self.registers[reg0 as usize].wrapping_shr(shift as u32);
         self.registers[reg2 as usize] = value;
         Ok(())

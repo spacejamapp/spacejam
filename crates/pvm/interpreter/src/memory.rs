@@ -46,6 +46,11 @@ impl Memory {
         let end = (offset + len) as usize;
         data.resize(end, 0);
         bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
+
+        tracing::debug!(
+            "read_bytes: address={}, page={page}, offset={offset}, len={len}, bytes={bytes:?}",
+            page * parser::PAGE_SIZE as u32 + offset
+        );
         Ok(bytes)
     }
 
@@ -61,7 +66,6 @@ impl Memory {
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
         let start = address.wrapping_add(offset);
-        tracing::debug!("write_offset: address={address}, offset={offset}, start={start}");
         let page = start / parser::PAGE_SIZE as u32;
         let offset = start % parser::PAGE_SIZE as u32;
         if offset + V::SIZE as u32 > parser::PAGE_SIZE as u32 {
@@ -76,12 +80,13 @@ impl Memory {
     ///
     /// TODO: cross page writes are not supported yet.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
+        let to_write = bytes.len() as u32;
         tracing::debug!(
-            "write_bytes: page={page}, offset={offset}, bytes={:?}",
+            "write_bytes: address={}, page={page}, offset={offset}, len={to_write},bytes={:?}",
+            page * parser::PAGE_SIZE as u32 + offset,
             bytes
         );
 
-        let to_write = bytes.len() as u32;
         let end = (offset + to_write) as usize;
         if end > parser::PAGE_SIZE as usize {
             tracing::error!("write_bytes, {page} inaccessible");
