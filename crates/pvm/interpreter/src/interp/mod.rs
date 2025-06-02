@@ -142,26 +142,4 @@ impl Interpreter {
         self.jump = Some(*target as usize);
         Ok(())
     }
-
-    /// Find the jump table index for a given PC address
-    /// Returns the index * 2 (with Z_A = 2 alignment) for dynamic jumps
-    pub fn pc_to_jump_index(&self, pc: u64) -> Option<u32> {
-        for (index, &jump_pc) in self.table.iter().enumerate() {
-            if jump_pc == pc {
-                // Return index * 2 (Z_A = 2 alignment factor)
-                return Some((index + 1) as u32 * 2);
-            }
-        }
-        None
-    }
-
-    /// Get the current PC position for return address calculations
-    pub fn current_pc(&self) -> u64 {
-        self.pc as u64
-    }
-
-    /// Get a reference to the jump table for PC to index conversions
-    pub fn jump_table(&self) -> &[u64] {
-        &self.table
-    }
 }

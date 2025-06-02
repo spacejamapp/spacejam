@@ -96,18 +96,8 @@ pub fn parallel<V: Pvm>(
     let mut pairings = BTreeMap::new();
 
     for (service_id, result) in results.into_iter() {
-        tracing::debug!(
-            "Processing service {} result, accounts in result: {:?}",
-            service_id,
-            result.context.accounts.keys().collect::<Vec<_>>()
-        );
         // Update all accounts from the result, not just new ones
         for (id, account) in result.context.accounts.iter() {
-            tracing::debug!(
-                "Updating account {} with storage entries: {}",
-                id,
-                account.storage.len()
-            );
             accounts.insert(*id, account.clone());
         }
 
@@ -116,7 +106,6 @@ pub fn parallel<V: Pvm>(
         // TODO: find a better way to do this.
         for service in result.context.accounts.keys() {
             if !services.contains(service) {
-                tracing::debug!("Marking service {} for removal", service);
                 removed.push(*service);
             }
         }
@@ -170,12 +159,6 @@ pub fn parallel<V: Pvm>(
     );
 
     for (id, privilege_account) in bless_result.context.accounts.iter() {
-        tracing::debug!(
-            "Processing bless service account {}, existing storage: {}, privilege storage: {}",
-            id,
-            accounts.get(id).map(|a| a.storage.len()).unwrap_or(0),
-            privilege_account.storage.len()
-        );
         if let Some(existing_account) = accounts.get_mut(id) {
             // Merge storage: preserve existing entries and add new ones from privilege account
             for (key, value) in &privilege_account.storage {
@@ -238,14 +221,6 @@ pub fn parallel<V: Pvm>(
     if let Some(hash) = assign_result.hash {
         pairings.insert(context.privileges.assign, hash);
     }
-
-    tracing::debug!(
-        "Final accumulated result - accounts: {:?}",
-        accounts
-            .iter()
-            .map(|(id, acc)| (*id, acc.storage.len()))
-            .collect::<Vec<_>>()
-    );
 
     Accumulated {
         accumulated: reports.len(),

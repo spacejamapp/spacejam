@@ -283,8 +283,7 @@ impl Visitor for Interpreter {
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let jump_address = self.registers[reg0 as usize].wrapping_add(imm0) as u32;
-        self.djump(jump_address)
+        self.djump(self.registers[reg0 as usize].wrapping_add(imm0) as u32)
     }
 
     // # NOTE
@@ -354,15 +353,9 @@ impl Visitor for Interpreter {
             imm1,
         } = format;
 
-        // CRITICAL FIX: Calculate jump address BEFORE modifying registers
-        // This ensures that when reg0 == reg1, we use the old value for jumping
-        let jump_address = self.registers[reg1 as usize].wrapping_add(imm1) as u32;
-
-        // Load immediate into register (this might overwrite the register used for jumping)
+        let result = self.djump(self.registers[reg1 as usize].wrapping_add(imm1) as u32);
         self.registers[reg0 as usize] = imm0;
-
-        // Perform the dynamic jump using the pre-calculated address
-        self.djump(jump_address)
+        result
     }
 
     fn visit_load_ind_i8(&mut self, format: format::RRI) -> Result<()> {
@@ -376,8 +369,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.registers[reg1 as usize];
-
-        let value: i8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
         self.registers[reg0 as usize] = value.as_u64();
         Ok(())
     }

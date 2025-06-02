@@ -49,13 +49,7 @@ impl Invocation for Interpreter {
         };
 
         // step the instruction
-        tracing::trace!(
-            target = "pvm",
-            "{:6} | {} | {:?}",
-            pc,
-            instr.value,
-            registers
-        );
+        // tracing::trace!("{:6} | {} | {:?}", pc, instr.value, registers);
         let stepped = pvmi.visit(instr.value);
         let reason = if let Err(e) = stepped {
             pvmi.gas = pvmi.gas.saturating_sub(e.extra_gas());
