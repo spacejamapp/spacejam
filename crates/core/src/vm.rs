@@ -2,7 +2,7 @@
 
 use crate::{
     safrole::ValidatorData,
-    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceAccount},
+    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceAccount, ServiceItem},
     OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
@@ -31,8 +31,24 @@ pub struct StateContext {
 
 impl StateContext {
     /// Share preimages for the services in the state context
-    pub fn provide_preimages(&mut self) {
-        // TODO: implement this
+    pub fn code(&self, service: ServiceId) -> Option<&Vec<u8>> {
+        self.accounts.get(&service)?.code()
+
+        // TODO: the logic below is correct, however
+        // we need to match the test vectors atm.
+        //
+        /* let hash = self.accounts.get(&service)?.code;
+        for account in self.accounts.values() {
+            if account.code != hash {
+                continue;
+            }
+
+            if let Some(code) = account.code() {
+                return Some(code);
+            }
+        }
+
+        None */
     }
 }
 
@@ -77,6 +93,49 @@ pub struct Accumulation {
 
     /// (χ) The privileges
     pub privileges: Privileges,
+}
+
+impl Accumulation {
+    /// Sync preimages for account statistics
+    pub fn accounts(&self) -> Vec<ServiceItem> {
+        let mut items = Vec::new();
+        for (id, account) in self.accounts.iter() {
+            if account.preimage.contains_key(&account.code) {
+                items.push(ServiceItem {
+                    id: *id,
+                    data: account.into(),
+                });
+
+                continue;
+            }
+
+            for other in self.accounts.values() {
+                if other.code != account.code || !other.preimage.contains_key(&account.code) {
+                    continue;
+                }
+
+                let mut account = account.clone();
+                let blob = other
+                    .preimage
+                    .get(&account.code)
+                    .cloned()
+                    .unwrap_or_default();
+                account
+                    .lookup
+                    .insert((account.code, blob.len() as u32), Default::default());
+                account.preimage.insert(account.code, blob);
+
+                let mut item: ServiceItem = ServiceItem {
+                    id: *id,
+                    data: (&account).into(),
+                };
+
+                item.data.preimages.retain(|k| k.hash != account.code);
+                items.push(item);
+            }
+        }
+        items
+    }
 }
 
 /// The accumulate params for the accumulation

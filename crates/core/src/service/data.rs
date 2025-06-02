@@ -2,7 +2,7 @@
 //!
 //! Probably just used for testing.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use crate::{
     service::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
@@ -40,8 +40,8 @@ pub struct ServiceAccountData {
     pub storage: Vec<ServiceStorage>,
 }
 
-impl From<ServiceAccount> for ServiceAccountData {
-    fn from(account: ServiceAccount) -> Self {
+impl From<&ServiceAccount> for ServiceAccountData {
+    fn from(account: &ServiceAccount) -> Self {
         ServiceAccountData {
             service: account.state(),
             preimages: account

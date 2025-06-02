@@ -10,7 +10,6 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::ServiceItem,
     state::{StateKeyInfo, StateKeyLike},
 };
 use specjam::{Section, Test};
@@ -48,15 +47,7 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let accounts = accumulation
-                    .accounts
-                    .into_iter()
-                    .map(|(id, account)| ServiceItem {
-                        id,
-                        data: account.into(),
-                    })
-                    .collect::<Vec<_>>();
-
+                let accounts = accumulation.accounts();
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,
@@ -68,13 +59,9 @@ impl Runner {
                     .zip(output.post_state.accounts.iter())
                     .for_each(|(a, b)| {
                         assert_eq!(a.id, b.id);
-                        assert_eq!(
-                            a.data.service, b.data.service,
-                            "service {} state got override",
-                            a.id
-                        );
-                        assert_eq!(a.data.preimages, b.data.preimages);
+                        assert_eq!(a.data.service, b.data.service,);
                         assert_eq!(a.data.storage, b.data.storage);
+                        assert_eq!(a.data.preimages, b.data.preimages);
                     });
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }

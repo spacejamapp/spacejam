@@ -80,16 +80,6 @@ pub fn parallel<V: Pvm>(
         }
     }
 
-    // debug accounts
-    for (id, account) in &context.accounts {
-        tracing::debug!(
-            "account id={}, items={}, total_gas={}",
-            id,
-            account.items(),
-            account.total()
-        );
-    }
-
     let results: BTreeMap<ServiceId, AccumulateResult> = services
         .iter()
         .map(|service| {

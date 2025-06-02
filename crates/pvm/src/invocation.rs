@@ -274,12 +274,8 @@ pub trait Invocation {
         // entropy'0
         entropy: OpaqueHash,
     ) -> AccumulateResult {
-        let Some(code) = context
-            .accounts
-            .get(&service)
-            .and_then(|account| account.code())
-        else {
-            tracing::warn!("no code found for service: {}", service);
+        let Some(code) = context.code(service) else {
+            tracing::trace!("no code found for service: {}", service);
             return AccumulateResult {
                 context,
                 ..Default::default()
@@ -302,7 +298,7 @@ pub trait Invocation {
             results: operands,
         })
         .expect("failed to encode");
-        let result = Self::argument(&code, 5, gas, &args, accumulate);
+        let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
