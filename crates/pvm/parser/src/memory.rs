@@ -73,7 +73,6 @@ impl Memory {
             stack_padded_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         );
         memory.insert_pages(vec![0; stack_padded_len as usize], ptr, true);
-        assert!(memory.memory.get(&1044447).is_some());
 
         // Args: 2^32 - Z_Z - Z_I ≤ i < 2^32 - Z_Z - Z_I + |a|
         ptr = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;

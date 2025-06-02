@@ -75,15 +75,7 @@ impl From<ServiceAccountData> for ServiceAccount {
         }
 
         ServiceAccount {
-            storage: data
-                .storage
-                .into_iter()
-                .map(|s| {
-                    let mut key = [0; 32];
-                    key[..s.key.len()].copy_from_slice(&s.key);
-                    (key, s.value)
-                })
-                .collect(),
+            storage: data.storage.into_iter().map(|s| (s.key, s.value)).collect(),
             preimage: data
                 .preimages
                 .into_iter()

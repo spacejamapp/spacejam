@@ -11,9 +11,9 @@ pub mod memory;
 mod pvmi;
 mod result;
 
-pub use parser::Register;
+pub use parser::{Register, PAGE_SIZE};
 pub use {
     interp::Interpreter,
-    memory::{Access, Memory, Page, PAGE_SIZE},
+    memory::{Access, Memory, Page},
     result::{Error, Result},
 };

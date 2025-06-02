@@ -5,9 +5,6 @@ use pvm::{Reason, Value};
 use smallvec::SmallVec;
 use std::{collections::BTreeMap, ops::Range};
 
-/// The size of a page in the memory.
-pub const PAGE_SIZE: u32 = 4096;
-
 /// The memory of the interpreter.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct Memory {
@@ -30,8 +27,8 @@ impl Memory {
     /// Read a value from the memory at an offset.
     pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
         let start = address + offset;
-        let page = start / PAGE_SIZE;
-        let bytes = self.read_bytes(page, start % PAGE_SIZE, V::SIZE as u32)?;
+        let page = start / parser::PAGE_SIZE as u32;
+        let bytes = self.read_bytes(page, start % parser::PAGE_SIZE as u32, V::SIZE as u32)?;
         V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible { page })
     }
 
@@ -41,14 +38,13 @@ impl Memory {
         let data = page_data.data.as_slice();
         let data_len = data.len() as u32;
 
-        // fill with 0s if necessary
-        tracing::trace!("read_bytes, page={page}, offset={offset}, len={len}");
+        // fill with 0 if necessary
         let mut bytes = vec![0; len as usize];
         if offset < data_len {
             let to_copy = (data_len - offset).min(len) as usize;
             bytes[..to_copy].copy_from_slice(&data[offset as usize..(offset as usize + to_copy)]);
         } else {
-            tracing::error!("unhandled read_bytes, page={page}, offset={offset}, len={len}");
+            tracing::debug!("reading from uninitialized area: page={page}, offset={offset}, len={len}, returning 0xff");
         }
 
         Ok(bytes)
@@ -56,15 +52,19 @@ impl Memory {
 
     /// Write a value to the memory.
     pub fn write<V: Value>(&mut self, address: u32, value: V) -> Result<()> {
-        self.write_bytes(address / PAGE_SIZE, address % PAGE_SIZE, &value.to_vec())
+        self.write_bytes(
+            address / parser::PAGE_SIZE as u32,
+            address % parser::PAGE_SIZE as u32,
+            &value.to_vec(),
+        )
     }
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
         let start = address.wrapping_add(offset);
-        let page = start / PAGE_SIZE;
-        let offset = start % PAGE_SIZE;
-        if offset + V::SIZE as u32 > PAGE_SIZE {
+        let page = start / parser::PAGE_SIZE as u32;
+        let offset = start % parser::PAGE_SIZE as u32;
+        if offset + V::SIZE as u32 > parser::PAGE_SIZE as u32 {
             tracing::error!("page {page} not found");
             return Err(Error::MemoryInaccessible { page });
         }
@@ -73,21 +73,23 @@ impl Memory {
     }
 
     /// Write bytes to the memory.
+    ///
+    /// TODO: cross page writes are not supported yet.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        if offset + bytes.len() as u32 > PAGE_SIZE {
+        let to_write = bytes.len() as u32;
+        let end = (offset + to_write) as usize;
+        if end > parser::PAGE_SIZE as usize {
             tracing::error!("write_bytes, {page} inaccessible");
             return Err(Error::MemoryInaccessible { page });
         }
 
-        let to_write = bytes.len() as u32;
-        tracing::trace!("write_bytes, page={page}, offset={offset}, len={to_write}");
-        if offset + to_write > PAGE_SIZE as u32 {
-            tracing::error!("unhandled write_bytes, page={page}, offset={offset}, len={to_write}");
+        // resize the page if necessary
+        let page_data = self.mutate(page)?;
+        if page_data.data.len() < end {
+            page_data.data.resize(end, 0);
         }
 
-        // copy data
-        let page_data = self.mutate(page)?;
-        page_data.data[offset as usize..(offset + to_write) as usize].copy_from_slice(bytes);
+        page_data.data[offset as usize..end].copy_from_slice(bytes);
         Ok(())
     }
 
@@ -100,7 +102,7 @@ impl Memory {
                 continue;
             }
 
-            let base = page_num * PAGE_SIZE;
+            let base = page_num * parser::PAGE_SIZE as u32;
             let mut current = None;
             let mut data = Vec::new();
 
@@ -191,15 +193,15 @@ impl pvm::Memory for Memory {
 
     #[tracing::instrument(skip_all)]
     fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
-        let page = address / PAGE_SIZE;
-        let offset = address % PAGE_SIZE;
+        let page = address / parser::PAGE_SIZE as u32;
+        let offset = address % parser::PAGE_SIZE as u32;
         self.read_bytes(page, offset, len).map_err(Reason::from)
     }
 
     #[tracing::instrument(skip_all)]
     fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
-        let page = from / PAGE_SIZE;
-        let offset = from % PAGE_SIZE;
+        let page = from / parser::PAGE_SIZE as u32;
+        let offset = from % parser::PAGE_SIZE as u32;
         self.write_bytes(page, offset, bytes).map_err(Reason::from)
     }
 }
@@ -208,7 +210,7 @@ impl pvm::Memory for Memory {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
     /// The data of the page.
-    pub data: SmallVec<[u8; PAGE_SIZE as usize]>,
+    pub data: SmallVec<[u8; parser::PAGE_SIZE as usize]>,
 
     /// The access type of the page.
     pub access: Access,

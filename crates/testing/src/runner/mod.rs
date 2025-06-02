@@ -265,7 +265,7 @@ impl Runner {
                 let mut memory = pvmi::Memory::default();
                 for page in &input.initial_page_map {
                     memory.pages.insert(
-                        page.address / ::pvmi::PAGE_SIZE,
+                        page.address / ::pvmi::PAGE_SIZE as u32,
                         ::pvmi::Page {
                             data: Default::default(),
                             access: ::pvmi::Access::Mutable,
@@ -275,14 +275,16 @@ impl Runner {
 
                 for mem in input.initial_memory {
                     memory.write_bytes(
-                        mem.address / ::pvmi::PAGE_SIZE,
-                        mem.address % ::pvmi::PAGE_SIZE,
+                        mem.address / ::pvmi::PAGE_SIZE as u32,
+                        mem.address % ::pvmi::PAGE_SIZE as u32,
                         mem.contents.as_slice(),
                     )?;
                 }
 
                 for tpage in input.initial_page_map {
-                    let page = memory.pages.get_mut(&(tpage.address / ::pvmi::PAGE_SIZE));
+                    let page = memory
+                        .pages
+                        .get_mut(&(tpage.address / ::pvmi::PAGE_SIZE as u32));
                     if let Some(page) = page {
                         page.access = if tpage.is_writable {
                             ::pvmi::Access::Mutable

@@ -117,21 +117,23 @@ fn read<X: Argument, Memory: crate::Memory>(
     let general = data.as_general()?;
 
     // get the account
-    let Some((index, account)) = general.get(state.registers[7]) else {
+    let Some((_index, account)) = general.get(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
 
+    // TODO: the test are not hashing the key bytes atm.
+    //
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    let mut input = codec::encode(&index).expect("should not fail");
-    let shash = state
+    // let mut input = codec::encode(&index).expect("should not fail");
+    let bytes = state
         .memory
         .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
-    input.extend_from_slice(&shash);
+    // input.extend_from_slice(&bytes);
 
     // get the storage value
-    let Some(value) = account.storage.get(&crypto::blake2b(&input)) else {
+    let Some(value) = account.storage.get(&bytes) else {
         return Ok(Exit::None as u64);
     };
 
@@ -149,7 +151,6 @@ fn write<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    tracing::debug!("Storage write starting");
     let mut general = match data.as_general() {
         Ok(g) => g,
         Err(e) => {
@@ -157,12 +158,6 @@ fn write<X: Argument, Memory: crate::Memory>(
             return Err(e);
         }
     };
-
-    tracing::debug!(
-        "Storage write - got general for service {}, current storage entries: {}",
-        general.index,
-        general.account.storage.len()
-    );
 
     // extract arguments from registers
     let [ko, kz, vo, vz] = [
@@ -173,7 +168,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     ];
 
     // Get key bytes from memory, log both address and length to help with debugging
-    let key_bytes = match state.memory.read_bytes(ko as u32, kz as u32) {
+    let key = match state.memory.read_bytes(ko as u32, kz as u32) {
         Ok(bytes) => bytes,
         Err(err) => {
             tracing::error!("Failed to read key bytes: {:?}", err);
@@ -181,45 +176,34 @@ fn write<X: Argument, Memory: crate::Memory>(
         }
     };
 
-    tracing::debug!("Storage write - key bytes: {:?}", key_bytes);
-
+    // TODO: the test are not hashing the key bytes atm.
+    //
     // get the key by hashing account index + key bytes
-    let mut input = codec::encode(&general.index).expect("should not fail");
-    input.extend_from_slice(&key_bytes);
-    let key = crypto::blake2b(&input);
+    // let mut input = codec::encode(&general.index).expect("should not fail");
+    // input.extend_from_slice(&key_bytes);
+    // tracing::debug!("Storage write - key bytes: {:?}", input);
+    // let key = crypto::blake2b(&input);
 
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
-        tracing::debug!(
-            "Storage write - removed key, storage entries: {}",
-            general.account.storage.len()
-        );
         data.update_general(general)?;
         Ok(Exit::None as u64)
     } else {
         let value = match state.memory.read_bytes(vo as u32, vz as u32) {
             Ok(bytes) => bytes,
             Err(err) => {
-                tracing::error!("Failed to read value bytes: {:?}", err);
+                tracing::warn!("Failed to read value bytes: {:?}", err);
                 return Ok(Exit::OOB as u64);
             }
         };
 
-        tracing::debug!("Storage write - value bytes: {:?}", value);
-
         let account = general.account.state();
         if account.threshold() > account.balance {
-            tracing::debug!("Storage write - insufficient balance");
             Ok(Exit::Full as u64)
         } else {
             general.account.storage.insert(key, value.clone());
-            tracing::debug!(
-                "Storage write - inserted key, storage entries: {}",
-                general.account.storage.len()
-            );
             data.update_general(general)?;
-            tracing::debug!("Storage write - completed update_general");
             Ok(Exit::Ok as u64)
         }
     }

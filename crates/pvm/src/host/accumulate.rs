@@ -28,13 +28,11 @@ pub struct Accumulate {
 impl Accumulate {
     /// Create a new accumulate
     pub fn new(x: AccumulateContext, timeslot: TimeSlot) -> Self {
-        let result = Self {
+        Self {
             y: x.clone(),
             x,
             timeslot,
-        };
-
-        result
+        }
     }
 
     /// Get the account

@@ -26,9 +26,7 @@ pub trait Memory: Default + Clone {
 }
 
 impl Memory for () {
-    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _heap: Range<u32>) -> Self {
-        ()
-    }
+    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _heap: Range<u32>) -> Self {}
 
     fn contains(&self, _data: &[u8]) -> bool {
         false

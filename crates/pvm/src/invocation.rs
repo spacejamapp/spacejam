@@ -322,8 +322,7 @@ pub trait Invocation {
             );
         }
 
-        let accumulate_result = result.to_result(gas);
-        accumulate_result
+        result.to_result(gas)
     }
 
     /// (ΨT): on-transfer invocation
