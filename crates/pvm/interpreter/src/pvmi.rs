@@ -1,7 +1,7 @@
 //! PVM interface implementation
 
 use crate::{Interpreter, Memory};
-use parser::{Reader, Visitor};
+use parser::{Instruction, Reader, Visitor};
 use pvm::{Gas, Invocation, Reason, Stepped};
 
 impl Invocation for Interpreter {
@@ -32,8 +32,12 @@ impl Invocation for Interpreter {
             .pc(pc)
             .table(jump.to_vec());
 
+        // check if the gas has been exhausted
+        if pvmi.burn(1).is_err() {
+            return Stepped::new(Reason::OOG, pvmi.into());
+        }
+
         // check if the program counter is out of bounds
-        pvmi.gas -= 1;
         if pc >= instructions.len() {
             return Stepped::new(Reason::Panic("end of program".to_string()), pvmi.into());
         }
@@ -48,11 +52,18 @@ impl Invocation for Interpreter {
             }
         };
 
+        // charge extra gas for host calls
+        if matches!(instr.value, Instruction::Ecalli(_)) && pvmi.burn(10).is_err() {
+            return Stepped::new(Reason::OOG, pvmi.into());
+        }
+
         // step the instruction
         // tracing::trace!("{:6} | {} | {:?}", pc, instr.value, registers);
         let stepped = pvmi.visit(instr.value);
         let reason = if let Err(e) = stepped {
-            pvmi.gas = pvmi.gas.saturating_sub(e.extra_gas());
+            if pvmi.burn(e.extra_gas()).is_err() {
+                return Stepped::new(Reason::OOG, pvmi.into());
+            }
 
             // For host calls, advance the PC to the next instruction before triggering the call
             if matches!(e, crate::Error::HostCall(_)) {

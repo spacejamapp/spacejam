@@ -307,7 +307,7 @@ pub trait Invocation {
             );
         }
 
-        result.to_result(gas)
+        result.to_result()
     }
 
     /// (ΨT): on-transfer invocation

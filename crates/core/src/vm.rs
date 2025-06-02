@@ -3,6 +3,7 @@
 use crate::{
     safrole::ValidatorData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceAccount, ServiceItem},
+    statistic::ServiceActivityRecord,
     OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
@@ -77,6 +78,29 @@ pub struct Accumulated {
     pub gas: BTreeMap<ServiceId, Gas>,
 }
 
+impl Accumulated {
+    /// Get the service records
+    pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
+        let mut records = BTreeMap::new();
+        for (service, gas) in self.gas.iter() {
+            // FIXME: currently workaround for always_acc
+            if service == &0 {
+                continue;
+            }
+
+            records.insert(
+                *service,
+                ServiceActivityRecord {
+                    accumulate_gas_used: Compact::new(*gas),
+                    ..Default::default()
+                },
+            );
+        }
+
+        records
+    }
+}
+
 /// The accumulation result used in the runtime
 pub struct Accumulation {
     /// (r) The accumulate root
@@ -93,6 +117,9 @@ pub struct Accumulation {
 
     /// (χ) The privileges
     pub privileges: Privileges,
+
+    /// (πS') The service records
+    pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
 }
 
 impl Accumulation {

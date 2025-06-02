@@ -59,6 +59,18 @@ pub fn accumulate<V: Pvm>(
         &privileges.always_acc,
     );
 
+    // (πS') compose the service activity records
+    let mut records = accumulated.records();
+    for report in &accumulatable {
+        for result in &report.results {
+            records
+                .entry(result.service_id)
+                .or_default()
+                .accumulate_count
+                .0 += 1;
+        }
+    }
+
     // update the accumulated queue (ξ')
     let next_accumulated_queue =
         self::accumulated_history(accumulated_queue, accumulatable, accumulated.accumulated);
@@ -77,6 +89,7 @@ pub fn accumulate<V: Pvm>(
         accumulated_queue: next_accumulated_queue,
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
+        records,
     })
 }
 

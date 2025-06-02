@@ -5,6 +5,7 @@ use score::{
         AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount, ServiceItem,
         ServiceItemJson, WorkReport, WorkReportJson,
     },
+    statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
     Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
@@ -83,6 +84,10 @@ pub struct State {
     /// The accounts
     #[json(nested)]
     pub accounts: Vec<ServiceItem>,
+
+    /// The statistics
+    #[json(nested)]
+    pub statistics: Vec<RecordWrap>,
 }
 
 impl State {
@@ -93,6 +98,25 @@ impl State {
             .map(|item| (item.id, item.data.clone().into()))
             .collect()
     }
+
+    /// Get the statistics
+    pub fn statistics(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
+        self.statistics
+            .iter()
+            .map(|item| (item.id, item.record.clone()))
+            .collect()
+    }
+}
+
+/// Record wrapper
+#[derive(Debug, Serialize, Deserialize, Json)]
+pub struct RecordWrap {
+    /// The service id
+    pub id: ServiceId,
+
+    /// The record
+    #[json(nested)]
+    pub record: ServiceActivityRecord,
 }
 
 /// Privileges wrapper

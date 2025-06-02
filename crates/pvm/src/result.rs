@@ -162,12 +162,12 @@ impl<X: Default> Received<X> {
 
 impl Received<Accumulate> {
     /// Convert the received result to an accumulate result
-    pub fn to_result(self, gas: Gas) -> AccumulateResult {
+    pub fn to_result(self) -> AccumulateResult {
         // Treat Continue and Halt as successful completion
         // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
         match self.reason {
             Reason::Continue | Reason::Halt => {
-                let mut result = self.data.x.to_result(gas);
+                let mut result = self.data.x.to_result(self.gas);
                 if self.output.len() == 32 {
                     let mut hash = [0; 32];
                     hash.copy_from_slice(&self.output);
@@ -175,7 +175,7 @@ impl Received<Accumulate> {
                 }
                 result
             }
-            _ => self.data.y.to_result(gas),
+            _ => self.data.y.to_result(self.gas),
         }
     }
 }

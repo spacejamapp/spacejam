@@ -178,6 +178,7 @@ pub fn parallel<V: Pvm>(
                 existing_account.balance = privilege_account.balance;
                 existing_account.gas = privilege_account.gas.clone();
                 existing_account.code = privilege_account.code;
+
                 // Merge preimages and lookup tables
                 for (hash, preimage) in &privilege_account.preimage {
                     existing_account.preimage.insert(*hash, preimage.clone());
