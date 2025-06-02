@@ -44,24 +44,6 @@ impl AccumulateContext {
 
     /// Convert the accumulate context to an accumulate result
     pub fn to_result(self, gas: Gas) -> AccumulateResult {
-        tracing::debug!(
-            "AccumulateContext to_result called - service {}",
-            self.service
-        );
-        tracing::debug!(
-            "AccumulateContext to_result - accounts: {:?}",
-            self.context.accounts.keys().collect::<Vec<_>>()
-        );
-        tracing::debug!(
-            "AccumulateContext to_result - service {} storage entries: {}",
-            self.service,
-            self.context
-                .accounts
-                .get(&self.service)
-                .map(|a| a.storage.len())
-                .unwrap_or(0)
-        );
-
         AccumulateResult {
             context: self.context,
             transfers: self.transfer,

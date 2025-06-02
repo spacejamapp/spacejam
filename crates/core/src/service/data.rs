@@ -2,7 +2,7 @@
 //!
 //! Probably just used for testing.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{
     service::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
@@ -49,7 +49,8 @@ impl From<ServiceAccount> for ServiceAccountData {
                 .iter()
                 .map(|(k, v)| ServicePreimage {
                     hash: *k,
-                    blob: v.clone(),
+                    // TODO: find a better solution for doing this.
+                    blob: v.to_vec(),
                 })
                 .collect(),
             storage: account

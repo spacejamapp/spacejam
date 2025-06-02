@@ -29,6 +29,13 @@ pub struct StateContext {
     pub privileges: Privileges,
 }
 
+impl StateContext {
+    /// Share preimages for the services in the state context
+    pub fn provide_preimages(&mut self) {
+        // TODO: implement this
+    }
+}
+
 /// The result of the PVM execution
 ///
 /// - N: the number of work-results accumulated.

@@ -24,41 +24,45 @@ impl Memory {
 
         // RO data: Z_Z ≤ i < Z_Z + |o|
         let mut ptr = crate::ZONE_SIZE;
-        tracing::trace!(
-            "initializing RO data, ptr={ptr} size={ro_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            ro_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing RO data, ptr={ptr} size={ro_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     ro_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
+
         memory.insert_pages(blob.ro_data.to_vec(), ptr, false);
 
         // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
         let ro_padding_len = funp(ro_len) - ro_len;
         ptr += ro_len;
-        tracing::trace!(
-            "initializing RO padding, ptr={ptr} size={ro_padding_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            ro_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing RO padding, ptr={ptr} size={ro_padding_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     ro_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
+
         memory.insert_pages(vec![0; ro_padding_len as usize], ptr, false);
 
         // (heap) RW data: 2*Z_Z + Z(|o|) ≤ i < 2*Z_Z + Z(|o|) + |w|
         ptr = 2 * crate::ZONE_SIZE + funz(ro_len);
-        tracing::trace!(
-            "initializing RW data, ptr={ptr} size={rw_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            rw_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing RW data, ptr={ptr} size={rw_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     rw_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
+
         memory.insert_pages(blob.rw_data.to_vec(), ptr, true);
 
         // (heap) RW padding: 2*Z_Z + Z(|o|) + |w| ≤ i < 2*Z_Z + Z(|o|) + P(|w|) + Z_Z_P
         ptr += rw_len;
         let rw_padding_len =
             funp(rw_len) + crate::PAGE_SIZE * (blob.rw_data_padding_pages as u64) - rw_len;
-        tracing::trace!(
-            "initializing RW padding, ptr={ptr} size={rw_padding_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            rw_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing RW padding, ptr={ptr} size={rw_padding_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     rw_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
+
         memory.insert_pages(vec![0; rw_padding_len as usize], ptr, true);
 
         // Stack: 2^32 - 2*Z_Z - Z_I - P(s) ≤ i < 2^32 - 2*Z_Z - Z_I
@@ -67,30 +71,30 @@ impl Memory {
             - 2 * crate::ZONE_SIZE
             - crate::PVM_INIT_DATA_SIZE
             - stack_padded_len;
-        tracing::debug!(
-            "initializing stack, ptr={ptr} size={stack_padded_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            stack_padded_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::debug!(
+        //     "initializing stack, ptr={ptr} size={stack_padded_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     stack_padded_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
         memory.insert_pages(vec![0; stack_padded_len as usize], ptr, true);
 
         // Args: 2^32 - Z_Z - Z_I ≤ i < 2^32 - Z_Z - Z_I + |a|
         ptr = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
-        tracing::trace!(
-            "initializing args, ptr={ptr} size={args_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            args_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing args, ptr={ptr} size={args_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     args_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
         memory.insert_pages(args.to_vec(), ptr, false);
 
         // Args padding: 2^32 - Z_Z - Z_I + |a| ≤ i < 2^32 - Z_Z - Z_I + P(|a|)
         ptr += args_len;
         let args_padding_len = funp(args_len) - args_len;
-        tracing::trace!(
-            "initializing args padding, ptr={ptr} size={args_padding_len} pages={}..{}",
-            ptr / crate::PAGE_SIZE,
-            args_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
-        );
+        // tracing::trace!(
+        //     "initializing args padding, ptr={ptr} size={args_padding_len} pages={}..{}",
+        //     ptr / crate::PAGE_SIZE,
+        //     args_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
+        // );
         memory.insert_pages(vec![0; args_padding_len as usize], ptr, false);
         memory
     }

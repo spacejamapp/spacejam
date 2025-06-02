@@ -70,7 +70,7 @@ mod crypto_impl {
 
             // set preimage
             for (key, value) in &account.preimage {
-                diff.push((self::preimage(*index, *key), value.clone()));
+                diff.push((self::preimage(*index, *key), value.to_vec()));
             }
 
             // set lookup

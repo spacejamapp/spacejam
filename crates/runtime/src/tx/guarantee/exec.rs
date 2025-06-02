@@ -80,6 +80,16 @@ pub fn parallel<V: Pvm>(
         }
     }
 
+    // debug accounts
+    for (id, account) in &context.accounts {
+        tracing::debug!(
+            "account id={}, items={}, total_gas={}",
+            id,
+            account.items(),
+            account.total()
+        );
+    }
+
     let results: BTreeMap<ServiceId, AccumulateResult> = services
         .iter()
         .map(|service| {
@@ -94,12 +104,11 @@ pub fn parallel<V: Pvm>(
     // n = ⋃_{s ∈ s}({(Δ₁(o, w, f, s)_o)_d ∖ keys{d ∖ {s}}})
     // m = ⋃_{s ∈ s}(keys{d} ∖ keys{(Δ₁(o, w, f, s)_o)_d})
     let original_accounts = &context.accounts;
-    let mut new_accounts = BTreeSet::new(); // 𝐧
-    let mut removed_accounts = BTreeSet::new(); // 𝐦
+    let mut new_accounts = BTreeSet::new(); // p
+    let mut removed_accounts = BTreeSet::new(); // m
     let mut gas = BTreeMap::new();
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
-    let _preimage_provisions: BTreeMap<ServiceId, Vec<u8>> = BTreeMap::new(); // 𝐩
 
     // Process each service result according to the specification
     for (service_id, result) in results.iter() {
@@ -125,13 +134,9 @@ pub fn parallel<V: Pvm>(
         if let Some(hash) = result.hash {
             pairings.insert(*service_id, hash);
         }
-
-        // Collect preimage provisions (hashes from service outputs)
-        // TODO: Extract preimage provisions from result context - this would require
-        // additional data from the PVM result to implement the 𝐏 function from the spec
     }
 
-    // Build the final account state according to: (𝐝 ∪ 𝐧) ∖ 𝐦
+    // Build the final account state according to: (d ∪ n) ∖ m
     let mut final_accounts = original_accounts.clone();
 
     // Add new accounts and update existing ones from service executions

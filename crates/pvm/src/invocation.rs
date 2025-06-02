@@ -149,7 +149,6 @@ pub trait Invocation {
             return Stepped::new(reason, state).with(input);
         };
 
-        tracing::debug!("host call: {call}");
         let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => {
@@ -280,7 +279,7 @@ pub trait Invocation {
             .get(&service)
             .and_then(|account| account.code())
         else {
-            // TODO: the graypaper could be wrong, no need to run the I function
+            tracing::warn!("no code found for service: {}", service);
             return AccumulateResult {
                 context,
                 ..Default::default()
@@ -297,24 +296,14 @@ pub trait Invocation {
         };
 
         let accumulate = host::Accumulate::new(accumulate_context, timeslot);
-
-        // TODO: throw error properly
-        for operand in &operands {
-            tracing::debug!("operand: {:?}", operand.data);
-        }
-
-        tracing::debug!(
-            "encoding accumulate operands, slot: {timeslot}, service: {service}, operands: {}",
-            operands.len()
-        );
         let args = codec::encode(&AccumulateParams {
             slot: Compact::new(timeslot),
             id: Compact::new(service),
             results: operands,
         })
         .expect("failed to encode");
-        let result = Self::argument(code, 5, gas, &args, accumulate);
-        if result.reason != Reason::Continue {
+        let result = Self::argument(&code, 5, gas, &args, accumulate);
+        if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
                 result.reason,
