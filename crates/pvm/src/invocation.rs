@@ -86,11 +86,7 @@ pub trait Invocation {
                     continue;
                 }
                 // reset the program counter on halt or panic
-                Reason::Halt | Reason::Panic(_) => {
-                    // TODO: stf and GP not matched
-                    //
-                    // state.pc = 0
-                }
+                Reason::Halt | Reason::Panic(_) => {}
                 _ => {}
             };
 
@@ -298,6 +294,7 @@ pub trait Invocation {
             results: operands,
         })
         .expect("failed to encode");
+
         let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(

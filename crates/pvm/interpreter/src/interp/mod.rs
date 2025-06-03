@@ -149,12 +149,6 @@ impl Interpreter {
             return Err(Error::OOG);
         }
 
-        /* tracing::trace!(
-            "[{}] charge gas: {gas} ({} -> {})",
-            self.pc,
-            self.gas,
-            self.gas - gas
-        ); */
         self.gas = self.gas.saturating_sub(gas);
         Ok(())
     }

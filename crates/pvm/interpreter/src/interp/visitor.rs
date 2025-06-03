@@ -714,7 +714,7 @@ impl Visitor for Interpreter {
 
     fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if (self.registers[reg1 as usize] as i32) > (imm0 as i32) {
+        if (self.registers[reg1 as usize] as i64) > (imm0 as i64) {
             self.registers[reg0 as usize] = 1;
         } else {
             self.registers[reg0 as usize] = 0;
@@ -735,7 +735,7 @@ impl Visitor for Interpreter {
 
     fn visit_set_lt_s_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if (self.registers[reg1 as usize] as i32) < (imm0 as i32) {
+        if (self.registers[reg1 as usize] as i64) < (imm0 as i64) {
             self.registers[reg0 as usize] = 1;
         } else {
             self.registers[reg0 as usize] = 0;
@@ -768,7 +768,7 @@ impl Visitor for Interpreter {
 
     fn visit_set_lt_s(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if (self.registers[reg0 as usize] as i32) < (self.registers[reg1 as usize] as i32) {
+        if (self.registers[reg0 as usize] as i64) < (self.registers[reg1 as usize] as i64) {
             self.registers[reg2 as usize] = 1;
         } else {
             self.registers[reg2 as usize] = 0;
@@ -813,7 +813,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = self.registers[reg1 as usize] % 32;
         let value = ((imm0 as i32).wrapping_shr(shift as u32)) as u64;
-        self.registers[reg0 as usize] = value;
+        self.registers[reg0 as usize] = value.sign_ext32();
         Ok(())
     }
 
@@ -860,8 +860,8 @@ impl Visitor for Interpreter {
     fn visit_shlo_l_imm_alt_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = self.registers[reg1 as usize] % 32;
-        let value = imm0.wrapping_shl(shift as u32);
-        self.registers[reg0 as usize] = value;
+        let value = ((imm0 as u32).wrapping_shl(shift as u32)) as u64;
+        self.registers[reg0 as usize] = value.sign_ext32();
         Ok(())
     }
 
@@ -909,7 +909,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = (self.registers[reg1 as usize] as u32) % 32;
         let value = ((imm0 as u32).wrapping_shr(shift)) as u64;
-        self.registers[reg0 as usize] = value;
+        self.registers[reg0 as usize] = value.sign_ext32();
         Ok(())
     }
 
