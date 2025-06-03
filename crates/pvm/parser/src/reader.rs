@@ -68,6 +68,49 @@ impl<'r> Reader<'r> {
             value: instruction,
         })
     }
+
+    /// (A.4) Read a block-sequence of instructions.
+    pub fn read_block(&mut self) -> Result<Vec<Offset<Instruction>>> {
+        let mut block = Vec::new();
+        while !self.eof() {
+            let mut end_of_block = false;
+            let instruction = self.read()?;
+            match &instruction.value {
+                Instruction::Trap
+                | Instruction::Fallthrough
+                | Instruction::Jump(_)
+                | Instruction::JumpInd(_)
+                | Instruction::LoadImmJump(_)
+                | Instruction::LoadImmJumpInd(_)
+                | Instruction::BranchEq(_)
+                | Instruction::BranchNe(_)
+                | Instruction::BranchGeU(_)
+                | Instruction::BranchGeS(_)
+                | Instruction::BranchLtU(_)
+                | Instruction::BranchLtS(_)
+                | Instruction::BranchEqImm(_)
+                | Instruction::BranchNeImm(_)
+                | Instruction::BranchGeUImm(_)
+                | Instruction::BranchGeSImm(_)
+                | Instruction::BranchLtUImm(_)
+                | Instruction::BranchLtSImm(_)
+                | Instruction::BranchLeUImm(_)
+                | Instruction::BranchLeSImm(_)
+                | Instruction::BranchGtUImm(_)
+                | Instruction::BranchGtSImm(_) => {
+                    end_of_block = true;
+                }
+                _ => {}
+            }
+
+            block.push(instruction);
+            if end_of_block {
+                break;
+            }
+        }
+
+        Ok(block)
+    }
 }
 
 /// A wrapped value with an offset range.

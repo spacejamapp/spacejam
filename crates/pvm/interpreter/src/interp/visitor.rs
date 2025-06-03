@@ -271,7 +271,7 @@ impl Visitor for Interpreter {
         Err(crate::Error::HostCall(imm0 as u32))
     }
 
-    // TODO: re-check the fallthrough logic
+    // Fallthrough instruction: no-op that allows execution to continue to the next instruction
     fn visit_fallthrough(&mut self) -> Result<()> {
         Ok(())
     }
