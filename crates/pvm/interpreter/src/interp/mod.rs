@@ -103,8 +103,6 @@ impl Interpreter {
     /// Branch to the given target.
     fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {
-            // TODO:
-            // - block checks, need to get access to the reader.
             self.jump = Some((self.pc as i32 + offset) as usize);
         }
 

@@ -104,7 +104,7 @@ impl Visitor for Interpreter {
 
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] as i32 > imm0 as i32)
+        self.branch(off0, self.registers[reg0 as usize] as i64 > imm0 as i64)
     }
 
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO) -> Result<()> {
@@ -114,7 +114,7 @@ impl Visitor for Interpreter {
 
     fn visit_branch_le_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] as i32 <= imm0 as i32)
+        self.branch(off0, self.registers[reg0 as usize] as i64 <= imm0 as i64)
     }
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO) -> Result<()> {
@@ -1011,7 +1011,6 @@ impl Visitor for Interpreter {
     fn visit_store_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
-
         self.memory.write_offset(
             address as u32,
             imm0 as u32,
