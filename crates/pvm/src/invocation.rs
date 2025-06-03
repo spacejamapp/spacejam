@@ -145,6 +145,7 @@ pub trait Invocation {
             return Stepped::new(reason, state).with(input);
         };
 
+        tracing::debug!("host call: {:?}", call);
         let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => {

@@ -184,6 +184,8 @@ fn write<X: Argument, Memory: crate::Memory>(
     // tracing::debug!("Storage write - key bytes: {:?}", input);
     // let key = crypto::blake2b(&input);
 
+    tracing::debug!("writing storage: {:?}", key);
+
     // update storage
     if vz == 0 {
         general.account.storage.remove(&key);
@@ -202,6 +204,7 @@ fn write<X: Argument, Memory: crate::Memory>(
         if account.threshold() > account.balance {
             Ok(Exit::Full as u64)
         } else {
+            tracing::debug!("writing storage: {:?} with value: {:?}", key, value);
             general.account.storage.insert(key, value.clone());
             data.update_general(general)?;
             Ok(Exit::Ok as u64)

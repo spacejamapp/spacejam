@@ -83,6 +83,10 @@ impl Invocation for Interpreter {
             } else {
                 pvmi.pc = next;
             }
+
+            if matches!(reason, Reason::HostCall(_)) {
+                break;
+            }
         }
         tracing::trace!(
             "charge gas: {} ({} -> {})",
