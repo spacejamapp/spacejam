@@ -27,7 +27,7 @@ pub enum Reason {
     OOG,
 
     /// The invocation completed with a page fault.
-    Fault(u32),
+    Fault { page: u32 },
 
     /// The status is unknown.
     HostCall(u32),
@@ -47,7 +47,7 @@ impl Reason {
     pub fn is_err(&self) -> bool {
         matches!(
             self,
-            Reason::Halt | Reason::Panic(_) | Reason::OOG | Reason::Fault(_)
+            Reason::Halt | Reason::Panic(_) | Reason::OOG | Reason::Fault { page: _ }
         )
     }
 }
@@ -68,7 +68,7 @@ impl Display for Reason {
                 Reason::Halt => "halt".to_string(),
                 Reason::Panic(_) => "panic".to_string(),
                 Reason::OOG => "OOG".to_string(),
-                Reason::Fault(_) => "page-fault".to_string(),
+                Reason::Fault { page: _ } => "page-fault".to_string(),
                 Reason::HostCall(addr) => format!("host-call({addr})"),
             }
         )
@@ -162,19 +162,21 @@ impl<X: Default> Received<X> {
 
 impl Received<Accumulate> {
     /// Convert the received result to an accumulate result
-    pub fn to_result(self, gas: Gas) -> AccumulateResult {
-        if self.reason != Reason::Continue {
-            return self.data.y.to_result(gas);
+    pub fn to_result(self) -> AccumulateResult {
+        // Treat Continue and Halt as successful completion
+        // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
+        match self.reason {
+            Reason::Continue | Reason::Halt => {
+                let mut result = self.data.x.to_result(self.gas);
+                if self.output.len() == 32 {
+                    let mut hash = [0; 32];
+                    hash.copy_from_slice(&self.output);
+                    result.hash = Some(hash);
+                }
+                result
+            }
+            _ => self.data.y.to_result(self.gas),
         }
-
-        let mut result = self.data.x.to_result(gas);
-        if self.output.len() == 32 {
-            let mut hash = [0; 32];
-            hash.copy_from_slice(&self.output);
-            result.hash = Some(hash);
-        }
-
-        result
     }
 }
 

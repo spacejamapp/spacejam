@@ -142,4 +142,14 @@ impl Interpreter {
         self.jump = Some(*target as usize);
         Ok(())
     }
+
+    /// Burn the gas.
+    pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
+        if self.gas < gas {
+            return Err(Error::OOG);
+        }
+
+        self.gas = self.gas.saturating_sub(gas);
+        Ok(())
+    }
 }

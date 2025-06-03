@@ -40,8 +40,8 @@ pub struct ServiceAccountData {
     pub storage: Vec<ServiceStorage>,
 }
 
-impl From<ServiceAccount> for ServiceAccountData {
-    fn from(account: ServiceAccount) -> Self {
+impl From<&ServiceAccount> for ServiceAccountData {
+    fn from(account: &ServiceAccount) -> Self {
         ServiceAccountData {
             service: account.state(),
             preimages: account
@@ -49,7 +49,8 @@ impl From<ServiceAccount> for ServiceAccountData {
                 .iter()
                 .map(|(k, v)| ServicePreimage {
                     hash: *k,
-                    blob: v.clone(),
+                    // TODO: find a better solution for doing this.
+                    blob: v.to_vec(),
                 })
                 .collect(),
             storage: account
@@ -75,15 +76,7 @@ impl From<ServiceAccountData> for ServiceAccount {
         }
 
         ServiceAccount {
-            storage: data
-                .storage
-                .into_iter()
-                .map(|s| {
-                    let mut key = [0; 32];
-                    key[..s.key.len()].copy_from_slice(&s.key);
-                    (key, s.value)
-                })
-                .collect(),
+            storage: data.storage.into_iter().map(|s| (s.key, s.value)).collect(),
             preimage: data
                 .preimages
                 .into_iter()

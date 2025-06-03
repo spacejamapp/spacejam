@@ -1,6 +1,6 @@
 //! Program blob.
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, ops::Range};
 pub use {
     blob::{deblob, ProgramBlob},
     preimage::PreimageBlob,
@@ -13,7 +13,12 @@ mod standard;
 
 /// Convert a preimage blob to a program.
 pub fn preimage<'a>(blob: &'a [u8], args: &'a [u8]) -> anyhow::Result<Program<'a>> {
-    PreimageBlob::from_bytes(blob)?.blob.init(args)
+    let preimage = PreimageBlob::from_bytes(blob)?;
+    tracing::debug!(
+        "metadata: {:?}",
+        String::from_utf8_lossy(&preimage.metadata)
+    );
+    preimage.blob.init(args)
 }
 
 /// A PVM program.
@@ -25,7 +30,10 @@ pub struct Program<'a> {
     pub registers: [u64; 13],
 
     /// The memory (µ).
-    pub memory: BTreeMap<u32, (Cow<'a, [u8]>, bool)>,
+    pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
+
+    /// The initial heap pointer.
+    pub heap: Range<u32>,
 }
 
 /// (µ) The memory of a program.

@@ -3,89 +3,92 @@
 use crate::{Error, Result};
 use pvm::{Reason, Value};
 use smallvec::SmallVec;
-use std::collections::BTreeMap;
-
-/// The size of a page in the memory.
-pub const PAGE_SIZE: u32 = 4096;
+use std::{collections::BTreeMap, ops::Range};
 
 /// The memory of the interpreter.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct Memory {
     /// The pages of the memory.
     pub pages: BTreeMap<u32, Page>,
+
+    /// Current heap pointer for sbrk implementation
+    pub heap_ptr: u32,
+
+    /// The heap range.
+    pub heap: Range<u32>,
 }
 
 impl Memory {
     /// Read a value from the memory.
-    pub fn read<V: Value>(&self, address: u32) -> Result<V> {
+    pub fn read<V: Value>(&mut self, address: u32) -> Result<V> {
         self.read_offset(address, 0)
     }
 
     /// Read a value from the memory at an offset.
-    pub fn read_offset<V: Value>(&self, address: u32, offset: u32) -> Result<V> {
+    pub fn read_offset<V: Value>(&mut self, address: u32, offset: u32) -> Result<V> {
         let start = address.wrapping_add(offset);
-        let page = start / PAGE_SIZE;
-        let offset = start % PAGE_SIZE;
-
-        // read bytes
-        let bytes = self.read_bytes(page, offset, V::SIZE as u32)?;
-        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible(page))
+        let page = start / parser::PAGE_SIZE as u32;
+        let bytes = self.read_bytes(page, start % parser::PAGE_SIZE as u32, V::SIZE as u32)?;
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible { page })
     }
 
     /// Read bytes from the memory.
     pub fn read_bytes(&self, page: u32, offset: u32, len: u32) -> Result<Vec<u8>> {
-        if offset + len > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page));
+        if offset + len > parser::PAGE_SIZE as u32 {
+            return Err(Error::MemoryInaccessible { page });
         }
 
-        let page = self.access(page)?;
-        let data = page.data.as_slice();
-        let data_len = data.len() as u32;
+        let page_data = self.access(page)?;
+        let mut data = page_data.data.as_slice().to_vec();
 
-        // fill with 0s if necessary
+        // fill with 0 if necessary
         let mut bytes = vec![0; len as usize];
-        let to_copy = (len).min(data_len.saturating_sub(offset));
-        bytes[..to_copy as usize]
-            .copy_from_slice(&data[offset as usize..(offset + to_copy) as usize]);
+        let end = (offset + len) as usize;
+        data.resize(end, 0);
+        bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
         Ok(bytes)
     }
 
     /// Write a value to the memory.
     pub fn write<V: Value>(&mut self, address: u32, value: V) -> Result<()> {
-        self.write_bytes(address / PAGE_SIZE, address % PAGE_SIZE, &value.to_vec())
+        self.write_bytes(
+            address / parser::PAGE_SIZE as u32,
+            address % parser::PAGE_SIZE as u32,
+            &value.to_vec(),
+        )
     }
 
     /// Write a value to the memory at an offset.
     pub fn write_offset<V: Value>(&mut self, address: u32, offset: u32, value: V) -> Result<()> {
         let start = address.wrapping_add(offset);
-        let page = start / PAGE_SIZE;
-        let offset = start % PAGE_SIZE;
-        if offset + V::SIZE as u32 > PAGE_SIZE {
-            return Err(Error::MemoryInaccessible(page));
+        let page = start / parser::PAGE_SIZE as u32;
+        let offset = start % parser::PAGE_SIZE as u32;
+        if offset + V::SIZE as u32 > parser::PAGE_SIZE as u32 {
+            tracing::error!("page {page} not found");
+            return Err(Error::MemoryInaccessible { page });
         }
 
         self.write_bytes(page, offset, &value.to_vec())
     }
 
     /// Write bytes to the memory.
+    ///
+    /// TODO: cross page writes are not supported yet.
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        // Check if page exists, don't auto-allocate
-        if !self.pages.contains_key(&page) {
-            return Err(Error::MemoryInaccessible(page));
-        }
-
-        let page = self.mutate(page)?;
-
-        // extend page if necessary
-        let data_len = page.data.len() as u32;
         let to_write = bytes.len() as u32;
-        if data_len < to_write + offset {
-            page.data.resize(to_write as usize + offset as usize, 0);
+        let end = (offset + to_write) as usize;
+        if end > parser::PAGE_SIZE as usize {
+            tracing::error!("write_bytes, {page} inaccessible");
+            return Err(Error::MemoryInaccessible { page });
         }
 
-        // copy data
-        page.data[offset as usize..(offset + to_write) as usize]
-            .copy_from_slice(&bytes[..to_write as usize]);
+        // resize the page if necessary
+        let page_data = self.mutate(page)?;
+        if page_data.data.len() < end {
+            page_data.data.resize(end, 0);
+        }
+
+        page_data.data[offset as usize..end].copy_from_slice(bytes);
         Ok(())
     }
 
@@ -98,7 +101,7 @@ impl Memory {
                 continue;
             }
 
-            let base = page_num * PAGE_SIZE;
+            let base = page_num * parser::PAGE_SIZE as u32;
             let mut current = None;
             let mut data = Vec::new();
 
@@ -131,7 +134,14 @@ impl Memory {
 
     /// Get the access type of a memory slot.
     fn access(&self, page: u32) -> Result<&Page> {
-        self.pages.get(&page).ok_or(Error::MemoryInaccessible(page))
+        // Check if the page exists
+        match self.pages.get(&page) {
+            Some(page_data) => Ok(page_data),
+            None => {
+                tracing::warn!("memory page {page} not allocated");
+                Err(Error::MemoryInaccessible { page })
+            }
+        }
     }
 
     /// Get the access type of a page.
@@ -139,42 +149,32 @@ impl Memory {
         let page = self
             .pages
             .get_mut(&pagenum)
-            .ok_or(Error::MemoryInaccessible(pagenum))?;
+            .ok_or(Error::MemoryInaccessible { page: pagenum })?;
         if page.is_immutable() {
-            return Err(Error::MemoryImmutable(pagenum));
+            tracing::error!("mutate, memory write: page {pagenum} is immutable");
+            return Err(Error::MemoryImmutable { page: pagenum });
         }
 
         Ok(page)
     }
-
-    /// Allocate a memory page if it doesn't exist
-    pub fn allocate_page(&mut self, page_num: u32) -> Result<()> {
-        self.pages.entry(page_num).or_insert(Page {
-            data: SmallVec::new(),
-            access: Access::Mutable,
-        });
-
-        Ok(())
-    }
 }
 
 impl pvm::Memory for Memory {
-    // TODO: optimize this without using windows
     fn contains(&self, data: &[u8]) -> bool {
-        let len = data.len();
+        // Simple implementation: check if the data matches any page content
         self.pages
             .values()
-            .any(|page| page.data.windows(len).any(|window| window == data))
+            .any(|page| page.data.windows(data.len()).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (std::borrow::Cow<'_, [u8]>, bool)>) -> Self {
+    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, heap: Range<u32>) -> Self {
         let mut pages = BTreeMap::new();
-        for (addr, (data, is_writable)) in memory {
+        for (page_num, (data, writable)) in memory {
             pages.insert(
-                addr,
+                page_num,
                 Page {
-                    data: data.as_ref().into(),
-                    access: if is_writable {
+                    data: SmallVec::from_slice(&data),
+                    access: if writable {
                         Access::Mutable
                     } else {
                         Access::Immutable
@@ -183,37 +183,25 @@ impl pvm::Memory for Memory {
             );
         }
 
-        Self { pages }
-    }
-
-    fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
-        let page = address / PAGE_SIZE;
-        let offset = address % PAGE_SIZE;
-        self.read_bytes(page, offset, len).map_err(Into::into)
-    }
-
-    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
-        let page = from / PAGE_SIZE;
-        let offset = from % PAGE_SIZE;
-
-        // For cross-page writes, we need to handle them properly
-        let mut remaining = bytes;
-        let mut current_page = page;
-        let mut current_offset = offset;
-
-        while !remaining.is_empty() {
-            let bytes_in_page = (PAGE_SIZE - current_offset).min(remaining.len() as u32) as usize;
-            let chunk = &remaining[..bytes_in_page];
-
-            self.write_bytes(current_page, current_offset, chunk)
-                .map_err(|e| -> Reason { e.into() })?;
-
-            remaining = &remaining[bytes_in_page..];
-            current_page += 1;
-            current_offset = 0;
+        Self {
+            pages,
+            heap_ptr: heap.start,
+            heap,
         }
+    }
 
-        Ok(())
+    #[tracing::instrument(skip_all)]
+    fn read_bytes(&self, address: u32, len: u32) -> std::result::Result<Vec<u8>, Reason> {
+        let page = address / parser::PAGE_SIZE as u32;
+        let offset = address % parser::PAGE_SIZE as u32;
+        self.read_bytes(page, offset, len).map_err(Reason::from)
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> std::result::Result<(), Reason> {
+        let page = from / parser::PAGE_SIZE as u32;
+        let offset = from % parser::PAGE_SIZE as u32;
+        self.write_bytes(page, offset, bytes).map_err(Reason::from)
     }
 }
 
@@ -221,7 +209,7 @@ impl pvm::Memory for Memory {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
     /// The data of the page.
-    pub data: SmallVec<[u8; PAGE_SIZE as usize]>,
+    pub data: SmallVec<[u8; parser::PAGE_SIZE as usize]>,
 
     /// The access type of the page.
     pub access: Access,

@@ -14,7 +14,14 @@ pub use {
 
 /// A compact number.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Compact<T: Serialize>(T);
+pub struct Compact<T: Serialize>(pub T);
+
+impl<T: Serialize> Compact<T> {
+    /// Create a new compact number
+    pub fn new(value: T) -> Self {
+        Compact(value)
+    }
+}
 
 impl<T: Serialize + Clone> Compact<T> {
     /// Create a new compact number

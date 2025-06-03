@@ -43,20 +43,33 @@ pub fn accumulate<V: Pvm>(
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
-    tracing::trace!("privileges: {:?}", privileges);
-    tracing::trace!("accumulatable: {:?}", accumulatable.len());
-
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
     let accumulated = exec::outer::<V>(
         gas_limit,
         &accumulatable,
         StateContext {
-            accounts,
-            ..Default::default()
+            accounts: accounts.clone(),
+            privileges: privileges.clone(),
+            // Initialize validators and authorization to defaults for now
+            // TODO: these should come from the full state in a real implementation
+            validators: Vec::new(),
+            authorization: Default::default(),
         },
         &privileges.always_acc,
     );
+
+    // (πS') compose the service activity records
+    let mut records = accumulated.records();
+    for report in &accumulatable {
+        for result in &report.results {
+            records
+                .entry(result.service_id)
+                .or_default()
+                .accumulate_count
+                .0 += 1;
+        }
+    }
 
     // update the accumulated queue (ξ')
     let next_accumulated_queue =
@@ -76,6 +89,7 @@ pub fn accumulate<V: Pvm>(
         accumulated_queue: next_accumulated_queue,
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
+        records,
     })
 }
 

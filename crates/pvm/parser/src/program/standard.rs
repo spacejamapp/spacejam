@@ -45,10 +45,17 @@ impl<'a> StandardProgramBlob<'a> {
         registers[7] = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         registers[8] = args.len() as u64;
 
+        // heap parameters
+        let initial_heap = 2 * crate::ZONE_SIZE
+            + (self.ro_data.len() as u64).div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
+        let heap_size = self.rw_data_padding_pages as u64 * crate::ZONE_SIZE + crate::PAGE_SIZE
+            - self.rw_data.len() as u64;
+
         Ok(Program {
             registers,
             memory: Memory::init(self, args).memory,
             code: self.code_blob.clone(),
+            heap: initial_heap as u32..(initial_heap + heap_size) as u32,
         })
     }
 }
@@ -97,12 +104,6 @@ impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {
         // c - decode the code
         let code_blob = io::read_cow(&mut blob, code_blob_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading code"))?;
-
-        tracing::trace!("RO data: {:?}", ro_data.len());
-        tracing::trace!("RW data: {:?}", rw_data.len());
-        tracing::trace!("Stack size: {:?}", stack_size);
-        tracing::trace!("RW data padding pages: {:?}", rw_data_padding_pages);
-        tracing::trace!("Code blob: {:?}", code_blob.len());
 
         Ok(Self {
             rw_data_padding_pages,

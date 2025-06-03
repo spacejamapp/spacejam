@@ -10,7 +10,6 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::ServiceItem,
     state::{StateKeyInfo, StateKeyLike},
 };
 use specjam::{Section, Test};
@@ -24,6 +23,8 @@ impl Runner {
     pub fn step(test: &Test) -> Result<()> {
         tracing_subscriber::fmt::Subscriber::builder()
             .with_env_filter(EnvFilter::from_default_env())
+            .without_time()
+            .with_ansi(false)
             .init();
 
         match test.section {
@@ -46,25 +47,15 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let _accounts = accumulation
-                    .accounts
-                    .into_iter()
-                    .map(|(id, account)| ServiceItem {
-                        id,
-                        data: account.into(),
-                    })
-                    .collect::<Vec<_>>();
-
+                let accounts = accumulation.accounts();
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-                /* assert_eq!(
-                    accounts[0].data.storage, output.post_state.accounts[0].data.storage,
-                    "storage mismatch"
-                ); */
+                assert_eq!(accounts, output.post_state.accounts);
+                // assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
@@ -263,7 +254,7 @@ impl Runner {
                 let mut memory = pvmi::Memory::default();
                 for page in &input.initial_page_map {
                     memory.pages.insert(
-                        page.address / ::pvmi::PAGE_SIZE,
+                        page.address / ::pvmi::PAGE_SIZE as u32,
                         ::pvmi::Page {
                             data: Default::default(),
                             access: ::pvmi::Access::Mutable,
@@ -273,14 +264,16 @@ impl Runner {
 
                 for mem in input.initial_memory {
                     memory.write_bytes(
-                        mem.address / ::pvmi::PAGE_SIZE,
-                        mem.address % ::pvmi::PAGE_SIZE,
+                        mem.address / ::pvmi::PAGE_SIZE as u32,
+                        mem.address % ::pvmi::PAGE_SIZE as u32,
                         mem.contents.as_slice(),
                     )?;
                 }
 
                 for tpage in input.initial_page_map {
-                    let page = memory.pages.get_mut(&(tpage.address / ::pvmi::PAGE_SIZE));
+                    let page = memory
+                        .pages
+                        .get_mut(&(tpage.address / ::pvmi::PAGE_SIZE as u32));
                     if let Some(page) = page {
                         page.access = if tpage.is_writable {
                             ::pvmi::Access::Mutable

@@ -63,12 +63,14 @@ mod crypto_impl {
 
             // set storage
             for (key, value) in &account.storage {
-                diff.push((self::storage(*index, *key), value.clone()));
+                let mut buff = [0; 32];
+                buff[..key.len()].copy_from_slice(key);
+                diff.push((self::storage(*index, buff), value.clone()));
             }
 
             // set preimage
             for (key, value) in &account.preimage {
-                diff.push((self::preimage(*index, *key), value.clone()));
+                diff.push((self::preimage(*index, *key), value.to_vec()));
             }
 
             // set lookup

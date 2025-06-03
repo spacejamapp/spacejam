@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct ServiceAccount {
     /// storage of the service account (s)
-    pub storage: BTreeMap<OpaqueHash, Vec<u8>>,
+    pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
 
     /// The preimage of the service account (p)
     pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,

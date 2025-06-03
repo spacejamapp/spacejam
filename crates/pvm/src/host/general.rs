@@ -4,10 +4,8 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Reason, Result, State,
 };
-use codec::Numeric;
 use score::{service::ServiceAccount, Gas, ServiceId};
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Input data of general host functions
 #[derive(Debug, Clone, Default)]
@@ -119,21 +117,23 @@ fn read<X: Argument, Memory: crate::Memory>(
     let general = data.as_general()?;
 
     // get the account
-    let Some((index, account)) = general.get(state.registers[7]) else {
+    let Some((_index, account)) = general.get(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
 
+    // TODO: the test are not hashing the key bytes atm.
+    //
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    let mut input = codec::encode(&index).expect("should not fail");
-    let shash = state
+    // let mut input = codec::encode(&index).expect("should not fail");
+    let bytes = state
         .memory
-        .read_bytes(ko as u32, (ko + kz) as u32)
+        .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
-    input.extend_from_slice(&shash);
+    // input.extend_from_slice(&bytes);
 
     // get the storage value
-    let Some(value) = account.storage.get(&crypto::blake2b(&input)) else {
+    let Some(value) = account.storage.get(&bytes) else {
         return Ok(Exit::None as u64);
     };
 
@@ -151,10 +151,13 @@ fn write<X: Argument, Memory: crate::Memory>(
     state: &mut State<Memory>,
     data: &mut X,
 ) -> Result<ExitCode> {
-    tracing::debug!("storage write host call - START");
-    tracing::debug!("registers: {:?}", state.registers);
-
-    let mut general = data.as_general()?;
+    let mut general = match data.as_general() {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::error!("as_general() failed: {:?}", e);
+            return Err(e);
+        }
+    };
 
     // extract arguments from registers
     let [ko, kz, vo, vz] = [
@@ -164,163 +167,46 @@ fn write<X: Argument, Memory: crate::Memory>(
         state.registers[10],
     ];
 
-    tracing::debug!(
-        "storage write params: ko={}, kz={}, vo={}, vz={}",
-        ko,
-        kz,
-        vo,
-        vz
-    );
+    // Get key bytes from memory, log both address and length to help with debugging
+    let key = match state.memory.read_bytes(ko as u32, kz as u32) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            tracing::error!("Failed to read key bytes: {:?}", err);
+            return Ok(Exit::OOB as u64);
+        }
+    };
 
-    // get the key
-    let mut input = codec::encode(&general.index).expect("should not fail");
-    input.extend_from_slice(
-        &state
-            .memory
-            .read_bytes(ko as u32, kz as u32)
-            .expect("should not fail"),
-    );
-    let key = crypto::blake2b(&input);
-
-    tracing::debug!(
-        "service_id: {}, raw_key: {:?}, blake2b_key: {:?}",
-        general.index,
-        state
-            .memory
-            .read_bytes(ko as u32, kz as u32)
-            .unwrap_or_default(),
-        key
-    );
+    // TODO: the test are not hashing the key bytes atm.
+    //
+    // get the key by hashing account index + key bytes
+    // let mut input = codec::encode(&general.index).expect("should not fail");
+    // input.extend_from_slice(&key_bytes);
+    // tracing::debug!("Storage write - key bytes: {:?}", input);
+    // let key = crypto::blake2b(&input);
 
     // update storage
     if vz == 0 {
-        tracing::debug!("removing storage key");
         general.account.storage.remove(&key);
         data.update_general(general)?;
         Ok(Exit::None as u64)
-    } else if let Ok(value) = state.memory.read_bytes(vo as u32, (vo + vz) as u32) {
-        let account = general.account.state();
-        if account.threshold() > account.balance {
-            tracing::warn!("storage write failed: insufficient balance");
-            Ok(Exit::Full as u64)
-        } else {
-            tracing::debug!("inserting storage: key={:?}, value={:?}", key, value);
-            general.account.storage.insert(key, value.clone());
-            data.update_general(general)?;
-            tracing::debug!("storage write SUCCESS, returning: {}", u64::decode(&value));
-            Ok(u64::decode(&value))
-        }
     } else {
-        tracing::error!("failed to read storage value from memory");
-        crate::bail!("failed to upsert storage");
-    }
-}
-
-/// Global heap pointer using atomic operations for thread safety
-static CURRENT_HEAP_POINTER: AtomicU64 = AtomicU64::new(0);
-
-/// (ΩS) sbrk - adjust program break
-fn sbrk<X: Argument, Memory: crate::Memory>(
-    state: &mut State<Memory>,
-    _data: &mut X,
-) -> Result<ExitCode> {
-    let value_a = state.registers[7] as i64;
-
-    tracing::debug!(
-        "sbrk called with value_a={} (0x{:x})",
-        value_a,
-        value_a as u64
-    );
-
-    // Based on memory layout: RW data starts at 2*Z_Z + Z(|o|)
-    // For our test case: ro_len = 12296, so Z(ro_len) = 0x10000
-    // RW data starts at 0x30000, RW data length = 0
-    // So heap should start at 0x30000 + PAGE_SIZE (following the reference)
-    const ZONE_SIZE: u64 = 0x10000;
-    const PAGE_SIZE: u64 = 0x1000;
-    const RO_LEN: u64 = 12296; // From our test case
-
-    // Calculate where RW data ends and heap should start
-    let funz_ro = RO_LEN.div_ceil(ZONE_SIZE) * ZONE_SIZE; // 0x10000
-    let rw_data_start = 2 * ZONE_SIZE + funz_ro; // 0x30000
-    let rw_data_len = 0; // From our test case
-    let heap_start = rw_data_start + rw_data_len; // 0x30000 (no extra PAGE_SIZE)
-
-    // Initialize heap pointer on first call
-    let mut current_heap_pointer = CURRENT_HEAP_POINTER.load(Ordering::Relaxed);
-    if current_heap_pointer == 0 {
-        current_heap_pointer = heap_start;
-        CURRENT_HEAP_POINTER.store(current_heap_pointer, Ordering::Relaxed);
-        tracing::debug!(
-            "sbrk initialized heap pointer to 0x{:x}",
-            current_heap_pointer
-        );
-    }
-
-    // If valueA == 0, return current heap pointer (query operation)
-    if value_a == 0 {
-        tracing::debug!(
-            "sbrk query - returning current heap pointer 0x{:x}",
-            current_heap_pointer
-        );
-        state.registers[7] = current_heap_pointer;
-        return Ok(Exit::Ok as u64);
-    }
-
-    // Record current heap pointer to return
-    let result = current_heap_pointer;
-
-    // Calculate new heap pointer
-    let new_heap_pointer = if value_a > 0 {
-        current_heap_pointer + value_a as u64
-    } else {
-        current_heap_pointer.saturating_sub((-value_a) as u64)
-    };
-
-    tracing::debug!(
-        "sbrk allocation - current: 0x{:x}, requested: {}, new: 0x{:x}",
-        current_heap_pointer,
-        value_a,
-        new_heap_pointer
-    );
-
-    // Page boundary logic (P_func)
-    let funp = |x: u64| x.div_ceil(PAGE_SIZE) * PAGE_SIZE;
-    let next_page_boundary = funp(current_heap_pointer);
-
-    // Only allocate pages if new heap pointer crosses page boundary
-    if new_heap_pointer > next_page_boundary {
-        let final_boundary = funp(new_heap_pointer);
-        let idx_start = next_page_boundary / PAGE_SIZE;
-        let idx_end = final_boundary / PAGE_SIZE;
-
-        tracing::debug!(
-            "sbrk allocating pages from 0x{:x} to 0x{:x} (pages {} to {})",
-            next_page_boundary,
-            final_boundary,
-            idx_start,
-            idx_end
-        );
-
-        // Allocate pages by writing to them
-        for page_idx in idx_start..idx_end {
-            let page_addr = (page_idx * PAGE_SIZE) as u32;
-            if let Err(e) = state.memory.write_bytes(page_addr, &[0]) {
-                tracing::warn!("failed to allocate page at 0x{:x}: {}", page_addr, e);
-                state.registers[7] = page_addr as u64;
+        let value = match state.memory.read_bytes(vo as u32, vz as u32) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                tracing::warn!("Failed to read value bytes: {:?}", err);
                 return Ok(Exit::OOB as u64);
             }
+        };
+
+        let account = general.account.state();
+        if account.threshold() > account.balance {
+            Ok(Exit::Full as u64)
+        } else {
+            general.account.storage.insert(key, value.clone());
+            data.update_general(general)?;
+            Ok(Exit::Ok as u64)
         }
     }
-
-    // Update heap pointer
-    CURRENT_HEAP_POINTER.store(new_heap_pointer, Ordering::Relaxed);
-
-    tracing::debug!("sbrk returning previous heap pointer 0x{:x}", result);
-
-    // Return previous heap pointer
-    state.registers[7] = result;
-    Ok(Exit::Ok as u64)
 }
 
 /// (ΩI) fetch info
@@ -347,5 +233,14 @@ fn info<X: Argument, Memory: crate::Memory>(
         crate::bail!("failed to write account state {reason}");
     }
 
+    Ok(Exit::Ok as u64)
+}
+
+/// (ΩS) sbrk - adjust program break
+fn sbrk<X: Argument, Memory: crate::Memory>(
+    _state: &mut State<Memory>,
+    _data: &mut X,
+) -> Result<ExitCode> {
+    tracing::error!("sbrk not implemented");
     Ok(Exit::Ok as u64)
 }

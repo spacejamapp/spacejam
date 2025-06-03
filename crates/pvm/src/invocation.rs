@@ -4,13 +4,14 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
+use codec::Compact;
 use parser::{
     program::{self, Program},
     ProgramBlob,
 };
 use score::{
     service::{ServiceAccount, WorkExecResult, WorkPackage},
-    vm::{DeferredTransfer, Operand, StateContext},
+    vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;
@@ -85,11 +86,7 @@ pub trait Invocation {
                     continue;
                 }
                 // reset the program counter on halt or panic
-                Reason::Halt | Reason::Panic(_) => {
-                    // TODO: stf and GP not matched
-                    //
-                    // state.pc = 0
-                }
+                Reason::Halt | Reason::Panic(_) => {}
                 _ => {}
             };
 
@@ -140,18 +137,19 @@ pub trait Invocation {
         let Stepped {
             reason,
             state,
-            data: _,
+            data: _, // invoke() returns () data, but we need to preserve input
         } = Self::invoke(code, pc, gas, registers, memory);
 
-        // if error occurs, return the state.
+        // if error occurs, return the state WITH THE PRESERVED INPUT DATA
         let Reason::HostCall(call) = reason else {
-            return Stepped::new(reason, state);
+            return Stepped::new(reason, state).with(input);
         };
 
-        // (state'') call the host function, returns if page fault occurs
         let stepped = host::call(call, state, input);
         match stepped.reason {
-            Reason::Fault(addr) => Stepped::new(Reason::Fault(addr), stepped.state),
+            Reason::Fault { page } => {
+                Stepped::new(Reason::Fault { page }, stepped.state).with(stepped.data)
+            }
             // TODO: this recursive call should be optimized in production.
             //
             // mb create a new call_inner function and set up a loop for it.
@@ -163,7 +161,7 @@ pub trait Invocation {
                 stepped.state.memory,
                 stepped.data,
             ),
-            _ => Stepped::new(stepped.reason, stepped.state),
+            _ => Stepped::new(stepped.reason, stepped.state).with(stepped.data),
         }
     }
 
@@ -188,6 +186,7 @@ pub trait Invocation {
             code,
             registers,
             memory,
+            heap,
         } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
@@ -201,11 +200,9 @@ pub trait Invocation {
             pc,
             gas,
             registers,
-            Self::Memory::from_raw(memory),
+            Self::Memory::from_raw(memory, heap),
             data,
         );
-
-        tracing::trace!("stepped result: {:?}", stepped.reason);
 
         // get the output
         let mut output = vec![];
@@ -273,20 +270,8 @@ pub trait Invocation {
         // entropy'0
         entropy: OpaqueHash,
     ) -> AccumulateResult {
-        tracing::debug!(
-            "accumulate invocation: service={}, timeslot={}, gas={}, operands_count={}",
-            service,
-            timeslot,
-            gas,
-            operands.len()
-        );
-
-        let Some(code) = context
-            .accounts
-            .get(&service)
-            .and_then(|account| account.code())
-        else {
-            // TODO: the graypaper could be wrong, no need to run the I function
+        let Some(code) = context.code(service) else {
+            tracing::trace!("no code found for service: {}", service);
             return AccumulateResult {
                 context,
                 ..Default::default()
@@ -294,23 +279,32 @@ pub trait Invocation {
         };
 
         // create the accumulate context
-        let accumulate = host::Accumulate::new(
-            AccumulateContext {
-                context: context.clone(),
-                service,
-                index: Self::index(service, timeslot, entropy),
-                ..Default::default()
-            },
-            timeslot,
-        );
-        let args = codec::encode(&(timeslot, service, operands)).expect("failed to encode");
-        tracing::debug!(
-            "encoded args length: {}, first 32 bytes: {:?}",
-            args.len(),
-            &args[..32.min(args.len())]
-        );
-        tracing::trace!("argument calling service {service} in accumulate");
-        Self::argument(code, 5, gas, &args, accumulate).to_result(gas)
+        let accumulate_context = AccumulateContext {
+            context: context.clone(),
+            service,
+            index: Self::index(service, timeslot, entropy),
+            transfer: Vec::new(),
+            output: None,
+        };
+
+        let accumulate = host::Accumulate::new(accumulate_context, timeslot);
+        let args = codec::encode(&AccumulateParams {
+            slot: Compact::new(timeslot),
+            id: Compact::new(service),
+            results: operands,
+        })
+        .expect("failed to encode");
+
+        let result = Self::argument(code, 5, gas, &args, accumulate);
+        if result.reason != Reason::Continue && result.reason != Reason::Halt {
+            tracing::warn!(
+                "PVM execution stopped with reason: {:?} for service {}",
+                result.reason,
+                service
+            );
+        }
+
+        result.to_result()
     }
 
     /// (ΨT): on-transfer invocation
@@ -351,7 +345,8 @@ pub trait Invocation {
             accounts: accounts.clone(),
         };
 
-        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
+        let input = codec::encode(&(Compact::new(slot), Compact::new(service), transfers))
+            .expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
             account: received.data.account,

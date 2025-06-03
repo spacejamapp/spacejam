@@ -6,10 +6,10 @@ use pvm::Reason;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     /// The memory is inaccessible.
-    MemoryInaccessible(u32),
+    MemoryInaccessible { page: u32 },
 
     /// The memory is immutable.
-    MemoryImmutable(u32),
+    MemoryImmutable { page: u32 },
 
     /// The jump to halt.
     Terminate,
@@ -31,8 +31,8 @@ impl Error {
     /// Get the extra gas for the error.
     pub fn extra_gas(&self) -> u64 {
         match self {
-            Error::MemoryInaccessible(_) => 1,
-            Error::MemoryImmutable(_) => 1,
+            Error::MemoryInaccessible { page: _ } => 1,
+            Error::MemoryImmutable { page: _ } => 1,
             Error::Trap(true) => 1,
             Error::OOG => 0,
             _ => 0,
@@ -44,8 +44,14 @@ impl Error {
 impl From<Error> for Reason {
     fn from(error: Error) -> Self {
         match error {
-            Error::MemoryInaccessible(address) => Reason::Fault(address),
-            Error::MemoryImmutable(address) => Reason::Fault(address),
+            Error::MemoryInaccessible { page } => {
+                tracing::error!("memory page {page} inaccessible");
+                Reason::Fault { page }
+            }
+            Error::MemoryImmutable { page } => {
+                tracing::error!("memory page {page} immutable");
+                Reason::Fault { page }
+            }
             Error::Terminate => Reason::Halt,
             Error::InvalidDynamicJump => Reason::Panic("invalid dynamic jump".into()),
             Error::Trap(_) => Reason::Panic("trap".into()),

@@ -14,39 +14,31 @@ pub fn call<X: Argument, Memory: crate::Memory>(
     mut state: State<Memory>,
     data: X,
 ) -> Stepped<Memory, X> {
-    tracing::debug!("host call dispatcher: call={}", call);
     let mut data = data;
     let reason = match call {
         0..6 => {
-            tracing::debug!("routing to general::call");
-            general::call(call, &mut state, Default::default(), &mut data)
+            let general = match data.as_general() {
+                Ok(g) => g,
+                Err(e) => return Stepped::new(e, state).with(data),
+            };
+            let account = general.account.clone();
+            general::call(call, &mut state, account, &mut data)
         }
-        6..18 => {
-            tracing::debug!("routing to accumulate::call");
-            accumulate::call(call, &mut state, &mut data)
-        }
-        18..28 => {
-            tracing::debug!("routing to refine::call");
-            refine::call(call, &mut state, &mut data)
-        }
-        // JIP1 logging, currently skipped
-        100 => {
-            tracing::debug!("routing to logging (100)");
-            jip::log(&mut state)
-        }
+        6..18 => accumulate::call(call, &mut state, &mut data),
+        18..28 => refine::call(call, &mut state, &mut data),
+        100 => jip::log(&mut state),
         _ => {
             tracing::debug!("unknown host call: {}", call);
             Ok(Exit::What as u64)
         }
     };
 
-    tracing::debug!("host call {} result: {:?}", call, reason);
     match reason {
         Ok(exit) => {
             state.registers[7] = exit;
-            Stepped::new(Reason::Continue, state)
+            Stepped::new(Reason::Continue, state).with(data)
         }
-        Err(reason) => Stepped::new(reason, state),
+        Err(reason) => Stepped::new(reason, state).with(data),
     }
 }
 
@@ -80,22 +72,36 @@ pub trait Argument: Default {
 
 impl Argument for Accumulate {
     fn as_general(&self) -> crate::Result<General> {
+        let account = self
+            .x
+            .context
+            .accounts
+            .get(&self.x.service)
+            .ok_or_else(|| {
+                crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
+            })?;
+
         Ok(General {
-            account: self
-                .x
-                .context
-                .accounts
-                .get(&self.x.service)
-                .unwrap()
-                .clone(),
+            account: account.clone(),
             index: self.x.service,
             accounts: self.x.context.accounts.clone(),
         })
     }
 
     fn update_general(&mut self, general: General) -> crate::Result<()> {
-        self.x.context.accounts = general.accounts;
-        self.x.service = general.index;
+        self.x
+            .context
+            .accounts
+            .insert(general.index, general.account.clone());
+
+        for (id, account) in general.accounts {
+            if id == general.index {
+                continue;
+            }
+
+            self.x.context.accounts.insert(id, account);
+        }
+
         Ok(())
     }
 
