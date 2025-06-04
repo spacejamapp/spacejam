@@ -32,7 +32,7 @@ pub fn simulate<V: Pvm>(
     block: &mut Block,
     storage: &impl Storage,
 ) -> Result<HashMap<StorageKey, Vec<u8>>> {
-    let mut state = storage.state()?;
+    let mut state: score::State = storage.state()?;
     let mut diff = HashMap::new();
 
     // prepare epoch information
@@ -150,6 +150,21 @@ pub fn simulate<V: Pvm>(
 
     // Round 4 computation
     {
+        // (β') Update the block history
+        state.recent_blocks.import(
+            block.header.hash()?,
+            block.header.parent_state_root,
+            root,
+            Default::default(),
+        );
+        let (reported, _) =
+            guarantee::report(&state, block.header.slot, &block.extrinsic.guarantees)?;
+        if let Some(last) = state.recent_blocks.last_mut() {
+            last.reported = reported;
+        };
+
+        diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+
         // (δ') Update the accounts
         let accounts =
             preimage::accounts(block.header.slot, &block.extrinsic.preimages, &accounts)?;
@@ -169,17 +184,6 @@ pub fn simulate<V: Pvm>(
             diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
             state.pools = pools;
         }
-
-        // (β') Update the block history
-        let (reported, _) =
-            guarantee::report(&state, block.header.slot, &block.extrinsic.guarantees)?;
-        state.recent_blocks.import(
-            block.header.hash()?,
-            block.header.parent_state_root,
-            root,
-            reported,
-        );
-        diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;

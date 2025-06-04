@@ -2,6 +2,8 @@
 //!
 //! TODO: tests for IO. e.g. encoding / decoding of kvs.
 
+use std::collections::BTreeMap;
+
 use crate::storage::{KVStorage, sync};
 use anyhow::{Context, Result};
 use crypto::merkle;
@@ -11,8 +13,8 @@ use score::{
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{
-        Privileges, ServiceAccountData, ServiceAccountState, ServiceItem, ServicePreimage,
-        ServiceStorage, WorkReport,
+        GasLimit, Privileges, ServiceAccount, ServiceAccountData, ServiceAccountState, ServiceItem,
+        ServicePreimage, ServiceStorage, WorkReport,
     },
     state::{State, account, key},
     statistic::Statistics,
@@ -73,6 +75,7 @@ pub trait Storage: KVStorage {
         state.statistics = codec::decode(data.get(12).unwrap_or(&vec![])).unwrap_or_default();
         state.queue = codec::decode(data.get(13).unwrap_or(&vec![])).unwrap_or_default();
         state.history = codec::decode(data.get(14).unwrap_or(&vec![])).unwrap_or_default();
+        state.accounts = self.accounts()?;
 
         // we don't need to batch all state in the memory to calculate the root since we can use
         // the prefix of storage keys to iterate them.
@@ -255,6 +258,39 @@ pub trait Storage: KVStorage {
         })
     }
 
+    /// FIXME: do not use this method in production
+    fn accounts(&self) -> Result<BTreeMap<u32, ServiceAccount>> {
+        let mut accounts = BTreeMap::new();
+        for item in self.iter()? {
+            let (key, value) = item?;
+            if !key.starts_with(&[255]) {
+                continue;
+            }
+
+            let service = u32::from_le_bytes([key[1], key[3], key[5], key[7]]);
+            let account: ServiceAccountState = codec::decode(&value)?;
+            let storage = self.account_storage_full(service)?;
+            let preimage = self.account_preimages(service)?;
+
+            accounts.insert(
+                service,
+                ServiceAccount {
+                    storage: storage.into_iter().map(|s| (s.key, s.value)).collect(),
+                    preimage: preimage.into_iter().map(|p| (p.hash, p.blob)).collect(),
+                    lookup: Default::default(),
+                    code: account.code,
+                    balance: account.balance,
+                    gas: GasLimit {
+                        accumulate: account.accumulate,
+                        transfer: account.transfer,
+                    },
+                },
+            );
+        }
+
+        Ok(accounts)
+    }
+
     /// Fetch the account state
     fn account_info(&self, service: u32) -> Result<ServiceAccountState> {
         self.get(account::info(service))?
@@ -283,9 +319,9 @@ pub trait Storage: KVStorage {
     fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
         self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
             .map(|kv| {
-                kv.map(|(key, value)| {
-                    let mut hash = [0; 32];
-                    hash.copy_from_slice(&key);
+                kv.map(|(_, value)| {
+                    // FIXME: cache the preimage somewhere else
+                    let hash = crypto::blake2b(&value);
                     ServicePreimage { hash, blob: value }
                 })
             })
