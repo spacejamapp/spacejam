@@ -24,6 +24,10 @@ pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 #[derive(Default)]
 pub struct Interpreter {
     /// The registers of the interpreter.
+    /// ra = [0]
+    /// sp = [1]
+    ///  s = [5, 6]
+    ///  a = [7, 8, 9, 10, 11]
     pub registers: [Register; 13],
 
     /// The gas limit of the interpreter.
@@ -137,6 +141,7 @@ impl Interpreter {
             return Err(Error::InvalidDynamicJump);
         };
 
+        tracing::trace!("jumping to dynamic index={index} address: {target}");
         self.jump = Some(*target as usize);
         Ok(())
     }

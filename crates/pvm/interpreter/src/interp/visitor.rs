@@ -23,6 +23,14 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_add(self.registers[reg1 as usize]);
         self.registers[reg2 as usize] = value;
+        match reg2 {
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            11 => tracing::trace!("a4 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -31,7 +39,18 @@ impl Visitor for Interpreter {
         let value = (self.registers[reg1 as usize] as u32).wrapping_add(imm0 as u32) as u64;
 
         // sign extend the value if it is negative
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.registers[reg0 as usize] = value;
+        match reg0 {
+            1 => tracing::trace!("sp = 0x{:x}", value),
+            5 => tracing::trace!("s0 = 0x{:x}", value),
+            6 => tracing::trace!("s1 = 0x{:x}", value),
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            11 => tracing::trace!("a4 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -39,6 +58,15 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let value = self.registers[reg1 as usize].wrapping_add(imm0);
         self.registers[reg0 as usize] = value;
+        match reg0 {
+            0 => tracing::trace!("ra = 0x{:x}", value),
+            1 => tracing::trace!("sp = 0x{:x}", value),
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -181,7 +209,17 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         if self.registers[reg1 as usize] != 0 {
             self.registers[reg2 as usize] = self.registers[reg0 as usize];
+
+            match reg2 {
+                7 => tracing::trace!("a0 = 0x{:x}", self.registers[reg2 as usize]),
+                8 => tracing::trace!("a1 = 0x{:x}", self.registers[reg2 as usize]),
+                9 => tracing::trace!("a2 = 0x{:x}", self.registers[reg2 as usize]),
+                10 => tracing::trace!("a3 = 0x{:x}", self.registers[reg2 as usize]),
+                11 => tracing::trace!("a4 = 0x{:x}", self.registers[reg2 as usize]),
+                _ => {}
+            }
         }
+
         Ok(())
     }
 
@@ -330,6 +368,18 @@ impl Visitor for Interpreter {
     fn visit_load_imm(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         self.registers[reg0 as usize] = imm0;
+        match reg0 {
+            0 => tracing::trace!("ra = 0x{:x}", imm0),
+            1 => tracing::trace!("sp = 0x{:x}", imm0),
+            5 => tracing::trace!("s0 = 0x{:x}", imm0),
+            6 => tracing::trace!("s1 = 0x{:x}", imm0),
+            7 => tracing::trace!("a0 = 0x{:x}", imm0),
+            8 => tracing::trace!("a1 = 0x{:x}", imm0),
+            9 => tracing::trace!("a2 = 0x{:x}", imm0),
+            10 => tracing::trace!("a3 = 0x{:x}", imm0),
+            11 => tracing::trace!("a4 = 0x{:x}", imm0),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -342,6 +392,15 @@ impl Visitor for Interpreter {
     fn visit_load_imm_jump(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
         self.registers[reg0 as usize] = imm0;
+        match reg0 {
+            0 => tracing::trace!("ra = 0x{:x}", imm0),
+            7 => tracing::trace!("a0 = 0x{:x}", imm0),
+            8 => tracing::trace!("a1 = 0x{:x}", imm0),
+            9 => tracing::trace!("a2 = 0x{:x}", imm0),
+            10 => tracing::trace!("a3 = 0x{:x}", imm0),
+            11 => tracing::trace!("a4 = 0x{:x}", imm0),
+            _ => {}
+        }
         self.branch(off0, true)
     }
 
@@ -376,6 +435,14 @@ impl Visitor for Interpreter {
         let addr = self.registers[reg1 as usize];
         let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
         self.registers[reg0 as usize] = value.as_u64();
+        match reg0 {
+            7 => tracing::trace!("a0 = u8 [0x{:x}] = 0x{:x}", addr, value),
+            8 => tracing::trace!("a1 = u8 [0x{:x}] = 0x{:x}", addr, value),
+            9 => tracing::trace!("a2 = u8 [0x{:x}] = 0x{:x}", addr, value),
+            10 => tracing::trace!("a3 = u8 [0x{:x}] = 0x{:x}", addr, value),
+            11 => tracing::trace!("a4 = u8 [0x{:x}] = 0x{:x}", addr, value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -414,7 +481,20 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.registers[reg1 as usize];
+        let faddr = addr.wrapping_add(imm0);
         let value: u64 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        match reg0 {
+            0 => tracing::trace!("ra = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            5 => tracing::trace!("s0 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            6 => tracing::trace!("s1 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            7 => tracing::trace!("a0 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            8 => tracing::trace!("a1 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            9 => tracing::trace!("a2 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            10 => tracing::trace!("a3 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            11 => tracing::trace!("a4 = u64 [0x{:x}] = 0x{:x}", faddr, value),
+            _ => {}
+        }
+
         self.registers[reg0 as usize] = value;
         Ok(())
     }
@@ -480,6 +560,16 @@ impl Visitor for Interpreter {
     fn visit_move_reg(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         self.registers[reg0 as usize] = self.registers[reg1 as usize];
+        match reg0 {
+            5 => tracing::trace!("s0 = 0x{:x}", self.registers[5]),
+            6 => tracing::trace!("s1 = 0x{:x}", self.registers[6]),
+            7 => tracing::trace!("a0 = 0x{:x}", self.registers[7]),
+            8 => tracing::trace!("a1 = 0x{:x}", self.registers[8]),
+            9 => tracing::trace!("a2 = 0x{:x}", self.registers[9]),
+            10 => tracing::trace!("a3 = 0x{:x}", self.registers[10]),
+            11 => tracing::trace!("a4 = 0x{:x}", self.registers[11]),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -763,6 +853,15 @@ impl Visitor for Interpreter {
             self.registers[reg2 as usize] = 0;
         }
 
+        match reg2 {
+            7 => tracing::trace!("a0 = 0x{:x}", self.registers[reg2 as usize]),
+            8 => tracing::trace!("a1 = 0x{:x}", self.registers[reg2 as usize]),
+            9 => tracing::trace!("a2 = 0x{:x}", self.registers[reg2 as usize]),
+            10 => tracing::trace!("a3 = 0x{:x}", self.registers[reg2 as usize]),
+            11 => tracing::trace!("a4 = 0x{:x}", self.registers[reg2 as usize]),
+            _ => {}
+        }
+
         Ok(())
     }
 
@@ -854,6 +953,14 @@ impl Visitor for Interpreter {
         let shift = imm0 % 64;
         let value = self.registers[reg1 as usize] << shift;
         self.registers[reg0 as usize] = value;
+        match reg0 {
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            11 => tracing::trace!("a4 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -902,6 +1009,14 @@ impl Visitor for Interpreter {
         let shift = imm0 % 64;
         let value = self.registers[reg1 as usize].wrapping_shr(shift as u32);
         self.registers[reg0 as usize] = value;
+        match reg0 {
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            11 => tracing::trace!("a4 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -984,6 +1099,7 @@ impl Visitor for Interpreter {
     fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.registers[reg0 as usize];
+        tracing::trace!("u8 [0x{:x}] = 0x{:x}", address.wrapping_add(imm0), imm1);
         self.memory
             .write_offset(address as u32, imm0 as u32, imm1 as u8)
     }
@@ -1011,6 +1127,14 @@ impl Visitor for Interpreter {
     fn visit_store_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
+        match reg0 {
+            7 => tracing::trace!("a0 = u8 [0x{:x}] = 0x{:x}", address, self.registers[7]),
+            8 => tracing::trace!("a1 = u8 [0x{:x}] = 0x{:x}", address, self.registers[8]),
+            9 => tracing::trace!("a2 = u8 [0x{:x}] = 0x{:x}", address, self.registers[9]),
+            10 => tracing::trace!("a3 = u8 [0x{:x}] = 0x{:x}", address, self.registers[10]),
+            11 => tracing::trace!("a4 = u8 [0x{:x}] = 0x{:x}", address, self.registers[11]),
+            _ => {}
+        }
         self.memory.write_offset(
             address as u32,
             imm0 as u32,
@@ -1041,6 +1165,19 @@ impl Visitor for Interpreter {
     fn visit_store_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.registers[reg1 as usize];
+        let faddr = address.wrapping_add(imm0);
+        match reg0 {
+            0 => tracing::trace!("u64 [0x{:x}] = ra = 0x{:x}", faddr, self.registers[0]),
+            1 => tracing::trace!("u64 [0x{:x}] = sp = 0x{:x}", faddr, self.registers[1]),
+            5 => tracing::trace!("u64 [0x{:x}] = s0 = 0x{:x}", faddr, self.registers[5]),
+            6 => tracing::trace!("u64 [0x{:x}] = s1 = 0x{:x}", faddr, self.registers[6]),
+            7 => tracing::trace!("u64 [0x{:x}] = a0 = 0x{:x}", faddr, self.registers[7]),
+            8 => tracing::trace!("u64 [0x{:x}] = a1 = 0x{:x}", faddr, self.registers[8]),
+            9 => tracing::trace!("u64 [0x{:x}] = a2 = 0x{:x}", faddr, self.registers[9]),
+            10 => tracing::trace!("u64 [0x{:x}] = a3 = 0x{:x}", faddr, self.registers[10]),
+            11 => tracing::trace!("u64 [0x{:x}] = a4 = 0x{:x}", faddr, self.registers[11]),
+            _ => {}
+        }
         self.memory
             .write_offset(address as u32, imm0 as u32, self.registers[reg0 as usize])
     }
@@ -1058,6 +1195,14 @@ impl Visitor for Interpreter {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = self.registers[reg0 as usize].wrapping_sub(self.registers[reg1 as usize]);
         self.registers[reg2 as usize] = value;
+        match reg2 {
+            7 => tracing::trace!("a0 = 0x{:x}", value),
+            8 => tracing::trace!("a1 = 0x{:x}", value),
+            9 => tracing::trace!("a2 = 0x{:x}", value),
+            10 => tracing::trace!("a3 = 0x{:x}", value),
+            11 => tracing::trace!("a4 = 0x{:x}", value),
+            _ => {}
+        }
         Ok(())
     }
 
