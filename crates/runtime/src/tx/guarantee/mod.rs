@@ -57,6 +57,7 @@ pub fn accumulate<V: Pvm>(
             authorization: Default::default(),
         },
         &privileges.always_acc,
+        slot,
     );
 
     // (πS') compose the service activity records

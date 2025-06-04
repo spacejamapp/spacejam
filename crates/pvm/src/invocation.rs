@@ -145,6 +145,7 @@ pub trait Invocation {
             return Stepped::new(reason, state).with(input);
         };
 
+        tracing::debug!("host call: {:?}", call);
         let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => {
@@ -195,14 +196,12 @@ pub trait Invocation {
             }
         };
 
-        let stepped = Self::call(
-            &code,
-            pc,
-            gas,
-            registers,
-            Self::Memory::from_raw(memory, heap),
-            data,
+        let memory = Self::Memory::from_raw(memory, heap);
+        tracing::trace!(
+            "reading [0xfeff0000]: {:?}",
+            memory.read_bytes(0xfeff0000, 1)
         );
+        let stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
         let mut output = vec![];
