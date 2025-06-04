@@ -54,8 +54,8 @@ mod crypto_impl {
             value.extend_from_slice(&info.code);
             value.extend_from_slice(&codec::encode(&(
                 &info.balance,
-                &info.gas.accumulate,
-                &info.gas.transfer,
+                &info.accumulate,
+                &info.transfer,
                 &info.total,
             ))?);
             value.extend_from_slice(&info.items.to_le_bytes());

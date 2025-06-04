@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    service::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
+    service::{GasLimit, ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,10 @@ impl From<ServiceAccountData> for ServiceAccount {
             lookup,
             code: data.service.code,
             balance: data.service.balance,
-            gas: data.service.gas,
+            gas: GasLimit {
+                accumulate: data.service.accumulate,
+                transfer: data.service.transfer,
+            },
         }
     }
 }

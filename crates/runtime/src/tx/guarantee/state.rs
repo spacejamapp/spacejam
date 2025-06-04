@@ -5,8 +5,8 @@ use score::{
     block::{BlockInfo, BlockInfoJson},
     safrole::{ValidatorDataJson, ValidatorsData},
     service::{
-        AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccountData, ServiceItem,
-        ServiceItemJson,
+        AvailabilityAssignmentJson, AvailabilityAssignments, GasLimit, ServiceAccountData,
+        ServiceItem, ServiceItemJson,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -65,7 +65,10 @@ impl State {
             state.accounts.entry(id).or_default().code = data.service.code;
             state.accounts.entry(id).and_modify(|account| {
                 account.balance = data.service.balance;
-                account.gas = data.service.gas;
+                account.gas = GasLimit {
+                    accumulate: data.service.accumulate,
+                    transfer: data.service.transfer,
+                };
             });
         }
     }
