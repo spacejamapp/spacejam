@@ -2,7 +2,7 @@
 
 use pvm::{AccumulateResult, Pvm};
 use score::{
-    Gas, ServiceId,
+    Gas, ServiceId, TimeSlot,
     service::WorkReport,
     vm::{Accumulated, StateContext},
 };
@@ -29,6 +29,7 @@ pub fn outer<V: Pvm>(
     reports: &[WorkReport],
     context: StateContext,
     gas_table: &BTreeMap<ServiceId, Gas>,
+    timeslot: TimeSlot,
 ) -> Accumulated {
     // NOTE: we might need to sort the reports by the gas limit,
     // need to double check if we have already done it.
@@ -51,12 +52,14 @@ pub fn outer<V: Pvm>(
         };
     }
 
-    let mut accumulated = self::parallel::<V>(context.clone(), &reports[..index], gas_table);
+    let mut accumulated =
+        self::parallel::<V>(context.clone(), &reports[..index], gas_table, timeslot);
     let rest = self::outer::<V>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
         &reports[index..],
         accumulated.context.clone(),
         gas_table,
+        timeslot,
     );
 
     accumulated.accumulated += rest.accumulated;
@@ -71,6 +74,7 @@ pub fn parallel<V: Pvm>(
     context: StateContext,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
+    timeslot: TimeSlot,
 ) -> Accumulated {
     // TODO: use a local task pool for spawning this calculation.
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
@@ -83,7 +87,7 @@ pub fn parallel<V: Pvm>(
     let results: BTreeMap<ServiceId, AccumulateResult> = services
         .iter()
         .map(|service| {
-            let result = self::once::<V>(context.clone(), reports, table, *service);
+            let result = self::once::<V>(context.clone(), reports, table, *service, timeslot);
             (*service, result)
         })
         .collect();
@@ -163,8 +167,13 @@ pub fn parallel<V: Pvm>(
     ];
 
     for &privilege_service in &privilege_services {
-        let privilege_result =
-            self::once::<V>(updated_context.clone(), reports, table, privilege_service);
+        let privilege_result = self::once::<V>(
+            updated_context.clone(),
+            reports,
+            table,
+            privilege_service,
+            timeslot,
+        );
 
         // For privilege services, we allow them to modify any account
         // but we still need to be careful about conflicts
@@ -220,6 +229,7 @@ pub fn once<V: Pvm>(
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
+    timeslot: TimeSlot,
 ) -> AccumulateResult {
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
@@ -233,7 +243,7 @@ pub fn once<V: Pvm>(
         .iter()
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
-    V::accumulate(context, 0, service, gas, operands, [0; 32])
+    V::accumulate(context, timeslot, service, gas, operands, [0; 32])
 }
 
 /*    /// integrate the deferred transfers

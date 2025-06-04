@@ -81,7 +81,8 @@ impl Memory {
         // Args: 2^32 - Z_Z - Z_I ≤ i < 2^32 - Z_Z - Z_I + |a|
         ptr = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         // tracing::trace!(
-        //     "initializing args, ptr={ptr} size={args_len} pages={}..{}",
+        //     "initializing args, ptr={:08x} size={args_len} pages={}..{}",
+        //     ptr,
         //     ptr / crate::PAGE_SIZE,
         //     args_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
