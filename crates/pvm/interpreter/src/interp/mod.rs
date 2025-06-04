@@ -7,11 +7,11 @@
 //! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{Error, Memory, Register};
-use anyhow::Result;
-use parser::{Instruction, ProgramBlob, Visitor};
 use pvm::Reason;
 
 mod builder;
+mod legacy;
+mod register;
 mod visitor;
 
 /// (Z_A) The alignment factor of the jump table.
@@ -50,66 +50,22 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    /// Run the program.
-    pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
-        let program = ProgramBlob::try_from(program.as_ref())?;
-        let mut reader = program.reader().with_position(self.pc);
-
-        // stepping the instructions
-        self.table = program.jump_table.clone();
-        while !reader.eof() && self.reason.is_continue() {
-            let Ok(instr) = reader.read() else {
-                tracing::error!("failed to read instruction, position: {}", reader.position);
-                return Ok(());
-            };
-
-            // stepping the instruction.
-            tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
-            if let Err(e) = self.step(instr.value) {
-                self.reason = e.into();
-                return Ok(());
-            }
-
-            // update the program counter
-            self.pc = reader.position;
-            if let Some(pos) = self.jump.take() {
-                reader.set_position(pos);
-                self.pc = pos;
-            }
-        }
-
-        // If the reason is still unknown, we have a trap.
-        if self.reason.is_continue() {
-            self.gas -= 1;
-            self.reason = Reason::Panic("end of program".into());
-        }
-
-        Ok(())
-    }
-
-    /// Step the instruction.
-    ///
-    /// returns true if the instruction was stepped, false otherwise.
-    fn step(&mut self, instr: Instruction) -> crate::Result<()> {
-        if self.gas == 0 {
-            return Err(Error::OOG);
-        }
-
-        self.gas -= 1;
-        if let Err(e) = self.visit(instr) {
-            self.gas -= e.extra_gas();
-            return Err(e);
-        }
-
-        Ok(())
-    }
-
     /// Branch to the given target.
     fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {
             self.jump = Some((self.pc as i32 + offset) as usize);
         }
 
+        Ok(())
+    }
+
+    /// Burn the gas.
+    pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
+        if self.gas < gas {
+            return Err(Error::OOG);
+        }
+
+        self.gas = self.gas.saturating_sub(gas);
         Ok(())
     }
 
@@ -143,16 +99,6 @@ impl Interpreter {
 
         tracing::trace!("jumping to dynamic index={index} address: {target}");
         self.jump = Some(*target as usize);
-        Ok(())
-    }
-
-    /// Burn the gas.
-    pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
-        if self.gas < gas {
-            return Err(Error::OOG);
-        }
-
-        self.gas = self.gas.saturating_sub(gas);
         Ok(())
     }
 }

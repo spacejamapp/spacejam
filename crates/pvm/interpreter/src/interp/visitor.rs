@@ -12,175 +12,156 @@ impl Visitor for Interpreter {
 
     fn visit_add_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = (self.registers[reg0 as usize] as u32)
-            .wrapping_add(self.registers[reg1 as usize] as u32) as u64;
+        let value = (self.rget(reg0) as u32).wrapping_add(self.rget(reg1) as u32) as u64;
 
-        self.registers[reg2 as usize] = value.sign_ext32();
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_add_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].wrapping_add(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0).wrapping_add(self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_add_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = (self.registers[reg1 as usize] as u32).wrapping_add(imm0 as u32) as u64;
+        let value = (self.rget(reg1) as u32).wrapping_add(imm0 as u32) as u64;
 
         // sign extend the value if it is negative
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_add_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg1 as usize].wrapping_add(imm0);
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1).wrapping_add(imm0);
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_and(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] & self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0) & self.rget(reg1);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_and_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg1 as usize] & imm0;
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1) & imm0;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_and_inv(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] & !self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0) & !self.rget(reg1);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_branch_eq(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            self.registers[reg0 as usize] == self.registers[reg1 as usize],
-        )
+        self.branch(off0, self.rget(reg0) == self.rget(reg1))
     }
 
     fn visit_branch_eq_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] == imm0)
+        self.branch(off0, self.rget(reg0) == imm0)
     }
 
     fn visit_branch_ge_s(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            self.registers[reg0 as usize] as i64 >= self.registers[reg1 as usize] as i64,
-        )
+        self.branch(off0, self.rget(reg0) as i64 >= self.rget(reg1) as i64)
     }
 
     fn visit_branch_ge_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] as i64 >= imm0 as i64)
+        self.branch(off0, self.rget(reg0) as i64 >= imm0 as i64)
     }
 
     fn visit_branch_ge_u(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            self.registers[reg0 as usize] >= self.registers[reg1 as usize],
-        )
+        self.branch(off0, self.rget(reg0) >= self.rget(reg1))
     }
 
     fn visit_branch_ge_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] >= imm0)
+        self.branch(off0, self.rget(reg0) >= imm0)
     }
 
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] as i64 > imm0 as i64)
+        self.branch(off0, self.rget(reg0) as i64 > imm0 as i64)
     }
 
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] > imm0)
+        self.branch(off0, self.rget(reg0) > imm0)
     }
 
     fn visit_branch_le_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] as i64 <= imm0 as i64)
+        self.branch(off0, self.rget(reg0) as i64 <= imm0 as i64)
     }
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] <= imm0)
+        self.branch(off0, self.rget(reg0) <= imm0)
     }
 
     fn visit_branch_lt_s(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            (self.registers[reg0 as usize] as i64) < (self.registers[reg1 as usize] as i64),
-        )
+        self.branch(off0, (self.rget(reg0) as i64) < (self.rget(reg1) as i64))
     }
 
     fn visit_branch_lt_u(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            self.registers[reg0 as usize] < self.registers[reg1 as usize],
-        )
+        self.branch(off0, self.rget(reg0) < self.rget(reg1))
     }
 
     fn visit_branch_lt_s_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, (self.registers[reg0 as usize] as i64) < imm0 as i64)
+        self.branch(off0, (self.rget(reg0) as i64) < imm0 as i64)
     }
 
     fn visit_branch_lt_u_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] < imm0)
+        self.branch(off0, self.rget(reg0) < imm0)
     }
 
     fn visit_branch_ne(&mut self, format: format::RRO) -> Result<()> {
         let format::RRO { reg0, reg1, off0 } = format;
-        self.branch(
-            off0,
-            self.registers[reg0 as usize] != self.registers[reg1 as usize],
-        )
+        self.branch(off0, self.rget(reg0) != self.rget(reg1))
     }
 
     fn visit_branch_ne_imm(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.branch(off0, self.registers[reg0 as usize] != imm0)
+        self.branch(off0, self.rget(reg0) != imm0)
     }
 
     fn visit_cmov_iz(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if self.registers[reg1 as usize] == 0 {
-            self.registers[reg2 as usize] = self.registers[reg0 as usize];
+        if self.rget(reg1) == 0 {
+            self.rset(reg2, self.rget(reg0));
         }
         Ok(())
     }
 
     fn visit_cmov_iz_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if self.registers[reg1 as usize] == 0 {
-            self.registers[reg0 as usize] = imm0;
+        if self.rget(reg1) == 0 {
+            self.rset(reg0, imm0);
         }
         Ok(())
     }
 
     fn visit_cmov_nz(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if self.registers[reg1 as usize] != 0 {
-            self.registers[reg2 as usize] = self.registers[reg0 as usize];
+        if self.rget(reg1) != 0 {
+            self.rset(reg2, self.rget(reg0));
         }
 
         Ok(())
@@ -188,81 +169,93 @@ impl Visitor for Interpreter {
 
     fn visit_cmov_nz_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if self.registers[reg1 as usize] != 0 {
-            self.registers[reg0 as usize] = imm0;
+        if self.rget(reg1) != 0 {
+            self.rset(reg0, imm0);
         }
         Ok(())
     }
 
     fn visit_count_set_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize] as u32;
-        self.registers[reg0 as usize] = value.count_ones() as u64;
+        let value = self.rget(reg1) as u32;
+        self.rset(reg0, value.count_ones() as u64);
         Ok(())
     }
 
     fn visit_count_set_bits_64(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize];
-        self.registers[reg0 as usize] = value.count_ones() as u64;
+        let value = self.rget(reg1);
+        self.rset(reg0, value.count_ones() as u64);
         Ok(())
     }
 
     fn visit_div_u_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as u32;
-        let divisor = self.registers[reg1 as usize] as u32;
+        let dividend = self.rget(reg0) as u32;
+        let divisor = self.rget(reg1) as u32;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            u64::MAX
-        } else {
-            (dividend.wrapping_div(divisor)) as u64
-        }
-        .sign_ext32();
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                u64::MAX
+            } else {
+                (dividend.wrapping_div(divisor)) as u64
+            }
+            .sign_ext32(),
+        );
         Ok(())
     }
 
     fn visit_div_u_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize];
-        let divisor = self.registers[reg1 as usize];
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            u64::MAX
-        } else {
-            dividend.wrapping_div(divisor)
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                u64::MAX
+            } else {
+                dividend.wrapping_div(divisor)
+            },
+        );
         Ok(())
     }
 
     fn visit_div_s_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as i32;
-        let divisor = self.registers[reg1 as usize] as i32;
+        let dividend = self.rget(reg0) as i32;
+        let divisor = self.rget(reg1) as i32;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            u64::MAX
-        } else if dividend == i32::MIN && divisor == -1 {
-            i32::MIN as u64
-        } else {
-            ((dividend.wrapping_div(divisor)) as u32 as u64).sign_ext32()
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                u64::MAX
+            } else if dividend == i32::MIN && divisor == -1 {
+                i32::MIN as u64
+            } else {
+                ((dividend.wrapping_div(divisor)) as u32 as u64).sign_ext32()
+            },
+        );
 
         Ok(())
     }
 
     fn visit_div_s_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as i64;
-        let divisor = self.registers[reg1 as usize] as i64;
+        let dividend = self.rget(reg0) as i64;
+        let divisor = self.rget(reg1) as i64;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            u64::MAX
-        } else if dividend == i64::MIN && divisor == -1 {
-            self.registers[reg0 as usize]
-        } else {
-            (dividend.wrapping_div(divisor)) as u64
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                u64::MAX
+            } else if dividend == i64::MIN && divisor == -1 {
+                self.rget(reg0)
+            } else {
+                (dividend.wrapping_div(divisor)) as u64
+            },
+        );
 
         Ok(())
     }
@@ -284,7 +277,7 @@ impl Visitor for Interpreter {
 
     fn visit_jump_ind(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        self.djump(self.registers[reg0 as usize].wrapping_add(imm0) as u32)
+        self.djump(self.rget(reg0).wrapping_add(imm0) as u32)
     }
 
     // # NOTE
@@ -295,54 +288,54 @@ impl Visitor for Interpreter {
     // reg1  - rA
     fn visit_leading_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize] as u32;
-        self.registers[reg0 as usize] = value.leading_zeros() as u64;
+        let value = self.rget(reg1) as u32;
+        self.rset(reg0, value.leading_zeros() as u64);
         Ok(())
     }
 
     fn visit_leading_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize];
-        self.registers[reg0 as usize] = value.leading_zeros() as u64;
+        let value = self.rget(reg1);
+        self.rset(reg0, value.leading_zeros() as u64);
         Ok(())
     }
 
     fn visit_load_i8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: i8 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_i16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: i16 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_i32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: i32 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_imm(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        self.registers[reg0 as usize] = imm0;
+        self.rset(reg0, imm0);
         Ok(())
     }
 
     fn visit_load_imm_64(&mut self, format: format::REI) -> Result<()> {
         let format::REI { reg0, eimm0 } = format;
-        self.registers[reg0 as usize] = eimm0;
+        self.rset(reg0, eimm0);
         Ok(())
     }
 
     fn visit_load_imm_jump(&mut self, format: format::RIO) -> Result<()> {
         let format::RIO { reg0, off0, imm0 } = format;
-        self.registers[reg0 as usize] = imm0;
+        self.rset(reg0, imm0);
         self.branch(off0, true)
     }
 
@@ -355,10 +348,10 @@ impl Visitor for Interpreter {
         } = format;
 
         // Calculate jump address first (using original register value)
-        let jump_address = self.registers[reg1 as usize].wrapping_add(imm1) as u32;
+        let jump_address = self.rget(reg1).wrapping_add(imm1) as u32;
 
         // Set the register (per specification: reg_A' = imm_X)
-        self.registers[reg0 as usize] = imm0;
+        self.rset(reg0, imm0);
 
         // Then perform the dynamic jump (per specification: djump(reg_B + imm_Y))
         self.djump(jump_address)
@@ -366,359 +359,368 @@ impl Visitor for Interpreter {
 
     fn visit_load_ind_i8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: i8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_u16(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: u16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_i16(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: i16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_u32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: u32 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_i32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: i32 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr = self.registers[reg1 as usize];
+        let addr = self.rget(reg1);
         let value: u64 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_load_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: u8 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: u16 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: u32 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value.as_u64();
+        self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u64(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value: u64 = self.memory.read(imm0 as u32)?;
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_max(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value =
-            (self.registers[reg0 as usize] as i64).max(self.registers[reg1 as usize] as i64);
-        self.registers[reg2 as usize] = value as u64;
+        let value = (self.rget(reg0) as i64).max(self.rget(reg1) as i64);
+        self.rset(reg2, value as u64);
         Ok(())
     }
 
     fn visit_max_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].max(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0).max(self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_min(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value =
-            (self.registers[reg0 as usize] as i64).min(self.registers[reg1 as usize] as i64);
-        self.registers[reg2 as usize] = value as u64;
+        let value = (self.rget(reg0) as i64).min(self.rget(reg1) as i64);
+        self.rset(reg2, value as u64);
         Ok(())
     }
 
     fn visit_min_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].min(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0).min(self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_move_reg(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        self.registers[reg0 as usize] = self.registers[reg1 as usize];
+        self.rset(reg0, self.rget(reg1));
         Ok(())
     }
 
     fn visit_mul_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = (self.registers[reg0 as usize] as u32)
-            .wrapping_mul(self.registers[reg1 as usize] as u32) as u64;
-        self.registers[reg2 as usize] = value.sign_ext32();
+        let value = (self.rget(reg0) as u32).wrapping_mul(self.rget(reg1) as u32) as u64;
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_mul_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].wrapping_mul(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0).wrapping_mul(self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_mul_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = (self.registers[reg1 as usize] as u32).wrapping_mul(imm0 as u32) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = (self.rget(reg1) as u32).wrapping_mul(imm0 as u32) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_mul_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg1 as usize].wrapping_mul(imm0);
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1).wrapping_mul(imm0);
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_mul_upper_s_s(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let a = self.registers[reg0 as usize] as i64;
-        let b = self.registers[reg1 as usize] as i64;
+        let a = self.rget(reg0) as i64;
+        let b = self.rget(reg1) as i64;
         let result = ((a as i128).wrapping_mul(b as i128) >> 64) as u64;
-        self.registers[reg2 as usize] = result;
+        self.rset(reg2, result);
         Ok(())
     }
 
     fn visit_mul_upper_u_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let a = self.registers[reg0 as usize];
-        let b = self.registers[reg1 as usize];
+        let a = self.rget(reg0);
+        let b = self.rget(reg1);
         let result = ((a as u128 * b as u128) >> 64) as u64;
-        self.registers[reg2 as usize] = result;
+        self.rset(reg2, result);
         Ok(())
     }
 
     fn visit_mul_upper_s_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let a = self.registers[reg0 as usize] as i64;
-        let b = self.registers[reg1 as usize];
+        let a = self.rget(reg0) as i64;
+        let b = self.rget(reg1);
         let result = ((a as i128).wrapping_mul(b as i128) >> 64) as u64;
-        self.registers[reg2 as usize] = result;
+        self.rset(reg2, result);
         Ok(())
     }
 
     fn visit_neg_add_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = (imm0 as u32).wrapping_sub(self.registers[reg1 as usize] as u32) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = (imm0 as u32).wrapping_sub(self.rget(reg1) as u32) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_neg_add_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = imm0.wrapping_sub(self.registers[reg1 as usize]);
-        self.registers[reg0 as usize] = value;
+        let value = imm0.wrapping_sub(self.rget(reg1));
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_or(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] | self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0) | self.rget(reg1);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_or_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg1 as usize] | imm0;
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1) | imm0;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_or_inv(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] | !self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0) | !self.rget(reg1);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_rem_u_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as u32;
-        let divisor = self.registers[reg1 as usize] as u32;
+        let dividend = self.rget(reg0) as u32;
+        let divisor = self.rget(reg1) as u32;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            (dividend as u64).sign_ext32()
-        } else {
-            (dividend.wrapping_rem(divisor)) as u64
-        }
-        .sign_ext32();
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                (dividend as u64).sign_ext32()
+            } else {
+                (dividend.wrapping_rem(divisor)) as u64
+            }
+            .sign_ext32(),
+        );
         Ok(())
     }
 
     fn visit_rem_u_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize];
-        let divisor = self.registers[reg1 as usize];
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            dividend
-        } else {
-            dividend.wrapping_rem(divisor)
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                dividend
+            } else {
+                dividend.wrapping_rem(divisor)
+            },
+        );
         Ok(())
     }
 
     fn visit_rem_s_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as i32;
-        let divisor = self.registers[reg1 as usize] as i32;
+        let dividend = self.rget(reg0) as i32;
+        let divisor = self.rget(reg1) as i32;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            self.registers[reg0 as usize].sign_ext32()
-        } else if dividend == i32::MIN && divisor == -1 {
-            0
-        } else {
-            ((dividend.wrapping_rem(divisor) as u32) as u64).sign_ext32()
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                self.rget(reg0).sign_ext32()
+            } else if dividend == i32::MIN && divisor == -1 {
+                0
+            } else {
+                ((dividend.wrapping_rem(divisor) as u32) as u64).sign_ext32()
+            },
+        );
         Ok(())
     }
 
     fn visit_rem_s_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend = self.registers[reg0 as usize] as i64;
-        let divisor = self.registers[reg1 as usize] as i64;
+        let dividend = self.rget(reg0) as i64;
+        let divisor = self.rget(reg1) as i64;
 
-        self.registers[reg2 as usize] = if divisor == 0 {
-            self.registers[reg0 as usize]
-        } else if dividend == i64::MIN && divisor == -1 {
-            0
-        } else {
-            (dividend.wrapping_rem(divisor)) as u64
-        };
+        self.rset(
+            reg2,
+            if divisor == 0 {
+                self.rget(reg0)
+            } else if dividend == i64::MIN && divisor == -1 {
+                0
+            } else {
+                (dividend.wrapping_rem(divisor)) as u64
+            },
+        );
         Ok(())
     }
 
     fn visit_reverse_bytes(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let mut value = self.registers[reg1 as usize].to_le_bytes();
+        let mut value = self.rget(reg1).to_le_bytes();
         value.reverse();
 
-        self.registers[reg0 as usize] = u64::from_le_bytes(value);
+        self.rset(reg0, u64::from_le_bytes(value));
         Ok(())
     }
 
     fn visit_rot_l_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let rotation = self.registers[reg1 as usize] % 32;
-        let value = ((self.registers[reg0 as usize] as u32).rotate_left(rotation as u32)) as u64;
-        self.registers[reg2 as usize] = value.sign_ext32();
+        let rotation = self.rget(reg1) % 32;
+        let value = ((self.rget(reg0) as u32).rotate_left(rotation as u32)) as u64;
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_rot_l_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let rotation = self.registers[reg1 as usize] % 64;
-        let value = self.registers[reg0 as usize].rotate_left(rotation as u32);
-        self.registers[reg2 as usize] = value;
+        let rotation = self.rget(reg1) % 64;
+        let value = self.rget(reg0).rotate_left(rotation as u32);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_rot_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let rotation = self.registers[reg1 as usize] % 32;
-        let value = ((self.registers[reg0 as usize] as u32).rotate_right(rotation as u32)) as u64;
-        self.registers[reg2 as usize] = value.sign_ext32();
+        let rotation = self.rget(reg1) % 32;
+        let value = ((self.rget(reg0) as u32).rotate_right(rotation as u32)) as u64;
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_rot_r_32_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let rotation = imm0 % 32;
-        let value = ((self.registers[reg1 as usize] as u32).rotate_right(rotation as u32)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = ((self.rget(reg1) as u32).rotate_right(rotation as u32)) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_rot_r_32_imm_alt(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let rotation = self.registers[reg1 as usize] % 32;
+        let rotation = self.rget(reg1) % 32;
         let value = ((imm0 as u32).rotate_right(rotation as u32)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_rot_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let rotation = self.registers[reg1 as usize] % 64;
-        let value = self.registers[reg0 as usize].rotate_right(rotation as u32);
-        self.registers[reg2 as usize] = value;
+        let rotation = self.rget(reg1) % 64;
+        let value = self.rget(reg0).rotate_right(rotation as u32);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_rot_r_64_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let rotation = imm0 % 64;
-        let value = self.registers[reg1 as usize].rotate_right(rotation as u32);
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1).rotate_right(rotation as u32);
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_rot_r_64_imm_alt(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let rotation = self.registers[reg1 as usize] % 64;
+        let rotation = self.rget(reg1) % 64;
         let value = imm0.rotate_right(rotation as u32);
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let increment = self.registers[reg1 as usize];
+        let increment = self.rget(reg1);
         self.memory.heap_ptr += increment as u32;
-        self.registers[reg0 as usize] = self.memory.heap_ptr as u64;
+        self.rset(reg0, self.memory.heap_ptr as u64);
         Ok(())
     }
 
     fn visit_set_gt_s_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if (self.registers[reg1 as usize] as i64) > (imm0 as i64) {
-            self.registers[reg0 as usize] = 1;
+        if (self.rget(reg1) as i64) > (imm0 as i64) {
+            self.rset(reg0, 1);
         } else {
-            self.registers[reg0 as usize] = 0;
+            self.rset(reg0, 0);
         }
 
         Ok(())
@@ -726,20 +728,20 @@ impl Visitor for Interpreter {
 
     fn visit_set_gt_u_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if self.registers[reg1 as usize] > imm0 {
-            self.registers[reg0 as usize] = 1;
+        if self.rget(reg1) > imm0 {
+            self.rset(reg0, 1);
         } else {
-            self.registers[reg0 as usize] = 0;
+            self.rset(reg0, 0);
         }
         Ok(())
     }
 
     fn visit_set_lt_s_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if (self.registers[reg1 as usize] as i64) < (imm0 as i64) {
-            self.registers[reg0 as usize] = 1;
+        if (self.rget(reg1) as i64) < (imm0 as i64) {
+            self.rset(reg0, 1);
         } else {
-            self.registers[reg0 as usize] = 0;
+            self.rset(reg0, 0);
         }
 
         Ok(())
@@ -747,10 +749,10 @@ impl Visitor for Interpreter {
 
     fn visit_set_lt_u_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if self.registers[reg1 as usize] < imm0 {
-            self.registers[reg0 as usize] = 1;
+        if self.rget(reg1) < imm0 {
+            self.rset(reg0, 1);
         } else {
-            self.registers[reg0 as usize] = 0;
+            self.rset(reg0, 0);
         }
 
         Ok(())
@@ -758,19 +760,10 @@ impl Visitor for Interpreter {
 
     fn visit_set_lt_u(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if self.registers[reg0 as usize] < self.registers[reg1 as usize] {
-            self.registers[reg2 as usize] = 1;
+        if self.rget(reg0) < self.rget(reg1) {
+            self.rset(reg2, 1);
         } else {
-            self.registers[reg2 as usize] = 0;
-        }
-
-        match reg2 {
-            7 => tracing::trace!("a0 = 0x{:x}", self.registers[reg2 as usize]),
-            8 => tracing::trace!("a1 = 0x{:x}", self.registers[reg2 as usize]),
-            9 => tracing::trace!("a2 = 0x{:x}", self.registers[reg2 as usize]),
-            10 => tracing::trace!("a3 = 0x{:x}", self.registers[reg2 as usize]),
-            11 => tracing::trace!("a4 = 0x{:x}", self.registers[reg2 as usize]),
-            _ => {}
+            self.rset(reg2, 0);
         }
 
         Ok(())
@@ -778,10 +771,10 @@ impl Visitor for Interpreter {
 
     fn visit_set_lt_s(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if (self.registers[reg0 as usize] as i64) < (self.registers[reg1 as usize] as i64) {
-            self.registers[reg2 as usize] = 1;
+        if (self.rget(reg0) as i64) < (self.rget(reg1) as i64) {
+            self.rset(reg2, 1);
         } else {
-            self.registers[reg2 as usize] = 0;
+            self.rset(reg2, 0);
         }
 
         Ok(())
@@ -789,181 +782,181 @@ impl Visitor for Interpreter {
 
     fn visit_shar_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
-        let value = ((self.registers[reg0 as usize] as i32).wrapping_shr(shift as u32)) as u64;
-        self.registers[reg2 as usize] = value;
+        let shift = self.rget(reg1) % 32;
+        let value = ((self.rget(reg0) as i32).wrapping_shr(shift as u32)) as u64;
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_shar_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
-        let value = ((self.registers[reg0 as usize] as i64) >> shift) as u64;
-        self.registers[reg2 as usize] = value;
+        let shift = self.rget(reg1) % 64;
+        let value = ((self.rget(reg0) as i64) >> shift) as u64;
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_shar_r_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = ((self.registers[reg1 as usize] as i32).wrapping_shr(shift as u32)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = ((self.rget(reg1) as i32).wrapping_shr(shift as u32)) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shar_r_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 64;
-        let value = ((self.registers[reg1 as usize] as i64) >> shift) as u64;
-        self.registers[reg0 as usize] = value;
+        let value = ((self.rget(reg1) as i64) >> shift) as u64;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_shar_r_imm_alt_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
+        let shift = self.rget(reg1) % 32;
         let value = ((imm0 as i32).wrapping_shr(shift as u32)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shar_r_imm_alt_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
+        let shift = self.rget(reg1) % 64;
         let value = ((imm0 as i64).wrapping_shr(shift as u32)) as u64;
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_shlo_l_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
-        let value = (self.registers[reg0 as usize] as u32).wrapping_shl(shift as u32) as u64;
-        self.registers[reg2 as usize] = value.sign_ext32();
+        let shift = self.rget(reg1) % 32;
+        let value = (self.rget(reg0) as u32).wrapping_shl(shift as u32) as u64;
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_l_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
-        let value = self.registers[reg0 as usize].wrapping_shl(shift as u32);
-        self.registers[reg2 as usize] = value;
+        let shift = self.rget(reg1) % 64;
+        let value = self.rget(reg0).wrapping_shl(shift as u32);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_shlo_l_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = (self.registers[reg1 as usize] as u32).wrapping_shl(shift as u32) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = (self.rget(reg1) as u32).wrapping_shl(shift as u32) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_l_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 64;
-        let value = self.registers[reg1 as usize] << shift;
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1) << shift;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_shlo_l_imm_alt_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
+        let shift = self.rget(reg1) % 32;
         let value = ((imm0 as u32).wrapping_shl(shift as u32)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_l_imm_alt_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
+        let shift = self.rget(reg1) % 64;
         let value = imm0.wrapping_shl(shift as u32);
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_shlo_r_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 32;
-        let value = (self.registers[reg0 as usize] as u32).wrapping_shr(shift as u32) as u64;
-        self.registers[reg2 as usize] = value.sign_ext32();
+        let shift = self.rget(reg1) % 32;
+        let value = (self.rget(reg0) as u32).wrapping_shr(shift as u32) as u64;
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_r_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
-        let value = self.registers[reg0 as usize].wrapping_shr(shift as u32);
-        self.registers[reg2 as usize] = value;
+        let shift = self.rget(reg1) % 64;
+        let value = self.rget(reg0).wrapping_shr(shift as u32);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_shlo_r_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 32;
-        let value = (self.registers[reg1 as usize] as u32).wrapping_shr(shift as u32) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        let value = (self.rget(reg1) as u32).wrapping_shr(shift as u32) as u64;
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_r_imm_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift = imm0 % 64;
-        let value = self.registers[reg1 as usize].wrapping_shr(shift as u32);
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1).wrapping_shr(shift as u32);
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_shlo_r_imm_alt_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = (self.registers[reg1 as usize] as u32) % 32;
+        let shift = (self.rget(reg1) as u32) % 32;
         let value = ((imm0 as u32).wrapping_shr(shift)) as u64;
-        self.registers[reg0 as usize] = value.sign_ext32();
+        self.rset(reg0, value.sign_ext32());
         Ok(())
     }
 
     fn visit_shlo_r_imm_alt_64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let shift = self.registers[reg1 as usize] % 64;
+        let shift = self.rget(reg1) % 64;
         let value = imm0.wrapping_shr(shift as u32);
-        self.registers[reg0 as usize] = value;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_sign_extend_8(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        self.registers[reg0 as usize] = self.registers[reg1 as usize] as i8 as u64;
+        self.rset(reg0, self.rget(reg1) as i8 as u64);
         Ok(())
     }
 
     fn visit_sign_extend_16(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        self.registers[reg0 as usize] = self.registers[reg1 as usize] as i16 as u64;
+        self.rset(reg0, self.rget(reg1) as i16 as u64);
         Ok(())
     }
 
     fn visit_store_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value = self.registers[reg0 as usize] as u8;
+        let value = self.rget(reg0) as u8;
         self.memory.write(imm0 as u32, value)
     }
 
     fn visit_store_u16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value = self.registers[reg0 as usize] as u16;
+        let value = self.rget(reg0) as u16;
         self.memory.write(imm0 as u32, value)
     }
 
     fn visit_store_u32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value = self.registers[reg0 as usize] as u32;
+        let value = self.rget(reg0) as u32;
         self.memory.write(imm0 as u32, value)
     }
 
     fn visit_store_u64(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value = self.registers[reg0 as usize];
+        let value = self.rget(reg0);
         self.memory.write(imm0 as u32, value)
     }
 
@@ -993,7 +986,7 @@ impl Visitor for Interpreter {
 
     fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let address = self.registers[reg0 as usize];
+        let address = self.rget(reg0);
         tracing::trace!("u8 [0x{:x}] = 0x{:x}", address.wrapping_add(imm0), imm1);
         self.memory
             .write_offset(address as u32, imm0 as u32, imm1 as u8)
@@ -1001,74 +994,64 @@ impl Visitor for Interpreter {
 
     fn visit_store_imm_ind_u16(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let address = self.registers[reg0 as usize];
+        let address = self.rget(reg0);
         self.memory
             .write_offset(address as u32, imm0 as u32, imm1 as u16)
     }
 
     fn visit_store_imm_ind_u32(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let address = self.registers[reg0 as usize];
+        let address = self.rget(reg0);
         self.memory
             .write_offset(address as u32, imm0 as u32, imm1 as u32)
     }
 
     fn visit_store_imm_ind_u64(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        let address = self.registers[reg0 as usize];
+        let address = self.rget(reg0);
         self.memory.write_offset(address as u32, imm0 as u32, imm1)
     }
 
     fn visit_store_ind_u8(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let address = self.registers[reg1 as usize];
-        self.memory.write_offset(
-            address as u32,
-            imm0 as u32,
-            self.registers[reg0 as usize] as u8,
-        )
+        let address = self.rget(reg1);
+        self.memory
+            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u8)
     }
 
     fn visit_store_ind_u16(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let address = self.registers[reg1 as usize];
-        self.memory.write_offset(
-            address as u32,
-            imm0 as u32,
-            self.registers[reg0 as usize] as u16,
-        )
+        let address = self.rget(reg1);
+        self.memory
+            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u16)
     }
 
     fn visit_store_ind_u32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let address = self.registers[reg1 as usize];
-        self.memory.write_offset(
-            address as u32,
-            imm0 as u32,
-            self.registers[reg0 as usize] as u32,
-        )
+        let address = self.rget(reg1);
+        self.memory
+            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u32)
     }
 
     fn visit_store_ind_u64(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let address = self.registers[reg1 as usize];
+        let address = self.rget(reg1);
         self.memory
-            .write_offset(address as u32, imm0 as u32, self.registers[reg0 as usize])
+            .write_offset(address as u32, imm0 as u32, self.rget(reg0))
     }
 
     fn visit_sub_32(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = (self.registers[reg0 as usize] as u32)
-            .wrapping_sub(self.registers[reg1 as usize] as u32) as u64;
+        let value = (self.rget(reg0) as u32).wrapping_sub(self.rget(reg1) as u32) as u64;
 
-        self.registers[reg2 as usize] = value.sign_ext32();
+        self.rset(reg2, value.sign_ext32());
         Ok(())
     }
 
     fn visit_sub_64(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize].wrapping_sub(self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0).wrapping_sub(self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
@@ -1078,42 +1061,42 @@ impl Visitor for Interpreter {
 
     fn visit_trailing_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize] as u32;
-        self.registers[reg0 as usize] = value.trailing_zeros() as u64;
+        let value = self.rget(reg1) as u32;
+        self.rset(reg0, value.trailing_zeros() as u64);
         Ok(())
     }
 
     fn visit_trailing_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        let value = self.registers[reg1 as usize];
-        self.registers[reg0 as usize] = value.trailing_zeros() as u64;
+        let value = self.rget(reg1);
+        self.rset(reg0, value.trailing_zeros() as u64);
         Ok(())
     }
 
     fn visit_xnor(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = !(self.registers[reg0 as usize] ^ self.registers[reg1 as usize]);
-        self.registers[reg2 as usize] = value;
+        let value = !(self.rget(reg0) ^ self.rget(reg1));
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_xor(&mut self, format: format::RRR) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let value = self.registers[reg0 as usize] ^ self.registers[reg1 as usize];
-        self.registers[reg2 as usize] = value;
+        let value = self.rget(reg0) ^ self.rget(reg1);
+        self.rset(reg2, value);
         Ok(())
     }
 
     fn visit_xor_imm(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let value = self.registers[reg1 as usize] ^ imm0;
-        self.registers[reg0 as usize] = value;
+        let value = self.rget(reg1) ^ imm0;
+        self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_zero_extend_16(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        self.registers[reg0 as usize] = self.registers[reg1 as usize] as u16 as u64;
+        self.rset(reg0, self.rget(reg1) as u16 as u64);
         Ok(())
     }
 }

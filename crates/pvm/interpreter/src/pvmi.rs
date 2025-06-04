@@ -58,17 +58,16 @@ impl Invocation for Interpreter {
         };
 
         // process the block sequence of instructions
-        tracing::trace!("Compiling block:");
+        /*    tracing::trace!("Compiling block:");
         tracing::trace!(
             "charge_gas: {} ({} -> {})",
             block.len(),
             pvmi.gas,
             pvmi.gas - block.len() as u64,
-        );
+        ); */
         let mut reason = Reason::Continue;
         for instr in block {
-            // TODO: add a instruction formatter in polkavm style
-            tracing::trace!("{:6} | {}", instr.range.start, instr.value);
+            // tracing::trace!("{:6} | {}", instr.range.start, instr.value);
             let next = instr.range.end;
             reason = pvmi.step_single(instr);
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {
