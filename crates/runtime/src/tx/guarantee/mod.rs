@@ -3,13 +3,13 @@
 use error::{Error, Result};
 use pvm::Pvm;
 use score::{
-    CORES_COUNT, Ed25519Public, OpaqueHash, TimeSlot,
+    CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, ServiceAccount, WorkReport,
     },
-    vm::{Accumulation, StateContext},
+    vm::{Accumulation, DeferredTransfer, StateContext},
 };
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
@@ -45,7 +45,7 @@ pub fn accumulate<V: Pvm>(
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let accumulated = exec::outer::<V>(
+    let mut accumulated = exec::outer::<V>(
         gas_limit,
         &accumulatable,
         StateContext {
@@ -80,9 +80,12 @@ pub fn accumulate<V: Pvm>(
     let next_ready_queue =
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
-    // TODO: note that we need to update account data as well after accumulation
-    //
-    // e.g. integrate transfers
+    // (δ‡) Process deferred transfers
+    let statistics = self::defer_transfers::<V>(
+        &mut accumulated.context.accounts,
+        &accumulated.transfers,
+        slot,
+    );
 
     Ok(Accumulation {
         root: Default::default(),
@@ -91,6 +94,7 @@ pub fn accumulate<V: Pvm>(
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
         records,
+        statistics,
     })
 }
 
@@ -217,6 +221,40 @@ pub fn pools(
     }
 
     new_pools
+}
+
+/// (δ‡) Process deferred transfers to transition from δ′ to δ‡
+pub fn defer_transfers<V: Pvm>(
+    // The post-accumulation accounts (δ′)
+    accounts: &mut BTreeMap<u32, ServiceAccount>,
+    // The deferred transfers (t)
+    transfers: &[DeferredTransfer],
+    // The current timeslot (τ')
+    slot: TimeSlot,
+) -> BTreeMap<ServiceId, (usize, Gas)> {
+    let mut statistics = BTreeMap::new();
+    let services: Vec<ServiceId> = accounts.keys().cloned().collect();
+
+    // Apply deferred transfers to each destination service (X computation)
+    for dest_service in services {
+        let selected_transfers = DeferredTransfer::select(transfers, dest_service);
+
+        if !selected_transfers.is_empty() {
+            // (ΨT) Apply transfers using PVM transfer function
+            let transfer_result = V::transfer(accounts, slot, dest_service, &selected_transfers);
+
+            // Update the account with transfer results
+            accounts.insert(dest_service, transfer_result.account);
+
+            // Build transfer statistics (X) - equation from the spec
+            statistics.insert(
+                dest_service,
+                (selected_transfers.len(), transfer_result.gas),
+            );
+        }
+    }
+
+    statistics
 }
 
 /// Report the work packages

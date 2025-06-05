@@ -120,6 +120,9 @@ pub struct Accumulation {
 
     /// (πS') The service records
     pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
+
+    /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
+    pub statistics: BTreeMap<ServiceId, (usize, Gas)>,
 }
 
 impl Accumulation {

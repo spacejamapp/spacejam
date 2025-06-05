@@ -10,7 +10,8 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    state::{StateKeyInfo, StateKeyLike},
+    state::{key, StateKeyInfo, StateKeyLike},
+    OpaqueHash,
 };
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
@@ -370,6 +371,19 @@ impl Runner {
                         tracing::error!("could not find {info:?}: 0x{encoded}");
                         continue;
                     };
+
+                    if key == key::AUTHORIZATION_POOLS {
+                        let polkajam: [Vec<OpaqueHash>; score::CORES_COUNT] =
+                            codec::decode(&value)?;
+
+                        tracing::info!(
+                            "polkajam: {:?}",
+                            polkajam
+                                .iter()
+                                .map(|c| c.iter().map(|v| hex::encode(v)).collect::<Vec<_>>())
+                                .collect::<Vec<Vec<String>>>()
+                        );
+                    }
 
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");

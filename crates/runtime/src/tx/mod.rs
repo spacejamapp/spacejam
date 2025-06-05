@@ -181,6 +181,13 @@ pub fn simulate<V: Pvm>(
             &block.extrinsic.guarantees,
         );
         if pools != state.pools {
+            tracing::info!(
+                "updating pools: {:?}",
+                pools
+                    .iter()
+                    .map(|c| c.iter().map(|v| hex::encode(v)).collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            );
             diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
             state.pools = pools;
         }
