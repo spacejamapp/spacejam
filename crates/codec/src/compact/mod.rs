@@ -13,7 +13,7 @@ pub use {
 };
 
 /// A compact number.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Copy)]
 pub struct Compact<T: Serialize>(pub T);
 
 impl<T: Serialize> Compact<T> {

@@ -192,24 +192,26 @@ pub fn reports(
 
 /// (α') Update authorization pools.
 pub fn pools(
-    slot: TimeSlot,
+    timeslot: TimeSlot,
     pools: &[Vec<OpaqueHash>; score::CORES_COUNT],
     authorizations: &[Vec<OpaqueHash>; score::CORES_COUNT],
     guarantees: &GuaranteesExtrinsic,
 ) -> [Vec<OpaqueHash>; score::CORES_COUNT] {
+    let slot = timeslot % score::EPOCH_LENGTH;
     let mut new_pools: [Vec<OpaqueHash>; score::CORES_COUNT] = Default::default();
     for (core_index, pool) in pools.iter().enumerate() {
-        let mut new_pool = vec![];
-        if let Some(auth) = authorizations[core_index].get(slot as usize) {
-            new_pool.push(*auth);
-        }
+        let mut new_pool = pool.clone();
 
         // remove old authorizers from the pool
-        new_pool.extend(pool);
         for guarantee in guarantees {
             if guarantee.report.core_index.cloned() as usize == core_index {
                 new_pool.retain(|auth| *auth != guarantee.report.authorizer_hash);
             }
+        }
+
+        // add new authorizer from queue at position H_t (current timeslot)
+        if let Some(auth) = authorizations[core_index].get(slot as usize) {
+            new_pool.push(*auth);
         }
 
         // truncate the pool to the max size

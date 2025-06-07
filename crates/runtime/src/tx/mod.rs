@@ -173,24 +173,20 @@ pub fn simulate<V: Pvm>(
             state.accounts = accounts;
         }
 
-        // (α') Update the authorization pool
-        let pools = guarantee::pools(
-            block.header.slot,
-            &state.pools,
-            &state.authorization,
-            &block.extrinsic.guarantees,
-        );
-        if pools != state.pools {
-            tracing::info!(
-                "updating pools: {:?}",
-                pools
-                    .iter()
-                    .map(|c| c.iter().map(|v| hex::encode(v)).collect::<Vec<_>>())
-                    .collect::<Vec<_>>()
-            );
-            diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
-            state.pools = pools;
-        }
+        // FIXME: looks like polkajam currently doesn't update the authorization
+        // pool, so we're not updating it here.
+        //
+        // // (α') Update the authorization pool
+        // let pools = guarantee::pools(
+        //     block.header.slot,
+        //     &state.pools,
+        //     &state.authorization,
+        //     &block.extrinsic.guarantees,
+        // );
+        // if pools != state.pools {
+        //     diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
+        //     state.pools = pools;
+        // }
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;

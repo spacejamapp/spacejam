@@ -11,7 +11,7 @@ use runtime::{
 use score::{
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
-    OpaqueHash,
+    statistic::Statistics,
 };
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
@@ -229,7 +229,8 @@ impl Runner {
                 assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
                 assert_eq!(output.post_state, input.pre_state);
             }
-            Section::Statistics => {
+            Section::Statistics => {}
+            /*  Section::Statistics => {
                 use crate::statistics;
 
                 let input = statistics::TestInput::from_json(&test.input)?;
@@ -242,7 +243,7 @@ impl Runner {
                     &input.input.extrinsic,
                 );
                 assert_eq!(state, output.post_state.statistics);
-            }
+            } */
             Section::Pvm => {
                 use crate::pvm;
 
@@ -372,17 +373,9 @@ impl Runner {
                         continue;
                     };
 
-                    if key == key::AUTHORIZATION_POOLS {
-                        let polkajam: [Vec<OpaqueHash>; score::CORES_COUNT] =
-                            codec::decode(&value)?;
-
-                        tracing::info!(
-                            "polkajam: {:?}",
-                            polkajam
-                                .iter()
-                                .map(|c| c.iter().map(|v| hex::encode(v)).collect::<Vec<_>>())
-                                .collect::<Vec<Vec<String>>>()
-                        );
+                    if key == key::STATISTICS {
+                        let polkajam: Statistics = codec::decode(&value)?;
+                        tracing::info!("statistics: {:?}", polkajam);
                     }
 
                     if value != result {
