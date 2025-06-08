@@ -5,22 +5,24 @@
 use core::fmt;
 use serde::de;
 
-/// Visitor for variable-length byte arrays.
-/// This visitor correctly handles the vlen encoded format where the length
-/// is encoded as a prefix before the actual data.
+use crate::compact::vlen;
+
+/// Visitor for variable-length numbers.
 pub struct VlenBytesVisitor;
 
 impl de::Visitor<'_> for VlenBytesVisitor {
-    type Value = Vec<u8>;
+    type Value = u64;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a variable length prefixed byte array")
     }
 
-    fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(bytes.to_vec())
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v)
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E> {
+        let (value, _) = vlen::decode_from(&v);
+        Ok(value)
     }
 }

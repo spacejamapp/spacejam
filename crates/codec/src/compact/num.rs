@@ -19,6 +19,9 @@ pub trait Numeric: Sized + Default + Copy + Serialize {
     /// Decode the value from a compact byte vector
     fn compact_decode(source: &[u8]) -> Self;
 
+    /// Convert the value to a u64
+    fn as_u64(&self) -> u64;
+
     /// Create a numeric value from a u64
     fn from_u64(value: u64) -> Self;
 }
@@ -49,6 +52,10 @@ macro_rules! impl_numeric {
 
                 fn compact_decode(source: &[u8]) -> Self {
                     compact::decode(source) as $t
+                }
+
+                fn as_u64(&self) -> u64 {
+                    *self as u64
                 }
 
                 fn from_u64(value: u64) -> Self {

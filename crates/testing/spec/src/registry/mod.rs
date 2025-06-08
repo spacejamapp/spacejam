@@ -32,7 +32,7 @@ impl Registry {
             "accumulate" => self.accumulate(Scale::Tiny),
             "assurances" => self.assurances(Scale::Tiny),
             "authorizations" => self.authorizations(Scale::Tiny),
-            "codec" => self.codec(),
+            "codec" => self.codec(Scale::Tiny),
             "disputes" => self.disputes(Scale::Tiny),
             "history/data" => self.history(),
             "preimages/data" => self.preimages(),
@@ -68,8 +68,8 @@ impl Registry {
     }
 
     /// Get the codec test vectors
-    pub fn codec(&self) -> Result<Entry> {
-        let entry = Entry::new(Section::Codec, None, &self.root)?;
+    pub fn codec(&self, scale: Scale) -> Result<Entry> {
+        let entry = Entry::new(Section::Codec, Some(scale), &self.root)?;
         Ok(entry)
     }
 

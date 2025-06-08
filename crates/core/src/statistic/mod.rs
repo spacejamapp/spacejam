@@ -2,7 +2,6 @@
 
 use crate::{Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
 pub use {
     acc::{AccumulationRecord, AccumulationRecordJson, TransferRecord, TransferRecordJson},
     core::{CoreActivityRecord, CoreActivityRecordJson},
@@ -16,27 +15,23 @@ mod service;
 mod val;
 
 /// Represents statistics.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
 pub struct Statistics {
     /// Current epoch statistics
-    #[json(Vec<ValidatorActivityRecordJson>)]
     #[serde(rename = "vals_curr_stats")]
     pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Last epoch statistics
-    #[json(Vec<ValidatorActivityRecordJson>)]
     #[serde(rename = "vals_last_stats")]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Current core activity records
-    #[json(Vec<CoreActivityRecordJson>)]
     #[serde(default)]
     pub cores: [CoreActivityRecord; crate::CORES_COUNT],
 
     /// Current service activity records
-    #[json(Vec<ServiceActivityRecordJson>)]
     #[serde(default)]
-    pub services: Vec<ServiceActivityRecord>,
+    pub services: Vec<(u32, ServiceActivityRecord)>,
 }
 
 impl Statistics {

@@ -32,7 +32,12 @@ impl<'de> Deserializer<'de> {
     /// Get the next bytes from the input.
     pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.index + len > self.input.len() {
-            return Err(anyhow::anyhow!("EOF: index: {}, len: {}", self.index, len).into());
+            return Err(anyhow::anyhow!(
+                "failed to get the next bytes: EOF: index: {}, len: {}",
+                self.index,
+                len
+            )
+            .into());
         }
         let bytes = &self.input[self.index..self.index + len];
         self.index += len;
@@ -42,6 +47,10 @@ impl<'de> Deserializer<'de> {
 
 impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = Error;
+
+    fn is_human_readable(&self) -> bool {
+        false
+    }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
@@ -199,8 +208,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     }
 
     /// NOTE: this is only used for the compact decoding for numeric types
-    ///
-    /// TODO: waiting for using compact form for all numbers in JAM.
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -208,9 +215,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         let prefix = self.peek_byte()?;
         if prefix < 0x80 {
             let data = self.next_byte()?;
-            visitor.visit_bytes(&[data])
+            visitor.visit_u64(data as u64)
         } else {
-            self.deserialize_bytes(visitor)
+            let (value, length) = vlen::decode_from(&self.input[self.index..]);
+            self.index += length;
+            visitor.visit_u64(value)
         }
     }
 

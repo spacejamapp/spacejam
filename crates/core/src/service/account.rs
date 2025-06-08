@@ -1,9 +1,6 @@
 //! Service account types
 
-use crate::{
-    service::{GasLimit, GasLimitJson},
-    OpaqueHash, TimeSlot,
-};
+use crate::{service::GasLimit, Gas, OpaqueHash, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
@@ -77,7 +74,8 @@ impl ServiceAccount {
         ServiceAccountState {
             code: self.code,
             balance: self.balance,
-            gas: self.gas.clone(),
+            accumulate: self.gas.accumulate,
+            transfer: self.gas.transfer,
             total,
             items,
         }
@@ -95,10 +93,14 @@ pub struct ServiceAccountState {
     /// The balance of the service account (b)
     pub balance: u64,
 
-    /// The gas limits of the service account (g) and (m)
-    #[serde(flatten)]
-    #[json(nested)]
-    pub gas: GasLimit,
+    /// The minimum gas in order to execute the accumulate
+    /// entry-point of the service code (g)
+    #[serde(alias = "min_memo_gas")]
+    pub accumulate: Gas,
+
+    /// The minimum required for the on transfer entry-point (m)
+    #[serde(alias = "min_item_gas")]
+    pub transfer: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]

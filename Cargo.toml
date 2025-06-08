@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/*",
+    "crates/core/tests",
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
@@ -23,6 +24,7 @@ version = "0.0.0"
 [workspace.dependencies]
 score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
+serde-jam = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 jade = { path = "jade" }
 jadex = { path = "jade/jadex" }

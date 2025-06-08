@@ -5,8 +5,8 @@ use score::{
     block::{BlockInfo, BlockInfoJson},
     safrole::{ValidatorDataJson, ValidatorsData},
     service::{
-        AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccountData, ServiceItem,
-        ServiceItemJson,
+        AvailabilityAssignmentJson, AvailabilityAssignments, GasLimit, ServiceAccountData,
+        ServiceItem, ServiceItemJson,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -59,13 +59,16 @@ impl State {
         state.entropy = self.entropy;
         state.disputes.offenders = self.offenders;
         state.recent_blocks = self.recent_blocks;
-        state.authorization = self.auth_pools;
+        state.pools = self.auth_pools;
 
         for ServiceItem { id, data } in self.services.into_iter() {
             state.accounts.entry(id).or_default().code = data.service.code;
             state.accounts.entry(id).and_modify(|account| {
                 account.balance = data.service.balance;
-                account.gas = data.service.gas;
+                account.gas = GasLimit {
+                    accumulate: data.service.accumulate,
+                    transfer: data.service.transfer,
+                };
             });
         }
     }
@@ -88,7 +91,7 @@ impl From<score::State> for State {
             entropy: value.entropy,
             offenders: value.disputes.offenders,
             recent_blocks: value.recent_blocks,
-            auth_pools: value.authorization,
+            auth_pools: value.pools,
             services: value
                 .accounts
                 .into_iter()

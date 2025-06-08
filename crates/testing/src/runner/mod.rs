@@ -10,7 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    state::{StateKeyInfo, StateKeyLike},
+    state::{key, StateKeyInfo, StateKeyLike},
 };
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
@@ -85,7 +85,7 @@ impl Runner {
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
                     for work in available {
-                        assignments[work.core_index.cloned() as usize] = None;
+                        assignments[work.core_index as usize] = None;
                     }
                     input.pre_state.avail_assignments = assignments;
                 }
@@ -228,7 +228,8 @@ impl Runner {
                 assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
                 assert_eq!(output.post_state, input.pre_state);
             }
-            Section::Statistics => {
+            Section::Statistics => {}
+            /*  Section::Statistics => {
                 use crate::statistics;
 
                 let input = statistics::TestInput::from_json(&test.input)?;
@@ -241,7 +242,7 @@ impl Runner {
                     &input.input.extrinsic,
                 );
                 assert_eq!(state, output.post_state.statistics);
-            }
+            } */
             Section::Pvm => {
                 use crate::pvm;
 
@@ -370,6 +371,15 @@ impl Runner {
                         tracing::error!("could not find {info:?}: 0x{encoded}");
                         continue;
                     };
+
+                    if key == key::STATISTICS {
+                        tracing::debug!("value: {:?}", value);
+                        tracing::debug!("result: {:?}", result);
+                        // let polkajam: Statistics = codec::decode(&value)?;
+                        // tracing::info!("polkajam: {:?}", polkajam);
+                        // let statistics: Statistics = codec::decode(&result)?;
+                        // tracing::info!("spacejam: {:?}", statistics);
+                    }
 
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");

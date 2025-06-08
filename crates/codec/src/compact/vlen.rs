@@ -3,7 +3,7 @@
 use crate::compact::Numeric;
 
 /// The thresholds for the length prefix encoding.
-const THRESHOLDS: [(usize, u8, u8, u64, u64); 7] = [
+pub const THRESHOLDS: [(usize, u8, u8, u64, u64); 7] = [
     // 1 bytes, 0x80 = 2^8 - 2^7, 2^8, 2^14
     (1, 0x80, 0xc0, 0x100, 0x4000),
     // 2 bytes, 0xc0 = 2^8 - 2^6, 2^16, 2^21

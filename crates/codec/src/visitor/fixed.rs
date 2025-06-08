@@ -46,6 +46,6 @@ impl<'v, T: TryFrom<Vec<u8>>> de::DeserializeSeed<'v> for FixedBytesVisitor<T> {
     where
         D: de::Deserializer<'v>,
     {
-        deserializer.deserialize_any(self)
+        deserializer.deserialize_tuple(core::mem::size_of::<T>(), self)
     }
 }

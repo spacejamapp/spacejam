@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         registry.authorizations(Scale::Tiny)?,
         &out_dir.join("authorizations.rs"),
     )?;
-    build_tests(registry.codec()?, &out_dir.join("codec.rs"))?;
+    build_tests(registry.codec(Scale::Tiny)?, &out_dir.join("codec.rs"))?;
     build_tests(
         registry.disputes(Scale::Tiny)?,
         &out_dir.join("disputes.rs"),

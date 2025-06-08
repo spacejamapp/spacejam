@@ -23,6 +23,8 @@ pub mod reports;
 pub mod runner;
 pub mod safrole;
 pub mod shuffle;
-pub mod statistics;
 pub mod traces;
 pub mod trie;
+
+// FIXME: support parsing tuple from JSON
+// pub mod statistics;

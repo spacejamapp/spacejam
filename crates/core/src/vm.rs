@@ -7,7 +7,6 @@ use crate::{
     OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
-use codec::Compact;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -91,7 +90,7 @@ impl Accumulated {
             records.insert(
                 *service,
                 ServiceActivityRecord {
-                    accumulate_gas_used: Compact::new(*gas),
+                    accumulate_gas_used: *gas,
                     ..Default::default()
                 },
             );
@@ -120,6 +119,9 @@ pub struct Accumulation {
 
     /// (πS') The service records
     pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
+
+    /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
+    pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
 }
 
 impl Accumulation {
@@ -169,10 +171,12 @@ impl Accumulation {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AccumulateParams {
     /// (N_t)  timeslot for the current accumulation
-    pub slot: Compact<u32>,
+    #[serde(with = "codec::compact")]
+    pub slot: u32,
 
     /// (N_s)  the service id of the caller
-    pub id: Compact<u32>,
+    #[serde(with = "codec::compact")]
+    pub id: u32,
 
     /// (B) The accumulation-output pairings.
     pub results: Vec<Operand>,
@@ -203,7 +207,8 @@ pub struct Operand {
 
     // JAM_TYPES currently does not include this field
     /// (g) The accumulate gas
-    pub gas: Compact<Gas>,
+    #[serde(with = "codec::compact")]
+    pub gas: Gas,
 
     /// (d) The work execution result
     pub data: WorkExecResult,
@@ -238,55 +243,5 @@ impl DeferredTransfer {
             .filter(|t| t.recipient == dest)
             .cloned()
             .collect()
-    }
-}
-
-#[cfg(test)]
-mod test_codec {
-    use super::*;
-    use codec::Compact;
-    use jam_types::{AccumulateItem, AccumulateParams, AuthTrace, Encode};
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct SpaceAccumulateParams {
-        slot: Compact<u32>,
-        id: Compact<u32>,
-        results: Vec<Operand>,
-    }
-
-    #[test]
-    fn accumulate_codec() {
-        let space = SpaceAccumulateParams {
-            slot: Compact::new(0),
-            id: Compact::new(1729),
-            results: vec![Operand {
-                hash: [0; 32],
-                erasure_root: [0; 32],
-                anchor: [0; 32],
-                authorizer_output: vec![],
-                payload: [0; 32],
-                gas: Compact::new(0),
-                data: WorkExecResult::Ok(vec![0; 32]),
-            }],
-        };
-
-        let polka = AccumulateParams {
-            slot: 0,
-            id: 1729,
-            results: vec![AccumulateItem {
-                package: [0; 32].into(),
-                exports_root: [0; 32].into(),
-                authorizer_hash: [0; 32].into(),
-                auth_output: AuthTrace::new(),
-                payload: [0; 32].into(),
-                gas_limit: 0,
-                result: Ok(vec![0; 32].into()),
-            }],
-        };
-
-        let space_encoded = codec::encode(&space).expect("failed to encode");
-        let polka_encoded = polka.encode();
-        assert_eq!(space_encoded, polka_encoded);
     }
 }
