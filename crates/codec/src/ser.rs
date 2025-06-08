@@ -150,6 +150,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        println!("serialize_tuple: {}", _len);
         Ok(self)
     }
 
@@ -176,6 +177,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        println!("serialize_struct: {}", _len);
         Ok(self)
     }
 

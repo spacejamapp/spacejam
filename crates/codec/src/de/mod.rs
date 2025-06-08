@@ -199,8 +199,6 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     }
 
     /// NOTE: this is only used for the compact decoding for numeric types
-    ///
-    /// TODO: waiting for using compact form for all numbers in JAM.
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,

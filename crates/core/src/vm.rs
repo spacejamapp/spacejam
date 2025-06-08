@@ -91,7 +91,7 @@ impl Accumulated {
             records.insert(
                 *service,
                 ServiceActivityRecord {
-                    accumulate_gas_used: *gas,
+                    accumulate_gas_used: (*gas).into(),
                     ..Default::default()
                 },
             );

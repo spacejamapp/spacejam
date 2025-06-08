@@ -90,7 +90,7 @@ impl AsRef<str> for Section {
         match self {
             Section::Accumulate => "accumulate",
             Section::Assurances => "assurances",
-            Section::Codec => "codec/data",
+            Section::Codec => "codec",
             Section::Pvm => "pvm/programs",
             Section::Safrole => "safrole",
             Section::Statistics => "statistics",

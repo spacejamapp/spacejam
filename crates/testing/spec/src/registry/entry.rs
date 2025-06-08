@@ -35,7 +35,7 @@ impl Entry {
         };
 
         if !dir.exists() {
-            return Err(anyhow::anyhow!("directory does not exist"));
+            return Err(anyhow::anyhow!("directory {dir:?} does not exist"));
         }
 
         let mut files = Vec::new();

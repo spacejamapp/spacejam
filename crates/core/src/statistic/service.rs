@@ -1,6 +1,7 @@
 //! Service statistics
 
 use crate::Gas;
+use codec::Compact;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -8,39 +9,39 @@ use spacejson::Json;
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct ServiceActivityRecord {
     /// Number of preimages provided to this service.
-    #[serde(with = "codec::compact")]
-    pub provided_count: u16,
+    #[json(compact)]
+    pub provided_count: Compact<u16>,
     /// Total size of preimages provided to this service.
-    #[serde(with = "codec::compact")]
-    pub provided_size: u32,
+    #[json(compact)]
+    pub provided_size: Compact<u32>,
     /// Number of work-items refined by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub refinement_count: u32,
+    #[json(compact)]
+    pub refinement_count: Compact<u32>,
     /// Amount of gas used for refinement by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub refinement_gas_used: Gas,
+    #[json(compact)]
+    pub refinement_gas_used: Compact<Gas>,
     /// Number of segments imported from the DL by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub imports: u32,
+    #[json(compact)]
+    pub imports: Compact<u32>,
     /// Number of segments exported into the DL by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub exports: u32,
+    #[json(compact)]
+    pub exports: Compact<u32>,
     /// Total size of extrinsics used by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub extrinsic_size: u32,
+    #[json(compact)]
+    pub extrinsic_size: Compact<u32>,
     /// Total number of extrinsics used by service for reported work.
-    #[serde(with = "codec::compact")]
-    pub extrinsic_count: u32,
+    #[json(compact)]
+    pub extrinsic_count: Compact<u32>,
     /// Number of work-items accumulated by service.
-    #[serde(with = "codec::compact")]
-    pub accumulate_count: u32,
+    #[json(compact)]
+    pub accumulate_count: Compact<u32>,
     /// Amount of gas used for accumulation by service.
-    #[serde(with = "codec::compact")]
-    pub accumulate_gas_used: Gas,
+    #[json(compact)]
+    pub accumulate_gas_used: Compact<Gas>,
     /// Number of transfers processed by service.
-    #[serde(with = "codec::compact")]
-    pub on_transfers_count: u32,
+    #[json(compact)]
+    pub on_transfers_count: Compact<u32>,
     /// Amount of gas used for processing transfers by service.
-    #[serde(with = "codec::compact")]
-    pub on_transfers_gas_used: Gas,
+    #[json(compact)]
+    pub on_transfers_gas_used: Compact<Gas>,
 }
