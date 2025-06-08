@@ -1,9 +1,0 @@
-[package]
-name = "ctesting"
-edition.workspace = true
-version.workspace = true
-
-[dependencies]
-codec = { package = "jam-codec", version = "0.1.0", features = ["derive"] }
-serde-jam.workspace = true
-serde.workspace = true

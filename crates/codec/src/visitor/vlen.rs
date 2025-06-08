@@ -19,10 +19,10 @@ impl<'de> de::Visitor<'de> for VlenBytesVisitor {
         formatter.write_str("a variable length prefixed byte array")
     }
 
-    fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Self::Value, E>
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(bytes.to_vec())
+        Ok(v.to_vec())
     }
 }

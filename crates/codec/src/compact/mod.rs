@@ -7,7 +7,6 @@ use crate::visitor::VlenBytesVisitor;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 pub use {
-    crate::with::compact::{deserialize, serialize},
     num::Numeric,
     vlen::{decode, decode_from, encode},
 };
