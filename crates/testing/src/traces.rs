@@ -55,8 +55,7 @@ mod fallback {
 mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }
-/*
+
 mod reports_l0 {
     include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
 }
- */

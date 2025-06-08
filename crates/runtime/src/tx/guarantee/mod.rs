@@ -78,7 +78,7 @@ pub fn accumulate<V: Pvm>(
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
     // (δ‡) Process deferred transfers
-    let statistics = self::defer_transfers::<V>(
+    let transfers = self::defer_transfers::<V>(
         &mut accumulated.context.accounts,
         &accumulated.transfers,
         slot,
@@ -91,7 +91,7 @@ pub fn accumulate<V: Pvm>(
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
         records,
-        statistics,
+        transfers,
     })
 }
 
