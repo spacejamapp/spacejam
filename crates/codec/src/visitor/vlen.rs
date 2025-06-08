@@ -10,7 +10,7 @@ use crate::compact::vlen;
 /// Visitor for variable-length numbers.
 pub struct VlenBytesVisitor;
 
-impl<'de> de::Visitor<'de> for VlenBytesVisitor {
+impl de::Visitor<'_> for VlenBytesVisitor {
     type Value = u64;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

@@ -31,7 +31,6 @@ impl<'de> Deserializer<'de> {
 
     /// Get the next bytes from the input.
     pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
-        println!("visiting next_bytes: index: {}, len: {}", self.index, len);
         if self.index + len > self.input.len() {
             return Err(anyhow::anyhow!(
                 "failed to get the next bytes: EOF: index: {}, len: {}",
@@ -139,9 +138,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        println!("visiting deserialize_u64");
         let bytes = self.next_bytes(8)?;
-        println!("bytes: {:?}", bytes);
         visitor.visit_u64(u64::from_le_bytes(
             bytes
                 .try_into()

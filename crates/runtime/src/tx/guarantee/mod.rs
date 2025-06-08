@@ -64,8 +64,10 @@ pub fn accumulate<V: Pvm>(
     let mut records = accumulated.records();
     for report in &accumulatable {
         for result in &report.results {
-            let record = records.entry(result.service_id).or_default();
-            record.accumulate_count = record.accumulate_count.saturating_add(1).into();
+            records
+                .entry(result.service_id)
+                .or_default()
+                .accumulate_count += 1;
         }
     }
 
