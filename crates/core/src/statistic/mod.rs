@@ -32,6 +32,8 @@ pub struct Statistics {
     pub cores: [CoreActivityRecord; crate::CORES_COUNT],
 
     /// Current service activity records
+    ///
+    /// TODO: support map in codec.
     #[serde(default)]
     pub services: Vec<(ServiceId, ServiceActivityRecord)>,
 }
@@ -81,3 +83,6 @@ impl Statistics {
         next
     }
 }
+
+#[cfg(test)]
+mod codec_test {}

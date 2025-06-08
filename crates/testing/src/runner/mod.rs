@@ -374,8 +374,12 @@ impl Runner {
                     };
 
                     if key == key::STATISTICS {
+                        tracing::debug!("value: {:?}", value);
+                        tracing::debug!("result: {:?}", result);
                         let polkajam: Statistics = codec::decode(&value)?;
-                        tracing::info!("statistics: {:?}", polkajam);
+                        tracing::info!("polkajam: {:?}", polkajam);
+                        let statistics: Statistics = codec::decode(&result)?;
+                        tracing::info!("spacejam: {:?}", statistics);
                     }
 
                     if value != result {

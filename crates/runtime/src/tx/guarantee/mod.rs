@@ -67,8 +67,7 @@ pub fn accumulate<V: Pvm>(
             records
                 .entry(result.service_id)
                 .or_default()
-                .accumulate_count
-                .0 += 1;
+                .accumulate_count += 1;
         }
     }
 
