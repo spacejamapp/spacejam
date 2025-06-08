@@ -1,7 +1,7 @@
 //! JAMCodec based on the parity scale codec
 
 pub use {
-    compact::{Compact, Numeric},
+    compact::Numeric,
     de::Deserializer,
     error::{Error, Result},
     io::{Reader, Writer},

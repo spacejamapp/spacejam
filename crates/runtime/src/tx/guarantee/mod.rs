@@ -167,7 +167,7 @@ pub fn reports(
 ) -> Result<AvailabilityAssignments> {
     let mut next = prev.clone();
     for guarantee in guarantees.iter() {
-        let core_index = guarantee.report.core_index.cloned() as usize;
+        let core_index = guarantee.report.core_index as usize;
         if core_index >= CORES_COUNT {
             return Err(Error::BadCoreIndex);
         }
@@ -201,7 +201,7 @@ pub fn pools(
 
         // remove old authorizers from the pool
         for guarantee in guarantees {
-            if guarantee.report.core_index.cloned() as usize == core_index {
+            if guarantee.report.core_index as usize == core_index {
                 new_pool.retain(|auth| *auth != guarantee.report.authorizer_hash);
             }
         }

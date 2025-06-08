@@ -5,24 +5,41 @@
 use core::fmt;
 use serde::de;
 
-/// Visitor for variable-length byte arrays.
-/// This visitor correctly handles the vlen encoded format where the length
-/// is encoded as a prefix before the actual data.
-///
-/// FIXME: should not re-encode / decode for types.
+/// Visitor for variable-length numbers.
 pub struct VlenBytesVisitor;
 
 impl<'de> de::Visitor<'de> for VlenBytesVisitor {
-    type Value = Vec<u8>;
+    type Value = u64;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a variable length prefixed byte array")
     }
 
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(v.to_vec())
+        Ok(v as u64)
+    }
+
+    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v as u64)
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v as u64)
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v)
     }
 }

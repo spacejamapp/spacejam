@@ -4,7 +4,6 @@ use crate::{
     host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
     Refined, State, Stepped, Transferred,
 };
-use codec::Compact;
 use parser::{
     program::{self, Program},
     ProgramBlob,
@@ -288,8 +287,8 @@ pub trait Invocation {
 
         let accumulate = host::Accumulate::new(accumulate_context, timeslot);
         let args = codec::encode(&AccumulateParams {
-            slot: Compact::new(timeslot),
-            id: Compact::new(service),
+            slot: timeslot,
+            id: service,
             results: operands,
         })
         .expect("failed to encode");
@@ -344,8 +343,7 @@ pub trait Invocation {
             accounts: accounts.clone(),
         };
 
-        let input = codec::encode(&(Compact::new(slot), Compact::new(service), transfers))
-            .expect("failed to encode");
+        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
             account: received.data.account,

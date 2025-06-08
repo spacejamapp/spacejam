@@ -133,6 +133,7 @@ fn codec_stat() {
     let service = stat.services[0].1.clone();
     println!("{:?}", service);
 
+    println!("encoded: {:?}", service.encode());
     let ssvc: score::statistic::ServiceActivityRecord =
         serde_jam::decode(&service.encode()).unwrap();
     println!("{:?}", ssvc);

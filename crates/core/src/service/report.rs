@@ -8,12 +8,11 @@ use crate::{
     vm::Operand,
     CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
 };
-use codec::Compact;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents a work report.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Json, Eq, Clone, Default)]
 pub struct WorkReport {
     /// The package spec
     #[json(nested)]
@@ -25,8 +24,8 @@ pub struct WorkReport {
     pub context: RefineContext,
 
     /// The core index
-    #[json(compact)]
-    pub core_index: Compact<CoreIndex>,
+    #[serde(with = "codec::compact")]
+    pub core_index: CoreIndex,
 
     /// The authorizer hash
     #[json(hex)]
@@ -46,8 +45,8 @@ pub struct WorkReport {
     pub results: Vec<WorkResult>,
 
     /// The auth gas used
-    #[json(compact)]
-    pub auth_gas_used: Compact<u64>,
+    #[serde(with = "codec::compact")]
+    pub auth_gas_used: u64,
 }
 
 impl WorkReport {

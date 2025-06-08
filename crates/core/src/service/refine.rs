@@ -1,7 +1,6 @@
 //! Refine types
 
 use crate::{BeefyRoot, HeaderHash, OpaqueHash, StateRoot, TimeSlot};
-use codec::Compact;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -36,22 +35,22 @@ pub struct RefineContext {
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct RefineLoad {
     /// The gas used
-    #[json(compact)]
-    pub gas_used: Compact<u64>,
+    #[serde(with = "codec::compact")]
+    pub gas_used: u64,
 
     /// The number of imports
-    #[json(compact)]
-    pub imports: Compact<u16>,
+    #[serde(with = "codec::compact")]
+    pub imports: u16,
 
     /// The number of extrinsics
-    #[json(compact)]
-    pub extrinsic_count: Compact<u16>,
+    #[serde(with = "codec::compact")]
+    pub extrinsic_count: u16,
 
     /// The size of the extrinsics
-    #[json(compact)]
-    pub extrinsic_size: Compact<u32>,
+    #[serde(with = "codec::compact")]
+    pub extrinsic_size: u32,
 
     /// The number of exports
-    #[json(compact)]
-    pub exports: Compact<u16>,
+    #[serde(with = "codec::compact")]
+    pub exports: u16,
 }
