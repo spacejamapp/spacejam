@@ -300,6 +300,12 @@ pub trait Invocation {
                 result.reason,
                 service
             );
+        } else {
+            tracing::debug!(
+                "PVM execution continued for service {}, reason: {:?}",
+                service,
+                result.reason
+            );
         }
 
         result.to_result()

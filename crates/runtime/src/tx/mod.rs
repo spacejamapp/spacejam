@@ -130,7 +130,6 @@ pub fn simulate<V: Pvm>(
             block.header.author_index,
             &block.extrinsic,
         );
-        diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (..., C) Accumulate the available work reports
         let accumulation = guarantee::accumulate::<V>(
@@ -145,6 +144,9 @@ pub fn simulate<V: Pvm>(
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.privileges = accumulation.privileges;
+        state.statistics.merge_services(accumulation.records);
+
+        diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
 
@@ -174,7 +176,7 @@ pub fn simulate<V: Pvm>(
         }
 
         // FIXME: looks like polkajam currently doesn't update the authorization
-        // pool, so we're not updating it here.
+        // pool, so we're not updating it here as well atm.
         //
         // // (α') Update the authorization pool
         // let pools = guarantee::pools(

@@ -127,7 +127,7 @@ impl StorageKeyEncode for (u32, [u8; 32]) {
         let mut hashp = [0; 4];
         hashp.copy_from_slice(&h[..4]);
         key[..8].copy_from_slice(&prefix(s, &hashp));
-        key[8..].copy_from_slice(&h[4..28]);
+        key[8..].copy_from_slice(&h[4..27]);
         key
     }
 }

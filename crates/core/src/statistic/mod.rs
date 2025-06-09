@@ -45,6 +45,18 @@ impl Statistics {
         self.update_guarantees(&extrinsic);
     }
 
+    /// Merge the service statistics
+    pub fn merge_services(&mut self, services: BTreeMap<u32, ServiceActivityRecord>) {
+        for (service, record) in services {
+            if let Some(entry) = self.services.get_mut(&service) {
+                entry.accumulate_count = record.accumulate_count;
+                entry.accumulate_gas_used = record.accumulate_gas_used;
+            } else {
+                self.services.insert(service, record);
+            }
+        }
+    }
+
     // TODO: handle jumped blocks
     fn update_blocks(&mut self, slot: TimeSlot, index: u16, extrinsic: &Extrinsic) {
         if slot % crate::EPOCH_LENGTH == 0 {

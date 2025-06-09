@@ -127,6 +127,7 @@ fn read<X: Argument, Memory: crate::Memory>(
         .memory
         .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
+
     // TODO: the test are not hashing the key bytes atm.
     //
     // let mut input = codec::encode(&index).expect("should not fail");
