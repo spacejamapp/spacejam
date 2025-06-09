@@ -71,12 +71,26 @@ impl Statistics {
         }
     }
 
+    // TODO:
+    // - [ ] core: da_load and popularity
     fn update_guarantees(&mut self, extrinsic: &Extrinsic) {
-        // Update Guarantees
-        for guarantor in &extrinsic.guarantees {
-            for signature in &guarantor.signatures {
+        for report in &extrinsic.guarantees {
+            for signature in &report.signatures {
                 self.vals_current[signature.validator_index as usize].guarantees += 1;
             }
+
+            // Update core statistics
+            let core = &mut self.cores[report.report.core_index as usize];
+            core.bundle_size += report.report.spec.length;
+            for result in &report.report.results {
+                core.imports += result.refine_load.imports;
+                core.exports += result.refine_load.exports;
+                core.extrinsic_count += result.refine_load.extrinsic_count;
+                core.extrinsic_size += result.refine_load.extrinsic_size;
+                core.gas_used += result.refine_load.gas_used;
+            }
+
+            // Update service statistics
         }
     }
 }

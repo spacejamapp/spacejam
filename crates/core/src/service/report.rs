@@ -19,7 +19,7 @@ pub struct WorkReport {
     #[serde(alias = "package_spec")]
     pub spec: WorkPackageSpec,
 
-    /// The context
+    /// The refine context
     #[json(nested)]
     pub context: RefineContext,
 
