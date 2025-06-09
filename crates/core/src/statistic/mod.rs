@@ -1,5 +1,7 @@
 //! Statistics
 
+use std::collections::BTreeMap;
+
 use crate::{Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
 pub use {
@@ -31,7 +33,7 @@ pub struct Statistics {
 
     /// Current service activity records
     #[serde(default)]
-    pub services: Vec<(u32, ServiceActivityRecord)>,
+    pub services: BTreeMap<u32, ServiceActivityRecord>,
 }
 
 impl Statistics {
@@ -73,13 +75,14 @@ impl Statistics {
 
     // TODO:
     // - [ ] core: da_load and popularity
+    // - [ ] service: missing parts
     fn update_guarantees(&mut self, extrinsic: &Extrinsic) {
         for report in &extrinsic.guarantees {
             for signature in &report.signatures {
                 self.vals_current[signature.validator_index as usize].guarantees += 1;
             }
 
-            // Update core statistics
+            // Update core and service statistics
             let core = &mut self.cores[report.report.core_index as usize];
             core.bundle_size += report.report.spec.length;
             for result in &report.report.results {
@@ -88,9 +91,16 @@ impl Statistics {
                 core.extrinsic_count += result.refine_load.extrinsic_count;
                 core.extrinsic_size += result.refine_load.extrinsic_size;
                 core.gas_used += result.refine_load.gas_used;
-            }
 
-            // Update service statistics
+                let service = self
+                    .services
+                    .entry(result.service_id.into())
+                    .or_insert_with(|| ServiceActivityRecord::default());
+                service.extrinsic_count += result.refine_load.extrinsic_count as u32;
+                service.extrinsic_size += result.refine_load.extrinsic_size as u32;
+                service.refinement_gas_used += result.refine_load.gas_used;
+                service.refinement_count += 1;
+            }
         }
     }
 }
