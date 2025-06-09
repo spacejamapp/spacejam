@@ -61,8 +61,8 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         1 => self::lookup(state, data),
         2 => self::read(state, data),
         3 => self::write(state, data),
-        4 => self::sbrk(state, data),
-        5 => self::info(state, data),
+        4 => self::info(state, data),
+        5 => self::sbrk(state, data),
         _ => Ok(Exit::What as u64),
     }
 }
@@ -121,15 +121,15 @@ fn read<X: Argument, Memory: crate::Memory>(
         return Ok(Exit::None as u64);
     };
 
-    // TODO: the test are not hashing the key bytes atm.
-    //
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    // let mut input = codec::encode(&index).expect("should not fail");
     let bytes = state
         .memory
         .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
+    // TODO: the test are not hashing the key bytes atm.
+    //
+    // let mut input = codec::encode(&index).expect("should not fail");
     // input.extend_from_slice(&bytes);
 
     // get the storage value
@@ -183,8 +183,6 @@ fn write<X: Argument, Memory: crate::Memory>(
     // input.extend_from_slice(&key_bytes);
     // tracing::debug!("Storage write - key bytes: {:?}", input);
     // let key = crypto::blake2b(&input);
-
-    tracing::debug!("writing storage: {:?}", key);
 
     // update storage
     if vz == 0 {

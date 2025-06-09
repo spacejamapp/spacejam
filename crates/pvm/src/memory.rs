@@ -22,7 +22,7 @@ pub trait Memory: Default + Clone {
     }
 
     /// write bytes to the memory
-    fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason>;
+    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> Result<(), Reason>;
 }
 
 impl Memory for () {

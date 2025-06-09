@@ -39,10 +39,7 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     // Read target if provided (for structured logging)
     let target = if target_len > 0 {
         match state.memory.read_bytes(target_addr, target_len) {
-            Ok(data) => {
-                tracing::debug!("message bytes: {:?}", data);
-                Some(String::from_utf8_lossy(&data).to_string())
-            }
+            Ok(data) => Some(String::from_utf8_lossy(&data).to_string()),
             Err(reason) => return Err(reason),
         }
     } else {
