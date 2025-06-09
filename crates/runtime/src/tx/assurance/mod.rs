@@ -13,10 +13,16 @@ use std::collections::HashSet;
 mod error;
 
 /// (ρ‡) Handle assurances input and return newly available reports (11.17)
-pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> AvailabilityAssignments {
+pub fn reports(
+    slot: TimeSlot,
+    available: &[WorkReport],
+    mut reports: AvailabilityAssignments,
+) -> AvailabilityAssignments {
     for mb_report in reports.iter_mut() {
         if let Some(report) = mb_report {
-            if slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD {
+            if available.contains(&report.report)
+                || slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD
+            {
                 *mb_report = None;
             }
         }
@@ -25,7 +31,7 @@ pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> Availabi
     reports
 }
 
-/// (W*) Handle assurances input and return newly available reports
+/// (W) Handle assurances input and return newly available reports
 pub fn available(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],

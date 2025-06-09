@@ -40,7 +40,7 @@ pub fn simulate<V: Pvm>(
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
 
     // The first round computation
-    {
+    let mut reports = {
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
@@ -70,18 +70,8 @@ pub fn simulate<V: Pvm>(
         }
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
-        let mut reports = dispute::reports(&marks, &state.reports);
-
-        // (ρ‡) Update availability assignments based on assurances (11.17)
-        reports = self::assurance::reports(block.header.slot, reports.clone());
-
-        // (ρ') Update availability assignments based on guarantees (11.43)
-        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-        if reports != state.reports {
-            diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
-            state.reports = reports;
-        }
-    }
+        dispute::reports(&marks, &state.reports)
+    };
 
     // Round 2 computation
     let (available, assurances) = {
@@ -96,14 +86,26 @@ pub fn simulate<V: Pvm>(
             );
         }
 
-        // (W*) the sequence of new available work reports (11.16)
-        self::assurance::available(
+        // (W) the sequence of new available work reports (11.16)
+        let (available, assurances) = self::assurance::available(
             &state.reports,
             &state.validators.current,
             block.header.slot,
             block.header.parent,
             &block.extrinsic.assurances,
-        )?
+        )?;
+
+        // (ρ‡) Update availability assignments based on assurances (11.17)
+        reports = self::assurance::reports(block.header.slot, &available, reports.clone());
+
+        // (ρ') Update availability assignments based on guarantees (11.43)
+        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
+        if reports != state.reports {
+            diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
+            state.reports = reports;
+        }
+
+        (available, assurances)
     };
 
     // Round 3 computation

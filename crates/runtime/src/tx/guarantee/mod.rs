@@ -162,7 +162,7 @@ pub fn ready_queue(
     ready_queue
 }
 
-/// (ρ') Update availability assignments based on guarantees
+/// (ρ') Update availability assignments based on guarantees (11.43)
 pub fn reports(
     slot: TimeSlot,
     prev: &AvailabilityAssignments,

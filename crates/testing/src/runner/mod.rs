@@ -10,7 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::{AccumulatedQueue, AvailabilityAssignments},
+    service::AvailabilityAssignments,
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
@@ -82,8 +82,11 @@ impl Runner {
 
                 // validate post state
                 if let Ok((available, _)) = result {
-                    let mut assignments =
-                        tx::assurance::reports(input.input.slot, input.pre_state.avail_assignments);
+                    let mut assignments = tx::assurance::reports(
+                        input.input.slot,
+                        &available,
+                        input.pre_state.avail_assignments,
+                    );
 
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
