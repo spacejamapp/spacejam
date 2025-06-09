@@ -285,11 +285,15 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         visitor.visit_seq(access::SeqAccess::new(self, len))
     }
 
-    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        Err(anyhow::anyhow!("map is not supported").into())
+        let len = self
+            .read_var()
+            .ok_or_else(|| anyhow::anyhow!("EOF while reading variable length"))?
+            as usize;
+        visitor.visit_map(access::MapAccess::new(self, len))
     }
 
     fn deserialize_struct<V>(

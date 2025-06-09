@@ -132,13 +132,22 @@ impl ser::Serializer for &mut Serializer {
         Err(anyhow::anyhow!("Newtype struct not supported").into())
     }
 
-    fn collect_map<K, V, I>(self, _iter: I) -> Result<()>
+    fn collect_map<K, V, I>(self, iter: I) -> Result<()>
     where
         K: ser::Serialize,
         V: ser::Serialize,
         I: IntoIterator<Item = (K, V)>,
     {
-        Err(anyhow::anyhow!("Map not supported").into())
+        let iter = iter.into_iter();
+        let len = iter.size_hint().0;
+        let length = vlen::encode(len as u64);
+        self.output.extend_from_slice(&length);
+
+        for (key, value) in iter {
+            key.serialize(&mut *self)?;
+            value.serialize(&mut *self)?;
+        }
+        Ok(())
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -171,8 +180,13 @@ impl ser::Serializer for &mut Serializer {
         Err(anyhow::anyhow!("Tuple variant not supported").into())
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Err(anyhow::anyhow!("Map not supported").into())
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
+        println!("serialize_map: {:?}", len);
+        if let Some(len) = len {
+            let length = vlen::encode(len as u64);
+            self.output.extend_from_slice(&length);
+        }
+        Ok(self)
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
@@ -229,17 +243,8 @@ impl ser::Serializer for &mut Serializer {
     }
 }
 
-// The following 7 impls deal with the serialization of compound types like
-// sequences and maps. Serialization of such types is begun by a Serializer
-// method and followed by zero or more calls to serialize individual elements of
-// the compound type and one call to end the compound type.
-//
-// This impl is SerializeSeq so these methods are called after `serialize_seq`
-// is called on the Serializer.
 impl ser::SerializeSeq for &mut Serializer {
-    // Must match the `Ok` type of the serializer.
     type Ok = ();
-    // Must match the `Error` type of the serializer.
     type Error = Error;
 
     // Serialize a single element of the sequence.
@@ -257,7 +262,6 @@ impl ser::SerializeSeq for &mut Serializer {
     }
 }
 
-// Same thing but for tuples.
 impl ser::SerializeTuple for &mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -275,7 +279,6 @@ impl ser::SerializeTuple for &mut Serializer {
     }
 }
 
-// Same thing but for tuple structs.
 impl ser::SerializeTupleStruct for &mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -308,41 +311,22 @@ impl ser::SerializeTupleVariant for &mut Serializer {
     }
 }
 
-// Some `Serialize` types are not able to hold a key and value in memory at the
-// same time so `SerializeMap` implementations are required to support
-// `serialize_key` and `serialize_value` individually.
-//
-// There is a third optional method on the `SerializeMap` trait. The
-// `serialize_entry` method allows serializers to optimize for the case where
-// key and value are both available simultaneously. In JSON it doesn't make a
-// difference so the default behavior for `serialize_entry` is fine.
 impl ser::SerializeMap for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    // The Serde data model allows map keys to be any serializable type. JSON
-    // only allows string keys so the implementation below will produce invalid
-    // JSON if the key serializes as something other than a string.
-    //
-    // A real JSON serializer would need to validate that map keys are strings.
-    // This can be done by using a different Serializer to serialize the key
-    // (instead of `&mut **self`) and having that other serializer only
-    // implement `serialize_str` and return an error on any other data type.
-    fn serialize_key<T>(&mut self, _key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Map not supported").into())
+        key.serialize(&mut **self)
     }
 
-    // It doesn't make a difference whether the colon is printed at the end of
-    // `serialize_key` or at the beginning of `serialize_value`. In this case
-    // the code is a bit simpler having it here.
-    fn serialize_value<T>(&mut self, _value: &T) -> Result<()>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Map not supported").into())
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
@@ -350,8 +334,6 @@ impl ser::SerializeMap for &mut Serializer {
     }
 }
 
-// Structs are like maps in which the keys are constrained to be compile-time
-// constant strings.
 impl ser::SerializeStruct for &mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -369,8 +351,6 @@ impl ser::SerializeStruct for &mut Serializer {
     }
 }
 
-// Similar to `SerializeTupleVariant`, here the `end` method is responsible for
-// closing both of the curly braces opened by `serialize_struct_variant`.
 impl ser::SerializeStructVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;

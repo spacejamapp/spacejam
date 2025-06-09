@@ -99,3 +99,44 @@ impl<'de> de::VariantAccess<'de> for EnumAccess<'_, 'de> {
         de::Deserializer::deserialize_tuple(self.deserializer, fields.len(), visitor)
     }
 }
+
+pub struct MapAccess<'a, 'de> {
+    deserializer: &'a mut Deserializer<'de>,
+    len: usize,
+    current: usize,
+}
+
+impl<'a, 'de> MapAccess<'a, 'de> {
+    /// Create a new map access
+    pub fn new(deserializer: &'a mut Deserializer<'de>, len: usize) -> Self {
+        MapAccess {
+            deserializer,
+            len,
+            current: 0,
+        }
+    }
+}
+
+impl<'de> de::MapAccess<'de> for MapAccess<'_, 'de> {
+    type Error = Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    where
+        K: de::DeserializeSeed<'de>,
+    {
+        if self.current >= self.len {
+            return Ok(None);
+        }
+
+        seed.deserialize(&mut *self.deserializer).map(Some)
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        let value = seed.deserialize(&mut *self.deserializer)?;
+        self.current += 1;
+        Ok(value)
+    }
+}
