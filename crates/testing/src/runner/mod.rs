@@ -10,6 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
+    service::AccumulatedQueue,
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
@@ -378,6 +379,25 @@ impl Runner {
                         let statistics: Statistics = codec::decode(&result)?;
                         tracing::info!("polkajam: {:?}", polkajam);
                         tracing::info!("spacejam: {:?}", statistics);
+                    }
+
+                    if key == key::ACCUMULATION_HISTORY {
+                        let polkajam: AccumulatedQueue = codec::decode(&value)?;
+                        let spacejam: AccumulatedQueue = codec::decode(&result)?;
+                        tracing::info!(
+                            "polkajam: {:?}",
+                            polkajam
+                                .into_iter()
+                                .map(|b| b.into_iter().map(|b| hex::encode(b)).collect::<Vec<_>>())
+                                .collect::<Vec<_>>()
+                        );
+                        tracing::info!(
+                            "spacejam: {:?}",
+                            spacejam
+                                .into_iter()
+                                .map(|b| b.into_iter().map(|b| hex::encode(b)).collect::<Vec<_>>())
+                                .collect::<Vec<_>>()
+                        );
                     }
 
                     if value != result {

@@ -142,9 +142,15 @@ pub fn simulate<V: Pvm>(
             &state.privileges,
             state.accounts.clone(),
         )?;
-        state.queue = accumulation.ready_queue;
-        state.history = accumulation.accumulated_queue;
+
         state.privileges = accumulation.privileges;
+        diff.insert(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
+
+        state.queue = accumulation.ready_queue;
+        diff.insert(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
+
+        state.history = accumulation.accumulated_queue;
+        diff.insert(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
         // write statistics and return root and accounts
         state.statistics.merge_services(accumulation.records);
