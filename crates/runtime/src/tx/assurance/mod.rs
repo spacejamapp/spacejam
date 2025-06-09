@@ -32,7 +32,7 @@ pub fn available(
     slot: TimeSlot,
     parent: OpaqueHash,
     assurances: &[AvailAssurance],
-) -> Result<Vec<WorkReport>> {
+) -> Result<(Vec<WorkReport>, [u32; CORES_COUNT])> {
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
     let mut stale_reports = HashSet::new();
@@ -79,7 +79,7 @@ pub fn available(
         }
     }
 
-    Ok(available)
+    Ok((available, core_assurance_counts))
 }
 
 /// Verifies the assurance

@@ -76,10 +76,10 @@ impl Runner {
                     input.input.parent,
                     &input.input.assurances,
                 );
-                assert_eq!(result, output.map(|s| s.reported));
+                assert_eq!(result.clone().map(|(a, _)| a), output.map(|s| s.reported));
 
                 // validate post state
-                if let Ok(available) = result {
+                if let Ok((available, _)) = result {
                     let mut assignments =
                         tx::assurance::reports(input.input.slot, input.pre_state.avail_assignments);
 

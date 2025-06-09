@@ -84,7 +84,7 @@ pub fn simulate<V: Pvm>(
     }
 
     // Round 2 computation
-    let available = {
+    let (available, assurances) = {
         // (κ') Update current validators (6.13)
         state.validators.current = state
             .validators
@@ -130,6 +130,7 @@ pub fn simulate<V: Pvm>(
             block.header.author_index,
             &block.extrinsic,
         );
+        state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
         let accumulation = guarantee::accumulate::<V>(
@@ -144,8 +145,9 @@ pub fn simulate<V: Pvm>(
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.privileges = accumulation.privileges;
-        state.statistics.merge_services(accumulation.records);
 
+        // write statistics and return root and accounts
+        state.statistics.merge_services(accumulation.records);
         diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
