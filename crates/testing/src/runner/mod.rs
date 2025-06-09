@@ -10,10 +10,11 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::AccumulatedQueue,
+    service::{AccumulatedQueue, AvailabilityAssignments},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
+use spacejson::Json;
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 
@@ -230,9 +231,8 @@ impl Runner {
                 assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
                 assert_eq!(output.post_state, input.pre_state);
             }
-            Section::Statistics => {}
-            /*  Section::Statistics => {
-                use crate::statistics;
+            Section::Statistics => {
+                /* use crate::statistics;
 
                 let input = statistics::TestInput::from_json(&test.input)?;
                 let output = statistics::TestOutput::from_json(&test.output)?;
@@ -243,8 +243,8 @@ impl Runner {
                     input.input.author_index,
                     &input.input.extrinsic,
                 );
-                assert_eq!(state, output.post_state.statistics);
-            } */
+                assert_eq!(state, output.post_state.statistics); */
+            }
             Section::Pvm => {
                 use crate::pvm;
 
@@ -374,30 +374,30 @@ impl Runner {
                         continue;
                     };
 
+                    if key == key::PENDING_REPORTS {
+                        let polkajam: AvailabilityAssignments = codec::decode(&value)?;
+                        let spacejam: AvailabilityAssignments = codec::decode(&result)?;
+                        tracing::debug!(
+                            "polkajam: {:?}",
+                            polkajam
+                                .into_iter()
+                                .map(|b| b.to_json())
+                                .collect::<Vec<_>>()
+                        );
+                        tracing::debug!(
+                            "spacejam: {:?}",
+                            spacejam
+                                .into_iter()
+                                .map(|b| b.to_json())
+                                .collect::<Vec<_>>()
+                        );
+                    }
+
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
                         tracing::info!("polkajam: {:?}", polkajam);
                         tracing::info!("spacejam: {:?}", statistics);
-                    }
-
-                    if key == key::ACCUMULATION_HISTORY {
-                        let polkajam: AccumulatedQueue = codec::decode(&value)?;
-                        let spacejam: AccumulatedQueue = codec::decode(&result)?;
-                        tracing::info!(
-                            "polkajam: {:?}",
-                            polkajam
-                                .into_iter()
-                                .map(|b| b.into_iter().map(|b| hex::encode(b)).collect::<Vec<_>>())
-                                .collect::<Vec<_>>()
-                        );
-                        tracing::info!(
-                            "spacejam: {:?}",
-                            spacejam
-                                .into_iter()
-                                .map(|b| b.into_iter().map(|b| hex::encode(b)).collect::<Vec<_>>())
-                                .collect::<Vec<_>>()
-                        );
                     }
 
                     if value != result {
