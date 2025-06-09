@@ -11,6 +11,7 @@ use runtime::{
 use score::{
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
+    statistic::Statistics,
 };
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
@@ -375,10 +376,10 @@ impl Runner {
                     if key == key::STATISTICS {
                         tracing::debug!("value: {:?}", value);
                         tracing::debug!("result: {:?}", result);
-                        // let polkajam: Statistics = codec::decode(&value)?;
-                        // tracing::info!("polkajam: {:?}", polkajam);
-                        // let statistics: Statistics = codec::decode(&result)?;
-                        // tracing::info!("spacejam: {:?}", statistics);
+                        let polkajam: Statistics = codec::decode(&value)?;
+                        tracing::info!("polkajam: {:?}", polkajam);
+                        let statistics: Statistics = codec::decode(&result)?;
+                        tracing::info!("spacejam: {:?}", statistics);
                     }
 
                     if value != result {

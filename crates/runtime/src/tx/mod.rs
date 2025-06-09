@@ -125,7 +125,7 @@ pub fn simulate<V: Pvm>(
             .tickets_mark(state.timeslot, block.header.slot);
 
         // (π') Update the statistic
-        state.statistics = state.statistics.update(
+        state.statistics.update(
             block.header.slot,
             block.header.author_index,
             &block.extrinsic,
