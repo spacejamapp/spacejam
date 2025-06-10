@@ -16,7 +16,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 ) -> Stepped<Memory, X> {
     let mut data = data;
     let reason = match call {
-        0..6 => {
+        0..5 => {
             let general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
@@ -24,8 +24,8 @@ pub fn call<X: Argument, Memory: crate::Memory>(
             let account = general.account.clone();
             general::call(call, &mut state, account, &mut data)
         }
-        6..18 => accumulate::call(call, &mut state, &mut data),
-        18..28 => refine::call(call, &mut state, &mut data),
+        5..17 => accumulate::call(call, &mut state, &mut data),
+        17..27 => refine::call(call, &mut state, &mut data),
         100 => jip::log(&mut state),
         _ => {
             tracing::debug!("unknown host call: {}", call);

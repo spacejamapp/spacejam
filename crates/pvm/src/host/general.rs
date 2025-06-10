@@ -62,7 +62,6 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         2 => self::read(state, data),
         3 => self::write(state, data),
         4 => self::info(state, data),
-        5 => self::sbrk(state, data),
         _ => Ok(Exit::What as u64),
     }
 }
@@ -187,9 +186,9 @@ fn write<X: Argument, Memory: crate::Memory>(
 
     // update storage
     if vz == 0 {
-        general.account.storage.remove(&key);
+        let value = general.account.storage.remove(&key).unwrap_or_default();
         data.update_general(general)?;
-        Ok(Exit::Ok as u64)
+        Ok(value.len() as u64)
     } else {
         let value = match state.memory.read_bytes(vo as u32, vz as u32) {
             Ok(bytes) => bytes,
@@ -204,9 +203,10 @@ fn write<X: Argument, Memory: crate::Memory>(
             Ok(Exit::Full as u64)
         } else {
             tracing::debug!("writing storage: {:?} with value: {:?}", key, value);
-            general.account.storage.insert(key, value.clone());
+            let length = value.len() as u64;
+            general.account.storage.insert(key, value);
             data.update_general(general)?;
-            Ok(Exit::Ok as u64)
+            Ok(length)
         }
     }
 }
@@ -235,14 +235,5 @@ fn info<X: Argument, Memory: crate::Memory>(
         crate::bail!("failed to write account state {reason}");
     }
 
-    Ok(Exit::Ok as u64)
-}
-
-/// (ΩS) sbrk - adjust program break
-fn sbrk<X: Argument, Memory: crate::Memory>(
-    _state: &mut State<Memory>,
-    _data: &mut X,
-) -> Result<ExitCode> {
-    tracing::error!("sbrk not implemented");
     Ok(Exit::Ok as u64)
 }
