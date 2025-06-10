@@ -163,7 +163,6 @@ impl Runner {
             }
             Section::Preimages => {
                 use crate::preimage;
-
                 let input = preimage::TestInput::from_json(&test.input)?;
                 let output = preimage::TestOutput::from_json(&test.output)?;
 
@@ -377,30 +376,11 @@ impl Runner {
                         continue;
                     };
 
-                    if key == key::PENDING_REPORTS {
-                        let polkajam: AvailabilityAssignments = codec::decode(&value)?;
-                        let spacejam: AvailabilityAssignments = codec::decode(&result)?;
-                        tracing::debug!(
-                            "polkajam: {:?}",
-                            polkajam
-                                .into_iter()
-                                .map(|b| b.to_json())
-                                .collect::<Vec<_>>()
-                        );
-                        tracing::debug!(
-                            "spacejam: {:?}",
-                            spacejam
-                                .into_iter()
-                                .map(|b| b.to_json())
-                                .collect::<Vec<_>>()
-                        );
-                    }
-
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
-                        tracing::info!("polkajam: {:?}", polkajam);
-                        tracing::info!("spacejam: {:?}", statistics);
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", statistics);
                     }
 
                     if value != result {
