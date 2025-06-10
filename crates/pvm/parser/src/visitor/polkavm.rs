@@ -1,21 +1,20 @@
 //! Formatter for the interpreter.
 
-use crate::{interp::register, Error, Result};
-use parser::format;
-use parser::Visitor;
+use crate::{format, visitor, Visitor};
+use anyhow::Result;
 
 /// Logger for the interpreter.
 pub struct Logger;
 
 impl Visitor for Logger {
-    type Error = Error;
+    type Error = anyhow::Error;
 
     fn visit_add_imm_32(&mut self, format: format::RRI) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "i32 {} = {} + 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -26,8 +25,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u64 {} = {} + 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -38,9 +37,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u8 [{} + 0x{:x}] = {}",
-            register::fmt(reg1),
+            visitor::fmt(reg1),
             imm0,
-            register::fmt(reg0),
+            visitor::fmt(reg0),
         );
 
         Ok(())
@@ -50,9 +49,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u16 [{} + 0x{:x}] = {}",
-            register::fmt(reg1),
+            visitor::fmt(reg1),
             imm0,
-            register::fmt(reg0),
+            visitor::fmt(reg0),
         );
 
         Ok(())
@@ -84,49 +83,49 @@ impl Visitor for Logger {
 
     fn visit_store_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u8 [0x{:x}] = {}", imm0, register::fmt(reg0));
+        tracing::trace!("u8 [0x{:x}] = {}", imm0, visitor::fmt(reg0));
         Ok(())
     }
 
     fn visit_store_u16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u16 [0x{:x}] = {}", imm0, register::fmt(reg0));
+        tracing::trace!("u16 [0x{:x}] = {}", imm0, visitor::fmt(reg0));
         Ok(())
     }
 
     fn visit_store_u32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u32 [0x{:x}] = {}", imm0, register::fmt(reg0));
+        tracing::trace!("u32 [0x{:x}] = {}", imm0, visitor::fmt(reg0));
         Ok(())
     }
 
     fn visit_store_u64(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u64 [0x{:x}] = {}", imm0, register::fmt(reg0));
+        tracing::trace!("u64 [0x{:x}] = {}", imm0, visitor::fmt(reg0));
         Ok(())
     }
 
     fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        tracing::trace!("u8 [{} + 0x{:x}] = {}", register::fmt(reg0), imm1, imm0,);
+        tracing::trace!("u8 [{} + 0x{:x}] = {}", visitor::fmt(reg0), imm1, imm0,);
         Ok(())
     }
 
     fn visit_store_imm_ind_u16(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        tracing::trace!("u16 [{} + 0x{:x}] = {}", register::fmt(reg0), imm1, imm0,);
+        tracing::trace!("u16 [{} + 0x{:x}] = {}", visitor::fmt(reg0), imm1, imm0,);
         Ok(())
     }
 
     fn visit_store_imm_ind_u32(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        tracing::trace!("u32 [{} + 0x{:x}] = {}", register::fmt(reg0), imm1, imm0,);
+        tracing::trace!("u32 [{} + 0x{:x}] = {}", visitor::fmt(reg0), imm1, imm0,);
         Ok(())
     }
 
     fn visit_store_imm_ind_u64(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
-        tracing::trace!("u64 [{} + 0x{:x}] = {}", register::fmt(reg0), imm1, imm0,);
+        tracing::trace!("u64 [{} + 0x{:x}] = {}", visitor::fmt(reg0), imm1, imm0,);
         Ok(())
     }
 
@@ -134,9 +133,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u32 [{} + 0x{:x}] = {}",
-            register::fmt(reg1),
+            visitor::fmt(reg1),
             imm0,
-            register::fmt(reg0),
+            visitor::fmt(reg0),
         );
 
         Ok(())
@@ -146,9 +145,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u64 [{} + 0x{:x}] = {}",
-            register::fmt(reg1),
+            visitor::fmt(reg1),
             imm0,
-            register::fmt(reg0),
+            visitor::fmt(reg0),
         );
 
         Ok(())
@@ -164,7 +163,7 @@ impl Visitor for Logger {
 
     fn visit_move_reg(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = {}", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = {}", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
@@ -174,7 +173,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("{} = 0x{:x}", register::fmt(reg0), imm0,);
+        tracing::trace!("{} = 0x{:x}", visitor::fmt(reg0), imm0,);
         Ok(())
     }
 
@@ -184,7 +183,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} == {}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} == {}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -196,8 +195,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} >=u {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -208,7 +207,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} >=u 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} >=u 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -220,8 +219,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} <s {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -232,7 +231,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} <s 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} <s 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -242,7 +241,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} <=s 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} <=s 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -252,7 +251,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} <=u 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} <=u 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -264,8 +263,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} == {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -278,8 +277,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} >=s {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -290,7 +289,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} >=s 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} >=s 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -302,8 +301,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} != {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -314,7 +313,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} >s 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} >s 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -324,7 +323,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} >u 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} >u 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -334,7 +333,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} != 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} != 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -342,8 +341,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} << 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -354,9 +353,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} << {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
 
         Ok(())
@@ -366,8 +365,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >> 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -378,8 +377,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >> 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -390,9 +389,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} >> {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -401,9 +400,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} >> {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -412,8 +411,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >> 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
         Ok(())
@@ -423,9 +422,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} >> {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -434,9 +433,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} >> {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -445,9 +444,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} << {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -456,9 +455,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} << {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -467,8 +466,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} << 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
         Ok(())
@@ -478,9 +477,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} << {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -489,9 +488,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} >> {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -500,9 +499,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} >> {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -511,8 +510,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >> 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
         Ok(())
@@ -522,9 +521,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} >> {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
@@ -533,16 +532,16 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} >> {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1),
+            visitor::fmt(reg1),
         );
         Ok(())
     }
 
     fn visit_load_imm(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("{} = 0x{:x}", register::fmt(reg0), imm0,);
+        tracing::trace!("{} = 0x{:x}", visitor::fmt(reg0), imm0,);
         Ok(())
     }
 
@@ -550,8 +549,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u8 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -562,8 +561,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u16 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -574,8 +573,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u32 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -586,8 +585,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "u64 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0,
         );
 
@@ -602,8 +601,8 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "jump ... if {} <u {}",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -614,7 +613,7 @@ impl Visitor for Logger {
             off0: _,
             imm0,
         } = format;
-        tracing::trace!("jump ... if {} <u 0x{:x}", register::fmt(reg0), imm0);
+        tracing::trace!("jump ... if {} <u 0x{:x}", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -622,9 +621,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} <u {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -634,9 +633,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} + {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
 
         Ok(())
@@ -646,9 +645,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} + {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
         );
 
         Ok(())
@@ -658,9 +657,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} - {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -670,9 +669,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} - {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -682,9 +681,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} if {} != 0",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -697,13 +696,13 @@ impl Visitor for Logger {
 
     fn visit_sign_extend_8(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = sext.b {}", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = sext.b {}", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
     fn visit_sign_extend_16(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = sext.b {}", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = sext.b {}", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
@@ -711,9 +710,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} ^ {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -723,8 +722,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} ^ 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
 
@@ -735,9 +734,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} ^^ {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -747,9 +746,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = max ({}, {})",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -759,9 +758,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = min ({}, {})",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
 
         Ok(())
@@ -771,9 +770,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} & {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -782,8 +781,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} & 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -793,9 +792,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} & ~{}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -804,9 +803,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} if {} == 0",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -815,9 +814,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} if {} == 0",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -826,9 +825,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} if {} != 0",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -837,8 +836,8 @@ impl Visitor for Logger {
         let format::RR { reg0, reg1 } = format;
         tracing::trace!(
             "{} = popcount32({})",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -847,8 +846,8 @@ impl Visitor for Logger {
         let format::RR { reg0, reg1 } = format;
         tracing::trace!(
             "{} = popcount64({})",
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -857,9 +856,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} /s {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -868,9 +867,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} /s {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -879,9 +878,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} /u {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -890,9 +889,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} /u {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -905,37 +904,37 @@ impl Visitor for Logger {
 
     fn visit_leading_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = clz32({})", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = clz32({})", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
     fn visit_leading_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = clz64({})", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = clz64({})", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
     fn visit_load_i16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("i16 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("i16 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_i32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("i32 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("i32 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_i8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("i8 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("i8 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_imm_64(&mut self, format: format::REI) -> Result<()> {
         let format::REI { reg0, eimm0 } = format;
-        tracing::trace!("{} = 0x{:x}", register::fmt(reg0), eimm0);
+        tracing::trace!("{} = 0x{:x}", visitor::fmt(reg0), eimm0);
         Ok(())
     }
 
@@ -948,9 +947,9 @@ impl Visitor for Logger {
         } = format;
         tracing::trace!(
             "{} = 0x{:x}, jump [{}]",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -959,8 +958,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "i16 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -970,8 +969,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "i32 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -981,8 +980,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "i8 {} = [{} + 0x{:x}]",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -990,25 +989,25 @@ impl Visitor for Logger {
 
     fn visit_load_u16(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u16 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("u16 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_u32(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u32 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("u32 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_u64(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u64 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("u64 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
     fn visit_load_u8(&mut self, format: format::RI) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        tracing::trace!("u8 {} = [0x{:x}]", register::fmt(reg0), imm0);
+        tracing::trace!("u8 {} = [0x{:x}]", visitor::fmt(reg0), imm0);
         Ok(())
     }
 
@@ -1016,9 +1015,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = max_u ({}, {})",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
         Ok(())
     }
@@ -1027,9 +1026,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = min_u ({}, {})",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
         Ok(())
     }
@@ -1038,9 +1037,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} * {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1049,9 +1048,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} * {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1060,8 +1059,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} * 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1071,8 +1070,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} * 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1082,9 +1081,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = mulh_ss ({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1093,9 +1092,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = mulh_su ({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1104,9 +1103,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = mulh_uu ({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1115,9 +1114,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} - {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1126,9 +1125,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = 0x{:x} - {}",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1137,9 +1136,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} | {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1148,8 +1147,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} | 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1159,9 +1158,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} | ~{}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1170,9 +1169,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} %s {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1181,9 +1180,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} %s {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1192,9 +1191,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} %u {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1203,16 +1202,16 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} %u {}",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
 
     fn visit_reverse_bytes(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = bswap({})", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = bswap({})", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
@@ -1220,9 +1219,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = rotl32({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1231,9 +1230,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = rotl64({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1242,9 +1241,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = rotr32({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1253,8 +1252,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = rotr32({}, 0x{:x})",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1264,9 +1263,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = rotr32(0x{:x}, {})",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1275,9 +1274,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = rotr64({}, {})",
-            register::fmt(reg2),
-            register::fmt(reg0),
-            register::fmt(reg1)
+            visitor::fmt(reg2),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1286,8 +1285,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = rotr64({}, 0x{:x})",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1297,9 +1296,9 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = rotr64(0x{:x}, {})",
-            register::fmt(reg0),
+            visitor::fmt(reg0),
             imm0,
-            register::fmt(reg1)
+            visitor::fmt(reg1)
         );
         Ok(())
     }
@@ -1312,8 +1311,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >s 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1323,8 +1322,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} >u 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1334,9 +1333,9 @@ impl Visitor for Logger {
         let format::RRR { reg0, reg1, reg2 } = format;
         tracing::trace!(
             "{} = {} <s {}",
-            register::fmt(reg0),
-            register::fmt(reg1),
-            register::fmt(reg2)
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
+            visitor::fmt(reg2)
         );
         Ok(())
     }
@@ -1345,8 +1344,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} <s 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1356,8 +1355,8 @@ impl Visitor for Logger {
         let format::RRI { reg0, reg1, imm0 } = format;
         tracing::trace!(
             "{} = {} <u 0x{:x}",
-            register::fmt(reg0),
-            register::fmt(reg1),
+            visitor::fmt(reg0),
+            visitor::fmt(reg1),
             imm0
         );
         Ok(())
@@ -1365,13 +1364,13 @@ impl Visitor for Logger {
 
     fn visit_trailing_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = ctz32({})", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = ctz32({})", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
     fn visit_trailing_zero_bits_64(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = ctz64({})", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = ctz64({})", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 
@@ -1382,7 +1381,7 @@ impl Visitor for Logger {
 
     fn visit_zero_extend_16(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
-        tracing::trace!("{} = zext.h {}", register::fmt(reg0), register::fmt(reg1));
+        tracing::trace!("{} = zext.h {}", visitor::fmt(reg0), visitor::fmt(reg1));
         Ok(())
     }
 }
