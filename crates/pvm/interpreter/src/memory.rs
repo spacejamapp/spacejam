@@ -28,6 +28,17 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Allocate a range of pages.
+    pub fn allocate_pages(&mut self, start: u32, count: u32) -> Result<()> {
+        let size = (count * parser::PAGE_SIZE as u32) as usize;
+        if self.heap.len() >= size {
+            return Ok(());
+        }
+
+        self.write_bytes(start, 0, &vec![0; size])?;
+        Ok(())
+    }
+
     /// Read a value from the memory.
     pub fn read<V: Value>(&mut self, address: u32) -> Result<V> {
         self.read_offset(address, 0)

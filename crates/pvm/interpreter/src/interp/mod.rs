@@ -7,10 +7,12 @@
 //! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{Error, Memory, Register};
+pub use logger::Logger;
 use pvm::Reason;
 
 mod builder;
 mod legacy;
+mod logger;
 mod register;
 mod visitor;
 

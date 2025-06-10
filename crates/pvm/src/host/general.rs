@@ -225,7 +225,11 @@ fn info<X: Argument, Memory: crate::Memory>(
     } else {
         general.accounts.get(&(r7 as ServiceId))
     }
-    .and_then(|account| codec::encode(&account.state()).ok()) else {
+    .and_then(|account| {
+        let state = account.state();
+        tracing::debug!("account state: {:?}", state);
+        codec::encode(&state).ok()
+    }) else {
         return Ok(Exit::None as u64);
     };
 

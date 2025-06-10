@@ -2,12 +2,14 @@
 
 use crate::{
     service::{
-        RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
-        WorkResultJson,
+        RefineContext, RefineContextJson, WorkExecResult, WorkPackageSpec, WorkPackageSpecJson,
+        WorkResult, WorkResultJson,
     },
     vm::Operand,
     CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
 };
+use jam_bootstrap_service_common::Instruction;
+use jam_codec::Decode;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -61,6 +63,12 @@ impl WorkReport {
         for work in self.results.iter() {
             if work.service_id != service {
                 continue;
+            }
+
+            if let WorkExecResult::Ok(data) = work.result.clone() {
+                if let Ok(instructions) = <Vec<Instruction>>::decode(&mut data.as_ref()) {
+                    tracing::debug!("bootstrap instructions: {:?}", instructions);
+                }
             }
 
             operands.push(Operand {

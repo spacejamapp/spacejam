@@ -280,12 +280,6 @@ impl Visitor for Interpreter {
         self.djump(self.rget(reg0).wrapping_add(imm0) as u32)
     }
 
-    // # NOTE
-    //
-    // The decoding of these instructions are following the graypaper,
-    //
-    // reg0  - rD
-    // reg1  - rA
     fn visit_leading_zero_bits_32(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let value = self.rget(reg1) as u32;
@@ -710,8 +704,29 @@ impl Visitor for Interpreter {
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let increment = self.rget(reg1);
+        if increment == 0 {
+            self.rset(reg0, self.memory.heap_ptr as u64);
+            return Ok(());
+        }
+
+        let funp = |x: u64| x.div_ceil(parser::PAGE_SIZE) * parser::PAGE_SIZE;
+        let next_page_boundry = funp(self.memory.heap_ptr as u64);
+        let new_heap_ptr = self.memory.heap_ptr as u64 + increment;
+
+        if new_heap_ptr > next_page_boundry {
+            let final_boundry = funp(new_heap_ptr);
+            let idx_start = next_page_boundry / parser::PAGE_SIZE;
+            let idx_end = final_boundry / parser::PAGE_SIZE;
+            let count = idx_end - idx_start;
+            self.memory.allocate_pages(idx_start as u32, count as u32)?;
+        }
+
+        tracing::debug!(
+            "sbrk: increment={} heap_ptr={}",
+            increment,
+            self.memory.heap_ptr
+        );
         self.memory.heap_ptr += increment as u32;
-        self.rset(reg0, self.memory.heap_ptr as u64);
         Ok(())
     }
 
@@ -987,7 +1002,6 @@ impl Visitor for Interpreter {
     fn visit_store_imm_ind_u8(&mut self, format: format::RII) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        tracing::trace!("u8 [0x{:x}] = 0x{:x}", address.wrapping_add(imm0), imm1);
         self.memory
             .write_offset(address as u32, imm0 as u32, imm1 as u8)
     }

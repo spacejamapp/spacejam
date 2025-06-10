@@ -26,6 +26,7 @@ impl Runner {
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
             .with_ansi(false)
+            .with_target(false)
             .init();
 
         match test.section {

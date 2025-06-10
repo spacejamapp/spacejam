@@ -1,6 +1,6 @@
 //! PVM interface implementation
 
-use crate::{Interpreter, Memory};
+use crate::{interp::Logger, Interpreter, Memory};
 use parser::{reader::Offset, Instruction, Reader, Visitor};
 use pvm::{Gas, Invocation, Reason, Stepped};
 
@@ -8,6 +8,7 @@ impl Invocation for Interpreter {
     type Memory = Memory;
 
     /// Step the instruction.
+    #[tracing::instrument(skip_all, target = "pvmi")]
     fn step(
         // (c) The instruction data
         instructions: &[u8],
@@ -68,6 +69,7 @@ impl Invocation for Interpreter {
         let mut reason = Reason::Continue;
         for instr in block {
             tracing::trace!("{:6} | {}", instr.range.start, instr.value);
+            let _ = Logger.visit(instr.value);
             let next = instr.range.end;
             reason = pvmi.step_single(instr);
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {
