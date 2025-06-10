@@ -10,11 +10,9 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::AvailabilityAssignments,
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
-use spacejson::Json;
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
 

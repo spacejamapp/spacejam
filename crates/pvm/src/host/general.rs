@@ -189,7 +189,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     if vz == 0 {
         general.account.storage.remove(&key);
         data.update_general(general)?;
-        Ok(Exit::None as u64)
+        Ok(Exit::Ok as u64)
     } else {
         let value = match state.memory.read_bytes(vo as u32, vz as u32) {
             Ok(bytes) => bytes,

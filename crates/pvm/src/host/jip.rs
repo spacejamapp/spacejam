@@ -13,7 +13,7 @@ use crate::{host::Exit, Result, State};
 /// r9 = target length
 /// r10 = message address
 /// r11 = message length
-#[tracing::instrument(skip(state))]
+#[tracing::instrument(skip_all, name = "program", parent = None)]
 pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     let level = state.registers[7];
     let target_addr = state.registers[8] as u32;
@@ -46,51 +46,19 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
         None
     };
 
-    // Log the message with appropriate level
-    match level {
-        0 => {
-            if let Some(target) = target {
-                tracing::error!(target = target, message = message);
-            } else {
-                tracing::error!("{message}");
-            }
-        }
-        1 => {
-            if let Some(target) = target {
-                tracing::warn!(target = target, message = message);
-            } else {
-                tracing::warn!("{message}");
-            }
-        }
-        2 => {
-            if let Some(target) = target {
-                tracing::info!(target = target, message = message);
-            } else {
-                tracing::info!("{message}");
-            }
-        }
-        3 => {
-            if let Some(target) = target {
-                tracing::debug!(target = target, message = message);
-            } else {
-                tracing::debug!("{message}");
-            }
-        }
-        4 => {
-            if let Some(target) = target {
-                tracing::trace!(target = target, message = message);
-            } else {
-                tracing::trace!("{message}");
-            }
-        }
-        _ => {
-            // Invalid log level, treat as info
-            if let Some(target) = target {
-                tracing::info!(target = target, message = message);
-            } else {
-                tracing::info!("{message}");
-            }
-        }
+    let lvl = match level {
+        0 => log::Level::Error,
+        1 => log::Level::Warn,
+        2 => log::Level::Info,
+        3 => log::Level::Debug,
+        4 => log::Level::Trace,
+        _ => log::Level::Info,
+    };
+
+    if let Some(target) = target {
+        log::log!(target: &target, lvl,  "{message}");
+    } else {
+        log::log!(lvl, "{message}");
     }
 
     Ok(Exit::Ok as u64)

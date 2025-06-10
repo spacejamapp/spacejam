@@ -3066,6 +3066,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "jamcodec",
+ "log",
  "pvm-parser",
  "spacejam-core",
  "spacejam-crypto",
