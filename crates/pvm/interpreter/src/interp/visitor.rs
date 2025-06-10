@@ -710,13 +710,13 @@ impl Visitor for Interpreter {
         }
 
         let funp = |x: u64| x.div_ceil(parser::PAGE_SIZE) * parser::PAGE_SIZE;
-        let next_page_boundry = funp(self.memory.heap_ptr as u64);
+        let next_page_boundary = funp(self.memory.heap_ptr as u64);
         let new_heap_ptr = self.memory.heap_ptr as u64 + increment;
 
-        if new_heap_ptr > next_page_boundry {
-            let final_boundry = funp(new_heap_ptr);
-            let idx_start = next_page_boundry / parser::PAGE_SIZE;
-            let idx_end = final_boundry / parser::PAGE_SIZE;
+        if new_heap_ptr > next_page_boundary {
+            let final_boundary = funp(new_heap_ptr);
+            let idx_start = next_page_boundary / parser::PAGE_SIZE;
+            let idx_end = final_boundary / parser::PAGE_SIZE;
             let count = idx_end - idx_start;
             self.memory.allocate_pages(idx_start as u32, count as u32)?;
         }
