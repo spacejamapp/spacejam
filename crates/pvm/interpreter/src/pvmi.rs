@@ -67,7 +67,7 @@ impl Invocation for Interpreter {
         );
         let mut reason = Reason::Continue;
         for instr in block {
-            // tracing::trace!("{:6} | {}", instr.range.start, instr.value);
+            tracing::trace!("{:6} | {}", instr.range.start, instr.value);
             let next = instr.range.end;
             reason = pvmi.step_single(instr);
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {

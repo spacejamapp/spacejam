@@ -1,7 +1,9 @@
 //! Program blob.
 
+use crate::Memory;
 use codec::JamCodec;
-use std::{borrow::Cow, collections::BTreeMap, ops::Range};
+use std::borrow::Cow;
+
 pub use {
     blob::{deblob, ProgramBlob},
     metadata::{ConventionalMetadata, CrateInfo},
@@ -31,14 +33,5 @@ pub struct Program<'a> {
     pub registers: [u64; 13],
 
     /// The memory (µ).
-    pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
-
-    /// The initial heap pointer.
-    pub heap: Range<u32>,
-}
-
-/// (µ) The memory of a program.
-pub struct Memory<'a> {
-    /// The memory (µ).
-    pub memory: BTreeMap<u32, (Cow<'a, [u8]>, bool)>,
+    pub memory: Memory,
 }

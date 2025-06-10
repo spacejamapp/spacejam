@@ -45,17 +45,10 @@ impl<'a> StandardProgramBlob<'a> {
         registers[7] = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
         registers[8] = args.len() as u64;
 
-        // heap parameters
-        let initial_heap = 2 * crate::ZONE_SIZE
-            + (self.ro_data.len() as u64).div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
-        let heap_size = self.rw_data_padding_pages as u64 * crate::ZONE_SIZE + crate::PAGE_SIZE
-            - self.rw_data.len() as u64;
-
         Ok(Program {
             registers,
-            memory: Memory::init(self, args).memory,
+            memory: Memory::init(self, args),
             code: self.code_blob.clone(),
-            heap: initial_heap as u32..(initial_heap + heap_size) as u32,
         })
     }
 }

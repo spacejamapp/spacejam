@@ -172,16 +172,16 @@ fn write<X: Argument, Memory: crate::Memory>(
         Ok(bytes) => bytes,
         Err(err) => {
             tracing::error!("Failed to read key bytes: {:?}", err);
+            // Note this OOB will be converted to panic in the caller
             return Ok(Exit::OOB as u64);
         }
     };
 
-    // TODO: the test are not hashing the key bytes atm.
+    // TODO: the test are not hashing the key bytes atm, that we don't
+    // need to follow GP and hash the key bytes.
     //
-    // get the key by hashing account index + key bytes
     // let mut input = codec::encode(&general.index).expect("should not fail");
     // input.extend_from_slice(&key_bytes);
-    // tracing::debug!("Storage write - key bytes: {:?}", input);
     // let key = crypto::blake2b(&input);
 
     // update storage
@@ -198,8 +198,8 @@ fn write<X: Argument, Memory: crate::Memory>(
             }
         };
 
-        let account = general.account.state();
-        if account.threshold() > account.balance {
+        let threshold = general.account.threshold();
+        if threshold > general.account.balance {
             Ok(Exit::Full as u64)
         } else {
             tracing::debug!("writing storage: {:?} with value: {:?}", key, value);

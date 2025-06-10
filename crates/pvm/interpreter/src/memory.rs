@@ -14,8 +14,17 @@ pub struct Memory {
     /// Current heap pointer for sbrk implementation
     pub heap_ptr: u32,
 
-    /// The heap range.
+    /// The heap (read-write) range.
     pub heap: Range<u32>,
+
+    /// The read-only range.
+    pub read: Range<u32>,
+
+    /// The stack range.
+    pub stack: Range<u32>,
+
+    /// The args range.
+    pub args: Range<u32>,
 }
 
 impl Memory {
@@ -167,9 +176,9 @@ impl pvm::Memory for Memory {
             .any(|page| page.data.windows(data.len()).any(|window| window == data))
     }
 
-    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, heap: Range<u32>) -> Self {
+    fn from_raw(memory: parser::Memory) -> Self {
         let mut pages = BTreeMap::new();
-        for (page_num, (data, writable)) in memory {
+        for (page_num, (data, writable)) in memory.memory {
             pages.insert(
                 page_num,
                 Page {
@@ -185,8 +194,11 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            heap_ptr: heap.start,
-            heap,
+            heap_ptr: memory.heap.start,
+            heap: memory.heap,
+            read: memory.read,
+            stack: memory.stack,
+            args: memory.args,
         }
     }
 

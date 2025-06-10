@@ -185,7 +185,6 @@ pub trait Invocation {
             code,
             registers,
             memory,
-            heap,
         } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
@@ -194,7 +193,7 @@ pub trait Invocation {
             }
         };
 
-        let memory = Self::Memory::from_raw(memory, heap);
+        let memory = Self::Memory::from_raw(memory);
         let stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
