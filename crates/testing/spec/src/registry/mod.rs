@@ -29,22 +29,22 @@ impl Registry {
     /// Get an entry from the registry
     pub fn entry(&self, section: &str) -> Result<Entry> {
         match section {
-            "accumulate" => self.accumulate(Scale::Tiny),
-            "assurances" => self.assurances(Scale::Tiny),
-            "authorizations" => self.authorizations(Scale::Tiny),
             "codec" => self.codec(Scale::Tiny),
-            "disputes" => self.disputes(Scale::Tiny),
-            "history/data" => self.history(),
-            "preimages/data" => self.preimages(),
             "pvm/programs" => self.pvm(),
-            "reports" => self.reports(Scale::Tiny),
-            "safrole" => self.safrole(Scale::Tiny),
-            "statistics" => self.statistics(Scale::Tiny),
             "shuffle" => self.shuffle(),
+            "trie" => self.trie(),
+            "stf/accumulate" => self.accumulate(Scale::Tiny),
+            "stf/assurances" => self.assurances(Scale::Tiny),
+            "stf/authorizations" => self.authorizations(Scale::Tiny),
+            "stf/disputes" => self.disputes(Scale::Tiny),
+            "stf/history/data" => self.history(),
+            "stf/preimages/data" => self.preimages(),
+            "stf/reports" => self.reports(Scale::Tiny),
+            "stf/safrole" => self.safrole(Scale::Tiny),
+            "stf/statistics" => self.statistics(Scale::Tiny),
             "traces/fallback" => self.trace(Trace::Fallback),
             "traces/safrole" => self.trace(Trace::Safrole),
             "traces/reports-l0" => self.trace(Trace::ReportsL0),
-            "trie" => self.trie(),
             _ => Err(anyhow::anyhow!("invalid section: {}", section)),
         }
     }

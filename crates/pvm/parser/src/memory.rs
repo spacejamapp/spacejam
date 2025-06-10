@@ -1,13 +1,25 @@
 //! The memory of a program.
 
 use crate::StandardProgramBlob;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Range};
 
-/// The memory of a program.
+/// (µ) The memory of a program.
 #[derive(Default)]
 pub struct Memory {
     /// The memory (µ).
     pub memory: BTreeMap<u32, (Vec<u8>, bool)>,
+
+    /// The heap range.
+    pub heap: Range<u32>,
+
+    /// The read-only range.
+    pub read: Range<u32>,
+
+    /// The stack range.
+    pub stack: Range<u32>,
+
+    /// The args range.
+    pub args: Range<u32>,
 }
 
 impl Memory {
@@ -29,8 +41,8 @@ impl Memory {
         //     ptr / crate::PAGE_SIZE,
         //     ro_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
-
         memory.insert_pages(blob.ro_data.to_vec(), ptr, false);
+        memory.read = (ptr as u32)..(ptr as u32 + blob.ro_data.len() as u32);
 
         // RO padding: Z_Z + |o| ≤ i < Z_Z + P(|o|)
         let ro_padding_len = funp(ro_len) - ro_len;
@@ -40,7 +52,6 @@ impl Memory {
         //     ptr / crate::PAGE_SIZE,
         //     ro_padding_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
-
         memory.insert_pages(vec![0; ro_padding_len as usize], ptr, false);
 
         // (heap) RW data: 2*Z_Z + Z(|o|) ≤ i < 2*Z_Z + Z(|o|) + |w|
@@ -50,8 +61,8 @@ impl Memory {
         //     ptr / crate::PAGE_SIZE,
         //     rw_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
-
         memory.insert_pages(blob.rw_data.to_vec(), ptr, true);
+        memory.heap = (ptr as u32)..(ptr as u32 + blob.rw_data.len() as u32);
 
         // (heap) RW padding: 2*Z_Z + Z(|o|) + |w| ≤ i < 2*Z_Z + Z(|o|) + P(|w|) + Z_Z_P
         ptr += rw_len;
@@ -77,6 +88,7 @@ impl Memory {
         //     stack_padded_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
         memory.insert_pages(vec![0; stack_padded_len as usize], ptr, true);
+        memory.stack = (ptr as u32)..(ptr as u32 + stack_padded_len as u32);
 
         // Args: 2^32 - Z_Z - Z_I ≤ i < 2^32 - Z_Z - Z_I + |a|
         ptr = crate::PVM_MEMORY_SIZE - crate::ZONE_SIZE - crate::PVM_INIT_DATA_SIZE;
@@ -87,6 +99,7 @@ impl Memory {
         //     args_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
         memory.insert_pages(args.to_vec(), ptr, false);
+        memory.args = (ptr as u32)..(ptr as u32 + args.len() as u32);
 
         // Args padding: 2^32 - Z_Z - Z_I + |a| ≤ i < 2^32 - Z_Z - Z_I + P(|a|)
         ptr += args_len;

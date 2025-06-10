@@ -13,10 +13,16 @@ use std::collections::HashSet;
 mod error;
 
 /// (ρ‡) Handle assurances input and return newly available reports (11.17)
-pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> AvailabilityAssignments {
+pub fn reports(
+    slot: TimeSlot,
+    available: &[WorkReport],
+    mut reports: AvailabilityAssignments,
+) -> AvailabilityAssignments {
     for mb_report in reports.iter_mut() {
         if let Some(report) = mb_report {
-            if slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD {
+            if available.contains(&report.report)
+                || slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD
+            {
                 *mb_report = None;
             }
         }
@@ -25,14 +31,14 @@ pub fn reports(slot: TimeSlot, mut reports: AvailabilityAssignments) -> Availabi
     reports
 }
 
-/// (W*) Handle assurances input and return newly available reports
+/// (W) Handle assurances input and return newly available reports
 pub fn available(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],
     slot: TimeSlot,
     parent: OpaqueHash,
     assurances: &[AvailAssurance],
-) -> Result<Vec<WorkReport>> {
+) -> Result<(Vec<WorkReport>, [u32; CORES_COUNT])> {
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
     let mut stale_reports = HashSet::new();
@@ -79,7 +85,7 @@ pub fn available(
         }
     }
 
-    Ok(available)
+    Ok((available, core_assurance_counts))
 }
 
 /// Verifies the assurance

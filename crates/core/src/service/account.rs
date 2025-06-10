@@ -74,6 +74,7 @@ impl ServiceAccount {
         ServiceAccountState {
             code: self.code,
             balance: self.balance,
+            threshold: self.threshold(),
             accumulate: self.gas.accumulate,
             transfer: self.gas.transfer,
             total,
@@ -91,22 +92,31 @@ pub struct ServiceAccountState {
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
+    #[serde(with = "codec::compact")]
     pub balance: u64,
+
+    /// The threshold of the service account (t)
+    #[serde(with = "codec::compact", default)]
+    pub threshold: u64,
 
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
     #[serde(alias = "min_memo_gas")]
+    #[serde(with = "codec::compact")]
     pub accumulate: Gas,
 
     /// The minimum required for the on transfer entry-point (m)
     #[serde(alias = "min_item_gas")]
+    #[serde(with = "codec::compact")]
     pub transfer: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
+    #[serde(with = "codec::compact")]
     pub total: u64,
 
     /// The number of items in storage (i)
+    #[serde(with = "codec::compact")]
     pub items: u32,
 }
 

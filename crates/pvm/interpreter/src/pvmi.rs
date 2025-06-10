@@ -8,6 +8,7 @@ impl Invocation for Interpreter {
     type Memory = Memory;
 
     /// Step the instruction.
+    #[tracing::instrument(skip_all, target = "pvmi")]
     fn step(
         // (c) The instruction data
         instructions: &[u8],
@@ -58,16 +59,21 @@ impl Invocation for Interpreter {
         };
 
         // process the block sequence of instructions
-        /*    tracing::trace!("Compiling block:");
+        tracing::trace!("Compiling block:");
         tracing::trace!(
             "charge_gas: {} ({} -> {})",
             block.len(),
             pvmi.gas,
             pvmi.gas - block.len() as u64,
-        ); */
+        );
         let mut reason = Reason::Continue;
         for instr in block {
-            // tracing::trace!("{:6} | {}", instr.range.start, instr.value);
+            tracing::trace!(
+                "{:6} | {} | registers: {:?}",
+                instr.range.start,
+                instr.value,
+                pvmi.registers
+            );
             let next = instr.range.end;
             reason = pvmi.step_single(instr);
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {

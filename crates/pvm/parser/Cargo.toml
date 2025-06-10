@@ -9,6 +9,7 @@ name = "parser"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
+serde.workspace = true
 tracing.workspace = true
 jam-codec = { workspace = true, features = ["derive"] }
 

@@ -82,8 +82,7 @@ impl Accumulated {
     pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
         let mut records = BTreeMap::new();
         for (service, gas) in self.gas.iter() {
-            // FIXME: currently workaround for always_acc
-            if service == &0 {
+            if gas == &0 {
                 continue;
             }
 

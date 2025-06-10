@@ -144,7 +144,6 @@ pub trait Invocation {
             return Stepped::new(reason, state).with(input);
         };
 
-        tracing::debug!("host call: {:?}", call);
         let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => {
@@ -186,7 +185,6 @@ pub trait Invocation {
             code,
             registers,
             memory,
-            heap,
         } = match program::preimage(blob, args) {
             Ok(standard) => standard,
             Err(e) => {
@@ -195,11 +193,7 @@ pub trait Invocation {
             }
         };
 
-        let memory = Self::Memory::from_raw(memory, heap);
-        tracing::trace!(
-            "reading [0xfeff0000]: {:?}",
-            memory.read_bytes(0xfeff0000, 1)
-        );
+        let memory = Self::Memory::from_raw(memory);
         let stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
@@ -299,6 +293,12 @@ pub trait Invocation {
                 "PVM execution stopped with reason: {:?} for service {}",
                 result.reason,
                 service
+            );
+        } else {
+            tracing::debug!(
+                "PVM execution continued for service {}, reason: {:?}",
+                service,
+                result.reason
             );
         }
 

@@ -1,12 +1,11 @@
 //! Memory abstraction
 
 use crate::Reason;
-use std::{collections::BTreeMap, ops::Range};
 
 /// The memory trait.
 pub trait Memory: Default + Clone {
     /// Create a new mwemory from a raw memory.
-    fn from_raw(memory: BTreeMap<u32, (Vec<u8>, bool)>, heap: Range<u32>) -> Self;
+    fn from_raw(memory: parser::Memory) -> Self;
 
     /// Check if the memory contains the given data.
     fn contains(&self, data: &[u8]) -> bool;
@@ -22,11 +21,11 @@ pub trait Memory: Default + Clone {
     }
 
     /// write bytes to the memory
-    fn write_bytes(&mut self, _from: u32, _bytes: &[u8]) -> Result<(), Reason>;
+    fn write_bytes(&mut self, from: u32, bytes: &[u8]) -> Result<(), Reason>;
 }
 
 impl Memory for () {
-    fn from_raw(_memory: BTreeMap<u32, (Vec<u8>, bool)>, _heap: Range<u32>) -> Self {}
+    fn from_raw(_memory: parser::Memory) -> Self {}
 
     fn contains(&self, _data: &[u8]) -> bool {
         false

@@ -64,10 +64,12 @@ impl FromStr for Section {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "accumulate" => Ok(Section::Accumulate),
-            "assurances" => Ok(Section::Assurances),
             "codec" => Ok(Section::Codec),
             "pvm" => Ok(Section::Pvm),
+            "shuffle" => Ok(Section::Shuffle),
+            "trie" => Ok(Section::Trie),
+            "accumulate" => Ok(Section::Accumulate),
+            "assurances" => Ok(Section::Assurances),
             "safrole" => Ok(Section::Safrole),
             "statistics" => Ok(Section::Statistics),
             "authorizations" => Ok(Section::Authorizations),
@@ -75,11 +77,9 @@ impl FromStr for Section {
             "history" => Ok(Section::History),
             "preimages" => Ok(Section::Preimages),
             "reports" => Ok(Section::Reports),
-            "shuffle" => Ok(Section::Shuffle),
             "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
             "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
-            "trie" => Ok(Section::Trie),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -88,24 +88,24 @@ impl FromStr for Section {
 impl AsRef<str> for Section {
     fn as_ref(&self) -> &str {
         match self {
-            Section::Accumulate => "accumulate",
-            Section::Assurances => "assurances",
             Section::Codec => "codec",
             Section::Pvm => "pvm/programs",
-            Section::Safrole => "safrole",
-            Section::Statistics => "statistics",
-            Section::Authorizations => "authorizations",
-            Section::Disputes => "disputes",
-            Section::History => "history/data",
-            Section::Preimages => "preimages/data",
-            Section::Reports => "reports",
             Section::Shuffle => "shuffle",
+            Section::Trie => "trie",
+            Section::Accumulate => "stf/accumulate",
+            Section::Assurances => "stf/assurances",
+            Section::Safrole => "stf/safrole",
+            Section::Statistics => "stf/statistics",
+            Section::Authorizations => "stf/authorizations",
+            Section::Disputes => "stf/disputes",
+            Section::History => "stf/history/data",
+            Section::Preimages => "stf/preimages/data",
+            Section::Reports => "stf/reports",
             Section::Trace(trace) => match trace {
                 Trace::Fallback => "traces/fallback",
                 Trace::Safrole => "traces/safrole",
                 Trace::ReportsL0 => "traces/reports-l0",
             },
-            Section::Trie => "trie",
         }
     }
 }

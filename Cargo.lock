@@ -2149,6 +2149,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jam-bootstrap-service-common"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a5f9d338ca3992116adc51a2ca9ef0cc5adfb1aeb342e265afd05a861b2d03"
+dependencies = [
+ "bounded-collections-next",
+ "jam-codec",
+ "jam-types",
+ "rand 0.9.1",
+]
+
+[[package]]
 name = "jam-codec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3066,6 +3078,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "jamcodec",
+ "log",
  "pvm-parser",
  "spacejam-core",
  "spacejam-crypto",
@@ -3869,6 +3882,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "hex",
+ "jam-bootstrap-service-common",
+ "jam-codec",
  "jam-types",
  "jamcodec",
  "serde",

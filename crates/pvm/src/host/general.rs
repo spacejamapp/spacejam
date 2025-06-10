@@ -61,8 +61,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
         1 => self::lookup(state, data),
         2 => self::read(state, data),
         3 => self::write(state, data),
-        4 => self::sbrk(state, data),
-        5 => self::info(state, data),
+        4 => self::info(state, data),
         _ => Ok(Exit::What as u64),
     }
 }
@@ -121,15 +120,16 @@ fn read<X: Argument, Memory: crate::Memory>(
         return Ok(Exit::None as u64);
     };
 
-    // TODO: the test are not hashing the key bytes atm.
-    //
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    // let mut input = codec::encode(&index).expect("should not fail");
     let bytes = state
         .memory
         .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
+
+    // TODO: the test are not hashing the key bytes atm.
+    //
+    // let mut input = codec::encode(&index).expect("should not fail");
     // input.extend_from_slice(&bytes);
 
     // get the storage value
@@ -172,25 +172,23 @@ fn write<X: Argument, Memory: crate::Memory>(
         Ok(bytes) => bytes,
         Err(err) => {
             tracing::error!("Failed to read key bytes: {:?}", err);
+            // Note this OOB will be converted to panic in the caller
             return Ok(Exit::OOB as u64);
         }
     };
 
-    // TODO: the test are not hashing the key bytes atm.
+    // TODO: the test are not hashing the key bytes atm, that we don't
+    // need to follow GP and hash the key bytes.
     //
-    // get the key by hashing account index + key bytes
     // let mut input = codec::encode(&general.index).expect("should not fail");
     // input.extend_from_slice(&key_bytes);
-    // tracing::debug!("Storage write - key bytes: {:?}", input);
     // let key = crypto::blake2b(&input);
-
-    tracing::debug!("writing storage: {:?}", key);
 
     // update storage
     if vz == 0 {
-        general.account.storage.remove(&key);
+        let value = general.account.storage.remove(&key).unwrap_or_default();
         data.update_general(general)?;
-        Ok(Exit::None as u64)
+        Ok(value.len() as u64)
     } else {
         let value = match state.memory.read_bytes(vo as u32, vz as u32) {
             Ok(bytes) => bytes,
@@ -200,14 +198,15 @@ fn write<X: Argument, Memory: crate::Memory>(
             }
         };
 
-        let account = general.account.state();
-        if account.threshold() > account.balance {
+        let threshold = general.account.threshold();
+        if threshold > general.account.balance {
             Ok(Exit::Full as u64)
         } else {
             tracing::debug!("writing storage: {:?} with value: {:?}", key, value);
-            general.account.storage.insert(key, value.clone());
+            let length = value.len() as u64;
+            general.account.storage.insert(key, value);
             data.update_general(general)?;
-            Ok(Exit::Ok as u64)
+            Ok(length)
         }
     }
 }
@@ -226,7 +225,11 @@ fn info<X: Argument, Memory: crate::Memory>(
     } else {
         general.accounts.get(&(r7 as ServiceId))
     }
-    .and_then(|account| codec::encode(&account.state()).ok()) else {
+    .and_then(|account| {
+        let state = account.state();
+        tracing::debug!("account state: {:?}", state);
+        codec::encode(&state).ok()
+    }) else {
         return Ok(Exit::None as u64);
     };
 
@@ -236,14 +239,5 @@ fn info<X: Argument, Memory: crate::Memory>(
         crate::bail!("failed to write account state {reason}");
     }
 
-    Ok(Exit::Ok as u64)
-}
-
-/// (ΩS) sbrk - adjust program break
-fn sbrk<X: Argument, Memory: crate::Memory>(
-    _state: &mut State<Memory>,
-    _data: &mut X,
-) -> Result<ExitCode> {
-    tracing::error!("sbrk not implemented");
     Ok(Exit::Ok as u64)
 }

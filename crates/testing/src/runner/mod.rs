@@ -11,6 +11,7 @@ use runtime::{
 use score::{
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
+    statistic::Statistics,
 };
 use specjam::{Section, Test};
 use tracing_subscriber::EnvFilter;
@@ -25,6 +26,7 @@ impl Runner {
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
             .with_ansi(false)
+            .with_target(false)
             .init();
 
         match test.section {
@@ -47,7 +49,11 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let accounts = accumulation.accounts();
+                let mut accounts = accumulation.accounts();
+                for account in accounts.iter_mut() {
+                    account.data.service.threshold = 0;
+                }
+
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,
@@ -75,12 +81,15 @@ impl Runner {
                     input.input.parent,
                     &input.input.assurances,
                 );
-                assert_eq!(result, output.map(|s| s.reported));
+                assert_eq!(result.clone().map(|(a, _)| a), output.map(|s| s.reported));
 
                 // validate post state
-                if let Ok(available) = result {
-                    let mut assignments =
-                        tx::assurance::reports(input.input.slot, input.pre_state.avail_assignments);
+                if let Ok((available, _)) = result {
+                    let mut assignments = tx::assurance::reports(
+                        input.input.slot,
+                        &available,
+                        input.pre_state.avail_assignments,
+                    );
 
                     // remove the available work reports from the assignments
                     // to get the mark for testing.
@@ -157,7 +166,6 @@ impl Runner {
             }
             Section::Preimages => {
                 use crate::preimage;
-
                 let input = preimage::TestInput::from_json(&test.input)?;
                 let output = preimage::TestOutput::from_json(&test.output)?;
 
@@ -228,9 +236,8 @@ impl Runner {
                 assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
                 assert_eq!(output.post_state, input.pre_state);
             }
-            Section::Statistics => {}
-            /*  Section::Statistics => {
-                use crate::statistics;
+            Section::Statistics => {
+                /* use crate::statistics;
 
                 let input = statistics::TestInput::from_json(&test.input)?;
                 let output = statistics::TestOutput::from_json(&test.output)?;
@@ -241,8 +248,8 @@ impl Runner {
                     input.input.author_index,
                     &input.input.extrinsic,
                 );
-                assert_eq!(state, output.post_state.statistics);
-            } */
+                assert_eq!(state, output.post_state.statistics); */
+            }
             Section::Pvm => {
                 use crate::pvm;
 
@@ -372,13 +379,11 @@ impl Runner {
                         continue;
                     };
 
-                    if key == key::STATISTICS {
-                        tracing::debug!("value: {:?}", value);
-                        tracing::debug!("result: {:?}", result);
-                        // let polkajam: Statistics = codec::decode(&value)?;
-                        // tracing::info!("polkajam: {:?}", polkajam);
-                        // let statistics: Statistics = codec::decode(&result)?;
-                        // tracing::info!("spacejam: {:?}", statistics);
+                    if key == key::STATISTICS && value != result {
+                        let polkajam: Statistics = codec::decode(&value)?;
+                        let statistics: Statistics = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", statistics);
                     }
 
                     if value != result {
