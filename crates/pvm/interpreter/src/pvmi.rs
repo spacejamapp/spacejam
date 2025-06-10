@@ -58,13 +58,13 @@ impl Invocation for Interpreter {
         };
 
         // process the block sequence of instructions
-        /*    tracing::trace!("Compiling block:");
+        tracing::trace!("Compiling block:");
         tracing::trace!(
             "charge_gas: {} ({} -> {})",
             block.len(),
             pvmi.gas,
             pvmi.gas - block.len() as u64,
-        ); */
+        );
         let mut reason = Reason::Continue;
         for instr in block {
             // tracing::trace!("{:6} | {}", instr.range.start, instr.value);

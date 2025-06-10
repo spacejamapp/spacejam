@@ -96,7 +96,7 @@ pub struct ServiceAccountState {
     pub balance: u64,
 
     /// The threshold of the service account (t)
-    #[serde(with = "codec::compact")]
+    #[serde(with = "codec::compact", default)]
     pub threshold: u64,
 
     /// The minimum gas in order to execute the accumulate

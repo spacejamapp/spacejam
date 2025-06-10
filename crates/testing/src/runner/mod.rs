@@ -48,7 +48,11 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let accounts = accumulation.accounts();
+                let mut accounts = accumulation.accounts();
+                for account in accounts.iter_mut() {
+                    account.data.service.threshold = 0;
+                }
+
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,

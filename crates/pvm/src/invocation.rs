@@ -195,10 +195,6 @@ pub trait Invocation {
         };
 
         let memory = Self::Memory::from_raw(memory, heap);
-        tracing::trace!(
-            "reading [0xfeff0000]: {:?}",
-            memory.read_bytes(0xfeff0000, 1)
-        );
         let stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
