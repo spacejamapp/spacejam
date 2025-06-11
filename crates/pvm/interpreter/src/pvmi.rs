@@ -59,23 +59,24 @@ impl Invocation for Interpreter {
         };
 
         // process the block sequence of instructions
-        tracing::trace!("Compiling block:");
+        /* tracing::trace!("Compiling block:");
         tracing::trace!(
             "charge_gas: {} ({} -> {})",
             block.len(),
             pvmi.gas,
             pvmi.gas - block.len() as u64,
-        );
+        ); */
         let mut reason = Reason::Continue;
         for instr in block {
+            let next = instr.range.end;
+            reason = pvmi.step_single(&instr);
             tracing::trace!(
                 "{:6} | {} | registers: {:?}",
-                instr.range.start,
+                instr.range.end,
                 instr.value,
                 pvmi.registers
             );
-            let next = instr.range.end;
-            reason = pvmi.step_single(instr);
+
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {
                 break;
             }
@@ -97,7 +98,7 @@ impl Invocation for Interpreter {
 
 impl Interpreter {
     /// Step a single instruction.
-    fn step_single(&mut self, instr: Offset<Instruction>) -> Reason {
+    fn step_single(&mut self, instr: &Offset<Instruction>) -> Reason {
         // check if the gas has been exhausted
         if self.burn(1).is_err() {
             return Reason::OOG;

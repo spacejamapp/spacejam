@@ -29,13 +29,22 @@ pub struct Memory {
 
 impl Memory {
     /// Allocate a range of pages.
+    ///
+    /// TODO:
+    /// - check the range of the heap
+    /// - deallocate pages
     pub fn allocate_pages(&mut self, start: u32, count: u32) -> Result<()> {
-        let size = (count * parser::PAGE_SIZE as u32) as usize;
-        if self.heap.len() >= size {
-            return Ok(());
+        for page in start..start + count {
+            self.pages.insert(
+                page,
+                Page {
+                    data: SmallVec::from_slice(&vec![0; parser::PAGE_SIZE as usize]),
+                    access: Access::Mutable,
+                },
+            );
         }
 
-        self.write_bytes(start, 0, &vec![0; size])?;
+        self.heap.end = (start + count) * parser::PAGE_SIZE as u32;
         Ok(())
     }
 
@@ -66,6 +75,22 @@ impl Memory {
         let end = (offset + len) as usize;
         data.resize(end, 0);
         bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
+        let addr = page * parser::PAGE_SIZE as u32 + offset;
+        tracing::debug!(
+            "read_bytes: {}({page})@{offset} ({}) {bytes:?}",
+            if self.stack.contains(&addr) {
+                "stack"
+            } else if self.read.contains(&addr) {
+                "read"
+            } else if self.args.contains(&addr) {
+                "args"
+            } else if self.heap.contains(&addr) {
+                "heap"
+            } else {
+                "unknown"
+            },
+            addr,
+        );
         Ok(bytes)
     }
 
@@ -97,6 +122,19 @@ impl Memory {
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
         let to_write = bytes.len() as u32;
         let end = (offset + to_write) as usize;
+        let addr = page * parser::PAGE_SIZE as u32 + offset;
+        tracing::debug!(
+            "write_bytes: {}({page})@{offset} ({}) {bytes:?}",
+            if self.heap.contains(&addr) {
+                "heap"
+            } else if self.stack.contains(&addr) {
+                "stack"
+            } else {
+                "unknown"
+            },
+            addr,
+        );
+
         if end > parser::PAGE_SIZE as usize {
             tracing::error!("write_bytes, {page} inaccessible");
             return Err(Error::MemoryInaccessible { page });
@@ -205,7 +243,7 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            heap_ptr: memory.heap.start,
+            heap_ptr: memory.heap.end,
             heap: memory.heap,
             read: memory.read,
             stack: memory.stack,

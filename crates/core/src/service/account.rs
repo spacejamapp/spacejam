@@ -99,16 +99,16 @@ pub struct ServiceAccountState {
     #[serde(with = "codec::compact", default)]
     pub threshold: u64,
 
+    /// The minimum required for the on transfer entry-point (m)
+    #[serde(alias = "min_item_gas")]
+    #[serde(with = "codec::compact")]
+    pub transfer: Gas,
+
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
     #[serde(alias = "min_memo_gas")]
     #[serde(with = "codec::compact")]
     pub accumulate: Gas,
-
-    /// The minimum required for the on transfer entry-point (m)
-    #[serde(alias = "min_item_gas")]
-    #[serde(with = "codec::compact")]
-    pub transfer: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
