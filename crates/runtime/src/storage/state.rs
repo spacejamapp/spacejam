@@ -13,8 +13,8 @@ use score::{
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{
-        GasLimit, Privileges, ServiceAccount, ServiceAccountData, ServiceAccountState, ServiceItem,
-        ServicePreimage, ServiceStorage, WorkReport,
+        AvailabilityAssignments, GasLimit, Privileges, ServiceAccount, ServiceAccountData,
+        ServiceAccountState, ServiceItem, ServicePreimage, ServiceStorage, WorkReport,
     },
     state::{State, account, key},
     statistic::Statistics,
@@ -190,11 +190,10 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the pending reports
-    #[allow(clippy::type_complexity)]
-    fn pending_reports(&self) -> Result<Option<[Option<(WorkReport, TimeSlot)>; CORES_COUNT]>> {
+    fn pending_reports(&self) -> Result<AvailabilityAssignments> {
         self.get(key::PENDING_REPORTS)?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("pending reports not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode pending reports: {e}"))
     }
 
@@ -267,8 +266,18 @@ pub trait Storage: KVStorage {
                 continue;
             }
 
+            // the stored service info is not exactly the same as the ServiceAccountState
+            // see more details in (D.2) of the GP
+            let account: ServiceAccountState = ServiceAccountState {
+                code: value[..32].try_into()?,
+                balance: u64::from_le_bytes(value[32..40].try_into()?),
+                accumulate: u64::from_le_bytes(value[40..48].try_into()?),
+                transfer: u64::from_le_bytes(value[48..56].try_into()?),
+                total: u64::from_le_bytes(value[56..64].try_into()?),
+                items: u32::from_le_bytes(value[64..68].try_into()?),
+                threshold: 0,
+            };
             let service = u32::from_le_bytes([key[1], key[3], key[5], key[7]]);
-            let account: ServiceAccountState = codec::decode(&value)?;
             let storage = self.account_storage_full(service)?;
             let preimage = self.account_preimages(service)?;
 
@@ -277,6 +286,7 @@ pub trait Storage: KVStorage {
                 ServiceAccount {
                     storage: storage.into_iter().map(|s| (s.key, s.value)).collect(),
                     preimage: preimage.into_iter().map(|p| (p.hash, p.blob)).collect(),
+                    // FIXME: this could be a potential bug
                     lookup: Default::default(),
                     code: account.code,
                     balance: account.balance,

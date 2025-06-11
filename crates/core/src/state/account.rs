@@ -49,14 +49,14 @@ mod crypto_impl {
         let mut diff = vec![];
         for (index, account) in accounts {
             // set info
-            let mut value = Vec::new();
             let info = account.state();
+            let mut value = Vec::new();
             value.extend_from_slice(&info.code);
             value.extend_from_slice(&codec::encode(&(
-                &info.balance,
-                &info.accumulate,
-                &info.transfer,
-                &info.total,
+                info.balance.to_le_bytes(),
+                info.accumulate.to_le_bytes(),
+                info.transfer.to_le_bytes(),
+                info.total.to_le_bytes(),
             ))?);
             value.extend_from_slice(&info.items.to_le_bytes());
             diff.push((self::info(*index), value));

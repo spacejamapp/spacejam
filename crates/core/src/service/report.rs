@@ -66,6 +66,7 @@ impl WorkReport {
             }
 
             if let WorkExecResult::Ok(data) = work.result.clone() {
+                tracing::debug!("work result: {:?}", data);
                 if let Ok(instructions) = <Vec<Instruction>>::decode(&mut data.as_ref()) {
                     tracing::debug!("bootstrap instructions: {:?}", instructions);
                 }
