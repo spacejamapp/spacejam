@@ -73,13 +73,13 @@ impl WorkReport {
             }
 
             operands.push(Operand {
-                anchor: self.context.anchor,
-                data: work.result.clone(),
-                erasure_root: self.spec.erasure_root,
-                authorizer_output: self.auth_output.clone(),
+                package: self.spec.hash,
+                exports_root: self.spec.erasure_root,
+                authorizer_hash: self.authorizer_hash,
+                auth_output: self.auth_output.clone(),
                 payload: work.payload_hash,
-                hash: self.spec.hash,
                 gas: work.accumulate_gas,
+                data: work.result.clone(),
             });
         }
         operands
