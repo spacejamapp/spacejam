@@ -10,7 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    state::{key, StateKeyInfo, StateKeyLike},
+    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
@@ -374,6 +374,17 @@ impl Runner {
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
+
+                    match info {
+                        StateKey::Account {
+                            service,
+                            field: ServiceField::Storage { key: _ },
+                        } => {
+                            tracing::debug!("account({service}): {:?}({value:?})", value.len());
+                        }
+                        _ => {}
+                    }
+
                     let Some(result) = memdb.get(&key)? else {
                         tracing::error!("could not find {info:?}: 0x{encoded}");
                         continue;

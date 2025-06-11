@@ -35,8 +35,6 @@ pub fn simulate<V: Pvm>(
     let mut state: score::State = storage.state()?;
     let mut diff = HashMap::new();
 
-    tracing::debug!("pending reports: {:?}", state.reports);
-
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
@@ -96,12 +94,9 @@ pub fn simulate<V: Pvm>(
             block.header.parent,
             &block.extrinsic.assurances,
         )?;
-        tracing::trace!("avaiable reports after disputes check: {:?}", reports);
-        tracing::trace!("avaiable reports based on assurance: {:?}", available);
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());
-        tracing::trace!("avaiable reports after assurance check: {:?}", available);
 
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
@@ -111,7 +106,6 @@ pub fn simulate<V: Pvm>(
         }
 
         tracing::debug!("final avaiable reports: {:?}", available);
-
         (available, assurances)
     };
 

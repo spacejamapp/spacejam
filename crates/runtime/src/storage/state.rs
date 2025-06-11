@@ -13,10 +13,10 @@ use score::{
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{
-        AvailabilityAssignments, GasLimit, Privileges, ServiceAccount, ServiceAccountData,
+        AvailabilityAssignments, Privileges, ServiceAccount, ServiceAccountData,
         ServiceAccountState, ServiceItem, ServicePreimage, ServiceStorage, WorkReport,
     },
-    state::{State, account, key},
+    state::{ServiceField, State, StateKey, StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
 
@@ -262,40 +262,58 @@ pub trait Storage: KVStorage {
         let mut accounts = BTreeMap::new();
         for item in self.iter()? {
             let (key, value) = item?;
-            if !key.starts_with(&[255]) {
-                continue;
+            match key.as_state_key().info() {
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Data,
+                } => {
+                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
+                    account.code = value[..32].try_into()?;
+                    account.balance = u64::from_le_bytes(value[32..40].try_into()?);
+                    account.gas.accumulate = u64::from_le_bytes(value[40..48].try_into()?);
+                    account.gas.transfer = u64::from_le_bytes(value[48..56].try_into()?);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Storage { key },
+                } => {
+                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
+                    account.storage.insert(key.to_vec(), value);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Preimage,
+                } => {
+                    // TODO: verify the hash of the key
+                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
+                    account.preimage.insert(crypto::blake2b(&value), value);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Lookup { length },
+                } => {
+                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
+                    account
+                        .lookup
+                        .insert((Default::default(), length), codec::decode(&value)?);
+                }
+                _ => continue,
             }
+        }
 
-            // the stored service info is not exactly the same as the ServiceAccountState
-            // see more details in (D.2) of the GP
-            let account: ServiceAccountState = ServiceAccountState {
-                code: value[..32].try_into()?,
-                balance: u64::from_le_bytes(value[32..40].try_into()?),
-                accumulate: u64::from_le_bytes(value[40..48].try_into()?),
-                transfer: u64::from_le_bytes(value[48..56].try_into()?),
-                total: u64::from_le_bytes(value[56..64].try_into()?),
-                items: u32::from_le_bytes(value[64..68].try_into()?),
-                threshold: 0,
-            };
-            let service = u32::from_le_bytes([key[1], key[3], key[5], key[7]]);
-            let storage = self.account_storage_full(service)?;
-            let preimage = self.account_preimages(service)?;
-
-            accounts.insert(
-                service,
-                ServiceAccount {
-                    storage: storage.into_iter().map(|s| (s.key, s.value)).collect(),
-                    preimage: preimage.into_iter().map(|p| (p.hash, p.blob)).collect(),
-                    // FIXME: this could be a potential bug
-                    lookup: Default::default(),
-                    code: account.code,
-                    balance: account.balance,
-                    gas: GasLimit {
-                        accumulate: account.accumulate,
-                        transfer: account.transfer,
-                    },
-                },
-            );
+        // FIXME: this is a temporary solution to fill the lookup field
+        //
+        // TODO: shared preimages, consider zero-copy solution
+        for (_, account) in accounts.iter_mut() {
+            let lookup = account.lookup.clone();
+            for (key, value) in lookup.iter() {
+                for (hash, preimage) in &account.preimage {
+                    if key.1 == preimage.len() as u32 {
+                        account.lookup.insert((*hash, key.1), value.clone());
+                        account.lookup.remove(key);
+                    }
+                }
+            }
         }
 
         Ok(accounts)

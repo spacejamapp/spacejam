@@ -79,7 +79,7 @@ pub enum ServiceField {
     /// The service account data
     Data,
     /// The service account storage
-    Storage,
+    Storage { key: [u8; 4] },
     /// The service account preimage
     Preimage,
     /// The service account lookup table
@@ -130,9 +130,15 @@ impl StateKeyInfo for StorageKey {
             }
             key if [key[1], key[3], key[5], key[7]] == key::ACCOUNT_STORAGE_PREFIX => {
                 let buf = [key[0], key[2], key[4], key[6]];
+                let mut skey = [0; 4];
+                skey.copy_from_slice(&key[8..12]);
                 StateKey::Account {
                     service: u32::from_le_bytes(buf),
-                    field: ServiceField::Storage,
+                    field: ServiceField::Storage {
+                        // FIXME: we are not hashing the storage key
+                        // because polkajam has not supported it yet
+                        key: skey,
+                    },
                 }
             }
             key if [key[1], key[3], key[5], key[7]] == key::ACCOUNT_PREIMAGE_PREFIX => {
