@@ -51,6 +51,7 @@ impl Runner {
                 // convert the accounts to the service items
                 let mut accounts = accumulation.accounts();
                 for account in accounts.iter_mut() {
+                    // the current test vector doesn't support threshold
                     account.data.service.threshold = 0;
                 }
 
@@ -60,7 +61,7 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-                assert_eq!(accounts, output.post_state.accounts);
+                assert_eq!(accounts, output.post_state.haccounts());
                 assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
@@ -362,7 +363,7 @@ impl Runner {
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
-                        .commit(vec![(keyval.key, keyval.value)])
+                        .set(keyval.key, keyval.value)
                         .expect("failed to set keyval");
                 }
 
@@ -370,15 +371,18 @@ impl Runner {
                 assert_eq!(state_root, input.pre_state.state_root);
 
                 // 2. verify the state transition
+                let mut pkeys = Vec::new();
                 let _ = tx::transit::<Interpreter>(block, &memdb)?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
+
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("could not find {info:?}: 0x{encoded}");
+                        tracing::error!("storage 0x{encoded} not exists");
                         continue;
                     };
 
+                    pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
@@ -391,6 +395,17 @@ impl Runner {
                     } else {
                         tracing::info!("keyval matched: {info:?}: 0x{encoded}");
                     }
+                }
+
+                // check if spacejam left extra keyvals
+                for pair in memdb.iter()? {
+                    let (key, _value) = pair?;
+                    if pkeys.contains(&key) {
+                        continue;
+                    }
+
+                    let info = key.as_state_key().info();
+                    tracing::error!("extra keyval: {info:?}");
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");

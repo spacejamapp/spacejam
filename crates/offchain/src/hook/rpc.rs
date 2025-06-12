@@ -48,9 +48,7 @@ impl<C: runtime::Config> RpcHook<C> {
 
         // 1. set the statistics
         let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
-        self.runtime
-            .storage
-            .commit(vec![(key, statistics.clone())])?;
+        self.runtime.storage.set(key, statistics.clone())?;
 
         // 2. subscribe the statistics
         self.dispatch_statistics(&statistics).await
@@ -74,9 +72,7 @@ impl<C: runtime::Config> RpcHook<C> {
         };
 
         let key = [hash.as_ref(), b"beefy_root"].concat();
-        self.runtime
-            .storage
-            .commit(vec![(key, beefy_root.to_vec())])?;
+        self.runtime.storage.set(key, beefy_root)?;
         Ok(())
     }
 }
@@ -118,9 +114,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
             let mut plist: BTreeSet<u32> =
                 codec::decode(&self.runtime.storage.get(&key)?.unwrap_or_default())?;
             plist.extend(data.keys().copied());
-            self.runtime
-                .storage
-                .commit(vec![(key, codec::encode(&plist)?)])?;
+            self.runtime.storage.set(key, codec::encode(&plist)?)?;
         }
 
         for (service, sink) in self.service_data_sub.lock().await.iter() {
@@ -193,7 +187,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
 
     fn on_key_value(&self, hash: OpaqueHash, key: StorageKey, value: &[u8]) -> anyhow::Result<()> {
         let bkey = [hash.as_ref(), key.as_ref()].concat();
-        self.runtime.storage.commit(vec![(bkey, value.to_vec())])?;
+        self.runtime.storage.set(bkey, value)?;
         Ok(())
     }
 }

@@ -341,13 +341,8 @@ impl Visitor for Interpreter {
             imm1,
         } = format;
 
-        // Calculate jump address first (using original register value)
         let jump_address = self.rget(reg1).wrapping_add(imm1) as u32;
-
-        // Set the register (per specification: reg_A' = imm_X)
         self.rset(reg0, imm0);
-
-        // Then perform the dynamic jump (per specification: djump(reg_B + imm_Y))
         self.djump(jump_address)
     }
 
@@ -363,7 +358,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
         let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.rset(reg0, value.as_u64());
+        self.rset(reg0, value as u64);
         Ok(())
     }
 
@@ -371,7 +366,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
         let value: u16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.rset(reg0, value.as_u64());
+        self.rset(reg0, value as u64);
         Ok(())
     }
 
@@ -379,7 +374,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
         let value: i16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.rset(reg0, value.as_u64());
+        self.rset(reg0, value as u64);
         Ok(())
     }
 
@@ -387,7 +382,7 @@ impl Visitor for Interpreter {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
         let value: u32 = self.memory.read_offset(addr as u32, imm0 as u32)?;
-        self.rset(reg0, value.as_u64());
+        self.rset(reg0, value as u64);
         Ok(())
     }
 
@@ -704,28 +699,27 @@ impl Visitor for Interpreter {
     fn visit_sbrk(&mut self, format: format::RR) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let increment = self.rget(reg1);
+        /*    tracing::debug!(
+                   "sbrk: rD={} rA={}, ptr={}",
+                   self.rget(reg0),
+                   self.rget(reg1),
+                   self.memory.heap_ptr
+               );
+        */
+        self.rset(reg0, self.memory.heap_ptr as u64);
         if increment == 0 {
-            self.rset(reg0, self.memory.heap_ptr as u64);
             return Ok(());
         }
 
         let funp = |x: u64| x.div_ceil(parser::PAGE_SIZE) * parser::PAGE_SIZE;
-        let next_page_boundary = funp(self.memory.heap_ptr as u64);
-        let new_heap_ptr = self.memory.heap_ptr as u64 + increment;
-
-        if new_heap_ptr > next_page_boundary {
-            let final_boundary = funp(new_heap_ptr);
-            let idx_start = next_page_boundary / parser::PAGE_SIZE;
-            let idx_end = final_boundary / parser::PAGE_SIZE;
-            let count = idx_end - idx_start;
-            self.memory.allocate_pages(idx_start as u32, count as u32)?;
+        let boundary = funp(self.memory.heap_ptr as u64);
+        let nptr = self.memory.heap_ptr as u64 + increment;
+        if nptr > boundary {
+            let start = boundary / parser::PAGE_SIZE;
+            let count = funp(nptr) / parser::PAGE_SIZE - start;
+            self.memory.allocate_pages(start as u32, count as u32)?;
         }
 
-        tracing::debug!(
-            "sbrk: increment={} heap_ptr={}",
-            increment,
-            self.memory.heap_ptr
-        );
         self.memory.heap_ptr += increment as u32;
         Ok(())
     }

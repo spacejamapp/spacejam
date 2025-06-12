@@ -97,7 +97,7 @@ impl Interpreter {
             return Err(Error::InvalidDynamicJump);
         };
 
-        tracing::trace!("jumping to dynamic index={index} address: {target}");
+        // tracing::trace!("jumping to dynamic index={index} address: {target}");
         self.jump = Some(*target as usize);
         Ok(())
     }

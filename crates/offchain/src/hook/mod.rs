@@ -2,8 +2,8 @@
 
 use crate::service::Rpc;
 use rpc::RpcHook;
+use runtime::storage::Commit;
 use score::{Block, OpaqueHash, StorageKey};
-use std::collections::HashMap;
 
 mod rpc;
 
@@ -31,7 +31,7 @@ impl<C: runtime::Config> runtime::Hook for OffchainHook<C> {
     async fn on_diff(
         &self,
         hash: OpaqueHash,
-        diff: HashMap<StorageKey, Vec<u8>>,
+        diff: Commit<StorageKey, Vec<u8>>,
     ) -> anyhow::Result<()> {
         self.rpc.on_diff(hash, diff).await
     }

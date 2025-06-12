@@ -2,7 +2,11 @@
 //!
 //! TODO: remove crypto as dependency
 
-pub use {block::Block, extrinsic::Extrinsic, state::State};
+pub use {
+    block::Block,
+    extrinsic::Extrinsic,
+    state::{key::StorageKeyEncode, State},
+};
 
 pub mod block;
 pub mod extrinsic;

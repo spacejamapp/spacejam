@@ -1,7 +1,8 @@
 //! Key-value storage abstraction
 
+use crate::storage::Commit;
 use anyhow::Result;
-use score::{TimeSlot, state::key};
+use score::{StorageKey, TimeSlot, state::key};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -10,7 +11,10 @@ use std::{
 /// Key-value storage
 pub trait KVStorage {
     /// Batch write a set of key-value pairs to the storage
-    fn commit(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()>;
+    fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()>;
+
+    /// Set a key-value pair to the storage
+    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
 
     /// Get a value from the storage
     fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
@@ -52,14 +56,28 @@ pub struct MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn commit(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
+    fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()> {
         let mut data = self
             .data
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        for (key, value) in kvs {
-            data.insert(key, value);
+
+        for key in commit.iremoval() {
+            data.remove(key.as_ref());
         }
+
+        for (key, value) in commit.iset() {
+            data.insert(key.to_vec(), value);
+        }
+
+        Ok(())
+    }
+
+    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        self.data
+            .write()
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?
+            .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
         Ok(())
     }
 

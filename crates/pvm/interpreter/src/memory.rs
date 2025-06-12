@@ -29,13 +29,22 @@ pub struct Memory {
 
 impl Memory {
     /// Allocate a range of pages.
+    ///
+    /// TODO:
+    /// - check the range of the heap
+    /// - deallocate pages
     pub fn allocate_pages(&mut self, start: u32, count: u32) -> Result<()> {
-        let size = (count * parser::PAGE_SIZE as u32) as usize;
-        if self.heap.len() >= size {
-            return Ok(());
+        for page in start..start + count {
+            self.pages.insert(
+                page,
+                Page {
+                    data: SmallVec::from_slice(&vec![0; parser::PAGE_SIZE as usize]),
+                    access: Access::Mutable,
+                },
+            );
         }
 
-        self.write_bytes(start, 0, &vec![0; size])?;
+        self.heap.end = (start + count) * parser::PAGE_SIZE as u32;
         Ok(())
     }
 
@@ -205,7 +214,7 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            heap_ptr: memory.heap.start,
+            heap_ptr: memory.heap.end,
             heap: memory.heap,
             read: memory.read,
             stack: memory.stack,

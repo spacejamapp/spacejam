@@ -2,7 +2,9 @@
 
 use anyhow::Result;
 use score::{Block, OpaqueHash, ServiceId, StorageKey, block::Head, state::key};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
+
+use crate::storage::Commit;
 
 /// Hooks for the runtime
 pub trait Hook: Send + Sync {
@@ -25,7 +27,7 @@ pub trait Hook: Send + Sync {
     fn on_diff(
         &self,
         hash: OpaqueHash,
-        diff: HashMap<StorageKey, Vec<u8>>,
+        diff: Commit<StorageKey, Vec<u8>>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             let mut data = BTreeMap::new();
@@ -33,7 +35,8 @@ pub trait Hook: Send + Sync {
             let mut request = BTreeMap::new();
             let mut svalue = BTreeMap::new();
 
-            for (key, value) in diff {
+            // FIXME: support removal
+            for (key, value) in diff.iset() {
                 // skip the key that is not related to service
                 if key[1..].iter().all(|b| *b == 0) {
                     continue;

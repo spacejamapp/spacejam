@@ -1,6 +1,6 @@
 //! Account state
 
-use crate::state::key::{StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
+use crate::state::key::{self, StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::{OpaqueHash, StorageKey};
 
 #[cfg(feature = "crypto")]
@@ -15,10 +15,12 @@ pub fn info(service: u32) -> StorageKey {
 ///
 /// from storage dictionary s
 pub fn storage(service: u32, k: OpaqueHash) -> StorageKey {
-    let mut key = [0u8; 32];
-    key[..4].copy_from_slice(&ACCOUNT_STORAGE_PREFIX);
-    key[4..].copy_from_slice(&k[..28]);
-    (service, key).key()
+    let mut fkey = [0; 31];
+    let prefix = key::prefix(service, &ACCOUNT_STORAGE_PREFIX);
+
+    fkey[..8].copy_from_slice(&prefix);
+    fkey[8..].copy_from_slice(&k[..23]);
+    fkey
 }
 
 /// C(s, [(2^32 - 2), k0...28]) ((s ->(a ->h) ->p) δ)
@@ -40,51 +42,5 @@ mod crypto_impl {
         key[..4].copy_from_slice(&lookup.to_le_bytes());
         key[4..].copy_from_slice(&hashed[2..30]);
         (service, key).key()
-    }
-
-    /// Get the diff of the accounts
-    pub fn diff(
-        accounts: &std::collections::BTreeMap<u32, crate::service::ServiceAccount>,
-    ) -> anyhow::Result<Vec<(StorageKey, Vec<u8>)>> {
-        let mut diff = vec![];
-        for (index, account) in accounts {
-            // set info
-            let mut value = Vec::new();
-            let info = account.state();
-            value.extend_from_slice(&info.code);
-            value.extend_from_slice(&codec::encode(&(
-                &info.balance,
-                &info.accumulate,
-                &info.transfer,
-                &info.total,
-            ))?);
-            value.extend_from_slice(&info.items.to_le_bytes());
-            diff.push((self::info(*index), value));
-
-            // set storage
-            for (key, value) in &account.storage {
-                let mut buff = [0; 32];
-                buff[..key.len()].copy_from_slice(key);
-                diff.push((self::storage(*index, buff), value.clone()));
-            }
-
-            // set preimage
-            for (key, value) in &account.preimage {
-                diff.push((self::preimage(*index, *key), value.to_vec()));
-            }
-
-            // set lookup
-            for ((key, lookup), slots) in &account.lookup {
-                diff.push((
-                    self::lookup(*index, *lookup, *key),
-                    slots
-                        .iter()
-                        .flat_map(|slot| slot.to_le_bytes())
-                        .collect::<Vec<u8>>(),
-                ));
-            }
-        }
-
-        Ok(diff)
     }
 }

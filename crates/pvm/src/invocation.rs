@@ -271,7 +271,7 @@ pub trait Invocation {
         };
 
         // create the accumulate context
-        let accumulate_context = AccumulateContext {
+        let context = AccumulateContext {
             context: context.clone(),
             service,
             index: Self::index(service, timeslot, entropy),
@@ -279,14 +279,14 @@ pub trait Invocation {
             output: None,
         };
 
-        let accumulate = host::Accumulate::new(accumulate_context, timeslot);
-        let args = codec::encode(&AccumulateParams {
+        let accumulate = host::Accumulate::new(context, timeslot);
+        let params = AccumulateParams {
             slot: timeslot,
             id: service,
             results: operands,
-        })
-        .expect("failed to encode");
-
+        };
+        tracing::debug!("accumulate params: {:?}", params);
+        let args = codec::encode(&params).expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(

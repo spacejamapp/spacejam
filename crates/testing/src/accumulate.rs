@@ -6,7 +6,7 @@ use score::{
         ServiceItemJson, WorkReport, WorkReportJson,
     },
     statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
-    Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
+    Entropy, Gas, OpaqueHash, ServiceId, StorageKeyEncode, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -93,10 +93,23 @@ pub struct State {
 impl State {
     /// Get the accounts
     pub fn accounts(&self) -> BTreeMap<u32, ServiceAccount> {
-        self.accounts
+        self.haccounts()
             .iter()
             .map(|item| (item.id, item.data.clone().into()))
             .collect()
+    }
+
+    /// Get the accounts with hashed storage keys
+    pub fn haccounts(&self) -> Vec<ServiceItem> {
+        let mut services = self.accounts.clone();
+        services.iter_mut().for_each(|item| {
+            let index = item.id;
+            item.data.storage.iter_mut().for_each(|storage| {
+                storage.key = (index, storage.key.clone()).key().to_vec();
+            });
+        });
+
+        services
     }
 
     /// Get the statistics
@@ -176,41 +189,3 @@ pub struct AlwaysAccumulateMapItem {
 }
 
 include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
-
-mod local {
-    use super::*;
-    use specjam::Registry;
-    use tracing_subscriber::EnvFilter;
-
-    #[test]
-    fn test_parse_service() {
-        tracing_subscriber::fmt::Subscriber::builder()
-            .with_env_filter(EnvFilter::from_default_env())
-            .init();
-
-        let registry = Registry::new("../../res/jam-test-vectors");
-        let test = registry
-            .accumulate(specjam::Scale::Tiny)
-            .unwrap()
-            .test("process_one_immediate_report-1")
-            .unwrap();
-
-        let input = TestInput::from_json(&test.input).unwrap();
-        let blob = &input.pre_state.accounts[0].data.preimages[0].blob;
-        let program = parser::program::preimage(blob, &[]).unwrap();
-        let code = parser::deblob(&program.code).unwrap();
-        let mut reader = code.reader();
-
-        while let Ok(instr) = reader.read() {
-            tracing::debug!(
-                "{}..{} | {}",
-                instr.range.start,
-                instr.range.end,
-                instr.value
-            );
-            if reader.eof() {
-                break;
-            }
-        }
-    }
-}

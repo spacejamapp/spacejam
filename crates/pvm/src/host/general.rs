@@ -4,7 +4,7 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Reason, Result, State,
 };
-use score::{service::ServiceAccount, Gas, ServiceId};
+use score::{service::ServiceAccount, Gas, ServiceId, StorageKeyEncode};
 use std::collections::BTreeMap;
 
 /// Input data of general host functions
@@ -122,18 +122,14 @@ fn read<X: Argument, Memory: crate::Memory>(
 
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    let bytes = state
+    let key = state
         .memory
         .read_bytes(ko as u32, kz as u32)
         .expect("should not fail");
 
-    // TODO: the test are not hashing the key bytes atm.
-    //
-    // let mut input = codec::encode(&index).expect("should not fail");
-    // input.extend_from_slice(&bytes);
-
     // get the storage value
-    let Some(value) = account.storage.get(&bytes) else {
+    let skey = (general.index, key.clone()).key();
+    let Some(value) = account.storage.get(skey.as_slice()) else {
         return Ok(Exit::None as u64);
     };
 
@@ -177,16 +173,14 @@ fn write<X: Argument, Memory: crate::Memory>(
         }
     };
 
-    // TODO: the test are not hashing the key bytes atm, that we don't
-    // need to follow GP and hash the key bytes.
-    //
-    // let mut input = codec::encode(&general.index).expect("should not fail");
-    // input.extend_from_slice(&key_bytes);
-    // let key = crypto::blake2b(&input);
-
     // update storage
+    let skey = (general.index, key.clone()).key();
     if vz == 0 {
-        let value = general.account.storage.remove(&key).unwrap_or_default();
+        let value = general
+            .account
+            .storage
+            .remove(skey.as_slice())
+            .unwrap_or_default();
         data.update_general(general)?;
         Ok(value.len() as u64)
     } else {
@@ -202,9 +196,9 @@ fn write<X: Argument, Memory: crate::Memory>(
         if threshold > general.account.balance {
             Ok(Exit::Full as u64)
         } else {
-            tracing::debug!("writing storage: {:?} with value: {:?}", key, value);
+            tracing::info!("writing storage: {:?}", skey);
             let length = value.len() as u64;
-            general.account.storage.insert(key, value);
+            general.account.storage.insert(skey.to_vec(), value);
             data.update_general(general)?;
             Ok(length)
         }
@@ -227,7 +221,6 @@ fn info<X: Argument, Memory: crate::Memory>(
     }
     .and_then(|account| {
         let state = account.state();
-        tracing::debug!("account state: {:?}", state);
         codec::encode(&state).ok()
     }) else {
         return Ok(Exit::None as u64);
