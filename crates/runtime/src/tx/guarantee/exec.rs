@@ -54,6 +54,8 @@ pub fn outer<V: Pvm>(
 
     let mut accumulated =
         self::parallel::<V>(context.clone(), &reports[..index], gas_table, timeslot);
+
+    // TODO: re-check if we need a loop here.
     let rest = self::outer::<V>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
         &reports[index..],
@@ -100,9 +102,10 @@ pub fn parallel<V: Pvm>(
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter() {
         for (id, account) in &result.context.accounts {
-            if !context.accounts.contains_key(id) {
-                context.accounts.insert(*id, account.clone());
-            }
+            // if !context.accounts.contains_key(id) {
+            // NOTE: we need to update the accounts even if they already exist
+            context.accounts.insert(*id, account.clone());
+            // }
         }
 
         for account_id in context.accounts.keys() {

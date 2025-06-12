@@ -1,6 +1,6 @@
 //! Account state
 
-use crate::state::key::{StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
+use crate::state::key::{self, StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
 use crate::{OpaqueHash, StorageKey};
 
 #[cfg(feature = "crypto")]
@@ -15,10 +15,12 @@ pub fn info(service: u32) -> StorageKey {
 ///
 /// from storage dictionary s
 pub fn storage(service: u32, k: OpaqueHash) -> StorageKey {
-    let mut key = [0u8; 32];
-    key[..4].copy_from_slice(&ACCOUNT_STORAGE_PREFIX);
-    key[4..].copy_from_slice(&k[..28]);
-    (service, key).key()
+    let mut fkey = [0; 31];
+    let prefix = key::prefix(service, &ACCOUNT_STORAGE_PREFIX);
+
+    fkey[..8].copy_from_slice(&prefix);
+    fkey[8..].copy_from_slice(&k[..23]);
+    fkey
 }
 
 /// C(s, [(2^32 - 2), k0...28]) ((s ->(a ->h) ->p) δ)
@@ -43,6 +45,11 @@ mod crypto_impl {
     }
 
     /// Get the diff of the accounts
+    ///
+    /// TODO:
+    ///
+    /// 1. consume the account instance for saving memory
+    /// 2. check diff
     pub fn diff(
         accounts: &std::collections::BTreeMap<u32, crate::service::ServiceAccount>,
     ) -> anyhow::Result<Vec<(StorageKey, Vec<u8>)>> {
@@ -63,9 +70,7 @@ mod crypto_impl {
 
             // set storage
             for (key, value) in &account.storage {
-                let mut buff = [0; 32];
-                buff[..key.len()].copy_from_slice(key);
-                diff.push((self::storage(*index, buff), value.clone()));
+                diff.push((key.to_vec().try_into().unwrap(), value.clone()));
             }
 
             // set preimage
@@ -75,13 +80,7 @@ mod crypto_impl {
 
             // set lookup
             for ((key, lookup), slots) in &account.lookup {
-                diff.push((
-                    self::lookup(*index, *lookup, *key),
-                    slots
-                        .iter()
-                        .flat_map(|slot| slot.to_le_bytes())
-                        .collect::<Vec<u8>>(),
-                ));
+                diff.push((self::lookup(*index, *lookup, *key), codec::encode(slots)?));
             }
         }
 

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     service::{GasLimit, ServiceAccount, ServiceAccountState, ServiceAccountStateJson, ServiceId},
-    OpaqueHash,
+    Gas, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -115,4 +115,39 @@ pub struct ServiceStorage {
     /// The value of the storage
     #[json(hex)]
     pub value: Vec<u8>,
+}
+
+/// Service data for storage
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServiceData {
+    /// The code hash of the service account (c)
+    pub code: OpaqueHash,
+
+    /// The balance of the service account (b)
+    pub balance: u64,
+
+    /// The accumulate gas of the service account (g)
+    pub accumulate: u64,
+
+    /// The minimum required for the on transfer entry-point (m)
+    pub transfer: Gas,
+
+    /// The total number of octets used in storage (o)
+    pub total: u64,
+
+    /// The number of items in storage (i)
+    pub items: u32,
+}
+
+impl From<ServiceAccountState> for ServiceData {
+    fn from(state: ServiceAccountState) -> Self {
+        ServiceData {
+            code: state.code,
+            balance: state.balance,
+            accumulate: state.accumulate,
+            transfer: state.transfer,
+            total: state.total,
+            items: state.items,
+        }
+    }
 }

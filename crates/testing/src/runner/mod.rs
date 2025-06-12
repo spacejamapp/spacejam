@@ -10,7 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
+    state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
@@ -370,26 +370,18 @@ impl Runner {
                 assert_eq!(state_root, input.pre_state.state_root);
 
                 // 2. verify the state transition
+                let mut pkeys = Vec::new();
                 let _ = tx::transit::<Interpreter>(block, &memdb)?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
 
-                    match info {
-                        StateKey::Account {
-                            service,
-                            field: ServiceField::Storage { key: _ },
-                        } => {
-                            tracing::debug!("account({service}): {:?}({value:?})", value.len());
-                        }
-                        _ => {}
-                    }
-
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("could not find {info:?}: 0x{encoded}");
+                        tracing::error!("storage 0x{encoded} not exists");
                         continue;
                     };
 
+                    pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
@@ -402,6 +394,17 @@ impl Runner {
                     } else {
                         tracing::info!("keyval matched: {info:?}: 0x{encoded}");
                     }
+                }
+
+                // check if spacejam left extra keyvals
+                for pair in memdb.iter()? {
+                    let (key, _value) = pair?;
+                    if pkeys.contains(&key) {
+                        continue;
+                    }
+
+                    let info = key.as_state_key().info();
+                    tracing::error!("extra keyval: {info:?}");
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");

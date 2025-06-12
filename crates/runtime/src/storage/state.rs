@@ -275,7 +275,7 @@ pub trait Storage: KVStorage {
                 }
                 StateKey::Account {
                     service,
-                    field: ServiceField::Storage { key },
+                    field: ServiceField::Storage,
                 } => {
                     let account: &mut ServiceAccount = accounts.entry(service).or_default();
                     account.storage.insert(key.to_vec(), value);

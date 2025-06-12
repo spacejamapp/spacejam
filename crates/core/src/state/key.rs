@@ -83,7 +83,7 @@ pub const CONSTANT_KEYS: [StorageKey; 15] = [
 ];
 
 /// A trait for state key construction
-pub(crate) trait StorageKeyEncode {
+pub trait StorageKeyEncode {
     /// The key of the state
     fn key(&self) -> StorageKey;
 }
@@ -118,6 +118,8 @@ impl StorageKeyEncode for (u8, u32) {
 }
 
 // used for service account state keys
+//
+// FIXME: This seems not correct, I forgot if it is used anywhere.
 impl StorageKeyEncode for (u32, [u8; 32]) {
     fn key(&self) -> StorageKey {
         let mut key = [0u8; 31];
@@ -128,6 +130,22 @@ impl StorageKeyEncode for (u32, [u8; 32]) {
         hashp.copy_from_slice(&h[..4]);
         key[..8].copy_from_slice(&prefix(s, &hashp));
         key[8..].copy_from_slice(&h[4..27]);
+        key
+    }
+}
+
+// This is used for constructing the storage key for the account storage
+impl StorageKeyEncode for (u32, Vec<u8>) {
+    fn key(&self) -> StorageKey {
+        let (service, rkey) = self;
+        let mut input = service.to_le_bytes().to_vec();
+        input.extend_from_slice(rkey);
+        let hash = crypto::blake2b(&input);
+
+        // construct the final storage key
+        let mut key = [0u8; 31];
+        key[..8].copy_from_slice(&self::prefix(*service, &ACCOUNT_STORAGE_PREFIX));
+        key[8..].copy_from_slice(&hash[..23]);
         key
     }
 }

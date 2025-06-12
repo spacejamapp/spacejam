@@ -61,16 +61,6 @@ pub fn accumulate<V: Pvm>(
         slot,
     );
 
-    tracing::debug!(
-        "accumulated: {:?}",
-        accumulated
-            .context
-            .accounts
-            .iter()
-            .map(|(k, v)| (k, v.threshold()))
-            .collect::<Vec<_>>()
-    );
-
     // (πS') compose the service activity records
     let mut records = accumulated.records();
     for report in &accumulatable {

@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 pub use {
     account::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson},
     data::{
-        ServiceAccountData, ServiceAccountDataJson, ServiceItem, ServiceItemJson, ServicePreimage,
-        ServiceStorage,
+        ServiceAccountData, ServiceAccountDataJson, ServiceData, ServiceItem, ServiceItemJson,
+        ServicePreimage, ServiceStorage,
     },
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{

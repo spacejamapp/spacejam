@@ -105,7 +105,6 @@ pub fn simulate<V: Pvm>(
             state.reports = reports;
         }
 
-        tracing::debug!("final avaiable reports: {:?}", available);
         (available, assurances)
     };
 

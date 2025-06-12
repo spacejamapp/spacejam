@@ -75,22 +75,6 @@ impl Memory {
         let end = (offset + len) as usize;
         data.resize(end, 0);
         bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
-        let addr = page * parser::PAGE_SIZE as u32 + offset;
-        tracing::debug!(
-            "read_bytes: {}({page})@{offset} ({}) {bytes:?}",
-            if self.stack.contains(&addr) {
-                "stack"
-            } else if self.read.contains(&addr) {
-                "read"
-            } else if self.args.contains(&addr) {
-                "args"
-            } else if self.heap.contains(&addr) {
-                "heap"
-            } else {
-                "unknown"
-            },
-            addr,
-        );
         Ok(bytes)
     }
 
@@ -122,19 +106,6 @@ impl Memory {
     pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
         let to_write = bytes.len() as u32;
         let end = (offset + to_write) as usize;
-        let addr = page * parser::PAGE_SIZE as u32 + offset;
-        tracing::debug!(
-            "write_bytes: {}({page})@{offset} ({}) {bytes:?}",
-            if self.heap.contains(&addr) {
-                "heap"
-            } else if self.stack.contains(&addr) {
-                "stack"
-            } else {
-                "unknown"
-            },
-            addr,
-        );
-
         if end > parser::PAGE_SIZE as usize {
             tracing::error!("write_bytes, {page} inaccessible");
             return Err(Error::MemoryInaccessible { page });
