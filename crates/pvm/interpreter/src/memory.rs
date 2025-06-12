@@ -62,19 +62,22 @@ impl Memory {
     }
 
     /// Read bytes from the memory.
-    pub fn read_bytes(&self, page: u32, offset: u32, len: u32) -> Result<Vec<u8>> {
-        if offset + len > parser::PAGE_SIZE as u32 {
-            return Err(Error::MemoryInaccessible { page });
+    pub fn read_bytes(&self, mut page: u32, mut offset: u32, len: u32) -> Result<Vec<u8>> {
+        let mut bytes = vec![0; len as usize];
+        let mut read = 0u32;
+        while read < len {
+            let to_read = (len - read).min(parser::PAGE_SIZE as u32 - offset);
+            let data = self.access(page)?;
+            if to_read > 0 {
+                bytes[read as usize..(read + to_read) as usize]
+                    .copy_from_slice(&data.data[offset as usize..(offset + to_read) as usize]);
+            }
+
+            read += to_read;
+            page += 1;
+            offset = 0;
         }
 
-        let page_data = self.access(page)?;
-        let mut data = page_data.data.as_slice().to_vec();
-
-        // fill with 0 if necessary
-        let mut bytes = vec![0; len as usize];
-        let end = (offset + len) as usize;
-        data.resize(end, 0);
-        bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
         Ok(bytes)
     }
 
@@ -101,23 +104,20 @@ impl Memory {
     }
 
     /// Write bytes to the memory.
-    ///
-    /// TODO: cross page writes are not supported yet.
-    pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        let to_write = bytes.len() as u32;
-        let end = (offset + to_write) as usize;
-        if end > parser::PAGE_SIZE as usize {
-            tracing::error!("write_bytes, {page} inaccessible");
-            return Err(Error::MemoryInaccessible { page });
+    pub fn write_bytes(&mut self, mut page: u32, mut offset: u32, bytes: &[u8]) -> Result<()> {
+        let len = bytes.len() as u32;
+        let mut written = 0u32;
+        while written < len {
+            let to_write = (len - written).min(parser::PAGE_SIZE as u32 - offset);
+            let data = self.mutate(page)?;
+            data.data[offset as usize..(offset + to_write) as usize]
+                .copy_from_slice(&bytes[written as usize..(written + to_write) as usize]);
+
+            written += to_write;
+            page += 1;
+            offset = 0;
         }
 
-        // resize the page if necessary
-        let page_data = self.mutate(page)?;
-        if page_data.data.len() < end {
-            page_data.data.resize(end, 0);
-        }
-
-        page_data.data[offset as usize..end].copy_from_slice(bytes);
         Ok(())
     }
 
