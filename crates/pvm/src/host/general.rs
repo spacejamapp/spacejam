@@ -133,12 +133,22 @@ fn read<X: Argument, Memory: crate::Memory>(
         return Ok(Exit::None as u64);
     };
 
-    let vlen = value.len() as u64;
-    let (from, to) = (state.registers[11].min(vlen), state.registers[12].min(vlen));
-    state
-        .memory
-        .write_bytes(o as u32, &value[from as usize..to as usize])?;
+    tracing::debug!(
+        "reading storage: 0x{} rkey=0x{} value=0x{}",
+        hex::encode(skey.as_slice()),
+        hex::encode(key),
+        hex::encode(value)
+    );
 
+    let vlen = value.len() as u64;
+    let from = state.registers[11].min(value.len() as u64);
+    let length = state.registers[12].min(vlen - from);
+
+    if length > 0 {
+        state
+            .memory
+            .write_bytes(o as u32, &value[from as usize..(from + length) as usize])?;
+    }
     Ok(vlen)
 }
 
