@@ -102,10 +102,13 @@ pub fn parallel<V: Pvm>(
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter() {
         for (id, account) in &result.context.accounts {
-            // if !context.accounts.contains_key(id) {
-            // NOTE: we need to update the accounts even if they already exist
-            context.accounts.insert(*id, account.clone());
-            // }
+            // FIXME:
+            //
+            // - check if we do need update the accounts
+            // - handle the same code different services logic more carefully
+            if !context.accounts.contains_key(id) || id == service_id {
+                context.accounts.insert(*id, account.clone());
+            }
         }
 
         for account_id in context.accounts.keys() {

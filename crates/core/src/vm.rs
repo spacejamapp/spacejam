@@ -124,6 +124,8 @@ pub struct Accumulation {
 }
 
 impl Accumulation {
+    /// NOTE: this method is testing usage.
+    ///
     /// Sync preimages for account statistics
     pub fn accounts(&self) -> Vec<ServiceItem> {
         let mut items = Vec::new();

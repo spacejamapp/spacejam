@@ -196,6 +196,7 @@ fn write<X: Argument, Memory: crate::Memory>(
         if threshold > general.account.balance {
             Ok(Exit::Full as u64)
         } else {
+            tracing::info!("writing storage: {:?}", skey);
             let length = value.len() as u64;
             general.account.storage.insert(skey.to_vec(), value);
             data.update_general(general)?;

@@ -12,7 +12,7 @@ use std::{
 pub trait KVStorage {
     /// Batch write a set of key-value pairs to the storage
     fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()>;
-
+ 
     /// Set a key-value pair to the storage
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
 
