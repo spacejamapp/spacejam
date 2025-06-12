@@ -71,12 +71,12 @@ pub fn outer<V: Pvm>(
 
 /// (Δ*) parallel accumulation
 pub fn parallel<V: Pvm>(
-    context: StateContext,
+    mut context: StateContext,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated {
-    // TODO: use a local task pool for spawning this calculation.
+    // FIXME: extract the services from reports
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
         for result in &report.results {
@@ -84,6 +84,7 @@ pub fn parallel<V: Pvm>(
         }
     }
 
+    // Execute each service exactly once using Δ₁ (once function)
     let results: BTreeMap<ServiceId, AccumulateResult> = services
         .iter()
         .map(|service| {
@@ -92,33 +93,21 @@ pub fn parallel<V: Pvm>(
         })
         .collect();
 
-    // According to the specification in accumulation.tex:
-    // d' = P((d ∪ n) ∖ m, p)
-    // where:
-    // n = ⋃_{s ∈ s}({(Δ₁(o, w, f, s)_o)_d ∖ keys{d ∖ {s}}})
-    // m = ⋃_{s ∈ s}(keys{d} ∖ keys{(Δ₁(o, w, f, s)_o)_d})
-    let original_accounts = &context.accounts;
-    let mut new_accounts = BTreeSet::new(); // p
-    let mut removed_accounts = BTreeSet::new(); // m
+    // Update the state of accounts
+    let mut removed = BTreeSet::new(); // m
     let mut gas = BTreeMap::new();
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
-
-    // Process each service result according to the specification
     for (service_id, result) in results.iter() {
-        // Calculate new accounts for this service (accounts not in original except the service itself)
-        for account_id in result.context.accounts.keys() {
-            if !original_accounts.contains_key(account_id)
-                || *account_id == *service_id && !original_accounts.contains_key(service_id)
-            {
-                new_accounts.insert(*account_id);
+        for (id, account) in &result.context.accounts {
+            if !context.accounts.contains_key(id) {
+                context.accounts.insert(*id, account.clone());
             }
         }
 
-        // Calculate removed accounts for this service (original accounts not in result)
-        for account_id in original_accounts.keys() {
+        for account_id in context.accounts.keys() {
             if !result.context.accounts.contains_key(account_id) {
-                removed_accounts.insert(*account_id);
+                removed.insert(*account_id);
             }
         }
 
@@ -130,93 +119,27 @@ pub fn parallel<V: Pvm>(
         }
     }
 
-    // Build the final account state according to: (d ∪ n) ∖ m
-    let mut final_accounts = original_accounts.clone();
-
-    // Add new accounts and update existing ones from service executions
-    for (service_id, result) in results.iter() {
-        for (account_id, account) in result.context.accounts.iter() {
-            if new_accounts.contains(account_id)
-                || (original_accounts.contains_key(account_id) && *account_id == *service_id)
-            {
-                // Only update accounts that are new or belong to the current service
-                final_accounts.insert(*account_id, account.clone());
-            }
-        }
-    }
-
     // Remove accounts that were removed by any service
-    for account_id in removed_accounts {
-        final_accounts.remove(&account_id);
+    for account_id in removed {
+        context.accounts.remove(&account_id);
     }
 
-    // Create updated context for privilege service accumulation
-    let updated_context = StateContext {
-        accounts: final_accounts.clone(),
-        privileges: context.privileges.clone(),
-        validators: context.validators.clone(),
-        authorization: context.authorization.clone(),
+    // Extract privilege service results from the already-executed results
+    if let Some(result) = results.get(&context.privileges.bless) {
+        context.privileges = result.context.privileges.clone();
     };
 
-    // Process privilege services (χₘ, χᵥ, χₐ)
-    // These should be processed after regular services and can modify the final state
-    let privilege_services = [
-        context.privileges.bless,
-        context.privileges.designate,
-        context.privileges.assign,
-    ];
+    if let Some(result) = results.get(&context.privileges.designate) {
+        context.validators = result.context.validators.clone();
+    };
 
-    for &privilege_service in &privilege_services {
-        let privilege_result = self::once::<V>(
-            updated_context.clone(),
-            reports,
-            table,
-            privilege_service,
-            timeslot,
-        );
-
-        // For privilege services, we allow them to modify any account
-        // but we still need to be careful about conflicts
-        for (account_id, privilege_account) in privilege_result.context.accounts.iter() {
-            if let Some(existing_account) = final_accounts.get_mut(account_id) {
-                // Merge storage: privilege services can update existing accounts
-                for (key, value) in &privilege_account.storage {
-                    existing_account.storage.insert(key.clone(), value.clone());
-                }
-                // Update other account fields
-                existing_account.balance = privilege_account.balance;
-                existing_account.gas = privilege_account.gas.clone();
-                existing_account.code = privilege_account.code;
-
-                // Merge preimages and lookup tables
-                for (hash, preimage) in &privilege_account.preimage {
-                    existing_account.preimage.insert(*hash, preimage.clone());
-                }
-                for (lookup_key, slots) in &privilege_account.lookup {
-                    existing_account.lookup.insert(*lookup_key, slots.clone());
-                }
-            } else {
-                // New account created by privilege service
-                final_accounts.insert(*account_id, privilege_account.clone());
-            }
-        }
-
-        // Collect privilege service outputs
-        gas.insert(privilege_service, privilege_result.gas);
-        transfers.extend(privilege_result.transfers);
-        if let Some(hash) = privilege_result.hash {
-            pairings.insert(privilege_service, hash);
-        }
-    }
+    if let Some(result) = results.get(&context.privileges.assign) {
+        context.authorization = result.context.authorization.clone();
+    };
 
     Accumulated {
         accumulated: reports.len(),
-        context: StateContext {
-            accounts: final_accounts,
-            privileges: context.privileges.clone(),
-            validators: context.validators.clone(),
-            authorization: context.authorization.clone(),
-        },
+        context,
         transfers,
         pairings,
         gas,

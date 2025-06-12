@@ -202,7 +202,11 @@ fn write<X: Argument, Memory: crate::Memory>(
         if threshold > general.account.balance {
             Ok(Exit::Full as u64)
         } else {
-            tracing::debug!("writing storage: {:?} with value: {:?}", key, value);
+            tracing::debug!(
+                "writing storage: 0x{} with value: 0x{}",
+                hex::encode(&key),
+                hex::encode(&value)
+            );
             let length = value.len() as u64;
             general.account.storage.insert(key, value);
             data.update_general(general)?;
