@@ -4,7 +4,6 @@ use crate::service::Rpc;
 use rpc::RpcHook;
 use runtime::storage::Commit;
 use score::{Block, OpaqueHash, StorageKey};
-use std::collections::HashMap;
 
 mod rpc;
 

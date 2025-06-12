@@ -162,15 +162,12 @@ pub trait SyncStorage: Storage {
     /// On new epoch handler for rotating the series
     fn on_new_epoch(&self) -> Result<()> {
         if let Ok(series) = self.next_series() {
-            self.set(
-                SERIES_KEY.to_vec(),
-                codec::encode(&TicketsOrKeys::Tickets(series))?,
-            )?;
+            self.set(SERIES_KEY, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
         } else {
             let keys = self.next_validators()?.bandersnatch();
             let entropy = self.entropy()?;
             let series = TicketsOrKeys::fallback(keys, entropy[1]);
-            self.set(SERIES_KEY.to_vec(), codec::encode(&series)?)?;
+            self.set(SERIES_KEY, codec::encode(&series)?)?;
         }
 
         Ok(())

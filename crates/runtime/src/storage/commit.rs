@@ -37,6 +37,11 @@ where
         self.set.into_iter()
     }
 
+    /// Iterate over the removal of the commit
+    pub fn iremoval(&self) -> impl Iterator<Item = &Key> {
+        self.removal.iter()
+    }
+
     /// Iterate over the operations of the commit
     pub fn operations(self) -> impl Iterator<Item = Operation<Key, Value>> {
         self.set
@@ -54,9 +59,7 @@ where
 {
     fn from(kvs: T) -> Self {
         let mut commit = Commit::default();
-        commit
-            .set
-            .extend(kvs.into_iter().map(|(key, value)| (key, value)));
+        commit.set.extend(kvs);
         commit
     }
 }

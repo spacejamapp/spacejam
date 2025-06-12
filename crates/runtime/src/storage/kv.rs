@@ -61,9 +61,15 @@ impl KVStorage for MemoryDb {
             .data
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
+
+        for key in commit.iremoval() {
+            data.remove(key.as_ref());
+        }
+
         for (key, value) in commit.iset() {
             data.insert(key.to_vec(), value);
         }
+
         Ok(())
     }
 

@@ -1,7 +1,5 @@
 //! Block sync validation
 
-use std::collections::BTreeMap;
-
 use crate::{Storage, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
@@ -11,6 +9,7 @@ use score::{
     service::ServiceAccount,
     state::{account, key},
 };
+use std::collections::{BTreeMap, BTreeSet};
 
 pub mod assurance;
 pub mod dispute;
@@ -183,7 +182,7 @@ pub fn simulate<V: Pvm>(
         let accounts =
             preimage::accounts(block.header.slot, &block.extrinsic.preimages, &accounts)?;
         if accounts != state.accounts {
-            diff.extend(self::diff(&accounts)?);
+            diff.extend(self::diff(&state.accounts, &accounts)?);
             state.accounts = accounts;
         }
 
@@ -212,16 +211,18 @@ pub fn simulate<V: Pvm>(
 
 /// Get the diff of the accounts
 ///
-/// TODO:
+/// FIXME:
 ///
 /// 1. consume the account instance for saving memory
 /// 2. check diff
+/// 3. no update if equal on fields
 pub fn diff(
-    accounts: &BTreeMap<u32, ServiceAccount>,
+    base: &BTreeMap<u32, ServiceAccount>,
+    changes: &BTreeMap<u32, ServiceAccount>,
 ) -> anyhow::Result<Commit<StorageKey, Vec<u8>>> {
     let mut diff = Commit::default();
-    for (index, account) in accounts {
-        // set info
+    let mut upkeys = BTreeSet::new();
+    for (index, account) in changes.iter() {
         let info = account.state();
         let mut value = Vec::new();
         value.extend_from_slice(&info.code);
@@ -232,24 +233,45 @@ pub fn diff(
             info.total.to_le_bytes(),
         ))?);
         value.extend_from_slice(&info.items.to_le_bytes());
-        diff.set(account::info(*index), value);
+
+        // set info
+        let info = account::info(*index);
+        upkeys.insert(info);
+        diff.set(info, value);
 
         // set storage
         for (key, value) in &account.storage {
-            diff.set(key.to_vec().try_into().unwrap(), value.clone());
+            let key = key.to_vec().try_into().map_err(|_| {
+                anyhow::anyhow!(
+                    "invalid storage key, expected 31 bytes got {} bytes",
+                    key.len()
+                )
+            })?;
+            upkeys.insert(key);
+            diff.set(key, value.clone());
         }
 
         // set preimage
         for (key, value) in &account.preimage {
-            diff.set(account::preimage(*index, *key), value.to_vec());
+            let key = account::preimage(*index, *key);
+            upkeys.insert(key);
+            diff.set(key, value.to_vec());
         }
 
         // set lookup
         for ((key, lookup), slots) in &account.lookup {
-            diff.set(
-                account::lookup(*index, *lookup, *key),
-                codec::encode(slots)?,
-            );
+            let key = account::lookup(*index, *lookup, *key);
+            upkeys.insert(key);
+            diff.set(key, codec::encode(slots)?);
+        }
+    }
+
+    // process removals
+    for (index, account) in base.iter() {
+        for key in account.keys(*index)? {
+            if !upkeys.contains(&key) {
+                diff.remove(key);
+            }
         }
     }
 

@@ -72,7 +72,7 @@ impl<C: runtime::Config> RpcHook<C> {
         };
 
         let key = [hash.as_ref(), b"beefy_root"].concat();
-        self.runtime.storage.set(key, beefy_root.to_vec())?;
+        self.runtime.storage.set(key, beefy_root)?;
         Ok(())
     }
 }
@@ -187,7 +187,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
 
     fn on_key_value(&self, hash: OpaqueHash, key: StorageKey, value: &[u8]) -> anyhow::Result<()> {
         let bkey = [hash.as_ref(), key.as_ref()].concat();
-        self.runtime.storage.set(bkey, value.to_vec())?;
+        self.runtime.storage.set(bkey, value)?;
         Ok(())
     }
 }

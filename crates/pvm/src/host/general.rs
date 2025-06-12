@@ -129,7 +129,7 @@ fn read<X: Argument, Memory: crate::Memory>(
 
     // get the storage value
     let skey = (general.index, key.clone()).key();
-    let Some(value) = account.storage.get(&skey.to_vec()) else {
+    let Some(value) = account.storage.get(skey.as_slice()) else {
         return Ok(Exit::None as u64);
     };
 
@@ -179,7 +179,7 @@ fn write<X: Argument, Memory: crate::Memory>(
         let value = general
             .account
             .storage
-            .remove(&skey.to_vec())
+            .remove(skey.as_slice())
             .unwrap_or_default();
         data.update_general(general)?;
         Ok(value.len() as u64)
