@@ -33,7 +33,7 @@ impl<C: Config> Runtime<C> {
         let mut grandpa = self.grandpa.write().await;
         let mut kvs = Vec::new();
         for (key, value) in state {
-            kvs.push((key.to_vec(), value.clone()));
+            kvs.push((*key, value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     grandpa.grid.prev = codec::decode(value)?;
@@ -48,7 +48,7 @@ impl<C: Config> Runtime<C> {
             }
         }
 
-        self.storage.commit(kvs)?;
+        self.storage.commit(kvs.into())?;
         grandpa.handshake.head = head;
         Ok(())
     }

@@ -3,25 +3,32 @@
 #![cfg(feature = "parity")]
 
 use anyhow::Result;
-use parity_db::{BTreeIterator, ColumnOptions, Db, Options};
-use runtime::storage::KVStorage;
+use parity_db::{BTreeIterator, ColumnOptions, Db, Operation as Op, Options};
+use runtime::storage::{Commit, KVStorage, Operation};
+use score::StorageKey;
 use std::path::PathBuf;
 
 /// The parity database storage
 pub struct Parity(Db);
 
 impl KVStorage for Parity {
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
-        Ok(self.0.get(0, key.as_ref())?)
+    fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()> {
+        self.0
+            .commit_changes(commit.operations().map(|op| match op {
+                Operation::Set(k, v) => (0, Op::Set(k.to_vec(), v)),
+                Operation::Remove(k) => (0, Op::Dereference(k.to_vec())),
+            }))?;
+        Ok(())
     }
 
-    fn commit(&self, kvs: Vec<(Vec<u8>, Vec<u8>)>) -> Result<()> {
-        self.0.commit(
-            kvs.into_iter()
-                .map(|(k, v)| (0, k, Some(v)))
-                .collect::<Vec<_>>(),
-        )?;
+    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        self.0
+            .commit(vec![(0, key.as_ref(), Some(value.as_ref().to_vec()))])?;
         Ok(())
+    }
+
+    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+        Ok(self.0.get(0, key.as_ref())?)
     }
 
     fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {

@@ -43,47 +43,4 @@ mod crypto_impl {
         key[4..].copy_from_slice(&hashed[2..30]);
         (service, key).key()
     }
-
-    /// Get the diff of the accounts
-    ///
-    /// TODO:
-    ///
-    /// 1. consume the account instance for saving memory
-    /// 2. check diff
-    pub fn diff(
-        accounts: &std::collections::BTreeMap<u32, crate::service::ServiceAccount>,
-    ) -> anyhow::Result<Vec<(StorageKey, Vec<u8>)>> {
-        let mut diff = vec![];
-        for (index, account) in accounts {
-            // set info
-            let info = account.state();
-            let mut value = Vec::new();
-            value.extend_from_slice(&info.code);
-            value.extend_from_slice(&codec::encode(&(
-                info.balance.to_le_bytes(),
-                info.accumulate.to_le_bytes(),
-                info.transfer.to_le_bytes(),
-                info.total.to_le_bytes(),
-            ))?);
-            value.extend_from_slice(&info.items.to_le_bytes());
-            diff.push((self::info(*index), value));
-
-            // set storage
-            for (key, value) in &account.storage {
-                diff.push((key.to_vec().try_into().unwrap(), value.clone()));
-            }
-
-            // set preimage
-            for (key, value) in &account.preimage {
-                diff.push((self::preimage(*index, *key), value.to_vec()));
-            }
-
-            // set lookup
-            for ((key, lookup), slots) in &account.lookup {
-                diff.push((self::lookup(*index, *lookup, *key), codec::encode(slots)?));
-            }
-        }
-
-        Ok(diff)
-    }
 }

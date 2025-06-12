@@ -1,14 +1,16 @@
 //! Block sync validation
 
-use crate::Storage;
+use std::collections::BTreeMap;
+
+use crate::{Storage, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
     Block, StorageKey,
     block::History,
+    service::ServiceAccount,
     state::{account, key},
 };
-use std::collections::HashMap;
 
 pub mod assurance;
 pub mod dispute;
@@ -21,9 +23,9 @@ pub mod ticket;
 pub fn transit<V: Pvm>(
     mut block: Block,
     storage: &impl Storage,
-) -> Result<HashMap<StorageKey, Vec<u8>>> {
+) -> Result<Commit<StorageKey, Vec<u8>>> {
     let diff = self::simulate::<V>(&mut block, storage)?;
-    storage.commit(diff.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect())?;
+    storage.commit(diff.clone())?;
     Ok(diff)
 }
 
@@ -31,9 +33,9 @@ pub fn transit<V: Pvm>(
 pub fn simulate<V: Pvm>(
     block: &mut Block,
     storage: &impl Storage,
-) -> Result<HashMap<StorageKey, Vec<u8>>> {
+) -> Result<Commit<StorageKey, Vec<u8>>> {
     let mut state: score::State = storage.state()?;
-    let mut diff = HashMap::new();
+    let mut diff = Commit::default();
 
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
@@ -44,12 +46,12 @@ pub fn simulate<V: Pvm>(
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        diff.insert(key::ENTROPY, codec::encode(&state.entropy)?);
+        diff.set(key::ENTROPY, codec::encode(&state.entropy)?);
 
         // (λ') Update validator state (6.13)
         state.validators.previous = state.validators.previous(new_epoch);
         if new_epoch {
-            diff.insert(
+            diff.set(
                 key::PREVIOUS_VALIDATORS,
                 codec::encode(&state.validators.previous)?,
             );
@@ -64,7 +66,7 @@ pub fn simulate<V: Pvm>(
             &block.extrinsic.disputes,
         )?;
         if disputes != state.disputes {
-            diff.insert(key::DISPUTES, codec::encode(&disputes)?);
+            diff.set(key::DISPUTES, codec::encode(&disputes)?);
             state.disputes = disputes;
             block.header.offenders_mark = marks.offenders.clone();
         }
@@ -80,7 +82,7 @@ pub fn simulate<V: Pvm>(
             .validators
             .current(new_epoch, &state.safrole.validators);
         if new_epoch {
-            diff.insert(
+            diff.set(
                 key::CURRENT_VALIDATORS,
                 codec::encode(&state.validators.current)?,
             );
@@ -101,7 +103,7 @@ pub fn simulate<V: Pvm>(
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
         if reports != state.reports {
-            diff.insert(key::PENDING_REPORTS, codec::encode(&reports)?);
+            diff.set(key::PENDING_REPORTS, codec::encode(&reports)?);
             state.reports = reports;
         }
 
@@ -120,7 +122,7 @@ pub fn simulate<V: Pvm>(
             &state.validators,
             &block.extrinsic.tickets,
         )?;
-        diff.insert(key::SAFROLE, codec::encode(&state.safrole)?);
+        diff.set(key::SAFROLE, codec::encode(&state.safrole)?);
         block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
         block.header.tickets_mark = state
             .safrole
@@ -146,17 +148,17 @@ pub fn simulate<V: Pvm>(
         )?;
 
         state.privileges = accumulation.privileges;
-        diff.insert(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
+        diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
 
         state.queue = accumulation.ready_queue;
-        diff.insert(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
+        diff.set(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
 
         state.history = accumulation.accumulated_queue;
-        diff.insert(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
+        diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
         // write statistics and return root and accounts
         state.statistics.merge_services(accumulation.records);
-        diff.insert(key::STATISTICS, codec::encode(&state.statistics)?);
+        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
 
@@ -175,13 +177,13 @@ pub fn simulate<V: Pvm>(
             last.reported = reported;
         };
 
-        diff.insert(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+        diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (δ') Update the accounts
         let accounts =
             preimage::accounts(block.header.slot, &block.extrinsic.preimages, &accounts)?;
         if accounts != state.accounts {
-            diff.extend(account::diff(&accounts)?);
+            diff.extend(self::diff(&accounts)?);
             state.accounts = accounts;
         }
 
@@ -202,7 +204,53 @@ pub fn simulate<V: Pvm>(
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
-        diff.insert(key::TIMESLOT, codec::encode(&state.timeslot)?);
+        diff.set(key::TIMESLOT, codec::encode(&state.timeslot)?);
+    }
+
+    Ok(diff)
+}
+
+/// Get the diff of the accounts
+///
+/// TODO:
+///
+/// 1. consume the account instance for saving memory
+/// 2. check diff
+pub fn diff(
+    accounts: &BTreeMap<u32, ServiceAccount>,
+) -> anyhow::Result<Commit<StorageKey, Vec<u8>>> {
+    let mut diff = Commit::default();
+    for (index, account) in accounts {
+        // set info
+        let info = account.state();
+        let mut value = Vec::new();
+        value.extend_from_slice(&info.code);
+        value.extend_from_slice(&codec::encode(&(
+            info.balance.to_le_bytes(),
+            info.accumulate.to_le_bytes(),
+            info.transfer.to_le_bytes(),
+            info.total.to_le_bytes(),
+        ))?);
+        value.extend_from_slice(&info.items.to_le_bytes());
+        diff.set(account::info(*index), value);
+
+        // set storage
+        for (key, value) in &account.storage {
+            diff.set(key.to_vec().try_into().unwrap(), value.clone());
+        }
+
+        // set preimage
+        for (key, value) in &account.preimage {
+            diff.set(account::preimage(*index, *key), value.to_vec());
+        }
+
+        // set lookup
+        for ((key, lookup), slots) in &account.lookup {
+            diff.set(
+                account::lookup(*index, *lookup, *key),
+                codec::encode(slots)?,
+            );
+        }
     }
 
     Ok(diff)
