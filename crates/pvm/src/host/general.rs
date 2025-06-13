@@ -171,7 +171,6 @@ fn write<X: Argument, Memory: crate::Memory>(
         Ok(bytes) => bytes,
         Err(err) => {
             tracing::error!("Failed to read key bytes: {:?}", err);
-            // Note this OOB will be converted to panic in the caller
             return Ok(Exit::OOB as u64);
         }
     };
@@ -179,11 +178,10 @@ fn write<X: Argument, Memory: crate::Memory>(
     // update storage
     let skey = (general.index, key.clone()).key();
     if vz == 0 {
-        let value = general
-            .account
-            .storage
-            .remove(skey.as_slice())
-            .unwrap_or_default();
+        let Some(value) = general.account.storage.remove(skey.as_slice()) else {
+            return Ok(Exit::None as u64);
+        };
+
         data.update_general(general)?;
         Ok(value.len() as u64)
     } else {
