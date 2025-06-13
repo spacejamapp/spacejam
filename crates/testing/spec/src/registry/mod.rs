@@ -28,24 +28,25 @@ impl Registry {
 
     /// Get an entry from the registry
     pub fn entry(&self, section: &str) -> Result<Entry> {
+        let section = section.parse::<Section>()?;
         match section {
-            "codec" => self.codec(Scale::Tiny),
-            "pvm/programs" => self.pvm(),
-            "shuffle" => self.shuffle(),
-            "trie" => self.trie(),
-            "stf/accumulate" => self.accumulate(Scale::Tiny),
-            "stf/assurances" => self.assurances(Scale::Tiny),
-            "stf/authorizations" => self.authorizations(Scale::Tiny),
-            "stf/disputes" => self.disputes(Scale::Tiny),
-            "stf/history/data" => self.history(),
-            "stf/preimages/data" => self.preimages(),
-            "stf/reports" => self.reports(Scale::Tiny),
-            "stf/safrole" => self.safrole(Scale::Tiny),
-            "stf/statistics" => self.statistics(Scale::Tiny),
-            "traces/fallback" => self.trace(Trace::Fallback),
-            "traces/safrole" => self.trace(Trace::Safrole),
-            "traces/reports-l0" => self.trace(Trace::ReportsL0),
-            _ => Err(anyhow::anyhow!("invalid section: {}", section)),
+            Section::Codec => self.codec(Scale::Tiny),
+            Section::Pvm => self.pvm(),
+            Section::Shuffle => self.shuffle(),
+            Section::Trie => self.trie(),
+            Section::Accumulate => self.accumulate(Scale::Tiny),
+            Section::Assurances => self.assurances(Scale::Tiny),
+            Section::Authorizations => self.authorizations(Scale::Tiny),
+            Section::Disputes => self.disputes(Scale::Tiny),
+            Section::History => self.history(),
+            Section::Preimages => self.preimages(),
+            Section::Reports => self.reports(Scale::Tiny),
+            Section::Safrole => self.safrole(Scale::Tiny),
+            Section::Statistics => self.statistics(Scale::Tiny),
+            Section::Trace(Trace::Fallback) => self.trace(Trace::Fallback),
+            Section::Trace(Trace::Safrole) => self.trace(Trace::Safrole),
+            Section::Trace(Trace::ReportsL0) => self.trace(Trace::ReportsL0),
+            Section::Trace(Trace::ReportsL1) => self.trace(Trace::ReportsL1),
         }
     }
 

@@ -80,6 +80,7 @@ impl FromStr for Section {
             "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
             "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
+            "traces/reports-l1" => Ok(Section::Trace(Trace::ReportsL1)),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -105,6 +106,7 @@ impl AsRef<str> for Section {
                 Trace::Fallback => "traces/fallback",
                 Trace::Safrole => "traces/safrole",
                 Trace::ReportsL0 => "traces/reports-l0",
+                Trace::ReportsL1 => "traces/reports-l1",
             },
         }
     }
@@ -125,6 +127,8 @@ pub enum Trace {
     Safrole,
     /// The reports traces
     ReportsL0,
+    /// The reports traces
+    ReportsL1,
 }
 
 impl AsRef<str> for Trace {
@@ -133,6 +137,7 @@ impl AsRef<str> for Trace {
             Trace::Fallback => "fallback",
             Trace::Safrole => "safrole",
             Trace::ReportsL0 => "reports-l0",
+            Trace::ReportsL1 => "reports-l1",
         }
     }
 }
