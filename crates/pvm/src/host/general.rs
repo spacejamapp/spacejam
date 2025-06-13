@@ -133,13 +133,6 @@ fn read<X: Argument, Memory: crate::Memory>(
         return Ok(Exit::None as u64);
     };
 
-    tracing::debug!(
-        "reading storage: 0x{} rkey=0x{} value=0x{}",
-        hex::encode(skey.as_slice()),
-        hex::encode(key),
-        hex::encode(value)
-    );
-
     let vlen = value.len() as u64;
     let from = state.registers[11].min(value.len() as u64);
     let length = state.registers[12].min(vlen - from);
@@ -231,6 +224,7 @@ fn info<X: Argument, Memory: crate::Memory>(
     }
     .and_then(|account| {
         let state = account.state();
+        tracing::debug!("account info: {:?}", state);
         codec::encode(&state).ok()
     }) else {
         return Ok(Exit::None as u64);

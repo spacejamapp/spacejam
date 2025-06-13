@@ -14,7 +14,6 @@ use score::{
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
-// mod compute;
 mod dep;
 pub mod error;
 mod exec;
@@ -236,19 +235,11 @@ pub fn defer_transfers<V: Pvm>(
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
     let mut statistics = BTreeMap::new();
     let services: Vec<ServiceId> = accounts.keys().cloned().collect();
-
-    // Apply deferred transfers to each destination service (X computation)
     for dest_service in services {
         let selected_transfers = DeferredTransfer::select(transfers, dest_service);
-
         if !selected_transfers.is_empty() {
-            // (ΨT) Apply transfers using PVM transfer function
             let transfer_result = V::transfer(accounts, slot, dest_service, &selected_transfers);
-
-            // Update the account with transfer results
             accounts.insert(dest_service, transfer_result.account);
-
-            // Build transfer statistics (X) - equation from the spec
             statistics.insert(
                 dest_service,
                 (selected_transfers.len(), transfer_result.gas),

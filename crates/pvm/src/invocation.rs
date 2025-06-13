@@ -285,7 +285,7 @@ pub trait Invocation {
             id: service,
             results: operands,
         };
-        tracing::debug!("accumulate params: {:?}", params);
+
         let args = codec::encode(&params).expect("failed to encode");
         let result = Self::argument(code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {

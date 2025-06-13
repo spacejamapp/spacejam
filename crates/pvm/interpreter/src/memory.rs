@@ -66,8 +66,8 @@ impl Memory {
         let mut read = 0u32;
         while read < len {
             let to_read = (len - read).min(parser::PAGE_SIZE as u32 - offset);
-            let data = self.access(page)?;
             if to_read > 0 {
+                let data = self.access(page)?;
                 bytes[read as usize..(read + to_read) as usize]
                     .copy_from_slice(&data.data[offset as usize..(offset + to_read) as usize]);
             }
@@ -108,9 +108,11 @@ impl Memory {
         let mut written = 0u32;
         while written < len {
             let to_write = (len - written).min(parser::PAGE_SIZE as u32 - offset);
-            let data = self.mutate(page)?;
-            data.data[offset as usize..(offset + to_write) as usize]
-                .copy_from_slice(&bytes[written as usize..(written + to_write) as usize]);
+            if to_write > 0 {
+                let data = self.mutate(page)?;
+                data.data[offset as usize..(offset + to_write) as usize]
+                    .copy_from_slice(&bytes[written as usize..(written + to_write) as usize]);
+            }
 
             written += to_write;
             page += 1;
