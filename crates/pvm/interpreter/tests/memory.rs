@@ -1,7 +1,6 @@
 //! Memory write tests
 
 use pvmi::{Access, Error, Memory, Page};
-use smallvec::SmallVec;
 
 #[test]
 fn inaccessible() {
@@ -18,7 +17,7 @@ fn immutable() {
     memory.pages.insert(
         0,
         Page {
-            data: SmallVec::new(),
+            data: [0; parser::PAGE_SIZE as usize],
             access: Access::Immutable,
         },
     );
@@ -34,7 +33,7 @@ fn write() {
     memory.pages.insert(
         0,
         Page {
-            data: SmallVec::new(),
+            data: [0; parser::PAGE_SIZE as usize],
             access: Access::Mutable,
         },
     );
@@ -49,7 +48,7 @@ fn write_offset() {
     memory.pages.insert(
         0,
         Page {
-            data: SmallVec::new(),
+            data: [0; parser::PAGE_SIZE as usize],
             access: Access::Mutable,
         },
     );
@@ -67,7 +66,7 @@ fn read_inaccessible() {
     memory.pages.insert(
         0,
         Page {
-            data: SmallVec::new(),
+            data: [0; parser::PAGE_SIZE as usize],
             access: Access::Mutable,
         },
     );

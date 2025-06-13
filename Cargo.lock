@@ -3110,7 +3110,6 @@ dependencies = [
  "anyhow",
  "pvm",
  "pvm-parser",
- "smallvec",
  "tracing",
 ]
 

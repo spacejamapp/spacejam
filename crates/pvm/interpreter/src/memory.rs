@@ -2,7 +2,6 @@
 
 use crate::{Error, Result};
 use pvm::{Reason, Value};
-use smallvec::SmallVec;
 use std::{collections::BTreeMap, ops::Range};
 
 /// The memory of the interpreter.
@@ -38,7 +37,7 @@ impl Memory {
             self.pages.insert(
                 page,
                 Page {
-                    data: SmallVec::from_slice(&vec![0; parser::PAGE_SIZE as usize]),
+                    data: [0; parser::PAGE_SIZE as usize],
                     access: Access::Mutable,
                 },
             );
@@ -199,10 +198,12 @@ impl pvm::Memory for Memory {
     fn from_raw(memory: parser::Memory) -> Self {
         let mut pages = BTreeMap::new();
         for (page_num, (data, writable)) in memory.memory {
+            let mut pdata = [0; parser::PAGE_SIZE as usize];
+            pdata[..data.len()].copy_from_slice(&data);
             pages.insert(
                 page_num,
                 Page {
-                    data: SmallVec::from_slice(&data),
+                    data: pdata,
                     access: if writable {
                         Access::Mutable
                     } else {
@@ -241,7 +242,7 @@ impl pvm::Memory for Memory {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
     /// The data of the page.
-    pub data: SmallVec<[u8; parser::PAGE_SIZE as usize]>,
+    pub data: [u8; parser::PAGE_SIZE as usize],
 
     /// The access type of the page.
     pub access: Access,

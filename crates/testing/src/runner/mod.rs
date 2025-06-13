@@ -265,7 +265,7 @@ impl Runner {
                     memory.pages.insert(
                         page.address / ::pvmi::PAGE_SIZE as u32,
                         ::pvmi::Page {
-                            data: Default::default(),
+                            data: [0; ::pvmi::PAGE_SIZE as usize],
                             access: ::pvmi::Access::Mutable,
                         },
                     );
