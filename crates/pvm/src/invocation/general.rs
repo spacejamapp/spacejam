@@ -18,6 +18,17 @@ pub struct State<Memory: crate::Memory> {
     pub memory: Memory,
 }
 
+impl<Memory: crate::Memory> State<Memory> {
+    /// Create a new stepped result
+    pub fn stepped(self, reason: Reason) -> Stepped<Memory, ()> {
+        Stepped {
+            reason,
+            state: self,
+            data: (),
+        }
+    }
+}
+
 /// The result of step invocation (Ψ1)
 pub struct Stepped<Memory: crate::Memory, X> {
     /// (ε) the reason for exiting
@@ -30,19 +41,19 @@ pub struct Stepped<Memory: crate::Memory, X> {
     pub data: X,
 }
 
-impl<Memory: crate::Memory, X: Default> Stepped<Memory, X> {
-    /// Create a new stepped result
+impl<Memory: crate::Memory> Stepped<Memory, ()> {
+    /// Create a new stepped result with the given reason
     pub fn new(reason: Reason, state: State<Memory>) -> Self {
         Self {
             reason,
             state,
-            data: X::default(),
+            data: (),
         }
     }
 
     /// Create a new stepped result with the given data
-    pub fn with(self, data: X) -> Self {
-        Self {
+    pub fn with<X>(self, data: X) -> Stepped<Memory, X> {
+        Stepped {
             reason: self.reason,
             state: self.state,
             data,
@@ -50,8 +61,20 @@ impl<Memory: crate::Memory, X: Default> Stepped<Memory, X> {
     }
 }
 
+impl<Memory: crate::Memory, X> Stepped<Memory, X> {
+    /// Convert the stepped result to a received result
+    pub fn received(self, gas: Gas, output: Vec<u8>) -> Received<X> {
+        Received {
+            gas,
+            output,
+            reason: self.reason,
+            data: self.data,
+        }
+    }
+}
+
 /// The received data from (ΨM)
-pub struct Received<X: Default> {
+pub struct Received<X> {
     /// The gas we used
     pub gas: Gas,
 
@@ -65,24 +88,14 @@ pub struct Received<X: Default> {
     pub data: X,
 }
 
-impl<X: Default> Received<X> {
-    /// Create a new received result
-    pub fn new(gas: Gas, reason: Reason, data: X) -> Self {
+impl<X> Received<X> {
+    /// Create a new received result with a panic reason
+    pub fn panic(message: impl ToString, data: X) -> Self {
         Self {
-            gas,
-            reason,
+            gas: 0,
             output: Vec::new(),
+            reason: Reason::Panic(message.to_string()),
             data,
-        }
-    }
-
-    /// Create a new extracted result with the given data
-    pub fn with(self, output: Vec<u8>) -> Self {
-        Self {
-            gas: self.gas,
-            output,
-            reason: self.reason,
-            data: self.data,
         }
     }
 }

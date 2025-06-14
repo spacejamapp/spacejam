@@ -58,7 +58,7 @@ pub trait Invocation {
         } = match program::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
-                return Stepped::new(Reason::Panic(e.to_string()), state);
+                return state.stepped(Reason::Panic(e.to_string()));
             }
         };
 
@@ -80,7 +80,7 @@ pub trait Invocation {
 
             // out of gas
             if next.gas < 0 {
-                return Stepped::new(Reason::OOG, state);
+                return state.stepped(Reason::OOG);
             }
 
             // handle the exit reason
@@ -95,7 +95,7 @@ pub trait Invocation {
                 _ => {}
             };
 
-            return Stepped::new(reason, state);
+            return state.stepped(reason);
         }
     }
 
@@ -142,20 +142,21 @@ pub trait Invocation {
         let Stepped {
             reason,
             state,
-            data: _, // invoke() returns () data, but we need to preserve input
+            data: _,
         } = Self::invoke(code, pc, gas, registers, memory);
 
         // if error occurs, return the state WITH THE PRESERVED INPUT DATA
         let Reason::HostCall(call) = reason else {
-            return Stepped::new(reason, state).with(input);
+            return state.stepped(reason).with(input);
         };
 
         let stepped = host::call(call, state, input);
         match stepped.reason {
-            Reason::Fault { page } => {
-                Stepped::new(Reason::Fault { page }, stepped.state).with(stepped.data)
-            }
-            // TODO: this recursive call should be optimized in production.
+            Reason::Fault { page } => stepped
+                .state
+                .stepped(Reason::Fault { page })
+                .with(stepped.data),
+            // FIXME: this recursive call should be optimized in production.
             //
             // mb create a new call_inner function and set up a loop for it.
             Reason::Continue | Reason::HostCall(_) => Self::call(
@@ -166,7 +167,7 @@ pub trait Invocation {
                 stepped.state.memory,
                 stepped.data,
             ),
-            _ => Stepped::new(stepped.reason, stepped.state).with(stepped.data),
+            _ => stepped.state.stepped(stepped.reason).with(stepped.data),
         }
     }
 
@@ -195,7 +196,7 @@ pub trait Invocation {
             Ok(standard) => standard,
             Err(e) => {
                 tracing::error!("failed to deblob the standard program blob: {e:?}");
-                return Received::new(0, Reason::Panic(e.to_string()), data);
+                return Received::panic(e, data);
             }
         };
 
@@ -210,12 +211,8 @@ pub trait Invocation {
             output = registered;
         };
 
-        Received::new(
-            gas - (stepped.state.gas.max(0) as u64),
-            stepped.reason,
-            stepped.data,
-        )
-        .with(output)
+        let gas = gas - (stepped.state.gas.max(0) as u64);
+        stepped.received(gas, output)
     }
 
     /// (ΨI): The Is-Authorized invocation

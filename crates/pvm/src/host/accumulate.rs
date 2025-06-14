@@ -14,7 +14,6 @@ use score::{
 use std::collections::BTreeMap;
 
 /// Accumulate arguments
-#[derive(Default)]
 pub struct Accumulate {
     /// The regular dimension
     pub x: AccumulateContext,

@@ -46,7 +46,7 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 }
 
 /// Dynamic arguments for host calls
-pub trait Argument: Default {
+pub trait Argument {
     /// returns some if the input data is general
     fn as_general(&self) -> crate::Result<General> {
         crate::bail!("not a general")
