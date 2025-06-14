@@ -1,10 +1,9 @@
 //! Hooks for the runtime
 
+use crate::storage::Commit;
 use anyhow::Result;
 use score::{Block, OpaqueHash, ServiceId, StorageKey, block::Head, state::key};
 use std::collections::BTreeMap;
-
-use crate::storage::Commit;
 
 /// Hooks for the runtime
 pub trait Hook: Send + Sync {
@@ -36,7 +35,7 @@ pub trait Hook: Send + Sync {
             let mut svalue = BTreeMap::new();
 
             // FIXME: support removal
-            for (key, value) in diff.iset() {
+            for (key, value) in diff.updates() {
                 // skip the key that is not related to service
                 if key[1..].iter().all(|b| *b == 0) {
                     continue;
@@ -52,7 +51,7 @@ pub trait Hook: Send + Sync {
                     service[1] = key[3];
                     service[2] = key[5];
                     service[3] = key[7];
-                    data.insert(ServiceId::from_le_bytes(service), value);
+                    data.insert(ServiceId::from_le_bytes(service), value.clone());
                     continue;
                 }
 

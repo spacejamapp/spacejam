@@ -1,6 +1,10 @@
 //! Service account types
 
-use crate::{service::GasLimit, state::account, Gas, OpaqueHash, StorageKey, TimeSlot};
+use crate::{
+    service::{GasLimit, ServiceData},
+    state::account,
+    Gas, OpaqueHash, StorageKey, TimeSlot,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -79,6 +83,18 @@ impl ServiceAccount {
             transfer: self.gas.transfer,
             total,
             items,
+        }
+    }
+
+    /// Get the data of the service account
+    pub fn data(&self) -> ServiceData {
+        ServiceData {
+            accumulate: self.gas.accumulate,
+            transfer: self.gas.transfer,
+            total: self.total(),
+            items: self.items(),
+            code: self.code,
+            balance: self.balance,
         }
     }
 

@@ -287,9 +287,11 @@ pub trait Storage: KVStorage {
                         continue;
                     }
 
+                    let mut skey = [0; 32];
+                    skey[..31].copy_from_slice(&key);
                     account
                         .lookup
-                        .insert((Default::default(), length), codec::decode(&value)?);
+                        .insert((skey, length), codec::decode(&value)?);
                 }
                 _ => continue,
             }

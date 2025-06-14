@@ -9,7 +9,7 @@ pub trait Accounts: Clone {
     fn code(&self, index: u32) -> Option<Vec<u8>>;
 
     /// Create a new account
-    fn upsert(&mut self, index: u32, account: ServiceAccount);
+    fn upsert(&mut self, index: u32, account: impl Account);
 
     /// Get the services from the registry
     fn services(&self) -> Vec<u32>;
@@ -32,8 +32,8 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
         self.get(&index)?.blob()
     }
 
-    fn upsert(&mut self, index: u32, account: ServiceAccount) {
-        self.insert(index, account);
+    fn upsert(&mut self, index: u32, account: impl Account) {
+        self.insert(index, account.account());
     }
 
     fn services(&self) -> Vec<u32> {

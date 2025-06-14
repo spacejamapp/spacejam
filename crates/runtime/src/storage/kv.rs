@@ -67,7 +67,7 @@ impl KVStorage for MemoryDb {
         }
 
         for (key, value) in commit.iset() {
-            data.insert(key.to_vec(), value);
+            data.insert(key.to_vec(), value.clone());
         }
 
         Ok(())

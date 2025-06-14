@@ -1,7 +1,10 @@
 //! Account registry with cached state
 
 use crate::{Storage, account::Account};
-use score::{account::Account as _, service::ServiceAccount};
+use score::{
+    account::{self, Account as _},
+    service::ServiceAccount,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -47,15 +50,10 @@ impl<S: Storage> score::account::Accounts for Accounts<S> {
         self.accounts.get_mut(&index)
     }
 
-    fn upsert(&mut self, index: u32, account: ServiceAccount) {
+    fn upsert(&mut self, index: u32, account: impl account::Account) {
         self.accounts.insert(
             index,
-            Account {
-                storage: self.storage.clone(),
-                index,
-                account,
-                removed: Default::default(),
-            },
+            Account::inherit(self.storage.clone(), index, account),
         );
     }
 
@@ -81,7 +79,15 @@ impl<S: Storage> score::account::Accounts for Accounts<S> {
     }
 
     fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {
-        todo!()
+        let mut updates = Vec::new();
+        let mut removals = Vec::new();
+        for (_, account) in self.accounts {
+            let (lupdates, lremovals) = account.ops();
+            updates.extend(lupdates);
+            removals.extend(lremovals);
+        }
+
+        (updates, removals)
     }
 }
 

@@ -48,7 +48,7 @@ impl<C: Config> Runtime<C> {
             }
         }
 
-        self.storage.commit(kvs.into())?;
+        self.storage.commit((kvs, vec![]).into())?;
         grandpa.handshake.head = head;
         Ok(())
     }

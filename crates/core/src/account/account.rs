@@ -1,6 +1,10 @@
+//! Account abstraction
+
+use std::collections::BTreeSet;
+
 use crate::{
     service::{GasLimit, ServiceAccount, ServiceAccountState},
-    OpaqueHash,
+    OpaqueHash, StorageKey,
 };
 
 /// JAM account abstraction
@@ -67,6 +71,9 @@ pub trait Account: Clone {
 
     /// Get the account info
     fn info(&self) -> ServiceAccountState;
+
+    /// Get the operations of the account
+    fn ops(self) -> (BTreeSet<(StorageKey, Vec<u8>)>, BTreeSet<StorageKey>);
 }
 
 impl Account for ServiceAccount {
@@ -152,5 +159,9 @@ impl Account for ServiceAccount {
 
     fn info(&self) -> ServiceAccountState {
         self.state()
+    }
+
+    fn ops(self) -> (BTreeSet<(StorageKey, Vec<u8>)>, BTreeSet<StorageKey>) {
+        (BTreeSet::new(), BTreeSet::new())
     }
 }

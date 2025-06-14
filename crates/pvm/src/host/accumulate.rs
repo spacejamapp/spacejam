@@ -419,7 +419,7 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
         })
     }
 
-    // TODO: check if we just need to update the current account
+    // FIXME: find a better way to update the account
     fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
         let index = general.index;
         let Some(account) = general.account() else {
