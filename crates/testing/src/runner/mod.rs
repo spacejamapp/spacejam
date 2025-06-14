@@ -1,7 +1,5 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
-use std::{collections::BTreeMap, sync::Arc};
-
 use crate::traces::KeyValue;
 use ::pvm::Invocation;
 use anyhow::Result;
@@ -13,11 +11,11 @@ use runtime::{
 use score::{
     account::Accounts,
     block::{Block, History},
-    service::ServiceAccount,
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
+use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
 /// The `Runner` struct which is used to run the tests.

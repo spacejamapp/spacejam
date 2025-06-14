@@ -12,11 +12,10 @@ use parser::{
 };
 use score::{
     account::{Account, Accounts},
-    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use std::collections::BTreeMap;
 
 /// The invocation interface of PVM
 ///

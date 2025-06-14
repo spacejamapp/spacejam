@@ -85,5 +85,4 @@ impl<Hook: runtime::Hook + Send + Sync + 'static> runtime::Config for JadexSpec<
     type Validator = LocalValidator;
     type Vm = ();
     type Hook = Hook;
-    type Accounts = BTreeMap<u32, ServiceAccount>;
 }

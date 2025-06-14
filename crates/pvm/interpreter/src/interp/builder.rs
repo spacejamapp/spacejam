@@ -1,7 +1,6 @@
 //! The builder for the PVM interpreter.
 
 use crate::{Interpreter, Memory, Register};
-use std::marker::PhantomData;
 
 impl Interpreter {
     /// Set the registers of the interpreter.

@@ -39,7 +39,7 @@ impl<S: Storage> Accounts<S> {
 }
 
 impl<S: Storage> score::account::Accounts for Accounts<S> {
-    fn get(&mut self, index: u32) -> Option<&mut (impl score::account::Account + '_)> {
+    fn get(&mut self, index: u32) -> Option<&mut impl score::account::Account> {
         if let Entry::Vacant(e) = self.accounts.entry(index) {
             e.insert(Account::new(self.storage.clone(), index).ok()?);
         }

@@ -1,8 +1,8 @@
 //! Runtime utilities of SpaceJam
 
 use pvm::Pvm;
-use score::{BandersnatchPublic, service::ServiceAccount};
-use std::{collections::BTreeMap, sync::Arc};
+use score::BandersnatchPublic;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Handshake},

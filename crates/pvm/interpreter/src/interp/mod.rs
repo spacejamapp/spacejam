@@ -7,8 +7,7 @@
 //! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{Error, Memory, Register};
-use pvm::{Accounts, Reason};
-use std::marker::PhantomData;
+use pvm::Reason;
 
 mod builder;
 mod legacy;

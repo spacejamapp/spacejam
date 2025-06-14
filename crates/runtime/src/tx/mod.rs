@@ -1,6 +1,6 @@
 //! Block sync validation
 
-use crate::{Config, Storage, account::Accounts, storage::Commit};
+use crate::{Storage, account::Accounts, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{Block, StorageKey, account::Accounts as _, block::History, state::key};
