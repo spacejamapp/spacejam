@@ -2,7 +2,8 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    Argument, Reason, Result, State,
+    invocation::general::State,
+    Argument, Reason, Result,
 };
 use score::{service::ServiceAccount, state::account, Gas, ServiceId};
 use std::collections::BTreeMap;

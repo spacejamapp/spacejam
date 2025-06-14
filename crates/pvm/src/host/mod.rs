@@ -1,6 +1,9 @@
 //! Host functions
 
-use crate::{Reason, State, Stepped};
+use crate::{
+    invocation::general::{State, Stepped},
+    Reason,
+};
 pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;

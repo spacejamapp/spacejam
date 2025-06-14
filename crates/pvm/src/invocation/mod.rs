@@ -1,9 +1,10 @@
 //! PVM invocation interface
 
 use crate::{
-    host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
-    Refined, State, Stepped, Transferred,
+    host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Refined,
+    Transferred,
 };
+use general::{Received, State, Stepped};
 use parser::{
     program::{self, Program},
     ProgramBlob,
@@ -14,6 +15,11 @@ use score::{
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use std::collections::BTreeMap;
+
+pub mod accumulate;
+pub mod general;
+pub mod refine;
+pub mod transfer;
 
 /// The invocation interface of PVM
 ///

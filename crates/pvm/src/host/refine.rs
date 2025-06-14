@@ -2,7 +2,8 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    Reason, Result, State,
+    invocation::general::State,
+    Reason, Result,
 };
 
 /// Reine host call arguments

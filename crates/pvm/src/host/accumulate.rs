@@ -2,7 +2,8 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    AccumulateContext, Argument, Reason, Result, State,
+    invocation::general::State,
+    AccumulateContext, Argument, Reason, Result,
 };
 use codec::Numeric;
 use score::{
