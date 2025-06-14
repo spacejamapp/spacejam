@@ -51,13 +51,13 @@ impl<'a, S: Storage> Account<'a, S> {
     }
 
     /// Get a lookup from the account
-    pub fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<&mut Vec<u32>> {
+    pub fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<&Vec<u32>> {
         if let Entry::Vacant(e) = self.account.lookup.entry((hash, len)) {
             let lookup = self.storage.account_lookup(self.index, len, hash).ok()?;
             e.insert(lookup);
         }
 
-        self.account.lookup.get_mut(&(hash, len))
+        self.account.lookup.get(&(hash, len))
     }
 
     /// Get a preimage from the account

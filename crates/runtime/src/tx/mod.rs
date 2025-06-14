@@ -3,13 +3,7 @@
 use crate::{Storage, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
-use score::{
-    Block, StorageKey,
-    block::History,
-    service::ServiceAccount,
-    state::{account, key},
-};
-use std::collections::{BTreeMap, BTreeSet};
+use score::{Block, StorageKey, account::Accounts, block::History, state::key};
 
 pub mod assurance;
 pub mod dispute;
@@ -180,12 +174,9 @@ pub fn simulate<V: Pvm>(
         diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (δ') Update the accounts
-        let accounts =
-            preimage::accounts(block.header.slot, &block.extrinsic.preimages, &accounts)?;
-        if accounts != state.accounts {
-            diff.extend(self::diff(&state.accounts, &accounts)?);
-            state.accounts = accounts;
-        }
+        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
+        let (updates, removals) = accounts.diff();
+        diff.extend_iter(updates, removals);
 
         // FIXME: looks like polkajam currently doesn't update the authorization
         // pool, so we're not updating it here as well atm.
@@ -205,75 +196,6 @@ pub fn simulate<V: Pvm>(
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
         diff.set(key::TIMESLOT, codec::encode(&state.timeslot)?);
-    }
-
-    Ok(diff)
-}
-
-/// Get the diff of the accounts
-///
-/// FIXME:
-///
-/// 1. consume the account instance for saving memory
-/// 2. check diff
-/// 3. no update if equal on fields
-pub fn diff(
-    base: &BTreeMap<u32, ServiceAccount>,
-    changes: &BTreeMap<u32, ServiceAccount>,
-) -> anyhow::Result<Commit<StorageKey, Vec<u8>>> {
-    let mut diff = Commit::default();
-    let mut upkeys = BTreeSet::new();
-    for (index, account) in changes.iter() {
-        let info = account.state();
-        let mut value = Vec::new();
-        value.extend_from_slice(&info.code);
-        value.extend_from_slice(&codec::encode(&(
-            info.balance.to_le_bytes(),
-            info.accumulate.to_le_bytes(),
-            info.transfer.to_le_bytes(),
-            info.total.to_le_bytes(),
-        ))?);
-        value.extend_from_slice(&info.items.to_le_bytes());
-
-        // set info
-        let info = account::info(*index);
-        upkeys.insert(info);
-        diff.set(info, value);
-
-        // set storage
-        for (key, value) in &account.storage {
-            let key = key.to_vec().try_into().map_err(|_| {
-                anyhow::anyhow!(
-                    "invalid storage key, expected 31 bytes got {} bytes",
-                    key.len()
-                )
-            })?;
-            upkeys.insert(key);
-            diff.set(key, value.clone());
-        }
-
-        // set preimage
-        for (key, value) in &account.preimage {
-            let key = account::preimage(*index, *key);
-            upkeys.insert(key);
-            diff.set(key, value.to_vec());
-        }
-
-        // set lookup
-        for ((key, lookup), slots) in &account.lookup {
-            let key = account::lookup(*index, *lookup, *key);
-            upkeys.insert(key);
-            diff.set(key, codec::encode(slots)?);
-        }
-    }
-
-    // process removals
-    for (index, account) in base.iter() {
-        for key in account.keys(*index)? {
-            if !upkeys.contains(&key) {
-                diff.remove(key);
-            }
-        }
     }
 
     Ok(diff)

@@ -8,6 +8,7 @@ pub use {
     state::{key::StorageKeyEncode, State},
 };
 
+pub mod account;
 pub mod block;
 pub mod extrinsic;
 pub mod safrole;

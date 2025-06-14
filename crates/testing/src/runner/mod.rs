@@ -9,6 +9,7 @@ use runtime::{
     tx, Storage,
 };
 use score::{
+    account::Accounts,
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
@@ -173,9 +174,12 @@ impl Runner {
                 // Validate post state
                 let accounts = preimage::to_accounts(input.pre_state.accounts.clone());
                 let result =
-                    tx::preimage::accounts(input.input.slot, &input.input.preimages, &accounts);
+                    tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
                 if let Ok(accounts) = result {
-                    assert_eq!(accounts, preimage::to_accounts(output.post_state.accounts));
+                    assert_eq!(
+                        accounts.accounts(),
+                        preimage::to_accounts(output.post_state.accounts)
+                    );
                 } else {
                     assert_eq!(input.pre_state, output.post_state);
                 }

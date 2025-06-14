@@ -32,6 +32,16 @@ where
         self.removal.extend(other.removal);
     }
 
+    /// Extend the commit with an iterator
+    pub fn extend_iter(
+        &mut self,
+        updates: impl IntoIterator<Item = (Key, Value)>,
+        removals: impl IntoIterator<Item = Key>,
+    ) {
+        self.set.extend(updates);
+        self.removal.extend(removals);
+    }
+
     /// Iterate over the set of the commit
     pub fn iset(self) -> impl Iterator<Item = (Key, Value)> {
         self.set.into_iter()
