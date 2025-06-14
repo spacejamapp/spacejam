@@ -177,7 +177,7 @@ impl<S: Storage> score::account::Account for Account<S> {
             threshold: self.account.threshold(),
             transfer: self.account.gas.transfer,
             accumulate: self.account.gas.accumulate,
-            total: self.account.balance,
+            total: self.account.total(),
             items: self.account.items(),
         }
     }
