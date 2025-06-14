@@ -11,7 +11,8 @@ use runtime::{
 use score::{
     account::{Account, Accounts},
     block::{Block, History},
-    state::{key, StateKeyInfo, StateKeyLike},
+    service::ServiceData,
+    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
@@ -390,6 +391,17 @@ impl Runner {
                         tracing::error!("{info:?} key=0x{encoded} not exists");
                         continue;
                     };
+
+                    if let StateKey::Account {
+                        service: _,
+                        field: ServiceField::Data,
+                    } = info
+                    {
+                        let polkajam: ServiceData = codec::decode(&value)?;
+                        let spacejam: ServiceData = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", spacejam);
+                    }
 
                     pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {
