@@ -9,11 +9,13 @@ use runtime::{
     tx, Storage,
 };
 use score::{
+    account::{Account, Accounts},
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
+use std::{collections::BTreeMap, sync::Arc};
 use tracing_subscriber::EnvFilter;
 
 /// The `Runner` struct which is used to run the tests.
@@ -38,7 +40,7 @@ impl Runner {
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let accumulation = tx::guarantee::accumulate::<Interpreter>(
+                let accumulation = tx::guarantee::accumulate::<Interpreter, _>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
@@ -173,9 +175,16 @@ impl Runner {
                 // Validate post state
                 let accounts = preimage::to_accounts(input.pre_state.accounts.clone());
                 let result =
-                    tx::preimage::accounts(input.input.slot, &input.input.preimages, &accounts);
+                    tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
                 if let Ok(accounts) = result {
-                    assert_eq!(accounts, preimage::to_accounts(output.post_state.accounts));
+                    assert_eq!(
+                        accounts
+                            .accounts()
+                            .into_iter()
+                            .map(|(id, account)| (id, account.account()))
+                            .collect::<BTreeMap<_, _>>(),
+                        preimage::to_accounts(output.post_state.accounts)
+                    );
                 } else {
                     assert_eq!(input.pre_state, output.post_state);
                 }
@@ -265,7 +274,7 @@ impl Runner {
                     memory.pages.insert(
                         page.address / ::pvmi::PAGE_SIZE as u32,
                         ::pvmi::Page {
-                            data: Default::default(),
+                            data: [0; ::pvmi::PAGE_SIZE as usize],
                             access: ::pvmi::Access::Mutable,
                         },
                     );
@@ -352,7 +361,7 @@ impl Runner {
                 let input = traces::TestInput::from_json(&test.input)?;
                 let output = traces::TestOutput::from_json(&test.output)?;
                 let block: Block = input.block.into();
-                let memdb = MemoryDb::default();
+                let memdb = Arc::new(MemoryDb::default());
 
                 // FIXME: handle the genesis block
                 if block.header.slot == 0 {
@@ -372,13 +381,13 @@ impl Runner {
 
                 // 2. verify the state transition
                 let mut pkeys = Vec::new();
-                let _ = tx::transit::<Interpreter>(block, &memdb)?;
+                let _ = tx::transit::<Interpreter>(block, memdb.clone())?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
 
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("storage 0x{encoded} not exists");
+                        tracing::error!("{info:?} key=0x{encoded} not exists");
                         continue;
                     };
 

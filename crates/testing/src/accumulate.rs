@@ -5,8 +5,9 @@ use score::{
         AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount, ServiceItem,
         ServiceItemJson, WorkReport, WorkReportJson,
     },
+    state::account,
     statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
-    Entropy, Gas, OpaqueHash, ServiceId, StorageKeyEncode, TimeSlot,
+    Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -105,7 +106,7 @@ impl State {
         services.iter_mut().for_each(|item| {
             let index = item.id;
             item.data.storage.iter_mut().for_each(|storage| {
-                storage.key = (index, storage.key.clone()).key().to_vec();
+                storage.key = account::storage(index, &storage.key).to_vec();
             });
         });
 
@@ -178,6 +179,7 @@ impl From<Privileges> for PrivilegesWrap {
         }
     }
 }
+
 /// Always accumulate service id
 #[derive(Debug, Serialize, Deserialize, Json)]
 pub struct AlwaysAccumulateMapItem {

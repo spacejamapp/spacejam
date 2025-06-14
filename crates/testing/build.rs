@@ -58,6 +58,10 @@ fn main() -> Result<()> {
         registry.trace(Trace::ReportsL0)?,
         &out_dir.join("traces_reports_l0.rs"),
     )?;
+    build_tests(
+        registry.trace(Trace::ReportsL1)?,
+        &out_dir.join("traces_reports_l1.rs"),
+    )?;
 
     Ok(())
 }

@@ -1,15 +1,16 @@
 //! refine host calls
 
-use crate::{
+/* use crate::{
     host::{Exit, ExitCode},
-    Reason, Result, State,
-};
+    invocation::State,
+    Argument, Reason, Result,
+}; */
 
 /// Reine host call arguments
 pub struct Refine {}
 
-/// refine host call
-pub fn call<X: Default, Memory: crate::Memory>(
+/* /// refine host call
+pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
     data: &mut X,
@@ -30,7 +31,7 @@ pub fn call<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩH) historical lookup
-fn historical_lookup<X: Default, Memory: crate::Memory>(
+fn historical_lookup<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -38,7 +39,7 @@ fn historical_lookup<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩP) fetch
-fn fetch<X: Default, Memory: crate::Memory>(
+fn fetch<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -46,7 +47,7 @@ fn fetch<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩX) export
-fn export<X: Default, Memory: crate::Memory>(
+fn export<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -54,7 +55,7 @@ fn export<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩM) machine
-fn machine<X: Default, Memory: crate::Memory>(
+fn machine<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -62,7 +63,7 @@ fn machine<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩP) peek
-fn peek<X: Default, Memory: crate::Memory>(
+fn peek<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -70,7 +71,7 @@ fn peek<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩP) poke
-fn poke<X: Default, Memory: crate::Memory>(
+fn poke<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -78,7 +79,7 @@ fn poke<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩZ) zero
-fn zero<X: Default, Memory: crate::Memory>(
+fn zero<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -86,7 +87,7 @@ fn zero<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩV) void
-fn void<X: Default, Memory: crate::Memory>(
+fn void<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -94,7 +95,7 @@ fn void<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩI) invoke
-fn invoke<X: Default, Memory: crate::Memory>(
+fn invoke<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
@@ -102,9 +103,10 @@ fn invoke<X: Default, Memory: crate::Memory>(
 }
 
 /// (ΩE) expunge
-fn expunge<X: Default, Memory: crate::Memory>(
+fn expunge<X: Argument, Memory: crate::Memory>(
     _state: &mut State<Memory>,
     _data: &mut X,
 ) -> Result<ExitCode> {
     crate::bail!("not implemented")
 }
+ */

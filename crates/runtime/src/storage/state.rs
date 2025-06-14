@@ -1,8 +1,4 @@
 //! Storage APIs of the state of SpaceJam
-//!
-//! TODO: tests for IO. e.g. encoding / decoding of kvs.
-
-use std::collections::BTreeMap;
 
 use crate::storage::{KVStorage, sync};
 use anyhow::{Context, Result};
@@ -13,12 +9,13 @@ use score::{
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{
-        AvailabilityAssignments, Privileges, ServiceAccount, ServiceAccountData,
-        ServiceAccountState, ServiceItem, ServicePreimage, ServiceStorage, WorkReport,
+        AvailabilityAssignments, Privileges, ServiceAccount, ServiceAccountState, ServicePreimage,
+        ServiceStorage, WorkReport,
     },
     state::{ServiceField, State, StateKey, StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
+use std::collections::BTreeMap;
 
 /// Storage of the state of SpaceJam
 ///
@@ -243,18 +240,64 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account
-    fn account(&self, service: u32) -> Result<ServiceItem> {
-        let info = self.account_info(service)?;
-        let preimages = self.account_preimages(service)?;
-        let storage = self.account_storage_full(service)?;
-        Ok(ServiceItem {
-            id: service,
-            data: ServiceAccountData {
-                service: info,
-                preimages,
-                storage,
-            },
-        })
+    fn account(&self, index: u32) -> Result<ServiceAccount> {
+        let mut account = ServiceAccount::default();
+        for item in self.iter()? {
+            let (key, value) = item?;
+            match key.as_state_key().info() {
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Data,
+                } => {
+                    if service != index {
+                        continue;
+                    }
+
+                    account.code = value[..32].try_into()?;
+                    account.balance = u64::from_le_bytes(value[32..40].try_into()?);
+                    account.gas.accumulate = u64::from_le_bytes(value[40..48].try_into()?);
+                    account.gas.transfer = u64::from_le_bytes(value[48..56].try_into()?);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Storage,
+                } => {
+                    if service != index {
+                        continue;
+                    }
+
+                    account.storage.insert(key.to_vec(), value);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Preimage,
+                } => {
+                    if service != index {
+                        continue;
+                    }
+
+                    // TODO: verify the hash of the key
+                    account.preimage.insert(crypto::blake2b(&value), value);
+                }
+                StateKey::Account {
+                    service,
+                    field: ServiceField::Lookup { length },
+                } => {
+                    if service != index {
+                        continue;
+                    }
+
+                    let mut skey = [0; 32];
+                    skey[..31].copy_from_slice(&key);
+                    account
+                        .lookup
+                        .insert((skey, length), codec::decode(&value)?);
+                }
+                _ => continue,
+            }
+        }
+
+        Ok(account)
     }
 
     /// FIXME: do not use this method in production
@@ -328,7 +371,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account storage
-    fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Vec<u8>> {
+    fn account_storage(&self, service: u32, key: &[u8]) -> Result<Vec<u8>> {
         self.get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account storage not found"))?
@@ -363,15 +406,10 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account lookup
-    fn account_lookup(
-        &self,
-        service: u32,
-        lookup: u32,
-        key: OpaqueHash,
-    ) -> Result<Option<[TimeSlot; 3]>> {
-        self.get(account::lookup(service, lookup, key))?
+    fn account_lookup(&self, service: u32, lookup: u32, hash: OpaqueHash) -> Result<Vec<u32>> {
+        self.get(account::lookup(service, lookup, hash))?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("account lookup not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
     }
 }

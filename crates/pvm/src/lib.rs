@@ -1,14 +1,16 @@
 //! PolkaVM implementation
 
-pub use score::Gas;
+pub use score::{account::Accounts, Gas};
 pub use {
-    env::AccumulateContext,
     host::Argument,
-    invocation::Invocation,
-    memory::Memory,
-    result::{
-        AccumulateResult, Executed, Reason, Received, Refined, Result, State, Stepped, Transferred,
+    invocation::{
+        accumulate::{AccumulateContext, AccumulateResult},
+        refine::Refined,
+        transfer::Transferred,
+        Executed, Invocation, Received, State, Stepped,
     },
+    memory::Memory,
+    result::{Reason, Result},
     value::Value,
 };
 
@@ -20,7 +22,6 @@ macro_rules! bail {
     };
 }
 
-mod env;
 pub mod host;
 mod invocation;
 mod memory;

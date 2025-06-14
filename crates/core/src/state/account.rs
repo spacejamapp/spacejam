@@ -14,13 +14,16 @@ pub fn info(service: u32) -> StorageKey {
 /// C(s, [(2^32 - 1), k0...28])  ((s ->a ->k ->v) δ)
 ///
 /// from storage dictionary s
-pub fn storage(service: u32, k: OpaqueHash) -> StorageKey {
-    let mut fkey = [0; 31];
-    let prefix = key::prefix(service, &ACCOUNT_STORAGE_PREFIX);
+pub fn storage(service: u32, rkey: &[u8]) -> StorageKey {
+    let mut input = service.to_le_bytes().to_vec();
+    input.extend_from_slice(rkey);
+    let hash = crypto::blake2b(&input);
 
-    fkey[..8].copy_from_slice(&prefix);
-    fkey[8..].copy_from_slice(&k[..23]);
-    fkey
+    // construct the final storage key
+    let mut key = [0u8; 31];
+    key[..8].copy_from_slice(&key::prefix(service, &ACCOUNT_STORAGE_PREFIX));
+    key[8..].copy_from_slice(&hash[..23]);
+    key
 }
 
 /// C(s, [(2^32 - 2), k0...28]) ((s ->(a ->h) ->p) δ)

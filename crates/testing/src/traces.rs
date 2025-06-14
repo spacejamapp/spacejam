@@ -58,4 +58,9 @@ mod safrole {
 
 /* mod reports_l0 {
     include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
-} */
+}
+ */
+/* mod reports_l1 {
+    include!(concat!(env!("OUT_DIR"), "/traces_reports_l1.rs"));
+}
+ */

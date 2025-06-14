@@ -1,6 +1,7 @@
 //! Accumulation statistics
 
 use crate::{
+    account::Accounts,
     vm::{Accumulated, DeferredTransfer},
     Gas,
 };
@@ -26,9 +27,15 @@ pub struct AccumulationRecord {
     pub commitment_count: usize,
 }
 
-impl From<&Accumulated> for AccumulationRecord {
-    fn from(accumulated: &Accumulated) -> Self {
-        let affected_services: HashSet<_> = accumulated.context.accounts.keys().collect();
+impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
+    fn from(accumulated: &Accumulated<R>) -> Self {
+        // FIXME: track the affected services
+        let affected_services: HashSet<_> = accumulated
+            .context
+            .accounts
+            .services()
+            .into_iter()
+            .collect();
 
         AccumulationRecord {
             work_reports_processed: accumulated.accumulated,

@@ -13,11 +13,10 @@ pub struct Parity(Db);
 
 impl KVStorage for Parity {
     fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()> {
-        self.0
-            .commit_changes(commit.operations().map(|op| match op {
-                Operation::Set(k, v) => (0, Op::Set(k.to_vec(), v)),
-                Operation::Remove(k) => (0, Op::Dereference(k.to_vec())),
-            }))?;
+        self.0.commit_changes(commit.ops().map(|op| match op {
+            Operation::Set(k, v) => (0, Op::Set(k.to_vec(), v)),
+            Operation::Remove(k) => (0, Op::Dereference(k.to_vec())),
+        }))?;
         Ok(())
     }
 

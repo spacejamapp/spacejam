@@ -173,7 +173,11 @@ impl<'a, C: Config> Author<'a, C> {
         builder = builder.author_index(author_index as u16);
 
         // 5. simulate the block
-        tx::simulate::<C::Vm>(&mut builder, &self.storage)?;
+        //
+        // FIXME:
+        //
+        // do not simulate the block but just calculate the required data
+        tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
         let block: Block = builder.into();
 
         // 6. seal the block

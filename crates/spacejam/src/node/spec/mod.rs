@@ -58,10 +58,11 @@ pub trait RuntimeSpec:
         async move {
             let validator = Self::validator(validator)?;
             let storage = Self::storage(db)?;
-            let runtime = Runtime::new(validator, storage, hook);
+            let should_import = storage.is_empty();
 
             // Initialize the database
-            if KVStorage::is_empty(&runtime.storage) {
+            let runtime = Runtime::new(validator, storage, hook);
+            if should_import {
                 runtime
                     .import_genesis(genesis.genesis_header, &genesis.genesis_state)
                     .await?;

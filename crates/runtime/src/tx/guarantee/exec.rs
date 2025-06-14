@@ -1,6 +1,6 @@
 //! Execution of work reports
 
-use pvm::{AccumulateResult, Pvm};
+use pvm::{Accounts, AccumulateResult, Pvm};
 use score::{
     Gas, ServiceId, TimeSlot,
     service::WorkReport,
@@ -24,13 +24,13 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - [T]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-pub fn outer<V: Pvm>(
+pub fn outer<V: Pvm, R: Accounts>(
     gas_limit: Gas,
     reports: &[WorkReport],
-    context: StateContext,
+    context: StateContext<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
-) -> Accumulated {
+) -> Accumulated<R> {
     // NOTE: we might need to sort the reports by the gas limit,
     // need to double check if we have already done it.
     //
@@ -46,17 +46,14 @@ pub fn outer<V: Pvm>(
         .count();
 
     if index == 0 {
-        return Accumulated {
-            context,
-            ..Default::default()
-        };
+        return Accumulated::new(context);
     }
 
     let mut accumulated =
-        self::parallel::<V>(context.clone(), &reports[..index], gas_table, timeslot);
+        self::parallel::<V, R>(context.clone(), &reports[..index], gas_table, timeslot);
 
     // TODO: re-check if we need a loop here.
-    let rest = self::outer::<V>(
+    let rest = self::outer::<V, R>(
         gas_limit - accumulated.gas.values().sum::<Gas>(),
         &reports[index..],
         accumulated.context.clone(),
@@ -72,12 +69,12 @@ pub fn outer<V: Pvm>(
 }
 
 /// (Δ*) parallel accumulation
-pub fn parallel<V: Pvm>(
-    mut context: StateContext,
+pub fn parallel<V: Pvm, R: Accounts>(
+    mut context: StateContext<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
-) -> Accumulated {
+) -> Accumulated<R> {
     // FIXME: extract the services from reports
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
@@ -87,10 +84,10 @@ pub fn parallel<V: Pvm>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let results: BTreeMap<ServiceId, AccumulateResult> = services
+    let results: BTreeMap<ServiceId, AccumulateResult<R>> = services
         .iter()
         .map(|service| {
-            let result = self::once::<V>(context.clone(), reports, table, *service, timeslot);
+            let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
             (*service, result)
         })
         .collect();
@@ -100,20 +97,23 @@ pub fn parallel<V: Pvm>(
     let mut gas = BTreeMap::new();
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
+    let services = context.accounts.services();
     for (service_id, result) in results.iter() {
-        for (id, account) in &result.context.accounts {
+        let lsvc = result.context.accounts.services();
+        let accounts = result.context.accounts.clone().accounts();
+        for (id, account) in accounts.into_iter() {
             // FIXME:
             //
             // - check if we do need update the accounts
             // - handle the same code different services logic more carefully
-            if !context.accounts.contains_key(id) || id == service_id {
-                context.accounts.insert(*id, account.clone());
+            if !services.contains(&id) || id == *service_id {
+                context.accounts.upsert(id, account.clone());
             }
         }
 
-        for account_id in context.accounts.keys() {
-            if !result.context.accounts.contains_key(account_id) {
-                removed.insert(*account_id);
+        for account_id in &services {
+            if !lsvc.contains(account_id) {
+                removed.insert(account_id);
             }
         }
 
@@ -127,7 +127,7 @@ pub fn parallel<V: Pvm>(
 
     // Remove accounts that were removed by any service
     for account_id in removed {
-        context.accounts.remove(&account_id);
+        context.accounts.remove(*account_id);
     }
 
     // Extract privilege service results from the already-executed results
@@ -153,13 +153,13 @@ pub fn parallel<V: Pvm>(
 }
 
 /// (Δ1) single accumulation
-pub fn once<V: Pvm>(
-    context: StateContext,
+pub fn once<V: Pvm, R: Accounts>(
+    context: StateContext<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
     timeslot: TimeSlot,
-) -> AccumulateResult {
+) -> AccumulateResult<R> {
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
             .iter()

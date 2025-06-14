@@ -1,6 +1,10 @@
 //! Host functions
 
-use crate::{Reason, State, Stepped};
+use crate::{
+    invocation::{State, Stepped},
+    Reason,
+};
+use score::account::Accounts;
 pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
@@ -9,7 +13,7 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument, Memory: crate::Memory>(
+pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     call: u32,
     mut state: State<Memory>,
     data: X,
@@ -17,15 +21,28 @@ pub fn call<X: Argument, Memory: crate::Memory>(
     let mut data = data;
     let reason = match call {
         0..5 => {
-            let general = match data.as_general() {
+            let mut general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
             };
-            let account = general.account.clone();
-            general::call(call, &mut state, account, &mut data)
+            let ret = general.call(call, &mut state);
+            if let Err(e) = data.update_general(general) {
+                return Stepped::new(e, state).with(data);
+            }
+
+            ret
         }
-        5..17 => accumulate::call(call, &mut state, &mut data),
-        17..27 => refine::call(call, &mut state, &mut data),
+        5..17 => {
+            let accumulate = match data.as_accumulate_mut() {
+                Ok(a) => a,
+                Err(e) => return Stepped::new(e, state).with(data),
+            };
+            accumulate.call(call, &mut state)
+        }
+        17..27 => {
+            // refine::call(call, &mut state, &mut data)
+            Ok(Exit::What as u64)
+        }
         100 => jip::log(&mut state),
         _ => {
             tracing::debug!("unknown host call: {}", call);
@@ -43,70 +60,25 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 }
 
 /// Dynamic arguments for host calls
-pub trait Argument: Default {
+pub trait Argument<R: Accounts> {
     /// returns some if the input data is general
-    fn as_general(&self) -> crate::Result<General> {
+    fn as_general(&self) -> crate::Result<General<R>> {
         crate::bail!("not a general")
     }
 
     /// update the general argument
-    fn update_general(&mut self, _general: General) -> crate::Result<()> {
-        crate::bail!("not a general")
-    }
-
-    /// returns some if the input data is general
-    fn as_general_mut(&mut self) -> crate::Result<&mut General> {
+    fn update_general(&mut self, _general: General<R>) -> crate::Result<()> {
         crate::bail!("not a general")
     }
 
     /// returns some if the input data is accumulate
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
         crate::bail!("not an accumulate")
     }
 
     /// returns some if the input data is refine
     fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
         crate::bail!("not a refine")
-    }
-}
-
-impl Argument for Accumulate {
-    fn as_general(&self) -> crate::Result<General> {
-        let account = self
-            .x
-            .context
-            .accounts
-            .get(&self.x.service)
-            .ok_or_else(|| {
-                crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
-            })?;
-
-        Ok(General {
-            account: account.clone(),
-            index: self.x.service,
-            accounts: self.x.context.accounts.clone(),
-        })
-    }
-
-    fn update_general(&mut self, general: General) -> crate::Result<()> {
-        self.x
-            .context
-            .accounts
-            .insert(general.index, general.account.clone());
-
-        for (id, account) in general.accounts {
-            if id == general.index {
-                continue;
-            }
-
-            self.x.context.accounts.insert(id, account);
-        }
-
-        Ok(())
-    }
-
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
-        Ok(self)
     }
 }
 

@@ -107,7 +107,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         service: ServiceId,
         key: OpaqueHash,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        let value = account::storage(service, key);
+        let value = account::storage(service, &key);
         let key = [hash.as_ref(), value.as_ref()].concat();
         let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
         Ok(data)

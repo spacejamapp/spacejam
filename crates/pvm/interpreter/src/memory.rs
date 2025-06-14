@@ -2,7 +2,6 @@
 
 use crate::{Error, Result};
 use pvm::{Reason, Value};
-use smallvec::SmallVec;
 use std::{collections::BTreeMap, ops::Range};
 
 /// The memory of the interpreter.
@@ -38,7 +37,7 @@ impl Memory {
             self.pages.insert(
                 page,
                 Page {
-                    data: SmallVec::from_slice(&vec![0; parser::PAGE_SIZE as usize]),
+                    data: [0; parser::PAGE_SIZE as usize],
                     access: Access::Mutable,
                 },
             );
@@ -62,19 +61,22 @@ impl Memory {
     }
 
     /// Read bytes from the memory.
-    pub fn read_bytes(&self, page: u32, offset: u32, len: u32) -> Result<Vec<u8>> {
-        if offset + len > parser::PAGE_SIZE as u32 {
-            return Err(Error::MemoryInaccessible { page });
+    pub fn read_bytes(&self, mut page: u32, mut offset: u32, len: u32) -> Result<Vec<u8>> {
+        let mut bytes = vec![0; len as usize];
+        let mut read = 0u32;
+        while read < len {
+            let to_read = (len - read).min(parser::PAGE_SIZE as u32 - offset);
+            if to_read > 0 {
+                let data = self.access(page)?;
+                bytes[read as usize..(read + to_read) as usize]
+                    .copy_from_slice(&data.data[offset as usize..(offset + to_read) as usize]);
+            }
+
+            read += to_read;
+            page += 1;
+            offset = 0;
         }
 
-        let page_data = self.access(page)?;
-        let mut data = page_data.data.as_slice().to_vec();
-
-        // fill with 0 if necessary
-        let mut bytes = vec![0; len as usize];
-        let end = (offset + len) as usize;
-        data.resize(end, 0);
-        bytes[..len as usize].copy_from_slice(&data[offset as usize..end]);
         Ok(bytes)
     }
 
@@ -101,23 +103,22 @@ impl Memory {
     }
 
     /// Write bytes to the memory.
-    ///
-    /// TODO: cross page writes are not supported yet.
-    pub fn write_bytes(&mut self, page: u32, offset: u32, bytes: &[u8]) -> Result<()> {
-        let to_write = bytes.len() as u32;
-        let end = (offset + to_write) as usize;
-        if end > parser::PAGE_SIZE as usize {
-            tracing::error!("write_bytes, {page} inaccessible");
-            return Err(Error::MemoryInaccessible { page });
+    pub fn write_bytes(&mut self, mut page: u32, mut offset: u32, bytes: &[u8]) -> Result<()> {
+        let len = bytes.len() as u32;
+        let mut written = 0u32;
+        while written < len {
+            let to_write = (len - written).min(parser::PAGE_SIZE as u32 - offset);
+            if to_write > 0 {
+                let data = self.mutate(page)?;
+                data.data[offset as usize..(offset + to_write) as usize]
+                    .copy_from_slice(&bytes[written as usize..(written + to_write) as usize]);
+            }
+
+            written += to_write;
+            page += 1;
+            offset = 0;
         }
 
-        // resize the page if necessary
-        let page_data = self.mutate(page)?;
-        if page_data.data.len() < end {
-            page_data.data.resize(end, 0);
-        }
-
-        page_data.data[offset as usize..end].copy_from_slice(bytes);
         Ok(())
     }
 
@@ -199,10 +200,12 @@ impl pvm::Memory for Memory {
     fn from_raw(memory: parser::Memory) -> Self {
         let mut pages = BTreeMap::new();
         for (page_num, (data, writable)) in memory.memory {
+            let mut pdata = [0; parser::PAGE_SIZE as usize];
+            pdata[..data.len()].copy_from_slice(&data);
             pages.insert(
                 page_num,
                 Page {
-                    data: SmallVec::from_slice(&data),
+                    data: pdata,
                     access: if writable {
                         Access::Mutable
                     } else {
@@ -241,7 +244,7 @@ impl pvm::Memory for Memory {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Page {
     /// The data of the page.
-    pub data: SmallVec<[u8; parser::PAGE_SIZE as usize]>,
+    pub data: [u8; parser::PAGE_SIZE as usize],
 
     /// The access type of the page.
     pub access: Access,

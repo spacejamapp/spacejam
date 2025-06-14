@@ -100,7 +100,6 @@ impl Memory {
         //     args_len / crate::PAGE_SIZE + ptr / crate::PAGE_SIZE
         // );
         memory.insert_pages(args.to_vec(), ptr, false);
-        tracing::debug!("args: {:?}", args);
         memory.args.start = ptr as u32;
 
         // Args padding: 2^32 - Z_Z - Z_I + |a| ≤ i < 2^32 - Z_Z - Z_I + P(|a|)

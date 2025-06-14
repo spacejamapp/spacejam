@@ -1,20 +1,19 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 use error::{Error, Result};
-use pvm::Pvm;
+use pvm::{Accounts, Pvm};
 use score::{
     CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
-        ReadyReport, ReportedWorkPackage, ServiceAccount, WorkReport,
+        ReadyReport, ReportedWorkPackage, WorkReport,
     },
     vm::{Accumulation, DeferredTransfer, StateContext},
 };
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
-// mod compute;
 mod dep;
 pub mod error;
 mod exec;
@@ -24,7 +23,7 @@ mod validator;
 
 /// (b) Accumulate the available work reports
 #[tracing::instrument(skip_all)]
-pub fn accumulate<V: Pvm>(
+pub fn accumulate<V: Pvm, R: Accounts>(
     // The next timeslot (τ')
     slot: TimeSlot,
     // The prior timeslot (τ)
@@ -38,19 +37,19 @@ pub fn accumulate<V: Pvm>(
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
-    accounts: BTreeMap<u32, ServiceAccount>,
-) -> anyhow::Result<Accumulation> {
+    accounts: R,
+) -> anyhow::Result<Accumulation<R>> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let mut accumulated = exec::outer::<V>(
+    let mut accumulated = exec::outer::<V, R>(
         gas_limit,
         &accumulatable,
         StateContext {
-            accounts: accounts.clone(),
+            accounts,
             privileges: privileges.clone(),
             // Initialize validators and authorization to defaults for now
             // TODO: these should come from the full state in a real implementation
@@ -81,7 +80,7 @@ pub fn accumulate<V: Pvm>(
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
     // (δ‡) Process deferred transfers
-    let transfers = self::defer_transfers::<V>(
+    let transfers = self::defer_transfers::<V, R>(
         &mut accumulated.context.accounts,
         &accumulated.transfers,
         slot,
@@ -226,29 +225,24 @@ pub fn pools(
 }
 
 /// (δ‡) Process deferred transfers to transition from δ′ to δ‡
-pub fn defer_transfers<V: Pvm>(
+pub fn defer_transfers<V: Pvm, R: Accounts>(
     // The post-accumulation accounts (δ′)
-    accounts: &mut BTreeMap<u32, ServiceAccount>,
+    accounts: &mut R,
     // The deferred transfers (t)
     transfers: &[DeferredTransfer],
     // The current timeslot (τ')
     slot: TimeSlot,
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
     let mut statistics = BTreeMap::new();
-    let services: Vec<ServiceId> = accounts.keys().cloned().collect();
-
-    // Apply deferred transfers to each destination service (X computation)
+    let services: Vec<ServiceId> = accounts.services();
     for dest_service in services {
         let selected_transfers = DeferredTransfer::select(transfers, dest_service);
-
         if !selected_transfers.is_empty() {
-            // (ΨT) Apply transfers using PVM transfer function
-            let transfer_result = V::transfer(accounts, slot, dest_service, &selected_transfers);
+            let transfer_result =
+                V::transfer(accounts.clone(), slot, dest_service, &selected_transfers);
 
-            // Update the account with transfer results
-            accounts.insert(dest_service, transfer_result.account);
-
-            // Build transfer statistics (X) - equation from the spec
+            // FIXME: this upsert doesn't consider operations.
+            accounts.upsert(dest_service, transfer_result.account);
             statistics.insert(
                 dest_service,
                 (selected_transfers.len(), transfer_result.gas),

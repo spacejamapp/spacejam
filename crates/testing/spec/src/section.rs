@@ -65,21 +65,22 @@ impl FromStr for Section {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "codec" => Ok(Section::Codec),
-            "pvm" => Ok(Section::Pvm),
+            "pvm/programs" => Ok(Section::Pvm),
             "shuffle" => Ok(Section::Shuffle),
             "trie" => Ok(Section::Trie),
-            "accumulate" => Ok(Section::Accumulate),
-            "assurances" => Ok(Section::Assurances),
-            "safrole" => Ok(Section::Safrole),
-            "statistics" => Ok(Section::Statistics),
-            "authorizations" => Ok(Section::Authorizations),
-            "disputes" => Ok(Section::Disputes),
-            "history" => Ok(Section::History),
-            "preimages" => Ok(Section::Preimages),
-            "reports" => Ok(Section::Reports),
+            "stf/accumulate" => Ok(Section::Accumulate),
+            "stf/assurances" => Ok(Section::Assurances),
+            "stf/safrole" => Ok(Section::Safrole),
+            "stf/statistics" => Ok(Section::Statistics),
+            "stf/authorizations" => Ok(Section::Authorizations),
+            "stf/disputes" => Ok(Section::Disputes),
+            "stf/history/data" => Ok(Section::History),
+            "stf/preimages/data" => Ok(Section::Preimages),
+            "stf/reports" => Ok(Section::Reports),
             "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
             "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
+            "traces/reports-l1" => Ok(Section::Trace(Trace::ReportsL1)),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -105,6 +106,7 @@ impl AsRef<str> for Section {
                 Trace::Fallback => "traces/fallback",
                 Trace::Safrole => "traces/safrole",
                 Trace::ReportsL0 => "traces/reports-l0",
+                Trace::ReportsL1 => "traces/reports-l1",
             },
         }
     }
@@ -125,6 +127,8 @@ pub enum Trace {
     Safrole,
     /// The reports traces
     ReportsL0,
+    /// The reports traces
+    ReportsL1,
 }
 
 impl AsRef<str> for Trace {
@@ -133,6 +137,7 @@ impl AsRef<str> for Trace {
             Trace::Fallback => "fallback",
             Trace::Safrole => "safrole",
             Trace::ReportsL0 => "reports-l0",
+            Trace::ReportsL1 => "reports-l1",
         }
     }
 }

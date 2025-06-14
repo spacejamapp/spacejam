@@ -1,19 +1,21 @@
-//! PVM invocation interface
+//! API for the invocation
 
 use crate::{
-    host, AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Received,
-    Refined, State, Stepped, Transferred,
+    host,
+    invocation::{Received, State, Stepped},
+    AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Refined,
+    Transferred,
 };
 use parser::{
     program::{self, Program},
     ProgramBlob,
 };
 use score::{
-    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    account::{Account, Accounts},
+    service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use std::collections::BTreeMap;
 
 /// The invocation interface of PVM
 ///
@@ -52,7 +54,7 @@ pub trait Invocation {
         } = match program::deblob(blob) {
             Ok(program) => program,
             Err(e) => {
-                return Stepped::new(Reason::Panic(e.to_string()), state);
+                return state.stepped(Reason::Panic(e.to_string()));
             }
         };
 
@@ -74,7 +76,7 @@ pub trait Invocation {
 
             // out of gas
             if next.gas < 0 {
-                return Stepped::new(Reason::OOG, state);
+                return state.stepped(Reason::OOG);
             }
 
             // handle the exit reason
@@ -89,7 +91,7 @@ pub trait Invocation {
                 _ => {}
             };
 
-            return Stepped::new(reason, state);
+            return state.stepped(reason);
         }
     }
 
@@ -116,7 +118,7 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<X: Argument>(
+    fn call<R: Accounts, X: Argument<R>>(
         // (c) The instruction data
         code: &[u8],
         // (ı) The current program counter
@@ -136,20 +138,21 @@ pub trait Invocation {
         let Stepped {
             reason,
             state,
-            data: _, // invoke() returns () data, but we need to preserve input
+            data: _,
         } = Self::invoke(code, pc, gas, registers, memory);
 
         // if error occurs, return the state WITH THE PRESERVED INPUT DATA
         let Reason::HostCall(call) = reason else {
-            return Stepped::new(reason, state).with(input);
+            return state.stepped(reason).with(input);
         };
 
-        let stepped = host::call(call, state, input);
+        let stepped = host::call::<R, _, _>(call, state, input);
         match stepped.reason {
-            Reason::Fault { page } => {
-                Stepped::new(Reason::Fault { page }, stepped.state).with(stepped.data)
-            }
-            // TODO: this recursive call should be optimized in production.
+            Reason::Fault { page } => stepped
+                .state
+                .stepped(Reason::Fault { page })
+                .with(stepped.data),
+            // FIXME: this recursive call should be optimized in production.
             //
             // mb create a new call_inner function and set up a loop for it.
             Reason::Continue | Reason::HostCall(_) => Self::call(
@@ -160,14 +163,14 @@ pub trait Invocation {
                 stepped.state.memory,
                 stepped.data,
             ),
-            _ => Stepped::new(stepped.reason, stepped.state).with(stepped.data),
+            _ => stepped.state.stepped(stepped.reason).with(stepped.data),
         }
     }
 
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<X: Argument>(
+    fn argument<R: Accounts, X: Argument<R>>(
         // (p) The standard program blob
         blob: &[u8],
         // (ı) The current program counter
@@ -189,7 +192,7 @@ pub trait Invocation {
             Ok(standard) => standard,
             Err(e) => {
                 tracing::error!("failed to deblob the standard program blob: {e:?}");
-                return Received::new(0, Reason::Panic(e.to_string()), data);
+                return Received::panic(e, data);
             }
         };
 
@@ -204,12 +207,8 @@ pub trait Invocation {
             output = registered;
         };
 
-        Received::new(
-            gas - (stepped.state.gas.max(0) as u64),
-            stepped.reason,
-            stepped.data,
-        )
-        .with(output)
+        let gas = gas - (stepped.state.gas.max(0) as u64);
+        stepped.received(gas, output)
     }
 
     /// (ΨI): The Is-Authorized invocation
@@ -248,9 +247,9 @@ pub trait Invocation {
     /// (ΨA): Accumulation invocation
     ///
     /// as defined per graypaper (B.9)
-    fn accumulate(
+    fn accumulate<R: Accounts>(
         // (U) The state context
-        context: StateContext,
+        mut context: StateContext<R>,
         // (N_t)  timeslot for the current accumulation
         timeslot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -261,33 +260,30 @@ pub trait Invocation {
         operands: Vec<Operand>,
         // entropy'0
         entropy: OpaqueHash,
-    ) -> AccumulateResult {
+    ) -> AccumulateResult<R> {
         let Some(code) = context.code(service) else {
-            tracing::trace!("no code found for service: {}", service);
-            return AccumulateResult {
-                context,
-                ..Default::default()
-            };
+            tracing::warn!("no code found for service: {}", service);
+            return AccumulateResult::new(context);
         };
 
         // create the accumulate context
         let context = AccumulateContext {
-            context: context.clone(),
+            context,
             service,
             index: Self::index(service, timeslot, entropy),
             transfer: Vec::new(),
             output: None,
         };
 
-        let accumulate = host::Accumulate::new(context, timeslot);
+        let accumulate = context.accumulate(timeslot);
         let params = AccumulateParams {
             slot: timeslot,
             id: service,
             results: operands,
         };
-        tracing::debug!("accumulate params: {:?}", params);
+
         let args = codec::encode(&params).expect("failed to encode");
-        let result = Self::argument(code, 5, gas, &args, accumulate);
+        let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
@@ -308,9 +304,9 @@ pub trait Invocation {
     /// (ΨT): on-transfer invocation
     ///
     /// Defined per graypaper (B.15)
-    fn transfer(
+    fn transfer<R: Accounts>(
         // (δ) The account storage
-        accounts: &BTreeMap<ServiceId, ServiceAccount>,
+        mut accounts: R,
         // (N_t)  timeslot for the current accumulation
         slot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -318,12 +314,12 @@ pub trait Invocation {
         // (T)  the deferred transfers
         transfers: &[DeferredTransfer],
     ) -> Transferred {
-        let Some(account) = accounts.get(&service) else {
+        let Some(account) = accounts.get(service) else {
             tracing::warn!("no account found for service: {}", service);
             return Transferred::default();
         };
 
-        let Some(code) = account.code() else {
+        let Some(code) = account.blob() else {
             return Transferred::default();
         };
 
@@ -335,18 +331,17 @@ pub trait Invocation {
         //
         // this seems not correct.
         tracing::warn!("FIXME: update the account balance: {}", amount);
-        let mut account = account.clone();
-        account.balance += amount;
+        *account.balance_mut() += amount;
+        let account = account.account();
         let general = host::General {
-            account,
             index: service,
-            accounts: accounts.clone(),
+            accounts,
         };
 
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
-            account: received.data.account,
+            account,
             gas: received.gas,
         }
     }

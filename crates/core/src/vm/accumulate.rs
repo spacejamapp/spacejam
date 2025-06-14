@@ -1,9 +1,11 @@
-//! Virtual machine interfaces
+//! Primitives for the accumulate invocation
 
 use crate::{
+    account::{Account, Accounts},
     safrole::ValidatorData,
-    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceAccount, ServiceItem},
+    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceItem},
     statistic::ServiceActivityRecord,
+    vm::DeferredTransfer,
     OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
@@ -14,10 +16,10 @@ use std::collections::BTreeMap;
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 
 /// The state context for accumulation
-#[derive(Default, Clone)]
-pub struct StateContext {
+#[derive(Clone)]
+pub struct StateContext<R: Accounts> {
     /// d (δ) The accounts
-    pub accounts: BTreeMap<u32, ServiceAccount>,
+    pub accounts: R,
 
     /// i (ι) The upcoming validators
     pub validators: Vec<ValidatorData>,
@@ -29,10 +31,10 @@ pub struct StateContext {
     pub privileges: Privileges,
 }
 
-impl StateContext {
+impl<R: Accounts> StateContext<R> {
     /// Share preimages for the services in the state context
-    pub fn code(&self, service: ServiceId) -> Option<&Vec<u8>> {
-        self.accounts.get(&service)?.code()
+    pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
+        self.accounts.code(service)
 
         // TODO: the logic below is correct, however
         // we need to match the test vectors atm.
@@ -59,13 +61,13 @@ impl StateContext {
 /// - \[T\]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-#[derive(Default, Clone)]
-pub struct Accumulated {
+#[derive(Clone)]
+pub struct Accumulated<R: Accounts> {
     /// (i) the number of work-results accumulated.
     pub accumulated: usize,
 
     /// (o) A posterior state-context.
-    pub context: StateContext,
+    pub context: StateContext<R>,
 
     /// (t) The resultant deferred-transfers
     pub transfers: Vec<DeferredTransfer>,
@@ -77,7 +79,18 @@ pub struct Accumulated {
     pub gas: BTreeMap<ServiceId, Gas>,
 }
 
-impl Accumulated {
+impl<R: Accounts> Accumulated<R> {
+    /// Create a new accumulated.
+    pub fn new(context: StateContext<R>) -> Self {
+        Self {
+            accumulated: 0,
+            context,
+            transfers: vec![],
+            pairings: BTreeMap::new(),
+            gas: BTreeMap::new(),
+        }
+    }
+
     /// Get the service records
     pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
         let mut records = BTreeMap::new();
@@ -100,7 +113,7 @@ impl Accumulated {
 }
 
 /// The accumulation result used in the runtime
-pub struct Accumulation {
+pub struct Accumulation<R: Accounts> {
     /// (r) The accumulate root
     pub root: OpaqueHash,
 
@@ -111,7 +124,7 @@ pub struct Accumulation {
     pub accumulated_queue: AccumulatedQueue,
 
     /// (δ') The accounts
-    pub accounts: BTreeMap<u32, ServiceAccount>,
+    pub accounts: R,
 
     /// (χ) The privileges
     pub privileges: Privileges,
@@ -123,23 +136,26 @@ pub struct Accumulation {
     pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
 }
 
-impl Accumulation {
+impl<R: Accounts> Accumulation<R> {
     /// NOTE: this method is testing usage.
     ///
     /// Sync preimages for account statistics
     pub fn accounts(&self) -> Vec<ServiceItem> {
         let mut items = Vec::new();
-        for (id, account) in self.accounts.iter() {
+        let accounts = self.accounts.clone().accounts();
+        for (id, account) in accounts.iter() {
+            let account = account.account();
             if account.preimage.contains_key(&account.code) {
                 items.push(ServiceItem {
                     id: *id,
-                    data: account.into(),
+                    data: (&account).into(),
                 });
 
                 continue;
             }
 
-            for other in self.accounts.values() {
+            for other in accounts.values() {
+                let other = other.account();
                 if other.code != account.code || !other.preimage.contains_key(&account.code) {
                     continue;
                 }
@@ -216,36 +232,4 @@ pub struct Operand {
 
     /// (d) The work execution result
     pub data: WorkExecResult,
-}
-
-/// A deferred transfer item
-#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
-pub struct DeferredTransfer {
-    /// (s) The sender
-    pub sender: ServiceId,
-
-    /// (d) The destination
-    pub recipient: ServiceId,
-
-    /// (a) The amount
-    pub amount: u64,
-
-    /// (m) The memo
-    pub memo: Vec<u8>,
-
-    /// (g) The gas limit
-    pub gas_limit: Gas,
-}
-
-impl DeferredTransfer {
-    /// (R): Select transfers for a given destination service
-    pub fn select(transfers: &[DeferredTransfer], dest: ServiceId) -> Vec<DeferredTransfer> {
-        let mut transfers = transfers.to_vec();
-        transfers.sort_by_key(|t| t.sender);
-        transfers
-            .iter()
-            .filter(|t| t.recipient == dest)
-            .cloned()
-            .collect()
-    }
 }
