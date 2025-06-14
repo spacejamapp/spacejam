@@ -18,6 +18,8 @@ pub struct Accounts<'a, S: Storage> {
 
 impl<'a, S: Storage> Accounts<'a, S> {
     /// Create a new account registry
+    ///
+    /// TODO: fetch initial accounts based on input extrinsics
     pub fn new(storage: &'a S) -> Self {
         Self {
             storage,
@@ -29,8 +31,7 @@ impl<'a, S: Storage> Accounts<'a, S> {
     /// Get an account from the registry
     pub fn get(&mut self, index: u32) -> Option<&mut Account<'a, S>> {
         if let Entry::Vacant(e) = self.accounts.entry(index) {
-            let state = self.storage.account_info(index).ok()?;
-            e.insert(Account::new(self.storage, index, state));
+            e.insert(Account::new(self.storage, index).ok()?);
         }
 
         self.accounts.get_mut(&index)
