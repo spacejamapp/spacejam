@@ -4,7 +4,16 @@ use crate::{account::Account, service::ServiceAccount, StorageKey};
 use std::collections::BTreeMap;
 
 /// Account registry
-pub trait Accounts {
+pub trait Accounts: Clone {
+    /// Get the code of an account
+    fn code(&self, index: u32) -> Option<Vec<u8>>;
+
+    /// Create a new account
+    fn upsert(&mut self, index: u32, account: ServiceAccount);
+
+    /// Get the services from the registry
+    fn services(&self) -> Vec<u32>;
+
     /// Get an account from the registry
     fn get(&mut self, index: u32) -> Option<&mut impl Account>;
 
@@ -19,6 +28,18 @@ pub trait Accounts {
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
+    fn code(&self, index: u32) -> Option<Vec<u8>> {
+        self.get(&index)?.blob()
+    }
+
+    fn upsert(&mut self, index: u32, account: ServiceAccount) {
+        self.insert(index, account);
+    }
+
+    fn services(&self) -> Vec<u32> {
+        self.keys().cloned().collect()
+    }
+
     fn get(&mut self, index: u32) -> Option<&mut impl Account> {
         self.get_mut(&index)
     }

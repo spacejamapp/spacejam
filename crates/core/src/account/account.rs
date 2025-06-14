@@ -1,12 +1,51 @@
-use crate::service::{ServiceAccount, ServiceAccountState};
+use crate::{
+    service::{GasLimit, ServiceAccount, ServiceAccountState},
+    OpaqueHash,
+};
 
 /// JAM account abstraction
-pub trait Account {
+pub trait Account: Clone {
+    /// Get the account
+    fn account(&self) -> ServiceAccount;
+
+    /// Get the balance of the account
+    fn balance(&self) -> u64;
+
+    /// Get the balance of the account
+    fn balance_mut(&mut self) -> &mut u64;
+
+    /// Get the blob of the account
+    fn blob(&self) -> Option<Vec<u8>>;
+
+    /// Get the threshold of the account
+    fn threshold(&self) -> u64;
+
+    /// Get the total of the account
+    fn total(&self) -> u64;
+
+    /// Get the items of the account
+    fn items(&self) -> u32;
+
+    /// Get the code of the account
+    fn code(&self) -> OpaqueHash;
+
+    /// Set the code of the account
+    fn set_code(&mut self, code: OpaqueHash);
+
+    /// Get the gas of the account
+    fn gas(&self) -> GasLimit;
+
+    /// Set the gas of the account
+    fn set_gas(&mut self, gas: GasLimit);
+
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
 
     /// Insert a lookup to the account
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>);
+
+    /// Remove a lookup from the account
+    fn remove_lookup(&mut self, hash: [u8; 32], len: u32);
 
     /// Get a preimage from the account
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>>;
@@ -14,11 +53,14 @@ pub trait Account {
     /// Insert a preimage to the account
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>);
 
+    /// Remove a preimage from the account
+    fn remove_preimage(&mut self, hash: [u8; 32]);
+
     /// Get a storage from the account
     fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>>;
 
     /// Remove a storage from the account
-    fn remove(&mut self, key: &[u8]);
+    fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
     /// Write a storage to the account
     fn write(&mut self, key: &[u8], value: Vec<u8>);
@@ -28,12 +70,60 @@ pub trait Account {
 }
 
 impl Account for ServiceAccount {
+    fn account(&self) -> ServiceAccount {
+        self.clone()
+    }
+
+    fn balance(&self) -> u64 {
+        self.balance
+    }
+
+    fn balance_mut(&mut self) -> &mut u64 {
+        &mut self.balance
+    }
+
+    fn blob(&self) -> Option<Vec<u8>> {
+        self.preimage.get(&self.code).cloned()
+    }
+
+    fn threshold(&self) -> u64 {
+        self.threshold()
+    }
+
+    fn total(&self) -> u64 {
+        self.total()
+    }
+
+    fn items(&self) -> u32 {
+        self.items()
+    }
+
+    fn code(&self) -> OpaqueHash {
+        self.code
+    }
+
+    fn set_code(&mut self, code: OpaqueHash) {
+        self.code = code;
+    }
+
+    fn gas(&self) -> GasLimit {
+        self.gas.clone()
+    }
+
+    fn set_gas(&mut self, gas: GasLimit) {
+        self.gas = gas;
+    }
+
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
         self.lookup.get(&(hash, len)).cloned()
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {
         self.lookup.insert((hash, len), slots);
+    }
+
+    fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
+        self.lookup.remove(&(hash, len));
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
@@ -44,12 +134,16 @@ impl Account for ServiceAccount {
         self.preimage.insert(hash, preimage);
     }
 
+    fn remove_preimage(&mut self, hash: [u8; 32]) {
+        self.preimage.remove(&hash);
+    }
+
     fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
         self.storage.get(key)
     }
 
-    fn remove(&mut self, key: &[u8]) {
-        self.storage.remove(key);
+    fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
+        self.storage.remove(key)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {

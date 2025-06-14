@@ -11,6 +11,7 @@ use parser::{
     ProgramBlob,
 };
 use score::{
+    account::{Account, Accounts},
     service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
@@ -23,6 +24,9 @@ use std::collections::BTreeMap;
 pub trait Invocation {
     /// The memory type of the PVM
     type Memory: crate::Memory;
+
+    /// The accounts type of the PVM
+    type Accounts: Accounts;
 
     /// (Ψ): the general PVM invocation
     ///
@@ -118,7 +122,7 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<X: Argument>(
+    fn call<X: Argument<Self::Accounts>>(
         // (c) The instruction data
         code: &[u8],
         // (ı) The current program counter
@@ -146,7 +150,7 @@ pub trait Invocation {
             return state.stepped(reason).with(input);
         };
 
-        let stepped = host::call(call, state, input);
+        let stepped = host::call::<Self::Accounts, _, _>(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
@@ -170,7 +174,7 @@ pub trait Invocation {
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<X: Argument>(
+    fn argument<X: Argument<Self::Accounts>>(
         // (p) The standard program blob
         blob: &[u8],
         // (ı) The current program counter
@@ -249,7 +253,7 @@ pub trait Invocation {
     /// as defined per graypaper (B.9)
     fn accumulate(
         // (U) The state context
-        context: StateContext,
+        context: StateContext<Self::Accounts>,
         // (N_t)  timeslot for the current accumulation
         timeslot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -260,7 +264,7 @@ pub trait Invocation {
         operands: Vec<Operand>,
         // entropy'0
         entropy: OpaqueHash,
-    ) -> AccumulateResult {
+    ) -> AccumulateResult<Self::Accounts> {
         let Some(code) = context.code(service) else {
             tracing::trace!("no code found for service: {}", service);
             return AccumulateResult::new(context);
@@ -268,7 +272,7 @@ pub trait Invocation {
 
         // create the accumulate context
         let context = AccumulateContext {
-            context: context.clone(),
+            context,
             service,
             index: Self::index(service, timeslot, entropy),
             transfer: Vec::new(),
@@ -283,7 +287,7 @@ pub trait Invocation {
         };
 
         let args = codec::encode(&params).expect("failed to encode");
-        let result = Self::argument(code, 5, gas, &args, accumulate);
+        let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
@@ -306,7 +310,7 @@ pub trait Invocation {
     /// Defined per graypaper (B.15)
     fn transfer(
         // (δ) The account storage
-        accounts: &BTreeMap<ServiceId, ServiceAccount>,
+        mut accounts: Self::Accounts,
         // (N_t)  timeslot for the current accumulation
         slot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -314,12 +318,12 @@ pub trait Invocation {
         // (T)  the deferred transfers
         transfers: &[DeferredTransfer],
     ) -> Transferred {
-        let Some(account) = accounts.get(&service) else {
+        let Some(account) = accounts.get(service) else {
             tracing::warn!("no account found for service: {}", service);
             return Transferred::default();
         };
 
-        let Some(code) = account.code() else {
+        let Some(code) = account.blob() else {
             return Transferred::default();
         };
 
@@ -331,18 +335,17 @@ pub trait Invocation {
         //
         // this seems not correct.
         tracing::warn!("FIXME: update the account balance: {}", amount);
-        let mut account = account.clone();
-        account.balance += amount;
+        *account.balance_mut() += amount;
+        let account = account.account();
         let general = host::General {
-            account,
             index: service,
-            accounts: accounts.clone(),
+            accounts,
         };
 
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
-            account: received.data.account,
+            account,
             gas: received.gas,
         }
     }
@@ -361,6 +364,8 @@ pub trait Invocation {
 
 impl Invocation for () {
     type Memory = ();
+
+    type Accounts = BTreeMap<ServiceId, ServiceAccount>;
 
     fn step(
         _instructions: &[u8],

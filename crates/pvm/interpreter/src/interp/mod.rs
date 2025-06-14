@@ -7,7 +7,8 @@
 //! - [ ]: introduce the sign / unsign transitionss
 
 use crate::{Error, Memory, Register};
-use pvm::Reason;
+use pvm::{Accounts, Reason};
+use std::marker::PhantomData;
 
 mod builder;
 mod legacy;
@@ -21,8 +22,7 @@ pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 ///
 /// TODO: maybe use lifetime to save the cost for adpating the
 /// invocation interfaces in the future.
-#[derive(Default)]
-pub struct Interpreter {
+pub struct Interpreter<R: Accounts> {
     /// The registers of the interpreter.
     /// ra = [0]
     /// sp = [1]
@@ -47,9 +47,11 @@ pub struct Interpreter {
 
     /// The jump target.
     pub jump: Option<usize>,
+
+    _acc: PhantomData<R>,
 }
 
-impl Interpreter {
+impl<R: Accounts> Interpreter<R> {
     /// Branch to the given target.
     fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {

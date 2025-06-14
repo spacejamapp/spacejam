@@ -7,13 +7,14 @@ use crate::{
 };
 use codec::Numeric;
 use score::{
+    account::{Account, Accounts},
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
     TimeSlot,
 };
 use std::collections::BTreeMap;
 
-impl Accumulate {
+impl<R: Accounts> Accumulate<R> {
     /// Call an accumulate host function
     pub fn call<M: crate::Memory>(&mut self, call: u32, state: &mut State<M>) -> Result<ExitCode> {
         match call {
@@ -153,22 +154,23 @@ impl Accumulate {
 
         // update the creator's account
         let creator = self.account()?;
-        if creator.balance < score::BALANCE_PER_SERVICE {
+        if creator.balance() < score::BALANCE_PER_SERVICE {
             return Ok(Exit::Cash as u64);
         }
 
         // create the new accumulated
-        creator.balance -= score::BALANCE_PER_SERVICE;
+        *creator.balance_mut() -= score::BALANCE_PER_SERVICE;
         let mut account = ServiceAccount::new(GasLimit {
             accumulate: g,
             transfer: m,
         });
+        account.balance = score::BALANCE_PER_SERVICE;
         account.code = hash;
         account.lookup.insert((hash, l as u32), vec![]);
 
         // insert the new account to the map
         let index = self.x.index;
-        self.x.context.accounts.insert(index, account);
+        self.x.context.accounts.upsert(index, account);
         self.x.check(index);
         Ok(index as u64)
     }
@@ -183,9 +185,11 @@ impl Accumulate {
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
 
-        account.code = code;
-        account.gas.transfer = m;
-        account.gas.accumulate = g;
+        account.set_code(code);
+        account.set_gas(GasLimit {
+            transfer: m,
+            accumulate: g,
+        });
         Ok(Exit::Ok as u64)
     }
 
@@ -203,12 +207,12 @@ impl Accumulate {
         ];
 
         // check if the recipient exists
-        let Some(dest) = self.x.context.accounts.get(&(d as u32)) else {
+        let Some(dest) = self.x.context.accounts.get(d as u32) else {
             return Ok(Exit::Who as u64);
         };
 
         // check if the transfer limit is enough
-        if limit < dest.gas.transfer {
+        if limit < dest.gas().transfer {
             return Ok(Exit::Low as u64);
         }
 
@@ -216,12 +220,12 @@ impl Accumulate {
         let account = self.account()?;
 
         // check if the sender has enough balance
-        if account.balance < a + account.threshold() {
+        if account.balance() < a + account.threshold() {
             return Ok(Exit::Cash as u64);
         }
 
         // update the sender's balance
-        account.balance -= a;
+        *account.balance_mut() -= a;
 
         // get the memo
         let memo = state
@@ -246,7 +250,7 @@ impl Accumulate {
         let hash = state.memory.read_hash(o)?;
 
         // check if the service exists
-        let Some(dest) = self.x.context.accounts.get(&d) else {
+        let Some(dest) = self.x.context.accounts.get(d) else {
             return Ok(Exit::Who as u64);
         };
 
@@ -254,19 +258,18 @@ impl Accumulate {
         let ibytes = self.x.service.to_le_bytes();
         let mut code = [0u8; 32];
         code[..4].copy_from_slice(&ibytes);
-        if dest.code != code {
+        if dest.code() != code {
             return Ok(Exit::Who as u64);
         }
 
         // check items
-        let dest = dest.clone();
         let total = (dest.total().max(81) - 81) as u32;
         if dest.items() != 2 {
             return Ok(Exit::Huh as u64);
         }
 
         // check the lookup data
-        let Some(lookup) = dest.lookup.get(&(hash, total)) else {
+        let Some(lookup) = dest.lookup(hash, total) else {
             return Ok(Exit::Huh as u64);
         };
 
@@ -275,11 +278,12 @@ impl Accumulate {
             return Ok(Exit::Huh as u64);
         }
 
-        // update the account map
-        self.x.context.accounts.remove(&d);
+        // update the account
+        let balance = dest.balance();
+        let _ = dest;
+        self.x.context.accounts.remove(d);
         let account = self.account()?;
-
-        account.balance += dest.balance;
+        *account.balance_mut() += balance;
         Ok(Exit::Ok as u64)
     }
 
@@ -291,7 +295,7 @@ impl Accumulate {
         let account = self.account()?;
 
         // query the lookup state
-        let Some(lookup) = account.lookup.get(&(hash, z)) else {
+        let Some(lookup) = account.lookup(hash, z) else {
             state.registers[8] = 0;
             return Ok(Exit::None as u64);
         };
@@ -325,15 +329,15 @@ impl Accumulate {
         // check if the account has enough balance
         let timeslot = self.timeslot;
         let account = self.account()?;
-        let this = account.clone();
-        if this.balance < this.threshold() {
+        if account.balance() < account.threshold() {
             return Ok(Exit::Full as u64);
         }
 
         // get the lookup
-        let lookup = account.lookup.entry((hash, z as u32)).or_insert(vec![]);
+        let mut lookup = account.lookup(hash, z as u32).unwrap_or_default();
         if lookup.len() == 2 {
             lookup.push(timeslot);
+            account.insert_lookup(hash, z as u32, lookup);
         } else {
             return Ok(Exit::Huh as u64);
         }
@@ -350,18 +354,20 @@ impl Accumulate {
         // get the lookup data
         let timeslot = self.timeslot;
         let account = self.account()?;
-        let Some(lookup) = account.lookup.get_mut(&(hash, z as u32)) else {
+        let Some(mut lookup) = account.lookup(hash, z as u32) else {
             return Ok(Exit::Huh as u64);
         };
 
         let expunged = timeslot - score::EXPUNGED_TIME;
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
-            account.lookup.remove(&(hash, z as u32));
-            account.preimage.remove(&hash);
+            account.remove_lookup(hash, z as u32);
+            account.remove_preimage(hash);
         } else if lookup.len() == 1 {
             lookup.push(timeslot);
+            account.insert_lookup(hash, z as u32, lookup);
         } else if lookup.len() == 3 && lookup[2] < expunged {
-            *lookup = vec![lookup[2], timeslot];
+            lookup[2] = timeslot;
+            account.insert_lookup(hash, z as u32, lookup);
         } else {
             return Ok(Exit::Huh as u64);
         }
@@ -383,56 +389,48 @@ impl Accumulate {
 }
 
 /// Accumulate arguments
-pub struct Accumulate {
+pub struct Accumulate<R: Accounts> {
     /// The regular dimension
-    pub x: AccumulateContext,
+    pub x: AccumulateContext<R>,
 
     /// The exceptional dimension
-    pub y: AccumulateContext,
+    pub y: AccumulateContext<R>,
 
     /// The timeslot
     pub timeslot: TimeSlot,
 }
 
-impl Accumulate {
+impl<R: Accounts> Accumulate<R> {
     /// Get the account
-    pub fn account(&mut self) -> Result<&mut ServiceAccount> {
+    pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
         self.x
             .context
             .accounts
-            .get_mut(&self.x.service)
+            .get(self.x.service)
             .ok_or(Reason::Panic("Could not find account".into()))
     }
 }
 
-impl Argument for Accumulate {
-    fn as_general(&self) -> crate::Result<General> {
-        let account = self
-            .x
-            .context
-            .accounts
-            .get(&self.x.service)
-            .ok_or_else(|| {
-                crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
-            })?;
-
+impl<R: Accounts> Argument<R> for Accumulate<R> {
+    fn as_general(&self) -> crate::Result<General<R>> {
         Ok(General {
-            account: account.clone(),
             index: self.x.service,
             accounts: self.x.context.accounts.clone(),
         })
     }
 
     // TODO: check if we just need to update the current account
-    fn update_general(&mut self, general: General) -> crate::Result<()> {
-        self.x
-            .context
-            .accounts
-            .insert(general.index, general.account);
+    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
+        let index = general.index;
+        let Some(account) = general.account() else {
+            crate::bail!("Account {} not found in context", general.index);
+        };
+
+        self.x.context.accounts.upsert(index, account.account());
         Ok(())
     }
 
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
         Ok(self)
     }
 }

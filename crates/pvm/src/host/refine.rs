@@ -1,15 +1,15 @@
 //! refine host calls
 
-use crate::{
+/* use crate::{
     host::{Exit, ExitCode},
     invocation::State,
     Argument, Reason, Result,
-};
+}; */
 
 /// Reine host call arguments
 pub struct Refine {}
 
-/// refine host call
+/* /// refine host call
 pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,
     state: &mut State<Memory>,
@@ -109,3 +109,4 @@ fn expunge<X: Argument, Memory: crate::Memory>(
 ) -> Result<ExitCode> {
     crate::bail!("not implemented")
 }
+ */

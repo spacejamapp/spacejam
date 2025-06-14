@@ -4,6 +4,7 @@ use crate::{
     invocation::{State, Stepped},
     Reason,
 };
+use score::account::Accounts;
 pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
@@ -12,7 +13,7 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument, Memory: crate::Memory>(
+pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     call: u32,
     mut state: State<Memory>,
     data: X,
@@ -38,7 +39,10 @@ pub fn call<X: Argument, Memory: crate::Memory>(
             };
             accumulate.call(call, &mut state)
         }
-        17..27 => refine::call(call, &mut state, &mut data),
+        17..27 => {
+            // refine::call(call, &mut state, &mut data)
+            Ok(Exit::What as u64)
+        }
         100 => jip::log(&mut state),
         _ => {
             tracing::debug!("unknown host call: {}", call);
@@ -56,19 +60,19 @@ pub fn call<X: Argument, Memory: crate::Memory>(
 }
 
 /// Dynamic arguments for host calls
-pub trait Argument {
+pub trait Argument<R: Accounts> {
     /// returns some if the input data is general
-    fn as_general(&self) -> crate::Result<General> {
+    fn as_general(&self) -> crate::Result<General<R>> {
         crate::bail!("not a general")
     }
 
     /// update the general argument
-    fn update_general(&mut self, _general: General) -> crate::Result<()> {
+    fn update_general(&mut self, _general: General<R>) -> crate::Result<()> {
         crate::bail!("not a general")
     }
 
     /// returns some if the input data is accumulate
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
         crate::bail!("not an accumulate")
     }
 

@@ -2,19 +2,19 @@
 
 use crate::{host::Accumulate, invocation::state::Received, Reason};
 use score::{
-    service::ServiceAccount,
+    account::{Account, Accounts},
     vm::{DeferredTransfer, StateContext},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// Context for the PVM accumulation
-#[derive(Default, Clone)]
-pub struct AccumulateContext {
+#[derive(Clone)]
+pub struct AccumulateContext<R: Accounts> {
     /// (s) The service id
     pub service: ServiceId,
 
     /// (u) The upcoming validators
-    pub context: StateContext,
+    pub context: StateContext<R>,
 
     /// (i) empty index for a new account
     pub index: ServiceId,
@@ -26,15 +26,18 @@ pub struct AccumulateContext {
     pub output: Option<OpaqueHash>,
 }
 
-impl AccumulateContext {
+impl<R: Accounts> AccumulateContext<R> {
     /// Get the account for the accumulation
-    pub fn account(&mut self) -> Option<&mut ServiceAccount> {
-        self.context.accounts.get_mut(&self.service)
+    pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
+        self.context.accounts.get(self.service)
     }
 
     /// Check update an empty account index
+    ///
+    /// TODO: use a loop instead of recursion
     pub fn check(&mut self, index: ServiceId) {
-        if !self.context.accounts.contains_key(&index) {
+        let services = self.context.accounts.services();
+        if !services.contains(&index) {
             self.index = index;
         } else {
             let next = ((index - (1 << 8)) + 1) % (u32::MAX - (1 << 9)) + (1 << 8);
@@ -43,7 +46,7 @@ impl AccumulateContext {
     }
 
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(self, timeslot: TimeSlot) -> Accumulate {
+    pub fn accumulate(self, timeslot: TimeSlot) -> Accumulate<R> {
         Accumulate {
             y: self.clone(),
             x: self,
@@ -52,7 +55,7 @@ impl AccumulateContext {
     }
 
     /// Convert the accumulate context to an accumulate result
-    pub fn to_result(self, gas: Gas) -> AccumulateResult {
+    pub fn to_result(self, gas: Gas) -> AccumulateResult<R> {
         AccumulateResult {
             context: self.context,
             transfers: self.transfer,
@@ -63,9 +66,9 @@ impl AccumulateContext {
 }
 
 /// The accumulate result of (ΨA)
-pub struct AccumulateResult {
+pub struct AccumulateResult<R: Accounts> {
     /// (o) The state context
-    pub context: StateContext,
+    pub context: StateContext<R>,
 
     /// (t) The timeslot for the current accumulation
     pub transfers: Vec<DeferredTransfer>,
@@ -77,9 +80,9 @@ pub struct AccumulateResult {
     pub gas: Gas,
 }
 
-impl AccumulateResult {
+impl<R: Accounts> AccumulateResult<R> {
     /// Create a new accumulate result
-    pub fn new(context: StateContext) -> Self {
+    pub fn new(context: StateContext<R>) -> Self {
         Self {
             context,
             transfers: Vec::new(),
@@ -89,9 +92,9 @@ impl AccumulateResult {
     }
 }
 
-impl Received<Accumulate> {
+impl<R: Accounts> Received<Accumulate<R>> {
     /// Convert the received result to an accumulate result
-    pub fn to_result(self) -> AccumulateResult {
+    pub fn to_result(self) -> AccumulateResult<R> {
         // Treat Continue and Halt as successful completion
         // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
         match self.reason {

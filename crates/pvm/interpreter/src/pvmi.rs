@@ -2,10 +2,11 @@
 
 use crate::{Interpreter, Memory};
 use parser::{reader::Offset, Instruction, Reader, Visitor};
-use pvm::{Gas, Invocation, Reason, Stepped};
+use pvm::{Accounts, Gas, Invocation, Reason, Stepped};
 
-impl Invocation for Interpreter {
+impl<R: Accounts> Invocation for Interpreter<R> {
     type Memory = Memory;
+    type Accounts = R;
 
     /// Step the instruction.
     #[tracing::instrument(skip_all, target = "pvmi")]
@@ -26,7 +27,7 @@ impl Invocation for Interpreter {
         memory: Memory,
     ) -> Stepped<Memory, ()> {
         let pc = pc as usize;
-        let mut pvmi = Interpreter::default()
+        let mut pvmi = Interpreter::<R>::default()
             .gas(gas)
             .registers(registers)
             .memory(memory)
@@ -96,7 +97,7 @@ impl Invocation for Interpreter {
     }
 }
 
-impl Interpreter {
+impl<R: Accounts> Interpreter<R> {
     /// Step a single instruction.
     fn step_single(&mut self, instr: &Offset<Instruction>) -> Reason {
         // check if the gas has been exhausted
@@ -137,8 +138,8 @@ impl Interpreter {
     }
 }
 
-impl From<Interpreter> for pvm::State<Memory> {
-    fn from(interp: Interpreter) -> Self {
+impl<R: Accounts> From<Interpreter<R>> for pvm::State<Memory> {
+    fn from(interp: Interpreter<R>) -> Self {
         pvm::State {
             memory: interp.memory,
             registers: interp.registers,

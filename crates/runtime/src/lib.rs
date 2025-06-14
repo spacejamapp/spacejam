@@ -1,8 +1,8 @@
 //! Runtime utilities of SpaceJam
 
 use pvm::Pvm;
-use score::BandersnatchPublic;
-use std::sync::Arc;
+use score::{BandersnatchPublic, service::ServiceAccount};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 pub use {
     grandpa::{Grandpa, Handshake},
@@ -67,7 +67,7 @@ pub trait Config: Send + Sync + 'static {
     type Validator: Validator + Send + Sync + 'static;
 
     /// The virtual machine of the runtime
-    type Vm: Pvm + Send + Sync + 'static;
+    type Vm: Pvm<Accounts = BTreeMap<u32, ServiceAccount>> + Send + Sync + 'static;
 
     /// The hook of the runtime
     type Hook: Hook + Send + Sync + 'static;

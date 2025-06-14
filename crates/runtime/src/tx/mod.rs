@@ -1,9 +1,13 @@
 //! Block sync validation
 
+use std::collections::BTreeMap;
+
 use crate::{Storage, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
-use score::{Block, StorageKey, account::Accounts, block::History, state::key};
+use score::{
+    Block, StorageKey, account::Accounts, block::History, service::ServiceAccount, state::key,
+};
 
 pub mod assurance;
 pub mod dispute;
@@ -13,7 +17,7 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit<V: Pvm>(
+pub fn transit<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
     mut block: Block,
     storage: &impl Storage,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
@@ -23,7 +27,7 @@ pub fn transit<V: Pvm>(
 }
 
 /// Simulate state transition with new block
-pub fn simulate<V: Pvm>(
+pub fn simulate<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
     block: &mut Block,
     storage: &impl Storage,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {

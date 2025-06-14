@@ -5,10 +5,13 @@ use crate::{
     invocation::State,
     Argument, Reason, Result,
 };
-use score::{service::ServiceAccount, state::account, Gas, ServiceId};
-use std::collections::BTreeMap;
+use score::{
+    account::{Account, Accounts},
+    state::account,
+    Gas, ServiceId,
+};
 
-impl General {
+impl<R: Accounts> General<R> {
     /// General host calls
     ///
     /// parameters: ϱ,ω,µ,s,...
@@ -19,16 +22,14 @@ impl General {
         call: u32,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        let ret = match call {
+        match call {
             0 => self.gas(state.gas as u64),
             1 => self.lookup(state),
             2 => self.read(state),
             3 => self.write(state),
             4 => self.info(state),
             _ => Ok(Exit::What as u64),
-        };
-
-        ret
+        }
     }
 
     /// (ΩG) Get the gas to register
@@ -38,7 +39,7 @@ impl General {
 
     /// (ΩL) account lookup
     fn lookup<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<u64> {
-        let Some((_, account)) = self.get(state.registers[7]) else {
+        let Some((_, mut account)) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -51,7 +52,7 @@ impl General {
             let mut hash = [0u8; 32];
             hash.copy_from_slice(&phash);
 
-            let Some(preimage) = account.preimage.get(&hash) else {
+            let Some(preimage) = account.preimage(hash) else {
                 return Ok(Exit::None as u64);
             };
 
@@ -72,7 +73,7 @@ impl General {
     /// (ΩR) storage lookup
     fn read<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         // get the account
-        let Some((_index, account)) = self.get(state.registers[7]) else {
+        let Some((index, mut account)) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -84,8 +85,8 @@ impl General {
             .expect("should not fail");
 
         // get the storage value
-        let skey = account::storage(self.index, &key);
-        let Some(value) = account.storage.get(skey.as_slice()) else {
+        let skey = account::storage(index, &key);
+        let Some(value) = account.read(&skey) else {
             return Ok(Exit::None as u64);
         };
 
@@ -120,10 +121,15 @@ impl General {
             }
         };
 
+        let index = self.index;
+        let Some(account) = self.account() else {
+            return Ok(Exit::None as u64);
+        };
+
         // update storage
-        let skey = account::storage(self.index, &key);
+        let skey = account::storage(index, &key);
         if vz == 0 {
-            let Some(value) = self.account.storage.remove(skey.as_slice()) else {
+            let Some(value) = account.remove(&skey) else {
                 return Ok(Exit::None as u64);
             };
 
@@ -137,13 +143,13 @@ impl General {
                 }
             };
 
-            let threshold = self.account.threshold();
-            if threshold > self.account.balance {
+            let threshold = account.threshold();
+            if threshold > account.balance() {
                 Ok(Exit::Full as u64)
             } else {
                 tracing::info!("writing storage: {:?}", skey);
                 let length = value.len() as u64;
-                self.account.storage.insert(skey.to_vec(), value);
+                account.write(&skey, value);
                 Ok(length)
             }
         }
@@ -154,12 +160,12 @@ impl General {
         // get and encode the account state
         let r7 = state.registers[7];
         let Some(account) = if r7 == u64::MAX {
-            self.accounts.get(&self.index)
+            self.accounts.get(self.index)
         } else {
-            self.accounts.get(&(r7 as ServiceId))
+            self.accounts.get(r7 as ServiceId)
         }
         .and_then(|account| {
-            let state = account.state();
+            let state = account.info();
             tracing::debug!("account info: {:?}", state);
             codec::encode(&state).ok()
         }) else {
@@ -178,37 +184,40 @@ impl General {
 
 /// Input data of general host functions
 #[derive(Debug, Clone)]
-pub struct General {
-    /// (s) The provided service account
-    pub account: ServiceAccount,
-
+pub struct General<R: Accounts> {
     /// (s) Service index
     pub index: ServiceId,
 
     /// (d) Account dictionary
-    pub accounts: BTreeMap<ServiceId, ServiceAccount>,
+    pub accounts: R,
 }
 
-impl General {
+impl<R: Accounts> General<R> {
     /// Get service account
-    pub fn get(&self, r7: u64) -> Option<(ServiceId, ServiceAccount)> {
+    pub fn get(&mut self, r7: u64) -> Option<(ServiceId, impl Account + '_)> {
         let service = self.index as u64;
+        let mut index = r7 as ServiceId;
         if r7 == u64::MAX || r7 == service {
-            return Some((service as ServiceId, self.account.clone()));
+            index = self.index;
         }
 
         self.accounts
-            .get(&(r7 as ServiceId))
-            .map(|account| (r7 as ServiceId, account.clone()))
+            .get(index)
+            .map(|account| (index, account.clone()))
+    }
+
+    /// Get the account
+    pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
+        self.accounts.get(self.index)
     }
 }
 
-impl Argument for General {
-    fn as_general(&self) -> crate::Result<General> {
+impl<R: Accounts> Argument<R> for General<R> {
+    fn as_general(&self) -> crate::Result<General<R>> {
         Ok(self.clone())
     }
 
-    fn update_general(&mut self, general: General) -> crate::Result<()> {
+    fn update_general(&mut self, general: General<R>) -> crate::Result<()> {
         *self = general;
         Ok(())
     }
