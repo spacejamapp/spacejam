@@ -2,9 +2,8 @@
 
 use crate::{host::Accumulate, invocation::state::Received, Reason};
 use score::{
-    account::{Account, Accounts},
     vm::{DeferredTransfer, StateContext},
-    Gas, OpaqueHash, ServiceId, TimeSlot,
+    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// Context for the PVM accumulation

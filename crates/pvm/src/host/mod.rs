@@ -4,7 +4,7 @@ use crate::{
     invocation::{State, Stepped},
     Reason,
 };
-use score::account::Accounts;
+use score::Accounts;
 pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
@@ -26,8 +26,10 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
                 Err(e) => return Stepped::new(e, state).with(data),
             };
             let ret = general.call(call, &mut state);
-            if let Err(e) = data.update_general(general) {
-                return Stepped::new(e, state).with(data);
+            if general.updated {
+                if let Err(e) = data.update_general(general) {
+                    return Stepped::new(e, state).with(data);
+                }
             }
 
             ret

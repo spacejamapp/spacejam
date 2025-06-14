@@ -7,10 +7,9 @@ use crate::{
 };
 use codec::Numeric;
 use score::{
-    account::{Account, Accounts},
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
-    TimeSlot,
+    Account, Accounts, TimeSlot,
 };
 use std::collections::BTreeMap;
 
@@ -415,10 +414,10 @@ impl<R: Accounts> Accumulate<R> {
 
 impl<R: Accounts> Argument<R> for Accumulate<R> {
     fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(General {
-            index: self.x.service,
-            accounts: self.x.context.accounts.clone(),
-        })
+        Ok(General::new(
+            self.x.service,
+            self.x.context.accounts.clone(),
+        ))
     }
 
     // FIXME: find a better way to update the account

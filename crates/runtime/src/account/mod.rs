@@ -52,7 +52,7 @@ impl<S: Storage> Account<S> {
     }
 
     /// Inherit from another account
-    pub fn inherit(storage: Arc<S>, index: u32, account: impl score::account::Account) -> Self {
+    pub fn inherit(storage: Arc<S>, index: u32, account: impl score::Account) -> Self {
         Self {
             state: storage,
             index,
@@ -73,7 +73,7 @@ impl<S: Storage> Account<S> {
     }
 }
 
-impl<S: Storage> score::account::Account for Account<S> {
+impl<S: Storage> score::Account for Account<S> {
     fn account(&self) -> ServiceAccount {
         self.account.clone()
     }

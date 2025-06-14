@@ -9,11 +9,11 @@ use runtime::{
     tx, Storage,
 };
 use score::{
-    account::{Account, Accounts},
     block::{Block, History},
     service::ServiceData,
     state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
+    Account, Accounts,
 };
 use specjam::{Section, Test};
 use std::{collections::BTreeMap, sync::Arc};

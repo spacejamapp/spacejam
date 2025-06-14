@@ -5,6 +5,7 @@ use score::BandersnatchPublic;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 pub use {
+    account::{Account, Accounts},
     grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
@@ -12,7 +13,7 @@ pub use {
     validator::Validator,
 };
 
-pub mod account;
+mod account;
 mod ext;
 mod grandpa;
 mod hook;

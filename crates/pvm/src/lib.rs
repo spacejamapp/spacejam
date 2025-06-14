@@ -1,6 +1,6 @@
 //! PolkaVM implementation
 
-pub use score::{account::Accounts, Gas};
+pub use score::{Account, Accounts, Gas};
 pub use {
     host::Argument,
     invocation::{

@@ -5,11 +5,7 @@ use crate::{
     invocation::State,
     Argument, Reason, Result,
 };
-use score::{
-    account::{Account, Accounts},
-    state::account,
-    Gas, ServiceId,
-};
+use score::{state::account, Account, Accounts, Gas, ServiceId};
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -133,6 +129,7 @@ impl<R: Accounts> General<R> {
                 return Ok(Exit::None as u64);
             };
 
+            self.updated = true;
             Ok(value.len() as u64)
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
@@ -147,9 +144,9 @@ impl<R: Accounts> General<R> {
             if threshold > account.balance() {
                 Ok(Exit::Full as u64)
             } else {
-                tracing::info!("writing storage: {:?}", skey);
                 let length = value.len() as u64;
                 account.write(&skey, value);
+                self.updated = true;
                 Ok(length)
             }
         }
@@ -166,7 +163,6 @@ impl<R: Accounts> General<R> {
         }
         .and_then(|account| {
             let state = account.info();
-            tracing::debug!("account info: {:?}", state);
             codec::encode(&state).ok()
         }) else {
             return Ok(Exit::None as u64);
@@ -190,9 +186,21 @@ pub struct General<R: Accounts> {
 
     /// (d) Account dictionary
     pub accounts: R,
+
+    // if the account got updated.
+    pub updated: bool,
 }
 
 impl<R: Accounts> General<R> {
+    /// Create a new general host
+    pub fn new(index: ServiceId, accounts: R) -> Self {
+        Self {
+            index,
+            accounts,
+            updated: false,
+        }
+    }
+
     /// Get service account
     pub fn get(&mut self, r7: u64) -> Option<(ServiceId, impl Account + '_)> {
         let service = self.index as u64;

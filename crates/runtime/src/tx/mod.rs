@@ -3,7 +3,7 @@
 use crate::{Storage, account::Accounts, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
-use score::{Block, StorageKey, account::Accounts as _, block::History, state::key};
+use score::{Accounts as _, Block, StorageKey, block::History, state::key};
 use std::sync::Arc;
 
 pub mod assurance;

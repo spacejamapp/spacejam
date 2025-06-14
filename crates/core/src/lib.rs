@@ -3,12 +3,13 @@
 //! TODO: remove crypto as dependency
 
 pub use {
+    account::{Account, Accounts},
     block::Block,
     extrinsic::Extrinsic,
     state::{key::StorageKeyEncode, State},
 };
 
-pub mod account;
+mod account;
 pub mod block;
 pub mod extrinsic;
 pub mod safrole;

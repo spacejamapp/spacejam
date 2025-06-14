@@ -11,10 +11,9 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    account::{Account, Accounts},
     service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
-    Gas, OpaqueHash, ServiceId, TimeSlot,
+    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// The invocation interface of PVM
@@ -333,10 +332,7 @@ pub trait Invocation {
         tracing::warn!("FIXME: update the account balance: {}", amount);
         *account.balance_mut() += amount;
         let account = account.account();
-        let general = host::General {
-            index: service,
-            accounts,
-        };
+        let general = host::General::new(service, accounts);
 
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
