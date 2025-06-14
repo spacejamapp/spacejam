@@ -6,10 +6,11 @@ use network::Network;
 use runtime::{Runtime, Validator};
 use score::{
     block::{self, Header},
+    service::ServiceAccount,
     Block,
 };
 use spacejam::{chain, storage::Parity, validator::LocalValidator, RuntimeSpec};
-use std::{fs, marker, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fs, marker, sync::Arc, time::Duration};
 
 /// Start the node service
 pub async fn start<Hook: runtime::Hook + Send + Sync + 'static>(
@@ -84,4 +85,5 @@ impl<Hook: runtime::Hook + Send + Sync + 'static> runtime::Config for JadexSpec<
     type Validator = LocalValidator;
     type Vm = ();
     type Hook = Hook;
+    type Accounts = BTreeMap<u32, ServiceAccount>;
 }

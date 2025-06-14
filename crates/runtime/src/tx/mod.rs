@@ -1,12 +1,10 @@
 //! Block sync validation
 
-use crate::{Storage, storage::Commit};
+use crate::{Config, Storage, account::Accounts, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
-use score::{
-    Block, StorageKey, account::Accounts, block::History, service::ServiceAccount, state::key,
-};
-use std::{collections::BTreeMap, sync::Arc};
+use score::{Block, StorageKey, account::Accounts as _, block::History, state::key};
+use std::sync::Arc;
 
 pub mod assurance;
 pub mod dispute;
@@ -16,17 +14,17 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
+pub fn transit<Vm: Pvm>(
     mut block: Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
-    let diff = self::simulate::<V>(&mut block, storage.clone())?;
+    let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
     storage.commit(diff.clone())?;
     Ok(diff)
 }
 
 /// Simulate state transition with new block
-pub fn simulate<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
+pub fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
@@ -133,15 +131,15 @@ pub fn simulate<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
-        // let accounts = Accounts::new(storage);
-        let accumulation = guarantee::accumulate::<V>(
+        let accounts = Accounts::new(storage);
+        let accumulation = guarantee::accumulate::<Vm, _>(
             block.header.slot,
             state.timeslot,
             available,
             &state.queue,
             &state.history,
             &state.privileges,
-            state.accounts.clone(),
+            accounts,
         )?;
 
         state.privileges = accumulation.privileges;

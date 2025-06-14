@@ -22,7 +22,8 @@ pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 ///
 /// TODO: maybe use lifetime to save the cost for adpating the
 /// invocation interfaces in the future.
-pub struct Interpreter<R: Accounts> {
+#[derive(Default)]
+pub struct Interpreter {
     /// The registers of the interpreter.
     /// ra = [0]
     /// sp = [1]
@@ -47,11 +48,9 @@ pub struct Interpreter<R: Accounts> {
 
     /// The jump target.
     pub jump: Option<usize>,
-
-    _acc: PhantomData<R>,
 }
 
-impl<R: Accounts> Interpreter<R> {
+impl Interpreter {
     /// Branch to the given target.
     fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {

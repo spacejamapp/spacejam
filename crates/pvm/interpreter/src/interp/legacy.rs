@@ -3,9 +3,9 @@
 use crate::{Error, Interpreter};
 use anyhow::Result;
 use parser::{Instruction, ProgramBlob, Visitor};
-use pvm::{Accounts, Reason};
+use pvm::Reason;
 
-impl<R: Accounts> Interpreter<R> {
+impl Interpreter {
     /// Run the program.
     pub fn interp(&mut self, program: impl AsRef<[u8]>) -> Result<()> {
         let program = ProgramBlob::try_from(program.as_ref())?;

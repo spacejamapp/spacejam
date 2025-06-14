@@ -23,7 +23,7 @@ mod validator;
 
 /// (b) Accumulate the available work reports
 #[tracing::instrument(skip_all)]
-pub fn accumulate<V: Pvm>(
+pub fn accumulate<V: Pvm, R: Accounts>(
     // The next timeslot (τ')
     slot: TimeSlot,
     // The prior timeslot (τ)
@@ -37,15 +37,15 @@ pub fn accumulate<V: Pvm>(
     // The privileges (χ)
     privileges: &Privileges,
     // The account storage (δ)
-    accounts: V::Accounts,
-) -> anyhow::Result<Accumulation<V::Accounts>> {
+    accounts: R,
+) -> anyhow::Result<Accumulation<R>> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
     // (Δ+) run outer accumulation
     let gas_limit = privileges.gas_limit();
-    let mut accumulated = exec::outer::<V>(
+    let mut accumulated = exec::outer::<V, R>(
         gas_limit,
         &accumulatable,
         StateContext {
@@ -80,7 +80,7 @@ pub fn accumulate<V: Pvm>(
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
     // (δ‡) Process deferred transfers
-    let transfers = self::defer_transfers::<V>(
+    let transfers = self::defer_transfers::<V, R>(
         &mut accumulated.context.accounts,
         &accumulated.transfers,
         slot,
@@ -225,9 +225,9 @@ pub fn pools(
 }
 
 /// (δ‡) Process deferred transfers to transition from δ′ to δ‡
-pub fn defer_transfers<V: Pvm>(
+pub fn defer_transfers<V: Pvm, R: Accounts>(
     // The post-accumulation accounts (δ′)
-    accounts: &mut V::Accounts,
+    accounts: &mut R,
     // The deferred transfers (t)
     transfers: &[DeferredTransfer],
     // The current timeslot (τ')

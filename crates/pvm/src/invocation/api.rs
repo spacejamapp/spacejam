@@ -25,9 +25,6 @@ pub trait Invocation {
     /// The memory type of the PVM
     type Memory: crate::Memory;
 
-    /// The accounts type of the PVM
-    type Accounts: Accounts;
-
     /// (Ψ): the general PVM invocation
     ///
     /// defined per graypaper (A.1)
@@ -122,7 +119,7 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<X: Argument<Self::Accounts>>(
+    fn call<R: Accounts, X: Argument<R>>(
         // (c) The instruction data
         code: &[u8],
         // (ı) The current program counter
@@ -150,7 +147,7 @@ pub trait Invocation {
             return state.stepped(reason).with(input);
         };
 
-        let stepped = host::call::<Self::Accounts, _, _>(call, state, input);
+        let stepped = host::call::<R, _, _>(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
@@ -174,7 +171,7 @@ pub trait Invocation {
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<X: Argument<Self::Accounts>>(
+    fn argument<R: Accounts, X: Argument<R>>(
         // (p) The standard program blob
         blob: &[u8],
         // (ı) The current program counter
@@ -251,9 +248,9 @@ pub trait Invocation {
     /// (ΨA): Accumulation invocation
     ///
     /// as defined per graypaper (B.9)
-    fn accumulate(
+    fn accumulate<R: Accounts>(
         // (U) The state context
-        context: StateContext<Self::Accounts>,
+        context: StateContext<R>,
         // (N_t)  timeslot for the current accumulation
         timeslot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -264,7 +261,7 @@ pub trait Invocation {
         operands: Vec<Operand>,
         // entropy'0
         entropy: OpaqueHash,
-    ) -> AccumulateResult<Self::Accounts> {
+    ) -> AccumulateResult<R> {
         let Some(code) = context.code(service) else {
             tracing::trace!("no code found for service: {}", service);
             return AccumulateResult::new(context);
@@ -308,9 +305,9 @@ pub trait Invocation {
     /// (ΨT): on-transfer invocation
     ///
     /// Defined per graypaper (B.15)
-    fn transfer(
+    fn transfer<R: Accounts>(
         // (δ) The account storage
-        mut accounts: Self::Accounts,
+        mut accounts: R,
         // (N_t)  timeslot for the current accumulation
         slot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -364,8 +361,6 @@ pub trait Invocation {
 
 impl Invocation for () {
     type Memory = ();
-
-    type Accounts = BTreeMap<ServiceId, ServiceAccount>;
 
     fn step(
         _instructions: &[u8],

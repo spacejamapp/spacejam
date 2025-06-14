@@ -42,16 +42,15 @@ impl Runner {
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let accumulation =
-                    tx::guarantee::accumulate::<Interpreter<BTreeMap<u32, ServiceAccount>>>(
-                        input.input.slot,
-                        input.pre_state.slot,
-                        input.input.reports,
-                        &input.pre_state.ready_queue,
-                        &input.pre_state.accumulated,
-                        &input.pre_state.privileges.into(),
-                        accounts.clone(),
-                    )?;
+                let accumulation = tx::guarantee::accumulate::<Interpreter, _>(
+                    input.input.slot,
+                    input.pre_state.slot,
+                    input.input.reports,
+                    &input.pre_state.ready_queue,
+                    &input.pre_state.accumulated,
+                    &input.pre_state.privileges.into(),
+                    accounts.clone(),
+                )?;
 
                 // convert the accounts to the service items
                 let mut accounts = accumulation.accounts();
@@ -301,7 +300,7 @@ impl Runner {
                 }
 
                 // Initialize interpreter
-                let mut interpreter = pvmi::Interpreter::<BTreeMap<u32, ServiceAccount>>::default()
+                let mut interpreter = pvmi::Interpreter::default()
                     .gas(input.initial_gas)
                     .registers(registers)
                     .memory(memory.clone())
@@ -328,14 +327,13 @@ impl Runner {
                 assert_eq!(expected_memory, output.expected_memory);
 
                 // test with the new interface
-                let result =
-                    <pvmi::Interpreter<BTreeMap<u32, ServiceAccount>> as Invocation>::invoke(
-                        &input.program,
-                        input.initial_pc as u64,
-                        input.initial_gas,
-                        registers,
-                        memory.clone().into(),
-                    );
+                let result = <pvmi::Interpreter as Invocation>::invoke(
+                    &input.program,
+                    input.initial_pc as u64,
+                    input.initial_gas,
+                    registers,
+                    memory.clone().into(),
+                );
 
                 assert_eq!(result.reason.to_string(), output.expected_status);
                 assert_eq!(result.state.pc, output.expected_pc as u64);
@@ -381,10 +379,7 @@ impl Runner {
 
                 // 2. verify the state transition
                 let mut pkeys = Vec::new();
-                let _ = tx::transit::<Interpreter<BTreeMap<u32, ServiceAccount>>>(
-                    block,
-                    memdb.clone(),
-                )?;
+                let _ = tx::transit::<Interpreter>(block, memdb.clone())?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);

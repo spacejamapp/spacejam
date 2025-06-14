@@ -5,9 +5,9 @@ use parser::{
     format::{self, ISA},
     Visitor,
 };
-use pvm::{Accounts, Value};
+use pvm::Value;
 
-impl<R: Accounts> Visitor for Interpreter<R> {
+impl Visitor for Interpreter {
     type Error = crate::Error;
 
     fn visit_add_32(&mut self, format: format::RRR) -> Result<()> {
