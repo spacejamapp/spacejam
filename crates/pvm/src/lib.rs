@@ -4,11 +4,10 @@ pub use score::Gas;
 pub use {
     host::Argument,
     invocation::{
-        accumulate::{AccumulateContext, AccumulateResult, Executed},
-        general::{Received, State, Stepped},
+        accumulate::{AccumulateContext, AccumulateResult},
         refine::Refined,
         transfer::Transferred,
-        Invocation,
+        Executed, Invocation, Received, State, Stepped,
     },
     memory::Memory,
     result::{Reason, Result},

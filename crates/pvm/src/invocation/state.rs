@@ -1,5 +1,7 @@
 //! Primitives for the general invocation
 
+use score::service::WorkExecResult;
+
 use crate::{Gas, Reason};
 
 /// The execution state of programs.
@@ -97,5 +99,24 @@ impl<X> Received<X> {
             reason: Reason::Panic(message.to_string()),
             data,
         }
+    }
+}
+
+/// The result of is-authorized invocation (ΨI)
+pub struct Executed {
+    /// The output
+    pub data: Vec<u8>,
+
+    /// The reason
+    pub exec: WorkExecResult,
+
+    /// The gas used
+    pub gas: Gas,
+}
+
+impl Executed {
+    /// Create a new executed result
+    pub fn new(data: Vec<u8>, exec: WorkExecResult, gas: Gas) -> Self {
+        Self { data, exec, gas }
     }
 }

@@ -1,7 +1,7 @@
 //! Host functions
 
 use crate::{
-    invocation::general::{State, Stepped},
+    invocation::{State, Stepped},
     Reason,
 };
 pub use {accumulate::Accumulate, general::General, refine::Refine};
@@ -20,14 +20,24 @@ pub fn call<X: Argument, Memory: crate::Memory>(
     let mut data = data;
     let reason = match call {
         0..5 => {
-            let general = match data.as_general() {
+            let mut general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
             };
-            let account = general.account.clone();
-            general::call(call, &mut state, account, &mut data)
+            let ret = general.call(call, &mut state);
+            if let Err(e) = data.update_general(general) {
+                return Stepped::new(e, state).with(data);
+            }
+
+            ret
         }
-        5..17 => accumulate::call(call, &mut state, &mut data),
+        5..17 => {
+            let accumulate = match data.as_accumulate_mut() {
+                Ok(a) => a,
+                Err(e) => return Stepped::new(e, state).with(data),
+            };
+            accumulate.call(call, &mut state)
+        }
         17..27 => refine::call(call, &mut state, &mut data),
         100 => jip::log(&mut state),
         _ => {
@@ -57,11 +67,6 @@ pub trait Argument {
         crate::bail!("not a general")
     }
 
-    /// returns some if the input data is general
-    fn as_general_mut(&mut self) -> crate::Result<&mut General> {
-        crate::bail!("not a general")
-    }
-
     /// returns some if the input data is accumulate
     fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
         crate::bail!("not an accumulate")
@@ -70,46 +75,6 @@ pub trait Argument {
     /// returns some if the input data is refine
     fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
         crate::bail!("not a refine")
-    }
-}
-
-impl Argument for Accumulate {
-    fn as_general(&self) -> crate::Result<General> {
-        let account = self
-            .x
-            .context
-            .accounts
-            .get(&self.x.service)
-            .ok_or_else(|| {
-                crate::Reason::Panic(format!("Account {} not found in context", self.x.service))
-            })?;
-
-        Ok(General {
-            account: account.clone(),
-            index: self.x.service,
-            accounts: self.x.context.accounts.clone(),
-        })
-    }
-
-    fn update_general(&mut self, general: General) -> crate::Result<()> {
-        self.x
-            .context
-            .accounts
-            .insert(general.index, general.account.clone());
-
-        for (id, account) in general.accounts {
-            if id == general.index {
-                continue;
-            }
-
-            self.x.context.accounts.insert(id, account);
-        }
-
-        Ok(())
-    }
-
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate> {
-        Ok(self)
     }
 }
 

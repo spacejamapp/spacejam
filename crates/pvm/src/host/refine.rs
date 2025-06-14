@@ -2,7 +2,7 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::general::State,
+    invocation::State,
     Argument, Reason, Result,
 };
 

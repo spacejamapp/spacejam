@@ -1,10 +1,10 @@
 //! PolkaVM environment
 
-use crate::{host::Accumulate, invocation::general::Received, Reason};
+use crate::{host::Accumulate, invocation::state::Received, Reason};
 use score::{
-    service::{ServiceAccount, WorkExecResult},
+    service::ServiceAccount,
     vm::{DeferredTransfer, StateContext},
-    Gas, OpaqueHash, ServiceId,
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// Context for the PVM accumulation
@@ -42,6 +42,15 @@ impl AccumulateContext {
         }
     }
 
+    /// Convert the accumulate context to an accumulate
+    pub fn accumulate(self, timeslot: TimeSlot) -> Accumulate {
+        Accumulate {
+            y: self.clone(),
+            x: self,
+            timeslot,
+        }
+    }
+
     /// Convert the accumulate context to an accumulate result
     pub fn to_result(self, gas: Gas) -> AccumulateResult {
         AccumulateResult {
@@ -54,7 +63,6 @@ impl AccumulateContext {
 }
 
 /// The accumulate result of (ΨA)
-#[derive(Default)]
 pub struct AccumulateResult {
     /// (o) The state context
     pub context: StateContext,
@@ -69,22 +77,15 @@ pub struct AccumulateResult {
     pub gas: Gas,
 }
 
-/// The result of is-authorized invocation (ΨI)
-pub struct Executed {
-    /// The output
-    pub data: Vec<u8>,
-
-    /// The reason
-    pub exec: WorkExecResult,
-
-    /// The gas used
-    pub gas: Gas,
-}
-
-impl Executed {
-    /// Create a new executed result
-    pub fn new(data: Vec<u8>, exec: WorkExecResult, gas: Gas) -> Self {
-        Self { data, exec, gas }
+impl AccumulateResult {
+    /// Create a new accumulate result
+    pub fn new(context: StateContext) -> Self {
+        Self {
+            context,
+            transfers: Vec::new(),
+            hash: None,
+            gas: 0,
+        }
     }
 }
 
