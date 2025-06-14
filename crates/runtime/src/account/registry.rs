@@ -1,10 +1,7 @@
 //! Account registry with cached state
 
 use crate::{Storage, account::Account};
-use score::{
-    account::{self, Account as _},
-    service::ServiceAccount,
-};
+use score::account::{self, Account as _};
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -61,21 +58,16 @@ impl<S: Storage> score::account::Accounts for Accounts<S> {
         self.accounts.remove(&index);
     }
 
-    fn code(&self, index: u32) -> Option<Vec<u8>> {
-        self.accounts
-            .get(&index)
-            .and_then(|a| a.blob().map(|b| b.to_vec()))
+    fn code(&mut self, index: u32) -> Option<Vec<u8>> {
+        self.get(index).and_then(|a| a.blob().map(|b| b.to_vec()))
     }
 
     fn services(&self) -> Vec<u32> {
         self.accounts.keys().cloned().collect()
     }
 
-    fn accounts(self) -> BTreeMap<u32, ServiceAccount> {
+    fn accounts(self) -> BTreeMap<u32, impl account::Account> {
         self.accounts
-            .into_iter()
-            .map(|(k, v)| (k, v.account))
-            .collect()
     }
 
     fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {

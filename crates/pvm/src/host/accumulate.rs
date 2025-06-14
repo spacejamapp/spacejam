@@ -169,6 +169,8 @@ impl<R: Accounts> Accumulate<R> {
         account.lookup.insert((hash, l as u32), vec![]);
 
         // insert the new account to the map
+        //
+        // FIXME: this upsert doesn't consider operations.
         let index = self.x.index;
         self.x.context.accounts.upsert(index, account);
         self.x.check(index);
@@ -426,7 +428,7 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
             crate::bail!("Account {} not found in context", general.index);
         };
 
-        self.x.context.accounts.upsert(index, account.account());
+        self.x.context.accounts.upsert(index, account.clone());
         Ok(())
     }
 

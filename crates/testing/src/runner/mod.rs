@@ -9,13 +9,13 @@ use runtime::{
     tx, Storage,
 };
 use score::{
-    account::Accounts,
+    account::{Account, Accounts},
     block::{Block, History},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
 };
 use specjam::{Section, Test};
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 use tracing_subscriber::EnvFilter;
 
 /// The `Runner` struct which is used to run the tests.
@@ -178,7 +178,11 @@ impl Runner {
                     tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
                 if let Ok(accounts) = result {
                     assert_eq!(
-                        accounts.accounts(),
+                        accounts
+                            .accounts()
+                            .into_iter()
+                            .map(|(id, account)| (id, account.account()))
+                            .collect::<BTreeMap<_, _>>(),
                         preimage::to_accounts(output.post_state.accounts)
                     );
                 } else {
@@ -383,7 +387,7 @@ impl Runner {
                     let encoded = hex::encode(&key);
 
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("storage 0x{encoded} not exists");
+                        tracing::error!("{info:?} key=0x{encoded} not exists");
                         continue;
                     };
 

@@ -1,7 +1,7 @@
 //! Primitives for the accumulate invocation
 
 use crate::{
-    account::Accounts,
+    account::{Account, Accounts},
     safrole::ValidatorData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceItem},
     statistic::ServiceActivityRecord,
@@ -33,7 +33,7 @@ pub struct StateContext<R: Accounts> {
 
 impl<R: Accounts> StateContext<R> {
     /// Share preimages for the services in the state context
-    pub fn code(&self, service: ServiceId) -> Option<Vec<u8>> {
+    pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
         self.accounts.code(service)
 
         // TODO: the logic below is correct, however
@@ -144,16 +144,18 @@ impl<R: Accounts> Accumulation<R> {
         let mut items = Vec::new();
         let accounts = self.accounts.clone().accounts();
         for (id, account) in accounts.iter() {
+            let account = account.account();
             if account.preimage.contains_key(&account.code) {
                 items.push(ServiceItem {
                     id: *id,
-                    data: account.into(),
+                    data: (&account).into(),
                 });
 
                 continue;
             }
 
             for other in accounts.values() {
+                let other = other.account();
                 if other.code != account.code || !other.preimage.contains_key(&account.code) {
                     continue;
                 }

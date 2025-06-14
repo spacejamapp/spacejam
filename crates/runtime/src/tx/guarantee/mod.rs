@@ -240,6 +240,8 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
         if !selected_transfers.is_empty() {
             let transfer_result =
                 V::transfer(accounts.clone(), slot, dest_service, &selected_transfers);
+
+            // FIXME: this upsert doesn't consider operations.
             accounts.upsert(dest_service, transfer_result.account);
             statistics.insert(
                 dest_service,

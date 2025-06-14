@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 /// Account registry
 pub trait Accounts: Clone {
     /// Get the code of an account
-    fn code(&self, index: u32) -> Option<Vec<u8>>;
+    fn code(&mut self, index: u32) -> Option<Vec<u8>>;
 
     /// Create a new account
     fn upsert(&mut self, index: u32, account: impl Account);
@@ -21,15 +21,15 @@ pub trait Accounts: Clone {
     fn remove(&mut self, index: u32);
 
     /// Batch all accounts from the registry
-    fn accounts(self) -> BTreeMap<u32, ServiceAccount>;
+    fn accounts(self) -> BTreeMap<u32, impl Account>;
 
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(StorageKey, Vec<u8>)>, Vec<StorageKey>);
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
-    fn code(&self, index: u32) -> Option<Vec<u8>> {
-        self.get(&index)?.blob()
+    fn code(&mut self, index: u32) -> Option<Vec<u8>> {
+        self.get(index)?.blob()
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {
@@ -48,7 +48,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
         self.remove(&index);
     }
 
-    fn accounts(self) -> BTreeMap<u32, ServiceAccount> {
+    fn accounts(self) -> BTreeMap<u32, impl Account> {
         self
     }
 

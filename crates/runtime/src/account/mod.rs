@@ -37,6 +37,7 @@ impl<S: Storage> Account<S> {
     /// Create a new account
     pub fn new(storage: Arc<S>, index: u32) -> Result<Self> {
         let account = storage.account(index)?;
+
         Ok(Self {
             state: storage,
             index,
@@ -83,7 +84,7 @@ impl<S: Storage> score::account::Account for Account<S> {
     }
 
     fn blob(&self) -> Option<Vec<u8>> {
-        None
+        self.account.blob()
     }
 
     fn code(&self) -> [u8; 32] {
@@ -196,16 +197,13 @@ impl<S: Storage> score::account::Account for Account<S> {
         );
 
         // updates
-        let mut updates: BTreeSet<(StorageKey, Vec<u8>)> = self
-            .ops
-            .updates()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
+        let mut updates: BTreeSet<(StorageKey, Vec<u8>)> =
+            self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
         updates.extend(self.storage.0.iter().map(|k| {
-            let mut mkey = [0; 31];
-            mkey.copy_from_slice(k);
+            let mut key = [0; 31];
+            key.copy_from_slice(k);
             (
-                mkey,
+                key,
                 self.account
                     .storage
                     .get(k)
