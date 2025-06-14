@@ -10,7 +10,7 @@ codec.workspace = true
 crypto = { workspace = true, features = ["blake2"] }
 hex.workspace = true
 log.workspace = true
-score.workspace = true
+score = { workspace = true, features = ["crypto"] }
 tracing.workspace = true
 pvm-parser.workspace = true
 

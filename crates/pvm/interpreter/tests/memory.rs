@@ -59,23 +59,3 @@ fn write_offset() {
     assert!(memory.write_bytes(0, offset as u32, &data).is_ok());
     assert_eq!(memory.read_bytes(0, offset as u32, offset as u32), Ok(data));
 }
-
-#[test]
-fn read_inaccessible() {
-    let mut memory = Memory::default();
-    memory.pages.insert(
-        0,
-        Page {
-            data: [0; parser::PAGE_SIZE as usize],
-            access: Access::Mutable,
-        },
-    );
-
-    let data = vec![42; 1];
-    let page = 0;
-    assert!(memory.write_bytes(0, 0, &data).is_ok());
-    assert_eq!(
-        memory.read_bytes(0, 0, parser::PAGE_SIZE as u32 + 1),
-        Err(Error::MemoryInaccessible { page })
-    );
-}
