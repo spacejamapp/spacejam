@@ -134,22 +134,6 @@ impl StorageKeyEncode for (u32, [u8; 32]) {
     }
 }
 
-// This is used for constructing the storage key for the account storage
-impl StorageKeyEncode for (u32, Vec<u8>) {
-    fn key(&self) -> StorageKey {
-        let (service, rkey) = self;
-        let mut input = service.to_le_bytes().to_vec();
-        input.extend_from_slice(rkey);
-        let hash = crypto::blake2b(&input);
-
-        // construct the final storage key
-        let mut key = [0u8; 31];
-        key[..8].copy_from_slice(&self::prefix(*service, &ACCOUNT_STORAGE_PREFIX));
-        key[8..].copy_from_slice(&hash[..23]);
-        key
-    }
-}
-
 /// Generate a prefix for a storage
 ///
 /// service: [0, 2, 4, 6]

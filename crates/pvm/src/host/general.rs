@@ -4,7 +4,7 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Reason, Result, State,
 };
-use score::{service::ServiceAccount, Gas, ServiceId, StorageKeyEncode};
+use score::{service::ServiceAccount, state::account, Gas, ServiceId};
 use std::collections::BTreeMap;
 
 /// Input data of general host functions
@@ -128,7 +128,7 @@ fn read<X: Argument, Memory: crate::Memory>(
         .expect("should not fail");
 
     // get the storage value
-    let skey = (general.index, key.clone()).key();
+    let skey = account::storage(general.index, &key);
     let Some(value) = account.storage.get(skey.as_slice()) else {
         return Ok(Exit::None as u64);
     };
@@ -176,7 +176,7 @@ fn write<X: Argument, Memory: crate::Memory>(
     };
 
     // update storage
-    let skey = (general.index, key.clone()).key();
+    let skey = account::storage(general.index, &key);
     if vz == 0 {
         let Some(value) = general.account.storage.remove(skey.as_slice()) else {
             return Ok(Exit::None as u64);

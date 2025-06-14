@@ -328,7 +328,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account storage
-    fn account_storage(&self, service: u32, key: OpaqueHash) -> Result<Vec<u8>> {
+    fn account_storage(&self, service: u32, key: &[u8]) -> Result<Vec<u8>> {
         self.get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account storage not found"))?
@@ -363,15 +363,10 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account lookup
-    fn account_lookup(
-        &self,
-        service: u32,
-        lookup: u32,
-        key: OpaqueHash,
-    ) -> Result<Option<[TimeSlot; 3]>> {
-        self.get(account::lookup(service, lookup, key))?
+    fn account_lookup(&self, service: u32, lookup: u32, hash: OpaqueHash) -> Result<Vec<u32>> {
+        self.get(account::lookup(service, lookup, hash))?
             .map(|value| codec::decode(&value))
-            .transpose()
+            .ok_or(anyhow::anyhow!("account lookup not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
     }
 }

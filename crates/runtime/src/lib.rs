@@ -12,6 +12,7 @@ pub use {
     validator::Validator,
 };
 
+pub mod account;
 mod ext;
 mod grandpa;
 mod hook;

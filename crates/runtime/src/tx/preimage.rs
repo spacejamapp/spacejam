@@ -14,32 +14,23 @@ pub fn accounts(
     preimages: &PreimagesExtrinsic,
     accounts: &BTreeMap<u32, ServiceAccount>,
 ) -> Result<BTreeMap<u32, ServiceAccount>> {
-    let mut missing = Vec::new();
-    for (id, acc) in accounts.iter() {
-        for ((hash, _), _) in acc.lookup.iter() {
-            if !acc.preimage.contains_key(hash) {
-                missing.push((id, hash));
-            }
-        }
-    }
-
-    // The lookup the validator. extrinsic is a sequence of pairs of
-    // service indices and data.
-    //
-    // The objective statistics are updated in line with their
-    // These pairs must be ordered and without duplicates (equa-
-    // tion 12.35 requires this).
-
-    // check ordering
     if preimages.windows(2).any(|window| window[0] > window[1]) {
         anyhow::bail!("Preimages are not ordered");
     }
 
-    // check for duplicates
     let spreimages = preimages.iter().cloned().collect::<HashSet<Preimage>>();
-
     if spreimages.len() != preimages.len() {
         anyhow::bail!("Preimages contain duplicates");
+    }
+
+    // collect all requested preimages
+    let mut requested = Vec::new();
+    for (id, acc) in accounts.iter() {
+        for ((hash, _), _) in acc.lookup.iter() {
+            if !acc.preimage.contains_key(hash) {
+                requested.push((id, hash));
+            }
+        }
     }
 
     // transit preimages
@@ -47,7 +38,7 @@ pub fn accounts(
     let mut preimages = preimages.clone();
     while let Some(preimage) = preimages.pop() {
         let hash = crypto::blake2b(&preimage.blob);
-        if !missing.contains(&(&preimage.requester, &hash)) {
+        if !requested.contains(&(&preimage.requester, &hash)) {
             anyhow::bail!("Preimage not needed");
         }
 
