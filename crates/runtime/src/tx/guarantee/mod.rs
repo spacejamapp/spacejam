@@ -49,7 +49,7 @@ pub fn accumulate<V: Pvm>(
         gas_limit,
         &accumulatable,
         StateContext {
-            accounts: accounts.clone(),
+            accounts,
             privileges: privileges.clone(),
             // Initialize validators and authorization to defaults for now
             // TODO: these should come from the full state in a real implementation

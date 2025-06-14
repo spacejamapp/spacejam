@@ -1,16 +1,17 @@
 //! Account registry with cached state
 
-use std::collections::btree_map::Entry;
-
 use crate::Storage;
 pub use registry::Accounts;
-use score::service::{GasLimit, ServiceAccount, ServiceAccountState};
+use score::{
+    StorageKey,
+    service::{GasLimit, ServiceAccount, ServiceAccountState},
+};
+use std::collections::btree_map::Entry;
 
 mod registry;
 
 /// Account with cached state
-///
-/// TODO: sync cache with the registry for reusability.
+#[derive(Clone)]
 pub struct Account<'a, S: Storage> {
     /// The storage of the account
     storage: &'a S,
@@ -20,6 +21,9 @@ pub struct Account<'a, S: Storage> {
 
     /// The account state
     account: ServiceAccount,
+
+    /// The removed keys of the account
+    removed: Vec<StorageKey>,
 }
 
 impl<'a, S: Storage> Account<'a, S> {
@@ -37,6 +41,7 @@ impl<'a, S: Storage> Account<'a, S> {
                 },
                 ..Default::default()
             },
+            removed: Vec::new(),
         }
     }
 
@@ -83,5 +88,11 @@ impl<'a, S: Storage> Account<'a, S> {
     /// Write a value to the account
     pub fn write(&mut self, key: &[u8], value: Vec<u8>) {
         self.account.storage.insert(key.to_vec(), value);
+    }
+
+    /// Remove a key from the account
+    pub fn remove(&mut self, key: [u8; 31]) {
+        self.account.storage.remove(key.as_slice());
+        self.removed.push(key);
     }
 }

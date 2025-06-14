@@ -7,7 +7,7 @@ use score::{
     },
     state::account,
     statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
-    Entropy, Gas, OpaqueHash, ServiceId, StorageKeyEncode, TimeSlot,
+    Entropy, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -179,6 +179,7 @@ impl From<Privileges> for PrivilegesWrap {
         }
     }
 }
+
 /// Always accumulate service id
 #[derive(Debug, Serialize, Deserialize, Json)]
 pub struct AlwaysAccumulateMapItem {

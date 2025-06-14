@@ -136,6 +136,7 @@ pub fn simulate<V: Pvm>(
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
+        // let accounts = Accounts::new(storage);
         let accumulation = guarantee::accumulate::<V>(
             block.header.slot,
             state.timeslot,

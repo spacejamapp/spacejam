@@ -4,6 +4,7 @@ use crate::{Storage, account::Account};
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
 /// Account registry with cached state
+#[derive(Clone)]
 pub struct Accounts<'a, S: Storage> {
     /// The storage of the accounts
     storage: &'a S,
