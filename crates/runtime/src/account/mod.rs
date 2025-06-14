@@ -7,13 +7,14 @@ use score::{
     StorageKey,
     service::{GasLimit, ServiceAccount, ServiceAccountState},
 };
+use std::sync::Arc;
 
 mod registry;
 
 /// Account with cached state
-pub struct Account<'a, S: Storage> {
+pub struct Account<S: Storage> {
     /// The storage of the account
-    storage: &'a S,
+    storage: Arc<S>,
 
     /// The index of the account
     index: u32,
@@ -25,9 +26,9 @@ pub struct Account<'a, S: Storage> {
     removed: Vec<StorageKey>,
 }
 
-impl<'a, S: Storage> Account<'a, S> {
+impl<S: Storage> Account<S> {
     /// Create a new account
-    pub fn new(storage: &'a S, index: u32) -> Result<Self> {
+    pub fn new(storage: Arc<S>, index: u32) -> Result<Self> {
         let account = storage.account(index)?;
         Ok(Self {
             storage,
@@ -38,7 +39,7 @@ impl<'a, S: Storage> Account<'a, S> {
     }
 }
 
-impl<'a, S: Storage> score::account::Account for Account<'a, S> {
+impl<S: Storage> score::account::Account for Account<S> {
     fn account(&self) -> ServiceAccount {
         self.account.clone()
     }
@@ -132,10 +133,10 @@ impl<'a, S: Storage> score::account::Account for Account<'a, S> {
     }
 }
 
-impl<'a, S: Storage> Clone for Account<'a, S> {
+impl<S: Storage> Clone for Account<S> {
     fn clone(&self) -> Self {
         Self {
-            storage: self.storage,
+            storage: self.storage.clone(),
             index: self.index,
             account: self.account.clone(),
             removed: self.removed.clone(),

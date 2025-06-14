@@ -1,6 +1,6 @@
 //! This module contains the implementation of the `Runner` struct, which is used to run the tests.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::traces::KeyValue;
 use ::pvm::Invocation;
@@ -361,7 +361,7 @@ impl Runner {
                 let input = traces::TestInput::from_json(&test.input)?;
                 let output = traces::TestOutput::from_json(&test.output)?;
                 let block: Block = input.block.into();
-                let memdb = MemoryDb::default();
+                let memdb = Arc::new(MemoryDb::default());
 
                 // FIXME: handle the genesis block
                 if block.header.slot == 0 {
@@ -381,7 +381,10 @@ impl Runner {
 
                 // 2. verify the state transition
                 let mut pkeys = Vec::new();
-                let _ = tx::transit::<Interpreter<BTreeMap<u32, ServiceAccount>>>(block, &memdb)?;
+                let _ = tx::transit::<Interpreter<BTreeMap<u32, ServiceAccount>>>(
+                    block,
+                    memdb.clone(),
+                )?;
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);

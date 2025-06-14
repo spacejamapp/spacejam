@@ -1,26 +1,29 @@
 //! Account registry with cached state
 
 use crate::{Storage, account::Account};
-use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
+use std::{
+    collections::{BTreeMap, BTreeSet, btree_map::Entry},
+    sync::Arc,
+};
 
 /// Account registry with cached state
 #[derive(Clone)]
-pub struct Accounts<'a, S: Storage> {
+pub struct Accounts<S: Storage> {
     /// The storage of the accounts
-    storage: &'a S,
+    storage: Arc<S>,
 
     /// The account registry
-    accounts: BTreeMap<u32, Account<'a, S>>,
+    accounts: BTreeMap<u32, Account<S>>,
 
     /// The removed accounts
     removed: BTreeSet<u32>,
 }
 
-impl<'a, S: Storage> Accounts<'a, S> {
+impl<S: Storage> Accounts<S> {
     /// Create a new account registry
     ///
     /// TODO: fetch initial accounts based on input extrinsics
-    pub fn new(storage: &'a S) -> Self {
+    pub fn new(storage: Arc<S>) -> Self {
         Self {
             storage,
             accounts: BTreeMap::new(),
@@ -29,9 +32,9 @@ impl<'a, S: Storage> Accounts<'a, S> {
     }
 
     /// Get an account from the registry
-    pub fn get(&mut self, index: u32) -> Option<&mut Account<'a, S>> {
+    pub fn get(&mut self, index: u32) -> Option<&mut Account<S>> {
         if let Entry::Vacant(e) = self.accounts.entry(index) {
-            e.insert(Account::new(self.storage, index).ok()?);
+            e.insert(Account::new(self.storage.clone(), index).ok()?);
         }
 
         self.accounts.get_mut(&index)

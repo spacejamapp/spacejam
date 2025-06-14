@@ -28,7 +28,7 @@ pub struct Runtime<C: Config> {
     pub validator: C::Validator,
 
     /// The storage of SpaceJam
-    pub storage: C::Storage,
+    pub storage: Arc<C::Storage>,
 
     /// The hook of SpaceJam
     pub hook: C::Hook,
@@ -45,7 +45,7 @@ impl<C: Config> Runtime<C> {
     pub fn new(validator: C::Validator, storage: C::Storage, hook: C::Hook) -> Self {
         Self {
             validator,
-            storage,
+            storage: Arc::new(storage),
             hook,
             expool: Default::default(),
             grandpa: Arc::new(RwLock::new(Default::default())),

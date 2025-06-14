@@ -1,13 +1,12 @@
 //! Block sync validation
 
-use std::collections::BTreeMap;
-
 use crate::{Storage, storage::Commit};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
     Block, StorageKey, account::Accounts, block::History, service::ServiceAccount, state::key,
 };
+use std::{collections::BTreeMap, sync::Arc};
 
 pub mod assurance;
 pub mod dispute;
@@ -19,9 +18,9 @@ pub mod ticket;
 #[tracing::instrument(skip_all, name = "stf")]
 pub fn transit<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
     mut block: Block,
-    storage: &impl Storage,
+    storage: Arc<impl Storage>,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
-    let diff = self::simulate::<V>(&mut block, storage)?;
+    let diff = self::simulate::<V>(&mut block, storage.clone())?;
     storage.commit(diff.clone())?;
     Ok(diff)
 }
@@ -29,7 +28,7 @@ pub fn transit<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
 /// Simulate state transition with new block
 pub fn simulate<V: Pvm<Accounts = BTreeMap<u32, ServiceAccount>>>(
     block: &mut Block,
-    storage: &impl Storage,
+    storage: Arc<impl Storage>,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
     let mut state: score::State = storage.state()?;
     let mut diff = Commit::default();

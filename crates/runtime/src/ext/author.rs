@@ -177,7 +177,7 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        tx::simulate::<C::Vm>(&mut builder, &self.storage)?;
+        tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
         let block: Block = builder.into();
 
         // 6. seal the block

@@ -100,7 +100,7 @@ impl<C: Config> Runtime<C> {
 
         // 3. transit the global state
         let hash = block.header.hash()?;
-        let diff = tx::transit::<C::Vm>(block.clone(), &self.storage)?;
+        let diff = tx::transit::<C::Vm>(block.clone(), self.storage.clone())?;
         tracing::info!(
             "finalized block#{}@{}, previous block#{}@{}",
             block.header.slot,
