@@ -142,7 +142,7 @@ impl<R: Accounts> Accumulation<R> {
     /// Sync preimages for account statistics
     pub fn accounts(&self) -> Vec<ServiceItem> {
         let mut items = Vec::new();
-        let accounts = self.accounts.clone().accounts();
+        let accounts = self.accounts.accounts();
         for (id, account) in accounts.iter() {
             let account = account.account();
             if account.preimage.contains_key(&account.code) {

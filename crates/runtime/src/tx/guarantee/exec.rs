@@ -100,14 +100,14 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let services = context.accounts.services();
     for (service_id, result) in results.iter() {
         let lsvc = result.context.accounts.services();
-        let accounts = result.context.accounts.clone().accounts();
+        let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.into_iter() {
             // FIXME:
             //
             // - check if we do need update the accounts
             // - handle the same code different services logic more carefully
-            if !services.contains(&id) || id == *service_id {
-                context.accounts.upsert(id, account.clone());
+            if !services.contains(&id) || id == service_id {
+                context.accounts.upsert(*id, account.clone());
             }
         }
 

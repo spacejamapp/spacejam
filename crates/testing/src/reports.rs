@@ -1,8 +1,8 @@
-#![cfg(test)]
-
-use runtime::tx::guarantee::{
-    error::{Error, Result},
-    State, StateJson,
+use runtime::tx::guarantee::error::{Error, Result};
+use score::{
+    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
+    service::{ReportedWorkPackage, ReportedWorkPackageJson},
+    Block, Ed25519Public, OpaqueHash, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -26,43 +26,145 @@ pub struct TestOutput {
     pub post_state: State,
 }
 
+/// Input of the reporting module.
+#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+pub struct Input {
+    pub slot: TimeSlot,
+    #[json(Vec<ReportGuaranteeJson>)]
+    pub guarantees: GuaranteesExtrinsic,
+    #[json(Vec<String>)]
+    pub known_packages: Vec<OpaqueHash>,
+}
+
+impl From<Input> for Block {
+    fn from(value: Input) -> Self {
+        let mut block = Block::default();
+        block.header.slot = value.slot;
+        block.extrinsic.guarantees = value.guarantees;
+        block
+    }
+}
+
+/// Output of the reporting module.
+#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+pub struct Output {
+    #[json(nested)]
+    pub reported: Vec<ReportedWorkPackage>,
+    #[json(Vec<String>)]
+    pub reporters: Vec<Ed25519Public>,
+}
+
+include!(concat!(env!("OUT_DIR"), "/reports.rs"));
+
 mod types {
     use score::{
-        extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-        service::{ReportedWorkPackage, ReportedWorkPackageJson},
-        Block, Ed25519Public, OpaqueHash, TimeSlot,
+        block::{BlockInfo, BlockInfoJson},
+        safrole::{ValidatorDataJson, ValidatorsData},
+        service::{
+            AvailabilityAssignmentJson, AvailabilityAssignments, GasLimit, ServiceAccountData,
+            ServiceItem, ServiceItemJson,
+        },
+        Ed25519Public, EntropyBuffer, OpaqueHash, CORES_COUNT,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
-    /// Input of the reporting module.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json)]
-    pub struct Input {
-        pub slot: TimeSlot,
-        #[json(Vec<ReportGuaranteeJson>)]
-        pub guarantees: GuaranteesExtrinsic,
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct State {
+        /// (ρ‡) Intermediate pending reports after that any work report judged as
+        /// uncertain or invalid has been removed from it (ϱ†), and the availability
+        /// assurances are processed. Mutated to ϱ'.
+        #[json(Vec<Option<AvailabilityAssignmentJson>>)]
+        pub avail_assignments: AvailabilityAssignments,
+
+        /// (κ') Posterior active validators.
+        #[json(Vec<ValidatorDataJson>)]
+        pub curr_validators: ValidatorsData,
+
+        /// (λ') Posterior previous validators.
+        #[json(Vec<ValidatorDataJson>)]
+        pub prev_validators: ValidatorsData,
+
+        /// (η') Posterior entropy buffer.
         #[json(Vec<String>)]
-        pub known_packages: Vec<OpaqueHash>,
+        pub entropy: EntropyBuffer,
+
+        /// (ψ'_o) Posterior offenders.
+        #[json(Vec<String>)]
+        pub offenders: Vec<Ed25519Public>,
+
+        /// (β) Recent blocks.
+        #[json(Vec<BlockInfoJson>)]
+        pub recent_blocks: Vec<BlockInfo>,
+
+        /// (α') Authorization pools.
+        #[json(Vec<Vec<String>>)]
+        pub auth_pools: [Vec<OpaqueHash>; CORES_COUNT],
+
+        /// (δ) Encoded services dictionary. Refer to T(σ) in Appendix D.
+        #[json(nested)]
+        #[serde(alias = "accounts")]
+        pub services: Vec<ServiceItem>,
     }
 
-    impl From<Input> for Block {
-        fn from(value: Input) -> Self {
-            let mut block = Block::default();
-            block.header.slot = value.slot;
-            block.extrinsic.guarantees = value.guarantees;
-            block
+    impl State {
+        /// Apply the state to the score state
+        fn apply(self, state: &mut score::State) {
+            state.reports = self.avail_assignments;
+            state.validators.current = self.curr_validators;
+            state.validators.previous = self.prev_validators;
+            state.entropy = self.entropy;
+            state.disputes.offenders = self.offenders;
+            state.recent_blocks = self.recent_blocks;
+            state.pools = self.auth_pools;
+
+            for ServiceItem { id, data } in self.services.into_iter() {
+                state.accounts.entry(id).or_default().code = data.service.code;
+                state.accounts.entry(id).and_modify(|account| {
+                    account.balance = data.service.balance;
+                    account.gas = GasLimit {
+                        accumulate: data.service.accumulate,
+                        transfer: data.service.transfer,
+                    };
+                });
+            }
         }
     }
 
-    /// Output of the reporting module.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-    pub struct Output {
-        #[json(nested)]
-        pub reported: Vec<ReportedWorkPackage>,
-        #[json(Vec<String>)]
-        pub reporters: Vec<Ed25519Public>,
+    impl From<State> for score::State {
+        fn from(value: State) -> Self {
+            let mut state = score::State::default();
+            value.apply(&mut state);
+            state
+        }
     }
-}
 
-// TODO: fix the codec of big work reports
-include!(concat!(env!("OUT_DIR"), "/reports.rs"));
+    impl From<score::State> for State {
+        fn from(value: score::State) -> Self {
+            Self {
+                avail_assignments: value.reports,
+                curr_validators: value.validators.current,
+                prev_validators: value.validators.previous,
+                entropy: value.entropy,
+                offenders: value.disputes.offenders,
+                recent_blocks: value.recent_blocks,
+                auth_pools: value.pools,
+                services: value
+                    .accounts
+                    .into_iter()
+                    .map(|(id, service)| ServiceItem {
+                        id,
+                        data: ServiceAccountData {
+                            service: service.state(),
+                            preimages: vec![],
+                            storage: vec![],
+                        },
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+
+    
+}

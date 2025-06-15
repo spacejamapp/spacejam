@@ -182,7 +182,7 @@ impl Runner {
                         accounts
                             .accounts()
                             .into_iter()
-                            .map(|(id, account)| (id, account.account()))
+                            .map(|(id, account)| (*id, account.account()))
                             .collect::<BTreeMap<_, _>>(),
                         preimage::to_accounts(output.post_state.accounts)
                     );

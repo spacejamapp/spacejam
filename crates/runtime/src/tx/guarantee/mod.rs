@@ -11,13 +11,11 @@ use score::{
     },
     vm::{Accumulation, DeferredTransfer, StateContext},
 };
-pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
 pub mod error;
 mod exec;
 mod queue;
-mod state;
 mod validator;
 
 /// (b) Accumulate the available work reports
@@ -259,7 +257,6 @@ pub fn report(
     services: &impl Accounts,
     guarantees: &GuaranteesExtrinsic,
 ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
-    let pstate = State::from(state.clone());
-    let mut validator = validator::GuaranteeValidator::new(&pstate, services);
+    let mut validator = validator::GuaranteeValidator::new(state, services);
     validator.validate(slot, guarantees)
 }
