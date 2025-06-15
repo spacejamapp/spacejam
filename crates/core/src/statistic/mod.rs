@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
+use spacejson::Json;
 pub use {
     acc::{AccumulationRecord, AccumulationRecordJson, TransferRecord, TransferRecordJson},
     core::{CoreActivityRecord, CoreActivityRecordJson},
@@ -17,22 +18,23 @@ mod service;
 mod val;
 
 /// Represents statistics.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default, Json)]
 pub struct Statistics {
     /// Current epoch statistics
     #[serde(rename = "vals_curr_stats")]
+    #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Last epoch statistics
     #[serde(rename = "vals_last_stats")]
+    #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
     /// Current core activity records
-    #[serde(default)]
+    #[json(Vec<CoreActivityRecordJson>)]
     pub cores: [CoreActivityRecord; crate::CORES_COUNT],
 
     /// Current service activity records
-    #[serde(default)]
     pub services: BTreeMap<u32, ServiceActivityRecord>,
 }
 
