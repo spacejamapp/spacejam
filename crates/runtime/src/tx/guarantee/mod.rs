@@ -253,9 +253,7 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
     statistics
 }
 
-/// Report the work packages
-///
-/// TODO: refactor the state on connecting storage.
+/// (p of β') Report the work packages
 pub fn report(
     state: &score::State,
     slot: TimeSlot,

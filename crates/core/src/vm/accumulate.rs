@@ -123,10 +123,10 @@ pub struct Accumulation<R: Accounts> {
     /// (ξ') The accumulated queue
     pub accumulated_queue: AccumulatedQueue,
 
-    /// (δ') The accounts
+    /// (δ‡) The accounts
     pub accounts: R,
 
-    /// (χ) The privileges
+    /// (χ') The privileges
     pub privileges: Privileges,
 
     /// (πS') The service records
