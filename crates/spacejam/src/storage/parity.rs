@@ -1,7 +1,5 @@
 //! The parity database storage
 
-#![cfg(feature = "parity")]
-
 use anyhow::Result;
 use parity_db::{BTreeIterator, ColumnOptions, Db, Operation as Op, Options};
 use runtime::storage::{Commit, KVStorage, Operation};

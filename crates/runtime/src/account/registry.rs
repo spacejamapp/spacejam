@@ -1,7 +1,7 @@
 //! Account registry with cached state
 
 use crate::{Storage, account::Account};
-use score::{Account as _, OpaqueHash};
+use score::{Account as _, OpaqueHash, ServiceId};
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -52,6 +52,19 @@ impl<S: Storage> score::Accounts for Accounts<S> {
             return Some(account.code());
         }
         Some(self.storage.account_info(index).ok()?.code)
+    }
+
+    fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId> {
+        if let Some(id) = self
+            .accounts
+            .iter()
+            .find(|(_, a)| a.code() == code)
+            .map(|(id, _)| *id)
+        {
+            return Some(id);
+        }
+
+        self.storage.contains_code(code)
     }
 
     fn upsert(&mut self, index: u32, account: impl score::Account) {

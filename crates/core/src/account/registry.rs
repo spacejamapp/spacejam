@@ -1,6 +1,6 @@
 //! Account registry
 
-use crate::{account::Account, service::ServiceAccount, OpaqueHash, StorageKey};
+use crate::{account::Account, service::ServiceAccount, OpaqueHash, ServiceId, StorageKey};
 use std::collections::BTreeMap;
 
 /// Account registry
@@ -10,6 +10,12 @@ pub trait Accounts: Clone {
 
     /// Get the code hash of an account
     fn code_hash(&self, index: u32) -> Option<OpaqueHash>;
+
+    /// Check if the registry contains the code
+    ///
+    /// NOTE: this returns the first account that using the
+    /// provided code.
+    fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId>;
 
     /// Create a new account
     fn upsert(&mut self, index: u32, account: impl Account);
@@ -37,6 +43,11 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
         Some(self.get(&index)?.code)
+    }
+
+    fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId> {
+        tracing::debug!("{} contains_code: {:?}", self.len(), code);
+        self.iter().find(|(_, a)| a.code == code).map(|(id, _)| *id)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {

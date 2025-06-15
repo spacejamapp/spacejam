@@ -4,7 +4,7 @@ use crate::storage::{KVStorage, sync};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
-    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, TimeSlot,
+    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot,
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
@@ -342,5 +342,17 @@ pub trait Storage: KVStorage {
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account lookup not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
+    }
+
+    /// Check if the storage contains the code
+    fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId> {
+        for pair in self.prefix_iter(&[255]).ok()? {
+            let (key, value) = pair.ok()?;
+            if value.starts_with(&code) {
+                return Some(u32::from_le_bytes([key[1], key[3], key[5], key[7]]));
+            }
+        }
+
+        None
     }
 }

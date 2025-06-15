@@ -14,7 +14,6 @@ use score::{
 pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
-mod dep;
 pub mod error;
 mod exec;
 mod queue;

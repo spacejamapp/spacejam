@@ -1,15 +1,14 @@
 //! Reporting validator
 
 use crate::tx::guarantee::{
-    dep::Dependencies,
     error::{Error, Result},
     state::State,
 };
 use crypto::shuffle;
 use score::{
     Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
-    MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, TimeSlot, VALIDATORS_COUNT,
-    WORK_REPORT_GAS_LIMIT,
+    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, TimeSlot,
+    VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     safrole::ValidatorData,
     service::{ReportedWorkPackage, WorkExecResult},
@@ -19,11 +18,18 @@ use std::collections::BTreeMap;
 /// Context of the reporting module.
 pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub state: &'s State,
+    /// accounts
     pub accounts: &'s R,
+    /// validators data
     pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
-    pub deps: Dependencies,
+    /// core assignments for each validator
     pub core_assignments: Vec<Vec<u16>>,
+    /// guarantors for each core
     pub guarantors: BTreeMap<usize, Vec<u16>>,
+    /// recent work packages
+    pub recent: Vec<ReportedWorkPackage>,
+    /// reported work packages
+    pub reported: Vec<OpaqueHash>,
 }
 
 impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
@@ -33,9 +39,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             state,
             accounts,
             validators: state.curr_validators,
-            deps: Dependencies::default(),
             core_assignments: vec![],
             guarantors: BTreeMap::new(),
+            recent: vec![],
+            reported: vec![],
         }
     }
 
@@ -107,12 +114,6 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
-        let service = self
-            .state
-            .services
-            .iter()
-            .map(|s| s.data.service.code)
-            .collect::<Vec<_>>();
         let reported = guarantees
             .iter()
             .map(|g| g.report.spec.hash)
@@ -124,11 +125,8 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
 
-        self.deps = Dependencies {
-            service,
-            recent,
-            reported,
-        };
+        self.recent = recent;
+        self.reported = reported;
     }
 
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
@@ -171,12 +169,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     /// Validate work package
     fn validate_deps(&self, guarantee: &ReportGuarantee) -> Result<()> {
         for dep in guarantee.report.context.prerequisites.iter() {
-            if !self.deps.contains(dep) {
+            tracing::debug!("validate_deps: 0x{}", hex::encode(dep));
+            if !self.contains_dep(dep) {
                 return Err(Error::DependencyMissing);
             }
         }
 
-        if self.deps.duplicated(&guarantee.report.spec.hash) {
+        if self.duplicated(&guarantee.report.spec.hash) {
             return Err(Error::DuplicatePackage);
         }
 
@@ -186,7 +185,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::TooManyDependencies);
         }
 
-        self.deps.validate_segment_lookup(guarantee)?;
+        self.validate_segment_lookup(guarantee)?;
         Ok(())
     }
 
@@ -309,5 +308,35 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         Ok(())
+    }
+
+    /// Validate segment lookup
+    pub fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        for lookup in guarantee.report.lookup.iter() {
+            if self.reported.contains(&lookup.hash) {
+                continue;
+            }
+
+            let Some(reported) = self.recent.iter().find(|r| r.hash == lookup.hash) else {
+                return Err(Error::SegmentRootLookupInvalid);
+            };
+
+            if reported.exports_root != lookup.exports_root {
+                return Err(Error::SegmentRootLookupInvalid);
+            }
+        }
+        Ok(())
+    }
+
+    // TODO: check if duplicated in service deps?
+    pub fn duplicated(&self, hash: &OpaqueHash) -> bool {
+        self.recent.iter().any(|r| r.hash == *hash)
+            || self.reported.iter().filter(|h| *h == hash).count() > 1
+    }
+
+    fn contains_dep(&self, dep: &OpaqueHash) -> bool {
+        self.accounts.contains_code(*dep).is_some()
+            || self.reported.contains(dep)
+            || self.recent.iter().any(|r| r.hash == *dep)
     }
 }

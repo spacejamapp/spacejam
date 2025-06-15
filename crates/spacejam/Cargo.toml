@@ -18,7 +18,7 @@ dirs.workspace = true
 hex.workspace = true
 network.workspace = true
 offchain.workspace = true
-parity-db = { workspace = true, optional = true }
+parity-db.workspace = true
 rand.workspace = true
 runtime.workspace = true
 score = { workspace = true }
@@ -41,8 +41,11 @@ tracing-subscriber = { workspace = true, optional = true, features = [
     "time",
 ] }
 
+[dev-dependencies]
+temp-dir.workspace = true
+
 [features]
-bin = ["node", "parity"]
+bin = ["node"]
 cmd = [
     "clap",
     "network/cmd",
@@ -53,7 +56,6 @@ cmd = [
 ]
 default = ["bin", "serde"]
 node = ["cmd"]
-parity = ["parity-db"]
 serde = [
     "dep:serde",
     "serde_json",
