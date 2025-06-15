@@ -7,8 +7,8 @@ use crate::tx::guarantee::{
 };
 use crypto::shuffle;
 use score::{
-    CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
-    OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, TimeSlot, VALIDATORS_COUNT,
+    Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
+    MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, TimeSlot, VALIDATORS_COUNT,
     WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     safrole::ValidatorData,
@@ -17,15 +17,28 @@ use score::{
 use std::collections::BTreeMap;
 
 /// Context of the reporting module.
-pub(super) struct GuaranteeValidator<'s> {
+pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub state: &'s State,
+    pub accounts: &'s R,
     pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
     pub deps: Dependencies,
     pub core_assignments: Vec<Vec<u16>>,
     pub guarantors: BTreeMap<usize, Vec<u16>>,
 }
 
-impl GuaranteeValidator<'_> {
+impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
+    /// Create a new reporting validator
+    pub fn new(state: &'s State, accounts: &'s R) -> Self {
+        Self {
+            state,
+            accounts,
+            validators: state.curr_validators,
+            deps: Dependencies::default(),
+            core_assignments: vec![],
+            guarantors: BTreeMap::new(),
+        }
+    }
+
     /// Validate work reports according to the guarantees extrinsic
     pub fn validate(
         &mut self,
@@ -37,18 +50,12 @@ impl GuaranteeValidator<'_> {
         // Prepare for reporting
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
-        let (service_ids, code_hashes): (Vec<_>, Vec<_>) = self
-            .state
-            .services
-            .iter()
-            .map(|s| (s.id, s.data.service.code))
-            .unzip();
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
             self.validate_core(guarantee)?;
             self.validate_rotation(slot, guarantee)?;
-            self.validate_results(&code_hashes, &service_ids, guarantee)?;
+            self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
             self.validate_guarantees(guarantee)?;
@@ -84,11 +91,7 @@ impl GuaranteeValidator<'_> {
 
         // Calculate rotation offset based on timeslot
         let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD;
-
-        // First shuffle using epoch entropy
         let shuffled = shuffle::eq331(&initial_sequence, eta);
-
-        // Apply rotation to the shuffled sequence
         let rotated: Vec<u32> = shuffled
             .iter()
             .map(|&core_idx| (core_idx + rotation) % CORES_COUNT as u32)
@@ -251,12 +254,7 @@ impl GuaranteeValidator<'_> {
         Ok(())
     }
 
-    fn validate_results(
-        &self,
-        code_hashes: &[OpaqueHash],
-        service_ids: &[u32],
-        guarantee: &ReportGuarantee,
-    ) -> Result<()> {
+    fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let mut output_len = guarantee.report.auth_output.len();
         let mut gas_limit = 0;
         for result in guarantee.report.results.iter() {
@@ -276,12 +274,12 @@ impl GuaranteeValidator<'_> {
                 return Err(Error::ServiceItemGasTooLow);
             }
 
-            if !code_hashes.contains(&result.code_hash) {
-                return Err(Error::BadCodeHash);
-            }
-
-            if !service_ids.contains(&result.service_id) {
+            let Some(code_hash) = self.accounts.code_hash(result.service_id) else {
                 return Err(Error::BadServiceId);
+            };
+
+            if code_hash != result.code_hash {
+                return Err(Error::BadCodeHash);
             }
         }
 
@@ -311,17 +309,5 @@ impl GuaranteeValidator<'_> {
         }
 
         Ok(())
-    }
-}
-
-impl<'s> From<&'s State> for GuaranteeValidator<'s> {
-    fn from(state: &'s State) -> Self {
-        Self {
-            validators: state.curr_validators,
-            state,
-            core_assignments: vec![],
-            guarantors: BTreeMap::new(),
-            deps: Dependencies::default(),
-        }
     }
 }

@@ -166,8 +166,12 @@ pub fn simulate<Vm: Pvm>(
             root,
             Default::default(),
         );
-        let (reported, _) =
-            guarantee::report(&state, block.header.slot, &block.extrinsic.guarantees)?;
+        let (reported, _) = guarantee::report(
+            &state,
+            block.header.slot,
+            &accounts,
+            &block.extrinsic.guarantees,
+        )?;
         if let Some(last) = state.recent_blocks.last_mut() {
             last.reported = reported;
         };

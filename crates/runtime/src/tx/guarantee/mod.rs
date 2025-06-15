@@ -1,9 +1,9 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 use error::{Error, Result};
-use pvm::{Accounts, Pvm};
+use pvm::Pvm;
 use score::{
-    CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
+    Accounts, CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
@@ -257,9 +257,10 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
 pub fn report(
     state: &score::State,
     slot: TimeSlot,
+    services: &impl Accounts,
     guarantees: &GuaranteesExtrinsic,
 ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
     let pstate = State::from(state.clone());
-    let mut validator = validator::GuaranteeValidator::from(&pstate);
+    let mut validator = validator::GuaranteeValidator::new(&pstate, services);
     validator.validate(slot, guarantees)
 }

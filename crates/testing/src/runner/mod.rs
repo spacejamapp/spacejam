@@ -206,14 +206,14 @@ impl Runner {
                 assert_eq!(pre_state.services, post_state.services);
 
                 // Validate the output
-                let state = pre_state.clone().into();
+                let state: score::State = pre_state.clone().into();
                 let result = tx::guarantee::reports(
                     input.slot,
                     &pre_state.avail_assignments,
                     &input.guarantees,
                 )
                 .and_then(|assignments| {
-                    tx::guarantee::report(&state, input.slot, &input.guarantees)
+                    tx::guarantee::report(&state, input.slot, &state.accounts, &input.guarantees)
                         .map(|(reported, reporters)| (reported, reporters, assignments))
                 });
 
