@@ -37,8 +37,9 @@ pub fn accounts(
         // The data must have been solicited by a service but
         // not yet provided in the prior state.
         //
-        // FIXME: The formula in graypaper seems not correct, we align the logic with tests atm.
-        if exist || slots.is_empty() {
+        // FIXME: The formula in graypaper seems mismatched with
+        // the preimage tests and the trace tests.
+        if exist || !slots.is_empty() {
             anyhow::bail!("Preimage not needed");
         }
 
