@@ -51,7 +51,7 @@ impl<S: Storage> score::Accounts for Accounts<S> {
         if let Some(account) = self.accounts.get(&index) {
             return Some(account.code());
         }
-        Some(self.storage.account_info(index).ok()?.code)
+        Some(self.storage.account_data(index).ok()?.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl score::Account) {

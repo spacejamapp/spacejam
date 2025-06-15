@@ -1,9 +1,9 @@
 //! Primitives for the accumulate invocation
 
 use crate::{
-    account::{Account, Accounts},
+    account::Accounts,
     safrole::ValidatorData,
-    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceItem},
+    service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
     OpaqueHash,
@@ -134,54 +134,6 @@ pub struct Accumulation<R: Accounts> {
 
     /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
     pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
-}
-
-impl<R: Accounts> Accumulation<R> {
-    /// NOTE: this method is testing usage.
-    ///
-    /// Sync preimages for account statistics
-    pub fn accounts(&self) -> Vec<ServiceItem> {
-        let mut items = Vec::new();
-        let accounts = self.accounts.accounts();
-        for (id, account) in accounts.iter() {
-            let account = account.account();
-            if account.preimage.contains_key(&account.code) {
-                items.push(ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                });
-
-                continue;
-            }
-
-            for other in accounts.values() {
-                let other = other.account();
-                if other.code != account.code || !other.preimage.contains_key(&account.code) {
-                    continue;
-                }
-
-                let mut account = account.clone();
-                let blob = other
-                    .preimage
-                    .get(&account.code)
-                    .cloned()
-                    .unwrap_or_default();
-                account
-                    .lookup
-                    .insert((account.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.code, blob);
-
-                let mut item: ServiceItem = ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                };
-
-                item.data.preimages.retain(|k| k.hash != account.code);
-                items.push(item);
-            }
-        }
-        items
-    }
 }
 
 /// The accumulate params for the accumulation

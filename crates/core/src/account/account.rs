@@ -1,7 +1,7 @@
 //! Account abstraction
 
 use crate::{
-    service::{GasLimit, ServiceAccount, ServiceAccountState},
+    service::{GasLimit, ServiceAccount, ServiceInfo},
     OpaqueHash, StorageKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -69,7 +69,7 @@ pub trait Account: Clone {
     fn write(&mut self, key: &[u8], value: Vec<u8>);
 
     /// Get the account info
-    fn info(&self) -> ServiceAccountState;
+    fn info(&self) -> ServiceInfo;
 
     /// Get the operations of the account
     fn ops(self) -> (BTreeMap<StorageKey, Vec<u8>>, BTreeSet<StorageKey>);
@@ -156,7 +156,7 @@ impl Account for ServiceAccount {
         self.storage.insert(key.to_vec(), value);
     }
 
-    fn info(&self) -> ServiceAccountState {
+    fn info(&self) -> ServiceInfo {
         self.state()
     }
 

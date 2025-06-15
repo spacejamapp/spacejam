@@ -6,7 +6,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
-use types::*;
+pub use types::*;
 
 /// Accumulate test
 #[derive(Debug, Serialize, Deserialize, Json)]
@@ -58,18 +58,61 @@ pub struct TestOutput {
 include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
 
 mod types {
+    use crate::reports::{ServiceItem, ServiceItemJson};
     use score::{
-        service::{
-            AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount, ServiceItem,
-            ServiceItemJson,
-        },
+        service::{AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount},
         state::account,
         statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
-        Entropy, Gas, ServiceId, TimeSlot,
+        vm::Accumulation,
+        Account, Accounts, Entropy, Gas, ServiceId, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
     use std::collections::BTreeMap;
+
+    /// Convert the accumulation to the accounts
+    pub fn to_accounts<R: Accounts>(accumulation: &Accumulation<R>) -> Vec<ServiceItem> {
+        let mut items = Vec::new();
+        let accounts = accumulation.accounts.accounts();
+        for (id, account) in accounts.iter() {
+            let account = account.account();
+            if account.preimage.contains_key(&account.code) {
+                items.push(ServiceItem {
+                    id: *id,
+                    data: (&account).into(),
+                });
+
+                continue;
+            }
+
+            for other in accounts.values() {
+                let other = other.account();
+                if other.code != account.code || !other.preimage.contains_key(&account.code) {
+                    continue;
+                }
+
+                let mut account = account.clone();
+                let blob = other
+                    .preimage
+                    .get(&account.code)
+                    .cloned()
+                    .unwrap_or_default();
+                account
+                    .lookup
+                    .insert((account.code, blob.len() as u32), Default::default());
+                account.preimage.insert(account.code, blob);
+
+                let mut item: ServiceItem = ServiceItem {
+                    id: *id,
+                    data: (&account).into(),
+                };
+
+                item.data.preimages.retain(|k| k.hash != account.code);
+                items.push(item);
+            }
+        }
+        items
+    }
 
     /// State for the accumulation
     #[derive(Debug, Serialize, Deserialize, Json)]

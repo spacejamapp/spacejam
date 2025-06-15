@@ -1,10 +1,6 @@
 //! Service account types
 
-use crate::{
-    service::{GasLimit, ServiceData},
-    state::account,
-    Gas, OpaqueHash, StorageKey, TimeSlot,
-};
+use crate::{service::GasLimit, state::account, Gas, OpaqueHash, StorageKey, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -72,10 +68,10 @@ impl ServiceAccount {
     }
 
     /// The state of the service account
-    pub fn state(&self) -> ServiceAccountState {
+    pub fn state(&self) -> ServiceInfo {
         let items = self.items();
         let total = self.total();
-        ServiceAccountState {
+        ServiceInfo {
             code: self.code,
             balance: self.balance,
             threshold: self.threshold(),
@@ -120,9 +116,9 @@ impl ServiceAccount {
     }
 }
 
-/// The state of the service account
+/// Service info for pvm execution
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json)]
-pub struct ServiceAccountState {
+pub struct ServiceInfo {
     /// The code hash of the service account (c)
     #[json(hex)]
     #[serde(alias = "code_hash")]
@@ -157,11 +153,37 @@ pub struct ServiceAccountState {
     pub items: u32,
 }
 
-impl ServiceAccountState {
-    /// The minimum balance which the service must satisfy. (t)
-    pub const fn threshold(&self) -> u64 {
-        crate::BALANCE_PER_SERVICE
-            + crate::BALANCE_PER_ITEM * self.items as u64
-            + crate::BALANCE_PER_OCTET * self.total
+/// Service data for state storage codec
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServiceData {
+    /// The code hash of the service account (c)
+    pub code: OpaqueHash,
+
+    /// The balance of the service account (b)
+    pub balance: u64,
+
+    /// The accumulate gas of the service account (g)
+    pub accumulate: u64,
+
+    /// The minimum required for the on transfer entry-point (m)
+    pub transfer: Gas,
+
+    /// The total number of octets used in storage (o)
+    pub total: u64,
+
+    /// The number of items in storage (i)
+    pub items: u32,
+}
+
+impl From<ServiceInfo> for ServiceData {
+    fn from(state: ServiceInfo) -> Self {
+        ServiceData {
+            code: state.code,
+            balance: state.balance,
+            accumulate: state.accumulate,
+            transfer: state.transfer,
+            total: state.total,
+            items: state.items,
+        }
     }
 }

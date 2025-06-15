@@ -52,7 +52,7 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let mut accounts = accumulation.accounts();
+                let mut accounts = accumulate::to_accounts(&accumulation);
                 for account in accounts.iter_mut() {
                     // the current test vector doesn't support threshold
                     account.data.service.threshold = 0;

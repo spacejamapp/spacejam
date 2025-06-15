@@ -8,10 +8,7 @@ use score::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
-    service::{
-        AvailabilityAssignments, Privileges, ServiceAccount, ServiceAccountState, ServicePreimage,
-        ServiceStorage, WorkReport,
-    },
+    service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, WorkReport},
     state::{ServiceField, State, StateKey, StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
@@ -294,7 +291,7 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account state
-    fn account_info(&self, service: u32) -> Result<ServiceAccountState> {
+    fn account_data(&self, service: u32) -> Result<ServiceData> {
         self.get(account::info(service))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account state not found"))?
@@ -315,25 +312,6 @@ pub trait Storage: KVStorage {
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account preimage not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
-    }
-
-    /// Fetch the account preimages
-    fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
-        self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
-            .map(|kv| {
-                kv.map(|(_, value)| {
-                    // FIXME: cache the preimage somewhere else
-                    let hash = crypto::blake2b(&value);
-                    ServicePreimage { hash, blob: value }
-                })
-            })
-            .collect()
-    }
-
-    fn account_storage_full(&self, service: u32) -> Result<Vec<ServiceStorage>> {
-        self.prefix_iter(key::prefix(service, &key::ACCOUNT_STORAGE_PREFIX))?
-            .map(|kv| kv.map(|(key, value)| ServiceStorage { key, value }))
-            .collect()
     }
 
     /// Fetch the account lookup

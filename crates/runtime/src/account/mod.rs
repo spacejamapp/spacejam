@@ -5,7 +5,7 @@ use anyhow::Result;
 pub use registry::Accounts;
 use score::{
     OpaqueHash, StorageKey,
-    service::{GasLimit, ServiceAccount, ServiceAccountState},
+    service::{GasLimit, ServiceAccount, ServiceInfo},
     state::account,
 };
 use std::{
@@ -173,8 +173,8 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.storage.remove(key)
     }
 
-    fn info(&self) -> ServiceAccountState {
-        ServiceAccountState {
+    fn info(&self) -> ServiceInfo {
+        ServiceInfo {
             code: self.account.code,
             balance: self.account.balance,
             threshold: self.account.threshold(),
