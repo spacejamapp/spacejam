@@ -5,11 +5,11 @@ use crate::{
     Reason, Result,
 };
 use score::{
-    vm::{DeferredTransfer, StateContext},
+    vm::{AccumulateState, DeferredTransfer},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
-/// Accumulate arguments
+/// Data used in accumulate related host calls
 pub struct Accumulate<R: Accounts> {
     /// The regular dimension
     pub x: AccumulateContext<R>,
@@ -56,14 +56,14 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
     }
 }
 
-/// Context for the PVM accumulation
+/// Context for the accumulate host calls
 #[derive(Clone)]
 pub struct AccumulateContext<R: Accounts> {
     /// (s) The service id
     pub service: ServiceId,
 
     /// (u) The upcoming validators
-    pub context: StateContext<R>,
+    pub context: AccumulateState<R>,
 
     /// (i) empty index for a new account
     pub index: ServiceId,
@@ -104,8 +104,8 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate result
-    pub fn to_result(self, gas: Gas) -> AccumulateResult<R> {
-        AccumulateResult {
+    pub fn to_result(self, gas: Gas) -> Accumulated<R> {
+        Accumulated {
             context: self.context,
             transfers: self.transfer,
             hash: self.output,
@@ -115,9 +115,9 @@ impl<R: Accounts> AccumulateContext<R> {
 }
 
 /// The accumulate result of (ΨA)
-pub struct AccumulateResult<R: Accounts> {
+pub struct Accumulated<R: Accounts> {
     /// (o) The state context
-    pub context: StateContext<R>,
+    pub context: AccumulateState<R>,
 
     /// (t) The timeslot for the current accumulation
     pub transfers: Vec<DeferredTransfer>,
@@ -129,9 +129,9 @@ pub struct AccumulateResult<R: Accounts> {
     pub gas: Gas,
 }
 
-impl<R: Accounts> AccumulateResult<R> {
+impl<R: Accounts> Accumulated<R> {
     /// Create a new accumulate result
-    pub fn new(context: StateContext<R>) -> Self {
+    pub fn new(context: AccumulateState<R>) -> Self {
         Self {
             context,
             transfers: Vec::new(),

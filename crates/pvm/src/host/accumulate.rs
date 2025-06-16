@@ -226,8 +226,6 @@ impl<R: Accounts> Accumulate<R> {
 
         // update the sender's balance
         *account.balance_mut() -= a;
-
-        // get the memo
         let memo = state
             .memory
             .read_bytes(o as u32, score::TRANSFER_MEMO_SIZE)?;

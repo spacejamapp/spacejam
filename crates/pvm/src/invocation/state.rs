@@ -1,6 +1,6 @@
 //! Primitives for the general invocation
 
-use crate::{invocation::Accumulate, AccumulateResult, Gas, Reason};
+use crate::{invocation::Accumulate, Accumulated, Gas, Reason};
 use score::{service::WorkExecResult, Accounts};
 
 /// The execution state of programs.
@@ -103,7 +103,7 @@ impl<X> Received<X> {
 
 impl<R: Accounts> Received<Accumulate<R>> {
     /// Convert the received result to an accumulate result
-    pub fn to_result(self) -> AccumulateResult<R> {
+    pub fn to_result(self) -> Accumulated<R> {
         // Treat Continue and Halt as successful completion
         // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
         match self.reason {

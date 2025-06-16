@@ -1,10 +1,10 @@
 //! Execution of work reports
 
-use pvm::{Accounts, AccumulateResult, Pvm};
+use pvm::{Accounts, Pvm};
 use score::{
     Gas, ServiceId, TimeSlot,
     service::WorkReport,
-    vm::{Accumulated, StateContext},
+    vm::{AccumulateState, Accumulated},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub fn outer<V: Pvm, R: Accounts>(
     gas_limit: Gas,
     reports: &[WorkReport],
-    context: StateContext<R>,
+    context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated<R> {
@@ -70,7 +70,7 @@ pub fn outer<V: Pvm, R: Accounts>(
 
 /// (Δ*) parallel accumulation
 pub fn parallel<V: Pvm, R: Accounts>(
-    mut context: StateContext<R>,
+    mut context: AccumulateState<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
@@ -84,7 +84,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let results: BTreeMap<ServiceId, AccumulateResult<R>> = services
+    let results: BTreeMap<ServiceId, pvm::Accumulated<R>> = services
         .iter()
         .map(|service| {
             let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
@@ -154,12 +154,12 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
 /// (Δ1) single accumulation
 pub fn once<V: Pvm, R: Accounts>(
-    context: StateContext<R>,
+    context: AccumulateState<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
     timeslot: TimeSlot,
-) -> AccumulateResult<R> {
+) -> pvm::Accumulated<R> {
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
             .iter()

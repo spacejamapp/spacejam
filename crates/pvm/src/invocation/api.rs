@@ -3,8 +3,7 @@
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
-    AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Refined,
-    Transferred,
+    AccumulateContext, Accumulated, Argument, Executed, Memory as _, Reason, Refined, Transferred,
 };
 use parser::{
     program::{self, Program},
@@ -12,7 +11,7 @@ use parser::{
 };
 use score::{
     service::{WorkExecResult, WorkPackage},
-    vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
+    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
@@ -248,7 +247,7 @@ pub trait Invocation {
     /// as defined per graypaper (B.9)
     fn accumulate<R: Accounts>(
         // (U) The state context
-        mut context: StateContext<R>,
+        mut context: AccumulateState<R>,
         // (N_t)  timeslot for the current accumulation
         timeslot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -259,10 +258,10 @@ pub trait Invocation {
         operands: Vec<Operand>,
         // entropy'0
         entropy: OpaqueHash,
-    ) -> AccumulateResult<R> {
+    ) -> Accumulated<R> {
         let Some(code) = context.code(service) else {
             tracing::warn!("no code found for service: {}", service);
-            return AccumulateResult::new(context);
+            return Accumulated::new(context);
         };
 
         // create the accumulate context

@@ -9,7 +9,7 @@ use score::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
-    vm::{Accumulation, DeferredTransfer, StateContext},
+    vm::{AccumulateState, Accumulation, DeferredTransfer},
 };
 use std::collections::BTreeMap;
 
@@ -45,7 +45,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     let mut accumulated = exec::outer::<V, R>(
         gas_limit,
         &accumulatable,
-        StateContext {
+        AccumulateState {
             accounts,
             privileges: privileges.clone(),
             // Initialize validators and authorization to defaults for now

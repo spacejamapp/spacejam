@@ -3,7 +3,7 @@
 pub use score::{Account, Accounts, Gas};
 pub use {
     invocation::{
-        accumulate::{AccumulateContext, AccumulateResult},
+        accumulate::{AccumulateContext, Accumulated},
         refine::Refined,
         transfer::Transferred,
         Argument, Executed, Invocation, Received, State, Stepped,
