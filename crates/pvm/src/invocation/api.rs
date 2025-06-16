@@ -2,7 +2,7 @@
 
 use crate::{
     host,
-    invocation::{Received, State, Stepped},
+    invocation::{General, Received, State, Stepped},
     AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Refined,
     Transferred,
 };
@@ -332,8 +332,7 @@ pub trait Invocation {
         tracing::warn!("FIXME: update the account balance: {}", amount);
         *account.balance_mut() += amount;
         let account = account.account();
-        let general = host::General::new(service, accounts);
-
+        let general = General::new(service, accounts);
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {

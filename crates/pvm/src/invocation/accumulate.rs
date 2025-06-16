@@ -1,10 +1,60 @@
 //! PolkaVM environment
 
-use crate::{host::Accumulate, invocation::state::Received, Reason};
+use crate::{
+    invocation::{Argument, General},
+    Reason, Result,
+};
 use score::{
     vm::{DeferredTransfer, StateContext},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
+
+/// Accumulate arguments
+pub struct Accumulate<R: Accounts> {
+    /// The regular dimension
+    pub x: AccumulateContext<R>,
+
+    /// The exceptional dimension
+    pub y: AccumulateContext<R>,
+
+    /// The timeslot
+    pub timeslot: TimeSlot,
+}
+
+impl<R: Accounts> Accumulate<R> {
+    /// Get the account
+    pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
+        self.x
+            .context
+            .accounts
+            .get(self.x.service)
+            .ok_or(Reason::Panic("Could not find account".into()))
+    }
+}
+
+impl<R: Accounts> Argument<R> for Accumulate<R> {
+    fn as_general(&self) -> crate::Result<General<R>> {
+        Ok(General::new(
+            self.x.service,
+            self.x.context.accounts.clone(),
+        ))
+    }
+
+    // FIXME: find a better way to update the account
+    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
+        let index = general.index;
+        let Some(account) = general.account() else {
+            crate::bail!("Account {} not found in context", general.index);
+        };
+
+        self.x.context.accounts.upsert(index, account.clone());
+        Ok(())
+    }
+
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
+        Ok(self)
+    }
+}
 
 /// Context for the PVM accumulation
 #[derive(Clone)]
@@ -87,26 +137,6 @@ impl<R: Accounts> AccumulateResult<R> {
             transfers: Vec::new(),
             hash: None,
             gas: 0,
-        }
-    }
-}
-
-impl<R: Accounts> Received<Accumulate<R>> {
-    /// Convert the received result to an accumulate result
-    pub fn to_result(self) -> AccumulateResult<R> {
-        // Treat Continue and Halt as successful completion
-        // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
-        match self.reason {
-            Reason::Continue | Reason::Halt => {
-                let mut result = self.data.x.to_result(self.gas);
-                if self.output.len() == 32 {
-                    let mut hash = [0; 32];
-                    hash.copy_from_slice(&self.output);
-                    result.hash = Some(hash);
-                }
-                result
-            }
-            _ => self.data.y.to_result(self.gas),
         }
     }
 }

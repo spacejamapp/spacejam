@@ -1,15 +1,15 @@
 //! Accumulation related host calls
 
 use crate::{
-    host::{Exit, ExitCode, General},
-    invocation::State,
-    AccumulateContext, Argument, Reason, Result,
+    host::{Exit, ExitCode},
+    invocation::{Accumulate, State},
+    Result,
 };
 use codec::Numeric;
 use score::{
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
-    Account, Accounts, TimeSlot,
+    Account, Accounts,
 };
 use std::collections::BTreeMap;
 
@@ -21,7 +21,7 @@ impl<R: Accounts> Accumulate<R> {
             6 => self.assign(state),
             7 => self.designate(state),
             8 => self.checkpoint(state),
-            9 => self.new(state),
+            9 => self.new_(state),
             10 => self.upgrade(state),
             11 => self.transfer(state),
             12 => self.eject(state),
@@ -136,8 +136,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩN) new
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         // get the arguments
         let [o, l, g, m] = [
             state.registers[7],
@@ -394,52 +393,5 @@ impl<R: Accounts> Accumulate<R> {
 
         self.x.output = Some(hash);
         Ok(Exit::Ok as u64)
-    }
-}
-
-/// Accumulate arguments
-pub struct Accumulate<R: Accounts> {
-    /// The regular dimension
-    pub x: AccumulateContext<R>,
-
-    /// The exceptional dimension
-    pub y: AccumulateContext<R>,
-
-    /// The timeslot
-    pub timeslot: TimeSlot,
-}
-
-impl<R: Accounts> Accumulate<R> {
-    /// Get the account
-    pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
-        self.x
-            .context
-            .accounts
-            .get(self.x.service)
-            .ok_or(Reason::Panic("Could not find account".into()))
-    }
-}
-
-impl<R: Accounts> Argument<R> for Accumulate<R> {
-    fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(General::new(
-            self.x.service,
-            self.x.context.accounts.clone(),
-        ))
-    }
-
-    // FIXME: find a better way to update the account
-    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
-        let index = general.index;
-        let Some(account) = general.account() else {
-            crate::bail!("Account {} not found in context", general.index);
-        };
-
-        self.x.context.accounts.upsert(index, account.clone());
-        Ok(())
-    }
-
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
-        Ok(self)
     }
 }

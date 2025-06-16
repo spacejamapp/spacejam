@@ -1,11 +1,10 @@
 //! Host functions
 
 use crate::{
-    invocation::{State, Stepped},
+    invocation::{Argument, State, Stepped},
     Reason,
 };
 use score::Accounts;
-pub use {accumulate::Accumulate, general::General, refine::Refine};
 
 mod accumulate;
 mod general;
@@ -59,29 +58,6 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
             Stepped::new(Reason::Continue, state).with(data)
         }
         Err(reason) => Stepped::new(reason, state).with(data),
-    }
-}
-
-/// Dynamic arguments for host calls
-pub trait Argument<R: Accounts> {
-    /// returns some if the input data is general
-    fn as_general(&self) -> crate::Result<General<R>> {
-        crate::bail!("not a general")
-    }
-
-    /// update the general argument
-    fn update_general(&mut self, _general: General<R>) -> crate::Result<()> {
-        crate::bail!("not a general")
-    }
-
-    /// returns some if the input data is accumulate
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
-        crate::bail!("not an accumulate")
-    }
-
-    /// returns some if the input data is refine
-    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
-        crate::bail!("not a refine")
     }
 }
 
