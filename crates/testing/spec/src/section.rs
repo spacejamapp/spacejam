@@ -15,6 +15,8 @@ pub enum Section {
     Codec,
     /// The disputes section
     Disputes,
+    /// The erasure coding section
+    Erasure,
     /// The history section
     History,
     /// The preimages section
@@ -33,30 +35,6 @@ pub enum Section {
     Trace(Trace),
     /// The trie section
     Trie,
-}
-
-impl Section {
-    /// The all sections
-    pub fn all() -> [Section; 16] {
-        [
-            Section::Accumulate,
-            Section::Assurances,
-            Section::Authorizations,
-            Section::Codec,
-            Section::Pvm,
-            Section::Safrole,
-            Section::Statistics,
-            Section::Disputes,
-            Section::History,
-            Section::Preimages,
-            Section::Reports,
-            Section::Shuffle,
-            Section::Trie,
-            Section::Trace(Trace::Fallback),
-            Section::Trace(Trace::Safrole),
-            Section::Trace(Trace::ReportsL0),
-        ]
-    }
 }
 
 impl FromStr for Section {
@@ -93,6 +71,7 @@ impl AsRef<str> for Section {
             Section::Pvm => "pvm/programs",
             Section::Shuffle => "shuffle",
             Section::Trie => "trie",
+            Section::Erasure => "erasure-coding",
             Section::Accumulate => "stf/accumulate",
             Section::Assurances => "stf/assurances",
             Section::Safrole => "stf/safrole",

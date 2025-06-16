@@ -16,6 +16,7 @@ pub mod assurances;
 pub mod authorizations;
 pub mod codec;
 pub mod disputes;
+pub mod erasure;
 pub mod history;
 pub mod preimage;
 pub mod pvm;

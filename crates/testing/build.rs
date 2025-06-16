@@ -35,6 +35,7 @@ fn main() -> Result<()> {
         registry.disputes(Scale::Tiny)?,
         &out_dir.join("disputes.rs"),
     )?;
+    build_tests(registry.erasure(Scale::Tiny)?, &out_dir.join("erasure.rs"))?;
     build_tests(registry.history()?, &out_dir.join("history.rs"))?;
     build_tests(registry.pvm()?, &out_dir.join("pvm.rs"))?;
     build_tests(registry.preimages()?, &out_dir.join("preimages.rs"))?;

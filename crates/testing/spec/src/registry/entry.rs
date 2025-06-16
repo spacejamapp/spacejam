@@ -92,6 +92,7 @@ impl Entry {
             Section::Assurances => self.parse_general(path),
             Section::Authorizations => self.parse_general(path),
             Section::Codec => self.parse_codec(path),
+            Section::Erasure => self.parse_erasure(path),
             Section::Pvm => self.parse_pvm(path),
             Section::Shuffle => self.parse_shuffle(path),
             Section::Trie => self.parse_trie(path),
@@ -110,6 +111,22 @@ impl Entry {
         let name = Self::file_name(path)?;
         let input = fs::read_to_string(path)?;
         let output = hex::encode(fs::read(path.with_extension("bin"))?);
+
+        Ok(Test {
+            input,
+            output,
+            name,
+            scale: self.scale,
+            section: self.section,
+        })
+    }
+
+    /// Parse an erasure test vector from a file
+    fn parse_erasure(&self, path: &PathBuf) -> Result<Test> {
+        let name = Self::file_name(path)?;
+        let json: Value = serde_json::from_slice(&fs::read(path)?)?;
+        let input = json["data"].to_string();
+        let output = json["shards"].to_string();
 
         Ok(Test {
             input,
