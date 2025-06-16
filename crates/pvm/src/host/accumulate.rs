@@ -1,16 +1,15 @@
 //! Accumulation related host calls
 
 use crate::{
-    host::{Exit, ExitCode, General},
-    invocation::State,
-    AccumulateContext, Argument, Reason, Result,
+    host::{Exit, ExitCode},
+    invocation::{Accumulate, State},
+    Result,
 };
 use codec::Numeric;
 use score::{
-    account::{Account, Accounts},
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
-    TimeSlot,
+    Account, Accounts,
 };
 use std::collections::BTreeMap;
 
@@ -22,7 +21,7 @@ impl<R: Accounts> Accumulate<R> {
             6 => self.assign(state),
             7 => self.designate(state),
             8 => self.checkpoint(state),
-            9 => self.new(state),
+            9 => self.new_(state),
             10 => self.upgrade(state),
             11 => self.transfer(state),
             12 => self.eject(state),
@@ -137,8 +136,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩN) new
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         // get the arguments
         let [o, l, g, m] = [
             state.registers[7],
@@ -228,8 +226,6 @@ impl<R: Accounts> Accumulate<R> {
 
         // update the sender's balance
         *account.balance_mut() -= a;
-
-        // get the memo
         let memo = state
             .memory
             .read_bytes(o as u32, score::TRANSFER_MEMO_SIZE)?;
@@ -291,30 +287,28 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩQ) query
     pub fn query<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
         let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
         let hash = state.memory.read_hash(o)?;
         let account = self.account()?;
-
-        // query the lookup state
         let Some(lookup) = account.lookup(hash, z) else {
             state.registers[8] = 0;
             return Ok(Exit::None as u64);
         };
 
-        // update registers
+        // update result
+        let base = 1u64 << 32;
         let exit = if lookup.is_empty() {
             state.registers[8] = 0;
             0
         } else if lookup.len() == 1 {
             state.registers[8] = 0;
-            1 + u32::MAX as u64 * lookup[0] as u64
+            1 + base * lookup[0] as u64
         } else if lookup.len() == 2 {
             state.registers[8] = lookup[1] as u64;
-            2 + u32::MAX as u64 * lookup[0] as u64
+            2 + base * lookup[0] as u64
         } else {
-            state.registers[8] = lookup[1] as u64 + u32::MAX as u64 * lookup[2] as u64;
-            3 + u32::MAX as u64 * lookup[0] as u64
+            state.registers[8] = lookup[1] as u64 + base * lookup[2] as u64;
+            3 + base * lookup[0] as u64
         };
         Ok(exit)
     }
@@ -324,7 +318,6 @@ impl<R: Accounts> Accumulate<R> {
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // get the arguments
         let [o, z] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
 
@@ -336,7 +329,11 @@ impl<R: Accounts> Accumulate<R> {
         }
 
         // get the lookup
-        let mut lookup = account.lookup(hash, z as u32).unwrap_or_default();
+        let Some(mut lookup) = account.lookup(hash, z as u32) else {
+            account.insert_lookup(hash, z as u32, vec![]);
+            return Ok(Exit::Ok as u64);
+        };
+
         if lookup.len() == 2 {
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
@@ -349,26 +346,33 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩF) forget
     pub fn forget<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
+        tracing::debug!("entering forget");
         let [o, z] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
+        tracing::debug!("read hash");
 
         // get the lookup data
         let timeslot = self.timeslot;
         let account = self.account()?;
+        tracing::debug!("read account");
         let Some(mut lookup) = account.lookup(hash, z as u32) else {
+            tracing::debug!("forget: not found");
             return Ok(Exit::Huh as u64);
         };
 
         let expunged = timeslot - score::EXPUNGED_TIME;
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
+            tracing::debug!("forget: empty or expired");
             account.remove_lookup(hash, z as u32);
             account.remove_preimage(hash);
         } else if lookup.len() == 1 {
+            tracing::debug!("forget: single");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
         } else if lookup.len() == 3 && lookup[2] < expunged {
-            lookup[2] = timeslot;
+            tracing::debug!("forget: triple");
+            lookup.resize(2, lookup[2]);
+            lookup[1] = timeslot;
             account.insert_lookup(hash, z as u32, lookup);
         } else {
             return Ok(Exit::Huh as u64);
@@ -387,52 +391,5 @@ impl<R: Accounts> Accumulate<R> {
 
         self.x.output = Some(hash);
         Ok(Exit::Ok as u64)
-    }
-}
-
-/// Accumulate arguments
-pub struct Accumulate<R: Accounts> {
-    /// The regular dimension
-    pub x: AccumulateContext<R>,
-
-    /// The exceptional dimension
-    pub y: AccumulateContext<R>,
-
-    /// The timeslot
-    pub timeslot: TimeSlot,
-}
-
-impl<R: Accounts> Accumulate<R> {
-    /// Get the account
-    pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
-        self.x
-            .context
-            .accounts
-            .get(self.x.service)
-            .ok_or(Reason::Panic("Could not find account".into()))
-    }
-}
-
-impl<R: Accounts> Argument<R> for Accumulate<R> {
-    fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(General {
-            index: self.x.service,
-            accounts: self.x.context.accounts.clone(),
-        })
-    }
-
-    // FIXME: find a better way to update the account
-    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
-        let index = general.index;
-        let Some(account) = general.account() else {
-            crate::bail!("Account {} not found in context", general.index);
-        };
-
-        self.x.context.accounts.upsert(index, account.clone());
-        Ok(())
-    }
-
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
-        Ok(self)
     }
 }

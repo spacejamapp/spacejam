@@ -2149,18 +2149,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jam-bootstrap-service-common"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8a5f9d338ca3992116adc51a2ca9ef0cc5adfb1aeb342e265afd05a861b2d03"
-dependencies = [
- "bounded-collections-next",
- "jam-codec",
- "jam-types",
- "rand 0.9.1",
-]
-
-[[package]]
 name = "jam-codec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3869,6 +3857,7 @@ dependencies = [
  "spacejam-network",
  "spacejam-offchain",
  "spacejson",
+ "temp-dir",
  "time",
  "tokio",
  "toml",
@@ -3882,8 +3871,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "hex",
- "jam-bootstrap-service-common",
- "jam-codec",
  "jam-types",
  "jamcodec",
  "serde",
@@ -4355,6 +4342,12 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "temp-dir"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83176759e9416cf81ee66cb6508dbfe9c96f20b8b56265a39917551c23c70964"
 
 [[package]]
 name = "tempfile"

@@ -2,19 +2,17 @@
 
 use crate::{
     host,
-    invocation::{Received, State, Stepped},
-    AccumulateContext, AccumulateResult, Argument, Executed, Memory as _, Reason, Refined,
-    Transferred,
+    invocation::{General, Received, State, Stepped},
+    AccumulateContext, Accumulated, Argument, Executed, Memory as _, Reason, Refined, Transferred,
 };
 use parser::{
     program::{self, Program},
     ProgramBlob,
 };
 use score::{
-    account::{Account, Accounts},
     service::{WorkExecResult, WorkPackage},
-    vm::{AccumulateParams, DeferredTransfer, Operand, StateContext},
-    Gas, OpaqueHash, ServiceId, TimeSlot,
+    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
+    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// The invocation interface of PVM
@@ -249,7 +247,7 @@ pub trait Invocation {
     /// as defined per graypaper (B.9)
     fn accumulate<R: Accounts>(
         // (U) The state context
-        mut context: StateContext<R>,
+        mut context: AccumulateState<R>,
         // (N_t)  timeslot for the current accumulation
         timeslot: TimeSlot,
         // (N_s)  the service id of the caller
@@ -260,10 +258,10 @@ pub trait Invocation {
         operands: Vec<Operand>,
         // entropy'0
         entropy: OpaqueHash,
-    ) -> AccumulateResult<R> {
+    ) -> Accumulated<R> {
         let Some(code) = context.code(service) else {
             tracing::warn!("no code found for service: {}", service);
-            return AccumulateResult::new(context);
+            return Accumulated::new(context);
         };
 
         // create the accumulate context
@@ -333,11 +331,7 @@ pub trait Invocation {
         tracing::warn!("FIXME: update the account balance: {}", amount);
         *account.balance_mut() += amount;
         let account = account.account();
-        let general = host::General {
-            index: service,
-            accounts,
-        };
-
+        let general = General::new(service, accounts);
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {

@@ -1,24 +1,21 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 use error::{Error, Result};
-use pvm::{Accounts, Pvm};
+use pvm::Pvm;
 use score::{
-    CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
+    Accounts, CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
-    vm::{Accumulation, DeferredTransfer, StateContext},
+    vm::{AccumulateState, Accumulation, DeferredTransfer},
 };
-pub use state::{State, StateJson};
 use std::collections::BTreeMap;
 
-mod dep;
 pub mod error;
 mod exec;
 mod queue;
-mod state;
 mod validator;
 
 /// (b) Accumulate the available work reports
@@ -48,7 +45,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     let mut accumulated = exec::outer::<V, R>(
         gas_limit,
         &accumulatable,
-        StateContext {
+        AccumulateState {
             accounts,
             privileges: privileges.clone(),
             // Initialize validators and authorization to defaults for now
@@ -253,15 +250,13 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
     statistics
 }
 
-/// Report the work packages
-///
-/// TODO: refactor the state on connecting storage.
+/// (p of β') Report the work packages
 pub fn report(
     state: &score::State,
     slot: TimeSlot,
+    services: &impl Accounts,
     guarantees: &GuaranteesExtrinsic,
 ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
-    let pstate = State::from(state.clone());
-    let mut validator = validator::GuaranteeValidator::from(&pstate);
+    let mut validator = validator::GuaranteeValidator::new(state, services);
     validator.validate(slot, guarantees)
 }

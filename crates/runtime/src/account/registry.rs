@@ -1,7 +1,7 @@
 //! Account registry with cached state
 
 use crate::{Storage, account::Account};
-use score::account::{self, Account as _};
+use score::{Account as _, OpaqueHash};
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -38,8 +38,8 @@ impl<S: Storage> Accounts<S> {
     }
 }
 
-impl<S: Storage> score::account::Accounts for Accounts<S> {
-    fn get(&mut self, index: u32) -> Option<&mut impl score::account::Account> {
+impl<S: Storage> score::Accounts for Accounts<S> {
+    fn get(&mut self, index: u32) -> Option<&mut impl score::Account> {
         if let Entry::Vacant(e) = self.accounts.entry(index) {
             e.insert(Account::new(self.storage.clone(), index).ok()?);
         }
@@ -47,7 +47,15 @@ impl<S: Storage> score::account::Accounts for Accounts<S> {
         self.accounts.get_mut(&index)
     }
 
-    fn upsert(&mut self, index: u32, account: impl account::Account) {
+    fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
+        if let Some(account) = self.accounts.get(&index) {
+            return Some(account.code());
+        }
+        Some(self.storage.account_data(index).ok()?.code)
+    }
+
+    fn upsert(&mut self, index: u32, account: impl score::Account) {
+        tracing::debug!("upserting account: {:?}", index);
         self.accounts.insert(
             index,
             Account::inherit(self.storage.clone(), index, account),
@@ -66,8 +74,8 @@ impl<S: Storage> score::account::Accounts for Accounts<S> {
         self.accounts.keys().cloned().collect()
     }
 
-    fn accounts(self) -> BTreeMap<u32, impl account::Account> {
-        self.accounts
+    fn accounts(&self) -> &BTreeMap<u32, impl score::Account> {
+        &self.accounts
     }
 
     fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {

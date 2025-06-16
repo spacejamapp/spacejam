@@ -9,10 +9,11 @@ use runtime::{
     tx, Storage,
 };
 use score::{
-    account::{Account, Accounts},
     block::{Block, History},
-    state::{key, StateKeyInfo, StateKeyLike},
+    service::ServiceData,
+    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
+    Account, Accounts,
 };
 use specjam::{Section, Test};
 use std::{collections::BTreeMap, sync::Arc};
@@ -51,7 +52,7 @@ impl Runner {
                 )?;
 
                 // convert the accounts to the service items
-                let mut accounts = accumulation.accounts();
+                let mut accounts = accumulate::to_accounts(&accumulation);
                 for account in accounts.iter_mut() {
                     // the current test vector doesn't support threshold
                     account.data.service.threshold = 0;
@@ -181,7 +182,7 @@ impl Runner {
                         accounts
                             .accounts()
                             .into_iter()
-                            .map(|(id, account)| (id, account.account()))
+                            .map(|(id, account)| (*id, account.account()))
                             .collect::<BTreeMap<_, _>>(),
                         preimage::to_accounts(output.post_state.accounts)
                     );
@@ -205,14 +206,14 @@ impl Runner {
                 assert_eq!(pre_state.services, post_state.services);
 
                 // Validate the output
-                let state = pre_state.clone().into();
+                let state: score::State = pre_state.clone().into();
                 let result = tx::guarantee::reports(
                     input.slot,
                     &pre_state.avail_assignments,
                     &input.guarantees,
                 )
                 .and_then(|assignments| {
-                    tx::guarantee::report(&state, input.slot, &input.guarantees)
+                    tx::guarantee::report(&state, input.slot, &state.accounts, &input.guarantees)
                         .map(|(reported, reporters)| (reported, reporters, assignments))
                 });
 
@@ -390,6 +391,17 @@ impl Runner {
                         tracing::error!("{info:?} key=0x{encoded} not exists");
                         continue;
                     };
+
+                    if let StateKey::Account {
+                        service: _,
+                        field: ServiceField::Data,
+                    } = info
+                    {
+                        let polkajam: ServiceData = codec::decode(&value)?;
+                        let spacejam: ServiceData = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", spacejam);
+                    }
 
                     pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {

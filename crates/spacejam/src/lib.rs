@@ -13,7 +13,6 @@ pub mod validator;
 /// The config of development
 pub struct Development;
 
-#[cfg(feature = "parity")]
 impl Config for Development {
     type Validator = validator::LocalValidator;
     type Storage = storage::Parity;
@@ -24,7 +23,6 @@ impl Config for Development {
 /// The config of production
 pub struct Production;
 
-#[cfg(feature = "parity")]
 impl Config for Production {
     type Validator = validator::LocalValidator;
     type Storage = storage::Parity;

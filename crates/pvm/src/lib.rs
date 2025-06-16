@@ -1,13 +1,12 @@
 //! PolkaVM implementation
 
-pub use score::{account::Accounts, Gas};
+pub use score::{Account, Accounts, Gas};
 pub use {
-    host::Argument,
     invocation::{
-        accumulate::{AccumulateContext, AccumulateResult},
+        accumulate::{AccumulateContext, Accumulated},
         refine::Refined,
         transfer::Transferred,
-        Executed, Invocation, Received, State, Stepped,
+        Argument, Executed, Invocation, Received, State, Stepped,
     },
     memory::Memory,
     result::{Reason, Result},
@@ -18,7 +17,7 @@ pub use {
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {
-        return Err(Reason::Panic(format!($($arg)*)))
+        return Err($crate::Reason::Panic(format!($($arg)*)))
     };
 }
 

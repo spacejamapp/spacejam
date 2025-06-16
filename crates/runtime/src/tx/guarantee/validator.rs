@@ -1,15 +1,11 @@
 //! Reporting validator
 
-use crate::tx::guarantee::{
-    dep::Dependencies,
-    error::{Error, Result},
-    state::State,
-};
+use crate::tx::guarantee::error::{Error, Result};
 use crypto::shuffle;
 use score::{
-    CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
-    OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, TimeSlot, VALIDATORS_COUNT,
-    WORK_REPORT_GAS_LIMIT,
+    Account, Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
+    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
+    TimeSlot, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     safrole::ValidatorData,
     service::{ReportedWorkPackage, WorkExecResult},
@@ -17,15 +13,36 @@ use score::{
 use std::collections::BTreeMap;
 
 /// Context of the reporting module.
-pub(super) struct GuaranteeValidator<'s> {
+pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub state: &'s State,
+    /// account registry
+    pub accounts: &'s R,
+    /// validators data
     pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
-    pub deps: Dependencies,
+    /// core assignments for each validator
     pub core_assignments: Vec<Vec<u16>>,
+    /// guarantors for each core
     pub guarantors: BTreeMap<usize, Vec<u16>>,
+    /// recent work packages
+    pub recent: Vec<ReportedWorkPackage>,
+    /// reported work packages
+    pub reported: Vec<OpaqueHash>,
 }
 
-impl GuaranteeValidator<'_> {
+impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
+    /// Create a new reporting validator
+    pub fn new(state: &'s State, accounts: &'s R) -> Self {
+        Self {
+            state,
+            accounts,
+            validators: state.validators.current,
+            core_assignments: vec![],
+            guarantors: BTreeMap::new(),
+            recent: vec![],
+            reported: vec![],
+        }
+    }
+
     /// Validate work reports according to the guarantees extrinsic
     pub fn validate(
         &mut self,
@@ -37,18 +54,12 @@ impl GuaranteeValidator<'_> {
         // Prepare for reporting
         let mut reported = Vec::new();
         let mut reporters = Vec::new();
-        let (service_ids, code_hashes): (Vec<_>, Vec<_>) = self
-            .state
-            .services
-            .iter()
-            .map(|s| (s.id, s.data.service.code))
-            .unzip();
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
             self.validate_core(guarantee)?;
             self.validate_rotation(slot, guarantee)?;
-            self.validate_results(&code_hashes, &service_ids, guarantee)?;
+            self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
             self.validate_guarantees(guarantee)?;
@@ -84,11 +95,7 @@ impl GuaranteeValidator<'_> {
 
         // Calculate rotation offset based on timeslot
         let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD;
-
-        // First shuffle using epoch entropy
         let shuffled = shuffle::eq331(&initial_sequence, eta);
-
-        // Apply rotation to the shuffled sequence
         let rotated: Vec<u32> = shuffled
             .iter()
             .map(|&core_idx| (core_idx + rotation) % CORES_COUNT as u32)
@@ -104,12 +111,6 @@ impl GuaranteeValidator<'_> {
     }
 
     fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
-        let service = self
-            .state
-            .services
-            .iter()
-            .map(|s| s.data.service.code)
-            .collect::<Vec<_>>();
         let reported = guarantees
             .iter()
             .map(|g| g.report.spec.hash)
@@ -121,11 +122,8 @@ impl GuaranteeValidator<'_> {
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
 
-        self.deps = Dependencies {
-            service,
-            recent,
-            reported,
-        };
+        self.recent = recent;
+        self.reported = reported;
     }
 
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
@@ -158,7 +156,7 @@ impl GuaranteeValidator<'_> {
         // }
 
         let core_index = guarantee.report.core_index as usize;
-        if !self.state.auth_pools[core_index].contains(&guarantee.report.authorizer_hash) {
+        if !self.state.pools[core_index].contains(&guarantee.report.authorizer_hash) {
             return Err(Error::CoreUnauthorized);
         }
 
@@ -168,12 +166,13 @@ impl GuaranteeValidator<'_> {
     /// Validate work package
     fn validate_deps(&self, guarantee: &ReportGuarantee) -> Result<()> {
         for dep in guarantee.report.context.prerequisites.iter() {
-            if !self.deps.contains(dep) {
+            tracing::debug!("validate_deps: 0x{}", hex::encode(dep));
+            if !self.contains_dep(dep) {
                 return Err(Error::DependencyMissing);
             }
         }
 
-        if self.deps.duplicated(&guarantee.report.spec.hash) {
+        if self.duplicated(&guarantee.report.spec.hash) {
             return Err(Error::DuplicatePackage);
         }
 
@@ -183,7 +182,7 @@ impl GuaranteeValidator<'_> {
             return Err(Error::TooManyDependencies);
         }
 
-        self.deps.validate_segment_lookup(guarantee)?;
+        self.validate_segment_lookup(guarantee)?;
         Ok(())
     }
 
@@ -251,12 +250,7 @@ impl GuaranteeValidator<'_> {
         Ok(())
     }
 
-    fn validate_results(
-        &self,
-        code_hashes: &[OpaqueHash],
-        service_ids: &[u32],
-        guarantee: &ReportGuarantee,
-    ) -> Result<()> {
+    fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let mut output_len = guarantee.report.auth_output.len();
         let mut gas_limit = 0;
         for result in guarantee.report.results.iter() {
@@ -276,12 +270,12 @@ impl GuaranteeValidator<'_> {
                 return Err(Error::ServiceItemGasTooLow);
             }
 
-            if !code_hashes.contains(&result.code_hash) {
-                return Err(Error::BadCodeHash);
-            }
-
-            if !service_ids.contains(&result.service_id) {
+            let Some(code_hash) = self.accounts.code_hash(result.service_id) else {
                 return Err(Error::BadServiceId);
+            };
+
+            if code_hash != result.code_hash {
+                return Err(Error::BadCodeHash);
             }
         }
 
@@ -298,11 +292,11 @@ impl GuaranteeValidator<'_> {
         //
         // The test case or the GP is not correct.
         if gslot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
-            self.validators = self.state.curr_validators;
+            self.validators = self.state.validators.current;
             self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
         } else {
-            self.validators = self.state.prev_validators;
+            self.validators = self.state.validators.previous;
             self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.state.entropy[3]);
         }
 
@@ -312,16 +306,37 @@ impl GuaranteeValidator<'_> {
 
         Ok(())
     }
-}
 
-impl<'s> From<&'s State> for GuaranteeValidator<'s> {
-    fn from(state: &'s State) -> Self {
-        Self {
-            validators: state.curr_validators,
-            state,
-            core_assignments: vec![],
-            guarantors: BTreeMap::new(),
-            deps: Dependencies::default(),
+    /// Validate segment lookup
+    pub fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        for lookup in guarantee.report.lookup.iter() {
+            if self.reported.contains(&lookup.hash) {
+                continue;
+            }
+
+            let Some(reported) = self.recent.iter().find(|r| r.hash == lookup.hash) else {
+                return Err(Error::SegmentRootLookupInvalid);
+            };
+
+            if reported.exports_root != lookup.exports_root {
+                return Err(Error::SegmentRootLookupInvalid);
+            }
         }
+        Ok(())
+    }
+
+    // TODO: check if duplicated in service deps?
+    pub fn duplicated(&self, hash: &OpaqueHash) -> bool {
+        self.recent.iter().any(|r| r.hash == *hash)
+            || self.reported.iter().filter(|h| *h == hash).count() > 1
+    }
+
+    fn contains_dep(&self, dep: &OpaqueHash) -> bool {
+        self.accounts
+            .accounts()
+            .iter()
+            .any(|(_, a)| a.code() == *dep)
+            || self.reported.contains(dep)
+            || self.recent.iter().any(|r| r.hash == *dep)
     }
 }

@@ -2,14 +2,10 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::State,
-    Argument, Reason, Result,
+    invocation::{General, State},
+    Result,
 };
-use score::{
-    account::{Account, Accounts},
-    state::account,
-    Gas, ServiceId,
-};
+use score::{state::account, Account, Accounts, Gas, ServiceId};
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -133,6 +129,7 @@ impl<R: Accounts> General<R> {
                 return Ok(Exit::None as u64);
             };
 
+            self.updated = true;
             Ok(value.len() as u64)
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
@@ -147,9 +144,9 @@ impl<R: Accounts> General<R> {
             if threshold > account.balance() {
                 Ok(Exit::Full as u64)
             } else {
-                tracing::info!("writing storage: {:?}", skey);
                 let length = value.len() as u64;
                 account.write(&skey, value);
+                self.updated = true;
                 Ok(length)
             }
         }
@@ -166,7 +163,6 @@ impl<R: Accounts> General<R> {
         }
         .and_then(|account| {
             let state = account.info();
-            tracing::debug!("account info: {:?}", state);
             codec::encode(&state).ok()
         }) else {
             return Ok(Exit::None as u64);
@@ -179,46 +175,5 @@ impl<R: Accounts> General<R> {
         }
 
         Ok(Exit::Ok as u64)
-    }
-}
-
-/// Input data of general host functions
-#[derive(Debug, Clone)]
-pub struct General<R: Accounts> {
-    /// (s) Service index
-    pub index: ServiceId,
-
-    /// (d) Account dictionary
-    pub accounts: R,
-}
-
-impl<R: Accounts> General<R> {
-    /// Get service account
-    pub fn get(&mut self, r7: u64) -> Option<(ServiceId, impl Account + '_)> {
-        let service = self.index as u64;
-        let mut index = r7 as ServiceId;
-        if r7 == u64::MAX || r7 == service {
-            index = self.index;
-        }
-
-        self.accounts
-            .get(index)
-            .map(|account| (index, account.clone()))
-    }
-
-    /// Get the account
-    pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
-        self.accounts.get(self.index)
-    }
-}
-
-impl<R: Accounts> Argument<R> for General<R> {
-    fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(self.clone())
-    }
-
-    fn update_general(&mut self, general: General<R>) -> crate::Result<()> {
-        *self = general;
-        Ok(())
     }
 }

@@ -1,9 +1,9 @@
 //! Primitives for the accumulate invocation
 
 use crate::{
-    account::{Account, Accounts},
+    account::Accounts,
     safrole::ValidatorData,
-    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceItem},
+    service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
     OpaqueHash,
@@ -15,9 +15,9 @@ use std::collections::BTreeMap;
 /// The commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 
-/// The state context for accumulation
+/// The state context used in pvm accumulation
 #[derive(Clone)]
-pub struct StateContext<R: Accounts> {
+pub struct AccumulateState<R: Accounts> {
     /// d (δ) The accounts
     pub accounts: R,
 
@@ -31,7 +31,7 @@ pub struct StateContext<R: Accounts> {
     pub privileges: Privileges,
 }
 
-impl<R: Accounts> StateContext<R> {
+impl<R: Accounts> AccumulateState<R> {
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
         self.accounts.code(service)
@@ -54,7 +54,7 @@ impl<R: Accounts> StateContext<R> {
     }
 }
 
-/// The result of the PVM execution
+/// The result of accumulation with PVM
 ///
 /// - N: the number of work-results accumulated.
 /// - U: A posterior state-context.
@@ -67,7 +67,7 @@ pub struct Accumulated<R: Accounts> {
     pub accumulated: usize,
 
     /// (o) A posterior state-context.
-    pub context: StateContext<R>,
+    pub context: AccumulateState<R>,
 
     /// (t) The resultant deferred-transfers
     pub transfers: Vec<DeferredTransfer>,
@@ -81,7 +81,7 @@ pub struct Accumulated<R: Accounts> {
 
 impl<R: Accounts> Accumulated<R> {
     /// Create a new accumulated.
-    pub fn new(context: StateContext<R>) -> Self {
+    pub fn new(context: AccumulateState<R>) -> Self {
         Self {
             accumulated: 0,
             context,
@@ -123,10 +123,10 @@ pub struct Accumulation<R: Accounts> {
     /// (ξ') The accumulated queue
     pub accumulated_queue: AccumulatedQueue,
 
-    /// (δ') The accounts
+    /// (δ‡) The accounts
     pub accounts: R,
 
-    /// (χ) The privileges
+    /// (χ') The privileges
     pub privileges: Privileges,
 
     /// (πS') The service records
@@ -134,54 +134,6 @@ pub struct Accumulation<R: Accounts> {
 
     /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
     pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
-}
-
-impl<R: Accounts> Accumulation<R> {
-    /// NOTE: this method is testing usage.
-    ///
-    /// Sync preimages for account statistics
-    pub fn accounts(&self) -> Vec<ServiceItem> {
-        let mut items = Vec::new();
-        let accounts = self.accounts.clone().accounts();
-        for (id, account) in accounts.iter() {
-            let account = account.account();
-            if account.preimage.contains_key(&account.code) {
-                items.push(ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                });
-
-                continue;
-            }
-
-            for other in accounts.values() {
-                let other = other.account();
-                if other.code != account.code || !other.preimage.contains_key(&account.code) {
-                    continue;
-                }
-
-                let mut account = account.clone();
-                let blob = other
-                    .preimage
-                    .get(&account.code)
-                    .cloned()
-                    .unwrap_or_default();
-                account
-                    .lookup
-                    .insert((account.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.code, blob);
-
-                let mut item: ServiceItem = ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                };
-
-                item.data.preimages.retain(|k| k.hash != account.code);
-                items.push(item);
-            }
-        }
-        items
-    }
 }
 
 /// The accumulate params for the accumulation

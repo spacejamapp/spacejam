@@ -6,9 +6,6 @@
     Argument, Reason, Result,
 }; */
 
-/// Reine host call arguments
-pub struct Refine {}
-
 /* /// refine host call
 pub fn call<X: Argument, Memory: crate::Memory>(
     call: u32,

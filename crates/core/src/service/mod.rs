@@ -5,11 +5,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
-    account::{ServiceAccount, ServiceAccountState, ServiceAccountStateJson},
-    data::{
-        ServiceAccountData, ServiceAccountDataJson, ServiceData, ServiceItem, ServiceItemJson,
-        ServicePreimage, ServiceStorage,
-    },
+    account::{ServiceAccount, ServiceData, ServiceInfo, ServiceInfoJson},
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{
         ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
@@ -22,7 +18,6 @@ pub use {
 };
 
 mod account;
-mod data;
 mod refine;
 mod report;
 mod result;

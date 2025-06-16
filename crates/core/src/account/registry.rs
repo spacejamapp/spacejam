@@ -1,12 +1,15 @@
 //! Account registry
 
-use crate::{account::Account, service::ServiceAccount, StorageKey};
+use crate::{account::Account, service::ServiceAccount, OpaqueHash, StorageKey};
 use std::collections::BTreeMap;
 
 /// Account registry
 pub trait Accounts: Clone {
     /// Get the code of an account
     fn code(&mut self, index: u32) -> Option<Vec<u8>>;
+
+    /// Get the code hash of an account
+    fn code_hash(&self, index: u32) -> Option<OpaqueHash>;
 
     /// Create a new account
     fn upsert(&mut self, index: u32, account: impl Account);
@@ -21,7 +24,7 @@ pub trait Accounts: Clone {
     fn remove(&mut self, index: u32);
 
     /// Batch all accounts from the registry
-    fn accounts(self) -> BTreeMap<u32, impl Account>;
+    fn accounts(&self) -> &BTreeMap<u32, impl Account>;
 
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(StorageKey, Vec<u8>)>, Vec<StorageKey>);
@@ -30,6 +33,10 @@ pub trait Accounts: Clone {
 impl Accounts for BTreeMap<u32, ServiceAccount> {
     fn code(&mut self, index: u32) -> Option<Vec<u8>> {
         self.get(index)?.blob()
+    }
+
+    fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
+        Some(self.get(&index)?.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {
@@ -48,7 +55,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
         self.remove(&index);
     }
 
-    fn accounts(self) -> BTreeMap<u32, impl Account> {
+    fn accounts(&self) -> &BTreeMap<u32, impl Account> {
         self
     }
 

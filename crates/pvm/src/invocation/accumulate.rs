@@ -1,20 +1,69 @@
 //! PolkaVM environment
 
-use crate::{host::Accumulate, invocation::state::Received, Reason};
+use crate::{
+    invocation::{Argument, General},
+    Reason, Result,
+};
 use score::{
-    account::{Account, Accounts},
-    vm::{DeferredTransfer, StateContext},
-    Gas, OpaqueHash, ServiceId, TimeSlot,
+    vm::{AccumulateState, DeferredTransfer},
+    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
-/// Context for the PVM accumulation
+/// Data used in accumulate related host calls
+pub struct Accumulate<R: Accounts> {
+    /// The regular dimension
+    pub x: AccumulateContext<R>,
+
+    /// The exceptional dimension
+    pub y: AccumulateContext<R>,
+
+    /// The timeslot
+    pub timeslot: TimeSlot,
+}
+
+impl<R: Accounts> Accumulate<R> {
+    /// Get the account
+    pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
+        self.x
+            .context
+            .accounts
+            .get(self.x.service)
+            .ok_or(Reason::Panic("Could not find account".into()))
+    }
+}
+
+impl<R: Accounts> Argument<R> for Accumulate<R> {
+    fn as_general(&self) -> crate::Result<General<R>> {
+        Ok(General::new(
+            self.x.service,
+            self.x.context.accounts.clone(),
+        ))
+    }
+
+    // FIXME: find a better way to update the account
+    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
+        let index = general.index;
+        let Some(account) = general.account() else {
+            crate::bail!("Account {} not found in context", general.index);
+        };
+
+        self.x.context.accounts.upsert(index, account.clone());
+        Ok(())
+    }
+
+    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
+        Ok(self)
+    }
+}
+
+/// Context for the accumulate host calls
 #[derive(Clone)]
 pub struct AccumulateContext<R: Accounts> {
     /// (s) The service id
     pub service: ServiceId,
 
     /// (u) The upcoming validators
-    pub context: StateContext<R>,
+    pub context: AccumulateState<R>,
 
     /// (i) empty index for a new account
     pub index: ServiceId,
@@ -55,8 +104,8 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate result
-    pub fn to_result(self, gas: Gas) -> AccumulateResult<R> {
-        AccumulateResult {
+    pub fn to_result(self, gas: Gas) -> Accumulated<R> {
+        Accumulated {
             context: self.context,
             transfers: self.transfer,
             hash: self.output,
@@ -66,9 +115,9 @@ impl<R: Accounts> AccumulateContext<R> {
 }
 
 /// The accumulate result of (ΨA)
-pub struct AccumulateResult<R: Accounts> {
+pub struct Accumulated<R: Accounts> {
     /// (o) The state context
-    pub context: StateContext<R>,
+    pub context: AccumulateState<R>,
 
     /// (t) The timeslot for the current accumulation
     pub transfers: Vec<DeferredTransfer>,
@@ -80,34 +129,14 @@ pub struct AccumulateResult<R: Accounts> {
     pub gas: Gas,
 }
 
-impl<R: Accounts> AccumulateResult<R> {
+impl<R: Accounts> Accumulated<R> {
     /// Create a new accumulate result
-    pub fn new(context: StateContext<R>) -> Self {
+    pub fn new(context: AccumulateState<R>) -> Self {
         Self {
             context,
             transfers: Vec::new(),
             hash: None,
             gas: 0,
-        }
-    }
-}
-
-impl<R: Accounts> Received<Accumulate<R>> {
-    /// Convert the received result to an accumulate result
-    pub fn to_result(self) -> AccumulateResult<R> {
-        // Treat Continue and Halt as successful completion
-        // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
-        match self.reason {
-            Reason::Continue | Reason::Halt => {
-                let mut result = self.data.x.to_result(self.gas);
-                if self.output.len() == 32 {
-                    let mut hash = [0; 32];
-                    hash.copy_from_slice(&self.output);
-                    result.hash = Some(hash);
-                }
-                result
-            }
-            _ => self.data.y.to_result(self.gas),
         }
     }
 }

@@ -4,18 +4,14 @@ use crate::storage::{KVStorage, sync};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
-    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, TimeSlot,
+    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot,
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
-    service::{
-        AvailabilityAssignments, Privileges, ServiceAccount, ServiceAccountState, ServicePreimage,
-        ServiceStorage, WorkReport,
-    },
+    service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, WorkReport},
     state::{ServiceField, State, StateKey, StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
-use std::collections::BTreeMap;
 
 /// Storage of the state of SpaceJam
 ///
@@ -55,29 +51,21 @@ pub trait Storage: KVStorage {
             .map(|(_, v)| v)
             .collect::<Vec<_>>();
 
-        state.pools = codec::decode(data.first().unwrap_or(&vec![])).unwrap_or_default();
-        state.authorization = codec::decode(data.get(1).unwrap_or(&vec![])).unwrap_or_default();
-        state.recent_blocks = codec::decode(data.get(2).unwrap_or(&vec![])).unwrap_or_default();
-        state.safrole = codec::decode(data.get(3).unwrap_or(&vec![])).unwrap_or_default();
-        state.disputes = codec::decode(data.get(4).unwrap_or(&vec![])).unwrap_or_default();
-        state.entropy = codec::decode(data.get(5).unwrap_or(&vec![])).unwrap_or_default();
-        state.validators.next = codec::decode(data.get(6).unwrap_or(&vec![])).unwrap_or_default();
-        state.validators.current =
-            codec::decode(data.get(7).unwrap_or(&vec![])).unwrap_or_default();
-        state.validators.previous =
-            codec::decode(data.get(8).unwrap_or(&vec![])).unwrap_or_default();
-        state.reports = codec::decode(data.get(9).unwrap_or(&vec![])).unwrap_or_default();
-        state.timeslot = codec::decode(data.get(10).unwrap_or(&vec![])).unwrap_or_default();
-        state.privileges = codec::decode(data.get(11).unwrap_or(&vec![])).unwrap_or_default();
-        state.statistics = codec::decode(data.get(12).unwrap_or(&vec![])).unwrap_or_default();
-        state.queue = codec::decode(data.get(13).unwrap_or(&vec![])).unwrap_or_default();
-        state.history = codec::decode(data.get(14).unwrap_or(&vec![])).unwrap_or_default();
-        state.accounts = self.accounts()?;
-
-        // we don't need to batch all state in the memory to calculate the root since we can use
-        // the prefix of storage keys to iterate them.
-        //
-        // We need to read the state for validating blocks.
+        state.pools = codec::decode(&data[0]).unwrap_or_default();
+        state.authorization = codec::decode(&data[1]).unwrap_or_default();
+        state.recent_blocks = codec::decode(&data[2]).unwrap_or_default();
+        state.safrole = codec::decode(&data[3]).unwrap_or_default();
+        state.disputes = codec::decode(&data[4]).unwrap_or_default();
+        state.entropy = codec::decode(&data[5]).unwrap_or_default();
+        state.validators.next = codec::decode(&data[6]).unwrap_or_default();
+        state.validators.current = codec::decode(&data[7]).unwrap_or_default();
+        state.validators.previous = codec::decode(&data[8]).unwrap_or_default();
+        state.reports = codec::decode(&data[9]).unwrap_or_default();
+        state.timeslot = codec::decode(&data[10]).unwrap_or_default();
+        state.privileges = codec::decode(&data[11]).unwrap_or_default();
+        state.statistics = codec::decode(&data[12]).unwrap_or_default();
+        state.queue = codec::decode(&data[13]).unwrap_or_default();
+        state.history = codec::decode(&data[14]).unwrap_or_default();
         Ok(state)
     }
 
@@ -240,6 +228,8 @@ pub trait Storage: KVStorage {
     }
 
     /// Fetch the account
+    ///
+    /// FIXME: this is not efficient, we should fetch a set of accounts in one batch.
     fn account(&self, index: u32) -> Result<ServiceAccount> {
         let mut account = ServiceAccount::default();
         for item in self.iter()? {
@@ -300,70 +290,8 @@ pub trait Storage: KVStorage {
         Ok(account)
     }
 
-    /// FIXME: do not use this method in production
-    fn accounts(&self) -> Result<BTreeMap<u32, ServiceAccount>> {
-        let mut accounts = BTreeMap::new();
-        for item in self.iter()? {
-            let (key, value) = item?;
-            match key.as_state_key().info() {
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Data,
-                } => {
-                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
-                    account.code = value[..32].try_into()?;
-                    account.balance = u64::from_le_bytes(value[32..40].try_into()?);
-                    account.gas.accumulate = u64::from_le_bytes(value[40..48].try_into()?);
-                    account.gas.transfer = u64::from_le_bytes(value[48..56].try_into()?);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Storage,
-                } => {
-                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
-                    account.storage.insert(key.to_vec(), value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Preimage,
-                } => {
-                    // TODO: verify the hash of the key
-                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
-                    account.preimage.insert(crypto::blake2b(&value), value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Lookup { length },
-                } => {
-                    let account: &mut ServiceAccount = accounts.entry(service).or_default();
-                    account
-                        .lookup
-                        .insert((Default::default(), length), codec::decode(&value)?);
-                }
-                _ => continue,
-            }
-        }
-
-        // FIXME: this is a temporary solution to fill the lookup field
-        //
-        // TODO: shared preimages, consider zero-copy solution
-        for (_, account) in accounts.iter_mut() {
-            let lookup = account.lookup.clone();
-            for (key, value) in lookup.iter() {
-                for (hash, preimage) in &account.preimage {
-                    if key.1 == preimage.len() as u32 {
-                        account.lookup.insert((*hash, key.1), value.clone());
-                        account.lookup.remove(key);
-                    }
-                }
-            }
-        }
-
-        Ok(accounts)
-    }
-
     /// Fetch the account state
-    fn account_info(&self, service: u32) -> Result<ServiceAccountState> {
+    fn account_data(&self, service: u32) -> Result<ServiceData> {
         self.get(account::info(service))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account state not found"))?
@@ -386,30 +314,23 @@ pub trait Storage: KVStorage {
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
     }
 
-    /// Fetch the account preimages
-    fn account_preimages(&self, service: u32) -> Result<Vec<ServicePreimage>> {
-        self.prefix_iter(key::prefix(service, &key::ACCOUNT_PREIMAGE_PREFIX))?
-            .map(|kv| {
-                kv.map(|(_, value)| {
-                    // FIXME: cache the preimage somewhere else
-                    let hash = crypto::blake2b(&value);
-                    ServicePreimage { hash, blob: value }
-                })
-            })
-            .collect()
-    }
-
-    fn account_storage_full(&self, service: u32) -> Result<Vec<ServiceStorage>> {
-        self.prefix_iter(key::prefix(service, &key::ACCOUNT_STORAGE_PREFIX))?
-            .map(|kv| kv.map(|(key, value)| ServiceStorage { key, value }))
-            .collect()
-    }
-
     /// Fetch the account lookup
     fn account_lookup(&self, service: u32, lookup: u32, hash: OpaqueHash) -> Result<Vec<u32>> {
         self.get(account::lookup(service, lookup, hash))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account lookup not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
+    }
+
+    /// Check if the storage contains the code
+    fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId> {
+        for pair in self.prefix_iter(&[255]).ok()? {
+            let (key, value) = pair.ok()?;
+            if value.starts_with(&code) {
+                return Some(u32::from_le_bytes([key[1], key[3], key[5], key[7]]));
+            }
+        }
+
+        None
     }
 }

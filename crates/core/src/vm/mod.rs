@@ -2,7 +2,7 @@
 
 pub use {
     accumulate::{
-        AccumulateParams, Accumulated, Accumulation, CommitmentMap, Operand, StateContext,
+        AccumulateParams, AccumulateState, Accumulated, Accumulation, CommitmentMap, Operand,
     },
     transfer::DeferredTransfer,
 };

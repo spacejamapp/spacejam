@@ -5,10 +5,13 @@ use anyhow::Result;
 pub use registry::Accounts;
 use score::{
     OpaqueHash, StorageKey,
-    service::{GasLimit, ServiceAccount, ServiceAccountState},
+    service::{GasLimit, ServiceAccount, ServiceInfo},
     state::account,
 };
-use std::{collections::BTreeSet, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 mod registry;
 
@@ -49,7 +52,7 @@ impl<S: Storage> Account<S> {
     }
 
     /// Inherit from another account
-    pub fn inherit(storage: Arc<S>, index: u32, account: impl score::account::Account) -> Self {
+    pub fn inherit(storage: Arc<S>, index: u32, account: impl score::Account) -> Self {
         Self {
             state: storage,
             index,
@@ -70,7 +73,7 @@ impl<S: Storage> Account<S> {
     }
 }
 
-impl<S: Storage> score::account::Account for Account<S> {
+impl<S: Storage> score::Account for Account<S> {
     fn account(&self) -> ServiceAccount {
         self.account.clone()
     }
@@ -170,19 +173,25 @@ impl<S: Storage> score::account::Account for Account<S> {
         self.account.storage.remove(key)
     }
 
-    fn info(&self) -> ServiceAccountState {
-        ServiceAccountState {
+    fn info(&self) -> ServiceInfo {
+        ServiceInfo {
             code: self.account.code,
             balance: self.account.balance,
             threshold: self.account.threshold(),
             transfer: self.account.gas.transfer,
             accumulate: self.account.gas.accumulate,
-            total: self.account.balance,
+            total: self.account.total(),
             items: self.account.items(),
         }
     }
 
-    fn ops(self) -> (BTreeSet<(StorageKey, Vec<u8>)>, BTreeSet<StorageKey>) {
+    fn ops(mut self) -> (BTreeMap<StorageKey, Vec<u8>>, BTreeSet<StorageKey>) {
+        self.ops.set(
+            account::info(self.index),
+            codec::encode(&self.account.data()).expect("data is valid"),
+        );
+
+        // collect removals
         let mut removals: BTreeSet<StorageKey> = self.ops.iremoval().cloned().collect();
         removals.extend(self.storage.1.iter().map(|k| {
             let mut mkey = [0; 31];
@@ -196,8 +205,8 @@ impl<S: Storage> score::account::Account for Account<S> {
                 .map(|k| account::preimage(self.index, *k)),
         );
 
-        // updates
-        let mut updates: BTreeSet<(StorageKey, Vec<u8>)> =
+        // collect updates
+        let mut updates: BTreeMap<StorageKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
         updates.extend(self.storage.0.iter().map(|k| {
             let mut key = [0; 31];
@@ -223,12 +232,6 @@ impl<S: Storage> score::account::Account for Account<S> {
                     .clone(),
             )
         }));
-
-        // embed the data, we update it always
-        updates.insert((
-            account::info(self.index),
-            codec::encode(&self.account.data()).expect("data is valid"),
-        ));
 
         (updates, removals)
     }

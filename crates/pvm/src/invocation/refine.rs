@@ -2,6 +2,9 @@
 
 use crate::Executed;
 
+/// Reine host call arguments
+pub struct Refine {}
+
 /// The result of refine invocation (ΨR)
 pub struct Refined {
     /// The executed result
