@@ -55,7 +55,7 @@ impl Default for Config {
             shard: 2,
             original: 2,
             recovery: 4,
-            memory: 4 * 1024 * 1024,
+            memory: 2 * 1024,
         }
     }
 }

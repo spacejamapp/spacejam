@@ -172,10 +172,16 @@ impl Runner {
                     });
                 }
 
-                let decoded =
-                    erasure::decode(vec![(0, shards[0].clone()), (2, shards[2].clone())])?;
-                data.resize(decoded.len(), 0);
-                assert_eq!(decoded, data);
+                {
+                    rt.block_on(async move {
+                        let decoded =
+                            erasure::decode(vec![(0, shards[0].clone()), (2, shards[2].clone())])
+                                .await
+                                .expect("failed to decode");
+                        data.resize(decoded.len(), 0);
+                        assert_eq!(decoded, data);
+                    });
+                }
             }
             Section::History => {
                 use crate::history;

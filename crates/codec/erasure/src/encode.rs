@@ -78,7 +78,6 @@ fn process_batch_sync(
     for round in rounds {
         let ptr = round * config.shard;
         let mut encoder = config.encoder()?;
-
         for i in 0..config.original {
             let pos = ptr + i * segment;
             let symbol = &data[pos..pos + config.shard];
