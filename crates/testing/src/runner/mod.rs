@@ -161,7 +161,17 @@ impl Runner {
                     .map(|s| hex::decode(s.trim_start_matches("0x")).map_err(Into::into))
                     .collect::<anyhow::Result<Vec<_>>>()?;
 
-                assert_eq!(erasure::encode(data.clone())?, shards);
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                {
+                    // test encoding
+                    let edata = data.clone();
+                    let eshards = shards.clone();
+                    rt.block_on(async move {
+                        let encoded = erasure::encode(edata).await.expect("failed to encode");
+                        assert_eq!(encoded, eshards);
+                    });
+                }
+
                 let decoded =
                     erasure::decode(vec![(0, shards[0].clone()), (2, shards[2].clone())])?;
                 data.resize(decoded.len(), 0);

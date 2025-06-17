@@ -12,12 +12,29 @@ pub struct Config {
     pub original: usize,
     /// The total number of shards
     pub recovery: usize,
+    /// (async) The memory allocated for the encoder and decoder in bytes
+    pub memory: usize,
 }
 
 impl Config {
     /// (W_E) The basic size of erasure-coded pieces in octets
     pub const fn piece(&self) -> usize {
         self.shard * self.original
+    }
+
+    /// The total number of shards
+    pub const fn total(&self) -> usize {
+        self.original + self.recovery
+    }
+
+    /// The number of round batches
+    pub const fn batch(&self, segment: usize) -> usize {
+        self.memory / segment / self.total()
+    }
+
+    /// The size of the segment in bytes
+    pub fn segment(&self, data: usize) -> usize {
+        data / self.original
     }
 
     /// Create a new Reed-Solomon encoder
@@ -38,6 +55,7 @@ impl Default for Config {
             shard: 2,
             original: 2,
             recovery: 4,
+            memory: 4 * 1024 * 1024,
         }
     }
 }
