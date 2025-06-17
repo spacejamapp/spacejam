@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/*",
-    "crates/core/tests",
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
