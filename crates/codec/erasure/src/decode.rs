@@ -5,6 +5,9 @@ use anyhow::Result;
 use std::collections::HashSet;
 use tokio::task::JoinSet;
 
+/// The batched pieces
+type IndexedPieces = (Vec<usize>, Vec<(usize, Vec<u8>)>);
+
 /// Decoder for erasure-coded shards using systematic Reed-Solomon coding.
 #[derive(Debug, Clone)]
 pub struct Decoder {
@@ -81,8 +84,8 @@ impl Decoder {
         Ok(final_result)
     }
 
-    /// Create batches of round indices from the data (consuming the data efficiently)
-    fn batch(&mut self, data: Vec<(usize, Vec<u8>)>) -> Vec<(Vec<usize>, Vec<(usize, Vec<u8>)>)> {
+    /// Create batches of pieces from the data
+    fn batch(&mut self, data: Vec<(usize, Vec<u8>)>) -> Vec<IndexedPieces> {
         if data.is_empty() {
             return vec![];
         }

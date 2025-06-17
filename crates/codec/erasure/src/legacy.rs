@@ -78,7 +78,7 @@ pub fn decode(data: Vec<(usize, Vec<u8>)>, config: Config) -> Result<Vec<u8>> {
         for (i, word) in decoded.restored_original_iter() {
             if !originals.contains(&i) {
                 let pos = ptr + i * segment;
-                result[pos..pos + config.shard].copy_from_slice(&word);
+                result[pos..pos + config.shard].copy_from_slice(word);
             }
         }
     }

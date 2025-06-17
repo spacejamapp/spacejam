@@ -4,6 +4,9 @@ use crate::Config;
 use anyhow::Result;
 use tokio::task::JoinSet;
 
+/// The encoded original and recovery shards
+type Encoded = (Vec<Vec<u8>>, Vec<Vec<u8>>);
+
 /// Encoder for erasure-coded shards using systematic Reed-Solomon coding.
 #[derive(Debug, Clone)]
 pub struct Encoder {
@@ -102,7 +105,7 @@ impl Encoder {
         pieces: impl Iterator<Item = Vec<u8>>,
         config: Config,
         segment: usize,
-    ) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>)> {
+    ) -> Result<Encoded> {
         let mut original: Vec<Vec<u8>> = vec![Vec::with_capacity(segment); config.original];
         let mut recovery: Vec<Vec<u8>> = vec![Vec::with_capacity(segment); config.recovery];
 
