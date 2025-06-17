@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 pub use config::Config;
+pub use encode::Encoder;
 
 mod config;
 mod decode;
@@ -10,7 +11,8 @@ pub mod sync;
 
 /// Encode the data into erasure-coded shards using systematic Reed-Solomon coding.
 pub async fn encode(data: Vec<u8>) -> Result<Vec<Vec<u8>>> {
-    encode::encode(data, Config::default()).await
+    let mut encoder = Encoder::new(Config::default());
+    encoder.encode(data).await
 }
 
 /// Encode the data into erasure-coded shards using systematic Reed-Solomon coding.
