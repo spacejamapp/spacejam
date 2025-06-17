@@ -1,28 +1,33 @@
 //! Config of erasure coding
 
 use anyhow::Result;
-use reed_solomon::ReedSolomonEncoder;
+use reed_solomon::{ReedSolomonDecoder, ReedSolomonEncoder};
 
 /// Erasure coding parameters
+#[derive(Debug, Clone, Copy)]
 pub struct Config {
-    /// The size of the word in bytes
-    pub word: usize,
+    /// The shard size in bytes
+    pub shard: usize,
     /// The number of original shards
     pub original: usize,
     /// The total number of shards
-    pub total: usize,
+    pub recovery: usize,
 }
 
 impl Config {
     /// (W_E) The basic size of erasure-coded pieces in octets
     pub const fn piece(&self) -> usize {
-        self.word * self.original
+        self.shard * self.original
     }
 
     /// Create a new Reed-Solomon encoder
     pub fn encoder(&self) -> Result<ReedSolomonEncoder> {
-        ReedSolomonEncoder::new(self.original, self.total - self.original, self.word)
-            .map_err(Into::into)
+        ReedSolomonEncoder::new(self.original, self.recovery, self.shard).map_err(Into::into)
+    }
+
+    /// Create a new reed-solomon decoder
+    pub fn decoder(&self) -> Result<ReedSolomonDecoder> {
+        ReedSolomonDecoder::new(self.original, self.recovery, self.shard).map_err(Into::into)
     }
 }
 
@@ -30,9 +35,9 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            word: 2,
+            shard: 2,
             original: 2,
-            total: 6,
+            recovery: 4,
         }
     }
 }
