@@ -11,7 +11,7 @@ pub struct Encoder {
     config: Config,
     /// The segment size
     segment: usize,
-    /// The number of rounds
+    /// The count of pieces
     pieces: usize,
 }
 

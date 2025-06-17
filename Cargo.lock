@@ -3905,7 +3905,10 @@ name = "spacejam-erasure"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "hex",
  "reed-solomon-simd",
+ "serde_json",
+ "specjam",
  "tokio",
 ]
 
