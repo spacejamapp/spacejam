@@ -1,0 +1,2 @@
+[default]
+default-filter = "not (package(jadex)) or package(jadex-header))"
