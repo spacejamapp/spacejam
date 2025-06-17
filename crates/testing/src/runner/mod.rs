@@ -155,13 +155,13 @@ impl Runner {
                 assert_eq!(input.pre_state, output.post_state);
             }
             Section::Erasure => {
-                let data = hex::decode(&test.input)?;
+                let data = hex::decode(&test.input.trim_start_matches("0x"))?;
                 let shards = serde_json::from_str::<Vec<String>>(&test.output)?
                     .into_iter()
-                    .map(|s| hex::decode(s).map_err(Into::into))
+                    .map(|s| hex::decode(s.trim_start_matches("0x")).map_err(Into::into))
                     .collect::<anyhow::Result<Vec<_>>>()?;
 
-                assert_eq!(erasure::encode(6, &data)?, shards);
+                assert_eq!(erasure::encode(data)?, shards);
             }
             Section::History => {
                 use crate::history;

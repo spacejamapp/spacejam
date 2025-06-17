@@ -125,12 +125,12 @@ impl Entry {
     fn parse_erasure(&self, path: &PathBuf) -> Result<Test> {
         let name = Self::file_name(path)?;
         let json: Value = serde_json::from_slice(&fs::read(path)?)?;
-        let input = json["data"].to_string();
-        let output = json["shards"].to_string();
+        let input: String = serde_json::from_value(json["data"].clone())?;
+        let output: Vec<String> = serde_json::from_value(json["shards"].clone())?;
 
         Ok(Test {
             input,
-            output,
+            output: serde_json::to_string(&output)?,
             name,
             scale: self.scale,
             section: self.section,
