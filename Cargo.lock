@@ -3906,6 +3906,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "reed-solomon-simd",
+ "tokio",
 ]
 
 [[package]]
@@ -3994,6 +3995,7 @@ dependencies = [
  "spacejson",
  "specjam",
  "syn 2.0.100",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

@@ -20,43 +20,53 @@ pub async fn encode(mut data: Vec<u8>, config: Config) -> Result<Vec<Vec<u8>>> {
         return Ok(vec![vec![]; config.original + config.recovery]);
     }
 
+    // split rounds into batches
     let batches: Vec<Vec<usize>> = (0..rounds)
         .collect::<Vec<_>>()
         .chunks(config.batch(segment).max(1).min(rounds))
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    // process batches in parallel
+    // process batches in parallel with order tracking
     let data = Arc::new(data);
     let mut set = JoinSet::new();
-    for batch in batches {
+    for (batch_idx, batch) in batches.into_iter().enumerate() {
         let data = data.clone();
-        set.spawn(async move { process_batch(data, config, segment, batch).await });
+        set.spawn(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                process_batch_sync(data, config, segment, batch)
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("Join error: {}", e))?;
+            result.map(|(original, recovery)| (batch_idx, original, recovery))
+        });
     }
 
-    let results = set
+    // process batches in parallel
+    let mut results = set
         .join_all()
         .await
         .into_iter()
         .collect::<Result<Vec<_>>>()?;
+    results.sort_by_key(|(batch_idx, _, _)| *batch_idx);
 
-    // collect results
-    let mut final_original: Vec<Vec<u8>> = vec![Vec::new(); config.original];
-    let mut final_recovery: Vec<Vec<u8>> = vec![Vec::new(); config.recovery];
-    for (batch_original, batch_recovery) in results {
+    // collect results in correct order
+    let mut original: Vec<Vec<u8>> = vec![Vec::new(); config.original];
+    let mut recovery: Vec<Vec<u8>> = vec![Vec::new(); config.recovery];
+    for (_batch_idx, batch_original, batch_recovery) in results {
         for (i, shard) in batch_original.into_iter().enumerate() {
-            final_original[i].extend(shard);
+            original[i].extend(shard);
         }
         for (i, shard) in batch_recovery.into_iter().enumerate() {
-            final_recovery[i].extend(shard);
+            recovery[i].extend(shard);
         }
     }
 
-    Ok(final_original.into_iter().chain(final_recovery).collect())
+    Ok(original.into_iter().chain(recovery).collect())
 }
 
-/// Process a single batch of rounds
-async fn process_batch(
+/// Process a single batch of rounds (synchronous, CPU-intensive)
+fn process_batch_sync(
     data: Arc<Vec<u8>>,
     config: Config,
     segment: usize,
@@ -64,6 +74,7 @@ async fn process_batch(
 ) -> Result<(Vec<Vec<u8>>, Vec<Vec<u8>>)> {
     let mut original: Vec<Vec<u8>> = vec![Vec::new(); config.original];
     let mut recovery: Vec<Vec<u8>> = vec![Vec::new(); config.recovery];
+
     for round in rounds {
         let ptr = round * config.shard;
         let mut encoder = config.encoder()?;
