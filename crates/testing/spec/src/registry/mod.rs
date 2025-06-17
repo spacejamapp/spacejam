@@ -34,6 +34,7 @@ impl Registry {
             Section::Pvm => self.pvm(),
             Section::Shuffle => self.shuffle(),
             Section::Trie => self.trie(),
+            Section::Erasure => self.erasure(Scale::Tiny),
             Section::Accumulate => self.accumulate(Scale::Tiny),
             Section::Assurances => self.assurances(Scale::Tiny),
             Section::Authorizations => self.authorizations(Scale::Tiny),
@@ -77,6 +78,12 @@ impl Registry {
     /// Get the disputes test vectors
     pub fn disputes(&self, scale: Scale) -> Result<Entry> {
         let entry = Entry::new(Section::Disputes, Some(scale), &self.root)?;
+        Ok(entry)
+    }
+
+    /// Get the erasure test vectors
+    pub fn erasure(&self, scale: Scale) -> Result<Entry> {
+        let entry = Entry::new(Section::Erasure, Some(scale), &self.root)?;
         Ok(entry)
     }
 

@@ -3902,10 +3902,14 @@ dependencies = [
 
 [[package]]
 name = "spacejam-erasure"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
+ "hex",
  "reed-solomon-simd",
+ "serde_json",
+ "specjam",
+ "tokio",
 ]
 
 [[package]]
@@ -3990,9 +3994,11 @@ dependencies = [
  "spacejam",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejam-erasure",
  "spacejson",
  "specjam",
  "syn 2.0.100",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

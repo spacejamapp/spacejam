@@ -15,6 +15,8 @@ pub enum Section {
     Codec,
     /// The disputes section
     Disputes,
+    /// The erasure coding section
+    Erasure,
     /// The history section
     History,
     /// The preimages section
@@ -35,30 +37,6 @@ pub enum Section {
     Trie,
 }
 
-impl Section {
-    /// The all sections
-    pub fn all() -> [Section; 16] {
-        [
-            Section::Accumulate,
-            Section::Assurances,
-            Section::Authorizations,
-            Section::Codec,
-            Section::Pvm,
-            Section::Safrole,
-            Section::Statistics,
-            Section::Disputes,
-            Section::History,
-            Section::Preimages,
-            Section::Reports,
-            Section::Shuffle,
-            Section::Trie,
-            Section::Trace(Trace::Fallback),
-            Section::Trace(Trace::Safrole),
-            Section::Trace(Trace::ReportsL0),
-        ]
-    }
-}
-
 impl FromStr for Section {
     type Err = anyhow::Error;
 
@@ -68,19 +46,20 @@ impl FromStr for Section {
             "pvm/programs" => Ok(Section::Pvm),
             "shuffle" => Ok(Section::Shuffle),
             "trie" => Ok(Section::Trie),
-            "stf/accumulate" => Ok(Section::Accumulate),
-            "stf/assurances" => Ok(Section::Assurances),
-            "stf/safrole" => Ok(Section::Safrole),
-            "stf/statistics" => Ok(Section::Statistics),
-            "stf/authorizations" => Ok(Section::Authorizations),
-            "stf/disputes" => Ok(Section::Disputes),
-            "stf/history/data" => Ok(Section::History),
-            "stf/preimages/data" => Ok(Section::Preimages),
-            "stf/reports" => Ok(Section::Reports),
-            "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
+            "erasure" | "erasure-coding" => Ok(Section::Erasure),
+            "accumulate" | "stf/accumulate" => Ok(Section::Accumulate),
+            "assurances" | "stf/assurances" => Ok(Section::Assurances),
+            "safrole" | "stf/safrole" => Ok(Section::Safrole),
+            "statistics" | "stf/statistics" => Ok(Section::Statistics),
+            "authorizations" | "stf/authorizations" => Ok(Section::Authorizations),
+            "disputes" | "stf/disputes" => Ok(Section::Disputes),
+            "history/data" | "stf/history/data" => Ok(Section::History),
+            "preimages/data" | "stf/preimages/data" => Ok(Section::Preimages),
+            "reports" | "stf/reports" => Ok(Section::Reports),
+            "fallback" | "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
-            "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
-            "traces/reports-l1" => Ok(Section::Trace(Trace::ReportsL1)),
+            "reports-l0" | "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
+            "reports-l1" | "traces/reports-l1" => Ok(Section::Trace(Trace::ReportsL1)),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -93,6 +72,7 @@ impl AsRef<str> for Section {
             Section::Pvm => "pvm/programs",
             Section::Shuffle => "shuffle",
             Section::Trie => "trie",
+            Section::Erasure => "erasure-coding",
             Section::Accumulate => "stf/accumulate",
             Section::Assurances => "stf/assurances",
             Section::Safrole => "stf/safrole",
