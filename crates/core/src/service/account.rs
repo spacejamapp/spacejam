@@ -9,15 +9,19 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct ServiceAccount {
     /// storage of the service account (s)
+    // #[json(Vec<(String, String)>)]
     pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
 
     /// The preimage of the service account (p)
+    // #[json(Vec<(String, String)>)]
     pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,
 
     /// Preimage lookup dictionary (l)
+    // #[json(Vec<((String, u32), String)>)]
     pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
 
     /// The code hash of the service account (c)
+    // #[json(hex)]
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
@@ -25,6 +29,7 @@ pub struct ServiceAccount {
 
     /// The gas limits of the service account (g) and (m)
     #[serde(flatten)]
+    // #[json(nested)]
     pub gas: GasLimit,
 }
 
