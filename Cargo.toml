@@ -58,7 +58,7 @@ ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
-async-graphql = "7.0.16"
+async-graphql = "7.0.17"
 async-graphql-axum = "7.0.16"
 async-trait = "0.1.88"
 axum = "0.8.4"
@@ -108,9 +108,6 @@ trait-variant = "0.1.2"
 uint = "0.10.0"
 w3f-bls = "0.1.8"
 x509-parser = "0.17.0"
-
-[patch.crates-io]
-async-graphql = { version = "7.0.16", git = "https://github.com/yasamoka/async-graphql.git", branch = "graphiqlsource-react" }
 
 [profile.release]
 debug = false

@@ -8,8 +8,8 @@ use clap::{ArgAction, CommandFactory, Parser};
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
-mod iter;
-mod key;
+pub mod iter;
+pub mod key;
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]
@@ -19,6 +19,10 @@ pub struct App {
     /// The command to run
     #[command(subcommand)]
     cmd: Option<Command>,
+
+    /// The version of matched graypaper
+    #[arg(short, long)]
+    graypaper: bool,
 
     /// The verbosity level (repeat for more verbosity)
     #[arg(short, action = ArgAction::Count, global = true)]
@@ -33,6 +37,12 @@ impl App {
     /// Run the command
     pub async fn run() {
         let app = App::parse();
+        if app.graypaper {
+            println!("{}", crate::GRAYPAPER);
+            return;
+        }
+
+        // set up logs
         let name = App::command().get_name().to_string();
         let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
             0 => format!("{name}=info"),
@@ -73,9 +83,8 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
-
-    /// Iterate over the storage
-    Iter,
+    // /// Iterate over the storage
+    // Iter,
 }
 
 impl Command {
@@ -84,7 +93,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>(data).await?.start().await,
             Command::Key(key) => key.run(),
-            Command::Iter => iter::run(data).await,
+            // Command::Iter => iter::run(data).await,
         }
     }
 }

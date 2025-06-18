@@ -21,7 +21,7 @@ pub struct Builder {
 
     /// The genesis path
     #[cfg_attr(feature = "cmd", arg(long))]
-    genesis: Option<PathBuf>,
+    spec: Option<PathBuf>,
 
     /// The metrics address
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:0"))]
@@ -46,7 +46,7 @@ impl Builder {
         mut self,
         data: PathBuf,
     ) -> anyhow::Result<SpaceJam<C>> {
-        let genesis = if let Some(genesis) = self.genesis {
+        let genesis = if let Some(genesis) = self.spec {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
             chain::Spec::dev()
@@ -93,7 +93,7 @@ impl Builder {
 impl Default for Builder {
     fn default() -> Self {
         Self {
-            genesis: None,
+            spec: None,
             metrics: SocketAddr::from(([0, 0, 0, 0], 0)),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),

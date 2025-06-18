@@ -10,6 +10,9 @@ pub mod storage;
 mod utils;
 pub mod validator;
 
+/// The version of matched graypaper
+pub const GRAYPAPER: &str = "0.6.5";
+
 /// The config of development
 pub struct Development;
 

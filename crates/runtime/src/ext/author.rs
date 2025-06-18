@@ -125,7 +125,6 @@ impl<'a, C: Config> Author<'a, C> {
         let keys = self.storage.current_validators()?.bandersnatch();
 
         // In fallback mode, verify that this validator is actually assigned to this slot
-        let slot = timeslot % score::EPOCH_LENGTH;
         if let TicketsOrKeys::Keys(fallback_keys) = self.storage.series()? {
             tracing::info!(
                 "fallback keys: {:#?}",
@@ -136,14 +135,18 @@ impl<'a, C: Config> Author<'a, C> {
                     .collect::<Vec<_>>()
             );
 
-            let assigned_key = fallback_keys[slot as usize];
-            if assigned_key != self.me() {
-                anyhow::bail!(
-                    "validator not assigned to slot {}: assigned to 0x{}, but we are 0x{}",
-                    slot,
-                    hex::encode(assigned_key),
-                    hex::encode(self.me())
-                );
+            // TODO: add this check on validating node only.
+            if self.runtime.dev {
+                let slot = timeslot % score::EPOCH_LENGTH;
+                let assigned_key = fallback_keys[slot as usize];
+                if assigned_key != self.me() {
+                    anyhow::bail!(
+                        "validator not assigned to slot {}: assigned to 0x{}, but we are 0x{}",
+                        slot,
+                        hex::encode(assigned_key),
+                        hex::encode(self.me())
+                    );
+                }
             }
         }
 
