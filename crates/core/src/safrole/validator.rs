@@ -1,3 +1,5 @@
+use std::net::{Ipv6Addr, SocketAddrV6};
+
 use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -54,6 +56,16 @@ pub struct ValidatorData {
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub metadata: ValidatorMetadata,
+}
+
+impl ValidatorData {
+    /// Get the IPv6 address of the validator
+    pub fn ipv6(&self) -> SocketAddrV6 {
+        let mut addr = [0; 16];
+        addr.copy_from_slice(&self.metadata[..16]);
+        let port = u16::from_le_bytes([self.metadata[16], self.metadata[17]]);
+        SocketAddrV6::new(Ipv6Addr::from(addr), port, 0, 0)
+    }
 }
 
 impl Default for ValidatorData {

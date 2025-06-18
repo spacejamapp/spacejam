@@ -11,15 +11,15 @@ pub struct Address {
     pub peer_id: PeerId,
 
     /// Address.
-    pub addr: SocketAddr,
+    pub address: SocketAddr,
 }
 
 impl Address {
     /// Create a new address.
-    pub fn new(addr: SocketAddr, peer_id: impl Into<PeerId>) -> Self {
+    pub fn new(addr: impl Into<SocketAddr>, peer_id: impl Into<PeerId>) -> Self {
         Self {
             peer_id: peer_id.into(),
-            addr,
+            address: addr.into(),
         }
     }
 }
@@ -32,7 +32,7 @@ impl<T: Into<PeerId>> From<(SocketAddr, T)> for Address {
 
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.peer_id, self.addr)
+        write!(f, "{}@{}", self.peer_id, self.address)
     }
 }
 

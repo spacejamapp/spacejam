@@ -8,9 +8,8 @@ use clap::{ArgAction, CommandFactory, Parser};
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
-pub mod iter;
 pub mod key;
-pub mod spec;
+pub mod state;
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]
@@ -84,16 +83,9 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
-
-    /// chain spec related utils
-    Spec {
-        /// The path to the spec file
-        spec: PathBuf,
-
-        /// The command to run
-        #[command(subcommand)]
-        cmd: spec::Spec,
-    },
+    // /// chain state related utils
+    // #[command(subcommand)]
+    // State(state::State),
     // /// Iterate over the storage
     // Iter,
 }
@@ -104,8 +96,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>(data).await?.start().await,
             Command::Key(key) => key.run(),
-            Command::Spec { spec, cmd } => cmd.run(spec),
-            // Command::Iter => iter::run(data).await,
+            // Command::State(state) => state.run(),
         }
     }
 }
