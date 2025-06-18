@@ -71,7 +71,8 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
         genesis: genesis.genesis_header.hash()?,
     };
 
-    let runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;
+    let mut runtime = JadexSpec::<Hook>::runtime_with_hook(None, chain, genesis, hook).await?;
+    runtime.dev = true;
     Ok((runtime, networkcfg))
 }
 

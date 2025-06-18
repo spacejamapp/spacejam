@@ -9,7 +9,8 @@ async fn test_block_sealing() {
         .init();
 
     let validator = LocalValidator::try_from("5".to_string()).unwrap();
-    let runtime: Runtime<Test> = Runtime::new(validator, MemoryDb::default(), ());
+    let mut runtime: Runtime<Test> = Runtime::new(validator, MemoryDb::default(), ());
+    runtime.dev = true;
     let spec = chain::Spec::dev().parse().unwrap();
 
     runtime

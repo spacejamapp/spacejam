@@ -136,7 +136,7 @@ impl<'a, C: Config> Author<'a, C> {
             );
 
             // TODO: add this check on validating node only.
-            if self.runtime.dev {
+            if !self.runtime.dev {
                 let slot = timeslot % score::EPOCH_LENGTH;
                 let assigned_key = fallback_keys[slot as usize];
                 if assigned_key != self.me() {
