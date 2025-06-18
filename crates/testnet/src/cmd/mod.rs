@@ -30,7 +30,7 @@ impl App {
             Testnet::default()
         };
 
-        match self.command {
+        match &self.command {
             Command::Generate => {
                 let testnet = Testnet::default();
                 let toml = toml::to_string(&testnet)?;
@@ -38,11 +38,11 @@ impl App {
                 Ok(())
             }
             Command::Prune => testnet.prune(),
-            Command::Start { prune } => self.start(testnet, prune),
+            Command::Start { prune, highlight } => self.start(testnet, *prune, highlight),
         }
     }
 
-    fn start(self, testnet: Testnet, prune: bool) -> anyhow::Result<()> {
+    fn start(&self, testnet: Testnet, prune: bool, highlight: &str) -> anyhow::Result<()> {
         if testnet.node.is_empty() {
             anyhow::bail!("no nodes found in the testnet configuration");
         }
@@ -62,12 +62,12 @@ impl App {
             children.push(child);
         }
 
-        Self::logging(rx, &testnet.network, self.noansi);
+        self.logging(rx, &testnet.network, highlight);
         Ok(())
     }
 
     /// Log messages from the nodes.
-    fn logging(rx: mpsc::Receiver<Message>, network: &Network, ansi: bool) {
+    fn logging(&self, rx: mpsc::Receiver<Message>, network: &Network, highlight: &str) {
         while let Ok(msg) = rx.recv() {
             if msg.stream == Stream::Terminated {
                 eprintln!("{} terminated", msg.name);
@@ -83,13 +83,18 @@ impl App {
                 continue;
             }
 
-            if ansi {
+            if !highlight.is_empty() && msg.content.contains(highlight) {
+                println!("{} {}", msg.name.underline().bright_cyan(), msg.content,);
+                continue;
+            }
+
+            if !self.noansi {
                 println!(
                     "{} {}",
                     if msg.content.contains("ERROR") {
-                        msg.name.on_bright_red().bold().white()
+                        msg.name.underline().bright_red()
                     } else if msg.content.contains("WARN") {
-                        msg.name.on_bright_yellow().bold().black()
+                        msg.name.underline().bright_yellow()
                     } else {
                         msg.name.bright_white().bold()
                     },
@@ -114,5 +119,9 @@ pub enum Command {
         /// Whether to prune the testnet.
         #[arg(short, long)]
         prune: bool,
+
+        /// The pattern to highlight in the output.
+        #[arg(short, long, default_value = "")]
+        highlight: String,
     },
 }

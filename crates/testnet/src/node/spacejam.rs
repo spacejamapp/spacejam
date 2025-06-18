@@ -8,7 +8,7 @@ impl Node {
     /// Build the spacejam command.
     pub fn spacejam(&self, net: &Network) -> Result<Command> {
         let mut command = Command::new(&self.command);
-        command.envs(&self.env).args([
+        command.envs(&self.env).args(&self.args).args([
             "-d",
             &self.data.to_string_lossy(),
             "run",
@@ -19,7 +19,6 @@ impl Node {
             "--address",
             &self.quic,
         ]);
-        command.args(&self.args);
         Ok(command)
     }
 }
