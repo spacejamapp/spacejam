@@ -3777,6 +3777,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-testnet"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "spacejson"
 version = "0.0.0"
 dependencies = [

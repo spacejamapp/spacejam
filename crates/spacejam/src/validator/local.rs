@@ -102,9 +102,9 @@ impl Validator for LocalValidator {
 impl From<[u8; 32]> for LocalValidator {
     fn from(seed: [u8; 32]) -> Self {
         // ed25519 and bandersnatch seed derivation according to JIP-5
-        let bls = crypto::blake2b(&vec![b"jam_val_key_bls", seed.as_slice()].concat());
-        let eseed = crypto::blake2b(&vec![b"jam_val_key_ed25519", seed.as_slice()].concat());
-        let bseed = crypto::blake2b(&vec![b"jam_val_key_bandersnatch", seed.as_slice()].concat());
+        let bls = crypto::blake2b(&[b"jam_val_key_bls", seed.as_slice()].concat());
+        let eseed = crypto::blake2b(&[b"jam_val_key_ed25519", seed.as_slice()].concat());
+        let bseed = crypto::blake2b(&[b"jam_val_key_bandersnatch", seed.as_slice()].concat());
         let bandersnatch = vrf::KeyPair::from(bseed);
         let bandersnatch_public = bandersnatch
             .public()
