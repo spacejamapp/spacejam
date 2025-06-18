@@ -1,7 +1,7 @@
 //! The grid of the network.
 
 use crate::Storage;
-use score::{Ed25519Public, VALIDATORS_COUNT, safrole::ValidatorsData};
+use score::{safrole::ValidatorsData, Ed25519Public, VALIDATORS_COUNT};
 use std::collections::HashSet;
 
 /// The grid of the network.

@@ -1,7 +1,7 @@
 //! Block lookup APIs
 
 use crate::grandpa::Ancestry;
-use score::{OpaqueHash, block::Header};
+use score::{block::Header, OpaqueHash};
 
 /// The lookup data of the grandpa.
 pub struct Lookup<'a> {

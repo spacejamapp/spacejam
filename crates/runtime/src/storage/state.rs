@@ -1,16 +1,16 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{KVStorage, sync};
+use crate::storage::{sync, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
-    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot,
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, WorkReport},
-    state::{ServiceField, State, StateKey, StateKeyInfo, StateKeyLike, account, key},
+    state::{account, key, ServiceField, State, StateKey, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
+    EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
 
 /// Storage of the state of SpaceJam

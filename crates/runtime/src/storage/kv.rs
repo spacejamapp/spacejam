@@ -2,7 +2,7 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{StorageKey, TimeSlot, state::key};
+use score::{state::key, StorageKey, TimeSlot};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},

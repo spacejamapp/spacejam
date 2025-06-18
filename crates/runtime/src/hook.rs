@@ -2,8 +2,8 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{Block, OpaqueHash, ServiceId, StorageKey, block::Head, state::key};
-use std::collections::BTreeMap;
+use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, StorageKey};
+use std::{collections::BTreeMap, future::Future};
 
 /// Hooks for the runtime
 pub trait Hook: Send + Sync {

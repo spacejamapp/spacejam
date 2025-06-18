@@ -2,9 +2,9 @@
 
 use pvm::{Accounts, Pvm};
 use score::{
-    Gas, ServiceId, TimeSlot,
     service::WorkReport,
     vm::{AccumulateState, Accumulated},
+    Gas, ServiceId, TimeSlot,
 };
 use std::collections::{BTreeMap, BTreeSet};
 

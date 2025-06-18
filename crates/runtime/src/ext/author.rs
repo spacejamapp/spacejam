@@ -1,11 +1,11 @@
 //! Authoring service
 
-use crate::{Config, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
+use crate::{storage::SyncStorage, tx, Config, Hook, Runtime, Storage, Validator};
 use score::{
-    BandersnatchPublic, OpaqueHash, TimeSlot,
     block::{Block, Head, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
+    BandersnatchPublic, OpaqueHash, TimeSlot,
 };
 use std::{
     collections::VecDeque,

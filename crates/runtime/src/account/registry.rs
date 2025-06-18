@@ -1,9 +1,9 @@
 //! Account registry with cached state
 
-use crate::{Storage, account::Account};
+use crate::{account::Account, Storage};
 use score::{Account as _, OpaqueHash};
 use std::{
-    collections::{BTreeMap, BTreeSet, btree_map::Entry},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     sync::Arc,
 };
 

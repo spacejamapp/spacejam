@@ -1,6 +1,6 @@
 //! The ancestor map.
 
-use score::{OpaqueHash, block::Header};
+use score::{block::Header, OpaqueHash};
 use std::collections::{HashMap, HashSet};
 
 /// The ancestor map.

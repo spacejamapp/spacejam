@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use score::{
-    BandersnatchPublic, BandersnatchRingVrfSignature, BandersnatchVrfSignature, BlsPublic,
-    Ed25519Public, ValidatorMetadata, safrole::ValidatorData,
+    safrole::ValidatorData, BandersnatchPublic, BandersnatchRingVrfSignature,
+    BandersnatchVrfSignature, BlsPublic, Ed25519Public, ValidatorMetadata,
 };
 
 /// Validator interface
