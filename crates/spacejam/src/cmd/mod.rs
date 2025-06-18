@@ -1,7 +1,7 @@
 //! Command line interface for spacejam
 
 use crate::{
-    node::{spec, Builder},
+    node::{spec::RuntimeSpecSelf, Builder},
     Development,
 };
 use clap::{ArgAction, CommandFactory, Parser};
@@ -10,6 +10,7 @@ use tracing_subscriber::EnvFilter;
 
 pub mod iter;
 pub mod key;
+pub mod spec;
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]
@@ -83,16 +84,27 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
+
+    /// chain spec related utils
+    Spec {
+        /// The path to the spec file
+        spec: PathBuf,
+
+        /// The command to run
+        #[command(subcommand)]
+        cmd: spec::Spec,
+    },
     // /// Iterate over the storage
     // Iter,
 }
 
 impl Command {
     /// Run the command
-    pub async fn run<C: spec::RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
+    pub async fn run<C: RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
         match self {
             Command::Run(run) => run.build::<C>(data).await?.start().await,
             Command::Key(key) => key.run(),
+            Command::Spec { spec, cmd } => cmd.run(spec),
             // Command::Iter => iter::run(data).await,
         }
     }

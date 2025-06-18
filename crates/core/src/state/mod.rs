@@ -1,7 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
-    block::BlockInfo,
+    block::{BlockInfo, BlockInfoJson},
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
     service::{AccumulatedQueue, AvailabilityAssignments, Privileges, ReadyQueue, ServiceAccount},
