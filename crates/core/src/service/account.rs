@@ -101,6 +101,7 @@ impl ServiceAccount {
     }
 
     /// Get all keys of the service account
+    #[cfg(feature = "crypto")]
     pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = StorageKey>> {
         let mut keys = BTreeSet::new();
         keys.insert(account::info(index));

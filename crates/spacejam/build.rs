@@ -13,6 +13,10 @@ fn main() {
 
     let dev = root.join("spec/dev");
     let target = dev.join("spec.json");
+    if target.exists() {
+        return;
+    }
+
     fs::create_dir_all(&dev).expect("failed to create tiny spec dir");
     Command::new("curl")
         .args([
