@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use std::{
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Read},
     process::{Child, Command, Stdio},
     sync::mpsc,
     thread,
@@ -37,35 +37,12 @@ impl Node {
             .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to capture stderr"))?;
 
-        let name = name.to_string();
-        let filters = self.filter.clone();
-        let stdout_sender = tx.clone();
-        let stdout_name = name.clone();
-        let stdout_filters = filters.clone();
-        thread::spawn(move || {
-            Self::send_message(
-                BufReader::new(stdout),
-                stdout_name,
-                Stream::Stdout,
-                stdout_filters,
-                stdout_sender,
-            );
-        });
-
-        let stderr_sender = tx.clone();
-        let stderr_name = name.clone();
-        let stderr_filters = filters.clone();
-        thread::spawn(move || {
-            Self::send_message(
-                BufReader::new(stderr),
-                stderr_name,
-                Stream::Stderr,
-                stderr_filters,
-                stderr_sender,
-            );
-        });
-
-        Ok(NamedChild { name, child })
+        self.spawn_logging(name.to_string(), tx.clone(), stdout, Stream::Stdout);
+        self.spawn_logging(name.to_string(), tx, stderr, Stream::Stderr);
+        Ok(NamedChild {
+            name: name.to_string(),
+            child,
+        })
     }
 
     /// Build the node command
@@ -76,9 +53,24 @@ impl Node {
         }
     }
 
+    fn spawn_logging<R: Read + Send + 'static>(
+        &self,
+        name: String,
+        tx: mpsc::Sender<Message>,
+        reader: R,
+        stream: Stream,
+    ) {
+        let arch = self.arch;
+        let filters = self.filter.clone();
+        thread::spawn(move || {
+            Self::send_message(BufReader::new(reader), arch, name, stream, filters, tx);
+        });
+    }
+
     /// Send message to channel if it matches the filters
     fn send_message<R>(
         reader: BufReader<R>,
+        arch: Arch,
         name: String,
         stream: Stream,
         filters: Vec<String>,
@@ -92,6 +84,7 @@ impl Node {
             }
 
             let log_msg = Message {
+                arch,
                 name: name.clone(),
                 stream,
                 content: line,
@@ -101,6 +94,7 @@ impl Node {
         }
 
         tx.send(Message {
+            arch,
             name,
             stream: Stream::Terminated,
             content: "".to_string(),

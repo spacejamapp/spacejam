@@ -71,6 +71,10 @@ impl App {
         while let Ok(msg) = rx.recv() {
             if msg.stream == Stream::Terminated {
                 eprintln!("{} terminated", msg.name);
+                eprintln!(
+                    "if you believe this is a bug, please file an issue at {} !",
+                    msg.arch.repo().underline(),
+                );
                 std::process::exit(1);
             }
 

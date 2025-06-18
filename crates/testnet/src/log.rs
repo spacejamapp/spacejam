@@ -1,8 +1,12 @@
 //! log related stuffs
 
+use crate::Arch;
+
 /// Log message from a node
 #[derive(Debug, Clone)]
 pub struct Message {
+    /// The architecture of the node
+    pub arch: Arch,
     /// The name of the node
     pub name: String,
     /// The stream type (stdout or stderr)
