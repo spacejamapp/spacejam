@@ -5,5 +5,8 @@ use spacejam_testnet::App;
 
 fn main() {
     let app = App::parse();
-    app.run().expect("failed to run testnet");
+    if let Err(e) = app.run() {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 }

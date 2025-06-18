@@ -34,7 +34,7 @@ pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
-runtime = { path = "crates/runtime", package = "runtime" }
+runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 serde-jam = { path = "crates/codec", package = "jamcodec" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }

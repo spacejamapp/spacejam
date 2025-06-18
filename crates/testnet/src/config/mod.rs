@@ -1,20 +1,32 @@
 //! Test net configuration.
 
 use crate::Arch;
-use serde::Deserialize;
-use std::{collections::BTreeMap, path::PathBuf};
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 pub use {network::Network, node::Node};
 
 mod network;
 mod node;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Testnet {
-    /// The nodes in the testnet.
-    pub node: BTreeMap<String, Node>,
-
     /// The network configuration.
     pub network: Network,
+
+    /// The nodes in the testnet.
+    pub node: BTreeMap<String, Node>,
+}
+
+impl Testnet {
+    /// Prune the testnet.
+    pub fn prune(&self) -> anyhow::Result<()> {
+        for (name, node) in self.node.iter() {
+            println!("pruning {name}: {}", node.data.display());
+            fs::remove_dir_all(&node.data)?;
+        }
+        println!("pruned all nodes.");
+        Ok(())
+    }
 }
 
 impl Default for Testnet {
@@ -23,9 +35,9 @@ impl Default for Testnet {
         let quic = 40000;
         let rpc = 19800;
 
-        for i in 0..4 {
+        for i in 0..5 {
             nodes.insert(
-                "polkajam-0".to_string(),
+                format!("polkajam-{}", i),
                 Node {
                     command: "polkajam".to_string(),
                     arch: Arch::Polkajam,
@@ -55,7 +67,7 @@ impl Default for Testnet {
         );
 
         Self {
-            node: BTreeMap::new(),
+            node: nodes,
             network: Network {
                 spec: PathBuf::from("spec.json"),
                 ..Default::default()

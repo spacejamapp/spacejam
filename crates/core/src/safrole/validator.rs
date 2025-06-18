@@ -1,8 +1,9 @@
-use std::net::{Ipv6Addr, SocketAddrV6};
+//! Validator data
 
 use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::net::{Ipv6Addr, SocketAddrV4, SocketAddrV6};
 
 /// Data of validators
 pub type ValidatorsData = [ValidatorData; crate::VALIDATORS_COUNT as usize];
@@ -65,6 +66,13 @@ impl ValidatorData {
         addr.copy_from_slice(&self.metadata[..16]);
         let port = u16::from_le_bytes([self.metadata[16], self.metadata[17]]);
         SocketAddrV6::new(Ipv6Addr::from(addr), port, 0, 0)
+    }
+
+    /// Get the IPv4 address of the validator
+    pub fn ipv4(&self) -> Option<SocketAddrV4> {
+        let addr = self.ipv6();
+        let v4 = addr.ip().to_ipv4()?;
+        Some(SocketAddrV4::new(v4, addr.port()))
     }
 }
 

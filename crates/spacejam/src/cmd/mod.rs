@@ -56,10 +56,11 @@ impl App {
         let mut subscriber = tracing_subscriber::fmt()
             .with_env_filter(env)
             .with_timer(fmt::Time)
-            .with_target(false);
+            .with_target(false)
+            .with_ansi(false);
 
         if app.verbose > 0 {
-            subscriber = subscriber.with_target(true);
+            subscriber = subscriber.with_target(true).with_ansi(true);
         }
 
         subscriber.init();

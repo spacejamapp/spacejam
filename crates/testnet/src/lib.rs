@@ -13,13 +13,14 @@ mod log;
 mod node;
 
 /// A jam node that can be used in the testnet.
-#[derive(Deserialize, Serialize)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub enum Arch {
     /// The polkajam node.
-    #[serde(alias = "polkajam")]
+    #[serde(rename = "polkajam")]
+    #[default]
     Polkajam,
 
     /// The spacejam node.
-    #[serde(alias = "spacejam")]
+    #[serde(rename = "spacejam")]
     SpaceJam,
 }

@@ -2028,11 +2028,11 @@ dependencies = [
  "clap",
  "hex",
  "jamcodec",
- "runtime",
  "serde_json",
  "spacejam",
  "spacejam-core",
  "spacejam-network",
+ "spacejam-runtime",
  "sqlx",
  "tokio",
  "tracing",
@@ -2046,8 +2046,8 @@ dependencies = [
  "async-graphql",
  "hex",
  "jadex",
- "runtime",
  "spacejam-core",
+ "spacejam-runtime",
  "sqlx",
  "tokio",
  "tracing-subscriber",
@@ -3203,23 +3203,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "runtime"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hex",
- "jamcodec",
- "pvm",
- "serde",
- "serde_json",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3636,13 +3619,13 @@ dependencies = [
  "jamcodec",
  "parity-db",
  "rand 0.8.5",
- "runtime",
  "serde",
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-network",
  "spacejam-offchain",
+ "spacejam-runtime",
  "spacejson",
  "temp-dir",
  "time",
@@ -3714,7 +3697,6 @@ dependencies = [
  "jamcodec",
  "quinn",
  "rcgen",
- "runtime",
  "rustls",
  "rustls-webpki 0.102.8",
  "serde",
@@ -3722,6 +3704,7 @@ dependencies = [
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-metrics",
+ "spacejam-runtime",
  "spacejson",
  "tokio",
  "tracing",
@@ -3737,10 +3720,10 @@ dependencies = [
  "hyper",
  "hyper-util",
  "jamcodec",
- "runtime",
  "spacejam-core",
  "spacejam-metrics",
  "spacejam-rpc",
+ "spacejam-runtime",
  "tokio",
  "tracing",
 ]
@@ -3758,6 +3741,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "jamcodec",
+ "pvm",
+ "serde",
+ "serde_json",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejson",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "spacejam-testing"
 version = "0.0.0"
 dependencies = [
@@ -3770,13 +3770,13 @@ dependencies = [
  "pvm-parser",
  "pvmi",
  "quote",
- "runtime",
  "serde",
  "serde_json",
  "spacejam",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-erasure",
+ "spacejam-runtime",
  "spacejson",
  "specjam",
  "syn 2.0.100",

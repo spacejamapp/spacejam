@@ -171,7 +171,12 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
                 continue;
             }
 
-            let address = Address::new(validator.ipv6(), peer);
+            let Some(ipv4) = validator.ipv4() else {
+                tracing::warn!("validator {peer} is not reachable via IPv4");
+                continue;
+            };
+
+            let address = Address::new(ipv4, peer);
             if let Err(e) = self.dial(address).await {
                 tracing::warn!("failed to dial bootstrap peer: {e}");
             }

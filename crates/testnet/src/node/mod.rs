@@ -82,48 +82,46 @@ impl Node {
         name: String,
         stream: Stream,
         filters: Vec<String>,
-        sender: mpsc::Sender<Message>,
+        tx: mpsc::Sender<Message>,
     ) where
         R: std::io::Read,
     {
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                if !filters.is_empty() && !filters.iter().any(|filter| line.contains(filter)) {
-                    continue;
-                }
-
-                let log_msg = Message {
-                    name: name.clone(),
-                    stream,
-                    content: line,
-                };
-
-                let _ = sender.send(log_msg);
+        for line in reader.lines().map_while(Result::ok) {
+            if !filters.is_empty() && !filters.iter().any(|filter| line.contains(filter)) {
+                continue;
             }
+
+            let log_msg = Message {
+                name: name.clone(),
+                stream,
+                content: line,
+            };
+
+            let _ = tx.send(log_msg);
         }
+
+        tx.send(Message {
+            name,
+            stream: Stream::Terminated,
+            content: "".to_string(),
+        })
+        .expect("failed to send terminated message");
     }
 }
 
 /// A child process that would be killed on drop.
 pub struct NamedChild {
     /// The name of the child process.
-    pub name: String,
+    name: String,
 
     /// The child process.
     child: Child,
-}
-
-impl NamedChild {
-    /// Check if the child process has terminated.
-    pub fn terminated(&mut self) -> bool {
-        self.child.wait().is_err()
-    }
 }
 
 impl Drop for NamedChild {
     fn drop(&mut self) {
         self.child
             .kill()
-            .expect(&format!("failed to kill {} process", self.name));
+            .unwrap_or_else(|_| eprintln!("failed to kill {} process", self.name));
     }
 }

@@ -2,11 +2,11 @@
 
 use crate::Arch;
 use anyhow::Result;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, net::SocketAddr, path::PathBuf, str::FromStr};
 
 /// A node in the testnet.
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Node {
     /// The binary name of the node.
     pub command: String,

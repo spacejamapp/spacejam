@@ -1,9 +1,9 @@
 //! Network configuration.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Network {
     /// The path of the network specification.
     pub spec: PathBuf,
