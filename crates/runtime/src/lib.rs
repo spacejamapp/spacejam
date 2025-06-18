@@ -25,9 +25,6 @@ mod validator;
 /// Runtime of SpaceJam
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
-    /// Whether running in dev mode
-    pub dev: bool,
-
     /// The validator of SpaceJam
     pub validator: C::Validator,
 
@@ -48,7 +45,6 @@ impl<C: Config> Runtime<C> {
     /// Create a new runtime with a grandpa instance
     pub fn new(validator: C::Validator, storage: C::Storage, hook: C::Hook) -> Self {
         Self {
-            dev: false,
             validator,
             storage: Arc::new(storage),
             hook,

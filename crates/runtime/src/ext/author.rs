@@ -124,32 +124,6 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         let keys = self.storage.current_validators()?.bandersnatch();
 
-        // In fallback mode, verify that this validator is actually assigned to this slot
-        if let TicketsOrKeys::Keys(fallback_keys) = self.storage.series()? {
-            tracing::info!(
-                "fallback keys: {:#?}",
-                fallback_keys
-                    .iter()
-                    .enumerate()
-                    .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
-                    .collect::<Vec<_>>()
-            );
-
-            // TODO: add this check on validating node only.
-            if !self.runtime.dev {
-                let slot = timeslot % score::EPOCH_LENGTH;
-                let assigned_key = fallback_keys[slot as usize];
-                if assigned_key != self.me() {
-                    anyhow::bail!(
-                        "validator not assigned to slot {}: assigned to 0x{}, but we are 0x{}",
-                        slot,
-                        hex::encode(assigned_key),
-                        hex::encode(self.me())
-                    );
-                }
-            }
-        }
-
         // 1. get the last block
         let blocks = self.storage.recent_blocks()?;
         let mut parent = blocks

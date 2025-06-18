@@ -39,7 +39,6 @@ impl<C: runtime::Config> NodeSpec for Dev<C> {
         tracing::info!("Running spacejam in dev mode");
         tracing::debug!("development seed: 0x{}", hex::encode([0; 32]));
         self.runtime.validator = C::Validator::dev();
-        self.runtime.dev = true;
         let runtime = Arc::new(self.runtime);
         let offchain = Offchain::new(runtime.clone());
 
