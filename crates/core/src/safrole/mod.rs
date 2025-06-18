@@ -2,28 +2,35 @@
 
 use crate::{
     block::header::{EValidator, EpochMark, TicketsMark},
-    extrinsic::{TicketBody, TicketsAccumulator, TicketsOrKeys},
+    extrinsic::{TicketBody, TicketBodyJson, TicketsAccumulator, TicketsOrKeys, TicketsOrKeysJson},
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
-pub use validator::{ValidatorData, ValidatorDataJson, ValidatorIter, Validators, ValidatorsData};
+use spacejson::Json;
+pub use validator::{
+    ValidatorData, ValidatorDataJson, ValidatorIter, Validators, ValidatorsData, ValidatorsJson,
+};
 
 mod validator;
 
 /// Safrole consensus state
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json)]
 pub struct Safrole {
     /// Next epoch's validators (gamma_k)
+    #[json(Vec<ValidatorDataJson>)]
     pub validators: ValidatorsData,
 
     /// Bandersnatch ring commitment (gamma_z)
     #[serde(with = "codec::bytes")]
+    #[json(hex)]
     pub ring_commitment: BandersnatchRingCommitment,
 
     /// Sealing-key series of the current epoch (gamma_s)
+    #[json(nested)]
     pub series: TicketsOrKeys,
 
     /// Sealing-key contest ticket accumulator (gamma_a)
+    #[json(Vec<TicketBodyJson>)]
     pub accumulator: TicketsAccumulator,
 }
 

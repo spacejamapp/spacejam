@@ -6,15 +6,18 @@ use spacejson::Json;
 pub type ValidatorsData = [ValidatorData; crate::VALIDATORS_COUNT as usize];
 
 /// The validators (ι, κ, λ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default, Json)]
 pub struct Validators {
     /// The validator keys and metadata to be drawn from next (ι)
+    #[json(Vec<ValidatorDataJson>)]
     pub next: ValidatorsData,
 
     /// The validator keys and metadata currently active (κ)
+    #[json(Vec<ValidatorDataJson>)]
     pub current: ValidatorsData,
 
     /// The validator keys and metadata of the previous epoch (λ)
+    #[json(Vec<ValidatorDataJson>)]
     pub previous: ValidatorsData,
 }
 
