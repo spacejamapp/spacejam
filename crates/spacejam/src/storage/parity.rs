@@ -85,13 +85,16 @@ impl TryFrom<PathBuf> for Parity {
     fn try_from(path: PathBuf) -> Result<Self> {
         let options = Options {
             path,
-            columns: vec![ColumnOptions::default()],
+            columns: vec![ColumnOptions {
+                btree_index: true,
+                ..Default::default()
+            }],
             sync_wal: true,
             sync_data: true,
             stats: true,
             salt: None,
             compression_threshold: Default::default(),
         };
-        Ok(Parity(Db::open(&options)?))
+        Ok(Parity(Db::open_or_create(&options)?))
     }
 }
