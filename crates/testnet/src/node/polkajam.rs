@@ -1,18 +1,20 @@
 //! The polkajam binary interface
 
-use crate::Node;
+use crate::{Network, Node};
 use anyhow::Result;
 use std::process::Command;
 
 impl Node {
     /// Build the polkajam command.
-    pub fn polkajam(&self) -> Result<Command> {
+    pub fn polkajam(&self, net: &Network) -> Result<Command> {
         let mut command = Command::new(&self.command);
-        command.envs(&self.env).args(&[
+        command.envs(&self.env).args([
             "-p",
             "tiny",
             "-c",
             "dev",
+            "--chain",
+            &net.spec.to_string_lossy(),
             "run",
             "-d",
             &self.data.to_string_lossy(),

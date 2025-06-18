@@ -1,6 +1,6 @@
 //! Testnet binary for running multiple nodes in a single process.
 
-pub use config::{Node, Testnet};
+pub use config::{Network, Node, Testnet};
 use serde::{Deserialize, Serialize};
 
 mod config;
