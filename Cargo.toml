@@ -65,6 +65,7 @@ axum = "0.8.4"
 base32 = "0.5.1"
 blake2 = "0.10.6"
 clap = "4.5.23"
+colored = "3.0.0"
 criterion = "0.5"
 dirs = "6.0.0"
 ed25519-dalek = "2.1.1"
@@ -97,9 +98,17 @@ syn = "2.0.90"
 temp-dir = "0.1.16"
 time = "0.3.41"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-tokio = { version = "1.42.0", features = ["rt", "sync", "net", "macros"] }
+tokio = { version = "1.42.0", features = [
+    "rt",
+    "sync",
+    "net",
+    "macros",
+    "process",
+    "time",
+    "io-util",
+] }
 tokio-stream = "0.1.17"
-toml = "0.8.19"
+toml = { version = "0.8.19", features = ["parse"] }
 tonic = "0.13"
 tonic-build = "0.13"
 tracing = "0.1.41"

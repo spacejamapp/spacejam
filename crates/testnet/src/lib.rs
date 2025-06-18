@@ -1,9 +1,15 @@
 //! Testnet binary for running multiple nodes in a single process.
 
-pub use config::{Network, Node, Testnet};
 use serde::{Deserialize, Serialize};
+pub use {
+    cmd::App,
+    config::{Network, Node, Testnet},
+    log::Message,
+};
 
+mod cmd;
 mod config;
+mod log;
 mod node;
 
 /// A jam node that can be used in the testnet.
