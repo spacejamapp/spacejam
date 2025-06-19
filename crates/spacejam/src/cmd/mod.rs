@@ -1,15 +1,15 @@
 //! Command line interface for spacejam
 
 use crate::{
-    node::{spec, Builder},
+    node::{spec::RuntimeSpecSelf, Builder},
     Development,
 };
 use clap::{ArgAction, CommandFactory, Parser};
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
-mod iter;
-mod key;
+pub mod key;
+pub mod state;
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]
@@ -19,6 +19,10 @@ pub struct App {
     /// The command to run
     #[command(subcommand)]
     cmd: Option<Command>,
+
+    /// The version of matched graypaper
+    #[arg(short, long)]
+    graypaper: bool,
 
     /// The verbosity level (repeat for more verbosity)
     #[arg(short, action = ArgAction::Count, global = true)]
@@ -33,6 +37,12 @@ impl App {
     /// Run the command
     pub async fn run() {
         let app = App::parse();
+        if app.graypaper {
+            println!("{}", crate::GRAYPAPER);
+            return;
+        }
+
+        // set up logs
         let name = App::command().get_name().to_string();
         let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
             0 => format!("{name}=info"),
@@ -46,10 +56,11 @@ impl App {
         let mut subscriber = tracing_subscriber::fmt()
             .with_env_filter(env)
             .with_timer(fmt::Time)
-            .with_target(false);
+            .with_target(false)
+            .with_ansi(false);
 
         if app.verbose > 0 {
-            subscriber = subscriber.with_target(true);
+            subscriber = subscriber.with_target(true).with_ansi(true);
         }
 
         subscriber.init();
@@ -73,18 +84,20 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
-
-    /// Iterate over the storage
-    Iter,
+    // /// chain state related utils
+    // #[command(subcommand)]
+    // State(state::State),
+    // /// Iterate over the storage
+    // Iter,
 }
 
 impl Command {
     /// Run the command
-    pub async fn run<C: spec::RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
+    pub async fn run<C: RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
         match self {
             Command::Run(run) => run.build::<C>(data).await?.start().await,
             Command::Key(key) => key.run(),
-            Command::Iter => iter::run(data).await,
+            // Command::State(state) => state.run(),
         }
     }
 }

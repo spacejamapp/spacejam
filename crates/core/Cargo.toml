@@ -7,11 +7,9 @@ edition = "2021"
 anyhow.workspace = true
 codec.workspace = true
 hex.workspace = true
-metrics.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-tracing.workspace = true
 
 # crypto features
 crypto = { workspace = true, features = [
@@ -19,9 +17,6 @@ crypto = { workspace = true, features = [
     "ed25519",
     "mmr",
 ], optional = true }
-
-[dev-dependencies]
-jam-types.workspace = true
 
 
 [features]

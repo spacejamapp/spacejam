@@ -57,9 +57,7 @@ async fn runtime<Hook: runtime::Hook + Send + Sync + 'static>(
     hook: Hook,
 ) -> Result<(Runtime<JadexSpec<Hook>>, network::Config)> {
     let chain = config.data.join("chain");
-
-    // fetch the genesis block
-    let genesis = if let Some(path) = config.genesis.as_ref().map(|p| p.join("genesis.json")) {
+    let genesis = if let Some(path) = config.spec.as_ref().map(|p| p.join("spec.json")) {
         serde_json::from_slice(fs::read(&path)?.as_slice())?
     } else {
         chain::Spec::dev()

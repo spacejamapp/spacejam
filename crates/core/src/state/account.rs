@@ -11,21 +11,6 @@ pub fn info(service: u32) -> StorageKey {
     (255, service).key()
 }
 
-/// C(s, [(2^32 - 1), k0...28])  ((s ->a ->k ->v) δ)
-///
-/// from storage dictionary s
-pub fn storage(service: u32, rkey: &[u8]) -> StorageKey {
-    let mut input = service.to_le_bytes().to_vec();
-    input.extend_from_slice(rkey);
-    let hash = crypto::blake2b(&input);
-
-    // construct the final storage key
-    let mut key = [0u8; 31];
-    key[..8].copy_from_slice(&key::prefix(service, &ACCOUNT_STORAGE_PREFIX));
-    key[8..].copy_from_slice(&hash[..23]);
-    key
-}
-
 /// C(s, [(2^32 - 2), k0...28]) ((s ->(a ->h) ->p) δ)
 pub fn preimage(service: u32, h: OpaqueHash) -> StorageKey {
     let mut key = [0u8; 32];
@@ -37,6 +22,21 @@ pub fn preimage(service: u32, h: OpaqueHash) -> StorageKey {
 #[cfg(feature = "crypto")]
 mod crypto_impl {
     use super::*;
+
+    /// C(s, [(2^32 - 1), k0...28])  ((s ->a ->k ->v) δ)
+    ///
+    /// from storage dictionary s
+    pub fn storage(service: u32, rkey: &[u8]) -> StorageKey {
+        let mut input = service.to_le_bytes().to_vec();
+        input.extend_from_slice(rkey);
+        let hash = crypto::blake2b(&input);
+
+        // construct the final storage key
+        let mut key = [0u8; 31];
+        key[..8].copy_from_slice(&key::prefix(service, &ACCOUNT_STORAGE_PREFIX));
+        key[8..].copy_from_slice(&hash[..23]);
+        key
+    }
 
     /// C(s, [E4(l), H(h)2..30]) (s ->a ->h ->l) δ)
     pub fn lookup(service: u32, lookup: u32, h: OpaqueHash) -> StorageKey {

@@ -1,12 +1,16 @@
 //! Service account types
 
-use crate::{service::GasLimit, state::account, Gas, OpaqueHash, StorageKey, TimeSlot};
+use crate::{
+    service::{GasLimit, GasLimitJson},
+    state::account,
+    Gas, OpaqueHash, StorageKey, TimeSlot,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The service accounts (δ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct ServiceAccount {
     /// storage of the service account (s)
     pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
@@ -18,6 +22,7 @@ pub struct ServiceAccount {
     pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
 
     /// The code hash of the service account (c)
+    #[json(hex)]
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
@@ -25,6 +30,7 @@ pub struct ServiceAccount {
 
     /// The gas limits of the service account (g) and (m)
     #[serde(flatten)]
+    #[json(nested)]
     pub gas: GasLimit,
 }
 
@@ -95,6 +101,7 @@ impl ServiceAccount {
     }
 
     /// Get all keys of the service account
+    #[cfg(feature = "crypto")]
     pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = StorageKey>> {
         let mut keys = BTreeSet::new();
         keys.insert(account::info(index));

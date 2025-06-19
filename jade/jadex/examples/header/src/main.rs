@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config {
         postgres: "postgres://postgres:postgres@localhost/headers".into(),
         data: "headers".into(),
-        genesis: None,
+        spec: None,
         graphql: "0.0.0.0:3000".parse()?,
         quic: "0.0.0.0:6888".parse()?,
     };

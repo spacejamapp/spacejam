@@ -14,9 +14,9 @@ pub struct Config {
     #[clap(long)]
     pub data: PathBuf,
 
-    /// The path to the genesis file
+    /// The path to the spec file
     #[clap(long)]
-    pub genesis: Option<PathBuf>,
+    pub spec: Option<PathBuf>,
 
     /// The graphql server address
     #[clap(long, default_value = "0.0.0.0:8080")]

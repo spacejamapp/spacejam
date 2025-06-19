@@ -1,11 +1,11 @@
 //! Authoring service
 
-use crate::{Config, Hook, Runtime, Storage, Validator, storage::SyncStorage, tx};
+use crate::{storage::SyncStorage, tx, Config, Hook, Runtime, Storage, Validator};
 use score::{
-    BandersnatchPublic, OpaqueHash, TimeSlot,
     block::{Block, Head, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
+    BandersnatchPublic, OpaqueHash, TimeSlot,
 };
 use std::{
     collections::VecDeque,
@@ -123,29 +123,6 @@ impl<'a, C: Config> Author<'a, C> {
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         let keys = self.storage.current_validators()?.bandersnatch();
-
-        // In fallback mode, verify that this validator is actually assigned to this slot
-        let slot = timeslot % score::EPOCH_LENGTH;
-        if let TicketsOrKeys::Keys(fallback_keys) = self.storage.series()? {
-            tracing::info!(
-                "fallback keys: {:#?}",
-                fallback_keys
-                    .iter()
-                    .enumerate()
-                    .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
-                    .collect::<Vec<_>>()
-            );
-
-            let assigned_key = fallback_keys[slot as usize];
-            if assigned_key != self.me() {
-                anyhow::bail!(
-                    "validator not assigned to slot {}: assigned to 0x{}, but we are 0x{}",
-                    slot,
-                    hex::encode(assigned_key),
-                    hex::encode(self.me())
-                );
-            }
-        }
 
         // 1. get the last block
         let blocks = self.storage.recent_blocks()?;

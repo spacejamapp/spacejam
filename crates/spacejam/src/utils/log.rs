@@ -26,8 +26,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     let connected = peers
         .iter()
         .filter(|p| validators.iter().any(|v| &v.ed25519 == p.as_ref()))
-        .count() as u16
-        + 1;
+        .count() as u16;
 
     // check neighbours
     let grandpa = runtime.grandpa.read().await.clone();

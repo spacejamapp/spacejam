@@ -3,10 +3,10 @@
 use crate::Storage;
 use anyhow::Result;
 use score::{
-    Block, OpaqueHash,
     block::Head,
     extrinsic::{TicketBody, TicketsOrKeys},
     safrole::ValidatorIter,
+    Block, OpaqueHash,
 };
 
 /// The key for the block storage

@@ -7,9 +7,9 @@
 use ancestry::Ancestry;
 pub use handshake::Handshake;
 use score::{
-    OpaqueHash,
     block::{Head, Header},
     safrole::ValidatorsData,
+    OpaqueHash,
 };
 use std::{
     collections::{BTreeMap, HashSet},

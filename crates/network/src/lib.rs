@@ -3,7 +3,7 @@
 use metrics::Metrics;
 use peer::PeerId;
 use quinn::Endpoint;
-use runtime::{Runtime, Validator};
+use runtime::{Runtime, Storage, Validator};
 use score::block::{Head, Header};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
@@ -36,7 +36,7 @@ pub struct Network<C: runtime::Config> {
     /// The metrics of the network
     pub metrics: Metrics,
 
-    /// The bootnodes of the network
+    /// (deprecated) The bootnodes of the network
     pub bootnodes: Vec<Address>,
 
     /// The announce channel of the network
@@ -137,7 +137,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
         let conn = self
             .transport
-            .connect(addr.addr, addr.peer_id.to_string().as_str())?
+            .connect(addr.address, addr.peer_id.to_string().as_str())?
             .await
             .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e}"))?;
 
@@ -155,15 +155,28 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn dial_validators(&self) {
         let me = self.me();
         let pool = self.pool.read().await.clone();
-        for address in self.bootnodes.clone() {
-            let key = address.peer_id.as_ref();
-            if key == &me
-                || (key[31] > 127 && me[31] > 127 && (key < &me))
-                || pool.contains_key(&address.peer_id)
+        let Ok(validators) = self.runtime.storage.current_validators() else {
+            tracing::warn!("failed to get validators from storage");
+            return;
+        };
+
+        for validator in validators {
+            let key = validator.ed25519;
+            let peer = PeerId::from(key);
+
+            if key == me
+                || (key[31] > 127 && me[31] > 127 && (key < me))
+                || pool.contains_key(&peer)
             {
                 continue;
             }
 
+            let Some(ipv4) = validator.ipv4() else {
+                tracing::warn!("validator {peer} is not reachable via IPv4");
+                continue;
+            };
+
+            let address = Address::new(ipv4, peer);
             if let Err(e) = self.dial(address).await {
                 tracing::warn!("failed to dial bootstrap peer: {e}");
             }
