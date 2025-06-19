@@ -2,7 +2,7 @@
 
 use std::{fs, process::Command};
 
-const TINY_DEV_SPEC: &str = "https://gist.githubusercontent.com/zdave-parity/72eb9cfe07756d2c0c13c3064600190d/raw/dcf0b65694c2fdefe7f85dbe7ad91f435aa92098/dev-spec.json";
+const TINY_DEV_SPEC: &str = "https://gist.githubusercontent.com/clearloop/52b9d5c16d3bd2a2d900b756fc64a9d1/raw/fbf84b774254cb68071a8a37cf8faac699bebf48/spec.json";
 
 fn main() {
     println!("cargo:rerun-if-changed=src/chain/spec.rs");
