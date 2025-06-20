@@ -39,8 +39,8 @@ impl Registry {
             Section::Assurances => self.assurances(Scale::Tiny),
             Section::Authorizations => self.authorizations(Scale::Tiny),
             Section::Disputes => self.disputes(Scale::Tiny),
-            Section::History => self.history(),
-            Section::Preimages => self.preimages(),
+            Section::History => self.history(Scale::Tiny),
+            Section::Preimages => self.preimages(Scale::Tiny),
             Section::Reports => self.reports(Scale::Tiny),
             Section::Safrole => self.safrole(Scale::Tiny),
             Section::Statistics => self.statistics(Scale::Tiny),
@@ -88,14 +88,14 @@ impl Registry {
     }
 
     /// Get the history test vectors
-    pub fn history(&self) -> Result<Entry> {
-        let entry = Entry::new(Section::History, None, &self.root)?;
+    pub fn history(&self, scale: Scale) -> Result<Entry> {
+        let entry = Entry::new(Section::History, Some(scale), &self.root)?;
         Ok(entry)
     }
 
     /// Get the preimages test vectors
-    pub fn preimages(&self) -> Result<Entry> {
-        let entry = Entry::new(Section::Preimages, None, &self.root)?;
+    pub fn preimages(&self, scale: Scale) -> Result<Entry> {
+        let entry = Entry::new(Section::Preimages, Some(scale), &self.root)?;
         Ok(entry)
     }
 
