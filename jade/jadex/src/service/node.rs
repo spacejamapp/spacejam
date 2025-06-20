@@ -33,9 +33,10 @@ pub async fn dev<Hook: runtime::Hook + Send + Sync + 'static>(
     let author = runtime.author();
 
     tracing::info!("Starting development spacejam node");
+    let period = score::SLOT_PERIOD as u32;
     loop {
         let now = block::now();
-        let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+        let duration = (period - (now % period)) as u64;
         tokio::time::sleep(Duration::from_secs(duration)).await;
 
         let timeslot = block::timeslot();

@@ -5,7 +5,7 @@ use crate::{
     invocation::{General, State},
     Result,
 };
-use score::{state::account, Account, Accounts, Gas, ServiceId};
+use score::{state::account, Account, Accounts, Gas, Parameters, ServiceId};
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -24,6 +24,7 @@ impl<R: Accounts> General<R> {
             2 => self.read(state),
             3 => self.write(state),
             4 => self.info(state),
+            18 => self.fetch(state),
             _ => Ok(Exit::What as u64),
         }
     }
@@ -179,6 +180,26 @@ impl<R: Accounts> General<R> {
 
     // (ΩY) fetch the on chain parameters
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        let value: Vec<u8> = match state.registers[10] {
+            0 => {
+                tracing::trace!("called fetch(0)");
+                codec::encode(&Parameters::default()).expect("should not fail")
+            }
+            kind => {
+                tracing::warn!("kind {kind} not supported");
+                return Ok(Exit::None as u64);
+            }
+        };
+
+        let out = state.registers[7];
+        let from = state.registers[8].min(value.len() as u64);
+        let length = state.registers[9].min(value.len() as u64 - from);
+        if length > 0 {
+            state
+                .memory
+                .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
+        }
+
         Ok(Exit::Ok as u64)
     }
 }
