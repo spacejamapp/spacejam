@@ -88,9 +88,8 @@ impl<R: Accounts> General<R> {
         };
 
         let vlen = value.len() as u64;
-        let from = state.registers[11].min(value.len() as u64);
+        let from = state.registers[11].min(vlen);
         let length = state.registers[12].min(vlen - from);
-
         if length > 0 {
             state
                 .memory
@@ -191,15 +190,17 @@ impl<R: Accounts> General<R> {
             }
         };
 
+        let vlen = value.len() as u64;
         let out = state.registers[7];
-        let from = state.registers[8].min(value.len() as u64);
-        let length = state.registers[9].min(value.len() as u64 - from);
+        let from = state.registers[8].min(vlen);
+        let length = state.registers[9].min(vlen - from);
         if length > 0 {
+            tracing::info!("write {}({}) bytes to {}", length, vlen, out);
             state
                 .memory
                 .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
         }
 
-        Ok(Exit::Ok as u64)
+        Ok(vlen)
     }
 }
