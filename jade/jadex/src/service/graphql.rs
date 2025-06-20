@@ -26,6 +26,7 @@ where
 {
     let schema = Schema::build(query, mutation, subscription)
         .data(data)
+        .disable_introspection()
         .finish();
 
     let app = Router::new()
