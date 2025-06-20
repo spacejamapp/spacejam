@@ -232,7 +232,7 @@ pub trait Invocation {
         // (o) the authorizer output
         _output: Vec<u8>,
         // (i) import segments
-        _imports: Vec<Vec<[u8; score::SEGMENT_SIZE]>>,
+        _imports: Vec<Vec<[u8; score::SEGMENT_SIZE as usize]>>,
         // (ς) export segment offset
         _export_offset: usize,
     ) -> Refined {

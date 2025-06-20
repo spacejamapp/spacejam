@@ -19,7 +19,8 @@ impl<C: runtime::Config> Dev<C> {
         let author = runtime.author();
         loop {
             let now = block::now();
-            let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+            let duration =
+                ((score::SLOT_PERIOD as u32) - (now % (score::SLOT_PERIOD as u32))) as u64;
             tokio::time::sleep(Duration::from_secs(duration)).await;
 
             let timeslot = block::timeslot();

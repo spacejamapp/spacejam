@@ -11,12 +11,12 @@ pub struct Refined {
     pub executed: Executed,
 
     /// The imports
-    pub segments: Vec<[u8; score::SEGMENT_SIZE]>,
+    pub segments: Vec<[u8; score::SEGMENT_SIZE as usize]>,
 }
 
 impl Refined {
     /// Create a new refined result
-    pub fn new(executed: Executed, segments: Vec<[u8; score::SEGMENT_SIZE]>) -> Self {
+    pub fn new(executed: Executed, segments: Vec<[u8; score::SEGMENT_SIZE as usize]>) -> Self {
         Self { executed, segments }
     }
 }

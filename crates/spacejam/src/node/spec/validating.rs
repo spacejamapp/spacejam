@@ -32,8 +32,8 @@ impl<C: runtime::Config> Validating<C> {
             {
                 tracing::warn!("Not in the validator set, sleeping...");
                 tokio::time::sleep(Duration::from_secs(
-                    (score::SLOT_PERIOD * score::EPOCH_LENGTH
-                        - now % (score::SLOT_PERIOD * score::EPOCH_LENGTH))
+                    ((score::SLOT_PERIOD as u32) * score::EPOCH_LENGTH
+                        - now % ((score::SLOT_PERIOD as u32) * score::EPOCH_LENGTH))
                         as u64,
                 ))
                 .await;
@@ -47,7 +47,8 @@ impl<C: runtime::Config> Validating<C> {
             }
 
             // sleep until the next slot
-            let duration = (score::SLOT_PERIOD - (now % score::SLOT_PERIOD)) as u64;
+            let duration =
+                ((score::SLOT_PERIOD as u32) - (now % (score::SLOT_PERIOD as u32))) as u64;
             tokio::time::sleep(Duration::from_secs(duration)).await;
 
             // get the current epoch

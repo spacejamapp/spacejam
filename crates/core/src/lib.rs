@@ -6,12 +6,14 @@ pub use {
     account::{Account, Accounts},
     block::Block,
     extrinsic::Extrinsic,
+    params::Parameters,
     state::{key::StorageKeyEncode, State},
 };
 
 mod account;
 pub mod block;
 pub mod extrinsic;
+mod params;
 pub mod safrole;
 pub mod service;
 pub mod state;
@@ -51,19 +53,19 @@ pub const GAS_REFINE: u64 = 5_000_000_000;
 pub const GAS_ALL_ACC: u64 = 3_500_000_000;
 
 /// (H) The maximum number of blocks in the history
-pub const MAX_BLOCKS_HISTORY: usize = 8;
+pub const MAX_BLOCKS_HISTORY: u16 = 8;
 
 /// (I) The maximum number of work items in a work package
-pub const MAX_WORK_ITEMS: u8 = 16;
+pub const MAX_WORK_ITEMS: u16 = 16;
 
 /// (J) The maximum number of dependencies a work report can have.
-pub const MAX_DEPENDENCY_COUNT: usize = 8;
+pub const MAX_DEPENDENCY_COUNT: u16 = 8;
 
 /// (K) The maximum number of tickets which may be submitted in a single extrinsic.
 pub const MAX_TICKETS_PER_EXTRINSIC: usize = 16;
 
 /// (L) The maximum age of a lookup anchor (24 hrs)
-pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD;
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD as u32;
 
 /// (N) The number of ticket entries per validator
 pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
@@ -72,22 +74,31 @@ pub const TICKET_ENTRIES_PER_VALIDATOR: u8 = 2;
 pub const QUEUE_ITEMS: u64 = 80;
 
 /// (O) The maximum number of items in the authorizations pool
-pub const AUTH_WINDOW: u8 = 8;
+pub const AUTH_WINDOW: u16 = 8;
+
+/// (P) the slot period
+pub const SLOT_PERIOD: u16 = 6;
 
 /// (Q) The number of items in the authorizations queue
-pub const AUTH_QUEUE_LEN: u8 = 60;
+pub const AUTH_QUEUE_LEN: u16 = 80;
 
 /// (R) The rotation period of validator core assignments, in timeslots.
-pub const ROTATION_PERIOD: u32 = 4;
+pub const ROTATION_PERIOD: u16 = 4;
+
+/// (S) the max entries of in the accumulation queue
+pub const MAX_ACCUMULATION_QUEUE_ENTRIES: u16 = 1024;
 
 /// (T) The maximum number of extrinsics in a work package
-pub const MAX_EXTRINSICS: u8 = 128;
+pub const MAX_EXTRINSICS: u16 = 128;
 
 /// (U) The period in timeslots after which reported but unavailable work may be replaced.
-pub const AVAILABILITY_TIMEOUT: u8 = 5;
+pub const AVAILABILITY_TIMEOUT: u16 = 5;
 
 /// (V) The count of validators
 pub const VALIDATORS_COUNT: u16 = 6;
+
+/// (W_A) The maximum size of is-authorized code in octets
+pub const MAX_IS_AUTHORIZED_CODE_SIZE: u32 = 0;
 
 /// (W_B) The maximum size of a work package together with all extrinsic data and imported segments.
 pub const MAX_INPUT: u32 = 12 * (1 << 20);
@@ -96,31 +107,28 @@ pub const MAX_INPUT: u32 = 12 * (1 << 20);
 pub const MAX_REFINE_CODE_SIZE: u32 = 4_000_000;
 
 /// (W_E) The number of octets in a erasure-coded piece.
-pub const BASIC_PIECE_LEN: u16 = 684;
+pub const BASIC_PIECE_LEN: u32 = 684;
 
 /// (W_G) The size of a segment in octets
-pub const SEGMENT_SIZE: usize = 4104;
-
-/// (W_I) The maximum is authorized code size
-pub const MAX_IS_AUTHORIZED_CODE_SIZE: usize = 0;
+pub const SEGMENT_SIZE: u32 = 4104;
 
 /// (W_R) The maximum amount of RAM which may be used by Refine/Accumulate code.
-pub const MAX_REFINE_MEMORY: usize = 0;
+pub const MAX_REFINE_MEMORY: u32 = 0;
 
 /// (W_U) The maximum amount of RAM which may be used by IsAuthorized code.
 pub const MAX_IS_AUTHORIZED_MEMORY: usize = 0;
 
 /// (W_M) The maximum number of imports and exports in a work package
-pub const MAX_IMPORTS_EXPORTS: u16 = 3072;
+pub const MAX_IMPORTS_EXPORTS: u32 = 3072;
 
 /// (W_P) The number of erasure-coded pieces in a segment
-pub const ERASURE_CODED_PIECES: u8 = 6;
+pub const ERASURE_CODED_PIECES: u32 = 6;
 
 /// (W_T) The size of the transfer memo
 pub const TRANSFER_MEMO_SIZE: u32 = 128;
 
 /// (W_X) The maximum number of exports in a work package
-pub const MAX_EXPORTS: usize = 0;
+pub const MAX_EXPORTS: u32 = 0;
 
 /// (Y) The number of slots into an epoch at which ticket-submission ends.
 pub const TICKET_SUBMISSION_PERIOD: u32 = 10;
@@ -163,9 +171,6 @@ pub const WORK_REPORT_TIMEOUT_PERIOD: u32 = 5;
 ///
 /// (1_735_732_800) after the unix epoch
 pub const JAM_COMMON_ERA_AFTER_UNIX_EPOCH: u32 = 1_735_732_800;
-
-/// The period of a timeslot in seconds
-pub const SLOT_PERIOD: u32 = 6;
 
 /// The length of pages, p = 2^32 / 2^12
 pub const PAGE_LENGTH: usize = 1 << 20;

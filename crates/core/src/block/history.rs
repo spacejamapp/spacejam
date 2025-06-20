@@ -68,7 +68,7 @@ mod crypto_impl {
             self.push(new_block);
 
             // Truncate to maintain history size limit
-            if self.len() > MAX_BLOCKS_HISTORY {
+            if self.len() > MAX_BLOCKS_HISTORY as usize {
                 self.remove(0);
             }
         }

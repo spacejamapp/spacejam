@@ -176,4 +176,9 @@ impl<R: Accounts> General<R> {
 
         Ok(Exit::Ok as u64)
     }
+
+    // (ΩY) fetch the on chain parameters
+    fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        Ok(Exit::Ok as u64)
+    }
 }
