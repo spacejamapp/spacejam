@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
         },
         graphql: Graphql {
             graphql: "0.0.0.0:3000".parse()?,
+            cors: Default::default(),
         },
     };
 

@@ -2,7 +2,10 @@
 
 use clap::Parser;
 use std::{net::SocketAddr, path::PathBuf};
-pub use {graphql::Graphql, node::Node};
+pub use {
+    graphql::{Cors, Graphql},
+    node::Node,
+};
 
 mod graphql;
 mod node;
