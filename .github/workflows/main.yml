@@ -1,9 +1,9 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, jadex]
   pull_request:
-    branches: [main]
+    branches: [main, jadex]
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
