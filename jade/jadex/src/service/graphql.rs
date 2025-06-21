@@ -1,5 +1,6 @@
 //! GraphQL service for the Jadex runtime
 
+use crate::config::Graphql;
 use async_graphql::{http::GraphiQLSource, ObjectType, Schema, SubscriptionType};
 use async_graphql_axum::{GraphQL, GraphQLSubscription};
 use axum::{
@@ -16,7 +17,7 @@ pub async fn start<Query, Mutation, Subscription, Data>(
     mutation: Mutation,
     subscription: Subscription,
     data: Data,
-    address: SocketAddr,
+    graphql: &Graphql,
 ) -> anyhow::Result<()>
 where
     Query: ObjectType + 'static,
@@ -36,7 +37,7 @@ where
         )
         .route_service("/ws", GraphQLSubscription::new(schema));
 
-    axum::serve(TcpListener::bind(address).await?, app).await?;
+    axum::serve(TcpListener::bind(graphql.graphql).await?, app).await?;
     Ok(())
 }
 

@@ -1,7 +1,10 @@
 //! Stores header data in postgres
 
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Object};
-use jadex::{Config, service};
+use jadex::{
+    config::{Config, Graphql, Node},
+    service,
+};
 use sqlx::{Executor, PgPool};
 use tracing_subscriber::EnvFilter;
 
@@ -43,10 +46,14 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config {
         postgres: "postgres://postgres:postgres@localhost/headers".into(),
-        data: "headers".into(),
-        spec: None,
-        graphql: "0.0.0.0:3000".parse()?,
-        quic: "0.0.0.0:6888".parse()?,
+        node: Node {
+            quic: "0.0.0.0:6888".parse()?,
+            spec: None,
+            data: "headers".into(),
+        },
+        graphql: Graphql {
+            graphql: "0.0.0.0:3000".parse()?,
+        },
     };
 
     let pool = PgPool::connect(&config.postgres).await?;
@@ -59,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
             EmptyMutation,
             EmptySubscription,
             hook,
-            config.graphql,
+            &config.graphql,
         ) => r,
         _ = tokio::signal::ctrl_c() => Ok(()),
     }
