@@ -45,7 +45,6 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let config = Config {
-        postgres: "postgres://postgres:postgres@localhost/headers".into(),
         node: Node {
             quic: "0.0.0.0:6888".parse()?,
             spec: None,
@@ -57,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         },
     };
 
-    let pool = PgPool::connect(&config.postgres).await?;
+    let pool = PgPool::connect("postgres://postgres:postgres@localhost/headers").await?;
     let hook = HeaderHook(pool);
 
     tokio::select! {

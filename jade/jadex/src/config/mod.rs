@@ -12,9 +12,6 @@ mod node;
 
 /// Config for the JAM index
 pub struct Config {
-    /// The postgres database url
-    pub postgres: String,
-
     /// The node config
     pub node: Node,
 

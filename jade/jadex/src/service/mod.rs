@@ -1,4 +1,6 @@
 //! Services for the JAM index
+//!
+//! TODO: make graphql, redis, and postgres and sort of middleware.
 
 use crate::Config;
 
