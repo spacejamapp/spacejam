@@ -180,10 +180,8 @@ impl<R: Accounts> General<R> {
     // (ΩY) fetch the on chain parameters
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         let value: Vec<u8> = match state.registers[10] {
-            0 => {
-                tracing::trace!("called fetch(0)");
-                codec::encode(&Parameters::default()).expect("should not fail")
-            }
+            0 => codec::encode(&Parameters::default()).expect("should not fail"),
+            14 => codec::encode(&self.operands).expect("should not fail"),
             kind => {
                 tracing::warn!("kind {kind} not supported");
                 return Ok(Exit::None as u64);
@@ -195,7 +193,6 @@ impl<R: Accounts> General<R> {
         let from = state.registers[8].min(vlen);
         let length = state.registers[9].min(vlen - from);
         if length > 0 {
-            tracing::info!("write {}({}) bytes to {}", length, vlen, out);
             state
                 .memory
                 .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;

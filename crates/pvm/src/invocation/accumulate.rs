@@ -5,7 +5,7 @@ use crate::{
     Reason, Result,
 };
 use score::{
-    vm::{AccumulateState, DeferredTransfer},
+    vm::{AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
@@ -19,6 +19,12 @@ pub struct Accumulate<R: Accounts> {
 
     /// The timeslot
     pub timeslot: TimeSlot,
+
+    /// (η′0) The entropy
+    pub entropy: [u8; 32],
+
+    /// (o) The operands
+    pub operands: Vec<Operand>,
 }
 
 impl<R: Accounts> Accumulate<R> {
@@ -37,6 +43,7 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
         Ok(General::new(
             self.x.service,
             self.x.context.accounts.clone(),
+            self.operands.clone(),
         ))
     }
 
@@ -95,11 +102,18 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(self, timeslot: TimeSlot) -> Accumulate<R> {
+    pub fn accumulate(
+        self,
+        timeslot: TimeSlot,
+        entropy: [u8; 32],
+        operands: Vec<Operand>,
+    ) -> Accumulate<R> {
         Accumulate {
             y: self.clone(),
             x: self,
             timeslot,
+            entropy,
+            operands,
         }
     }
 

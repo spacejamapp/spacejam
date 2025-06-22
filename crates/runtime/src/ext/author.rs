@@ -185,7 +185,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt >= score::TICKET_ENTRIES_PER_VALIDATOR {
+        if attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
             return Ok(None);
         }
 

@@ -31,8 +31,12 @@ pub struct Parameters {
     pub max_work_items: u16,
     /// (J) Maximum number of dependencies (total of prerequisites and SR lookup entries).
     pub max_dependencies: u16,
+    /// (K) The maximum number of tickets which may be submitted in a single extrinsic.
+    pub max_tickets_per_extrinsic: u16,
     /// (L) Maximum age, in blocks, that the lookup anchor may be, taken from the regular anchor.
     pub max_lookup_anchor_age: u32,
+    /// (N) The number of ticket entries per validator
+    pub ticket_entries_per_validator: u16,
     /// (O) Number of items in the authorization window.
     pub auth_window: u16,
     /// (P) the slot period
@@ -41,8 +45,6 @@ pub struct Parameters {
     pub auth_queue_len: u16,
     /// (R) The rotation period, defined in number of slots.
     pub rotation_period: u16,
-    /// (S) the max entries of in the accumulation queue
-    pub max_accumulation_queue_entries: u16,
     /// (T) Maximum number of extrinsics in a Work Package.
     pub max_extrinsics: u16,
     /// (U) The period in timeslots after which reported but unavailable work may be replaced.
@@ -57,8 +59,6 @@ pub struct Parameters {
     pub max_refine_code_size: u32,
     /// (W_E) Number of octets in a erasure-coded piece.
     pub basic_piece_len: u32,
-    /// (W_G) The size of a segment
-    pub segment_size: u32,
     /// (W_M) Maximum number of imports in a Work Package.
     pub max_imports: u32,
     /// (W_P) The number of erasure-coded pieces in a segment
@@ -94,7 +94,6 @@ impl Default for Parameters {
             auth_window: crate::AUTH_WINDOW,
             auth_queue_len: crate::AUTH_QUEUE_LEN,
             rotation_period: crate::ROTATION_PERIOD,
-            max_accumulation_queue_entries: crate::MAX_ACCUMULATION_QUEUE_ENTRIES,
             max_extrinsics: crate::MAX_EXTRINSICS,
             availability_timeout: crate::AVAILABILITY_TIMEOUT,
             val_count: crate::VALIDATORS_COUNT,
@@ -106,9 +105,10 @@ impl Default for Parameters {
             max_exports: crate::MAX_EXPORTS,
             validators_per_core: crate::VALIDATORS_COUNT / 3,
             transfer_memo_size: crate::TRANSFER_MEMO_SIZE,
-            segment_size: crate::SEGMENT_SIZE,
             erasure_coded_pieces: crate::ERASURE_CODED_PIECES,
             ticket_submission_period: crate::TICKET_SUBMISSION_PERIOD,
+            max_tickets_per_extrinsic: crate::MAX_TICKETS_PER_EXTRINSIC,
+            ticket_entries_per_validator: crate::TICKET_ENTRIES_PER_VALIDATOR,
         }
     }
 }

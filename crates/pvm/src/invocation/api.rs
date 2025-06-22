@@ -273,13 +273,12 @@ pub trait Invocation {
             output: None,
         };
 
-        let accumulate = context.accumulate(timeslot);
         let params = AccumulateParams {
             slot: timeslot,
             id: service,
-            results: operands,
+            results: operands.len() as u32,
         };
-
+        let accumulate = context.accumulate(timeslot, entropy, operands);
         let args = codec::encode(&params).expect("failed to encode");
         let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
@@ -331,7 +330,7 @@ pub trait Invocation {
         tracing::warn!("FIXME: update the account balance: {}", amount);
         *account.balance_mut() += amount;
         let account = account.account();
-        let general = General::new(service, accounts);
+        let general = General::new(service, accounts, Vec::new());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {

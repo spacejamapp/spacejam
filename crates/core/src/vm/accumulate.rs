@@ -147,8 +147,8 @@ pub struct AccumulateParams {
     #[serde(with = "codec::compact")]
     pub id: u32,
 
-    /// (B) The accumulation-output pairings.
-    pub results: Vec<Operand>,
+    /// (|o|) The count of operands
+    pub results: u32,
 }
 
 /// An operand of the accumulation
@@ -157,7 +157,7 @@ pub struct AccumulateParams {
 /// of graypaper.
 ///
 /// defined per GP (12.19)
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operand {
     /// (h) The hash of the work package
     pub package: OpaqueHash,
@@ -170,10 +170,6 @@ pub struct Operand {
     /// work-package which generated this result.
     pub authorizer_hash: OpaqueHash,
 
-    /// (o) The output of the Is-Authorized logic which authorized the execution
-    /// of the work-package which generated this result.
-    pub auth_output: Vec<u8>,
-
     /// (y) The payload blob hash
     pub payload: OpaqueHash,
 
@@ -184,4 +180,8 @@ pub struct Operand {
 
     /// (d) The work execution result
     pub data: WorkExecResult,
+
+    /// (o) The output of the Is-Authorized logic which authorized the execution
+    /// of the work-package which generated this result.
+    pub auth_output: Vec<u8>,
 }

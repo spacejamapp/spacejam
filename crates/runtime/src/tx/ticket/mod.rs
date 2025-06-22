@@ -95,7 +95,7 @@ pub fn accumulator(
     let mut new_tickets = Vec::new();
     for envelope in tickets {
         // 1. Verify ticket attempt (6.29)
-        if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR {
+        if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
             return Err(Error::BadTicketAttempt);
         }
 
