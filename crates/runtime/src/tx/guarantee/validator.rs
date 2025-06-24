@@ -94,7 +94,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .collect();
 
         // Calculate rotation offset based on timeslot
-        let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD;
+        let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD as u32;
         let shuffled = shuffle::eq331(&initial_sequence, eta);
         let rotated: Vec<u32> = shuffled
             .iter()
@@ -177,7 +177,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         if guarantee.report.context.prerequisites.len() + guarantee.report.lookup.len()
-            > MAX_DEPENDENCY_COUNT
+            > MAX_DEPENDENCY_COUNT as usize
         {
             return Err(Error::TooManyDependencies);
         }
@@ -291,16 +291,19 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         // TODO: reference GP 11.23
         //
         // The test case or the GP is not correct.
-        if gslot / ROTATION_PERIOD == slot / ROTATION_PERIOD {
+        if gslot / ROTATION_PERIOD as u32 == slot / ROTATION_PERIOD as u32 {
             self.validators = self.state.validators.current;
             self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
         } else {
             self.validators = self.state.validators.previous;
-            self.assign_cores(slot.saturating_sub(ROTATION_PERIOD), self.state.entropy[3]);
+            self.assign_cores(
+                slot.saturating_sub(ROTATION_PERIOD as u32),
+                self.state.entropy[3],
+            );
         }
 
-        if gslot / ROTATION_PERIOD + 1 < slot / ROTATION_PERIOD {
+        if gslot / ROTATION_PERIOD as u32 + 1 < slot / ROTATION_PERIOD as u32 {
             return Err(Error::ReportEpochBeforeLast);
         }
 

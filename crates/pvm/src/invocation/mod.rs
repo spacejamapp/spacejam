@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use score::{Account, Accounts, ServiceId};
+use score::{vm::Operand, Account, Accounts, ServiceId};
 pub use {
     accumulate::Accumulate,
     api::Invocation,
@@ -48,15 +48,19 @@ pub struct General<R: Accounts> {
 
     // if the account got updated.
     pub updated: bool,
+
+    /// (o) The operands
+    pub operands: Vec<Operand>,
 }
 
 impl<R: Accounts> General<R> {
     /// Create a new general host
-    pub fn new(index: ServiceId, accounts: R) -> Self {
+    pub fn new(index: ServiceId, accounts: R, operands: Vec<Operand>) -> Self {
         Self {
             index,
             accounts,
             updated: false,
+            operands,
         }
     }
 

@@ -5,7 +5,7 @@ use crate::{
     invocation::{General, State},
     Result,
 };
-use score::{state::account, Account, Accounts, Gas, ServiceId};
+use score::{state::account, Account, Accounts, Gas, Parameters, ServiceId};
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -24,6 +24,7 @@ impl<R: Accounts> General<R> {
             2 => self.read(state),
             3 => self.write(state),
             4 => self.info(state),
+            18 => self.fetch(state),
             _ => Ok(Exit::What as u64),
         }
     }
@@ -87,9 +88,8 @@ impl<R: Accounts> General<R> {
         };
 
         let vlen = value.len() as u64;
-        let from = state.registers[11].min(value.len() as u64);
+        let from = state.registers[11].min(vlen);
         let length = state.registers[12].min(vlen - from);
-
         if length > 0 {
             state
                 .memory
@@ -119,18 +119,29 @@ impl<R: Accounts> General<R> {
 
         let index = self.index;
         let Some(account) = self.account() else {
+            tracing::debug!("no account found");
             return Ok(Exit::None as u64);
         };
 
+        // check if the account has enough balance to cover the threshold
+        if account.threshold() > account.balance() {
+            return Ok(Exit::Full as u64);
+        }
+
         // update storage
         let skey = account::storage(index, &key);
+        let result = if let Some(prev) = account.read(&skey) {
+            prev.len() as u64
+        } else {
+            Exit::None as u64
+        };
+
         if vz == 0 {
-            let Some(value) = account.remove(&skey) else {
+            let Some(_value) = account.remove(&skey) else {
                 return Ok(Exit::None as u64);
             };
 
             self.updated = true;
-            Ok(value.len() as u64)
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
                 Ok(bytes) => bytes,
@@ -140,16 +151,11 @@ impl<R: Accounts> General<R> {
                 }
             };
 
-            let threshold = account.threshold();
-            if threshold > account.balance() {
-                Ok(Exit::Full as u64)
-            } else {
-                let length = value.len() as u64;
-                account.write(&skey, value);
-                self.updated = true;
-                Ok(length)
-            }
+            account.write(&skey, value);
+            self.updated = true;
         }
+
+        Ok(result)
     }
 
     /// (ΩI) fetch info
@@ -175,5 +181,29 @@ impl<R: Accounts> General<R> {
         }
 
         Ok(Exit::Ok as u64)
+    }
+
+    // (ΩY) fetch the on chain parameters
+    fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        let value: Vec<u8> = match state.registers[10] {
+            0 => codec::encode(&Parameters::default()).expect("should not fail"),
+            14 => codec::encode(&self.operands).expect("should not fail"),
+            kind => {
+                tracing::warn!("kind {kind} not supported");
+                return Ok(Exit::None as u64);
+            }
+        };
+
+        let vlen = value.len() as u64;
+        let out = state.registers[7];
+        let from = state.registers[8].min(vlen);
+        let length = state.registers[9].min(vlen - from);
+        if length > 0 {
+            state
+                .memory
+                .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
+        }
+
+        Ok(vlen)
     }
 }

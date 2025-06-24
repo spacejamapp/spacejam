@@ -8,7 +8,7 @@ impl Invocation for Interpreter {
     type Memory = Memory;
 
     /// Step the instruction.
-    #[tracing::instrument(skip_all, target = "pvmi")]
+    // #[tracing::instrument(skip_all, target = "pvmi")]
     fn step(
         // (c) The instruction data
         instructions: &[u8],
@@ -71,9 +71,10 @@ impl Invocation for Interpreter {
             let next = instr.range.end;
             reason = pvmi.step_single(&instr);
             tracing::trace!(
-                "{:6} | {} | registers: {:?}",
-                instr.range.end,
-                instr.value,
+                "pos={:<6} {:<20} gas={:<6} regs={:?}",
+                instr.range.start,
+                instr.value.to_string(),
+                pvmi.gas,
                 pvmi.registers
             );
 

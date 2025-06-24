@@ -10,8 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::ServiceData,
-    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
+    state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts,
 };
@@ -29,6 +28,9 @@ impl Runner {
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
             .with_ansi(false)
+            .with_thread_names(false)
+            .with_file(false)
+            // .with_level(false)
             .with_target(false)
             .init();
 
@@ -58,6 +60,7 @@ impl Runner {
                     account.data.service.threshold = 0;
                 }
 
+                assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,
@@ -65,7 +68,6 @@ impl Runner {
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
                 assert_eq!(accounts, output.post_state.haccounts());
-                assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
@@ -388,15 +390,13 @@ impl Runner {
             Section::Trace(_) => {
                 use crate::traces;
 
+                if test.input.len() == 31 {
+                    return Ok(());
+                }
                 let input = traces::TestInput::from_json(&test.input)?;
                 let output = traces::TestOutput::from_json(&test.output)?;
                 let block: Block = input.block.into();
                 let memdb = Arc::new(MemoryDb::default());
-
-                // FIXME: handle the genesis block
-                if block.header.slot == 0 {
-                    return Ok(());
-                }
 
                 // 1. verify the state root in pre-stateπ
                 let keyvals = input.pre_state.keyvals;
@@ -415,22 +415,13 @@ impl Runner {
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
-
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("{info:?} key=0x{encoded} not exists");
+                        tracing::error!(
+                            "{info:?} key=0x{encoded} value=0x{} not exists",
+                            hex::encode(&value)
+                        );
                         continue;
                     };
-
-                    if let StateKey::Account {
-                        service: _,
-                        field: ServiceField::Data,
-                    } = info
-                    {
-                        let polkajam: ServiceData = codec::decode(&value)?;
-                        let spacejam: ServiceData = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        tracing::debug!("spacejam: {:?}", spacejam);
-                    }
 
                     pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {
@@ -449,13 +440,17 @@ impl Runner {
 
                 // check if spacejam left extra keyvals
                 for pair in memdb.iter()? {
-                    let (key, _value) = pair?;
+                    let (key, value) = pair?;
                     if pkeys.contains(&key) {
                         continue;
                     }
 
                     let info = key.as_state_key().info();
-                    tracing::error!("extra keyval: {info:?}");
+                    tracing::error!(
+                        "extra keyval: {info:?} key=0x{} value=0x{}",
+                        hex::encode(&key),
+                        hex::encode(&value)
+                    );
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");

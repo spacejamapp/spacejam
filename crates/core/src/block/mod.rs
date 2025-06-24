@@ -58,7 +58,7 @@ impl Block {
 
 /// Returns the current timeslot
 pub fn timeslot() -> TimeSlot {
-    now() / crate::SLOT_PERIOD
+    now() / (crate::SLOT_PERIOD as u32)
 }
 
 /// Returns the current time in seconds

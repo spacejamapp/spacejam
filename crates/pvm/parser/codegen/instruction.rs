@@ -9,6 +9,8 @@ pub struct InstructionEnum {
     pub item: ItemEnum,
     /// The display implementation.
     pub display_impl: Option<ItemImpl>,
+    /// The debug implementation.
+    pub debug_impl: Option<ItemImpl>,
 }
 
 impl InstructionEnum {
@@ -34,16 +36,24 @@ impl InstructionEnum {
     pub fn impl_display(&mut self) {
         let variants = &self.item.variants;
         let mut display_arms = Vec::new();
+        let mut debug_arms = Vec::new();
 
         for variant in variants {
             let variant_name = &variant.ident;
+
             if variant.fields.is_empty() {
+                debug_arms.push(quote! {
+                    Self::#variant_name => write!(f, stringify!(#variant_name))
+                });
                 display_arms.push(quote! {
                     Self::#variant_name => write!(f, stringify!(#variant_name))
                 });
             } else {
-                display_arms.push(quote! {
+                debug_arms.push(quote! {
                     Self::#variant_name(format) => write!(f, "{}({})", stringify!(#variant_name), format)
+                });
+                display_arms.push(quote! {
+                    Self::#variant_name(_format) => write!(f, "{}", stringify!(#variant_name))
                 });
             }
         }
@@ -54,6 +64,17 @@ impl InstructionEnum {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
                         #(#display_arms,)*
+                    }
+                }
+            }
+        });
+
+        // Create the final Debug implementation
+        self.debug_impl = Some(parse_quote! {
+            impl std::fmt::Debug for Instruction {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        #(#debug_arms,)*
                     }
                 }
             }
@@ -71,6 +92,11 @@ impl core::fmt::Display for InstructionEnum {
             output.push_str(&display_impl.to_token_stream().to_string());
         }
 
+        if let Some(debug_impl) = &self.debug_impl {
+            output.push_str("\n\n");
+            output.push_str(&debug_impl.to_token_stream().to_string());
+        }
+
         write!(f, "{output}")
     }
 }
@@ -79,13 +105,14 @@ impl Default for InstructionEnum {
     fn default() -> Self {
         let item = parse_quote! {
             /// The PVM instruction enum.
-            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+            #[derive(Clone, Copy, PartialEq, Eq)]
             pub enum Instruction {}
         };
 
         Self {
             item,
             display_impl: None,
+            debug_impl: None,
         }
     }
 }

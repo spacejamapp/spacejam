@@ -9,10 +9,6 @@ members = [
     "crates/pvm/interpreter",
     "crates/pvm/parser",
     "crates/testing/spec",
-    "jade",
-    "jade/jadex",
-    "jade/jadex/examples/*",
-    "jade/cli",
 ]
 resolver = "1"
 

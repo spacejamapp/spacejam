@@ -18,9 +18,9 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     data: X,
 ) -> Stepped<Memory, X> {
     let mut data = data;
-    tracing::debug!("entering host call: {}", call);
+    tracing::debug!("calling host call {call}");
     let reason = match call {
-        0..5 => {
+        0..5 | 18 => {
             let mut general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
