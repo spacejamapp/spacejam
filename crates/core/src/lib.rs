@@ -33,7 +33,7 @@ pub const BALANCE_PER_SERVICE: u64 = 100;
 pub const CORES_COUNT: usize = 2;
 
 /// (D) The period in timeslots after which an unreferenced preimage may be expunged.
-pub const EXPUNGED_TIME: u32 = 192_000;
+pub const EXPUNGED_TIME: u32 = 32;
 
 /// (E) The length of an epoch
 pub const EPOCH_LENGTH: u32 = 12;

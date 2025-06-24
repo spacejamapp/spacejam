@@ -346,17 +346,13 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩF) forget
     pub fn forget<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        tracing::debug!("entering forget");
         let [o, z] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
-        tracing::debug!("read hash");
 
         // get the lookup data
         let timeslot = self.timeslot;
         let account = self.account()?;
-        tracing::debug!("read account");
         let Some(mut lookup) = account.lookup(hash, z as u32) else {
-            tracing::debug!("forget: not found");
             return Ok(Exit::Huh as u64);
         };
 

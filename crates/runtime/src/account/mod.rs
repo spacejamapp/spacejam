@@ -135,6 +135,13 @@ impl<S: Storage> score::Account for Account<S> {
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let key = self.drop_lookup(hash, len);
         self.account.lookup.insert((hash, len), lookup.clone());
+        self.ops.removal.remove(&key);
+        tracing::debug!(
+            "write lookup 0x{} with value 0x{}({:?})",
+            hex::encode(key),
+            hex::encode(codec::encode(&lookup).expect("lookup is valid")),
+            lookup,
+        );
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
     }
@@ -142,6 +149,7 @@ impl<S: Storage> score::Account for Account<S> {
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = self.drop_lookup(hash, len);
         self.account.lookup.remove(&(hash, len));
+        tracing::debug!("remove lookup 0x{}", hex::encode(key));
         self.ops.remove(key)
     }
 
@@ -150,6 +158,12 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
+        {
+            self.preimages.1.remove(&hash);
+            let fhash = account::preimage(self.index, hash);
+            self.ops.removal.remove(&fhash);
+        }
+
         self.account.preimage.insert(hash, preimage.clone());
         self.preimages.0.insert(hash);
     }
@@ -165,13 +179,13 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
         let vkey = key.to_vec();
-        let mut fkey = [0; 31];
-        fkey.copy_from_slice(key);
-        if self.storage.1.contains(&vkey) {
-            self.storage.1.remove(&vkey);
-        }
+        {
+            if self.storage.1.contains(&vkey) {
+                self.storage.1.remove(&vkey);
+            }
 
-        if self.ops.removal.contains(&fkey) {
+            let mut fkey = [0; 31];
+            fkey.copy_from_slice(key);
             self.ops.removal.remove(&fkey);
         }
 

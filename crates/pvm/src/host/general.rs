@@ -152,7 +152,6 @@ impl<R: Accounts> General<R> {
                 }
             };
 
-            tracing::debug!("write storage: 0x{}", hex::encode(&skey));
             account.write(&skey, value);
             self.updated = true;
         }

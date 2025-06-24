@@ -30,7 +30,7 @@ impl Runner {
             .with_ansi(false)
             .with_thread_names(false)
             .with_file(false)
-            .with_level(false)
+            // .with_level(false)
             .with_target(false)
             .init();
 
@@ -440,13 +440,17 @@ impl Runner {
 
                 // check if spacejam left extra keyvals
                 for pair in memdb.iter()? {
-                    let (key, _value) = pair?;
+                    let (key, value) = pair?;
                     if pkeys.contains(&key) {
                         continue;
                     }
 
                     let info = key.as_state_key().info();
-                    tracing::error!("extra keyval: {info:?} {key:?}");
+                    tracing::error!(
+                        "extra keyval: {info:?} key=0x{} value=0x{}",
+                        hex::encode(&key),
+                        hex::encode(&value)
+                    );
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");
