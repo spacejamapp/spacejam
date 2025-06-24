@@ -148,6 +148,7 @@ pub struct AccumulateParams {
     pub id: u32,
 
     /// (|o|) The count of operands
+    #[serde(with = "codec::compact")]
     pub results: u32,
 }
 

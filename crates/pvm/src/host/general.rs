@@ -119,6 +119,7 @@ impl<R: Accounts> General<R> {
 
         let index = self.index;
         let Some(account) = self.account() else {
+            tracing::debug!("no account found");
             return Ok(Exit::None as u64);
         };
 
@@ -144,10 +145,14 @@ impl<R: Accounts> General<R> {
             if threshold > account.balance() {
                 Ok(Exit::Full as u64)
             } else {
-                let length = value.len() as u64;
+                let result = if let Some(prev) = account.read(&skey) {
+                    prev.len() as u64
+                } else {
+                    Exit::None as u64
+                };
                 account.write(&skey, value);
                 self.updated = true;
-                Ok(length)
+                Ok(result)
             }
         }
     }

@@ -71,9 +71,10 @@ impl Invocation for Interpreter {
             let next = instr.range.end;
             reason = pvmi.step_single(&instr);
             tracing::trace!(
-                "{:6} | {} | registers: {:?}",
-                instr.range.end,
+                "{:6} | pos={} | gas={} | registers: {:?}",
+                instr.range.start,
                 instr.value,
+                pvmi.gas,
                 pvmi.registers
             );
 

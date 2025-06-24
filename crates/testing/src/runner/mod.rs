@@ -58,6 +58,7 @@ impl Runner {
                     account.data.service.threshold = 0;
                 }
 
+                assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
                     accumulation.accumulated_queue,
@@ -65,7 +66,6 @@ impl Runner {
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
                 assert_eq!(accounts, output.post_state.haccounts());
-                assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
             Section::Assurances => {
