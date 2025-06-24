@@ -19,7 +19,7 @@ mod queue;
 mod validator;
 
 /// (b) Accumulate the available work reports
-// #[tracing::instrument(skip_all)]
+#[tracing::instrument(skip_all)]
 pub fn accumulate<V: Pvm, R: Accounts>(
     // The next timeslot (τ')
     slot: TimeSlot,

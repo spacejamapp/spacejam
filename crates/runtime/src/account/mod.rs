@@ -164,6 +164,17 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
+        let vkey = key.to_vec();
+        let mut fkey = [0; 31];
+        fkey.copy_from_slice(key);
+        if self.storage.1.contains(&vkey) {
+            self.storage.1.remove(&vkey);
+        }
+
+        if self.ops.removal.contains(&fkey) {
+            self.ops.removal.remove(&fkey);
+        }
+
         self.storage.0.insert(key.to_vec());
         self.account.storage.insert(key.to_vec(), value);
     }

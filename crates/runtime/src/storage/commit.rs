@@ -9,12 +9,12 @@ pub struct Commit<Key, Value> {
     update: BTreeMap<Key, Value>,
 
     /// The remove of the commit
-    removal: BTreeSet<Key>,
+    pub removal: BTreeSet<Key>,
 }
 
 impl<Key, Value> Commit<Key, Value>
 where
-    Key: Ord,
+    Key: Ord + std::fmt::Debug,
 {
     /// Set a key pair to the storage
     pub fn set(&mut self, key: Key, value: Value) {

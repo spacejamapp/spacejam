@@ -72,7 +72,7 @@ impl AsRef<str> for Section {
             Section::Pvm => "pvm/programs",
             Section::Shuffle => "shuffle",
             Section::Trie => "trie",
-            Section::Erasure => "erasure-coding",
+            Section::Erasure => "erasure",
             Section::Accumulate => "stf/accumulate",
             Section::Assurances => "stf/assurances",
             Section::Safrole => "stf/safrole",

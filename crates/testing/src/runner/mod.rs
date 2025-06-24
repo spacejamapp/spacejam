@@ -10,8 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, History},
-    service::ServiceData,
-    state::{key, ServiceField, StateKey, StateKeyInfo, StateKeyLike},
+    state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts,
 };
@@ -416,22 +415,13 @@ impl Runner {
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
-
                     let Some(result) = memdb.get(&key)? else {
-                        tracing::error!("{info:?} key=0x{encoded} not exists");
+                        tracing::error!(
+                            "{info:?} key=0x{encoded} value=0x{} not exists",
+                            hex::encode(&value)
+                        );
                         continue;
                     };
-
-                    if let StateKey::Account {
-                        service: _,
-                        field: ServiceField::Data,
-                    } = info
-                    {
-                        let polkajam: ServiceData = codec::decode(&value)?;
-                        let spacejam: ServiceData = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        tracing::debug!("spacejam: {:?}", spacejam);
-                    }
 
                     pkeys.push(key.clone());
                     if key == key::STATISTICS && value != result {
@@ -456,7 +446,7 @@ impl Runner {
                     }
 
                     let info = key.as_state_key().info();
-                    tracing::error!("extra keyval: {info:?}");
+                    tracing::error!("extra keyval: {info:?} {key:?}");
                 }
 
                 let state_root = memdb.root().expect("failed to get state root");

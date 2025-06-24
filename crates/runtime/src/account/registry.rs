@@ -55,7 +55,6 @@ impl<S: Storage> score::Accounts for Accounts<S> {
     }
 
     fn upsert(&mut self, index: u32, account: impl score::Account) {
-        tracing::debug!("upserting account: {:?}", index);
         self.accounts.insert(
             index,
             Account::inherit(self.storage.clone(), index, account),

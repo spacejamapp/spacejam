@@ -123,15 +123,26 @@ impl<R: Accounts> General<R> {
             return Ok(Exit::None as u64);
         };
 
+        // check if the account has enough balance to cover the threshold
+        if account.threshold() > account.balance() {
+            return Ok(Exit::Full as u64);
+        }
+
         // update storage
         let skey = account::storage(index, &key);
+        let result = if let Some(prev) = account.read(&skey) {
+            prev.len() as u64
+        } else {
+            Exit::None as u64
+        };
+
         if vz == 0 {
-            let Some(value) = account.remove(&skey) else {
+            let Some(_value) = account.remove(&skey) else {
                 return Ok(Exit::None as u64);
             };
 
+            tracing::debug!("removed storage: 0x{}", hex::encode(&skey));
             self.updated = true;
-            Ok(value.len() as u64)
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
                 Ok(bytes) => bytes,
@@ -141,20 +152,12 @@ impl<R: Accounts> General<R> {
                 }
             };
 
-            let threshold = account.threshold();
-            if threshold > account.balance() {
-                Ok(Exit::Full as u64)
-            } else {
-                let result = if let Some(prev) = account.read(&skey) {
-                    prev.len() as u64
-                } else {
-                    Exit::None as u64
-                };
-                account.write(&skey, value);
-                self.updated = true;
-                Ok(result)
-            }
+            tracing::debug!("write storage: 0x{}", hex::encode(&skey));
+            account.write(&skey, value);
+            self.updated = true;
         }
+
+        Ok(result)
     }
 
     /// (ΩI) fetch info
@@ -184,6 +187,7 @@ impl<R: Accounts> General<R> {
 
     // (ΩY) fetch the on chain parameters
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        tracing::debug!("fetch({})", state.registers[10]);
         let value: Vec<u8> = match state.registers[10] {
             0 => codec::encode(&Parameters::default()).expect("should not fail"),
             14 => codec::encode(&self.operands).expect("should not fail"),
