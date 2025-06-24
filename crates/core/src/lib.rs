@@ -13,7 +13,7 @@ pub use {
 mod account;
 pub mod block;
 pub mod extrinsic;
-mod params;
+pub mod params;
 pub mod safrole;
 pub mod service;
 pub mod state;

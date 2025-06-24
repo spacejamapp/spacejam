@@ -3041,10 +3041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacejam-params"
-version = "0.1.0"
-
-[[package]]
 name = "spacejam-rpc"
 version = "0.1.0"
 dependencies = [

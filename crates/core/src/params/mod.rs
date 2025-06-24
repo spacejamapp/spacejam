@@ -1,6 +1,22 @@
 //! Chain parameters
 
 use serde::{Deserialize, Serialize};
+use std::sync::{LazyLock, RwLock, RwLockReadGuard};
+
+mod tiny;
+
+/// Parameters for the chain
+static PARAMS: LazyLock<RwLock<Parameters>> = LazyLock::new(|| RwLock::new(Parameters::tiny()));
+
+/// Get the parameters
+pub fn get() -> RwLockReadGuard<'static, Parameters> {
+    PARAMS.read().expect("Failed to read parameters")
+}
+
+/// Set new parameters
+pub fn set(params: Parameters) {
+    *PARAMS.write().expect("Failed to write parameters") = params;
+}
 
 /// Parameters for version 1
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,40 +91,6 @@ pub struct Parameters {
 
 impl Default for Parameters {
     fn default() -> Self {
-        Self {
-            slot_period: crate::SLOT_PERIOD,
-            deposit_per_account: crate::BALANCE_PER_SERVICE,
-            deposit_per_item: crate::BALANCE_PER_SERVICE,
-            deposit_per_byte: crate::BALANCE_PER_OCTET,
-            min_turnaround_period: crate::EXPUNGED_TIME,
-            epoch_period: crate::EPOCH_LENGTH,
-            max_accumulate_gas: crate::GAS_ACC,
-            max_is_authorized_gas: crate::GAS_IS_AUTHORIZED,
-            max_refine_gas: crate::GAS_REFINE,
-            block_gas_limit: crate::WORK_REPORT_GAS_LIMIT,
-            recent_block_count: crate::MAX_BLOCKS_HISTORY,
-            max_work_items: crate::MAX_WORK_ITEMS,
-            max_dependencies: crate::MAX_DEPENDENCY_COUNT,
-            max_lookup_anchor_age: crate::MAX_AGE_LOOKUP_ANCHOR,
-            max_is_authorized_code_size: crate::MAX_IS_AUTHORIZED_CODE_SIZE,
-            auth_window: crate::AUTH_WINDOW,
-            auth_queue_len: crate::AUTH_QUEUE_LEN,
-            rotation_period: crate::ROTATION_PERIOD,
-            max_extrinsics: crate::MAX_EXTRINSICS,
-            availability_timeout: crate::AVAILABILITY_TIMEOUT,
-            val_count: crate::VALIDATORS_COUNT,
-            max_input: crate::MAX_INPUT,
-            max_refine_code_size: crate::MAX_REFINE_CODE_SIZE,
-            basic_piece_len: crate::BASIC_PIECE_LEN,
-            max_imports: crate::MAX_IMPORTS_EXPORTS,
-            max_refine_memory: crate::MAX_REFINE_MEMORY,
-            max_exports: crate::MAX_EXPORTS,
-            validators_per_core: crate::VALIDATORS_COUNT / 3,
-            transfer_memo_size: crate::TRANSFER_MEMO_SIZE,
-            erasure_coded_pieces: crate::ERASURE_CODED_PIECES,
-            ticket_submission_period: crate::TICKET_SUBMISSION_PERIOD,
-            max_tickets_per_extrinsic: crate::MAX_TICKETS_PER_EXTRINSIC,
-            ticket_entries_per_validator: crate::TICKET_ENTRIES_PER_VALIDATOR,
-        }
+        Self::tiny()
     }
 }
