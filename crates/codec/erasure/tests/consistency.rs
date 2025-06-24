@@ -9,8 +9,8 @@ async fn ec_3() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn ec_272() -> anyhow::Result<()> {
-    run_codec("ec-272").await
+async fn ec_4096() -> anyhow::Result<()> {
+    run_codec("ec-4096").await
 }
 
 async fn run_codec(test: &str) -> anyhow::Result<()> {

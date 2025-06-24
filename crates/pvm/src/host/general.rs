@@ -141,7 +141,6 @@ impl<R: Accounts> General<R> {
                 return Ok(Exit::None as u64);
             };
 
-            tracing::debug!("removed storage: 0x{}", hex::encode(&skey));
             self.updated = true;
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
@@ -186,7 +185,6 @@ impl<R: Accounts> General<R> {
 
     // (ΩY) fetch the on chain parameters
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        tracing::debug!("fetch({})", state.registers[10]);
         let value: Vec<u8> = match state.registers[10] {
             0 => codec::encode(&Parameters::default()).expect("should not fail"),
             14 => codec::encode(&self.operands).expect("should not fail"),
