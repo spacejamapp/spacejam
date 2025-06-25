@@ -80,7 +80,7 @@ impl App {
                 std::process::exit(1);
             }
 
-            if network.filter.check(&msg.content) {
+            if network.filter.skip(&msg.content) {
                 continue;
             }
 
@@ -89,7 +89,7 @@ impl App {
             }
 
             if !highlight.is_empty() && msg.content.contains(highlight) {
-                println!("{} {}", msg.name.underline().bright_cyan(), msg.content,);
+                println!("{:>12} {}", msg.name.underline().bright_cyan(), msg.content,);
                 continue;
             }
 

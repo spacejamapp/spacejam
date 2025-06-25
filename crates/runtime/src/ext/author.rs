@@ -54,7 +54,8 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 1. check generating tickets
         //
-        // Note that we only generate tickets after two slots.
+        // - the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
+        // - forward should be delayed untial max(E/20, 1)
         if slot > 2 {
             if let Some((id, envelope)) = self.ticket(timeslot).await? {
                 next.1 = Some(envelope);
@@ -65,7 +66,6 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author(timeslot).await?.header);
-            // self.slots.pop_front();
         }
 
         Ok(next)

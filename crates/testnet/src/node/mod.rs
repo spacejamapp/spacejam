@@ -80,7 +80,7 @@ impl Node {
         R: std::io::Read,
     {
         for line in reader.lines().map_while(Result::ok) {
-            if !filter.check(&line) {
+            if filter.skip(&line) {
                 continue;
             }
 

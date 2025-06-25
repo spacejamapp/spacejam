@@ -98,6 +98,8 @@ impl<C: Config> Runtime<C> {
         }
 
         // 3. transit the global state
+        //
+        // We execute the block instead of querying the latest state from the remote.
         let hash = block.header.hash()?;
         let diff = tx::transit::<C::Vm>(block.clone(), self.storage.clone())?;
         tracing::info!(
@@ -215,7 +217,7 @@ impl<C: Config> Runtime<C> {
                     anyhow::bail!("ticket series not found");
                 };
                 tracing::error!(
-                    "ticket series: {:?}",
+                    "ticket series: {:#?}",
                     tickets.into_iter().map(|t| t.id).collect::<Vec<_>>()
                 );
                 anyhow::bail!("header seal mismatched");
