@@ -15,6 +15,10 @@ pub struct Builder {
     #[cfg_attr(feature = "cmd", arg(long))]
     chain: Option<PathBuf>,
 
+    /// The data path
+    #[cfg_attr(feature = "cmd", arg(short, long, default_value_t = default::data_path()))]
+    data_path: String,
+
     /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
     dev: bool,
@@ -33,15 +37,12 @@ pub struct Builder {
 
     /// The seed of the validator
     #[cfg_attr(feature = "cmd", arg(long))]
-    validator: Option<String>,
+    dev_validator: Option<String>,
 }
 
 impl Builder {
     /// Build the node
-    pub async fn build<C: spec::RuntimeSpecSelf>(
-        mut self,
-        data: PathBuf,
-    ) -> anyhow::Result<SpaceJam<C>> {
+    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
         let genesis = if let Some(genesis) = self.chain {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
@@ -57,14 +58,14 @@ impl Builder {
 
         // prepare the runtime
         let data = {
-            let data = data.join(genesis.id.to_string());
+            let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
             if !data.exists() {
                 fs::create_dir_all(&data)?;
             }
             data
         };
 
-        let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
+        let runtime = C::runtime(self.dev_validator.as_deref(), data, genesis).await?;
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
@@ -88,11 +89,23 @@ impl Default for Builder {
     fn default() -> Self {
         Self {
             chain: None,
+            data_path: default::data_path(),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),
-            validator: None,
+            dev_validator: None,
             dev: false,
             light: false,
         }
+    }
+}
+
+mod default {
+    /// The default data path
+    pub fn data_path() -> String {
+        dirs::data_dir()
+            .unwrap_or_default()
+            .join("spacejam")
+            .to_string_lossy()
+            .to_string()
     }
 }

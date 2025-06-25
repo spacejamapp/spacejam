@@ -5,7 +5,6 @@ use crate::{
     Development,
 };
 use clap::{ArgAction, CommandFactory, Parser};
-use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
 pub mod key;
@@ -27,10 +26,6 @@ pub struct App {
     /// The verbosity level (repeat for more verbosity)
     #[arg(short, action = ArgAction::Count, global = true)]
     verbose: u8,
-
-    /// The path to the root data directory
-    #[arg(short, long, default_value_t = default::data_path())]
-    data_path: String,
 }
 
 impl App {
@@ -69,7 +64,7 @@ impl App {
             return;
         };
 
-        if let Err(e) = cmd.run::<Development>(PathBuf::from(app.data_path)).await {
+        if let Err(e) = cmd.run::<Development>().await {
             eprintln!("Failed to run spacejam: {e}");
         }
     }
@@ -84,32 +79,16 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
-    // /// chain state related utils
-    // #[command(subcommand)]
-    // State(state::State),
-    // /// Iterate over the storage
-    // Iter,
 }
 
 impl Command {
     /// Run the command
-    pub async fn run<C: RuntimeSpecSelf>(self, data: PathBuf) -> anyhow::Result<()> {
+    pub async fn run<C: RuntimeSpecSelf>(self) -> anyhow::Result<()> {
         match self {
-            Command::Run(run) => run.build::<C>(data).await?.start().await,
+            Command::Run(run) => run.build::<C>().await?.start().await,
             Command::Key(key) => key.run(),
             // Command::State(state) => state.run(),
         }
-    }
-}
-
-mod default {
-    /// The default data path
-    pub fn data_path() -> String {
-        dirs::data_dir()
-            .unwrap_or_default()
-            .join("spacejam")
-            .to_string_lossy()
-            .to_string()
     }
 }
 
