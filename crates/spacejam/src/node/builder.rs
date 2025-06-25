@@ -11,6 +11,10 @@ use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 #[derive(Clone)]
 #[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Builder {
+    /// The genesis path
+    #[cfg_attr(feature = "cmd", arg(long))]
+    chain: Option<PathBuf>,
+
     /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
     dev: bool,
@@ -18,14 +22,6 @@ pub struct Builder {
     /// Whether running in light mode
     #[cfg_attr(feature = "cmd", arg(long))]
     light: bool,
-
-    /// The genesis path
-    #[cfg_attr(feature = "cmd", arg(long))]
-    chain: Option<PathBuf>,
-
-    /// The metrics address
-    #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:0"))]
-    metrics: SocketAddr,
 
     /// The network configuration
     #[cfg_attr(feature = "cmd", command(flatten))]
@@ -73,7 +69,6 @@ impl Builder {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
                 rpc: self.rpc,
-                metrics: self.metrics,
             }));
         }
 
@@ -82,7 +77,6 @@ impl Builder {
             return Ok(SpaceJam::Light(spec::Light {
                 network,
                 rpc: self.rpc,
-                metrics: self.metrics,
             }));
         }
 
@@ -94,7 +88,6 @@ impl Default for Builder {
     fn default() -> Self {
         Self {
             chain: None,
-            metrics: SocketAddr::from(([0, 0, 0, 0], 0)),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),
             validator: None,

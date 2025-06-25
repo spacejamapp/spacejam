@@ -10,7 +10,6 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 pub struct Dev<C: runtime::Config> {
     pub(crate) runtime: Runtime<C>,
     pub(crate) rpc: SocketAddr,
-    pub(crate) metrics: SocketAddr,
 }
 
 impl<C: runtime::Config> Dev<C> {
@@ -45,7 +44,7 @@ impl<C: runtime::Config> NodeSpec for Dev<C> {
 
         tokio::select! {
             r = Self::author(runtime) => r,
-            r = offchain.start(self.rpc, Default::default(), self.metrics) => r,
+            r = offchain.start(self.rpc) => r,
             _ = tokio::signal::ctrl_c() => Ok(())
         }
     }

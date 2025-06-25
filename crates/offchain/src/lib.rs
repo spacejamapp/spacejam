@@ -1,7 +1,6 @@
 //! The offchain components of SpaceJam
 
 pub use hook::OffchainHook;
-use metrics::Metrics;
 use runtime::Runtime;
 use std::{net::SocketAddr, sync::Arc};
 
@@ -28,16 +27,8 @@ impl<C: runtime::Config> Offchain<C> {
     }
 
     /// Start the offchain services
-    pub async fn start(
-        self,
-        rpc: SocketAddr,
-        metrics: Metrics,
-        metrics_addr: SocketAddr,
-    ) -> anyhow::Result<()> {
-        tokio::select! {
-            _ = self.rpc.start(rpc) => {}
-            _ = service::metrics::serve(metrics_addr, metrics) => {}
-        }
+    pub async fn start(self, rpc: SocketAddr) -> anyhow::Result<()> {
+        self.rpc.start(rpc).await?;
         Ok(())
     }
 }
