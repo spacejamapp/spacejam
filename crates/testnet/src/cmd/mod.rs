@@ -26,6 +26,8 @@ impl App {
     pub fn run(self) -> anyhow::Result<()> {
         let testnet: Testnet = if let Some(config) = &self.config {
             toml::from_str(&fs::read_to_string(config)?)?
+        } else if fs::exists("testnet.toml")? {
+            toml::from_str(&fs::read_to_string("testnet.toml")?)?
         } else {
             Testnet::default()
         };
@@ -56,8 +58,8 @@ impl App {
         let mut children = Vec::new();
         for (name, node) in testnet.node {
             let tx = tx.clone();
-            let child = node.spawn(&testnet.network, &name, tx).inspect_err(|_e| {
-                eprintln!("failed to spawn node {name}");
+            let child = node.spawn(&testnet.network, &name, tx).inspect_err(|e| {
+                eprintln!("failed to spawn node {name}: {e:?}");
             })?;
             children.push(child);
         }
@@ -78,8 +80,7 @@ impl App {
                 std::process::exit(1);
             }
 
-            if !network.filter.is_empty() && !network.filter.iter().any(|f| msg.content.contains(f))
-            {
+            if network.filter.check(&msg.content) {
                 continue;
             }
 

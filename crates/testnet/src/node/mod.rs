@@ -1,6 +1,7 @@
 //! Node implementations.
 
 use crate::{
+    config::Filter,
     log::{Message, Stream},
     Arch, Network, Node,
 };
@@ -61,9 +62,9 @@ impl Node {
         stream: Stream,
     ) {
         let arch = self.arch;
-        let filters = self.filter.clone();
+        let filter = self.filter.clone();
         thread::spawn(move || {
-            Self::send_message(BufReader::new(reader), arch, name, stream, filters, tx);
+            Self::send_message(BufReader::new(reader), arch, name, stream, filter, tx);
         });
     }
 
@@ -73,13 +74,13 @@ impl Node {
         arch: Arch,
         name: String,
         stream: Stream,
-        filters: Vec<String>,
+        filter: Filter,
         tx: mpsc::Sender<Message>,
     ) where
         R: std::io::Read,
     {
         for line in reader.lines().map_while(Result::ok) {
-            if !filters.is_empty() && !filters.iter().any(|filter| line.contains(filter)) {
+            if !filter.check(&line) {
                 continue;
             }
 

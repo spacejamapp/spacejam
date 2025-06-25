@@ -1,6 +1,6 @@
 //! Node configuration.
 
-use crate::Arch;
+use crate::{config::Filter, Arch};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, net::SocketAddr, path::PathBuf, str::FromStr};
@@ -35,8 +35,8 @@ pub struct Node {
     pub env: BTreeMap<String, String>,
 
     /// The log filters of the node.
-    #[serde(default)]
-    pub filter: Vec<String>,
+    #[serde(default, flatten)]
+    pub filter: Filter,
 }
 
 impl Node {
