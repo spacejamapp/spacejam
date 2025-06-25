@@ -1,6 +1,6 @@
 //! Configuration for the network.
 
-use crate::peer::Address;
+use crate::peer::{Address, PeerId};
 use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr};
 
@@ -10,11 +10,19 @@ use std::net::{Ipv4Addr, SocketAddr};
 pub struct Config {
     /// The address to listen on.
     #[cfg_attr(feature = "cmd", arg(long, default_value = "0.0.0.0:0"))]
-    pub address: SocketAddr,
+    pub listen_ip: SocketAddr,
 
-    /// The bootstrap addresses.
+    /// The external address.
     #[cfg_attr(feature = "cmd", arg(long))]
-    pub bootnodes: Vec<Address>,
+    pub external_ip: Option<SocketAddr>,
+
+    /// The peer id.
+    #[cfg_attr(feature = "cmd", arg(long))]
+    pub peer_id: Option<PeerId>,
+
+    /// The bootstrap address.
+    #[cfg_attr(feature = "cmd", arg(long))]
+    pub bootnode: Option<Address>,
 
     /// The genesis hash.
     ///
@@ -26,8 +34,10 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            address: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
-            bootnodes: vec![],
+            listen_ip: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
+            external_ip: None,
+            peer_id: None,
+            bootnode: None,
             genesis: [0; 32],
         }
     }

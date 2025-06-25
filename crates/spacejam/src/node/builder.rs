@@ -37,7 +37,7 @@ pub struct Builder {
 
     /// The seed of the validator
     #[cfg_attr(feature = "cmd", arg(long))]
-    dev_validator: Option<String>,
+    validator: Option<String>,
 }
 
 impl Builder {
@@ -51,10 +51,9 @@ impl Builder {
         .parse()?;
 
         // apply config from the spec file
+        //
+        // TODO: handle bootnode and peer id
         self.network.genesis = genesis.genesis_header.hash()?;
-        if self.network.bootnodes.is_empty() {
-            self.network.bootnodes = genesis.bootnodes.clone();
-        }
 
         // prepare the runtime
         let data = {
@@ -65,7 +64,7 @@ impl Builder {
             data
         };
 
-        let runtime = C::runtime(self.dev_validator.as_deref(), data, genesis).await?;
+        let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
@@ -92,7 +91,7 @@ impl Default for Builder {
             data_path: default::data_path(),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),
-            dev_validator: None,
+            validator: None,
             dev: false,
             light: false,
         }

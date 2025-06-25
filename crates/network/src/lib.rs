@@ -1,6 +1,5 @@
 //! Network implementation of Spacejam.
 
-use metrics::Metrics;
 use peer::PeerId;
 use quinn::Endpoint;
 use runtime::{Runtime, Storage, Validator};
@@ -33,11 +32,8 @@ pub struct Network<C: runtime::Config> {
     /// The manager of the network
     pub pool: Arc<RwLock<HashMap<PeerId, Connection>>>,
 
-    /// The metrics of the network
-    pub metrics: Metrics,
-
     /// (deprecated) The bootnodes of the network
-    pub bootnodes: Vec<Address>,
+    pub bootnode: Option<Address>,
 
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
@@ -49,8 +45,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             transport: self.transport.clone(),
             runtime: self.runtime.clone(),
             pool: self.pool.clone(),
-            metrics: self.metrics.clone(),
-            bootnodes: self.bootnodes.clone(),
+            bootnode: self.bootnode.clone(),
             announce: self.announce.clone(),
         }
     }
@@ -60,10 +55,8 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     /// Create a new network
     pub async fn new(config: Config, runtime: Arc<Runtime<C>>) -> anyhow::Result<Self> {
         let keypair = runtime.validator.ed25519().unwrap_or_default();
-        let peer_id = PeerId::from(keypair.verifying.to_bytes());
-        let address = Address::new(config.address, peer_id);
         let transport = transport::builder(keypair)
-            .address(config.address)
+            .address(config.listen_ip)
             .genesis(config.genesis)
             .build()?;
 
@@ -71,8 +64,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             transport,
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
-            metrics: Metrics::new(address.to_string().as_str()),
-            bootnodes: config.bootnodes,
+            bootnode: config.bootnode,
             announce: broadcast::channel(256).0,
         };
 

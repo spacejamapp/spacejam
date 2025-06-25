@@ -14,7 +14,7 @@ impl<C: runtime::Config> Network<C> {
         let address = conn.address.clone();
 
         // 1. establish the connection in the metrics
-        self.metrics.conn.establish_connection(address.to_string());
+        // self.metrics.conn.establish_connection(address.to_string());
 
         // 2. spawn the connection
         let runtime = self.clone();
@@ -60,7 +60,7 @@ impl<C: runtime::Config> Network<C> {
         // close the connection in the pool and metrics
         let address = Address::new(conn.remote_address(), peer);
         conn.close(VarInt::from(0_u8), reason.as_bytes());
-        self.metrics.conn.close_connection(address.to_string());
+        // self.metrics.conn.close_connection(address.to_string());
 
         // if the connection is incoming, we don't need to dial again
         if !conn.outgoing {
