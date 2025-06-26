@@ -193,7 +193,9 @@ impl<C: Config> Runtime<C> {
         let verifier = crypto::ring::verifier(keys.clone());
         let output = verifier
             .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
-            .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
+            })?;
 
         if let Some(ticket) = ticket {
             if ticket.id != output {

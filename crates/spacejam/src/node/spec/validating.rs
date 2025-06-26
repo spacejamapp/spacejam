@@ -1,12 +1,10 @@
 //! Validating node implementation
 
-use std::time::Duration;
-
-use crate::node::spec::NodeSpec;
-use crate::utils::log;
+use crate::{node::spec::NodeSpec, utils::log};
 use network::Network;
 use runtime::storage::SyncStorage;
 use score::block;
+use std::time::Duration;
 
 /// Validating and authoring blocks with network
 pub struct Validating<C: runtime::Config>(pub(crate) Network<C>);
@@ -34,17 +32,15 @@ impl<C: runtime::Config> Validating<C> {
                 runtime.dial_validators().await;
             }
 
-            // sleep until the next slot
-            tokio::time::sleep(block::next_slot()).await;
-
             // get the current epoch
+            tokio::time::sleep(block::next_slot()).await;
             log::current(runtime).await;
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
             let prev = timeslot.saturating_sub(1);
             if best.slot < prev {
                 // select the best chain before authoring
-                if let Err(e) = runtime.select_best_chain(prev).await {
+                if let Err(e) = runtime.select_best_chain(timeslot).await {
                     tracing::error!("Failed to select best chain: {:?}", e);
                     continue;
                 }

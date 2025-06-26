@@ -100,7 +100,7 @@ impl<'a, C: Config> Author<'a, C> {
             }
             TicketsOrKeys::Keys(keys) => {
                 fallback = true;
-                tracing::info!(
+                tracing::trace!(
                     "fallback keys: {:#?}",
                     keys.iter()
                         .enumerate()

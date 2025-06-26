@@ -58,10 +58,10 @@ impl Block {
 
 /// Returns the current timeslot
 pub fn timeslot() -> TimeSlot {
-    now() as u32 / (crate::SLOT_PERIOD as u32)
+    (now() / 1000) as u32 / (crate::SLOT_PERIOD as u32)
 }
 
-/// Returns the current time in seconds
+/// Returns the current time in milliseconds
 pub fn now() -> u64 {
     let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
     std::time::SystemTime::now()
