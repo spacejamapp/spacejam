@@ -2,7 +2,7 @@
 
 use crate::{stream::ce128, Network};
 use quinn::RecvStream;
-use runtime::storage::SyncStorage;
+use runtime::storage::{ArchiveStorage, SyncStorage};
 use score::{block::Head, Block, OpaqueHash, TimeSlot};
 
 impl<C: runtime::Config> Network<C> {
@@ -13,7 +13,7 @@ impl<C: runtime::Config> Network<C> {
     /// - before authoring blocks
     #[tracing::instrument(
     skip_all,
-    name = "finalize",
+    name = "select_best_chain",
     parent = None,
     fields(slot = ?slot)
 )]
@@ -36,8 +36,7 @@ impl<C: runtime::Config> Network<C> {
         // if the best head is already in the local storage,
         // run sync from the local storage.
         if let Ok(head) = self.storage.block(&best.hash) {
-            self.finalize_local(head, &ancestors[..ancestors.len() - 5])
-                .await
+            self.finalize(head, &ancestors[..ancestors.len() - 5]).await
         } else {
             BlockSync::new(self, best).await?.sync().await
         }
@@ -45,31 +44,32 @@ impl<C: runtime::Config> Network<C> {
 
     /// Finalize blocks from the local chain.
     #[tracing::instrument(skip_all, name = "local")]
-    async fn finalize_local(&self, best: Block, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
+    async fn finalize(&self, best: Block, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
         let mut ancestors = ancestors.to_vec();
         ancestors.reverse();
         let grandpa = self.grandpa.read().await;
         let mut finalized = grandpa.handshake.head.clone();
         for head in ancestors.iter() {
-            let block = self.storage.block(head)?;
-            let slot = block.header.slot;
+            let header = self.storage.header(head)?;
+            let slot = header.slot;
 
-            if block.header.parent != finalized.hash {
+            if header.parent != finalized.hash {
                 anyhow::bail!(
                 "the parent 0x{} of the ancestor#{}@0x{} is not the latest finalized block#{}@0x{}",
-                hex::encode(&block.header.parent[..3]),
-                block.header.slot,
+                hex::encode(&header.parent[..3]),
+                header.slot,
                 hex::encode(&head[..3]),
                 finalized.slot,
                 hex::encode(&finalized.hash[..3]),
             );
             }
 
-            self.finalize(block).await?;
+            self.storage.finalize(header.hash()?)?;
+            tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&head[..3]));
             finalized = Head { hash: *head, slot };
         }
 
-        self.finalize(best).await?;
+        self.import(best).await?;
         Ok(())
     }
 }
@@ -168,8 +168,8 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 }
             }
 
-            // finalize the block.
-            self.runtime.finalize(block).await?;
+            // import the block.
+            self.runtime.import(block).await?;
         }
 
         Ok(())

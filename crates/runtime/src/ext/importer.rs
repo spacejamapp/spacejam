@@ -32,7 +32,7 @@ impl<C: Config> Runtime<C> {
         let mut grandpa = self.grandpa.write().await;
         let mut kvs = Vec::new();
         for (key, value) in state {
-            kvs.push((*key, value.clone()));
+            kvs.push((key.to_vec(), value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     grandpa.grid.prev = codec::decode(value)?;
@@ -73,10 +73,8 @@ impl<C: Config> Runtime<C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
-    ///
-    /// TODO: use block reference
-    pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
-        let prev = self.grandpa.read().await.handshake.head.clone();
+    pub async fn import(&self, block: Block) -> anyhow::Result<()> {
+        let prev = self.storage.best()?;
 
         // 1. check the parent
         if block.header.parent != prev.hash {
@@ -103,7 +101,7 @@ impl<C: Config> Runtime<C> {
         let hash = block.header.hash()?;
         let diff = tx::transit::<C::Vm>(block.clone(), self.storage.clone())?;
         tracing::info!(
-            "finalized block#{}@{}, previous block#{}@{}",
+            "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
             hex::encode(&hash[..3]),
             prev.slot,

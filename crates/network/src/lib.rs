@@ -56,7 +56,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn new(config: Config, runtime: Arc<Runtime<C>>) -> anyhow::Result<Self> {
         let keypair = runtime.validator.ed25519().unwrap_or_default();
         let transport = transport::builder(keypair)
-            .address(config.listen_ip)
+            .address(config.address)
             .genesis(config.genesis)
             .build()?;
 

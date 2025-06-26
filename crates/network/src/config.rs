@@ -10,11 +10,8 @@ use std::net::{Ipv4Addr, SocketAddr};
 pub struct Config {
     /// The address to listen on.
     #[cfg_attr(feature = "cmd", arg(long, default_value = "0.0.0.0:0"))]
-    pub listen_ip: SocketAddr,
-
-    /// The external address.
-    #[cfg_attr(feature = "cmd", arg(long))]
-    pub external_ip: Option<SocketAddr>,
+    #[serde(alias = "listen-ip")]
+    pub address: SocketAddr,
 
     /// The peer id.
     #[cfg_attr(feature = "cmd", arg(long))]
@@ -34,8 +31,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            listen_ip: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
-            external_ip: None,
+            address: SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), 0),
             peer_id: None,
             bootnode: None,
             genesis: [0; 32],

@@ -10,7 +10,7 @@ use score::{
 };
 
 /// The key for the sync storage
-pub const PREFIX: &[u8] = b"sync";
+pub const SYNC: &[u8] = b"sync";
 
 /// Sync storage
 pub trait SyncStorage: Storage {
@@ -31,13 +31,13 @@ pub trait SyncStorage: Storage {
 
     /// Check if the given hash is a descendant of the ancestor.
     fn is_descendant_of(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> bool {
-        let mut key = [PREFIX, b"descendant", ancestor.as_ref()].concat();
+        let mut key = [SYNC, b"descendant", ancestor.as_ref()].concat();
         while let Ok(Some(value)) = self.get(&key) {
             if value == hash {
                 return true;
             }
 
-            key = [PREFIX, b"descendant", value.as_ref()].concat();
+            key = [SYNC, b"descendant", value.as_ref()].concat();
         }
 
         false
@@ -45,7 +45,7 @@ pub trait SyncStorage: Storage {
 
     /// Get the block by hash
     fn block(&self, hash: &OpaqueHash) -> Result<Block> {
-        let key = [PREFIX, hash.as_ref()].concat();
+        let key = [SYNC, hash.as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Block not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -53,14 +53,14 @@ pub trait SyncStorage: Storage {
     /// Save the block
     fn set_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
-        let key = [PREFIX, hash.as_ref()].concat();
+        let key = [SYNC, hash.as_ref()].concat();
         self.set(key, codec::encode(block)?)?;
         Ok(())
     }
 
     /// Get the best head
     fn best(&self) -> Result<Head> {
-        let key = [PREFIX, b"best"].concat();
+        let key = [SYNC, b"best"].concat();
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Best head not found"))?;
@@ -69,14 +69,14 @@ pub trait SyncStorage: Storage {
 
     /// Set the best head
     fn set_best(&self, head: &Head) -> Result<()> {
-        let key = [PREFIX, b"best"].concat();
+        let key = [SYNC, b"best"].concat();
         self.set(key, codec::encode(head)?)?;
         Ok(())
     }
 
     /// Get the descendant of the given hash.
     fn descendant(&self, hash: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = [PREFIX, b"descendant", hash.as_ref()].concat();
+        let key = [SYNC, b"descendant", hash.as_ref()].concat();
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
@@ -85,7 +85,7 @@ pub trait SyncStorage: Storage {
 
     /// Get the finalized head
     fn finalized(&self) -> Result<Head> {
-        let key = [PREFIX, b"finalized"].concat();
+        let key = [SYNC, b"finalized"].concat();
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Finalized head not found"))?;
@@ -94,14 +94,14 @@ pub trait SyncStorage: Storage {
 
     /// Set the finalized head
     fn set_finalized(&self, head: &Head) -> Result<()> {
-        let key = [PREFIX, b"finalized"].concat();
+        let key = [SYNC, b"finalized"].concat();
         self.set(key, codec::encode(head)?)?;
         Ok(())
     }
 
     /// Get the header
     fn header(&self, hash: &OpaqueHash) -> Result<Header> {
-        let key = [PREFIX, b"header", hash.as_ref()].concat();
+        let key = [SYNC, b"header", hash.as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Header not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -113,13 +113,13 @@ pub trait SyncStorage: Storage {
 
         // set the header
         {
-            let key = [PREFIX, b"header", hash.as_ref()].concat();
+            let key = [SYNC, b"header", hash.as_ref()].concat();
             self.set(key, codec::encode(header)?)?;
         }
 
         // set the parent of this header
         {
-            let key = [PREFIX, b"parent", hash.as_ref()].concat();
+            let key = [SYNC, b"parent", hash.as_ref()].concat();
             self.set(key, parent)?;
         }
 
@@ -127,7 +127,7 @@ pub trait SyncStorage: Storage {
         //
         // FIXME: handle fork blocks
         {
-            let key = [PREFIX, b"descendant", parent.as_ref()].concat();
+            let key = [SYNC, b"descendant", parent.as_ref()].concat();
             self.set(key, hash)?;
         }
         Ok(())
@@ -135,7 +135,7 @@ pub trait SyncStorage: Storage {
 
     /// Get the parent
     fn parent(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let key = [PREFIX, b"parent", block.as_ref()].concat();
+        let key = [SYNC, b"parent", block.as_ref()].concat();
         let value = self.get(&key)?;
         if let Some(value) = value {
             Ok(Some(codec::decode(value.as_ref())?))
@@ -146,7 +146,7 @@ pub trait SyncStorage: Storage {
 
     /// Get the state root
     fn state_root(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let mut key = [PREFIX, b"state_root"].concat();
+        let mut key = [SYNC, b"state_root"].concat();
         key.extend_from_slice(block.as_ref());
         let value = self.get(&key)?;
         if let Some(value) = value {
@@ -158,7 +158,7 @@ pub trait SyncStorage: Storage {
 
     /// Set the state root
     fn set_state_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
-        let mut key = [PREFIX, b"state_root"].concat();
+        let mut key = [SYNC, b"state_root"].concat();
         key.extend_from_slice(block.as_ref());
         self.set(key, codec::encode(root)?)?;
         Ok(())
@@ -166,7 +166,7 @@ pub trait SyncStorage: Storage {
 
     /// Get the beefy root
     fn beefy_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
-        let mut key = [PREFIX, b"beefy_root"].concat();
+        let mut key = [SYNC, b"beefy_root"].concat();
         key.extend_from_slice(block.as_ref());
         let value = self
             .get(&key)?
@@ -176,7 +176,7 @@ pub trait SyncStorage: Storage {
 
     /// Set the beefy root
     fn set_beefy_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
-        let mut key = [PREFIX, b"beefy_root"].concat();
+        let mut key = [SYNC, b"beefy_root"].concat();
         key.extend_from_slice(block.as_ref());
         self.set(key, codec::encode(root)?)?;
         Ok(())
@@ -188,7 +188,7 @@ pub trait SyncStorage: Storage {
             .batch_read(
                 hashes
                     .iter()
-                    .map(|hash| [PREFIX, hash.as_ref()].concat())
+                    .map(|hash| [SYNC, hash.as_ref()].concat())
                     .collect::<Vec<_>>(),
             )?
             .into_iter()
@@ -198,7 +198,7 @@ pub trait SyncStorage: Storage {
 
     /// Fetch the series
     fn series(&self) -> Result<TicketsOrKeys> {
-        let key = [PREFIX, b"series"].concat();
+        let key = [SYNC, b"series"].concat();
         if let Ok(Some(value)) = self.get(&key) {
             codec::decode(value.as_ref()).map_err(Into::into)
         } else {
@@ -210,21 +210,21 @@ pub trait SyncStorage: Storage {
     ///
     /// TODO: save this in memory.
     fn next_series(&self) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
-        let key = [PREFIX, b"series", b"next"].concat();
+        let key = [SYNC, b"series", b"next"].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Set the next series
     fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
-        let key = [PREFIX, b"series", b"next"].concat();
+        let key = [SYNC, b"series", b"next"].concat();
         self.set(key, codec::encode(&series)?)?;
         Ok(())
     }
 
     /// On new epoch handler for rotating the series
     fn on_new_epoch(&self) -> Result<()> {
-        let key = [PREFIX, b"series"].concat();
+        let key = [SYNC, b"series"].concat();
         if let Ok(series) = self.next_series() {
             self.set(key, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
         } else {

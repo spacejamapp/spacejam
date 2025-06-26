@@ -9,9 +9,9 @@ impl Node {
     pub fn spacejam(&self, net: &Network) -> Result<Command> {
         let mut command = Command::new(&self.command);
         command.envs(&self.env).args(&self.args).args([
+            "run",
             "-d",
             &self.data.to_string_lossy(),
-            "run",
             "--chain",
             &net.spec.to_string_lossy(),
             "--validator",

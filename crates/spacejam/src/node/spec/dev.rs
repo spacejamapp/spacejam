@@ -29,7 +29,7 @@ impl<C: runtime::Config> Dev<C> {
                 block.header.slot,
                 hex::encode(&block.header.hash()?[..3])
             );
-            author.finalize(block).await?;
+            author.import(block).await?;
         }
     }
 }

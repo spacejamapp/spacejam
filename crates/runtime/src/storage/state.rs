@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{sync, KVStorage};
+use crate::storage::{archive, sync, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -77,7 +77,7 @@ pub trait Storage: KVStorage {
         let mut kvs = Vec::new();
         for pair in self.iter()? {
             let (k, v) = pair?;
-            if k.starts_with(sync::PREFIX) || k.len() != 31 {
+            if k.starts_with(sync::SYNC) || !k.starts_with(archive::ARCHIVE) || k.len() != 31 {
                 continue;
             }
 

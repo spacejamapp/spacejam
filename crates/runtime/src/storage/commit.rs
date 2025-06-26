@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Default, Clone)]
 pub struct Commit<Key, Value> {
     /// The set of the commit
-    update: BTreeMap<Key, Value>,
+    pub update: BTreeMap<Key, Value>,
 
     /// The remove of the commit
     pub removal: BTreeSet<Key>,
@@ -16,6 +16,11 @@ impl<Key, Value> Commit<Key, Value>
 where
     Key: Ord + std::fmt::Debug,
 {
+    /// The length of the commit
+    pub fn len(&self) -> usize {
+        self.update.len() + self.removal.len()
+    }
+
     /// Set a key pair to the storage
     pub fn set(&mut self, key: Key, value: Value) {
         self.update.insert(key, value);

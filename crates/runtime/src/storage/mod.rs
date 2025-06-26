@@ -3,12 +3,14 @@
 //! introduce read-only storage interface for the state.
 
 pub use {
+    archive::ArchiveStorage,
     commit::{Commit, Operation},
     kv::{KVStorage, MemoryDb},
     state::Storage,
     sync::SyncStorage,
 };
 
+mod archive;
 mod commit;
 mod kv;
 mod state;
