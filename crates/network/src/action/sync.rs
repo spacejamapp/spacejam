@@ -3,10 +3,7 @@
 use crate::{stream::ce128, Network};
 use quinn::RecvStream;
 use runtime::storage::SyncStorage;
-use score::{
-    block::{Head, Header},
-    Block, OpaqueHash, TimeSlot,
-};
+use score::{block::Head, Block, OpaqueHash, TimeSlot};
 
 impl<C: runtime::Config> Network<C> {
     /// Select the best chain.
@@ -22,7 +19,7 @@ impl<C: runtime::Config> Network<C> {
 )]
     /// Select the best chain.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
-        let grandpa = self.grandpa.read().await.clone();
+        let grandpa = self.grandpa.read().await;
         if slot <= grandpa.handshake.head.slot {
             tracing::trace!(
                 "upcoming#{slot}, grandpa#{}: skipping best chain selection",
@@ -38,8 +35,9 @@ impl<C: runtime::Config> Network<C> {
 
         // if the best head is already in the local storage,
         // run sync from the local storage.
-        if let Ok(head) = self.storage.get_block(&best.hash) {
-            self.finalize_local(head, ancestors).await
+        if let Ok(head) = self.storage.block(&best.hash) {
+            self.finalize_local(head, &ancestors[..ancestors.len() - 5])
+                .await
         } else {
             BlockSync::new(self, best).await?.sync().await
         }
@@ -47,35 +45,28 @@ impl<C: runtime::Config> Network<C> {
 
     /// Finalize blocks from the local chain.
     #[tracing::instrument(skip_all, name = "local")]
-    async fn finalize_local(
-        &self,
-        best: Block,
-        mut ancestors: Vec<(OpaqueHash, Header)>,
-    ) -> anyhow::Result<()> {
+    async fn finalize_local(&self, best: Block, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
+        let mut ancestors = ancestors.to_vec();
         ancestors.reverse();
-        let grandpa = self.grandpa.read().await.clone();
+        let grandpa = self.grandpa.read().await;
         let mut finalized = grandpa.handshake.head.clone();
-        for (ancestor, header) in ancestors.iter() {
-            if header.slot == best.header.slot {
-                break;
-            }
+        for head in ancestors.iter() {
+            let block = self.storage.block(head)?;
+            let slot = block.header.slot;
 
-            if header.parent != finalized.hash {
+            if block.header.parent != finalized.hash {
                 anyhow::bail!(
                 "the parent 0x{} of the ancestor#{}@0x{} is not the latest finalized block#{}@0x{}",
-                hex::encode(&header.parent[..3]),
-                header.slot,
-                hex::encode(&ancestor[..3]),
+                hex::encode(&block.header.parent[..3]),
+                block.header.slot,
+                hex::encode(&head[..3]),
                 finalized.slot,
                 hex::encode(&finalized.hash[..3]),
             );
             }
 
-            self.finalize(self.storage.get_block(ancestor)?).await?;
-            finalized = Head {
-                hash: *ancestor,
-                slot: header.slot,
-            };
+            self.finalize(block).await?;
+            finalized = Head { hash: *head, slot };
         }
 
         self.finalize(best).await?;
@@ -100,12 +91,13 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     ///
     /// TODO: indicate the request direction by the maximum blocks.
     pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
-        let grandpa = runtime.grandpa.read().await.clone();
+        let grandpa = runtime.grandpa.read().await;
         let request = ce128::Request {
             hash: grandpa.handshake.head.hash,
             direction: 0,
             maximum: (grandpa
-                .ancestors(&best.hash, grandpa.handshake.head.hash)
+                .ancestry
+                .ancestors(&best.hash, &grandpa.handshake.head.hash)?
                 .len() as u32)
                 + 1,
         };
@@ -166,7 +158,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
         for block in blocks {
             // if the block is considered as a descendant of the current head, skip it.
             {
-                let grandpa = self.runtime.grandpa.read().await.clone();
+                let grandpa = self.runtime.grandpa.read().await;
                 if block.header.hash()? == grandpa.handshake.head.hash {
                     continue;
                 }

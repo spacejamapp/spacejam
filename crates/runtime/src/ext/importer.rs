@@ -54,7 +54,7 @@ impl<C: Config> Runtime<C> {
 
     /// Initialize the runtime from the database
     pub async fn init_from_db(&self) -> anyhow::Result<()> {
-        let finalized = self.storage.get_finalized()?;
+        let finalized = self.storage.finalized()?;
         let mut grandpa = self.grandpa.write().await;
         grandpa.handshake.head = finalized;
 

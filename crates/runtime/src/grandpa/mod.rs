@@ -4,20 +4,16 @@
 //! protocol implementation for SpaceJam. This module manages chain head finalization
 //! and tracks chain state for consensus.
 
-use ancestry::Ancestry;
+use crate::{storage::SyncStorage, Storage};
 pub use handshake::Handshake;
 use score::{
     block::{Head, Header},
     safrole::ValidatorsData,
     OpaqueHash,
 };
-use std::{
-    collections::{BTreeMap, HashSet},
-    ops::{Deref, DerefMut},
-};
+use std::{collections::BTreeSet, sync::Arc};
 use {grid::Grid, lookup::Lookup};
 
-mod ancestry;
 mod grid;
 mod handshake;
 mod lookup;
@@ -26,24 +22,28 @@ mod lookup;
 ///
 /// GRANDPA is responsible for managing the finalized chain head and tracking leaf blocks
 /// in the current fork choice tree.
-#[derive(Clone, Default)]
-pub struct Grandpa {
+#[derive(Clone)]
+pub struct Grandpa<T: Storage> {
     /// The handshake data of the grandpa protocol.
     pub handshake: Handshake,
 
     /// The ancestry of the chain.
-    ///
-    /// This is a map of block hashes to the set of block hashes that are their ancestors.
-    ///
-    /// TODO: in production, we should store ancestor blocks in storage, see the header section
-    /// from the graypaper for more details.
-    pub ancestry: Ancestry,
+    pub ancestry: Arc<T>,
 
     /// The grid of the network.
     pub grid: Grid,
 }
 
-impl Grandpa {
+impl<T: Storage> Grandpa<T> {
+    /// Create a new grandpa.
+    pub fn new(ancestry: Arc<T>) -> Self {
+        Self {
+            handshake: Default::default(),
+            ancestry,
+            grid: Default::default(),
+        }
+    }
+
     /// Lookup the ancestors of the given hash.
     pub fn lookup(
         &self,
@@ -51,7 +51,7 @@ impl Grandpa {
         direction: u8,
         maximum: u32,
     ) -> impl Iterator<Item = (OpaqueHash, Header)> + '_ {
-        Lookup::new(&self.ancestry, hash, direction, maximum)
+        Lookup::new(self.ancestry.clone(), hash, direction, maximum)
     }
 
     /// Add a leave to the grandpa.
@@ -59,23 +59,20 @@ impl Grandpa {
     /// If there are ancestors of the leaf in the leaves,
     /// we should remove the ancestors.
     pub fn add_leaf(&mut self, header: Header) -> anyhow::Result<()> {
+        // Store the header first so parent information is available for ancestor traversal
+        self.ancestry.set_header(&header)?;
+
         // We're copying the handshake here because it takes less memory than
         // cloning the whole grandpa.
         let mut handshake = self.handshake.clone();
         self.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         self.handshake = handshake;
-        self.ancestry.save_header(header)?;
         Ok(())
     }
 
     /// Merge the leaves with the given header.
     pub fn add_leaf_to(&self, head: Head, handshake: &mut Handshake) -> anyhow::Result<()> {
-        let ancestors = self
-            .ancestors(&head.hash, handshake.head.hash)
-            .iter()
-            .map(|(h, _)| *h)
-            .collect::<HashSet<_>>();
-
+        let ancestors = self.ancestry.ancestors(&head.hash, &handshake.head.hash)?;
         handshake.leaves.insert(head);
         handshake.leaves.retain(|l| !ancestors.contains(&l.hash));
         Ok(())
@@ -99,10 +96,10 @@ impl Grandpa {
             .iter()
             .filter(|l| l.hash != head.hash)
             .cloned()
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
         // save to the ancestry
-        self.ancestry.save_header(header.clone())?;
+        self.ancestry.set_header(&header)?;
 
         // if new epoch start
         if let Some(mark) = next_validators {
@@ -120,37 +117,21 @@ impl Grandpa {
     /// 2. contains no unfinalized blocks where we see an equivocation.
     /// 3. is considered audited
     ///
+    /// NOTE: we are now using a dummy finalizer which finalizes when
+    /// the best head has 5 descendants.
+    ///
     /// TODO:
     ///
     /// - count votes via sealed blocks
-    pub fn select_best_head(&self) -> Option<(Head, Vec<(OpaqueHash, Header)>)> {
-        let mut votes = BTreeMap::new();
-        for leaf in self.handshake.leaves.iter() {
-            let ancestors = self.ancestors(&leaf.hash, self.handshake.head.hash);
-            let valid_ancestors = ancestors.iter().collect::<Vec<_>>();
-            votes.insert(valid_ancestors.len(), (leaf.clone(), ancestors));
-        }
-
-        // select the best head from the chains with most valid ancestors, skipping
-        // the chains with equivocating ancestors.
-        while let Some((_, (head, ancestors))) = votes.pop_last() {
-            if ancestors.iter().any(|(_, a)| {
-                let Some(entry) = self.ancestry.pending.get(&a.parent) else {
-                    return false;
-                };
-
-                entry.len() > 1
-            }) {
-                continue;
-            }
-
-            if head.slot > self.handshake.head.slot {
-                let Some(_header) = self.ancestry.header(&head.hash) else {
-                    continue;
-                };
-
-                // TODO: check if the header is ticket sealed
-                return Some((head, ancestors));
+    pub fn select_best_head(&self) -> Option<(Head, Vec<OpaqueHash>)> {
+        let finalized = self.handshake.head.clone();
+        for leaf in self.handshake.leaves.iter().rev() {
+            let ancestors = self.ancestry.ancestors(&leaf.hash, &finalized.hash).ok()?;
+            if ancestors.len() > 5 {
+                if let Err(e) = self.ancestry.set_best(&leaf) {
+                    tracing::error!("error setting best: {e}");
+                }
+                return Some((leaf.clone(), ancestors));
             }
         }
 
@@ -185,7 +166,7 @@ impl Grandpa {
         // we can only check with our local state here.
         let leaves = self.handshake.leaves.iter().filter(|l| l.slot > head.slot);
         for leaf in leaves {
-            if self.is_descendant_of(leaf.hash, head.hash) {
+            if self.ancestry.is_descendant_of(&leaf.hash, &head.hash) {
                 anyhow::bail!(
                     "A descendant of the block#{}: 0x{} has been announced by the remote",
                     leaf.slot,
@@ -207,7 +188,7 @@ impl Grandpa {
         // 1. A descendant of the block is announced instead.
         let leaves = self.handshake.leaves.iter().filter(|l| l.slot > head.slot);
         for leaf in leaves {
-            if self.is_descendant_of(leaf.hash, hash) {
+            if self.ancestry.is_descendant_of(&leaf.hash, &hash) {
                 anyhow::bail!(
                     "A descendant of the block#{}@0x{} is announced instead.",
                     leaf.slot,
@@ -217,7 +198,10 @@ impl Grandpa {
         }
 
         // 2. The block is not a descendant of the latest finalized block.
-        if !self.is_descendant_of(hash, self.handshake.head.hash) {
+        if !self
+            .ancestry
+            .is_descendant_of(&hash, &self.handshake.head.hash)
+        {
             anyhow::bail!(
                 "block#{}@0x{} is not a descendant of the latest finalized block#{}@0x{}.",
                 head.slot,
@@ -231,16 +215,49 @@ impl Grandpa {
     }
 }
 
-impl Deref for Grandpa {
-    type Target = Ancestry;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::MemoryDb;
+    use score::TimeSlot;
 
-    fn deref(&self) -> &Self::Target {
-        &self.ancestry
-    }
-}
+    #[test]
+    fn test_select_best_head() {
+        let db = MemoryDb::default();
+        let ancestry = Arc::new(db);
+        let mut grandpa = Grandpa::new(ancestry);
+        let mut parent = Header {
+            slot: 0,
+            parent: [0; 32],
+            ..Default::default()
+        };
 
-impl DerefMut for Grandpa {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.ancestry
+        grandpa.handshake.head = Head {
+            slot: 0,
+            hash: parent.hash().unwrap(),
+        };
+        grandpa.ancestry.set_header(&parent).unwrap();
+        for i in 1..20u8 {
+            let header = Header {
+                slot: i as TimeSlot,
+                parent: parent.hash().unwrap(),
+                ..Default::default()
+            };
+            let hash = header.hash().unwrap();
+            grandpa.add_leaf(header.clone()).unwrap();
+            let best = grandpa.select_best_head();
+
+            if i > 6 {
+                let best = best.unwrap();
+                assert_eq!(
+                    hex::encode(&best.0.hash.as_ref()),
+                    hex::encode(&hash.as_ref())
+                );
+            } else {
+                assert!(best.is_none());
+            }
+
+            parent = header;
+        }
     }
 }

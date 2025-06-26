@@ -2,7 +2,7 @@
 
 use peer::PeerId;
 use quinn::Endpoint;
-use runtime::{Runtime, Storage, Validator};
+use runtime::{storage::SyncStorage, Runtime, Storage, Validator};
 use score::block::{Head, Header};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
@@ -73,7 +73,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
     /// Lookup the best head from the network
     pub async fn lookup(&self, best: &Head) -> Vec<Connection> {
-        let grandpa = self.runtime.grandpa.read().await.clone();
+        let grandpa = self.runtime.grandpa.read().await;
         let pool = self.pool.read().await.clone();
         let mut feeds = Vec::new();
         for conn in pool.values() {
@@ -81,7 +81,9 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
             // check if the connection is a feedi
             if handshake.head.hash == best.hash
-                || grandpa.is_descendant_of(handshake.head.hash, best.hash)
+                || grandpa
+                    .ancestry
+                    .is_descendant_of(&handshake.head.hash, &best.hash)
                 || handshake.leaves.contains(best)
             {
                 feeds.push(conn.clone());

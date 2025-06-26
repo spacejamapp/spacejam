@@ -29,7 +29,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
         .count() as u16;
 
     // check neighbours
-    let grandpa = runtime.grandpa.read().await.clone();
+    let grandpa = runtime.grandpa.read().await;
     let neighbours = grandpa
         .grid
         .neighbours(runtime.validator.ed25519_public_key());

@@ -109,11 +109,23 @@ impl Default for Header {
 /// The head of the chain
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Head {
-    /// The hash of the head of the chain.
-    pub hash: OpaqueHash,
-
     /// The slot of this head.
     pub slot: TimeSlot,
+
+    /// The hash of the head of the chain.
+    pub hash: OpaqueHash,
+}
+
+impl PartialOrd for Head {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.slot.cmp(&other.slot))
+    }
+}
+
+impl Ord for Head {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.slot.cmp(&other.slot)
+    }
 }
 
 #[cfg(feature = "crypto")]

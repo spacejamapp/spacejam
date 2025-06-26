@@ -2,7 +2,7 @@
 
 use score::block::Head;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 /// Head and unfinalized leaves of the grandpa protocol.
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
@@ -15,7 +15,7 @@ pub struct Handshake {
     /// The leaves of the best finalized head.
     ///
     /// Descendants of the latest finalized block with no known children.
-    pub leaves: HashSet<Head>,
+    pub leaves: BTreeSet<Head>,
 }
 
 impl Handshake {

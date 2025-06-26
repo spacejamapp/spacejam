@@ -29,7 +29,7 @@ impl<C: runtime::Config> Network<C> {
 
         // 4. open the up0 stream if needed
         if conn.outgoing {
-            let grandpa = self.grandpa.read().await.clone();
+            let grandpa = self.grandpa.read().await;
             let neighbours = grandpa.grid.neighbours(self.validator.ed25519_public_key());
 
             if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
@@ -68,7 +68,7 @@ impl<C: runtime::Config> Network<C> {
         }
 
         // check if the peer is a validator
-        let grandpa = self.grandpa.read().await.clone();
+        let grandpa = self.grandpa.read().await;
         if grandpa.grid.validators().contains(peer.as_ref()) {
             return Ok(Some(address));
         }

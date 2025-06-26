@@ -1,12 +1,13 @@
 //! Block lookup APIs
 
-use crate::grandpa::Ancestry;
+use crate::storage::SyncStorage;
 use score::{block::Header, OpaqueHash};
+use std::sync::Arc;
 
 /// The lookup data of the grandpa.
-pub struct Lookup<'a> {
+pub struct Lookup<T: SyncStorage> {
     /// The ancestry of the chain.
-    ancestry: &'a Ancestry,
+    ancestry: Arc<T>,
 
     /// The current hash.
     pub current: OpaqueHash,
@@ -21,9 +22,9 @@ pub struct Lookup<'a> {
     count: u32,
 }
 
-impl<'a> Lookup<'a> {
+impl<T: SyncStorage> Lookup<T> {
     /// Create a new lookup.
-    pub fn new(ancestry: &'a Ancestry, from: OpaqueHash, direction: u8, maximum: u32) -> Self {
+    pub fn new(ancestry: Arc<T>, from: OpaqueHash, direction: u8, maximum: u32) -> Self {
         Self {
             ancestry,
             current: from,
@@ -34,7 +35,7 @@ impl<'a> Lookup<'a> {
     }
 }
 
-impl Iterator for Lookup<'_> {
+impl<T: SyncStorage> Iterator for Lookup<T> {
     type Item = (OpaqueHash, Header);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -44,19 +45,19 @@ impl Iterator for Lookup<'_> {
 
         // get the next hash
         let hash = match self.direction {
-            0 => self.ancestry.child.get(&self.current).cloned(),
+            0 => self.ancestry.descendant(&self.current).ok(),
             1 => {
                 if self.count == 0 {
                     Some(self.current)
                 } else {
-                    self.ancestry.child.get(&self.current).cloned()
+                    self.ancestry.descendant(&self.current).ok()
                 }
             }
             _ => None,
         }?;
 
         // get the header
-        let header = self.ancestry.header(&hash).cloned()?;
+        let header = self.ancestry.header(&hash).ok()?;
         self.current = hash;
         self.count += 1;
         Some((hash, header))

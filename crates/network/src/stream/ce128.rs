@@ -37,7 +37,7 @@ impl<C: runtime::Config> Network<C> {
 
         // fetch and write the blocks
         for (hash, _header) in lookup {
-            let Ok(block) = self.storage.get_block(&hash) else {
+            let Ok(block) = self.storage.block(&hash) else {
                 break;
             };
             block.write(&mut send).await?;

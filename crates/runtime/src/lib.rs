@@ -38,18 +38,19 @@ pub struct Runtime<C: Config> {
     pub expool: Pool,
 
     /// The grandpa of SpaceJam
-    pub grandpa: Arc<RwLock<Grandpa>>,
+    pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
 }
 
 impl<C: Config> Runtime<C> {
     /// Create a new runtime with a grandpa instance
     pub fn new(validator: C::Validator, storage: C::Storage, hook: C::Hook) -> Self {
+        let storage = Arc::new(storage);
         Self {
             validator,
-            storage: Arc::new(storage),
+            storage: storage.clone(),
             hook,
             expool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Default::default())),
+            grandpa: Arc::new(RwLock::new(Grandpa::new(storage))),
         }
     }
 
