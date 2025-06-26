@@ -58,16 +58,24 @@ impl Block {
 
 /// Returns the current timeslot
 pub fn timeslot() -> TimeSlot {
-    now() / (crate::SLOT_PERIOD as u32)
+    now() as u32 / (crate::SLOT_PERIOD as u32)
 }
 
 /// Returns the current time in seconds
-pub fn now() -> u32 {
+pub fn now() -> u64 {
     let era = Duration::from_secs(crate::JAM_COMMON_ERA_AFTER_UNIX_EPOCH as u64);
     std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH + era)
         .expect("time went backwards")
-        .as_secs() as u32
+        .as_millis() as u64
+}
+
+/// Returns the next slot
+pub fn next_slot() -> Duration {
+    let now = now();
+    let period = crate::SLOT_PERIOD as u64 * 1000;
+    let duration = now % period;
+    Duration::from_millis(period - duration)
 }
 
 /// Represents information about a block.

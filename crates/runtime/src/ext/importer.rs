@@ -124,18 +124,7 @@ impl<C: Config> Runtime<C> {
             self.storage.set_next_series(series)?;
         }
 
-        // 5. update the grandpa state
-        let next = if block.header.epoch_mark.is_some() {
-            Some(self.storage.next_validators()?)
-        } else {
-            None
-        };
-        self.grandpa
-            .write()
-            .await
-            .finalize(block.header.clone(), next)?;
-
-        // 6. set the head as best block
+        // 5. set the head as best block
         self.storage.set_best(&block.header.clone().try_into()?)?;
         Ok(())
     }
@@ -143,8 +132,8 @@ impl<C: Config> Runtime<C> {
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "importer::validate")]
     pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
-        let handshake = self.grandpa().await.handshake.clone();
-        let local_epoch = handshake.head.slot / score::EPOCH_LENGTH;
+        let best = self.storage.best()?;
+        let local_epoch = best.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
 
         // if the epoch greater than the next, skip the validation.
@@ -213,7 +202,10 @@ impl<C: Config> Runtime<C> {
                 };
                 tracing::error!(
                     "ticket series: {:#?}",
-                    tickets.into_iter().map(|t| t.id).collect::<Vec<_>>()
+                    tickets
+                        .into_iter()
+                        .map(|t| hex::encode(t.id))
+                        .collect::<Vec<_>>()
                 );
                 anyhow::bail!("header seal mismatched");
             }

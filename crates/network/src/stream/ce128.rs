@@ -72,9 +72,13 @@ pub struct Request {
     /// The hash of the block.
     pub hash: OpaqueHash,
 
-    /// The direction of the block.
+    /// The direction of the block, 0 for ascending exclusive,
+    /// 1 for descending inclusive.
     ///
-    /// 0 for ascending exclusive, 1 for descending inclusive.
+    /// * Ascending exclusive: The sequence of blocks in the response should start
+    ///   with a child of the given block, followed by a grandchild, and so on.
+    /// * Descending inclusive: The sequence of blocks in the response should start
+    ///   with the given block, followed by its parent, grandparent, and so on.
     pub direction: u8,
 
     /// The maximum number of blocks to request.

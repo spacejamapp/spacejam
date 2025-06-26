@@ -95,12 +95,13 @@ pub async fn recv<C: runtime::Config>(
         // 2. decode the announcement
         let mut buf = vec![0; length as usize];
         recv.read_exact(&mut buf).await?;
-        let (header, _head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
+        let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
         let grandpa = runtime.grandpa().await;
         {
             let mut handshake = conn.handshake.write().await;
+            handshake.head = head;
             grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
@@ -146,5 +147,6 @@ pub async fn recv<C: runtime::Config>(
         // Note that we don't verify the header here since we may
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
+        runtime.select_best_chain(header.slot).await?;
     }
 }

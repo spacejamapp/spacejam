@@ -1,7 +1,7 @@
 //! logging utilities
 
 use network::Network;
-use runtime::{Storage, Validator};
+use runtime::{storage::SyncStorage, Storage, Validator};
 use score::block;
 
 /// Logging the initial status of the node
@@ -51,12 +51,15 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
 
     // print the current status
     let timeslot = block::timeslot();
+    let best = runtime.storage.best().unwrap_or_default();
     tracing::info!(
-        "timeslot: #{}, epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
+        "timeslot: #{}, epoch: #{}, progress: [{}/{}], best: #{}@0x{}, finalized: #{}@0x{}, tickets: {}",
         timeslot,
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
+        best.slot,
+        hex::encode(&best.hash[..3]),
         handshake.head.slot,
         hex::encode(&handshake.head.hash[..3]),
         tickets,

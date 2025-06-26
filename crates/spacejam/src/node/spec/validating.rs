@@ -1,11 +1,12 @@
 //! Validating node implementation
 
+use std::time::Duration;
+
 use crate::node::spec::NodeSpec;
 use crate::utils::log;
 use network::Network;
-use runtime::storage::Storage;
-use score::{block, safrole::ValidatorIter};
-use std::time::Duration;
+use runtime::storage::SyncStorage;
+use score::block;
 
 /// Validating and authoring blocks with network
 pub struct Validating<C: runtime::Config>(pub(crate) Network<C>);
@@ -22,49 +23,30 @@ impl<C: runtime::Config> Validating<C> {
         }
 
         loop {
-            let now = block::now();
-            if !author
-                .storage
-                .current_validators()
-                .unwrap_or_default()
-                .bandersnatch()
-                .contains(&author.me())
-            {
-                tracing::warn!("Not in the validator set, sleeping...");
-                tokio::time::sleep(Duration::from_secs(
-                    ((score::SLOT_PERIOD as u32) * score::EPOCH_LENGTH
-                        - now % ((score::SLOT_PERIOD as u32) * score::EPOCH_LENGTH))
-                        as u64,
-                ))
-                .await;
+            let Ok(best) = runtime.storage.best() else {
+                tracing::error!("Failed to get best block");
+                tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
                 continue;
-            }
-
-            // select the best chain
-            if let Err(e) = runtime.select_best_chain(block::timeslot()).await {
-                tracing::error!("Failed to select best chain: {:?}", e);
-            }
+            };
 
             // dial lost connections
-            let handshake = runtime.grandpa().await.handshake.clone();
-            if handshake.head.slot != 0 && handshake.head.slot % score::EPOCH_LENGTH > 1 {
+            if best.slot != 0 && best.slot % score::EPOCH_LENGTH > 1 {
                 runtime.dial_validators().await;
             }
 
             // sleep until the next slot
-            let duration =
-                ((score::SLOT_PERIOD as u32) - (now % (score::SLOT_PERIOD as u32))) as u64;
-            tokio::time::sleep(Duration::from_secs(duration)).await;
+            tokio::time::sleep(block::next_slot()).await;
 
             // get the current epoch
             log::current(runtime).await;
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
             let prev = timeslot.saturating_sub(1);
-            if handshake.head.slot < prev {
+            if best.slot < prev {
                 // select the best chain before authoring
                 if let Err(e) = runtime.select_best_chain(prev).await {
                     tracing::error!("Failed to select best chain: {:?}", e);
+                    continue;
                 }
             }
 

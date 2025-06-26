@@ -4,7 +4,7 @@ use crate::node::spec::NodeSpec;
 use offchain::Offchain;
 use runtime::{Runtime, Validator};
 use score::block;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc};
 
 /// Authoring blocks per 6 secs without network
 pub struct Dev<C: runtime::Config> {
@@ -17,10 +17,7 @@ impl<C: runtime::Config> Dev<C> {
     async fn author(runtime: Arc<Runtime<C>>) -> anyhow::Result<()> {
         let author = runtime.author();
         loop {
-            let now = block::now();
-            let duration =
-                ((score::SLOT_PERIOD as u32) - (now % (score::SLOT_PERIOD as u32))) as u64;
-            tokio::time::sleep(Duration::from_secs(duration)).await;
+            tokio::time::sleep(block::next_slot()).await;
 
             let timeslot = block::timeslot();
             let block = author.author(timeslot).await?;

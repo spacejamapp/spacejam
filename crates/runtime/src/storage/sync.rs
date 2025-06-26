@@ -26,6 +26,7 @@ pub trait SyncStorage: Storage {
 
             ancestors.push(parent);
         }
+
         Ok(ancestors)
     }
 

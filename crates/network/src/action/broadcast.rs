@@ -13,17 +13,6 @@ impl<C: runtime::Config> Network<C> {
             return Ok(());
         }
 
-        // broadcast the block to the network
-        if header.slot > grandpa.handshake.head.slot {
-            self.select_best_chain(header.slot).await?;
-        } else {
-            tracing::trace!(
-                "skipping best chain selection: incoming#{}, grandpa#{}",
-                header.slot,
-                grandpa.handshake.head.slot
-            );
-        }
-
         match self.announce.send(*header) {
             Ok(count) => tracing::trace!("broadcasting to {} peers", count),
             Err(e) => tracing::warn!("failed to broadcast block: {e}"),

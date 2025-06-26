@@ -1,14 +1,13 @@
 //! Authoring service
 
-use crate::{storage::SyncStorage, tx, Config, Hook, Runtime, Storage, Validator};
+use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
 use score::{
-    block::{Block, Head, Header},
+    block::{Block, Header},
     extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
     BandersnatchPublic, OpaqueHash, TimeSlot,
 };
 use std::{
-    collections::VecDeque,
     ops::Deref,
     sync::atomic::{AtomicU8, Ordering},
 };
@@ -22,7 +21,7 @@ pub struct Author<'a, C: Config> {
     tickets: Vec<OpaqueHash>,
 
     /// The slots that we are authoring
-    slots: VecDeque<TimeSlot>,
+    pub slots: Vec<TimeSlot>,
 
     /// The attempt number of the current epoch
     attempt: AtomicU8,
@@ -56,8 +55,13 @@ impl<'a, C: Config> Author<'a, C> {
         //
         // - the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
         // - forward should be delayed untial max(E/20, 1)
-        if slot > 2 {
-            if let Some((id, envelope)) = self.ticket(timeslot).await? {
+        let finalized = self.storage.finalized()?;
+        let best = self.storage.best()?;
+        if slot > 2
+            && best.slot != 0
+            && best.slot / score::EPOCH_LENGTH == finalized.slot / score::EPOCH_LENGTH
+        {
+            if let Some((id, envelope)) = self.ticket(best.slot).await? {
                 next.1 = Some(envelope);
                 self.tickets.push(id);
             }
@@ -66,6 +70,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author(timeslot).await?.header);
+            self.slots.retain(|s| *s != slot);
         }
 
         Ok(next)
@@ -82,14 +87,14 @@ impl<'a, C: Config> Author<'a, C> {
         self.expool.tickets.lock().await.clear();
 
         // 3. update the authoring slots
-        let mut slots = VecDeque::new();
+        let mut slots = Vec::new();
         let mut fallback = false;
         match self.storage.series()? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
                         tracing::debug!("assigned slot#{i} with ticket#{}", hex::encode(ticket.id));
-                        slots.push_back(i as TimeSlot);
+                        slots.push(i as TimeSlot);
                     }
                 }
             }
@@ -104,7 +109,7 @@ impl<'a, C: Config> Author<'a, C> {
                 );
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me() {
-                        slots.push_back(i as TimeSlot);
+                        slots.push(i as TimeSlot);
                     }
                 }
             }
@@ -163,16 +168,6 @@ impl<'a, C: Config> Author<'a, C> {
         // 7. save the block to the fork storage
         self.storage.set_block(&block)?;
         self.grandpa.write().await.add_leaf(block.header.clone())?;
-        let header = block.header.clone();
-
-        // 8. notify the best block
-        //
-        // TODO: we have computed the hash here which is less optimized.
-        self.hook.on_best_block(Head {
-            hash: header.hash()?,
-            slot: header.slot,
-        })?;
-
         Ok(block)
     }
 
