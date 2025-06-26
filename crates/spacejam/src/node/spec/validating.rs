@@ -27,13 +27,14 @@ impl<C: runtime::Config> Validating<C> {
                 continue;
             };
 
+            tokio::time::sleep(block::next_slot()).await;
+
             // dial lost connections
             if best.slot != 0 && best.slot % score::EPOCH_LENGTH > 1 {
                 runtime.dial_validators().await;
             }
 
             // get the current epoch
-            tokio::time::sleep(block::next_slot()).await;
             log::current(runtime).await;
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;

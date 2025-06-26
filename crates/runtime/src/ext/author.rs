@@ -77,6 +77,8 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// on new epoch
+    ///
+    /// FIXME: handle the case falling back to AURA
     pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
         self.storage.on_new_epoch()?;
 

@@ -158,10 +158,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             let key = validator.ed25519;
             let peer = PeerId::from(key);
 
-            if key == me
-                || (key[31] > 127 && me[31] > 127 && (key < me))
-                || pool.contains_key(&peer)
-            {
+            if key == me || (key[31] > 127 && me[31] > 127 && (key < me)) {
                 continue;
             }
 
