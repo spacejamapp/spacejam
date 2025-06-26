@@ -6,7 +6,7 @@ use score::block;
 
 /// Logging the initial status of the node
 pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
-    let grandpa = runtime.grandpa.read().await;
+    let grandpa = runtime.grandpa().await;
     tracing::info!(
         "The latest finalized head #{}: 0x{}",
         grandpa.handshake.head.slot,
@@ -29,10 +29,11 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
         .count() as u16;
 
     // check neighbours
-    let grandpa = runtime.grandpa.read().await;
-    let neighbours = grandpa
-        .grid
-        .neighbours(runtime.validator.ed25519_public_key());
+    let (grid, handshake) = {
+        let grandpa = runtime.grandpa().await;
+        (grandpa.grid.clone(), grandpa.handshake.clone())
+    };
+    let neighbours = grid.neighbours(runtime.validator.ed25519_public_key());
 
     let connected_neighbours = pool
         .iter()
@@ -56,8 +57,8 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
-        grandpa.handshake.head.slot,
-        hex::encode(&grandpa.handshake.head.hash[..3]),
+        handshake.head.slot,
+        hex::encode(&handshake.head.hash[..3]),
         tickets,
     );
     tracing::debug!(

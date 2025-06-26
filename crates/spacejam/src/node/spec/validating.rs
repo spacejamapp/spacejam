@@ -46,7 +46,7 @@ impl<C: runtime::Config> Validating<C> {
             }
 
             // dial lost connections
-            let handshake = runtime.grandpa.read().await.handshake.clone();
+            let handshake = runtime.grandpa().await.handshake.clone();
             if handshake.head.slot != 0 && handshake.head.slot % score::EPOCH_LENGTH > 1 {
                 runtime.dial_validators().await;
             }

@@ -30,7 +30,7 @@ impl<C: runtime::Config> Network<C> {
         conn.handshake.write().await.head = handshake.head;
 
         // 3. send the handshake
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         let encoded = codec::encode(&grandpa.handshake)?;
         let length = encoded.len() as u32;
         send.write(&length.to_le_bytes()).await?;
@@ -60,7 +60,7 @@ impl<C: runtime::Config> Network<C> {
         // 1. send and receive the handshake data.
         let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
             async {
-                let grandpa = self.grandpa.read().await;
+                let grandpa = self.grandpa().await;
                 let mut handshake = grandpa.handshake.clone();
                 handshake.leaves.insert(handshake.head.clone());
 

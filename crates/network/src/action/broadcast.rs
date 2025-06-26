@@ -7,7 +7,7 @@ impl<C: runtime::Config> Network<C> {
     /// Announce a block to the network
     #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
     pub async fn announce(&self, header: Box<Header>) -> anyhow::Result<()> {
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         if let Err(e) = grandpa.accept_local(&header).await {
             tracing::warn!("skip because: {e}");
             return Ok(());
@@ -37,7 +37,7 @@ impl<C: runtime::Config> Network<C> {
     /// TODO: do it async instead of a blocking loop
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
     pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) {
-        let validators = self.grandpa.read().await.grid.curr;
+        let validators = self.grandpa().await.grid.curr;
         let pool = self.pool.read().await.clone();
 
         tracing::trace!("broadcasting to {} peers", pool.len());

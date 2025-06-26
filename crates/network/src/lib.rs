@@ -73,7 +73,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
     /// Lookup the best head from the network
     pub async fn lookup(&self, best: &Head) -> Vec<Connection> {
-        let grandpa = self.runtime.grandpa.read().await;
+        let grandpa = self.runtime.grandpa().await;
         let pool = self.pool.read().await.clone();
         let mut feeds = Vec::new();
         for conn in pool.values() {

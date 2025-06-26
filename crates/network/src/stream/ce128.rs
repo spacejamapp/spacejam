@@ -32,7 +32,7 @@ impl<C: runtime::Config> Network<C> {
             request.direction,
             request.maximum,
         );
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
         // fetch and write the blocks

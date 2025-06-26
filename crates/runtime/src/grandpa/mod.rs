@@ -22,7 +22,6 @@ mod lookup;
 ///
 /// GRANDPA is responsible for managing the finalized chain head and tracking leaf blocks
 /// in the current fork choice tree.
-#[derive(Clone)]
 pub struct Grandpa<T: Storage> {
     /// The handshake data of the grandpa protocol.
     pub handshake: Handshake,
@@ -217,6 +216,16 @@ impl<T: Storage> Grandpa<T> {
         }
 
         Ok(())
+    }
+}
+
+impl<T: Storage> Clone for Grandpa<T> {
+    fn clone(&self) -> Self {
+        Self {
+            handshake: self.handshake.clone(),
+            ancestry: self.ancestry.clone(),
+            grid: self.grid.clone(),
+        }
     }
 }
 

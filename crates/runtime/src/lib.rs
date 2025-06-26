@@ -54,6 +54,11 @@ impl<C: Config> Runtime<C> {
         }
     }
 
+    /// Get the grandpa of SpaceJam
+    pub async fn grandpa(&self) -> Grandpa<C::Storage> {
+        self.grandpa.read().await.clone()
+    }
+
     /// Get the local validator
     pub fn me(&self) -> BandersnatchPublic {
         self.validator.bandersnatch_public_key()

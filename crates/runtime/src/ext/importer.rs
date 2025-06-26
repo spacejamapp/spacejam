@@ -25,6 +25,7 @@ impl<C: Config> Runtime<C> {
             header: header.clone(),
             ..Default::default()
         };
+        self.storage.set_best(&head)?;
         self.storage.set_block(&block)?;
         self.storage.set_finalized(&head)?;
 
@@ -142,7 +143,7 @@ impl<C: Config> Runtime<C> {
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "importer::validate")]
     pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
-        let handshake = self.grandpa.read().await.handshake.clone();
+        let handshake = self.grandpa().await.handshake.clone();
         let local_epoch = handshake.head.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
 

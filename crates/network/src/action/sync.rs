@@ -22,8 +22,7 @@ impl<C: runtime::Config> Network<C> {
 )]
     /// Select the best chain.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
-        tracing::info!("selecting best chain");
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         if slot <= grandpa.handshake.head.slot {
             tracing::trace!(
                 "upcoming#{slot}, grandpa#{}: skipping best chain selection",
@@ -34,7 +33,6 @@ impl<C: runtime::Config> Network<C> {
 
         // select the best head from the grandpa.
         let Some((best, ancestors)) = grandpa.select_best_head() else {
-            tracing::info!("no best chain found");
             return Ok(());
         };
 
@@ -43,7 +41,6 @@ impl<C: runtime::Config> Network<C> {
         if self.storage.block(&best.hash).is_ok() && ancestors.len() > 5 {
             self.finalize(&ancestors[..ancestors.len() - 5]).await
         } else {
-            tracing::info!("syncing from the network");
             BlockSync::new(self, best).await?.sync().await
         }
     }
@@ -53,7 +50,7 @@ impl<C: runtime::Config> Network<C> {
     async fn finalize(&self, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
         let mut ancestors = ancestors.to_vec();
         ancestors.reverse();
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         let mut finalized = grandpa.handshake.head.clone();
         for head in ancestors.iter() {
             let header = self.storage.header(head)?;
@@ -101,7 +98,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     ///
     /// TODO: indicate the request direction by the maximum blocks.
     pub async fn new(runtime: &'r Network<C>, best: Head) -> anyhow::Result<Self> {
-        let grandpa = runtime.grandpa.read().await;
+        let grandpa = runtime.grandpa().await;
         let request = ce128::Request {
             hash: grandpa.handshake.head.hash,
             direction: 0,
@@ -120,7 +117,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     }
 
     /// Send the request to the feeds.
-    #[tracing::instrument(skip_all, name = "remote")]
+    #[tracing::instrument(skip_all, name = "sync")]
     pub async fn sync(&mut self) -> anyhow::Result<()> {
         let feeds = self.runtime.lookup(&self.best).await;
 
@@ -168,7 +165,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
         for block in blocks {
             // if the block is considered as a descendant of the current head, skip it.
             {
-                let grandpa = self.runtime.grandpa.read().await;
+                let grandpa = self.runtime.grandpa().await;
                 if block.header.hash()? == grandpa.handshake.head.hash {
                     continue;
                 }

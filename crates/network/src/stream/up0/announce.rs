@@ -41,7 +41,7 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        let grandpa = runtime.grandpa.read().await;
+        let grandpa = runtime.grandpa().await;
         let handshake = conn.handshake.read().await;
         tracing::debug!("sending announcement: #{}", header.slot);
 
@@ -95,13 +95,12 @@ pub async fn recv<C: runtime::Config>(
         // 2. decode the announcement
         let mut buf = vec![0; length as usize];
         recv.read_exact(&mut buf).await?;
-        let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
+        let (header, _head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
-        let grandpa = runtime.grandpa.read().await;
+        let grandpa = runtime.grandpa().await;
         {
             let mut handshake = conn.handshake.write().await;
-            handshake.head = head.clone();
             grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
@@ -136,7 +135,7 @@ pub async fn recv<C: runtime::Config>(
 
         // 6. skip if the header exists
         {
-            let grandpa = runtime.grandpa.read().await;
+            let grandpa = runtime.grandpa().await;
             if grandpa.ancestry.header(&hash).is_ok() {
                 continue;
             }
