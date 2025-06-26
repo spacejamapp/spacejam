@@ -1,8 +1,8 @@
 //! Importer for SpaceJam
 
 use crate::{
-    storage::{KVStorage, SyncStorage},
-    tx, Config, Hook, Runtime, Storage,
+    storage::{ArchiveStorage, KVStorage, SyncStorage},
+    tx, Config, Runtime, Storage,
 };
 use score::{
     block::Header,
@@ -110,6 +110,7 @@ impl<C: Config> Runtime<C> {
 
         // 4. save the block to the storage
         self.storage.set_block(&block)?;
+        self.storage.set_diff(hash, diff)?;
         if let Some(series) = block.header.tickets_mark {
             tracing::info!(
                 "next tickets: {:#?}",
@@ -133,13 +134,8 @@ impl<C: Config> Runtime<C> {
             .await
             .finalize(block.header.clone(), next)?;
 
-        // 6. set the head as finalized
-        self.storage
-            .set_finalized(&block.header.clone().try_into()?)?;
-
-        // 7. notify the new finalized block
-        self.hook.on_finalized_block(block).await?;
-        self.hook.on_diff(hash, diff).await?;
+        // 6. set the head as best block
+        self.storage.set_best(&block.header.clone().try_into()?)?;
         Ok(())
     }
 

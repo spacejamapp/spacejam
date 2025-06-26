@@ -2,7 +2,10 @@
 
 use crate::{stream::ce128, Network};
 use quinn::RecvStream;
-use runtime::storage::{ArchiveStorage, SyncStorage};
+use runtime::{
+    storage::{ArchiveStorage, SyncStorage},
+    Hook,
+};
 use score::{block::Head, Block, OpaqueHash, TimeSlot};
 
 impl<C: runtime::Config> Network<C> {
@@ -19,6 +22,7 @@ impl<C: runtime::Config> Network<C> {
 )]
     /// Select the best chain.
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
+        tracing::info!("selecting best chain");
         let grandpa = self.grandpa.read().await;
         if slot <= grandpa.handshake.head.slot {
             tracing::trace!(
@@ -30,21 +34,23 @@ impl<C: runtime::Config> Network<C> {
 
         // select the best head from the grandpa.
         let Some((best, ancestors)) = grandpa.select_best_head() else {
+            tracing::info!("no best chain found");
             return Ok(());
         };
 
         // if the best head is already in the local storage,
         // run sync from the local storage.
-        if let Ok(head) = self.storage.block(&best.hash) {
-            self.finalize(head, &ancestors[..ancestors.len() - 5]).await
+        if self.storage.block(&best.hash).is_ok() && ancestors.len() > 5 {
+            self.finalize(&ancestors[..ancestors.len() - 5]).await
         } else {
+            tracing::info!("syncing from the network");
             BlockSync::new(self, best).await?.sync().await
         }
     }
 
     /// Finalize blocks from the local chain.
-    #[tracing::instrument(skip_all, name = "local")]
-    async fn finalize(&self, best: Block, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
+    #[tracing::instrument(skip_all, name = "finalize")]
+    async fn finalize(&self, ancestors: &[OpaqueHash]) -> anyhow::Result<()> {
         let mut ancestors = ancestors.to_vec();
         ancestors.reverse();
         let grandpa = self.grandpa.read().await;
@@ -64,12 +70,16 @@ impl<C: runtime::Config> Network<C> {
             );
             }
 
-            self.storage.finalize(header.hash()?)?;
-            tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&head[..3]));
+            tracing::info!("block#{}@0x{}", slot, hex::encode(&head[..3]));
             finalized = Head { hash: *head, slot };
         }
 
-        self.import(best).await?;
+        self.storage.finalize(finalized.hash)?;
+        let block = self.storage.block(&finalized.hash)?;
+        let diff = self.storage.diff(finalized.hash)?;
+        self.hook.on_finalized_block(block).await?;
+        self.hook.on_diff(finalized.hash, diff).await?;
+        self.grandpa.write().await.handshake.head = finalized;
         Ok(())
     }
 }

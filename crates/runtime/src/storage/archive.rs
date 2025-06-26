@@ -2,7 +2,7 @@
 
 use crate::storage::{sync::SYNC, Commit, KVStorage};
 use anyhow::Result;
-use score::OpaqueHash;
+use score::{OpaqueHash, StorageKey};
 
 /// The prefix of the archive storage.
 pub const ARCHIVE: &[u8] = b"archive";
@@ -40,6 +40,20 @@ pub trait ArchiveStorage: KVStorage {
         }
 
         Ok(())
+    }
+
+    fn set_diff(&self, block: OpaqueHash, diff: Commit<StorageKey, Vec<u8>>) -> Result<()> {
+        let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
+        self.set(prefix, codec::encode(&diff)?)?;
+        Ok(())
+    }
+
+    fn diff(&self, block: OpaqueHash) -> Result<Commit<StorageKey, Vec<u8>>> {
+        let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
+        let value = self
+            .get(&prefix)?
+            .ok_or(anyhow::anyhow!("Diff not found"))?;
+        Ok(codec::decode(value.as_ref())?)
     }
 }
 

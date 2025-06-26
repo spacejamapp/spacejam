@@ -1,10 +1,11 @@
 //! The commit of the storage
 
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A commit of storage
-#[derive(Debug, Default, Clone)]
-pub struct Commit<Key, Value> {
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Commit<Key: Ord, Value> {
     /// The set of the commit
     pub update: BTreeMap<Key, Value>,
 
@@ -14,7 +15,8 @@ pub struct Commit<Key, Value> {
 
 impl<Key, Value> Commit<Key, Value>
 where
-    Key: Ord + std::fmt::Debug,
+    Key: Ord + std::fmt::Debug + Serialize + DeserializeOwned,
+    Value: Serialize + DeserializeOwned,
 {
     /// The length of the commit
     pub fn len(&self) -> usize {

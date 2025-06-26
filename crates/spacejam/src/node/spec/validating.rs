@@ -40,6 +40,11 @@ impl<C: runtime::Config> Validating<C> {
                 continue;
             }
 
+            // select the best chain
+            if let Err(e) = runtime.select_best_chain(block::timeslot()).await {
+                tracing::error!("Failed to select best chain: {:?}", e);
+            }
+
             // dial lost connections
             let handshake = runtime.grandpa.read().await.handshake.clone();
             if handshake.head.slot != 0 && handshake.head.slot % score::EPOCH_LENGTH > 1 {

@@ -125,17 +125,22 @@ impl<T: Storage> Grandpa<T> {
     /// - count votes via sealed blocks
     pub fn select_best_head(&self) -> Option<(Head, Vec<OpaqueHash>)> {
         let finalized = self.handshake.head.clone();
+        let mut best = None;
         for leaf in self.handshake.leaves.iter().rev() {
             let ancestors = self.ancestry.ancestors(&leaf.hash, &finalized.hash).ok()?;
-            if ancestors.len() > 5 {
-                if let Err(e) = self.ancestry.set_best(&leaf) {
-                    tracing::error!("error setting best: {e}");
-                }
-                return Some((leaf.clone(), ancestors));
+            let Some((_, chain)) = &best else {
+                best = Some((leaf.clone(), ancestors));
+                continue;
+            };
+
+            if ancestors.len() <= chain.len() {
+                continue;
             }
+
+            best = Some((leaf.clone(), ancestors));
         }
 
-        None
+        best
     }
 
     /// If a header is acceptable for a remote peer, returns error if:

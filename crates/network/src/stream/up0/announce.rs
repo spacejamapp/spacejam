@@ -147,12 +147,5 @@ pub async fn recv<C: runtime::Config>(
         // Note that we don't verify the header here since we may
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
-
-        // // TODO: we should only broadcast the header only if we
-        // // have fetched it.
-        // //
-        // // broadcast the header to the network
-        // // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
-        // runtime.announce(Box::new(header.clone())).await?;
     }
 }
