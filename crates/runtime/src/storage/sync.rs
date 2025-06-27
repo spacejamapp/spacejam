@@ -4,7 +4,7 @@ use crate::Storage;
 use anyhow::Result;
 use score::{
     block::{Head, Header},
-    extrinsic::{TicketBody, TicketsOrKeys},
+    extrinsic::TicketsOrKeys,
     safrole::ValidatorIter,
     Block, OpaqueHash,
 };
@@ -197,46 +197,43 @@ pub trait SyncStorage: Storage {
             .collect::<Vec<_>>())
     }
 
-    /// Fetch the series
-    fn series(&self) -> Result<TicketsOrKeys> {
-        let key = [SYNC, b"series"].concat();
-        if let Ok(Some(value)) = self.get(&key) {
-            codec::decode(value.as_ref()).map_err(Into::into)
-        } else {
-            Ok(self.safrole()?.series)
-        }
-    }
-
     /// Get the series
-    fn get_series(&self, epoch: u32) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
+    fn series(&self, epoch: u32) -> Result<TicketsOrKeys> {
         let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Set the series
-    fn set_series(
-        &self,
-        epoch: u32,
-        series: &[TicketBody; score::EPOCH_LENGTH as usize],
-    ) -> Result<()> {
+    fn set_series(&self, epoch: u32, series: &TicketsOrKeys) -> Result<()> {
         let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        self.set(key, codec::encode(series)?)?;
+        self.set(key, codec::encode(&series)?)?;
         Ok(())
     }
 
     /// On new epoch handler for rotating the series
+    ///
+    /// Set the fallback series if it is not tracked.
     fn on_new_epoch(&self, epoch: u32) -> Result<()> {
-        let key = [SYNC, b"series"].concat();
-        if let Ok(series) = self.get_series(epoch) {
-            self.set(key, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
-        } else {
-            let keys = self.next_validators()?.bandersnatch();
-            let entropy = self.entropy()?;
-            let series = TicketsOrKeys::fallback(keys, entropy[1]);
-            self.set(key, codec::encode(&series)?)?;
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
+        if self.series(epoch).is_ok() {
+            return Ok(());
         }
 
+        // check if the block with epoch mark left on fork chain
+        let safrole = self.safrole()?;
+        if safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
+            let mut tickets = [Default::default(); score::EPOCH_LENGTH as usize];
+            tickets.copy_from_slice(&safrole.accumulator);
+            self.set(key, codec::encode(&TicketsOrKeys::Tickets(tickets))?)?;
+            return Ok(());
+        }
+
+        // using fallback series
+        let keys = self.next_validators()?.bandersnatch();
+        let entropy = self.entropy()?;
+        let series = TicketsOrKeys::fallback(keys, entropy[1]);
+        self.set(key, codec::encode(&series)?)?;
         Ok(())
     }
 }

@@ -123,6 +123,7 @@ impl<C: Config> Runtime<C> {
                     .collect::<Vec<_>>()
             );
 
+            let series = TicketsOrKeys::Tickets(series);
             self.storage.set_series(epoch, &series)?;
         }
 
@@ -160,10 +161,19 @@ impl<C: Config> Runtime<C> {
 
         // check the ticket mark
         if new_epoch {
-            if let Ok(tickets) = self.storage.get_series(remote_epoch) {
+            if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series(remote_epoch) {
                 ticket = Some(tickets[slot]);
+            } else if let Ok(tickets) = self
+                .storage
+                .safrole()
+                .and_then(|safrole| Ok(safrole.accumulator))
+            {
+                // Handle the case that the block with epoch mark is not finalized
+                if tickets.len() == score::EPOCH_LENGTH as usize {
+                    ticket = Some(tickets[slot]);
+                }
             }
-        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series() {
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series(local_epoch) {
             ticket = Some(tickets[slot]);
         }
 

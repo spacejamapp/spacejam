@@ -95,7 +95,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. update the authoring slots
         let mut slots = Vec::new();
         let mut fallback = false;
-        match self.storage.series()? {
+        match self.storage.series(epoch)? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -216,7 +216,6 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Seal a block
     fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let series = self.storage.series()?;
         let entropy = self.storage.entropy()?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
@@ -227,6 +226,7 @@ impl<'a, C: Config> Author<'a, C> {
         };
 
         // construct the seal message
+        let series = self.series(&block.header)?;
         let (message, ticket) = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
@@ -279,6 +279,24 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         Ok(block)
+    }
+
+    /// Get the series for sealing usage
+    fn series(&self, header: &Header) -> anyhow::Result<TicketsOrKeys> {
+        let epoch = header.slot / score::EPOCH_LENGTH;
+        if let Ok(series) = self.storage.series(epoch) {
+            return Ok(series);
+        }
+
+        let prev = self.storage.header(&header.parent)?;
+        let prev_epoch = prev.slot / score::EPOCH_LENGTH;
+        if epoch > prev_epoch {
+            let keys = self.storage.next_validators()?.bandersnatch();
+            let entropy = self.storage.entropy()?;
+            return Ok(TicketsOrKeys::fallback(keys, entropy[1]));
+        };
+
+        anyhow::bail!("current fallback series not tracked, this should never happen");
     }
 }
 
