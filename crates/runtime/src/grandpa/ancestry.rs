@@ -3,6 +3,7 @@
 use score::{block::Head, OpaqueHash};
 
 /// Ancestry of the best head
+#[derive(Clone)]
 pub struct Ancestry {
     /// The selected best head.
     pub best: Head,
@@ -17,8 +18,8 @@ pub struct Ancestry {
 }
 
 impl Ancestry {
-    /// Update the ancestry with the new best head.
-    pub fn finalize(&mut self, head: &Head) -> anyhow::Result<()> {
+    /// Update the ancestry with the existing head.
+    pub fn advance(&mut self, head: &Head) -> anyhow::Result<()> {
         if head.hash == self.finalized.hash {
             return Ok(());
         }
@@ -34,8 +35,10 @@ impl Ancestry {
             .ancestors
             .iter()
             .cloned()
-            .skip_while(|h| *h == head.hash)
+            .take_while(|h| *h != head.hash)
             .collect();
+
+        self.finalized = head.clone();
         Ok(())
     }
 }

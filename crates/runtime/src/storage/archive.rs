@@ -11,7 +11,7 @@ pub const ARCHIVE: &[u8] = b"archive";
 pub trait ArchiveStorage: KVStorage {
     /// Get the archive storage for a given block.
     ///
-    /// TODO: introduce a better solution for archving storage per block
+    /// TODO: introduce a better solution for archiving storage per block
     fn archive(&self, block: OpaqueHash) -> Result<()> {
         let mut iter = self.iter()?;
         let mut commit = Commit::default();

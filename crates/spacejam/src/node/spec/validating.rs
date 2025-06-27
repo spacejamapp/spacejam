@@ -21,6 +21,7 @@ impl<C: runtime::Config> Validating<C> {
         }
 
         loop {
+            tokio::time::sleep(block::next_slot()).await;
             let Ok(best) = runtime.storage.best() else {
                 tracing::error!("Failed to get best block");
                 tokio::time::sleep(Duration::from_secs(score::SLOT_PERIOD as u64)).await;
@@ -77,8 +78,6 @@ impl<C: runtime::Config> Validating<C> {
                     tracing::error!("Failed to announce block: {:?}", e);
                 }
             }
-
-            tokio::time::sleep(block::next_slot()).await;
         }
     }
 }

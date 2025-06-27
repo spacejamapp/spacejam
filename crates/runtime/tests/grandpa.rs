@@ -4,7 +4,7 @@ use score::{
 };
 use spacejam_runtime::{
     storage::{MemoryDb, SyncStorage},
-    Grandpa,
+    Grandpa, Handshake,
 };
 use std::sync::Arc;
 
@@ -32,18 +32,50 @@ fn test_select_best_head() {
         };
         let hash = header.hash().unwrap();
         grandpa.add_leaf(header.clone()).unwrap();
-        let best = grandpa.select_best_head();
-
-        if i > 6 {
-            let best = best.unwrap();
-            assert_eq!(
-                hex::encode(&best.best.hash.as_ref()),
-                hex::encode(&hash.as_ref())
-            );
-        } else {
-            assert!(best.is_none());
-        }
+        let best = grandpa.select_best_head().unwrap();
+        assert_eq!(
+            hex::encode(&best.best.hash.as_ref()),
+            hex::encode(&hash.as_ref())
+        );
 
         parent = header;
     }
+}
+
+#[test]
+fn encoding() {
+    let handshake = Handshake {
+        head: Head {
+            hash: [0; 32],
+            slot: 0,
+        },
+        leaves: vec![
+            Head {
+                hash: [1; 32],
+                slot: 1,
+            },
+            Head {
+                hash: [2; 32],
+                slot: 2,
+            },
+        ]
+        .into_iter()
+        .collect(),
+    };
+
+    let encoded = codec::encode(&handshake).expect("failed to encode handshake");
+    let decoded = codec::decode::<Handshake>(&encoded).expect("failed to decode handshake");
+    assert_eq!(handshake, decoded);
+
+    // test handwrite encoding
+    let mut buf = vec![];
+    buf.extend_from_slice(&handshake.head.hash);
+    buf.extend_from_slice(&handshake.head.slot.to_le_bytes());
+    buf.push(handshake.leaves.len() as u8);
+    for leaf in handshake.leaves.iter() {
+        buf.extend_from_slice(&leaf.hash);
+        buf.extend_from_slice(&leaf.slot.to_le_bytes());
+    }
+
+    assert_eq!(encoded, buf);
 }

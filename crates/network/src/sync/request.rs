@@ -28,7 +28,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             ancestry.ancestors.len() + 1
         );
         let request = ce128::Request {
-            hash: ancestry.best.hash,
+            hash: ancestry.finalized.hash,
             direction: 0,
             maximum: ancestry.ancestors.len() as u32 + 1,
         };
@@ -49,7 +49,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 return Ok(());
             }
 
-            if let Err(e) = self.request_all(&feed).await {
+            if let Err(e) = self.request(&feed).await {
                 tracing::debug!(
                     "failed to sync from {}: {}, switching to the next feed",
                     feed.address.peer_id,
@@ -68,10 +68,17 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// Send the request to the feeds.
     ///
     /// NOTE: seems polkajam doesn't support multiple blocks atm.
-    pub async fn request_all(&mut self, feed: &Connection) -> anyhow::Result<()> {
-        let mut recv = ce128::send(feed, self.request.clone()).await?;
-        let mut requested = 0;
-        loop {
+    pub async fn request(&mut self, feed: &Connection) -> anyhow::Result<()> {
+        for hash in [
+            self.ancestry.ancestors.clone(),
+            vec![self.ancestry.best.hash],
+        ]
+        .concat()
+        .iter()
+        .rev()
+        {
+            // FIXME: request 1 block per time
+            let mut recv = ce128::send(feed, self.request.clone()).await?;
             let mut buf = [0; 4];
             if recv.read_exact(&mut buf).await.is_err() {
                 tracing::warn!("no more blocks to read, FIXME: read multiple blocks");
@@ -85,15 +92,8 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             }
 
             let block: Block = codec::decode(&buffer)?;
-            if self.runtime.storage.block(&block.header.hash()?).is_err() {
-                // TODO: set instead of import if the block is not consistent
-                // with the best head.
-                self.runtime.import(block).await?;
-            }
-
-            requested += 1;
-            if requested >= self.request.maximum {
-                break;
+            if self.runtime.storage.block(hash).is_err() {
+                self.runtime.storage.set_block(&block)?;
             }
         }
 

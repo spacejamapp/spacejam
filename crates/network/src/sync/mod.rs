@@ -112,9 +112,12 @@ impl<C: runtime::Config> Network<C> {
             self.finalize(&ancestry.ancestors[3..]).await?;
         }
 
-        ancestry.finalize(&best)?;
+        ancestry.advance(&best)?;
         self.sync_local(&mut ancestry).await?;
-        BlockSync::asc(self, ancestry).await?.sync().await
+        BlockSync::asc(self, ancestry.clone()).await?.sync().await?;
+
+        // try sync from local chain again
+        self.sync_local(&mut ancestry).await
     }
 
     /// Sync from the local chain.
@@ -128,9 +131,21 @@ impl<C: runtime::Config> Network<C> {
                 break;
             };
 
+            if block.header.slot != ancestry.finalized.slot + 1
+                && ancestry.finalized.slot != 0
+                && ancestry.ancestors.len() < 3
+            {
+                tracing::trace!(
+                    "blocks not consistent with ancestry, incoming#{}, best#{}",
+                    block.header.slot,
+                    ancestry.finalized.slot,
+                );
+                return Ok(());
+            }
+
             let slot = block.header.slot;
             self.import(block).await?;
-            ancestry.finalize(&Head { hash, slot })?;
+            ancestry.advance(&Head { hash, slot })?;
         }
 
         Ok(())
