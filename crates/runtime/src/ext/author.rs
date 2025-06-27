@@ -43,12 +43,15 @@ impl<'a, C: Config> Author<'a, C> {
         &mut self,
         timeslot: TimeSlot,
     ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
+        let best = self.storage.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
+        let epoch = timeslot / score::EPOCH_LENGTH;
+        let prev_epoch = best.slot / score::EPOCH_LENGTH;
         let mut next = (None, None);
 
         // check if the epoch is changed
-        if slot == 0 {
-            self.on_new_epoch().await?;
+        if epoch > prev_epoch {
+            self.on_new_epoch(epoch).await?;
         }
 
         // 1. check generating tickets
@@ -80,8 +83,8 @@ impl<'a, C: Config> Author<'a, C> {
     /// on new epoch
     ///
     /// FIXME: handle the case falling back to AURA
-    pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
-        self.storage.on_new_epoch()?;
+    pub async fn on_new_epoch(&mut self, epoch: u32) -> anyhow::Result<()> {
+        self.storage.on_new_epoch(epoch)?;
 
         // 1. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);

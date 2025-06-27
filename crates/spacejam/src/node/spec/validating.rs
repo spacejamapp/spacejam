@@ -15,7 +15,12 @@ impl<C: runtime::Config> Validating<C> {
     async fn author(runtime: &Network<C>) {
         log::init(runtime).await;
         let mut author = runtime.author();
-        if let Err(e) = author.on_new_epoch().await {
+        let Ok(best) = runtime.storage.best() else {
+            tracing::error!("Failed to get best block");
+            return;
+        };
+        let epoch = best.slot / score::EPOCH_LENGTH;
+        if let Err(e) = author.on_new_epoch(epoch).await {
             tracing::error!("Failed to initialize authoring: {e:?}");
             return;
         }

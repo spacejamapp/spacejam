@@ -207,26 +207,28 @@ pub trait SyncStorage: Storage {
         }
     }
 
-    /// Get the next series
-    ///
-    /// TODO: save this in memory.
-    fn next_series(&self) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
-        let key = [SYNC, b"series", b"next"].concat();
+    /// Get the series
+    fn get_series(&self, epoch: u32) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
-    /// Set the next series
-    fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
-        let key = [SYNC, b"series", b"next"].concat();
-        self.set(key, codec::encode(&series)?)?;
+    /// Set the series
+    fn set_series(
+        &self,
+        epoch: u32,
+        series: &[TicketBody; score::EPOCH_LENGTH as usize],
+    ) -> Result<()> {
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
+        self.set(key, codec::encode(series)?)?;
         Ok(())
     }
 
     /// On new epoch handler for rotating the series
-    fn on_new_epoch(&self) -> Result<()> {
+    fn on_new_epoch(&self, epoch: u32) -> Result<()> {
         let key = [SYNC, b"series"].concat();
-        if let Ok(series) = self.next_series() {
+        if let Ok(series) = self.get_series(epoch) {
             self.set(key, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
         } else {
             let keys = self.next_validators()?.bandersnatch();

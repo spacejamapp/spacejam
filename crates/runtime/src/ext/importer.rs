@@ -113,15 +113,17 @@ impl<C: Config> Runtime<C> {
         self.storage.set_block(&block)?;
         self.storage.set_diff(hash, diff)?;
         if let Some(series) = block.header.tickets_mark {
+            let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
             tracing::info!(
-                "next tickets: {:#?}",
+                "tickets for epoch={epoch}: {:#?}",
                 series
                     .iter()
                     .enumerate()
                     .map(|(i, t)| format!("{:02}: 0x{}", i, hex::encode(t.id)))
                     .collect::<Vec<_>>()
             );
-            self.storage.set_next_series(series)?;
+
+            self.storage.set_series(epoch, &series)?;
         }
 
         // 5. set the head as best block
@@ -158,7 +160,7 @@ impl<C: Config> Runtime<C> {
 
         // check the ticket mark
         if new_epoch {
-            if let Ok(tickets) = self.storage.next_series() {
+            if let Ok(tickets) = self.storage.get_series(remote_epoch) {
                 ticket = Some(tickets[slot]);
             }
         } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series() {
@@ -199,16 +201,6 @@ impl<C: Config> Runtime<C> {
 
         if let Some(ticket) = ticket {
             if ticket.id != output {
-                let TicketsOrKeys::Tickets(tickets) = self.storage.series()? else {
-                    anyhow::bail!("ticket series not found");
-                };
-                tracing::error!(
-                    "ticket series: {:#?}",
-                    tickets
-                        .into_iter()
-                        .map(|t| hex::encode(t.id))
-                        .collect::<Vec<_>>()
-                );
                 anyhow::bail!("header seal mismatched");
             }
         }
