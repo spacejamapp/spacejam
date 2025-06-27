@@ -36,7 +36,7 @@ pub trait ArchiveStorage: KVStorage {
         let prefix = [ARCHIVE, block.as_ref()].concat();
         let mut iter = self.prefix_iter(prefix)?;
         while let Some(Ok((key, value))) = iter.next() {
-            self.set(key[39..].to_vec(), value)?;
+            self.set(&key[39..], value)?;
         }
 
         Ok(())

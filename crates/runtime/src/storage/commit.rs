@@ -23,6 +23,11 @@ where
         self.update.len() + self.removal.len()
     }
 
+    /// Check if the commit is empty
+    pub fn is_empty(&self) -> bool {
+        self.update.is_empty() && self.removal.is_empty()
+    }
+
     /// Set a key pair to the storage
     pub fn set(&mut self, key: Key, value: Value) {
         self.update.insert(key, value);

@@ -31,7 +31,7 @@ impl<C: runtime::Config> RpcHook<C> {
         state_root: &OpaqueHash,
     ) -> anyhow::Result<()> {
         let parent = self.runtime.storage.block(parent)?;
-        let head = parent.header.clone().try_into()?;
+        let head = parent.header.clone();
 
         self.runtime.storage.set_header(&head)?;
         self.runtime
@@ -81,7 +81,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.
     async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
-        let header = block.header.clone().try_into()?;
+        let header = block.header.clone();
         self.runtime.storage.set_header(&header)?;
 
         let head = Head {

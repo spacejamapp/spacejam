@@ -16,8 +16,15 @@ impl<C: runtime::Config> Network<C> {
         ancestors.reverse();
         let grandpa = self.grandpa().await;
         let mut finalized = grandpa.handshake.head.clone();
+        let mut block = Default::default();
         for head in ancestors.iter() {
-            let header = self.storage.header(head)?;
+            // FIXME: using block instead of header here since we may not have header
+            // of requested block series??
+            let Ok(ancestor) = self.storage.block(head) else {
+                break;
+            };
+            block = ancestor;
+            let header = block.header.clone();
             let slot = header.slot;
 
             if header.parent != finalized.hash {
@@ -36,8 +43,9 @@ impl<C: runtime::Config> Network<C> {
         }
 
         self.storage.finalize(finalized.hash)?;
-        let block = self.storage.block(&finalized.hash)?;
+        self.storage.set_finalized(&finalized)?;
         {
+            // FIXME: this could introduce bugs in future.
             let next = if block.header.epoch_mark.is_some() {
                 Some(self.storage.next_validators()?)
             } else {
@@ -62,6 +70,7 @@ impl<C: runtime::Config> Network<C> {
     /// This happens on:
     /// - receiving new block announcements
     /// - before authoring blocks
+    #[tracing::instrument(skip_all, name = "select", parent = None)]
     pub async fn select_best_chain(&self, slot: TimeSlot) -> anyhow::Result<()> {
         let grandpa = self.grandpa().await;
         let mut best = self.storage.best()?;
@@ -95,6 +104,19 @@ impl<C: runtime::Config> Network<C> {
         let Some((target, mut ancestors)) = grandpa.select_best_head() else {
             return Ok(());
         };
+
+        tracing::info!(
+            "head#{}@0x{} ancestors: {:#?}",
+            target.slot,
+            hex::encode(&target.hash[..3]),
+            ancestors
+                .iter()
+                .map(|h| format!("0x{}", hex::encode(h)))
+                .collect::<Vec<_>>()
+        );
+        if ancestors.len() > 3 {
+            self.finalize(&ancestors[3..]).await?;
+        }
 
         // if the best head is already in the local storage,
         // run sync from the local storage.
@@ -131,8 +153,6 @@ impl<C: runtime::Config> Network<C> {
                 .await?
                 .sync()
                 .await
-        } else if ancestors.len() > 5 {
-            self.finalize(&ancestors[5..]).await
         } else {
             Ok(())
         }
@@ -208,9 +228,11 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
 
     /// Send the request to the feeds.
     pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
+        let mut requested = 0;
         loop {
             let mut buf = [0; 4];
             if recv.read_exact(&mut buf).await.is_err() {
+                tracing::warn!("no more blocks to read, FIXME: read multiple blocks");
                 break;
             }
 
@@ -223,6 +245,11 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             let block: Block = codec::decode(&buffer)?;
             if self.runtime.storage.block(&block.header.hash()?).is_err() {
                 self.runtime.import(block).await?;
+            }
+
+            requested += 1;
+            if requested >= self.request.maximum {
+                break;
             }
         }
 

@@ -57,7 +57,8 @@ impl<'a, C: Config> Author<'a, C> {
         // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
         let best = self.storage.best()?;
-        if slot > 2
+        if slot > 1
+            && slot < score::TICKET_SUBMISSION_PERIOD
             && best.slot != 0
             && best.slot / score::EPOCH_LENGTH == finalized.slot / score::EPOCH_LENGTH
         {

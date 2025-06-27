@@ -23,7 +23,10 @@ impl<C: runtime::Config> Network<C> {
 
     /// Broadcast a ticket to all current validators in the network.
     ///
-    /// TODO: do it async instead of a blocking loop
+    /// TODO:
+    ///
+    /// - do it async instead of a blocking loop
+    /// - check if remote peer can accept the ticket
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
     pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) {
         let validators = self.grandpa().await.grid.curr;

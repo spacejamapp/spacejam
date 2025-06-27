@@ -96,7 +96,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         // - the best head is at least a descendant of their finalized heads
         //
         // so we can directly fetch the missing blocks from the feeds.
-        feeds.sort_by_key(|conn| conn.latency);
+        feeds.sort_by_key(|conn| conn.rtt());
         feeds
     }
 
@@ -146,6 +146,8 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Dial the validators
+    ///
+    /// TODO: verify the connections before dialing, ping?
     pub async fn dial_validators(&self) {
         let me = self.me();
         let pool = self.pool.read().await.clone();
@@ -158,7 +160,10 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             let key = validator.ed25519;
             let peer = PeerId::from(key);
 
-            if key == me || (key[31] > 127 && me[31] > 127 && (key < me)) {
+            if key == me
+                || (key[31] > 127 && me[31] > 127 && (key < me))
+                || pool.contains_key(&peer)
+            {
                 continue;
             }
 

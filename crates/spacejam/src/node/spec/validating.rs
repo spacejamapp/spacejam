@@ -27,8 +27,6 @@ impl<C: runtime::Config> Validating<C> {
                 continue;
             };
 
-            tokio::time::sleep(block::next_slot()).await;
-
             // dial lost connections
             if best.slot != 0 && best.slot % score::EPOCH_LENGTH > 1 {
                 runtime.dial_validators().await;
@@ -79,6 +77,8 @@ impl<C: runtime::Config> Validating<C> {
                     tracing::error!("Failed to announce block: {:?}", e);
                 }
             }
+
+            tokio::time::sleep(block::next_slot()).await;
         }
     }
 }
