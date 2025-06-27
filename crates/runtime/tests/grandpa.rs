@@ -34,8 +34,8 @@ fn test_select_best_head() {
         grandpa.add_leaf(header.clone()).unwrap();
         let best = grandpa.select_best_head().unwrap();
         assert_eq!(
-            hex::encode(&best.best.hash.as_ref()),
-            hex::encode(&hash.as_ref())
+            hex::encode(best.best.hash.as_ref()),
+            hex::encode(hash.as_ref())
         );
 
         parent = header;

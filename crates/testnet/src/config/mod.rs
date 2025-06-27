@@ -38,11 +38,11 @@ impl Default for Testnet {
 
         for i in 0..5 {
             nodes.insert(
-                format!("polkajam-{}", i),
+                format!("polkajam-{i}"),
                 Node {
                     command: "polkajam".to_string(),
                     arch: Arch::Polkajam,
-                    data: PathBuf::from(format!("res/testnet/{}", i)),
+                    data: PathBuf::from(format!("res/testnet/{i}")),
                     quic: format!("0.0.0.0:{}", quic + i),
                     rpc: format!("0.0.0.0:{}", rpc + i),
                     args: vec![],

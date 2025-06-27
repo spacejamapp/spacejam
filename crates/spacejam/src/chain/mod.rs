@@ -25,7 +25,7 @@ impl fmt::Display for ChainId {
         match self {
             ChainId::Dev => write!(f, "dev"),
             ChainId::Polkadot => write!(f, "polkadot"),
-            ChainId::Other(s) => write!(f, "{}", s),
+            ChainId::Other(s) => write!(f, "{s}"),
         }
     }
 }

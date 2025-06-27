@@ -34,7 +34,7 @@ impl From<Authorization> for ReportGuarantee {
     fn from(auth: Authorization) -> Self {
         let mut guarantee = ReportGuarantee::default();
         guarantee.report.authorizer_hash = auth.auth_hash;
-        guarantee.report.core_index = auth.core.into();
+        guarantee.report.core_index = auth.core;
         guarantee
     }
 }

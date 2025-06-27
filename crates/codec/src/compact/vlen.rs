@@ -80,7 +80,7 @@ fn thresholds() {
         assert_eq!(bits.trailing_zeros(), 8 * length as u32);
 
         // check that the base is correct
-        let expected = 2u64.pow(8 as u32) - 2u64.pow((8 - length) as u32);
+        let expected = 2u64.pow(8_u32) - 2u64.pow((8 - length) as u32);
         assert_eq!(base, expected as u8);
 
         // check the threshold is correct
