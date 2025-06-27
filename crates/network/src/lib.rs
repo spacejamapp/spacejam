@@ -16,6 +16,7 @@ pub mod action;
 mod config;
 pub mod peer;
 mod stream;
+mod sync;
 pub mod transport;
 
 /// The network protocol name of Spacejam.

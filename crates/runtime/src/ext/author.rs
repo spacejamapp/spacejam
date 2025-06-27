@@ -169,8 +169,8 @@ impl<'a, C: Config> Author<'a, C> {
         let block = self.seal(block, &keys)?;
 
         // 7. save the block to the fork storage
-        self.storage.set_block(&block)?;
         self.grandpa.write().await.add_leaf(block.header.clone())?;
+        self.storage.set_block(&block)?;
         Ok(block)
     }
 

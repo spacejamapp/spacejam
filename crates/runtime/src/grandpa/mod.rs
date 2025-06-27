@@ -5,15 +5,16 @@
 //! and tracks chain state for consensus.
 
 use crate::{storage::SyncStorage, Storage};
-pub use handshake::Handshake;
 use score::{
     block::{Head, Header},
     safrole::ValidatorsData,
     OpaqueHash,
 };
 use std::{collections::BTreeSet, sync::Arc};
+pub use {ancestry::Ancestry, handshake::Handshake};
 use {grid::Grid, lookup::Lookup};
 
+mod ancestry;
 mod grid;
 mod handshake;
 mod lookup;
@@ -93,7 +94,7 @@ impl<T: Storage> Grandpa<T> {
             .handshake
             .leaves
             .iter()
-            .filter(|l| l.hash != head.hash)
+            .filter(|l| l.slot > head.slot)
             .cloned()
             .collect::<BTreeSet<_>>();
 
@@ -122,7 +123,7 @@ impl<T: Storage> Grandpa<T> {
     /// TODO:
     ///
     /// - count votes via sealed blocks
-    pub fn select_best_head(&self) -> Option<(Head, Vec<OpaqueHash>)> {
+    pub fn select_best_head(&self) -> Option<Ancestry> {
         let finalized = self.handshake.head.clone();
         let mut best = None;
         for leaf in self.handshake.leaves.iter().rev() {
@@ -139,7 +140,15 @@ impl<T: Storage> Grandpa<T> {
             best = Some((leaf.clone(), ancestors));
         }
 
-        best
+        let Some((best, ancestors)) = best else {
+            return None;
+        };
+
+        Some(Ancestry {
+            best,
+            ancestors,
+            finalized,
+        })
     }
 
     /// If a header is acceptable for a remote peer, returns error if:
@@ -264,7 +273,7 @@ mod tests {
             if i > 6 {
                 let best = best.unwrap();
                 assert_eq!(
-                    hex::encode(&best.0.hash.as_ref()),
+                    hex::encode(&best.best.hash.as_ref()),
                     hex::encode(&hash.as_ref())
                 );
             } else {
