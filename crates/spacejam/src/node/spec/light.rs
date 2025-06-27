@@ -11,7 +11,6 @@ use std::net::SocketAddr;
 pub struct Light<C: runtime::Config> {
     pub(crate) network: Network<C>,
     pub(crate) rpc: SocketAddr,
-    pub(crate) metrics: SocketAddr,
 }
 
 impl<C: runtime::Config> NodeSpec for Light<C> {
@@ -21,7 +20,7 @@ impl<C: runtime::Config> NodeSpec for Light<C> {
         let offchain = Offchain::new(runtime.runtime.clone());
 
         tokio::select! {
-            _ = offchain.start(self.rpc, self.network.metrics.clone(), self.metrics) => {}
+            _ = offchain.start(self.rpc) => {}
             _ = runtime.spawn() => {}
             _ = tokio::signal::ctrl_c() => {}
         }

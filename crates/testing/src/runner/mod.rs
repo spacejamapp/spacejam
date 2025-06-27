@@ -157,7 +157,7 @@ impl Runner {
                 assert_eq!(input.pre_state, output.post_state);
             }
             Section::Erasure => {
-                let mut data = hex::decode(&test.input.trim_start_matches("0x"))?;
+                let mut data = hex::decode(test.input.trim_start_matches("0x"))?;
                 let shards = serde_json::from_str::<Vec<String>>(&test.output)?
                     .into_iter()
                     .map(|s| hex::decode(s.trim_start_matches("0x")).map_err(Into::into))
@@ -212,7 +212,7 @@ impl Runner {
                     assert_eq!(
                         accounts
                             .accounts()
-                            .into_iter()
+                            .iter()
                             .map(|(id, account)| (*id, account.account()))
                             .collect::<BTreeMap<_, _>>(),
                         preimage::to_accounts(output.post_state.accounts)
@@ -366,7 +366,7 @@ impl Runner {
                     input.initial_pc as u64,
                     input.initial_gas,
                     registers,
-                    memory.clone().into(),
+                    memory.clone(),
                 );
 
                 assert_eq!(result.reason.to_string(), output.expected_status);
@@ -395,7 +395,7 @@ impl Runner {
                 }
                 let input = traces::TestInput::from_json(&test.input)?;
                 let output = traces::TestOutput::from_json(&test.output)?;
-                let block: Block = input.block.into();
+                let block: Block = input.block;
                 let memdb = Arc::new(MemoryDb::default());
 
                 // 1. verify the state root in pre-stateπ

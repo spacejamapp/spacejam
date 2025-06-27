@@ -1,12 +1,13 @@
 //! The commit of the storage
 
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A commit of storage
-#[derive(Debug, Default, Clone)]
-pub struct Commit<Key, Value> {
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Commit<Key: Ord, Value> {
     /// The set of the commit
-    update: BTreeMap<Key, Value>,
+    pub update: BTreeMap<Key, Value>,
 
     /// The remove of the commit
     pub removal: BTreeSet<Key>,
@@ -14,8 +15,19 @@ pub struct Commit<Key, Value> {
 
 impl<Key, Value> Commit<Key, Value>
 where
-    Key: Ord + std::fmt::Debug,
+    Key: Ord + std::fmt::Debug + Serialize + DeserializeOwned,
+    Value: Serialize + DeserializeOwned,
 {
+    /// The length of the commit
+    pub fn len(&self) -> usize {
+        self.update.len() + self.removal.len()
+    }
+
+    /// Check if the commit is empty
+    pub fn is_empty(&self) -> bool {
+        self.update.is_empty() && self.removal.is_empty()
+    }
+
     /// Set a key pair to the storage
     pub fn set(&mut self, key: Key, value: Value) {
         self.update.insert(key, value);

@@ -13,9 +13,9 @@ impl core::fmt::Display for Error {
         match self {
             Self::Anyhow(e) => e.fmt(f),
             Self::InvalidLength { expected, got } => {
-                write!(f, "Invalid length: expected {}, got {}", expected, got)
+                write!(f, "Invalid length: expected {expected}, got {got}")
             }
-            Self::InvalidInput(s) => write!(f, "Invalid input: {}", s),
+            Self::InvalidInput(s) => write!(f, "Invalid input: {s}"),
         }
     }
 }

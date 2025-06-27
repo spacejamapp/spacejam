@@ -19,7 +19,15 @@ pub fn transit<Vm: Pvm>(
     storage: Arc<impl Storage>,
 ) -> Result<Commit<StorageKey, Vec<u8>>> {
     let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
-    storage.commit(diff.clone())?;
+    let vdiff = Commit {
+        update: diff
+            .update
+            .iter()
+            .map(|(k, v)| (k.to_vec(), v.clone()))
+            .collect(),
+        removal: diff.removal.iter().map(|k| k.to_vec()).collect(),
+    };
+    storage.commit(vdiff)?;
     Ok(diff)
 }
 

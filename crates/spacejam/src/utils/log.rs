@@ -1,12 +1,12 @@
 //! logging utilities
 
 use network::Network;
-use runtime::{Storage, Validator};
+use runtime::{storage::SyncStorage, Storage, Validator};
 use score::block;
 
 /// Logging the initial status of the node
 pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
-    let grandpa = runtime.grandpa.read().await;
+    let grandpa = runtime.grandpa().await;
     tracing::info!(
         "The latest finalized head #{}: 0x{}",
         grandpa.handshake.head.slot,
@@ -29,10 +29,11 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
         .count() as u16;
 
     // check neighbours
-    let grandpa = runtime.grandpa.read().await.clone();
-    let neighbours = grandpa
-        .grid
-        .neighbours(runtime.validator.ed25519_public_key());
+    let (grid, handshake) = {
+        let grandpa = runtime.grandpa().await;
+        (grandpa.grid.clone(), grandpa.handshake.clone())
+    };
+    let neighbours = grid.neighbours(runtime.validator.ed25519_public_key());
 
     let connected_neighbours = pool
         .iter()
@@ -50,14 +51,17 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
 
     // print the current status
     let timeslot = block::timeslot();
+    let best = runtime.storage.best().unwrap_or_default();
     tracing::info!(
-        "timeslot: #{}, epoch: #{}, progress: [{}/{}], finalized: #{}@0x{}, tickets: {}",
+        "timeslot: #{}, epoch: #{}, progress: [{}/{}], best: #{}@0x{}, finalized: #{}@0x{}, tickets: {}",
         timeslot,
         timeslot / score::EPOCH_LENGTH,
         timeslot % score::EPOCH_LENGTH,
         score::EPOCH_LENGTH,
-        grandpa.handshake.head.slot,
-        hex::encode(&grandpa.handshake.head.hash[..3]),
+        best.slot,
+        hex::encode(&best.hash[..3]),
+        handshake.head.slot,
+        hex::encode(&handshake.head.hash[..3]),
         tickets,
     );
     tracing::debug!(

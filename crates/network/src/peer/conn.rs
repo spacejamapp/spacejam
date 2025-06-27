@@ -6,7 +6,7 @@ use crate::{
 };
 use quinn::crypto::rustls::HandshakeData;
 use runtime::Handshake;
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
 use webpki::{types::CertificateDer, EndEntityCert};
 
@@ -22,9 +22,6 @@ pub struct Connection {
     /// Handshake data.
     pub handshake: Arc<RwLock<Handshake>>,
 
-    /// Latency.
-    pub latency: Duration,
-
     /// Direction.
     pub outgoing: bool,
 }
@@ -39,7 +36,6 @@ impl Connection {
             address,
             conn,
             handshake: Arc::new(RwLock::new(Handshake::default())),
-            latency: Duration::from_secs(0),
             outgoing,
         })
     }

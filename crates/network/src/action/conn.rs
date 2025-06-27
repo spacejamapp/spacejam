@@ -14,7 +14,7 @@ impl<C: runtime::Config> Network<C> {
         let address = conn.address.clone();
 
         // 1. establish the connection in the metrics
-        self.metrics.conn.establish_connection(address.to_string());
+        // self.metrics.conn.establish_connection(address.to_string());
 
         // 2. spawn the connection
         let runtime = self.clone();
@@ -29,7 +29,7 @@ impl<C: runtime::Config> Network<C> {
 
         // 4. open the up0 stream if needed
         if conn.outgoing {
-            let grandpa = self.grandpa.read().await.clone();
+            let grandpa = self.grandpa().await;
             let neighbours = grandpa.grid.neighbours(self.validator.ed25519_public_key());
 
             if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
@@ -60,7 +60,7 @@ impl<C: runtime::Config> Network<C> {
         // close the connection in the pool and metrics
         let address = Address::new(conn.remote_address(), peer);
         conn.close(VarInt::from(0_u8), reason.as_bytes());
-        self.metrics.conn.close_connection(address.to_string());
+        // self.metrics.conn.close_connection(address.to_string());
 
         // if the connection is incoming, we don't need to dial again
         if !conn.outgoing {
@@ -68,7 +68,7 @@ impl<C: runtime::Config> Network<C> {
         }
 
         // check if the peer is a validator
-        let grandpa = self.grandpa.read().await.clone();
+        let grandpa = self.grandpa().await;
         if grandpa.grid.validators().contains(peer.as_ref()) {
             return Ok(Some(address));
         }

@@ -9,7 +9,6 @@ codec.workspace = true
 clap = { workspace = true, features = ["derive"], optional = true }
 crypto = { workspace = true, features = ["ed25519", "rand", "tls"] }
 hex.workspace = true
-metrics.workspace = true
 quinn.workspace = true
 rcgen = { workspace = true, features = ["x509-parser"] }
 rustls.workspace = true

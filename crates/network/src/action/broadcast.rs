@@ -7,21 +7,10 @@ impl<C: runtime::Config> Network<C> {
     /// Announce a block to the network
     #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
     pub async fn announce(&self, header: Box<Header>) -> anyhow::Result<()> {
-        let grandpa = self.grandpa.read().await.clone();
+        let grandpa = self.grandpa().await;
         if let Err(e) = grandpa.accept_local(&header).await {
             tracing::warn!("skip because: {e}");
             return Ok(());
-        }
-
-        // broadcast the block to the network
-        if header.slot > grandpa.handshake.head.slot {
-            self.select_best_chain(header.slot).await?;
-        } else {
-            tracing::trace!(
-                "skipping best chain selection: incoming#{}, grandpa#{}",
-                header.slot,
-                grandpa.handshake.head.slot
-            );
         }
 
         match self.announce.send(*header) {
@@ -34,10 +23,13 @@ impl<C: runtime::Config> Network<C> {
 
     /// Broadcast a ticket to all current validators in the network.
     ///
-    /// TODO: do it async instead of a blocking loop
+    /// TODO:
+    ///
+    /// - do it async instead of a blocking loop
+    /// - check if remote peer can accept the ticket
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
     pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) {
-        let validators = self.grandpa.read().await.grid.curr;
+        let validators = self.grandpa().await.grid.curr;
         let pool = self.pool.read().await.clone();
 
         tracing::trace!("broadcasting to {} peers", pool.len());

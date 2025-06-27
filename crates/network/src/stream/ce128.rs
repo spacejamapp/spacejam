@@ -32,12 +32,12 @@ impl<C: runtime::Config> Network<C> {
             request.direction,
             request.maximum,
         );
-        let grandpa = self.grandpa.read().await;
+        let grandpa = self.grandpa().await;
         let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
         // fetch and write the blocks
         for (hash, _header) in lookup {
-            let Ok(block) = self.storage.get_block(&hash) else {
+            let Ok(block) = self.storage.block(&hash) else {
                 break;
             };
             block.write(&mut send).await?;
@@ -55,7 +55,7 @@ impl<C: runtime::Config> Network<C> {
 
 /// Send a block request.
 #[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
-pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStream> {
+pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
 
     send.write(&[128]).await?;
@@ -72,9 +72,13 @@ pub struct Request {
     /// The hash of the block.
     pub hash: OpaqueHash,
 
-    /// The direction of the block.
+    /// The direction of the block, 0 for ascending exclusive,
+    /// 1 for descending inclusive.
     ///
-    /// 0 for ascending exclusive, 1 for descending inclusive.
+    /// * Ascending exclusive: The sequence of blocks in the response should start
+    ///   with a child of the given block, followed by a grandchild, and so on.
+    /// * Descending inclusive: The sequence of blocks in the response should start
+    ///   with the given block, followed by its parent, grandparent, and so on.
     pub direction: u8,
 
     /// The maximum number of blocks to request.

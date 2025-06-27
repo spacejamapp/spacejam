@@ -2,4 +2,3 @@
 
 pub mod broadcast;
 pub mod conn;
-pub mod sync;

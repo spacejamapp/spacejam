@@ -42,7 +42,7 @@ impl State {
             let info = key.as_state_key().info();
             let mut skey = [0; 31];
             skey.copy_from_slice(&key[..31]);
-            commit.set(skey, value.clone());
+            commit.set(skey.to_vec(), value.clone());
 
             match info {
                 StateKey::Account {

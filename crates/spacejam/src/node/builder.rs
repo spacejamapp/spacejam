@@ -11,6 +11,14 @@ use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 #[derive(Clone)]
 #[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Builder {
+    /// The genesis path
+    #[cfg_attr(feature = "cmd", arg(long))]
+    chain: Option<PathBuf>,
+
+    /// The data path
+    #[cfg_attr(feature = "cmd", arg(short, long, default_value_t = default::data_path()))]
+    data_path: String,
+
     /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
     dev: bool,
@@ -18,14 +26,6 @@ pub struct Builder {
     /// Whether running in light mode
     #[cfg_attr(feature = "cmd", arg(long))]
     light: bool,
-
-    /// The genesis path
-    #[cfg_attr(feature = "cmd", arg(long))]
-    chain: Option<PathBuf>,
-
-    /// The metrics address
-    #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:0"))]
-    metrics: SocketAddr,
 
     /// The network configuration
     #[cfg_attr(feature = "cmd", command(flatten))]
@@ -42,10 +42,7 @@ pub struct Builder {
 
 impl Builder {
     /// Build the node
-    pub async fn build<C: spec::RuntimeSpecSelf>(
-        mut self,
-        data: PathBuf,
-    ) -> anyhow::Result<SpaceJam<C>> {
+    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
         let genesis = if let Some(genesis) = self.chain {
             serde_json::from_slice(fs::read(&genesis)?.as_slice())?
         } else {
@@ -54,14 +51,13 @@ impl Builder {
         .parse()?;
 
         // apply config from the spec file
+        //
+        // TODO: handle bootnode and peer id
         self.network.genesis = genesis.genesis_header.hash()?;
-        if self.network.bootnodes.is_empty() {
-            self.network.bootnodes = genesis.bootnodes.clone();
-        }
 
         // prepare the runtime
         let data = {
-            let data = data.join(genesis.id.to_string());
+            let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
             if !data.exists() {
                 fs::create_dir_all(&data)?;
             }
@@ -73,7 +69,6 @@ impl Builder {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
                 rpc: self.rpc,
-                metrics: self.metrics,
             }));
         }
 
@@ -82,7 +77,6 @@ impl Builder {
             return Ok(SpaceJam::Light(spec::Light {
                 network,
                 rpc: self.rpc,
-                metrics: self.metrics,
             }));
         }
 
@@ -94,12 +88,23 @@ impl Default for Builder {
     fn default() -> Self {
         Self {
             chain: None,
-            metrics: SocketAddr::from(([0, 0, 0, 0], 0)),
+            data_path: default::data_path(),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),
             validator: None,
             dev: false,
             light: false,
         }
+    }
+}
+
+mod default {
+    /// The default data path
+    pub fn data_path() -> String {
+        dirs::data_dir()
+            .unwrap_or_default()
+            .join("spacejam")
+            .to_string_lossy()
+            .to_string()
     }
 }

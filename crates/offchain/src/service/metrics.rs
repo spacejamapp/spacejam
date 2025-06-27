@@ -25,7 +25,7 @@ pub async fn serve(addr: std::net::SocketAddr, metrics: Metrics) -> Result<()> {
                 )
                 .await
             {
-                eprintln!("Error serving connection: {:?}", err);
+                eprintln!("Error serving connection: {err:?}");
             }
         });
     }

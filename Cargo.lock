@@ -3015,7 +3015,6 @@ dependencies = [
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-metrics",
  "spacejam-runtime",
  "spacejson",
  "tokio",

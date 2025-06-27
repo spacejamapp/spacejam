@@ -2,7 +2,7 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{state::key, StorageKey, TimeSlot};
+use score::{state::key, TimeSlot};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -11,7 +11,7 @@ use std::{
 /// Key-value storage
 pub trait KVStorage {
     /// Batch write a set of key-value pairs to the storage
-    fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()>;
+    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()>;
 
     /// Set a key-value pair to the storage
     fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
@@ -56,7 +56,7 @@ pub struct MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn commit(&self, commit: Commit<StorageKey, Vec<u8>>) -> Result<()> {
+    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
         let mut data = self
             .data
             .write()
@@ -67,7 +67,7 @@ impl KVStorage for MemoryDb {
         }
 
         for key in commit.iremoval() {
-            data.remove(key.as_ref());
+            data.remove(key);
         }
 
         Ok(())

@@ -6,7 +6,7 @@ use rpc::{
     server::{ServicePreimageFilter, ServiceRequestFilter, ServiceValueFilter},
 };
 use runtime::storage::{KVStorage, Storage, SyncStorage};
-use score::{state::key, Block, OpaqueHash, ServiceId, StorageKey};
+use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, StorageKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Deref,
@@ -26,17 +26,17 @@ impl<C: runtime::Config> RpcHook<C> {
     /// Migrate the parent
     fn migrate_parent(
         &self,
-        hash: &OpaqueHash,
+        _hash: &OpaqueHash,
         parent: &OpaqueHash,
         state_root: &OpaqueHash,
     ) -> anyhow::Result<()> {
-        let parent = self.runtime.storage.get_block(parent)?;
-        let head = parent.header.clone().try_into()?;
+        let parent = self.runtime.storage.block(parent)?;
+        let head = parent.header.clone();
 
-        self.runtime.storage.set_parent(hash, &head)?;
+        self.runtime.storage.set_header(&head)?;
         self.runtime
             .storage
-            .set_state_root(&head.hash, state_root)?;
+            .set_state_root(&head.parent, state_root)?;
         Ok(())
     }
 
@@ -81,8 +81,13 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.
     async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
-        let head = block.header.clone().try_into()?;
-        self.runtime.storage.set_best(&head)?;
+        let header = block.header.clone();
+        self.runtime.storage.set_header(&header)?;
+
+        let head = Head {
+            hash: header.hash()?,
+            slot: header.slot,
+        };
         self.runtime.storage.set_finalized(&head)?;
 
         // 1. dispatch the best and finalized block

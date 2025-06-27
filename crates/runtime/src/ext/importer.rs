@@ -1,8 +1,8 @@
 //! Importer for SpaceJam
 
 use crate::{
-    storage::{KVStorage, SyncStorage},
-    tx, Config, Hook, Runtime, Storage,
+    storage::{ArchiveStorage, KVStorage, SyncStorage},
+    tx, Config, Runtime, Storage,
 };
 use score::{
     block::Header,
@@ -25,6 +25,7 @@ impl<C: Config> Runtime<C> {
             header: header.clone(),
             ..Default::default()
         };
+        self.storage.set_best(&head)?;
         self.storage.set_block(&block)?;
         self.storage.set_finalized(&head)?;
 
@@ -32,7 +33,7 @@ impl<C: Config> Runtime<C> {
         let mut grandpa = self.grandpa.write().await;
         let mut kvs = Vec::new();
         for (key, value) in state {
-            kvs.push((*key, value.clone()));
+            kvs.push((key.to_vec(), value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     grandpa.grid.prev = codec::decode(value)?;
@@ -54,7 +55,7 @@ impl<C: Config> Runtime<C> {
 
     /// Initialize the runtime from the database
     pub async fn init_from_db(&self) -> anyhow::Result<()> {
-        let finalized = self.storage.get_finalized()?;
+        let finalized = self.storage.finalized()?;
         let mut grandpa = self.grandpa.write().await;
         grandpa.handshake.head = finalized;
 
@@ -73,10 +74,8 @@ impl<C: Config> Runtime<C> {
     ///
     /// Note that we only store finalized blocks and the blocks authored
     /// by ourselves in our storage.
-    ///
-    /// TODO: use block reference
-    pub async fn finalize(&self, block: Block) -> anyhow::Result<()> {
-        let prev = self.grandpa.read().await.handshake.head.clone();
+    pub async fn import(&self, block: Block) -> anyhow::Result<()> {
+        let prev = self.storage.best()?;
 
         // 1. check the parent
         if block.header.parent != prev.hash {
@@ -98,10 +97,12 @@ impl<C: Config> Runtime<C> {
         }
 
         // 3. transit the global state
+        //
+        // We execute the block instead of querying the latest state from the remote.
         let hash = block.header.hash()?;
         let diff = tx::transit::<C::Vm>(block.clone(), self.storage.clone())?;
         tracing::info!(
-            "finalized block#{}@{}, previous block#{}@{}",
+            "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
             hex::encode(&hash[..3]),
             prev.slot,
@@ -110,6 +111,7 @@ impl<C: Config> Runtime<C> {
 
         // 4. save the block to the storage
         self.storage.set_block(&block)?;
+        self.storage.set_diff(hash, diff)?;
         if let Some(series) = block.header.tickets_mark {
             tracing::info!(
                 "next tickets: {:#?}",
@@ -122,32 +124,16 @@ impl<C: Config> Runtime<C> {
             self.storage.set_next_series(series)?;
         }
 
-        // 5. update the grandpa state
-        let next = if block.header.epoch_mark.is_some() {
-            Some(self.storage.next_validators()?)
-        } else {
-            None
-        };
-        self.grandpa
-            .write()
-            .await
-            .finalize(block.header.clone(), next)?;
-
-        // 6. set the head as finalized
-        self.storage
-            .set_finalized(&block.header.clone().try_into()?)?;
-
-        // 7. notify the new finalized block
-        self.hook.on_finalized_block(block).await?;
-        self.hook.on_diff(hash, diff).await?;
+        // 5. set the head as best block
+        self.storage.set_best(&block.header.clone().try_into()?)?;
         Ok(())
     }
 
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "importer::validate")]
     pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
-        let handshake = self.grandpa.read().await.handshake.clone();
-        let local_epoch = handshake.head.slot / score::EPOCH_LENGTH;
+        let best = self.storage.best()?;
+        let local_epoch = best.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
 
         // if the epoch greater than the next, skip the validation.
@@ -207,7 +193,9 @@ impl<C: Config> Runtime<C> {
         let verifier = crypto::ring::verifier(keys.clone());
         let output = verifier
             .ietf_vrf_verify(&message, &context, &header.seal, author_index as usize)
-            .map_err(|e| anyhow::anyhow!("ticket seal verification failed: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
+            })?;
 
         if let Some(ticket) = ticket {
             if ticket.id != output {
@@ -215,8 +203,11 @@ impl<C: Config> Runtime<C> {
                     anyhow::bail!("ticket series not found");
                 };
                 tracing::error!(
-                    "ticket series: {:?}",
-                    tickets.into_iter().map(|t| t.id).collect::<Vec<_>>()
+                    "ticket series: {:#?}",
+                    tickets
+                        .into_iter()
+                        .map(|t| hex::encode(t.id))
+                        .collect::<Vec<_>>()
                 );
                 anyhow::bail!("header seal mismatched");
             }

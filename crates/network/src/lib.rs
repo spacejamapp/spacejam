@@ -1,9 +1,8 @@
 //! Network implementation of Spacejam.
 
-use metrics::Metrics;
 use peer::PeerId;
 use quinn::Endpoint;
-use runtime::{Runtime, Storage, Validator};
+use runtime::{storage::SyncStorage, Runtime, Storage, Validator};
 use score::block::{Head, Header};
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
@@ -17,6 +16,7 @@ pub mod action;
 mod config;
 pub mod peer;
 mod stream;
+mod sync;
 pub mod transport;
 
 /// The network protocol name of Spacejam.
@@ -33,11 +33,8 @@ pub struct Network<C: runtime::Config> {
     /// The manager of the network
     pub pool: Arc<RwLock<HashMap<PeerId, Connection>>>,
 
-    /// The metrics of the network
-    pub metrics: Metrics,
-
     /// (deprecated) The bootnodes of the network
-    pub bootnodes: Vec<Address>,
+    pub bootnode: Option<Address>,
 
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
@@ -49,8 +46,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             transport: self.transport.clone(),
             runtime: self.runtime.clone(),
             pool: self.pool.clone(),
-            metrics: self.metrics.clone(),
-            bootnodes: self.bootnodes.clone(),
+            bootnode: self.bootnode.clone(),
             announce: self.announce.clone(),
         }
     }
@@ -60,8 +56,6 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     /// Create a new network
     pub async fn new(config: Config, runtime: Arc<Runtime<C>>) -> anyhow::Result<Self> {
         let keypair = runtime.validator.ed25519().unwrap_or_default();
-        let peer_id = PeerId::from(keypair.verifying.to_bytes());
-        let address = Address::new(config.address, peer_id);
         let transport = transport::builder(keypair)
             .address(config.address)
             .genesis(config.genesis)
@@ -71,8 +65,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             transport,
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
-            metrics: Metrics::new(address.to_string().as_str()),
-            bootnodes: config.bootnodes,
+            bootnode: config.bootnode,
             announce: broadcast::channel(256).0,
         };
 
@@ -81,7 +74,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
     /// Lookup the best head from the network
     pub async fn lookup(&self, best: &Head) -> Vec<Connection> {
-        let grandpa = self.runtime.grandpa.read().await.clone();
+        let grandpa = self.runtime.grandpa().await;
         let pool = self.pool.read().await.clone();
         let mut feeds = Vec::new();
         for conn in pool.values() {
@@ -89,7 +82,9 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
             // check if the connection is a feedi
             if handshake.head.hash == best.hash
-                || grandpa.is_descendant_of(handshake.head.hash, best.hash)
+                || grandpa
+                    .ancestry
+                    .is_descendant_of(&handshake.head.hash, &best.hash)
                 || handshake.leaves.contains(best)
             {
                 feeds.push(conn.clone());
@@ -102,7 +97,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         // - the best head is at least a descendant of their finalized heads
         //
         // so we can directly fetch the missing blocks from the feeds.
-        feeds.sort_by_key(|conn| conn.latency);
+        feeds.sort_by_key(|conn| conn.rtt());
         feeds
     }
 
@@ -152,6 +147,8 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Dial the validators
+    ///
+    /// TODO: verify the connections before dialing, ping?
     pub async fn dial_validators(&self) {
         let me = self.me();
         let pool = self.pool.read().await.clone();

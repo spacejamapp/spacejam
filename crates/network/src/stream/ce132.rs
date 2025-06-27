@@ -5,7 +5,7 @@ use crate::{
     Network,
 };
 pub use ce131::Request;
-use quinn::{RecvStream, SendStream};
+use quinn::{RecvStream, SendStream, VarInt};
 use score::block;
 
 impl<C: runtime::Config> Network<C> {
@@ -39,6 +39,7 @@ impl<C: runtime::Config> Network<C> {
             request.epoch,
         );
         send.finish()?;
+        recv.stop(VarInt::from_u32(0))?;
         Ok(())
     }
 }

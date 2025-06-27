@@ -116,6 +116,18 @@ pub struct Head {
     pub slot: TimeSlot,
 }
 
+impl PartialOrd for Head {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.slot.cmp(&other.slot))
+    }
+}
+
+impl Ord for Head {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.slot.cmp(&other.slot)
+    }
+}
+
 #[cfg(feature = "crypto")]
 mod crypto_impl {
     use super::*;

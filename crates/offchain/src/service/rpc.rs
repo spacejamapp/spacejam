@@ -53,33 +53,26 @@ impl<C: Config> Rpc<C> {
 #[async_trait]
 impl<C: Config> ApiServer for Rpc<C> {
     fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let best = self.runtime.storage.get_best().map_err(to_owned_error)?;
+        let best = self.runtime.storage.best().map_err(to_owned_error)?;
         Ok((best.hash, best.slot))
     }
 
     fn finalized_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let finalized = self
-            .runtime
-            .storage
-            .get_finalized()
-            .map_err(to_owned_error)?;
+        let finalized = self.runtime.storage.finalized().map_err(to_owned_error)?;
         Ok((finalized.hash, finalized.slot))
     }
 
     fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned> {
-        let parent = self
-            .runtime
-            .storage
-            .get_parent(&hash)
-            .map_err(to_owned_error)?;
-        Ok(parent.map(|parent| (parent.hash, parent.slot)))
+        let parent = self.runtime.storage.parent(&hash).map_err(to_owned_error)?;
+        let header = self.runtime.storage.header(&hash).map_err(to_owned_error)?;
+        Ok(parent.map(|parent| (parent, header.slot)))
     }
 
     fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned> {
         let state_root = self
             .runtime
             .storage
-            .get_state_root(&hash)
+            .state_root(&hash)
             .map_err(to_owned_error)?;
         Ok(state_root)
     }

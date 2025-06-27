@@ -6,6 +6,7 @@
 use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
+use runtime::storage::SyncStorage;
 use score::block::{Head, Header};
 
 /// Announce the block to the peer.
@@ -40,7 +41,7 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        let grandpa = runtime.grandpa.read().await.clone();
+        let grandpa = runtime.grandpa().await;
         let handshake = conn.handshake.read().await;
         tracing::debug!("sending announcement: #{}", header.slot);
 
@@ -67,7 +68,7 @@ pub async fn send<C: runtime::Config>(
         }
 
         // send the announcement to the remote peer.
-        let data = (header, grandpa.handshake.head);
+        let data = (header, grandpa.handshake.head.clone());
         data.write(&mut send).await?;
     }
 
@@ -97,16 +98,16 @@ pub async fn recv<C: runtime::Config>(
         let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
-        let grandpa = runtime.grandpa.read().await.clone();
+        let grandpa = runtime.grandpa().await;
         {
             let mut handshake = conn.handshake.write().await;
-            handshake.head = head.clone();
+            handshake.head = head;
             grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
         }
 
         // 4. validate the header
         let hash = header.hash()?;
-        if grandpa.ancestry.header(&hash).is_some() {
+        if grandpa.ancestry.header(&hash).is_ok() {
             continue;
         }
 
@@ -135,8 +136,8 @@ pub async fn recv<C: runtime::Config>(
 
         // 6. skip if the header exists
         {
-            let grandpa = runtime.grandpa.read().await.clone();
-            if grandpa.ancestry.header(&hash).is_some() {
+            let grandpa = runtime.grandpa().await;
+            if grandpa.ancestry.header(&hash).is_ok() {
                 continue;
             }
         }
@@ -146,12 +147,6 @@ pub async fn recv<C: runtime::Config>(
         // Note that we don't verify the header here since we may
         // not have the parent of it.
         runtime.grandpa.write().await.add_leaf(header.clone())?;
-
-        // // TODO: we should only broadcast the header only if we
-        // // have fetched it.
-        // //
-        // // broadcast the header to the network
-        // // runtime.send(Event::AnnounceBlock(Box::new(header.clone())))?;
-        // runtime.announce(Box::new(header.clone())).await?;
+        runtime.select_best_chain(header.slot).await?;
     }
 }

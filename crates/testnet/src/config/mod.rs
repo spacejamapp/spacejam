@@ -3,8 +3,9 @@
 use crate::Arch;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, path::PathBuf};
-pub use {network::Network, node::Node};
+pub use {filter::Filter, network::Network, node::Node};
 
+mod filter;
 mod network;
 mod node;
 
@@ -22,7 +23,7 @@ impl Testnet {
     pub fn prune(&self) -> anyhow::Result<()> {
         for (name, node) in self.node.iter() {
             println!("pruning {name}: {}", node.data.display());
-            fs::remove_dir_all(&node.data)?;
+            let _ = fs::remove_dir_all(&node.data);
         }
         println!("pruned all nodes.");
         Ok(())
@@ -37,17 +38,17 @@ impl Default for Testnet {
 
         for i in 0..5 {
             nodes.insert(
-                format!("polkajam-{}", i),
+                format!("polkajam-{i}"),
                 Node {
                     command: "polkajam".to_string(),
                     arch: Arch::Polkajam,
-                    data: PathBuf::from(format!("res/testnet/{}", i)),
+                    data: PathBuf::from(format!("res/testnet/{i}")),
                     quic: format!("0.0.0.0:{}", quic + i),
                     rpc: format!("0.0.0.0:{}", rpc + i),
                     args: vec![],
                     seed: "0".to_string(),
                     env: BTreeMap::new(),
-                    filter: vec![],
+                    filter: Filter::default(),
                 },
             );
         }
@@ -62,7 +63,7 @@ impl Default for Testnet {
                 args: vec![],
                 seed: "0".to_string(),
                 env: BTreeMap::new(),
-                filter: vec![],
+                filter: Filter::default(),
             },
         );
 
