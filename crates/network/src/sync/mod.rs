@@ -97,7 +97,7 @@ impl<C: runtime::Config> Network<C> {
             return Ok(());
         };
 
-        tracing::info!(
+        tracing::trace!(
             "head#{}@0x{} ancestors: {:#?}",
             ancestry.best.slot,
             hex::encode(&ancestry.best.hash[..3]),
@@ -112,17 +112,25 @@ impl<C: runtime::Config> Network<C> {
             self.finalize(&ancestry.ancestors[3..]).await?;
         }
 
-        ancestry.advance(&best)?;
-        self.sync_local(&mut ancestry).await?;
+        // WORKAROUND: fallback to the finalized head.
+        if let Err(e) = ancestry.advance(&best) {
+            self.fallback().await?;
+            return Err(e);
+        }
+
+        let post = self.sync_local(&mut ancestry).await?;
         BlockSync::asc(self, ancestry.clone()).await?.sync().await?;
 
         // try sync from local chain again
-        self.sync_local(&mut ancestry).await
+        if post {
+            let _ = self.sync_local(&mut ancestry).await?;
+        }
+        Ok(())
     }
 
     /// Sync from the local chain.
     #[tracing::instrument(skip_all, name = "sync::local", parent = None)]
-    async fn sync_local(&self, ancestry: &mut Ancestry) -> anyhow::Result<()> {
+    async fn sync_local(&self, ancestry: &mut Ancestry) -> anyhow::Result<bool> {
         let mut blocks = ancestry.ancestors.clone();
         blocks.reverse();
 
@@ -140,7 +148,7 @@ impl<C: runtime::Config> Network<C> {
                     block.header.slot,
                     ancestry.finalized.slot,
                 );
-                return Ok(());
+                return Ok(false);
             }
 
             let slot = block.header.slot;
@@ -148,6 +156,24 @@ impl<C: runtime::Config> Network<C> {
             ancestry.advance(&Head { hash, slot })?;
         }
 
+        Ok(true)
+    }
+
+    /// Fallback to the finalized chain.
+    ///
+    /// This happens when our best head is on a fork chain
+    ///
+    /// TODO: this operation should be well tested.
+    pub async fn fallback(&self) -> anyhow::Result<()> {
+        let finalized = self.storage.finalized()?;
+        self.storage.finalize(finalized.hash)?;
+        tracing::warn!(
+            "fallback to the finalized chain at head#{}@0x{}",
+            finalized.slot,
+            hex::encode(&finalized.hash)
+        );
+
+        self.grandpa.write().await.handshake.head = finalized;
         Ok(())
     }
 }

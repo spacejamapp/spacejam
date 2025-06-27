@@ -221,6 +221,8 @@ pub trait SyncStorage: Storage {
         }
 
         // check if the block with epoch mark left on fork chain
+        //
+        // FIXME: this may not correct since different nodes may have different tickets.
         let safrole = self.safrole()?;
         if safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
             let mut tickets = [Default::default(); score::EPOCH_LENGTH as usize];

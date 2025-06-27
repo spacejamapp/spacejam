@@ -117,6 +117,9 @@ pub async fn recv<C: runtime::Config>(
                 header.slot,
                 hex::encode(&hash[..3]),
             );
+            if let Err(e) = runtime.fallback().await {
+                tracing::error!("failed to fallback: {e}");
+            }
             continue;
         }
 

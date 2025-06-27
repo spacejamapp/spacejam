@@ -169,6 +169,8 @@ impl<C: Config> Runtime<C> {
                 .and_then(|safrole| Ok(safrole.accumulator))
             {
                 // Handle the case that the block with epoch mark is not finalized
+                //
+                // FIXME: this may not correct since different nodes may have different tickets.
                 if tickets.len() == score::EPOCH_LENGTH as usize {
                     ticket = Some(tickets[slot]);
                 }
