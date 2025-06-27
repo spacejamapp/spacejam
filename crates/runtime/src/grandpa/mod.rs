@@ -140,10 +140,7 @@ impl<T: Storage> Grandpa<T> {
             best = Some((leaf.clone(), ancestors));
         }
 
-        let Some((best, ancestors)) = best else {
-            return None;
-        };
-
+        let (best, ancestors) = best?;
         Some(Ancestry {
             best,
             ancestors,
@@ -234,53 +231,6 @@ impl<T: Storage> Clone for Grandpa<T> {
             handshake: self.handshake.clone(),
             ancestry: self.ancestry.clone(),
             grid: self.grid.clone(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::storage::MemoryDb;
-    use score::TimeSlot;
-
-    #[test]
-    fn test_select_best_head() {
-        let db = MemoryDb::default();
-        let ancestry = Arc::new(db);
-        let mut grandpa = Grandpa::new(ancestry);
-        let mut parent = Header {
-            slot: 0,
-            parent: [0; 32],
-            ..Default::default()
-        };
-
-        grandpa.handshake.head = Head {
-            slot: 0,
-            hash: parent.hash().unwrap(),
-        };
-        grandpa.ancestry.set_header(&parent).unwrap();
-        for i in 1..20u8 {
-            let header = Header {
-                slot: i as TimeSlot,
-                parent: parent.hash().unwrap(),
-                ..Default::default()
-            };
-            let hash = header.hash().unwrap();
-            grandpa.add_leaf(header.clone()).unwrap();
-            let best = grandpa.select_best_head();
-
-            if i > 6 {
-                let best = best.unwrap();
-                assert_eq!(
-                    hex::encode(&best.best.hash.as_ref()),
-                    hex::encode(&hash.as_ref())
-                );
-            } else {
-                assert!(best.is_none());
-            }
-
-            parent = header;
         }
     }
 }

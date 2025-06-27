@@ -4,7 +4,7 @@ use crate::Network;
 use request::BlockSync;
 use runtime::{
     storage::{ArchiveStorage, SyncStorage},
-    Hook, Storage,
+    Ancestry, Hook, Storage,
 };
 use score::{block::Head, OpaqueHash, TimeSlot};
 
@@ -112,43 +112,25 @@ impl<C: runtime::Config> Network<C> {
             self.finalize(&ancestry.ancestors[3..]).await?;
         }
 
-        if self.storage.block(&ancestry.best.hash).is_ok() {
-            self.import(self.storage.block(&ancestry.best.hash)?)
-                .await?;
-            return Ok(());
-        }
-
-        self.sync_local(&mut ancestry.ancestors).await?;
-        BlockSync::asc(self, best.hash, ancestry.best, ancestry.ancestors.len() + 1)
-            .await?
-            .sync()
-            .await
+        ancestry.finalize(&best)?;
+        self.sync_local(&mut ancestry).await?;
+        BlockSync::asc(self, ancestry).await?.sync().await
     }
 
     /// Sync from the local chain.
     #[tracing::instrument(skip_all, name = "sync::local", parent = None)]
-    async fn sync_local(&self, ancestors: &mut Vec<OpaqueHash>) -> anyhow::Result<()> {
-        let mut blocks = ancestors.clone();
+    async fn sync_local(&self, ancestry: &mut Ancestry) -> anyhow::Result<()> {
+        let mut blocks = ancestry.ancestors.clone();
         blocks.reverse();
 
-        let mut imported = 0;
-        let best = self.storage.best()?;
-        for block in blocks.iter() {
-            let Ok(block) = self.storage.block(block) else {
+        for hash in blocks.iter().cloned() {
+            let Ok(block) = self.storage.block(&hash) else {
                 break;
             };
 
-            if block.header.slot <= best.slot {
-                imported += 1;
-                continue;
-            }
-
+            let slot = block.header.slot;
             self.import(block).await?;
-            imported += 1;
-        }
-
-        if imported > 0 {
-            ancestors.truncate(ancestors.len() - imported);
+            ancestry.finalize(&Head { hash, slot })?;
         }
 
         Ok(())

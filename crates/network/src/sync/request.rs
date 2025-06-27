@@ -1,12 +1,13 @@
-use crate::{stream::ce128, Network};
-use quinn::RecvStream;
-use runtime::storage::SyncStorage;
-use score::{block::Head, Block, OpaqueHash};
+//! Block sync requester
+
+use crate::{stream::ce128, Connection, Network};
+use runtime::{storage::SyncStorage, Ancestry};
+use score::Block;
 
 /// Block sync requester
 pub struct BlockSync<'r, C: runtime::Config> {
-    /// The best head of the sync.
-    target: Head,
+    /// The ancestry of the sync.
+    ancestry: Ancestry,
 
     /// The current state of the request.
     request: ce128::Request,
@@ -19,26 +20,21 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// Create a new block sync requester.
     ///
     /// TODO: indicate the request direction by the maximum blocks.
-    pub async fn asc(
-        runtime: &'r Network<C>,
-        start: OpaqueHash,
-        target: Head,
-        to_request: usize,
-    ) -> anyhow::Result<Self> {
+    pub async fn asc(runtime: &'r Network<C>, ancestry: Ancestry) -> anyhow::Result<Self> {
         tracing::debug!(
             "syncing from 0x{} to 0x{} ({} blocks)",
-            hex::encode(&start[..3]),
-            hex::encode(&target.hash[..3]),
-            to_request
+            hex::encode(&ancestry.finalized.hash[..3]),
+            hex::encode(&ancestry.best.hash[..3]),
+            ancestry.ancestors.len() + 1
         );
         let request = ce128::Request {
-            hash: start,
+            hash: ancestry.best.hash,
             direction: 0,
-            maximum: to_request as u32,
+            maximum: ancestry.ancestors.len() as u32 + 1,
         };
 
         Ok(Self {
-            target,
+            ancestry,
             request,
             runtime,
         })
@@ -47,14 +43,13 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// Send the request to the feeds.
     #[tracing::instrument(skip_all, parent = None, name = "sync::remote")]
     pub async fn sync(&mut self) -> anyhow::Result<()> {
-        let feeds = self.runtime.lookup(&self.target).await;
+        let feeds = self.runtime.lookup(&self.ancestry.best).await;
         for feed in feeds {
             if self.request.maximum == 0 {
                 return Ok(());
             }
 
-            let recv = ce128::send(feed.clone(), self.request.clone()).await?;
-            if let Err(e) = self.request(recv).await {
+            if let Err(e) = self.request_all(&feed).await {
                 tracing::debug!(
                     "failed to sync from {}: {}, switching to the next feed",
                     feed.address.peer_id,
@@ -71,12 +66,14 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     }
 
     /// Send the request to the feeds.
-    pub async fn request(&mut self, mut recv: RecvStream) -> anyhow::Result<()> {
+    ///
+    /// NOTE: seems polkajam doesn't support multiple blocks atm.
+    pub async fn request_all(&mut self, feed: &Connection) -> anyhow::Result<()> {
+        let mut recv = ce128::send(feed, self.request.clone()).await?;
         let mut requested = 0;
         loop {
             let mut buf = [0; 4];
             if recv.read_exact(&mut buf).await.is_err() {
-                // NOTE: seems polkajam doesn't support multiple blocks atm.
                 tracing::warn!("no more blocks to read, FIXME: read multiple blocks");
                 break;
             }
@@ -89,6 +86,8 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
 
             let block: Block = codec::decode(&buffer)?;
             if self.runtime.storage.block(&block.header.hash()?).is_err() {
+                // TODO: set instead of import if the block is not consistent
+                // with the best head.
                 self.runtime.import(block).await?;
             }
 

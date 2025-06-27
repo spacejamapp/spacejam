@@ -55,7 +55,7 @@ impl<C: runtime::Config> Network<C> {
 
 /// Send a block request.
 #[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
-pub async fn send(conn: Connection, request: Request) -> anyhow::Result<RecvStream> {
+pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
 
     send.write(&[128]).await?;
