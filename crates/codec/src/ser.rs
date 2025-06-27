@@ -181,7 +181,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        println!("serialize_map: {:?}", len);
+        println!("serialize_map: {len:?}");
         if let Some(len) = len {
             let length = vlen::encode(len as u64);
             self.output.extend_from_slice(&length);
