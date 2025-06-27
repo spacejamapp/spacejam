@@ -29,13 +29,10 @@ impl Formats {
                 (0..format.immediate)
                     .map(|i| (format!("imm{i}"), parse_quote!(Register), "immediate")),
             )
-            .chain((0..format.extended_immediate).map(|i| {
-                (
-                    format!("eimm{i}"),
-                    parse_quote!(u64),
-                    "extended-immediate",
-                )
-            }))
+            .chain(
+                (0..format.extended_immediate)
+                    .map(|i| (format!("eimm{i}"), parse_quote!(u64), "extended-immediate")),
+            )
             .chain((0..format.offset).map(|i| (format!("off{i}"), parse_quote!(i32), "offset")))
             .map(|(name, value, doc): (String, Type, &str)| {
                 let i = name.chars().last().expect("Failed to get last char");
