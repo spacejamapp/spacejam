@@ -60,9 +60,6 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 1. check generating tickets
-        //
-        // - the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
-        // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
         if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
@@ -71,7 +68,7 @@ impl<'a, C: Config> Author<'a, C> {
             }
         }
 
-        // 3. check authoring blocks
+        // 2. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author(timeslot).await?.header);
             self.slots.retain(|s| *s != slot);

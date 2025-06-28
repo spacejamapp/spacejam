@@ -133,8 +133,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         let conn = self
             .transport
             .connect(addr.address, addr.peer_id.to_string().as_str())?
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e}"))?;
+            .await?;
 
         // we need to verify the peer id before sending the connected event
         let Ok(conn) = Connection::new(conn.clone(), true) else {

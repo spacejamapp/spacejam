@@ -64,10 +64,19 @@ impl<C: runtime::Config> Validating<C> {
             // author block
             if let Some(header) = header {
                 if let Ok(hash) = header.hash() {
+                    let Ok(parent) = runtime.storage.block(&header.parent) else {
+                        tracing::error!(
+                            "Failed to get parent header of authored block#{}",
+                            header.slot
+                        );
+                        continue;
+                    };
+
                     tracing::info!(
-                        "block#{}@0x{}, parent@{}",
+                        "block#{}@0x{}, parent#{}@0x{}",
                         header.slot,
                         hex::encode(&hash[..3]),
+                        parent.header.slot,
                         hex::encode(&header.parent[..3])
                     );
                 }

@@ -64,7 +64,7 @@ impl<C: runtime::Config> Network<C> {
     }
 }
 
-mod ext {
+pub mod ext {
     use quinn::{RecvStream, SendStream};
     use serde::{de::DeserializeOwned, Serialize};
 

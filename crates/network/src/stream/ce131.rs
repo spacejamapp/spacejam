@@ -4,7 +4,7 @@ use crate::{
     stream::ext::{Read, Write},
     Network,
 };
-use quinn::{RecvStream, SendStream, VarInt};
+use quinn::{RecvStream, SendStream};
 use score::{block, extrinsic::TicketEnvelope};
 use serde::{Deserialize, Serialize};
 
@@ -57,25 +57,16 @@ impl<C: runtime::Config> Network<C> {
             .await
             .push((epoch, ticket.envelope));
 
-        send.stopped().await?;
         send.finish()?;
-        recv.stop(VarInt::from_u32(0))?;
         Ok(())
     }
 }
 
 /// Submit a safrole ticket
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     send.write(&[131]).await?;
     request.write(&mut send).await?;
-
-    send.stopped().await?;
     send.finish()?;
-    recv.stop(VarInt::from_u32(0))?;
     Ok(())
 }
 

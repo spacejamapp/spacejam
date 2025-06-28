@@ -118,19 +118,15 @@ impl<C: runtime::Config> Network<C> {
             return Err(e);
         }
 
-        let post = self.sync_local(&mut ancestry).await?;
+        self.sync(&mut ancestry).await?;
         BlockSync::asc(self, ancestry.clone()).await?.sync().await?;
-
-        // try sync from local chain again
-        if post {
-            let _ = self.sync_local(&mut ancestry).await?;
-        }
+        self.sync(&mut ancestry).await?;
         Ok(())
     }
 
     /// Sync from the local chain.
     #[tracing::instrument(skip_all, name = "sync::local", parent = None)]
-    async fn sync_local(&self, ancestry: &mut Ancestry) -> anyhow::Result<bool> {
+    async fn sync(&self, ancestry: &mut Ancestry) -> anyhow::Result<()> {
         let mut blocks = ancestry.ancestors.clone();
         blocks.reverse();
 
@@ -148,7 +144,7 @@ impl<C: runtime::Config> Network<C> {
                     block.header.slot,
                     ancestry.finalized.slot,
                 );
-                return Ok(false);
+                return Ok(());
             }
 
             let slot = block.header.slot;
@@ -156,7 +152,7 @@ impl<C: runtime::Config> Network<C> {
             ancestry.advance(&Head { hash, slot })?;
         }
 
-        Ok(true)
+        Ok(())
     }
 
     /// Fallback to the finalized chain.

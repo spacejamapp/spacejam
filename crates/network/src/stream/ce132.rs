@@ -8,7 +8,7 @@ use crate::{
     Network,
 };
 pub use ce131::Request;
-use quinn::{RecvStream, SendStream, VarInt};
+use quinn::{RecvStream, SendStream};
 use score::block;
 
 impl<C: runtime::Config> Network<C> {
@@ -33,28 +33,20 @@ impl<C: runtime::Config> Network<C> {
             self.insert_ticket(epoch, ticket).await?;
         }
 
-        send.stopped().await?;
         send.finish()?;
-        recv.stop(VarInt::from_u32(0))?;
         Ok(())
     }
 }
 
 /// Send a safrole ticket distribution.
 #[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
-pub async fn send(
-    mut send: SendStream,
-    mut recv: RecvStream,
-    request: Request,
-) -> anyhow::Result<()> {
+pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     send.write(&[132]).await?;
 
     // 1. send the request
     request.write(&mut send).await?;
 
     // 2. finish sending and wait for the response to be fully received
-    send.stopped().await?;
     send.finish()?;
-    recv.stop(VarInt::from_u32(0))?;
     Ok(())
 }
