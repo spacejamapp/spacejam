@@ -174,6 +174,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             };
 
             let address = Address::new(ipv4, peer);
+            tracing::info!("dialing peer {address}");
             if let Err(e) = self.dial(address).await {
                 tracing::warn!("failed to dial bootstrap peer: {e}");
             }

@@ -65,7 +65,7 @@ impl<C: Config> Runtime<C> {
         self.grandpa.read().await.clone()
     }
 
-    /// Get the local validator
+    /// Get the bandersnatch public key of the local validator
     pub fn me(&self) -> BandersnatchPublic {
         self.validator.bandersnatch_public_key()
     }

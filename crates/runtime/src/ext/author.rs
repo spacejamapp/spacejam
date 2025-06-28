@@ -3,7 +3,7 @@
 use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
 use score::{
     block::{Block, Header},
-    extrinsic::{Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
+    extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
     BandersnatchPublic, OpaqueHash, TimeSlot,
 };
@@ -60,7 +60,7 @@ impl<'a, C: Config> Author<'a, C> {
         // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
         let best = self.storage.best()?;
-        if best.generate_ticket(timeslot, finalized.slot) {
+        if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
                 self.tickets.push(ticket.id);
                 next.1 = Some(ticket);
@@ -178,7 +178,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+        if attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
             return Ok(None);
         }
 
@@ -281,9 +281,13 @@ impl<'a, C: Config> Author<'a, C> {
             return Ok(series);
         }
 
-        let prev = self.storage.header(&header.parent)?;
-        let prev_epoch = prev.slot / score::EPOCH_LENGTH;
-        if epoch > prev_epoch {
+        let prev = self
+            .storage
+            .header(&header.parent)
+            .map(|prev| prev.slot / score::EPOCH_LENGTH)
+            .unwrap_or(0);
+
+        if epoch > prev {
             let keys = self.storage.next_validators()?.bandersnatch();
             let entropy = self.storage.entropy()?;
             return Ok(TicketsOrKeys::fallback(keys, entropy[1]));

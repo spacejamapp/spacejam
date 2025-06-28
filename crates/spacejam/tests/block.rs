@@ -3,7 +3,7 @@ use spacejam::{chain, validator::LocalValidator, Test};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::test]
-async fn test_block_sealing() {
+async fn test_sealing() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();

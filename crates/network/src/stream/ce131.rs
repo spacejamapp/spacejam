@@ -31,10 +31,18 @@ impl<C: runtime::Config> Network<C> {
         // check if the ticket is valid.
         let ticket = self.runtime.verify_ticket(request.ticket).await?;
         let submission = ticket.submission();
-        let validators = self.grandpa().await.grid.curr;
+        let validators = self.grandpa().await.grid.next;
         let validator = validators[submission];
-        if validator.ed25519 != self.me() {
-            anyhow::bail!("received invalid ticket: not the proxy validator");
+        let me = self.me();
+        if validator.bandersnatch != me {
+            let sig = ticket.envelope.signature;
+            let mbindex = u32::from_be_bytes([sig[780], sig[781], sig[782], sig[783]]);
+            anyhow::bail!(
+                "received invalid ticket: not the proxy validator, expected: {}, this: {:?}, mb using signature?: {}",
+                submission,
+                validators.iter().position(|v| v.ed25519 == me),
+                mbindex % 6,
+            );
         }
 
         if request.epoch != epoch {
@@ -57,10 +65,9 @@ impl<C: runtime::Config> Network<C> {
     }
 }
 
-/// Send a safrole ticket distribution.
-#[allow(unused)]
+/// Submit a safrole ticket
 pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
-    send.write(&[132]).await?;
+    send.write(&[131]).await?;
     request.write(&mut send).await?;
     send.finish()?;
     Ok(())
