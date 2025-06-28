@@ -32,13 +32,13 @@ pub trait SyncStorage: Storage {
 
     /// Check if the given hash is a descendant of the ancestor.
     fn is_descendant_of(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> bool {
-        let mut key = [SYNC, b"descendant", ancestor.as_ref()].concat();
-        while let Ok(Some(value)) = self.get(&key) {
-            if value == hash {
+        let mut current = *hash;
+        while let Ok(Some(parent)) = self.parent(&current) {
+            if parent == *ancestor {
                 return true;
             }
 
-            key = [SYNC, b"descendant", value.as_ref()].concat();
+            current = parent;
         }
 
         false
@@ -76,9 +76,9 @@ pub trait SyncStorage: Storage {
         Ok(())
     }
 
-    /// Get the descendant of the given hash.
-    fn descendant(&self, hash: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = [SYNC, b"descendant", hash.as_ref()].concat();
+    /// Get the descendant of the given hash in finalized chain.
+    fn descendant(&self, parent: &OpaqueHash) -> Result<OpaqueHash> {
+        let key = [SYNC, b"descendant", parent.as_ref()].concat();
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
@@ -95,9 +95,16 @@ pub trait SyncStorage: Storage {
     }
 
     /// Set the finalized head
-    fn set_finalized(&self, head: &Head) -> Result<()> {
+    fn finalize(&self, head: &Head) -> Result<()> {
         let key = [SYNC, b"finalized"].concat();
         self.set(key, codec::encode(head)?)?;
+
+        // set the descendant of the parent
+        let parent = self
+            .parent(&head.hash)?
+            .ok_or(anyhow::anyhow!("Parent not found"))?;
+        let key = [SYNC, b"descendant", parent.as_ref()].concat();
+        self.set(key, head.hash)?;
         Ok(())
     }
 

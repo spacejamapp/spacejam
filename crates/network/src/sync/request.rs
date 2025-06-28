@@ -85,7 +85,9 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
 
             // FIXME: skip requests if the block already exists.
             let slot = block.header.slot;
+            let header = block.header.clone();
             self.runtime.import(block).await?;
+            self.runtime.announce(header.into()).await?;
             self.ancestry.advance(&Head { hash, slot })?;
             head = hash;
             if head == best {

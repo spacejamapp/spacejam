@@ -45,8 +45,8 @@ impl<C: runtime::Config> Network<C> {
             finalized = Head { hash: *head, slot };
         }
 
-        self.storage.finalize(finalized.hash)?;
-        self.storage.set_finalized(&finalized)?;
+        self.storage.checkout(finalized.hash)?;
+        self.storage.finalize(&finalized)?;
         {
             // FIXME: this could introduce bugs in future.
             let next = if block.header.epoch_mark.is_some() {
@@ -129,7 +129,7 @@ impl<C: runtime::Config> Network<C> {
     /// TODO: this operation should be well tested.
     pub async fn fallback(&self) -> anyhow::Result<()> {
         let finalized = self.storage.finalized()?;
-        self.storage.finalize(finalized.hash)?;
+        self.storage.checkout(finalized.hash)?;
         tracing::warn!(
             "fallback to the finalized chain at head#{}@0x{}",
             finalized.slot,

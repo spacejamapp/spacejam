@@ -31,8 +31,8 @@ pub trait ArchiveStorage: KVStorage {
         Ok(())
     }
 
-    /// Finalize the archive storage for a given block.
-    fn finalize(&self, block: OpaqueHash) -> Result<()> {
+    /// Checkout the archive storage for a given block.
+    fn checkout(&self, block: OpaqueHash) -> Result<()> {
         let prefix = [ARCHIVE, block.as_ref()].concat();
         let mut iter = self.prefix_iter(prefix)?;
         while let Some(Ok((key, value))) = iter.next() {

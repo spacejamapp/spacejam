@@ -27,7 +27,7 @@ impl<C: Config> Runtime<C> {
         };
         self.storage.set_best(&head)?;
         self.storage.set_block(&block)?;
-        self.storage.set_finalized(&head)?;
+        self.storage.finalize(&head)?;
 
         // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;

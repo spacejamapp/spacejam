@@ -50,7 +50,7 @@ impl<T: SyncStorage> Iterator for Lookup<T> {
                 if self.count == 0 {
                     Some(self.current)
                 } else {
-                    self.ancestry.descendant(&self.current).ok()
+                    self.ancestry.parent(&self.current).ok().flatten()
                 }
             }
             _ => None,

@@ -88,7 +88,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
             hash: header.hash()?,
             slot: header.slot,
         };
-        self.runtime.storage.set_finalized(&head)?;
+        self.runtime.storage.finalize(&head)?;
 
         // 1. dispatch the best and finalized block
         self.dispatch_best_block(&head.hash, head.slot as u64)
