@@ -1,6 +1,7 @@
 //! Block sync requester
 
 use crate::{stream::ce128, Connection, Network};
+use quinn::VarInt;
 use runtime::{storage::SyncStorage, Ancestry};
 use score::Block;
 
@@ -95,6 +96,8 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             if self.runtime.storage.block(hash).is_err() {
                 self.runtime.storage.set_block(&block)?;
             }
+
+            recv.stop(VarInt::from_u32(0))?;
         }
 
         Ok(())

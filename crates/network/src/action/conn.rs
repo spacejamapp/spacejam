@@ -85,7 +85,9 @@ impl<C: runtime::Config> Network<C> {
                     self.handle(peer_id, send, recv).await;
                 }
                 Err(e) => {
-                    tracing::debug!("connection {}, {}", conn.address.to_string(), e.to_string());
+                    if let Err(e) = self.disconnect(peer_id, e.to_string()).await {
+                        tracing::error!("failed to disconnect: {e:?}");
+                    }
                     break;
                 }
             }

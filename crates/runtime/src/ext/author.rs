@@ -26,6 +26,9 @@ pub struct Author<'a, C: Config> {
 
     /// The attempt number of the current epoch
     attempt: AtomicU8,
+
+    /// The epoch of the current authoring
+    epoch: u32,
 }
 
 impl<'a, C: Config> Author<'a, C> {
@@ -36,6 +39,7 @@ impl<'a, C: Config> Author<'a, C> {
             slots: Default::default(),
             attempt: Default::default(),
             tickets: Default::default(),
+            epoch: 0,
         }
     }
 
@@ -51,7 +55,7 @@ impl<'a, C: Config> Author<'a, C> {
         let mut next = (None, None);
 
         // check if the epoch is changed
-        if epoch > prev {
+        if epoch > prev && epoch > self.epoch {
             self.on_new_epoch(epoch).await?;
         }
 
@@ -117,12 +121,13 @@ impl<'a, C: Config> Author<'a, C> {
         }
         self.slots = slots;
         tracing::info!(
-            "using {} keys, authoring slots: {:?}",
+            "epoch={epoch} using {} keys, authoring slots: {:?}",
             if fallback { "fallback" } else { "safrole" },
             self.slots
         );
 
         self.tickets.clear();
+        self.epoch = epoch;
         Ok(())
     }
 

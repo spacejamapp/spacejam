@@ -14,9 +14,11 @@ pub type TicketAttempt = u8;
 ///
 /// the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
 pub fn generate(slot: TimeSlot, best: TimeSlot, finalized: TimeSlot) -> bool {
+    let bslot = best % crate::EPOCH_LENGTH;
     slot > 1
         && slot < crate::TICKET_SUBMISSION_PERIOD
-        && best != 0
+        && bslot < crate::TICKET_SUBMISSION_PERIOD
+        && bslot > 0
         && best / crate::EPOCH_LENGTH == finalized / crate::EPOCH_LENGTH
 }
 

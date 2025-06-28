@@ -17,16 +17,12 @@ impl<C: runtime::Config> Validating<C> {
 
         loop {
             tokio::time::sleep(block::next_slot()).await;
-            log::current(runtime).await;
 
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
             if let Ok(best) = runtime.storage.best() {
-                // dial lost connections
-                if best.slot != 0 && best.slot % score::EPOCH_LENGTH > 1 {
-                    runtime.dial_validators().await;
-                }
+                runtime.dial_validators().await;
 
                 if best.slot < timeslot.saturating_sub(1) {
                     // select the best chain before authoring
@@ -62,6 +58,8 @@ impl<C: runtime::Config> Validating<C> {
                     continue;
                 }
             };
+
+            log::current(runtime).await;
 
             // author block
             if let Some(header) = header {

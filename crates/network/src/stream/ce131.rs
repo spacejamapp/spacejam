@@ -56,6 +56,8 @@ impl<C: runtime::Config> Network<C> {
             .lock()
             .await
             .push((epoch, ticket.envelope));
+
+        send.stopped().await?;
         send.finish()?;
         recv.stop(VarInt::from_u32(0))?;
         Ok(())
@@ -63,10 +65,17 @@ impl<C: runtime::Config> Network<C> {
 }
 
 /// Submit a safrole ticket
-pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
+pub async fn send(
+    mut send: SendStream,
+    mut recv: RecvStream,
+    request: Request,
+) -> anyhow::Result<()> {
     send.write(&[131]).await?;
     request.write(&mut send).await?;
+
+    send.stopped().await?;
     send.finish()?;
+    recv.stop(VarInt::from_u32(0))?;
     Ok(())
 }
 

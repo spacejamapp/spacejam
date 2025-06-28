@@ -129,7 +129,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Dial a new connection
-    pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
+    pub async fn dial(&self, addr: &Address) -> anyhow::Result<()> {
         let conn = self
             .transport
             .connect(addr.address, addr.peer_id.to_string().as_str())?
@@ -175,8 +175,8 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
             let address = Address::new(ipv4, peer);
             tracing::info!("dialing peer {address}");
-            if let Err(e) = self.dial(address).await {
-                tracing::warn!("failed to dial bootstrap peer: {e}");
+            if let Err(e) = self.dial(&address).await {
+                tracing::warn!("failed to dial {address}: {e}");
             }
         }
     }

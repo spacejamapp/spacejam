@@ -1,7 +1,7 @@
 //! Block request stream.
 
 use crate::{stream::ext::Write, Connection, Network};
-use quinn::{RecvStream, SendStream};
+use quinn::{RecvStream, SendStream, VarInt};
 use runtime::storage::SyncStorage;
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,9 @@ impl<C: runtime::Config> Network<C> {
             );
         }
 
+        send.stopped().await?;
         send.finish()?;
+        recv.stop(VarInt::from_u32(0))?;
         Ok(())
     }
 }
@@ -57,12 +59,11 @@ impl<C: runtime::Config> Network<C> {
 #[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
 pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
-
     send.write(&[128]).await?;
     request.write(&mut send).await?;
-    send.finish()?;
 
-    // returns the recv stream
+    send.stopped().await?;
+    send.finish()?;
     Ok(recv)
 }
 
