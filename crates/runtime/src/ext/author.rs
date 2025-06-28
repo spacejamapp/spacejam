@@ -1,6 +1,7 @@
 //! Authoring service
 
 use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
+use anyhow::Context;
 use score::{
     block::{Block, Header},
     extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
@@ -46,11 +47,11 @@ impl<'a, C: Config> Author<'a, C> {
         let best = self.storage.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
-        let prev_epoch = best.slot / score::EPOCH_LENGTH;
+        let prev = best.slot / score::EPOCH_LENGTH;
         let mut next = (None, None);
 
         // check if the epoch is changed
-        if epoch > prev_epoch {
+        if epoch > prev {
             self.on_new_epoch(epoch).await?;
         }
 
@@ -59,7 +60,6 @@ impl<'a, C: Config> Author<'a, C> {
         // - the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
         // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
-        let best = self.storage.best()?;
         if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
                 self.tickets.push(ticket.id);
@@ -173,6 +173,7 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Generate a ticket
+    #[tracing::instrument(skip_all, name = "ticket::generate")]
     pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
         let epoch = timeslot / score::EPOCH_LENGTH;
 
@@ -208,6 +209,7 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Seal a block
+    #[tracing::instrument(skip_all, name = "seal")]
     fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
         let entropy = self.storage.entropy()?;
         let mut keys = keys.to_vec();
@@ -255,12 +257,14 @@ impl<'a, C: Config> Author<'a, C> {
         // verify the ticket id
         let verifier = crypto::ring::verifier(keys.clone());
         if let Some(ticket) = ticket {
-            let output = verifier.ietf_vrf_verify(
-                &message,
-                &context,
-                &block.header.seal,
-                block.header.author_index as usize,
-            )?;
+            let output = verifier
+                .ietf_vrf_verify(
+                    &message,
+                    &context,
+                    &block.header.seal,
+                    block.header.author_index as usize,
+                )
+                .context("failed to verify the ticket id")?;
             if output != ticket.id {
                 tracing::error!(
                     "ticket seal mismatched, expected: 0x{}, got: 0x{}",
@@ -316,11 +320,13 @@ impl<C: Config> Runtime<C> {
         let keys = self.storage.next_validators()?.bandersnatch();
         let entropy = self.storage.entropy()?;
         let verifier = crypto::ring::verifier(keys);
-        let id = verifier.ring_vrf_verify(
-            &TicketBody::message(ticket.attempt, &entropy[2]),
-            &[],
-            &ticket.signature,
-        )?;
+        let id = verifier
+            .ring_vrf_verify(
+                &TicketBody::message(ticket.attempt, &entropy[2]),
+                &[],
+                &ticket.signature,
+            )
+            .context("failed to verify the ticket")?;
 
         Ok(Ticket {
             id,

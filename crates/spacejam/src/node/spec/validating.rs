@@ -16,18 +16,19 @@ impl<C: runtime::Config> Validating<C> {
         let mut author = runtime.author();
 
         loop {
+            tokio::time::sleep(block::next_slot()).await;
+            log::current(runtime).await;
+
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-            let prev = timeslot.saturating_sub(1);
-
             if let Ok(best) = runtime.storage.best() {
                 // dial lost connections
                 if best.slot != 0 && best.slot % score::EPOCH_LENGTH > 1 {
                     runtime.dial_validators().await;
                 }
 
-                if best.slot < prev {
+                if best.slot < timeslot.saturating_sub(1) {
                     // select the best chain before authoring
                     if let Err(e) = runtime.select_best_chain(timeslot).await {
                         tracing::error!("Failed to select best chain: {:?}", e);
@@ -62,8 +63,6 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
-            log::current(runtime).await;
-
             // author block
             if let Some(header) = header {
                 if let Ok(hash) = header.hash() {
@@ -91,8 +90,6 @@ impl<C: runtime::Config> Validating<C> {
                     }
                 });
             }
-
-            tokio::time::sleep(block::next_slot()).await;
         }
     }
 }

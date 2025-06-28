@@ -10,8 +10,7 @@ data = "res/testnet/0"
 quic = "0.0.0.0:40000"
 rpc = "0.0.0.0:19800"
 seed = "0"
-env = { RUST_LOG = "jam_node=warn" }
-# filter = ["WARN", "ERROR"]
+env = { RUST_LOG = "jam_node=trace" }
 
 [node.polkajam-1]
 command = "polkajam"
@@ -21,7 +20,6 @@ quic = "0.0.0.0:40001"
 rpc = "0.0.0.0:19801"
 seed = "1"
 env = { RUST_LOG = "jam_node=warn" }
-# filter = ["WARN", "ERROR"]
 
 [node.polkajam-2]
 command = "polkajam"
@@ -30,8 +28,7 @@ data = "res/testnet/2"
 quic = "0.0.0.0:40002"
 rpc = "0.0.0.0:19802"
 seed = "2"
-env = { RUST_LOG = "jam_node=warn" }
-# filter = ["WARN", "ERROR"]
+env = { RUST_LOG = "jam_node=trace" }
 
 [node.polkajam-3]
 command = "polkajam"
@@ -41,7 +38,6 @@ quic = "0.0.0.0:40003"
 rpc = "0.0.0.0:19803"
 seed = "3"
 env = { RUST_LOG = "jam_node=warn" }
-# filter = ["WARN", "ERROR"]
 
 [node.polkajam-4]
 command = "polkajam"
@@ -50,8 +46,7 @@ data = "res/testnet/4"
 quic = "0.0.0.0:40004"
 rpc = "0.0.0.0:19804"
 seed = "4"
-env = { RUST_LOG = "jam_node=trace" }
-# filter = ["WARN", "ERROR"]
+env = { RUST_LOG = "jam_node=warn" }
 
 [node.spacejam]
 command = "target/release/spacejam"

@@ -35,13 +35,10 @@ impl<C: runtime::Config> Network<C> {
         let validator = validators[submission];
         let me = self.me();
         if validator.bandersnatch != me {
-            let sig = ticket.envelope.signature;
-            let mbindex = u32::from_be_bytes([sig[780], sig[781], sig[782], sig[783]]);
             anyhow::bail!(
-                "received invalid ticket: not the proxy validator, expected: {}, this: {:?}, mb using signature?: {}",
+                "received invalid ticket: not the proxy validator, expected: {}, this: {:?}",
                 submission,
                 validators.iter().position(|v| v.ed25519 == me),
-                mbindex % 6,
             );
         }
 

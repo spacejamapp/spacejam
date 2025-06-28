@@ -13,9 +13,9 @@ pub type TicketAttempt = u8;
 /// If it is the correct time to generate a ticket
 ///
 /// the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
-pub fn generate(timeslot: TimeSlot, best: TimeSlot, finalized: TimeSlot) -> bool {
-    timeslot > 0
-        && timeslot < crate::TICKET_SUBMISSION_PERIOD
+pub fn generate(slot: TimeSlot, best: TimeSlot, finalized: TimeSlot) -> bool {
+    slot > 1
+        && slot < crate::TICKET_SUBMISSION_PERIOD
         && best != 0
         && best / crate::EPOCH_LENGTH == finalized / crate::EPOCH_LENGTH
 }
