@@ -55,6 +55,7 @@ pub trait SyncStorage: Storage {
     fn set_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
         let key = [SYNC, hash.as_ref()].concat();
+        self.set_header(&block.header)?;
         self.set(key, codec::encode(block)?)?;
         Ok(())
     }

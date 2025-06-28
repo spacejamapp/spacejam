@@ -82,10 +82,10 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
             // check if the connection is a feedi
             if handshake.head.hash == best.hash
+                || handshake.leaves.contains(best)
                 || grandpa
                     .ancestry
                     .is_descendant_of(&handshake.head.hash, &best.hash)
-                || handshake.leaves.contains(best)
             {
                 feeds.push(conn.clone());
             }

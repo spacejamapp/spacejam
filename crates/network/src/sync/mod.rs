@@ -4,7 +4,7 @@ use crate::Network;
 use request::BlockSync;
 use runtime::{
     storage::{ArchiveStorage, SyncStorage},
-    Ancestry, Hook, Storage,
+    Hook, Storage,
 };
 use score::{block::Head, OpaqueHash, TimeSlot};
 
@@ -118,40 +118,7 @@ impl<C: runtime::Config> Network<C> {
             return Err(e);
         }
 
-        self.sync(&mut ancestry).await?;
-        BlockSync::asc(self, ancestry.clone()).await?.sync().await?;
-        self.sync(&mut ancestry).await?;
-        Ok(())
-    }
-
-    /// Sync from the local chain.
-    #[tracing::instrument(skip_all, name = "sync::local", parent = None)]
-    async fn sync(&self, ancestry: &mut Ancestry) -> anyhow::Result<()> {
-        let mut blocks = ancestry.ancestors.clone();
-        blocks.reverse();
-
-        for hash in blocks.iter().cloned() {
-            let Ok(block) = self.storage.block(&hash) else {
-                break;
-            };
-
-            if block.header.slot != ancestry.finalized.slot + 1
-                && ancestry.finalized.slot != 0
-                && ancestry.ancestors.len() < 3
-            {
-                tracing::trace!(
-                    "blocks not consistent with ancestry, incoming#{}, best#{}",
-                    block.header.slot,
-                    ancestry.finalized.slot,
-                );
-                return Ok(());
-            }
-
-            let slot = block.header.slot;
-            self.import(block).await?;
-            ancestry.advance(&Head { hash, slot })?;
-        }
-
+        BlockSync::asc(self, ancestry).await?.sync().await?;
         Ok(())
     }
 

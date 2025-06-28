@@ -4,8 +4,8 @@ use crate::{
     stream::{ce128, ext::Read},
     Connection, Network,
 };
-use runtime::{storage::SyncStorage, Ancestry};
-use score::Block;
+use runtime::Ancestry;
+use score::{block::Head, Block};
 
 /// Block sync requester
 pub struct BlockSync<'r, C: runtime::Config> {
@@ -27,7 +27,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
             hex::encode(&ancestry.finalized.hash[..3]),
             ancestry.best.slot,
             hex::encode(&ancestry.best.hash[..3]),
-            ancestry.finalized.slot - ancestry.best.slot
+            ancestry.best.slot - ancestry.finalized.slot
         );
 
         Ok(Self { ancestry, runtime })
@@ -69,7 +69,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 feed,
                 ce128::Request {
                     hash: head,
-                    direction: 1,
+                    direction: 0,
                     maximum: 1,
                 },
             )
@@ -77,17 +77,17 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
 
             let block: Block = Block::read(&mut recv).await?;
             let hash = block.header.hash()?;
-            head = hash;
-            if self.runtime.storage.block(&head).is_ok() {
-                continue;
-            }
-
             tracing::trace!(
                 "received block#{}@0x{}",
                 block.header.slot,
                 hex::encode(&hash[..3])
             );
-            self.runtime.storage.set_block(&block)?;
+
+            // FIXME: skip requests if the block already exists.
+            let slot = block.header.slot;
+            self.runtime.import(block).await?;
+            self.ancestry.advance(&Head { hash, slot })?;
+            head = hash;
             if head == best {
                 break;
             }
