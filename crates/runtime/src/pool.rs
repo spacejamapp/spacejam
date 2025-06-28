@@ -4,7 +4,7 @@
 use score::{
     block,
     extrinsic::{
-        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, TicketBody,
+        AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, Ticket, TicketBody,
         TicketEnvelope, Verdict,
     },
     OpaqueHash,
@@ -30,7 +30,7 @@ pub struct Pool {
     preimages: Arc<Mutex<Vec<Preimage>>>,
 
     /// Tickets
-    pub tickets: Arc<Mutex<HashSet<(OpaqueHash, TicketEnvelope)>>>,
+    pub tickets: Arc<Mutex<HashSet<Ticket>>>,
 
     /// Verdicts
     verdicts: Arc<Mutex<Vec<Verdict>>>,
@@ -70,16 +70,19 @@ impl Pool {
                     .collect::<Vec<_>>();
 
                 // remove the tickets that are already in the pool
-                envelopes.retain(|(id, envelope)| {
+                envelopes.retain(|ticket| {
                     !tickets
                         .iter()
-                        .any(|t| t.id == *id && t.attempt == envelope.attempt)
+                        .any(|t| t.id == ticket.id && t.attempt == ticket.envelope.attempt)
                 });
 
                 // sort the envelopes by the id
-                envelopes.sort_by(|a, b| a.0.cmp(&b.0));
+                envelopes.sort_by(|a, b| a.id.cmp(&b.id));
                 envelopes.truncate(3);
-                extrinsics.tickets = envelopes.into_iter().map(|(_, ticket)| ticket).collect();
+                extrinsics.tickets = envelopes
+                    .into_iter()
+                    .map(|ticket| ticket.envelope)
+                    .collect();
             }
         }
 

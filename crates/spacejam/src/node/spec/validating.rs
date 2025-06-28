@@ -60,11 +60,34 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
+            // check subscribing tickets
+            {
+                let Ok(finalized) = runtime.storage.finalized() else {
+                    tracing::error!("Failed to get finalized block");
+                    continue;
+                };
+
+                if best.subscribe_tickets(timeslot, finalized.slot) {
+                    tokio::spawn({
+                        let runtime = runtime.clone();
+                        async move {
+                            if let Err(e) = runtime.subscribe_tickets().await {
+                                tracing::error!("Failed to subscribe tickets: {:?}", e);
+                            }
+                        }
+                    });
+                }
+            }
+
             // send ticket
             if let Some(ticket) = ticket {
                 tokio::spawn({
                     let runtime = runtime.clone();
-                    async move { runtime.ticket(epoch, ticket).await }
+                    async move {
+                        if let Err(e) = runtime.submit(epoch, ticket).await {
+                            tracing::error!("Failed to send ticket: {:?}", e);
+                        }
+                    }
                 });
             }
 

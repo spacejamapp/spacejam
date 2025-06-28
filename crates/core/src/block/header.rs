@@ -116,6 +116,25 @@ pub struct Head {
     pub slot: TimeSlot,
 }
 
+impl Head {
+    /// If it is the correct time to generate a ticket
+    ///
+    /// the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
+    pub fn generate_ticket(&self, timeslot: TimeSlot, finalized: TimeSlot) -> bool {
+        timeslot > 1
+            && timeslot < crate::TICKET_SUBMISSION_PERIOD
+            && self.slot != 0
+            && self.slot / crate::EPOCH_LENGTH == finalized / crate::EPOCH_LENGTH
+    }
+
+    /// If it is the correct time to subscribe tickets
+    ///
+    /// forward should be delayed untial max(E/20, 1)
+    pub fn subscribe_tickets(&self, timeslot: TimeSlot, finalized: TimeSlot) -> bool {
+        self.generate_ticket(timeslot, finalized)
+    }
+}
+
 impl PartialOrd for Head {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.slot.cmp(&other.slot))

@@ -1,7 +1,10 @@
 //! Safrole ticket distribution stream (second step).
 
 use crate::{
-    stream::{ce131, ext::Write},
+    stream::{
+        ce131,
+        ext::{Read, Write},
+    },
     Network,
 };
 pub use ce131::Request;
@@ -16,28 +19,20 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let mut buf = [0; 4];
-        recv.read_exact(&mut buf).await?;
-        let length = u32::from_le_bytes(buf);
-
-        let mut buf = vec![0; length as usize];
-        recv.read_exact(&mut buf).await?;
-
-        // TODO: verify the proof, handle the ticket, etc.
-        let request: Request = codec::decode(&buf)?;
+        let request = Request::read(&mut recv).await?;
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
-
-        // insert the ticket into the pool if the epoch is present.
-        if request.epoch == epoch {
-            self.insert_ticket(epoch, request.ticket.clone()).await?;
-        }
-
         tracing::trace!(
             "ticket#{}@{} for epoch: {}",
             request.ticket.attempt,
             hex::encode(&request.ticket.signature[..3]),
             request.epoch,
         );
+
+        if request.epoch == epoch {
+            let ticket = self.runtime.verify_ticket(request.ticket).await?;
+            self.insert_ticket(epoch, ticket).await?;
+        }
+
         send.finish()?;
         recv.stop(VarInt::from_u32(0))?;
         Ok(())

@@ -170,7 +170,7 @@ impl<C: runtime::Config> Network<C> {
         tracing::warn!(
             "fallback to the finalized chain at head#{}@0x{}",
             finalized.slot,
-            hex::encode(&finalized.hash)
+            hex::encode(finalized.hash)
         );
 
         self.grandpa.write().await.handshake.head = finalized;

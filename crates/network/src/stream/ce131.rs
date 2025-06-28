@@ -1,33 +1,25 @@
 //! Safrole ticket distribution stream (first step).
 
-use crate::{stream::ext::Write, Network};
+use crate::{
+    stream::ext::{Read, Write},
+    Network,
+};
 use quinn::{RecvStream, SendStream, VarInt};
 use score::{block, extrinsic::TicketEnvelope};
 use serde::{Deserialize, Serialize};
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
+    ///
+    /// FIXME: cache the ticket and send them after the threshold.
     #[tracing::instrument(skip_all, name = "ce131::recv", parent = None)]
     pub async fn recv_ce131(
         &self,
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let mut buf = [0; 4];
-        recv.read_exact(&mut buf).await?;
-        let length = u32::from_le_bytes(buf);
-
-        let mut buf = vec![0; length as usize];
-        recv.read_exact(&mut buf).await?;
-
-        // TODO: verify the proof, handle the ticket, etc.
-        let request: Request = codec::decode(&buf)?;
+        let request = Request::read(&mut recv).await?;
         let epoch = block::timeslot() / score::EPOCH_LENGTH;
-
-        // insert the ticket into the pool if the epoch is present.
-        if request.epoch == epoch {
-            self.insert_ticket(epoch, request.ticket.clone()).await?;
-        }
 
         tracing::trace!(
             "ticket#{}@{} for epoch: {}",
@@ -35,6 +27,30 @@ impl<C: runtime::Config> Network<C> {
             hex::encode(&request.ticket.signature[..3]),
             request.epoch,
         );
+
+        // check if the ticket is valid.
+        let ticket = self.runtime.verify_ticket(request.ticket).await?;
+        let submission = ticket.submission();
+        let validators = self.grandpa().await.grid.curr;
+        let validator = validators[submission];
+        if validator.ed25519 != self.me() {
+            anyhow::bail!("received invalid ticket: not the proxy validator");
+        }
+
+        if request.epoch != epoch {
+            anyhow::bail!(
+                "received invalid ticket: epoch mismatch: {} != {}, FIXME: detect epoch from best head",
+                request.epoch,
+                epoch
+            );
+        }
+
+        self.insert_ticket(epoch, ticket.clone()).await?;
+        self.runtime
+            .tickets
+            .lock()
+            .await
+            .push((epoch, ticket.envelope));
         send.finish()?;
         recv.stop(VarInt::from_u32(0))?;
         Ok(())

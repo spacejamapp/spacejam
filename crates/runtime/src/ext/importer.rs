@@ -163,11 +163,7 @@ impl<C: Config> Runtime<C> {
         if new_epoch {
             if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series(remote_epoch) {
                 ticket = Some(tickets[slot]);
-            } else if let Ok(tickets) = self
-                .storage
-                .safrole()
-                .and_then(|safrole| Ok(safrole.accumulator))
-            {
+            } else if let Ok(tickets) = self.storage.safrole().map(|safrole| safrole.accumulator) {
                 // Handle the case that the block with epoch mark is not finalized
                 //
                 // FIXME: this may not correct since different nodes may have different tickets.

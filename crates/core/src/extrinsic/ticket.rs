@@ -10,6 +10,25 @@ pub type TicketId = OpaqueHash;
 /// Represents an attempt to use a ticket.
 pub type TicketAttempt = u8;
 
+/// Represents a ticket.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Ticket {
+    /// Ticket ID
+    pub id: OpaqueHash,
+
+    /// Ticket envelope
+    pub envelope: TicketEnvelope,
+}
+
+impl Ticket {
+    /// Get the submission index of the ticket
+    pub fn submission(&self) -> usize {
+        let output = self.id;
+        let index = u32::from_be_bytes([output[28], output[29], output[30], output[31]]);
+        index as usize
+    }
+}
+
 /// Represents a ticket envelope containing an attempt and a signature.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Hash)]
 pub struct TicketEnvelope {

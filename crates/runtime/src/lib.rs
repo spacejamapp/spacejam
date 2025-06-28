@@ -1,9 +1,9 @@
 //! Runtime utilities of SpaceJam
 
 use pvm::Pvm;
-use score::BandersnatchPublic;
+use score::{extrinsic::TicketEnvelope, BandersnatchPublic};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
     grandpa::{Ancestry, Grandpa, Handshake},
@@ -39,6 +39,11 @@ pub struct Runtime<C: Config> {
 
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
+
+    /// The received tickets
+    ///
+    /// TODO: merge author context here
+    pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
 
 impl<C: Config> Runtime<C> {
@@ -51,6 +56,7 @@ impl<C: Config> Runtime<C> {
             hook,
             expool: Default::default(),
             grandpa: Arc::new(RwLock::new(Grandpa::new(storage))),
+            tickets: Default::default(),
         }
     }
 

@@ -3,7 +3,7 @@
 use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
 use score::{
     block::{Block, Header},
-    extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
+    extrinsic::{Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
     BandersnatchPublic, OpaqueHash, TimeSlot,
 };
@@ -42,7 +42,7 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn on_timeslot(
         &mut self,
         timeslot: TimeSlot,
-    ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
+    ) -> anyhow::Result<(Option<Header>, Option<Ticket>)> {
         let best = self.storage.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
@@ -60,14 +60,10 @@ impl<'a, C: Config> Author<'a, C> {
         // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
         let best = self.storage.best()?;
-        if slot > 1
-            && slot < score::TICKET_SUBMISSION_PERIOD
-            && best.slot != 0
-            && best.slot / score::EPOCH_LENGTH == finalized.slot / score::EPOCH_LENGTH
-        {
-            if let Some((id, envelope)) = self.ticket(best.slot).await? {
-                next.1 = Some(envelope);
-                self.tickets.push(id);
+        if best.generate_ticket(timeslot, finalized.slot) {
+            if let Some(ticket) = self.ticket(best.slot).await? {
+                self.tickets.push(ticket.id);
+                next.1 = Some(ticket);
             }
         }
 
@@ -81,8 +77,6 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// on new epoch
-    ///
-    /// FIXME: handle the case falling back to AURA
     pub async fn on_new_epoch(&mut self, epoch: u32) -> anyhow::Result<()> {
         self.storage.on_new_epoch(epoch)?;
 
@@ -90,6 +84,7 @@ impl<'a, C: Config> Author<'a, C> {
         self.attempt.store(0, Ordering::Relaxed);
 
         // 2. clean the ticket cache
+        self.runtime.tickets.lock().await.clear();
         self.expool.tickets.lock().await.clear();
 
         // 3. update the authoring slots
@@ -178,10 +173,7 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// Generate a ticket
-    pub async fn ticket(
-        &self,
-        timeslot: TimeSlot,
-    ) -> anyhow::Result<Option<(OpaqueHash, TicketEnvelope)>> {
+    pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // 1. check if the current validator has exceeded the ticket limit
@@ -210,8 +202,9 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 3. insert the ticket into the pool
         self.attempt.fetch_add(1, Ordering::Relaxed);
-        let id = self.insert_ticket(epoch, envelope.clone()).await?;
-        Ok(Some((id, envelope)))
+        let ticket = self.verify_ticket(envelope).await?;
+        self.insert_ticket(epoch, ticket.clone()).await?;
+        Ok(Some(ticket))
     }
 
     /// Seal a block
@@ -314,32 +307,27 @@ impl<C: Config> Runtime<C> {
         Author::new(self)
     }
 
-    /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(
-        &self,
-        _epoch: u32,
-        ticket: TicketEnvelope,
-    ) -> anyhow::Result<OpaqueHash> {
+    /// Verify a ticket
+    pub async fn verify_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<Ticket> {
         let keys = self.storage.next_validators()?.bandersnatch();
         let entropy = self.storage.entropy()?;
         let verifier = crypto::ring::verifier(keys);
-        let id = match verifier.ring_vrf_verify(
+        let id = verifier.ring_vrf_verify(
             &TicketBody::message(ticket.attempt, &entropy[2]),
             &[],
             &ticket.signature,
-        ) {
-            Ok(id) => id,
-            Err(e) => {
-                anyhow::bail!(
-                    "invalid ticket#{} with entropy: 0x{}, {e}",
-                    ticket.attempt,
-                    hex::encode(entropy[2].as_ref()),
-                );
-            }
-        };
+        )?;
 
+        Ok(Ticket {
+            id,
+            envelope: ticket,
+        })
+    }
+
+    /// Sort and insert a ticket into the pool
+    pub async fn insert_ticket(&self, _epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
         let mut tickets = self.expool.tickets.lock().await;
-        tickets.insert((id, ticket));
-        Ok(id)
+        tickets.insert(ticket);
+        Ok(())
     }
 }
