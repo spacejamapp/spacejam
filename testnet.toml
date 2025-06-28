@@ -10,7 +10,7 @@ data = "res/testnet/0"
 quic = "0.0.0.0:40000"
 rpc = "0.0.0.0:19800"
 seed = "0"
-env = { RUST_LOG = "jam_node=trace" }
+env = { RUST_LOG = "jam_node=warn" }
 
 [node.polkajam-1]
 command = "polkajam"
@@ -28,7 +28,7 @@ data = "res/testnet/2"
 quic = "0.0.0.0:40002"
 rpc = "0.0.0.0:19802"
 seed = "2"
-env = { RUST_LOG = "jam_node=trace" }
+env = { RUST_LOG = "jam_node=warn" }
 
 [node.polkajam-3]
 command = "polkajam"
