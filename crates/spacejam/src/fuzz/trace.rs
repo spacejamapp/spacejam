@@ -17,9 +17,9 @@ pub fn test(dir: &Path) -> anyhow::Result<()> {
         }
     }
 
-    tracing::info!("\n\nPassed {passed} tests");
+    tracing::info!("Passed {passed} tests");
     if !failed.is_empty() {
-        tracing::error!("\nFailed {} tests", failed.len());
+        tracing::error!("Failed {} tests", failed.len());
         for (name, e) in failed {
             tracing::error!("Test {name} failed: {e}");
         }

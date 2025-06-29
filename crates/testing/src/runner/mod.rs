@@ -434,7 +434,7 @@ impl Runner {
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
                     } else {
-                        tracing::info!("keyval matched: {info:?}: 0x{encoded}");
+                        tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
                     }
                 }
 

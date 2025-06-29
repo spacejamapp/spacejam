@@ -18,7 +18,7 @@ pub enum Fuzz {
         data: PathBuf,
     },
 
-    /// Fuzz the trace file
+    /// Run tests with the given trace folder
     Trace {
         /// The path to the trace folder
         traces: PathBuf,
