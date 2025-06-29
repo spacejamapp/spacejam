@@ -7,6 +7,7 @@ use crate::{
 use clap::{ArgAction, CommandFactory, Parser};
 use tracing_subscriber::EnvFilter;
 
+pub mod fuzz;
 pub mod key;
 pub mod state;
 
