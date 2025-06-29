@@ -7,7 +7,7 @@ use std::{io::Read, os::unix::net::UnixStream, path::PathBuf, rc::Rc, sync::Mute
 /// The fuzz command
 #[derive(Parser)]
 pub enum Fuzz {
-    /// Fuzz the local node
+    /// Fuzz with local unix socket
     Local {
         /// The path to the unix socket
         #[clap(default_value = "/tmp/jam_target.sock")]
@@ -18,7 +18,7 @@ pub enum Fuzz {
         data: PathBuf,
     },
 
-    /// Run tests with the given trace folder
+    /// Run trace tests via the given trace folder
     Trace {
         /// The path to the trace folder
         traces: PathBuf,
