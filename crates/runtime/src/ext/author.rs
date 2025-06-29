@@ -1,6 +1,9 @@
 //! Authoring service
 
-use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
+use crate::{
+    storage::{ArchiveStorage, SyncStorage},
+    tx, Config, Runtime, Storage, Validator,
+};
 use anyhow::Context;
 use score::{
     block::{Block, Header},
@@ -162,7 +165,7 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
+        let diff = tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
         let block: Block = builder.into();
 
         // 6. seal the block
@@ -171,6 +174,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 7. save the block to the fork storage
         self.grandpa.write().await.add_leaf(block.header.clone())?;
         self.storage.set_block(&block)?;
+        self.storage.set_diff(block.header.hash()?, diff)?;
         Ok(block)
     }
 
