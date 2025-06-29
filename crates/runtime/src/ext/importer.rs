@@ -27,7 +27,7 @@ impl<C: Config> Runtime<C> {
         };
         self.storage.set_best(&head)?;
         self.storage.set_block(&block)?;
-        self.storage.set_finalized(&head)?;
+        self.storage.finalize(&head)?;
 
         // 2. set the genesis state
         let mut grandpa = self.grandpa.write().await;
@@ -113,15 +113,18 @@ impl<C: Config> Runtime<C> {
         self.storage.set_block(&block)?;
         self.storage.set_diff(hash, diff)?;
         if let Some(series) = block.header.tickets_mark {
+            let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
             tracing::info!(
-                "next tickets: {:#?}",
+                "tickets for epoch={epoch}: {:#?}",
                 series
                     .iter()
                     .enumerate()
                     .map(|(i, t)| format!("{:02}: 0x{}", i, hex::encode(t.id)))
                     .collect::<Vec<_>>()
             );
-            self.storage.set_next_series(series)?;
+
+            let series = TicketsOrKeys::Tickets(series);
+            self.storage.set_series(epoch, &series)?;
         }
 
         // 5. set the head as best block
@@ -158,10 +161,17 @@ impl<C: Config> Runtime<C> {
 
         // check the ticket mark
         if new_epoch {
-            if let Ok(tickets) = self.storage.next_series() {
+            if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series(remote_epoch) {
                 ticket = Some(tickets[slot]);
+            } else if let Ok(tickets) = self.storage.safrole().map(|safrole| safrole.accumulator) {
+                // Handle the case that the block with epoch mark is not finalized
+                //
+                // FIXME: this may not correct since different nodes may have different tickets.
+                if tickets.len() == score::EPOCH_LENGTH as usize {
+                    ticket = Some(tickets[slot]);
+                }
             }
-        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series() {
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.storage.series(local_epoch) {
             ticket = Some(tickets[slot]);
         }
 
@@ -199,16 +209,6 @@ impl<C: Config> Runtime<C> {
 
         if let Some(ticket) = ticket {
             if ticket.id != output {
-                let TicketsOrKeys::Tickets(tickets) = self.storage.series()? else {
-                    anyhow::bail!("ticket series not found");
-                };
-                tracing::error!(
-                    "ticket series: {:#?}",
-                    tickets
-                        .into_iter()
-                        .map(|t| hex::encode(t.id))
-                        .collect::<Vec<_>>()
-                );
                 anyhow::bail!("header seal mismatched");
             }
         }

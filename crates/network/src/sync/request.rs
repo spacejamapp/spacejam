@@ -1,6 +1,9 @@
 //! Block sync requester
 
-use crate::{stream::ce128, Connection, Network};
+use crate::{
+    stream::{ce128, ext::Read},
+    Connection, Network,
+};
 use runtime::{storage::SyncStorage, Ancestry};
 use score::Block;
 
@@ -8,9 +11,6 @@ use score::Block;
 pub struct BlockSync<'r, C: runtime::Config> {
     /// The ancestry of the sync.
     ancestry: Ancestry,
-
-    /// The current state of the request.
-    request: ce128::Request,
 
     /// The runtime of the sync.
     runtime: &'r Network<C>,
@@ -22,33 +22,26 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     /// TODO: indicate the request direction by the maximum blocks.
     pub async fn asc(runtime: &'r Network<C>, ancestry: Ancestry) -> anyhow::Result<Self> {
         tracing::debug!(
-            "syncing from 0x{} to 0x{} ({} blocks)",
+            "syncing from local#{}@0x{} to best#{}@0x{} ({} blocks)",
+            ancestry.finalized.slot,
             hex::encode(&ancestry.finalized.hash[..3]),
+            ancestry.best.slot,
             hex::encode(&ancestry.best.hash[..3]),
-            ancestry.ancestors.len() + 1
+            ancestry.best.slot - ancestry.finalized.slot
         );
-        let request = ce128::Request {
-            hash: ancestry.finalized.hash,
-            direction: 0,
-            maximum: ancestry.ancestors.len() as u32 + 1,
-        };
 
-        Ok(Self {
-            ancestry,
-            request,
-            runtime,
-        })
+        Ok(Self { ancestry, runtime })
     }
 
     /// Send the request to the feeds.
     #[tracing::instrument(skip_all, parent = None, name = "sync::remote")]
     pub async fn sync(&mut self) -> anyhow::Result<()> {
+        if self.ancestry.finalized.slot == self.ancestry.best.slot {
+            return Ok(());
+        }
+
         let feeds = self.runtime.lookup(&self.ancestry.best).await;
         for feed in feeds {
-            if self.request.maximum == 0 {
-                return Ok(());
-            }
-
             if let Err(e) = self.request(&feed).await {
                 tracing::debug!(
                     "failed to sync from {}: {}, switching to the next feed",
@@ -69,31 +62,42 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
     ///
     /// NOTE: seems polkajam doesn't support multiple blocks atm.
     pub async fn request(&mut self, feed: &Connection) -> anyhow::Result<()> {
-        for hash in [
-            self.ancestry.ancestors.clone(),
-            vec![self.ancestry.best.hash],
-        ]
-        .concat()
-        .iter()
-        .rev()
-        {
-            // FIXME: request 1 block per time
-            let mut recv = ce128::send(feed, self.request.clone()).await?;
-            let mut buf = [0; 4];
-            if recv.read_exact(&mut buf).await.is_err() {
-                tracing::warn!("no more blocks to read, FIXME: read multiple blocks");
-                break;
-            }
+        let best = self.ancestry.best.hash;
+        let mut head = self.ancestry.finalized.hash;
+        loop {
+            let mut recv = ce128::send(
+                feed,
+                ce128::Request {
+                    hash: head,
+                    direction: 0,
+                    maximum: 1,
+                },
+            )
+            .await?;
 
-            let length = u32::from_le_bytes(buf);
-            let mut buffer = vec![0; length as usize];
-            if recv.read_exact(&mut buffer).await.is_err() {
-                break;
-            }
+            let block: Block = Block::read(&mut recv).await?;
+            let hash = block.header.hash()?;
+            tracing::trace!(
+                "received block#{}@0x{}",
+                block.header.slot,
+                hex::encode(&hash[..3])
+            );
 
-            let block: Block = codec::decode(&buffer)?;
-            if self.runtime.storage.block(hash).is_err() {
+            self.runtime.announce(block.header.clone().into()).await?;
+            if let Err(e) = self.runtime.import(block.clone()).await {
+                tracing::warn!(
+                    "failed to import block#{}@0x{}: {e}",
+                    block.header.slot,
+                    hex::encode(&hash[..3])
+                );
+
                 self.runtime.storage.set_block(&block)?;
+                return Ok(());
+            }
+
+            head = hash;
+            if head == best {
+                break;
             }
         }
 

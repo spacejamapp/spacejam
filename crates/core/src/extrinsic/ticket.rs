@@ -1,6 +1,6 @@
 //! Ticket types
 
-use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash};
+use crate::{BandersnatchPublic, BandersnatchRingVrfSignature, OpaqueHash, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -9,6 +9,44 @@ pub type TicketId = OpaqueHash;
 
 /// Represents an attempt to use a ticket.
 pub type TicketAttempt = u8;
+
+/// If it is the correct time to generate a ticket
+///
+/// the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
+pub fn generate(slot: TimeSlot, best: TimeSlot, finalized: TimeSlot) -> bool {
+    let bslot = best % crate::EPOCH_LENGTH;
+    slot > 1
+        && slot < crate::TICKET_SUBMISSION_PERIOD
+        && bslot < crate::TICKET_SUBMISSION_PERIOD
+        && bslot > 0
+        && best / crate::EPOCH_LENGTH == finalized / crate::EPOCH_LENGTH
+}
+
+/// If it is the correct time to subscribe tickets
+///
+/// forward should be delayed untial max(E/20, 1)
+pub fn subscribe(timeslot: TimeSlot, best: TimeSlot, finalized: TimeSlot) -> bool {
+    self::generate(timeslot, best, finalized)
+}
+
+/// Represents a ticket.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Ticket {
+    /// Ticket ID
+    pub id: OpaqueHash,
+
+    /// Ticket envelope
+    pub envelope: TicketEnvelope,
+}
+
+impl Ticket {
+    /// Get the submission index of the ticket
+    pub fn submission(&self) -> usize {
+        let output = self.id;
+        let index = u32::from_be_bytes([output[28], output[29], output[30], output[31]]);
+        (index % (crate::VALIDATORS_COUNT as u32)) as usize
+    }
+}
 
 /// Represents a ticket envelope containing an attempt and a signature.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Hash)]

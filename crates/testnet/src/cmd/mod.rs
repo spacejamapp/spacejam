@@ -89,13 +89,13 @@ impl App {
             }
 
             if !highlight.is_empty() && msg.content.contains(highlight) {
-                println!("{:>12} {}", msg.name.underline().bright_cyan(), msg.content,);
+                println!("{:12} {}", msg.name.underline().bright_cyan(), msg.content,);
                 continue;
             }
 
             if !self.noansi {
                 println!(
-                    "{} {}",
+                    "{:12} {}",
                     if msg.content.contains("ERROR") {
                         msg.name.underline().bright_red()
                     } else if msg.content.contains("WARN") {
@@ -106,7 +106,7 @@ impl App {
                     msg.content
                 );
             } else {
-                println!("{} {}", msg.name, msg.content);
+                println!("{:12} {}", msg.name, msg.content);
             }
         }
     }

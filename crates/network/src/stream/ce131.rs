@@ -1,38 +1,70 @@
 //! Safrole ticket distribution stream (first step).
 
-use crate::{stream::ext::Write, Network};
+use crate::{
+    stream::ext::{Read, Write},
+    Network,
+};
 use quinn::{RecvStream, SendStream};
-use score::extrinsic::TicketEnvelope;
+use score::{block, extrinsic::TicketEnvelope};
 use serde::{Deserialize, Serialize};
-use std::mem;
 
 impl<C: runtime::Config> Network<C> {
     /// Receive a safrole ticket distribution.
+    ///
+    /// FIXME: cache the ticket and send them after the threshold.
     #[tracing::instrument(skip_all, name = "ce131::recv", parent = None)]
     pub async fn recv_ce131(
         &self,
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        let size = mem::size_of::<Request>();
-        let mut buf = vec![0; size];
-        recv.read_exact(&mut buf).await?;
+        let request = Request::read(&mut recv).await?;
+        let epoch = block::timeslot() / score::EPOCH_LENGTH;
 
-        // TODO: verify the proof, handle the ticket, etc.
-        let request: Request = codec::decode(&buf[..])?;
-        tracing::info!(
-            "received safrole ticket request: for epoch {}",
-            request.epoch
+        tracing::trace!(
+            "ticket#{}@{} for epoch: {}",
+            request.ticket.attempt,
+            hex::encode(&request.ticket.signature[..3]),
+            request.epoch,
         );
+
+        // check if the ticket is valid.
+        let ticket = self.runtime.verify_ticket(request.ticket).await?;
+        let submission = ticket.submission();
+        let validators = self.grandpa().await.grid.next;
+        let validator = validators[submission];
+        let me = self.me();
+        if validator.bandersnatch != me {
+            anyhow::bail!(
+                "received invalid ticket: not the proxy validator, expected: {}, this: {:?}",
+                submission,
+                validators.iter().position(|v| v.ed25519 == me),
+            );
+        }
+
+        if request.epoch != epoch {
+            anyhow::bail!(
+                "received invalid ticket: epoch mismatch: {} != {}, FIXME: detect epoch from best head",
+                request.epoch,
+                epoch
+            );
+        }
+
+        self.insert_ticket(epoch, ticket.clone()).await?;
+        self.runtime
+            .tickets
+            .lock()
+            .await
+            .push((epoch, ticket.envelope));
+
         send.finish()?;
         Ok(())
     }
 }
 
-/// Send a safrole ticket distribution.
-#[allow(unused)]
+/// Submit a safrole ticket
 pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
-    send.write(&[132]).await?;
+    send.write(&[131]).await?;
     request.write(&mut send).await?;
     send.finish()?;
     Ok(())

@@ -1,9 +1,13 @@
 //! Authoring service
 
-use crate::{storage::SyncStorage, tx, Config, Runtime, Storage, Validator};
+use crate::{
+    storage::{ArchiveStorage, SyncStorage},
+    tx, Config, Runtime, Storage, Validator,
+};
+use anyhow::Context;
 use score::{
     block::{Block, Header},
-    extrinsic::{TicketBody, TicketEnvelope, TicketsOrKeys},
+    extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
     BandersnatchPublic, OpaqueHash, TimeSlot,
 };
@@ -25,6 +29,9 @@ pub struct Author<'a, C: Config> {
 
     /// The attempt number of the current epoch
     attempt: AtomicU8,
+
+    /// The epoch of the current authoring
+    epoch: u32,
 }
 
 impl<'a, C: Config> Author<'a, C> {
@@ -35,6 +42,7 @@ impl<'a, C: Config> Author<'a, C> {
             slots: Default::default(),
             attempt: Default::default(),
             tickets: Default::default(),
+            epoch: 0,
         }
     }
 
@@ -42,33 +50,28 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn on_timeslot(
         &mut self,
         timeslot: TimeSlot,
-    ) -> anyhow::Result<(Option<Header>, Option<TicketEnvelope>)> {
+    ) -> anyhow::Result<(Option<Header>, Option<Ticket>)> {
+        let best = self.storage.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
+        let epoch = timeslot / score::EPOCH_LENGTH;
+        let prev = best.slot / score::EPOCH_LENGTH;
         let mut next = (None, None);
 
         // check if the epoch is changed
-        if slot == 0 {
-            self.on_new_epoch().await?;
+        if epoch > prev && epoch > self.epoch {
+            self.on_new_epoch(epoch).await?;
         }
 
         // 1. check generating tickets
-        //
-        // - the first step should be performed max(E/60, 1) slots after the connectiviity changes for a new epoch
-        // - forward should be delayed untial max(E/20, 1)
         let finalized = self.storage.finalized()?;
-        let best = self.storage.best()?;
-        if slot > 1
-            && slot < score::TICKET_SUBMISSION_PERIOD
-            && best.slot != 0
-            && best.slot / score::EPOCH_LENGTH == finalized.slot / score::EPOCH_LENGTH
-        {
-            if let Some((id, envelope)) = self.ticket(best.slot).await? {
-                next.1 = Some(envelope);
-                self.tickets.push(id);
+        if ticket::generate(slot, best.slot, finalized.slot) {
+            if let Some(ticket) = self.ticket(best.slot).await? {
+                self.tickets.push(ticket.id);
+                next.1 = Some(ticket);
             }
         }
 
-        // 3. check authoring blocks
+        // 2. check authoring blocks
         if self.slots.contains(&slot) {
             next.0 = Some(self.author(timeslot).await?.header);
             self.slots.retain(|s| *s != slot);
@@ -78,21 +81,20 @@ impl<'a, C: Config> Author<'a, C> {
     }
 
     /// on new epoch
-    ///
-    /// FIXME: handle the case falling back to AURA
-    pub async fn on_new_epoch(&mut self) -> anyhow::Result<()> {
-        self.storage.on_new_epoch()?;
+    pub async fn on_new_epoch(&mut self, epoch: u32) -> anyhow::Result<()> {
+        self.storage.on_new_epoch(epoch)?;
 
         // 1. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
 
         // 2. clean the ticket cache
+        self.runtime.tickets.lock().await.clear();
         self.expool.tickets.lock().await.clear();
 
         // 3. update the authoring slots
         let mut slots = Vec::new();
         let mut fallback = false;
-        match self.storage.series()? {
+        match self.storage.series(epoch)? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -119,12 +121,13 @@ impl<'a, C: Config> Author<'a, C> {
         }
         self.slots = slots;
         tracing::info!(
-            "using {} keys, authoring slots: {:?}",
+            "epoch={epoch} using {} keys, authoring slots: {:?}",
             if fallback { "fallback" } else { "safrole" },
             self.slots
         );
 
         self.tickets.clear();
+        self.epoch = epoch;
         Ok(())
     }
 
@@ -162,7 +165,7 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
+        let diff = tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
         let block: Block = builder.into();
 
         // 6. seal the block
@@ -171,19 +174,18 @@ impl<'a, C: Config> Author<'a, C> {
         // 7. save the block to the fork storage
         self.grandpa.write().await.add_leaf(block.header.clone())?;
         self.storage.set_block(&block)?;
+        self.storage.set_diff(block.header.hash()?, diff)?;
         Ok(block)
     }
 
     /// Generate a ticket
-    pub async fn ticket(
-        &self,
-        timeslot: TimeSlot,
-    ) -> anyhow::Result<Option<(OpaqueHash, TicketEnvelope)>> {
+    #[tracing::instrument(skip_all, name = "ticket::generate")]
+    pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
-        if attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+        if attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
             return Ok(None);
         }
 
@@ -207,13 +209,14 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 3. insert the ticket into the pool
         self.attempt.fetch_add(1, Ordering::Relaxed);
-        let id = self.insert_ticket(epoch, envelope.clone()).await?;
-        Ok(Some((id, envelope)))
+        let ticket = self.verify_ticket(envelope).await?;
+        self.insert_ticket(epoch, ticket.clone()).await?;
+        Ok(Some(ticket))
     }
 
     /// Seal a block
+    #[tracing::instrument(skip_all, name = "seal")]
     fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let series = self.storage.series()?;
         let entropy = self.storage.entropy()?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
@@ -224,6 +227,7 @@ impl<'a, C: Config> Author<'a, C> {
         };
 
         // construct the seal message
+        let series = self.series(&block.header)?;
         let (message, ticket) = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
@@ -259,12 +263,14 @@ impl<'a, C: Config> Author<'a, C> {
         // verify the ticket id
         let verifier = crypto::ring::verifier(keys.clone());
         if let Some(ticket) = ticket {
-            let output = verifier.ietf_vrf_verify(
-                &message,
-                &context,
-                &block.header.seal,
-                block.header.author_index as usize,
-            )?;
+            let output = verifier
+                .ietf_vrf_verify(
+                    &message,
+                    &context,
+                    &block.header.seal,
+                    block.header.author_index as usize,
+                )
+                .context("failed to verify the ticket id")?;
             if output != ticket.id {
                 tracing::error!(
                     "ticket seal mismatched, expected: 0x{}, got: 0x{}",
@@ -276,6 +282,28 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         Ok(block)
+    }
+
+    /// Get the series for sealing usage
+    fn series(&self, header: &Header) -> anyhow::Result<TicketsOrKeys> {
+        let epoch = header.slot / score::EPOCH_LENGTH;
+        if let Ok(series) = self.storage.series(epoch) {
+            return Ok(series);
+        }
+
+        let prev = self
+            .storage
+            .header(&header.parent)
+            .map(|prev| prev.slot / score::EPOCH_LENGTH)
+            .unwrap_or(0);
+
+        if epoch > prev {
+            let keys = self.storage.next_validators()?.bandersnatch();
+            let entropy = self.storage.entropy()?;
+            return Ok(TicketsOrKeys::fallback(keys, entropy[1]));
+        };
+
+        anyhow::bail!("current fallback series not tracked, this should never happen");
     }
 }
 
@@ -293,32 +321,29 @@ impl<C: Config> Runtime<C> {
         Author::new(self)
     }
 
-    /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(
-        &self,
-        _epoch: u32,
-        ticket: TicketEnvelope,
-    ) -> anyhow::Result<OpaqueHash> {
+    /// Verify a ticket
+    pub async fn verify_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<Ticket> {
         let keys = self.storage.next_validators()?.bandersnatch();
         let entropy = self.storage.entropy()?;
         let verifier = crypto::ring::verifier(keys);
-        let id = match verifier.ring_vrf_verify(
-            &TicketBody::message(ticket.attempt, &entropy[2]),
-            &[],
-            &ticket.signature,
-        ) {
-            Ok(id) => id,
-            Err(e) => {
-                anyhow::bail!(
-                    "invalid ticket#{} with entropy: 0x{}, {e}",
-                    ticket.attempt,
-                    hex::encode(entropy[2].as_ref()),
-                );
-            }
-        };
+        let id = verifier
+            .ring_vrf_verify(
+                &TicketBody::message(ticket.attempt, &entropy[2]),
+                &[],
+                &ticket.signature,
+            )
+            .context("failed to verify the ticket")?;
 
+        Ok(Ticket {
+            id,
+            envelope: ticket,
+        })
+    }
+
+    /// Sort and insert a ticket into the pool
+    pub async fn insert_ticket(&self, _epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
         let mut tickets = self.expool.tickets.lock().await;
-        tickets.insert((id, ticket));
-        Ok(id)
+        tickets.insert(ticket);
+        Ok(())
     }
 }

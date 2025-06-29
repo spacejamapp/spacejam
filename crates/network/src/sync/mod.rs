@@ -4,7 +4,7 @@ use crate::Network;
 use request::BlockSync;
 use runtime::{
     storage::{ArchiveStorage, SyncStorage},
-    Ancestry, Hook, Storage,
+    Hook, Storage,
 };
 use score::{block::Head, OpaqueHash, TimeSlot};
 
@@ -45,8 +45,8 @@ impl<C: runtime::Config> Network<C> {
             finalized = Head { hash: *head, slot };
         }
 
-        self.storage.finalize(finalized.hash)?;
-        self.storage.set_finalized(&finalized)?;
+        self.storage.checkout(finalized.hash)?;
+        self.storage.finalize(&finalized)?;
         {
             // FIXME: this could introduce bugs in future.
             let next = if block.header.epoch_mark.is_some() {
@@ -97,7 +97,7 @@ impl<C: runtime::Config> Network<C> {
             return Ok(());
         };
 
-        tracing::info!(
+        tracing::trace!(
             "head#{}@0x{} ancestors: {:#?}",
             ancestry.best.slot,
             hex::encode(&ancestry.best.hash[..3]),
@@ -112,42 +112,31 @@ impl<C: runtime::Config> Network<C> {
             self.finalize(&ancestry.ancestors[3..]).await?;
         }
 
-        ancestry.advance(&best)?;
-        self.sync_local(&mut ancestry).await?;
-        BlockSync::asc(self, ancestry.clone()).await?.sync().await?;
-
-        // try sync from local chain again
-        self.sync_local(&mut ancestry).await
-    }
-
-    /// Sync from the local chain.
-    #[tracing::instrument(skip_all, name = "sync::local", parent = None)]
-    async fn sync_local(&self, ancestry: &mut Ancestry) -> anyhow::Result<()> {
-        let mut blocks = ancestry.ancestors.clone();
-        blocks.reverse();
-
-        for hash in blocks.iter().cloned() {
-            let Ok(block) = self.storage.block(&hash) else {
-                break;
-            };
-
-            if block.header.slot != ancestry.finalized.slot + 1
-                && ancestry.finalized.slot != 0
-                && ancestry.ancestors.len() < 3
-            {
-                tracing::trace!(
-                    "blocks not consistent with ancestry, incoming#{}, best#{}",
-                    block.header.slot,
-                    ancestry.finalized.slot,
-                );
-                return Ok(());
-            }
-
-            let slot = block.header.slot;
-            self.import(block).await?;
-            ancestry.advance(&Head { hash, slot })?;
+        // WORKAROUND: fallback to the finalized head.
+        if let Err(e) = ancestry.advance(&best) {
+            self.fallback().await?;
+            return Err(e);
         }
 
+        BlockSync::asc(self, ancestry).await?.sync().await?;
+        Ok(())
+    }
+
+    /// Fallback to the finalized chain.
+    ///
+    /// This happens when our best head is on a fork chain
+    ///
+    /// TODO: this operation should be well tested.
+    pub async fn fallback(&self) -> anyhow::Result<()> {
+        let finalized = self.storage.finalized()?;
+        self.storage.checkout(finalized.hash)?;
+        tracing::warn!(
+            "fallback to the finalized chain at head#{}@0x{}",
+            finalized.slot,
+            hex::encode(finalized.hash)
+        );
+
+        self.grandpa.write().await.handshake.head = finalized;
         Ok(())
     }
 }

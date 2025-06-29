@@ -125,11 +125,20 @@ impl<T: Storage> Grandpa<T> {
     /// - count votes via sealed blocks
     pub fn select_best_head(&self) -> Option<Ancestry> {
         let finalized = self.handshake.head.clone();
-        let mut best = None;
+        let mut selected = if let Ok(best) = self.ancestry.best() {
+            let ancestors = self
+                .ancestry
+                .ancestors(&best.hash, &finalized.hash)
+                .unwrap_or_default();
+            Some((best, ancestors))
+        } else {
+            None
+        };
+
         for leaf in self.handshake.leaves.iter().rev() {
             let ancestors = self.ancestry.ancestors(&leaf.hash, &finalized.hash).ok()?;
-            let Some((_, chain)) = &best else {
-                best = Some((leaf.clone(), ancestors));
+            let Some((_, chain)) = &selected else {
+                selected = Some((leaf.clone(), ancestors));
                 continue;
             };
 
@@ -137,10 +146,10 @@ impl<T: Storage> Grandpa<T> {
                 continue;
             }
 
-            best = Some((leaf.clone(), ancestors));
+            selected = Some((leaf.clone(), ancestors));
         }
 
-        let (best, ancestors) = best?;
+        let (best, ancestors) = selected?;
         Some(Ancestry {
             best,
             ancestors,

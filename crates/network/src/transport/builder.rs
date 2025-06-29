@@ -16,6 +16,7 @@ use rustls::{
 use std::{
     net::{Ipv4Addr, SocketAddr},
     sync::Arc,
+    time::Duration,
 };
 use webpki::types::CertificateDer;
 
@@ -103,10 +104,9 @@ impl Builder {
         // Configure QUIC transport parameters
         let transport_config = Arc::new({
             let mut transport = quinn::TransportConfig::default();
-            transport.keep_alive_interval(Some(std::time::Duration::from_secs(15)));
-            transport.max_idle_timeout(Some(quinn::IdleTimeout::from(quinn::VarInt::from_u32(
-                60_000,
-            ))));
+            transport.keep_alive_interval(Some(Duration::from_secs(10)));
+            transport
+                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(60))?));
             transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
             transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
             transport.send_window(8 * 1024 * 1024);

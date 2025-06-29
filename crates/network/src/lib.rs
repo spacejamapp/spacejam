@@ -82,10 +82,10 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
             // check if the connection is a feedi
             if handshake.head.hash == best.hash
+                || handshake.leaves.contains(best)
                 || grandpa
                     .ancestry
                     .is_descendant_of(&handshake.head.hash, &best.hash)
-                || handshake.leaves.contains(best)
             {
                 feeds.push(conn.clone());
             }
@@ -129,12 +129,11 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     }
 
     /// Dial a new connection
-    pub async fn dial(&self, addr: Address) -> anyhow::Result<()> {
+    pub async fn dial(&self, addr: &Address) -> anyhow::Result<()> {
         let conn = self
             .transport
             .connect(addr.address, addr.peer_id.to_string().as_str())?
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to dial {addr}: {e}"))?;
+            .await?;
 
         // we need to verify the peer id before sending the connected event
         let Ok(conn) = Connection::new(conn.clone(), true) else {
@@ -174,8 +173,9 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             };
 
             let address = Address::new(ipv4, peer);
-            if let Err(e) = self.dial(address).await {
-                tracing::warn!("failed to dial bootstrap peer: {e}");
+            tracing::info!("dialing peer {address}");
+            if let Err(e) = self.dial(&address).await {
+                tracing::warn!("failed to dial {address}: {e}");
             }
         }
     }

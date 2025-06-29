@@ -1,7 +1,15 @@
 //! Broadcast events
 
-use crate::{stream::ce132, Network};
-use score::{block::Header, extrinsic::TicketEnvelope};
+use crate::{
+    peer::PeerId,
+    stream::{ce131, ce132},
+    Connection, Network,
+};
+use anyhow::Context;
+use score::{
+    block::Header,
+    extrinsic::{Ticket, TicketEnvelope},
+};
 
 impl<C: runtime::Config> Network<C> {
     /// Announce a block to the network
@@ -9,7 +17,7 @@ impl<C: runtime::Config> Network<C> {
     pub async fn announce(&self, header: Box<Header>) -> anyhow::Result<()> {
         let grandpa = self.grandpa().await;
         if let Err(e) = grandpa.accept_local(&header).await {
-            tracing::warn!("skip because: {e}");
+            tracing::trace!("skip because: {e}");
             return Ok(());
         }
 
@@ -21,45 +29,78 @@ impl<C: runtime::Config> Network<C> {
         Ok(())
     }
 
-    /// Broadcast a ticket to all current validators in the network.
-    ///
-    /// TODO:
-    ///
-    /// - do it async instead of a blocking loop
-    /// - check if remote peer can accept the ticket
-    #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.attempt))]
-    pub async fn ticket(&self, epoch: u32, ticket: TicketEnvelope) {
-        let validators = self.grandpa().await.grid.curr;
+    /// Broadcast a ticket to validators in the network.
+    #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.envelope.attempt))]
+    pub async fn submit(&self, epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
+        let validators = self.grandpa().await.grid.next;
         let pool = self.pool.read().await.clone();
+        let validator: PeerId = validators[ticket.submission()].ed25519.into();
+        let conn = pool
+            .get(&validator)
+            .ok_or_else(|| anyhow::anyhow!("validator not found: {validator:?}"))?;
 
-        tracing::trace!("broadcasting to {} peers", pool.len());
-        for conn in pool.values() {
-            let peer: [u8; 32] = conn.address.peer_id.into();
-            if validators.iter().any(|v| v.ed25519 == peer) {
-                let Ok((send, recv)) = conn.open_bi().await else {
-                    tracing::warn!("failed to open bi-stream: {}", conn.address);
-                    if let Err(e) = self
-                        .disconnect(conn.address.peer_id, "failed to open bi-stream".to_string())
-                        .await
-                    {
-                        tracing::error!("failed to disconnect: {e}");
-                    }
-                    continue;
-                };
+        let (send, recv) = conn.open_bi().await.context(format!(
+            "failed to open bi-stream to submit ticket to {validator}"
+        ))?;
 
-                if let Err(e) = ce132::send(
-                    send,
-                    recv,
-                    ce132::Request {
-                        epoch,
-                        ticket: ticket.clone(),
-                    },
-                )
-                .await
-                {
-                    tracing::warn!("failed to send ticket: {e}");
-                }
+        tracing::trace!(
+            "submitting ticket#{} to {validator}",
+            ticket.envelope.attempt
+        );
+        ce131::send(
+            send,
+            recv,
+            ce132::Request {
+                epoch,
+                ticket: ticket.envelope,
+            },
+        )
+        .await
+    }
+
+    /// subscribe tickets to the network
+    pub async fn subscribe_tickets(&self) -> anyhow::Result<()> {
+        let pool = self.pool.read().await.clone();
+        let tickets = self.runtime.tickets.lock().await.clone();
+        if tickets.is_empty() {
+            return Ok(());
+        }
+
+        let validators = self.grandpa().await.grid.next;
+        let me = self.me();
+        let this = validators
+            .iter()
+            .find(|v| v.bandersnatch == me)
+            .map(|v| v.ed25519.into())
+            .ok_or_else(|| anyhow::anyhow!("not in the validator list"))?;
+        for (peer, conn) in pool {
+            if peer == this {
+                continue;
+            }
+
+            if let Err(e) = self.send_tickets(conn, tickets.clone()).await {
+                tracing::warn!("failed to send tickets to {peer}: {e}");
             }
         }
+
+        self.runtime.tickets.lock().await.clear();
+        Ok(())
+    }
+
+    async fn send_tickets(
+        &self,
+        conn: Connection,
+        tickets: Vec<(u32, TicketEnvelope)>,
+    ) -> anyhow::Result<()> {
+        for (epoch, ticket) in tickets.clone() {
+            let (send, recv) = conn
+                .open_bi()
+                .await
+                .map_err(|e| anyhow::anyhow!("failed to open bi-stream: {e}"))?;
+
+            ce132::send(send, recv, ce132::Request { epoch, ticket }).await?;
+        }
+
+        Ok(())
     }
 }

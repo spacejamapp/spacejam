@@ -4,7 +4,7 @@ use crate::Storage;
 use anyhow::Result;
 use score::{
     block::{Head, Header},
-    extrinsic::{TicketBody, TicketsOrKeys},
+    extrinsic::TicketsOrKeys,
     safrole::ValidatorIter,
     Block, OpaqueHash,
 };
@@ -16,6 +16,9 @@ pub const SYNC: &[u8] = b"sync";
 pub trait SyncStorage: Storage {
     /// Get the ancestors of the given hash.
     fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Result<Vec<OpaqueHash>> {
+        if hash == ancestor {
+            return Ok(vec![]);
+        }
         let mut ancestors = Vec::new();
         let mut current = *hash;
         while let Some(parent) = self.parent(&current)? {
@@ -32,13 +35,13 @@ pub trait SyncStorage: Storage {
 
     /// Check if the given hash is a descendant of the ancestor.
     fn is_descendant_of(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> bool {
-        let mut key = [SYNC, b"descendant", ancestor.as_ref()].concat();
-        while let Ok(Some(value)) = self.get(&key) {
-            if value == hash {
+        let mut current = *hash;
+        while let Ok(Some(parent)) = self.parent(&current) {
+            if parent == *ancestor {
                 return true;
             }
 
-            key = [SYNC, b"descendant", value.as_ref()].concat();
+            current = parent;
         }
 
         false
@@ -55,6 +58,7 @@ pub trait SyncStorage: Storage {
     fn set_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
         let key = [SYNC, hash.as_ref()].concat();
+        self.set_header(&block.header)?;
         self.set(key, codec::encode(block)?)?;
         Ok(())
     }
@@ -75,9 +79,9 @@ pub trait SyncStorage: Storage {
         Ok(())
     }
 
-    /// Get the descendant of the given hash.
-    fn descendant(&self, hash: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = [SYNC, b"descendant", hash.as_ref()].concat();
+    /// Get the descendant of the given hash in finalized chain.
+    fn descendant(&self, parent: &OpaqueHash) -> Result<OpaqueHash> {
+        let key = [SYNC, b"descendant", parent.as_ref()].concat();
         let value = self
             .get(&key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
@@ -94,9 +98,16 @@ pub trait SyncStorage: Storage {
     }
 
     /// Set the finalized head
-    fn set_finalized(&self, head: &Head) -> Result<()> {
+    fn finalize(&self, head: &Head) -> Result<()> {
         let key = [SYNC, b"finalized"].concat();
         self.set(key, codec::encode(head)?)?;
+
+        // set the descendant of the parent
+        let parent = self
+            .parent(&head.hash)?
+            .ok_or(anyhow::anyhow!("Parent not found"))?;
+        let key = [SYNC, b"descendant", parent.as_ref()].concat();
+        self.set(key, head.hash)?;
         Ok(())
     }
 
@@ -197,44 +208,45 @@ pub trait SyncStorage: Storage {
             .collect::<Vec<_>>())
     }
 
-    /// Fetch the series
-    fn series(&self) -> Result<TicketsOrKeys> {
-        let key = [SYNC, b"series"].concat();
-        if let Ok(Some(value)) = self.get(&key) {
-            codec::decode(value.as_ref()).map_err(Into::into)
-        } else {
-            Ok(self.safrole()?.series)
-        }
-    }
-
-    /// Get the next series
-    ///
-    /// TODO: save this in memory.
-    fn next_series(&self) -> Result<[TicketBody; score::EPOCH_LENGTH as usize]> {
-        let key = [SYNC, b"series", b"next"].concat();
+    /// Get the series
+    fn series(&self, epoch: u32) -> Result<TicketsOrKeys> {
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
-    /// Set the next series
-    fn set_next_series(&self, series: [TicketBody; score::EPOCH_LENGTH as usize]) -> Result<()> {
-        let key = [SYNC, b"series", b"next"].concat();
+    /// Set the series
+    fn set_series(&self, epoch: u32, series: &TicketsOrKeys) -> Result<()> {
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
         self.set(key, codec::encode(&series)?)?;
         Ok(())
     }
 
     /// On new epoch handler for rotating the series
-    fn on_new_epoch(&self) -> Result<()> {
-        let key = [SYNC, b"series"].concat();
-        if let Ok(series) = self.next_series() {
-            self.set(key, codec::encode(&TicketsOrKeys::Tickets(series))?)?;
-        } else {
-            let keys = self.next_validators()?.bandersnatch();
-            let entropy = self.entropy()?;
-            let series = TicketsOrKeys::fallback(keys, entropy[1]);
-            self.set(key, codec::encode(&series)?)?;
+    ///
+    /// Set the fallback series if it is not tracked.
+    fn on_new_epoch(&self, epoch: u32) -> Result<()> {
+        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
+        if self.series(epoch).is_ok() {
+            return Ok(());
         }
 
+        // check if the block with epoch mark left on fork chain
+        //
+        // FIXME: this may not correct since different nodes may have different tickets.
+        let safrole = self.safrole()?;
+        if safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
+            let mut tickets = [Default::default(); score::EPOCH_LENGTH as usize];
+            tickets.copy_from_slice(&safrole.accumulator);
+            self.set(key, codec::encode(&TicketsOrKeys::Tickets(tickets))?)?;
+            return Ok(());
+        }
+
+        // using fallback series
+        let keys = self.next_validators()?.bandersnatch();
+        let entropy = self.entropy()?;
+        let series = TicketsOrKeys::fallback(keys, entropy[1]);
+        self.set(key, codec::encode(&series)?)?;
         Ok(())
     }
 }

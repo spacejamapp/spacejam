@@ -24,11 +24,10 @@ impl Ancestry {
             return Ok(());
         }
 
-        if !self.ancestors.contains(&head.hash) {
-            anyhow::bail!(
-                "current best head#{} is not in the ancestors, FIXME: forked chain",
-                head.slot
-            );
+        if head.hash == self.best.hash {
+            self.ancestors.clear();
+            self.finalized = head.clone();
+            return Ok(());
         }
 
         self.ancestors = self
