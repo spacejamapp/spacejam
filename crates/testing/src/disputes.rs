@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use core::result::Result;
 use runtime::tx::dispute::error::Error;
 use score::{

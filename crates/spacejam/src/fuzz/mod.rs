@@ -1,9 +1,10 @@
 //! Fuzz related implementations
 
-use crate::fuzz::message::{PeerInfo, Version};
+use crate::fuzz::message::Version;
 
-mod message;
-mod target;
+pub mod message;
+pub mod target;
+pub mod trace;
 
 /// The binary version of spacejam
 pub const VERSION: Version = Version {

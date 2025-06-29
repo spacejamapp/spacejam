@@ -80,6 +80,10 @@ pub enum Command {
     /// SpaceJam key utils
     #[command(subcommand)]
     Key(key::Key),
+
+    /// Spacejam fuzz command
+    #[command(subcommand)]
+    Fuzz(fuzz::Fuzz),
 }
 
 impl Command {
@@ -88,6 +92,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>().await?.start().await,
             Command::Key(key) => key.run(),
+            Command::Fuzz(fuzz) => fuzz.run().await,
             // Command::State(state) => state.run(),
         }
     }

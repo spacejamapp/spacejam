@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use score::{
     block::{BlockInfo, BlockInfoJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},

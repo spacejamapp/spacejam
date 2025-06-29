@@ -1,12 +1,5 @@
 //! The unix stream for fuzzing
 
-use pvmi::Interpreter;
-use runtime::{
-    storage::{ArchiveStorage, Commit, KVStorage},
-    tx, Storage,
-};
-use score::{Block, OpaqueHash};
-
 use crate::{
     fuzz::{
         self,
@@ -14,20 +7,32 @@ use crate::{
     },
     storage::Parity,
 };
-use std::{io::Write, os::unix::net::UnixStream, path::PathBuf, sync::Arc};
+use pvmi::Interpreter;
+use runtime::{
+    storage::{ArchiveStorage, Commit, KVStorage},
+    tx, Storage,
+};
+use score::{Block, OpaqueHash};
+use std::{
+    io::Write,
+    os::unix::net::UnixStream,
+    path::PathBuf,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 /// A fuzz target
-pub struct Target<'s> {
+pub struct Target {
     /// The connected unix stream
-    stream: &'s mut UnixStream,
+    stream: Rc<Mutex<UnixStream>>,
 
     /// The database used in fuzzing
     data: Arc<Parity>,
 }
 
-impl<'s> Target<'s> {
+impl Target {
     /// Create a new target
-    pub fn new(stream: &'s mut UnixStream, data: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(stream: Rc<Mutex<UnixStream>>, data: PathBuf) -> anyhow::Result<Self> {
         Ok(Self {
             stream,
             data: Arc::new(Parity::try_from(data)?),
@@ -62,9 +67,11 @@ impl<'s> Target<'s> {
             );
         }
 
-        let resp = Message::Info(this);
-        self.stream.write_all(&codec::encode(&resp)?)?;
-        self.stream.flush()?;
+        let resp = codec::encode(&Message::Info(this))?;
+        let mut stream = self.stream.lock().unwrap();
+        stream.write(&resp.len().to_le_bytes())?;
+        stream.write_all(&resp)?;
+        stream.flush()?;
         Ok(())
     }
 
@@ -72,9 +79,12 @@ impl<'s> Target<'s> {
     pub fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let hash = block.header.hash()?;
         tx::transit::<Interpreter>(block, self.data.clone())?;
-        let resp = Message::StateRoot(self.data.root()?);
-        self.stream.write_all(&codec::encode(&resp)?)?;
-        self.stream.flush()?;
+        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
+        let mut stream = self.stream.lock().unwrap();
+        stream.write(&resp.len().to_le_bytes())?;
+        stream.write_all(&resp)?;
+        stream.flush()?;
+
         self.data.archive(hash)?;
         Ok(())
     }
@@ -89,9 +99,12 @@ impl<'s> Target<'s> {
             commit.set(key, value);
         }
 
-        let resp = Message::StateRoot(self.data.root()?);
-        self.stream.write_all(&codec::encode(&resp)?)?;
-        self.stream.flush()?;
+        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
+        let mut stream = self.stream.lock().unwrap();
+        stream.write(&resp.len().to_le_bytes())?;
+        stream.write_all(&resp)?;
+        stream.flush()?;
+
         self.data.archive(hash)?;
         Ok(())
     }
@@ -108,9 +121,11 @@ impl<'s> Target<'s> {
             });
         }
 
-        let resp = Message::State(state);
-        self.stream.write_all(&codec::encode(&resp)?)?;
-        self.stream.flush()?;
+        let resp = codec::encode(&Message::State(state))?;
+        let mut stream = self.stream.lock().unwrap();
+        stream.write(&resp.len().to_le_bytes())?;
+        stream.write_all(&resp)?;
+        stream.flush()?;
         Ok(())
     }
 

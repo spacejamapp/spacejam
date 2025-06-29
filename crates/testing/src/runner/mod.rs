@@ -24,7 +24,7 @@ pub struct Runner;
 impl Runner {
     /// Step a test.
     pub fn step(test: &Test) -> Result<()> {
-        tracing_subscriber::fmt::Subscriber::builder()
+        let _ = tracing_subscriber::fmt::Subscriber::builder()
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
             .with_ansi(false)
@@ -32,7 +32,7 @@ impl Runner {
             .with_file(false)
             // .with_level(false)
             .with_target(false)
-            .init();
+            .try_init();
 
         match test.section {
             Section::Accumulate => {
