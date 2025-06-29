@@ -69,8 +69,7 @@ impl Target {
 
         let resp = codec::encode(&Message::Info(this))?;
         let mut stream = self.stream.lock().unwrap();
-        stream.write(&resp.len().to_le_bytes())?;
-        stream.write_all(&resp)?;
+        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
         Ok(())
     }
@@ -81,8 +80,7 @@ impl Target {
         tx::transit::<Interpreter>(block, self.data.clone())?;
         let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
         let mut stream = self.stream.lock().unwrap();
-        stream.write(&resp.len().to_le_bytes())?;
-        stream.write_all(&resp)?;
+        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
 
         self.data.archive(hash)?;
@@ -101,8 +99,7 @@ impl Target {
 
         let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
         let mut stream = self.stream.lock().unwrap();
-        stream.write(&resp.len().to_le_bytes())?;
-        stream.write_all(&resp)?;
+        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
 
         self.data.archive(hash)?;
@@ -112,8 +109,8 @@ impl Target {
     /// Received get state request
     pub fn get_state(&mut self, hash: OpaqueHash) -> anyhow::Result<()> {
         let mut state = Vec::new();
-        let mut iter = self.data.prefix_iter(hash)?;
-        while let Some(pair) = iter.next() {
+        let iter = self.data.prefix_iter(hash)?;
+        for pair in iter {
             let (key, value) = pair?;
             state.push(KeyValue {
                 key: hex::encode(key),
@@ -123,8 +120,7 @@ impl Target {
 
         let resp = codec::encode(&Message::State(state))?;
         let mut stream = self.stream.lock().unwrap();
-        stream.write(&resp.len().to_le_bytes())?;
-        stream.write_all(&resp)?;
+        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
         Ok(())
     }

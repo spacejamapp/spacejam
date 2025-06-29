@@ -9,19 +9,19 @@ pub fn test(dir: &Path) -> anyhow::Result<()> {
     let mut passed = 0;
     let mut failed = Vec::new();
     for test in entry {
-        println!("Testing {}\n", test.name);
+        tracing::info!("Testing {}", test.name);
         if let Err(e) = Runner::step(&test) {
             failed.push((test.name, e));
         } else {
             passed += 1;
         }
     }
-    println!("\n\nPassed {} tests", passed);
 
+    tracing::info!("\n\nPassed {passed} tests");
     if !failed.is_empty() {
-        println!("\nFailed {} tests", failed.len());
+        tracing::error!("\nFailed {} tests", failed.len());
         for (name, e) in failed {
-            eprintln!("Test {} failed: {}", name, e);
+            tracing::error!("Test {name} failed: {e}");
         }
     }
     Ok(())
