@@ -17,7 +17,7 @@ impl<C: runtime::Config> Network<C> {
     pub async fn announce(&self, header: Box<Header>) -> anyhow::Result<()> {
         let grandpa = self.grandpa().await;
         if let Err(e) = grandpa.accept_local(&header).await {
-            tracing::warn!("skip because: {e}");
+            tracing::trace!("skip because: {e}");
             return Ok(());
         }
 

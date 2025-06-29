@@ -4,8 +4,8 @@ use crate::{
     stream::{ce128, ext::Read},
     Connection, Network,
 };
-use runtime::Ancestry;
-use score::{block::Head, Block};
+use runtime::{storage::SyncStorage, Ancestry};
+use score::Block;
 
 /// Block sync requester
 pub struct BlockSync<'r, C: runtime::Config> {
@@ -83,12 +83,18 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 hex::encode(&hash[..3])
             );
 
-            // FIXME: skip requests if the block already exists.
-            let slot = block.header.slot;
-            let header = block.header.clone();
-            self.runtime.import(block).await?;
-            self.runtime.announce(header.into()).await?;
-            self.ancestry.advance(&Head { hash, slot })?;
+            self.runtime.announce(block.header.clone().into()).await?;
+            if let Err(e) = self.runtime.import(block.clone()).await {
+                tracing::warn!(
+                    "failed to import block#{}@0x{}: {e}",
+                    block.header.slot,
+                    hex::encode(&hash[..3])
+                );
+
+                self.runtime.storage.set_block(&block)?;
+                return Ok(());
+            }
+
             head = hash;
             if head == best {
                 break;

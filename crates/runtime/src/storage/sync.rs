@@ -16,6 +16,9 @@ pub const SYNC: &[u8] = b"sync";
 pub trait SyncStorage: Storage {
     /// Get the ancestors of the given hash.
     fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Result<Vec<OpaqueHash>> {
+        if hash == ancestor {
+            return Ok(vec![]);
+        }
         let mut ancestors = Vec::new();
         let mut current = *hash;
         while let Some(parent) = self.parent(&current)? {
