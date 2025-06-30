@@ -6,7 +6,7 @@ pub use registry::Accounts;
 use score::{
     service::{GasLimit, ServiceAccount, ServiceInfo},
     state::account,
-    OpaqueHash, StorageKey,
+    OpaqueHash, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -33,7 +33,7 @@ pub struct Account<S: Storage> {
     storage: (BTreeSet<Vec<u8>>, BTreeSet<Vec<u8>>),
 
     /// The operations of the account
-    ops: Commit<StorageKey, Vec<u8>>,
+    ops: Commit<TrieKey, Vec<u8>>,
 }
 
 impl<S: Storage> Account<S> {
@@ -64,7 +64,7 @@ impl<S: Storage> Account<S> {
     }
 
     /// Drop a lookup if it exists
-    pub fn drop_lookup(&mut self, hash: [u8; 32], len: u32) -> StorageKey {
+    pub fn drop_lookup(&mut self, hash: [u8; 32], len: u32) -> TrieKey {
         let key = account::lookup(self.index, len, hash);
         let mut mhash = [0; 32];
         mhash[..31].copy_from_slice(&key);
@@ -210,14 +210,14 @@ impl<S: Storage> score::Account for Account<S> {
         }
     }
 
-    fn ops(mut self) -> (BTreeMap<StorageKey, Vec<u8>>, BTreeSet<StorageKey>) {
+    fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
         self.ops.set(
             account::info(self.index),
             codec::encode(&self.account.data()).expect("data is valid"),
         );
 
         // collect removals
-        let mut removals: BTreeSet<StorageKey> = self.ops.iremoval().cloned().collect();
+        let mut removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
         removals.extend(self.storage.1.iter().map(|k| {
             let mut mkey = [0; 31];
             mkey.copy_from_slice(k);
@@ -231,7 +231,7 @@ impl<S: Storage> score::Account for Account<S> {
         );
 
         // collect updates
-        let mut updates: BTreeMap<StorageKey, Vec<u8>> =
+        let mut updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
         updates.extend(self.storage.0.iter().map(|k| {
             let mut key = [0; 31];

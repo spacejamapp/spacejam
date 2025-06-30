@@ -2,7 +2,7 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, StorageKey};
+use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, TrieKey};
 use std::{collections::BTreeMap, future::Future};
 
 /// Hooks for the runtime
@@ -18,7 +18,7 @@ pub trait Hook: Send + Sync {
     }
 
     /// Called when a key-value pair is updated
-    fn on_key_value(&self, _hash: OpaqueHash, _key: StorageKey, _value: &[u8]) -> Result<()> {
+    fn on_key_value(&self, _hash: OpaqueHash, _key: TrieKey, _value: &[u8]) -> Result<()> {
         Ok(())
     }
 
@@ -26,7 +26,7 @@ pub trait Hook: Send + Sync {
     fn on_diff(
         &self,
         hash: OpaqueHash,
-        diff: Commit<StorageKey, Vec<u8>>,
+        diff: Commit<TrieKey, Vec<u8>>,
     ) -> impl Future<Output = Result<()>> + Send {
         async move {
             let mut data = BTreeMap::new();

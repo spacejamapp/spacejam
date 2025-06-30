@@ -11,6 +11,7 @@ pub use {
 };
 
 mod archive;
+mod branch;
 mod commit;
 mod kv;
 mod state;

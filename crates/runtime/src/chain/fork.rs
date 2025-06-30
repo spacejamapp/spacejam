@@ -9,7 +9,7 @@ use pvm::Pvm;
 use score::{
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
-    Block, StorageKey, TimeSlot,
+    Block, TimeSlot, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -22,7 +22,7 @@ pub struct Fork {
     pub chain: BTreeSet<Head>,
 
     /// The diff of the chain.
-    blocks: BTreeMap<TimeSlot, (Block, Commit<StorageKey, Vec<u8>>)>,
+    blocks: BTreeMap<TimeSlot, (Block, Commit<TrieKey, Vec<u8>>)>,
 
     /// The state of the chain.
     state: Arc<MemoryDb>,
