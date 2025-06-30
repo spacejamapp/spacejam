@@ -28,6 +28,11 @@ impl<S: Storage> Branch<S> {
             diff: Arc::new(RwLock::new(HashMap::new())),
         }
     }
+
+    /// Get the state of the branch
+    pub fn state(&self) -> Arc<S> {
+        self.state.clone()
+    }
 }
 
 impl<S: Storage> KVStorage for Branch<S> {

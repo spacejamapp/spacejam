@@ -1,7 +1,7 @@
 //! chain of blocks.
 
 use crate::{
-    storage::{Branch, Commit},
+    storage::{Branch, Commit, KVStorage},
     tx, Storage,
 };
 use anyhow::Result;
@@ -59,6 +59,32 @@ impl<S: Storage> Fork<S> {
     /// Check if the chain is empty.
     pub fn is_empty(&self) -> bool {
         self.chain.is_empty()
+    }
+
+    /// Create a fork of a fork
+    pub fn fork<Vm: Pvm>(&self, block: &Block) -> Result<Self> {
+        let parent = block.header.parent;
+        let timeslot = self
+            .chain
+            .iter()
+            .find(|h| h.hash == parent)
+            .map(|h| h.slot)
+            .ok_or(anyhow::anyhow!("parent block not found"))?;
+
+        // checkout branch and commit diffs
+        let branch = Branch::checkout(self.state.state());
+        for (slot, (_, commit)) in self.blocks.iter() {
+            if slot > &timeslot {
+                break;
+            }
+
+            branch.commit_legacy(commit.clone())?;
+        }
+
+        // import the block
+        let mut fork = Fork::new(branch, self.series.clone());
+        fork.import::<Vm>(block)?;
+        Ok(fork)
     }
 
     /// Insert a new block to the chain.

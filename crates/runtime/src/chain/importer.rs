@@ -64,13 +64,13 @@ impl<C: Config> Chain<C> {
     /// Get the parent of the block.
     pub fn parent(&mut self, hash: OpaqueHash) -> Option<&mut Fork<C::Storage>> {
         for fork in self.forks.values_mut() {
-            let len = fork.chain.len();
             for head in fork.chain.iter() {
                 if head.hash == hash {
                     return Some(fork);
                 }
             }
         }
+
         None
     }
 
