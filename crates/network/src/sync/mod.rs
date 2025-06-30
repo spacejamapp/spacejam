@@ -112,31 +112,13 @@ impl<C: runtime::Config> Network<C> {
             self.finalize(&ancestry.ancestors[3..]).await?;
         }
 
-        // WORKAROUND: fallback to the finalized head.
-        if let Err(e) = ancestry.advance(&best) {
+        ancestry.advance(&best)?;
+        if let Err(e) = BlockSync::asc(self, ancestry).await?.sync().await {
+            tracing::warn!(
+                "failed to sync the best chain: {e}, fallback to the finalized head ..."
+            );
             self.fallback().await?;
-            return Err(e);
         }
-
-        BlockSync::asc(self, ancestry).await?.sync().await?;
-        Ok(())
-    }
-
-    /// Fallback to the finalized chain.
-    ///
-    /// This happens when our best head is on a fork chain
-    ///
-    /// TODO: this operation should be well tested.
-    pub async fn fallback(&self) -> anyhow::Result<()> {
-        let finalized = self.storage.finalized()?;
-        self.storage.checkout(finalized.hash)?;
-        tracing::warn!(
-            "fallback to the finalized chain at head#{}@0x{}",
-            finalized.slot,
-            hex::encode(finalized.hash)
-        );
-
-        self.grandpa.write().await.handshake.head = finalized;
         Ok(())
     }
 }

@@ -72,7 +72,7 @@ impl<T: Storage> Grandpa<T> {
 
     /// Merge the leaves with the given header.
     pub fn add_leaf_to(&self, head: Head, handshake: &mut Handshake) -> anyhow::Result<()> {
-        let ancestors = self.ancestry.ancestors(&head.hash, &handshake.head.hash)?;
+        let ancestors = self.ancestry.ancestors(&head.hash, &handshake.head.hash);
         handshake.leaves.insert(head);
         handshake.leaves.retain(|l| !ancestors.contains(&l.hash));
         Ok(())
@@ -126,17 +126,15 @@ impl<T: Storage> Grandpa<T> {
     pub fn select_best_head(&self) -> Option<Ancestry> {
         let finalized = self.handshake.head.clone();
         let mut selected = if let Ok(best) = self.ancestry.best() {
-            let ancestors = self
-                .ancestry
-                .ancestors(&best.hash, &finalized.hash)
-                .unwrap_or_default();
+            let ancestors = self.ancestry.ancestors(&best.hash, &finalized.hash);
+
             Some((best, ancestors))
         } else {
             None
         };
 
         for leaf in self.handshake.leaves.iter().rev() {
-            let ancestors = self.ancestry.ancestors(&leaf.hash, &finalized.hash).ok()?;
+            let ancestors = self.ancestry.ancestors(&leaf.hash, &finalized.hash);
             let Some((_, chain)) = &selected else {
                 selected = Some((leaf.clone(), ancestors));
                 continue;

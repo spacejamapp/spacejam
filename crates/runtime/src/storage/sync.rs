@@ -15,22 +15,23 @@ pub const SYNC: &[u8] = b"sync";
 /// Sync storage
 pub trait SyncStorage: Storage {
     /// Get the ancestors of the given hash.
-    fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Result<Vec<OpaqueHash>> {
+    fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Vec<OpaqueHash> {
         if hash == ancestor {
-            return Ok(vec![]);
+            return vec![];
         }
+
         let mut ancestors = Vec::new();
         let mut current = *hash;
-        while let Some(parent) = self.parent(&current)? {
+        while let Ok(Some(parent)) = self.parent(&current) {
             current.copy_from_slice(parent.as_ref());
             if current == *ancestor {
-                break;
+                return ancestors;
             }
 
             ancestors.push(parent);
         }
 
-        Ok(ancestors)
+        vec![]
     }
 
     /// Check if the given hash is a descendant of the ancestor.

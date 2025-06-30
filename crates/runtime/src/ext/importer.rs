@@ -129,6 +129,7 @@ impl<C: Config> Runtime<C> {
 
         // 5. set the head as best block
         self.storage.set_best(&block.header.clone().try_into()?)?;
+        self.storage.archive(hash)?;
         Ok(())
     }
 
@@ -226,6 +227,24 @@ impl<C: Config> Runtime<C> {
             .map(|_| ())
             .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
 
+        Ok(())
+    }
+
+    /// Fallback to the finalized chain.
+    ///
+    /// This happens when our best head is on a fork chain
+    ///
+    /// TODO: this operation should be well tested.
+    pub async fn fallback(&self) -> anyhow::Result<()> {
+        let finalized = self.storage.finalized()?;
+        self.storage.checkout(finalized.hash)?;
+        tracing::warn!(
+            "fallback to the finalized chain at head#{}@0x{}",
+            finalized.slot,
+            hex::encode(finalized.hash)
+        );
+
+        self.grandpa.write().await.handshake.head = finalized;
         Ok(())
     }
 }
