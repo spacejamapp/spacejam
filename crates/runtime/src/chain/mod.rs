@@ -19,9 +19,6 @@ pub struct Chain<C: Config> {
     /// The grandpa of the chain.
     grandpa: Grandpa<C::Storage>,
 
-    /// The queued blocks.
-    queue: BTreeMap<TimeSlot, BTreeMap<OpaqueHash, Block>>,
-
     /// The cached series
     series: BTreeMap<TimeSlot, TicketsOrKeys>,
 
@@ -35,7 +32,6 @@ impl<C: Config> Chain<C> {
         Self {
             forks: HashMap::new(),
             grandpa,
-            queue: BTreeMap::new(),
             series: BTreeMap::new(),
             state,
         }

@@ -12,6 +12,7 @@ use score::{
     Block, TimeSlot, TrieKey,
 };
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
@@ -46,7 +47,7 @@ impl<S: Storage> Fork<S> {
     pub fn best(&self) -> Result<Head> {
         self.chain
             .iter()
-            .next_back()
+            .last()
             .cloned()
             .ok_or(anyhow::anyhow!("best block not exists"))
     }
