@@ -1,11 +1,15 @@
 //! Importer interface for the chain.
 
-use crate::{chain::fork::Fork, storage::SyncStorage, Chain, Storage};
+use crate::{
+    chain::fork::Fork,
+    storage::{Branch, KVStorage, SyncStorage},
+    Chain, Config,
+};
 use anyhow::Result;
 use score::{block::Header, state::key, Block, OpaqueHash};
 use std::collections::HashMap;
 
-impl<S: Storage> Chain<S> {
+impl<C: Config> Chain<C> {
     /// Import the genesis block
     pub async fn import_genesis(
         &mut self,
@@ -58,8 +62,8 @@ impl<S: Storage> Chain<S> {
     }
 
     /// Get the parent of the block.
-    pub fn parent(&mut self, hash: OpaqueHash) -> Option<&mut Fork> {
-        for fork in self.forks.iter_mut() {
+    pub fn parent(&mut self, hash: OpaqueHash) -> Option<&mut Fork<C::Storage>> {
+        for fork in self.forks.values_mut() {
             let len = fork.chain.len();
             for head in fork.chain.iter() {
                 if head.hash == hash {
@@ -70,8 +74,13 @@ impl<S: Storage> Chain<S> {
         None
     }
 
-    /// Create a new fork at the block hash
-    pub fn fork(&self) -> Result<Fork> {
-        todo!()
+    /// Create a new fork at the latest finalized block.
+    pub fn fork(&mut self, block: &Block) -> Result<()> {
+        let branch = Branch::checkout(self.state.clone());
+        let mut fork = Fork::new(branch, self.series.clone());
+        let hash = block.header.hash()?;
+        fork.import::<C::Vm>(block)?;
+        self.forks.insert(hash, fork);
+        Ok(())
     }
 }

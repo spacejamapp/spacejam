@@ -6,7 +6,7 @@ use rpc::{
     server::{ServicePreimageFilter, ServiceRequestFilter, ServiceValueFilter},
 };
 use runtime::storage::{KVStorage, Storage, SyncStorage};
-use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, StorageKey};
+use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, TrieKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Deref,
@@ -190,7 +190,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
         Ok(())
     }
 
-    fn on_key_value(&self, hash: OpaqueHash, key: StorageKey, value: &[u8]) -> anyhow::Result<()> {
+    fn on_key_value(&self, hash: OpaqueHash, key: TrieKey, value: &[u8]) -> anyhow::Result<()> {
         let bkey = [hash.as_ref(), key.as_ref()].concat();
         self.runtime.storage.set(bkey, value)?;
         Ok(())

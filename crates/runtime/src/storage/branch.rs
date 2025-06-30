@@ -6,7 +6,6 @@ use crate::{
 };
 use anyhow::Result;
 use score::TrieKey;
-
 use std::{
     collections::{hash_map::IntoIter, HashMap},
     sync::{Arc, RwLock},
@@ -15,10 +14,20 @@ use std::{
 /// A branch of the state
 pub struct Branch<S: Storage> {
     /// The state of the branch
-    state: S,
+    state: Arc<S>,
 
     /// The diff of the branch
     diff: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
+}
+
+impl<S: Storage> Branch<S> {
+    /// Create a new branch from a state
+    pub fn checkout(state: Arc<S>) -> Self {
+        Self {
+            state,
+            diff: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
 }
 
 impl<S: Storage> KVStorage for Branch<S> {
@@ -117,6 +126,15 @@ impl<S: Storage> KVStorage for Branch<S> {
         };
 
         diff.is_empty() && self.state.is_empty()
+    }
+}
+
+impl<S: Storage> Clone for Branch<S> {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            diff: self.diff.clone(),
+        }
     }
 }
 

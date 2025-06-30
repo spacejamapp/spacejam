@@ -1,20 +1,23 @@
 //! chain of blocks.
 
-use crate::{Grandpa, Storage};
+use crate::{Config, Grandpa, Storage};
 use fork::Fork;
 use score::{block::Head, extrinsic::TicketsOrKeys, Block, OpaqueHash, TimeSlot};
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 mod fork;
 mod importer;
 
 /// A chain of blocks.
-pub struct Chain<S: Storage> {
+pub struct Chain<C: Config> {
     /// The forks of the chain.
-    forks: Vec<Fork>,
+    forks: HashMap<OpaqueHash, Fork<C::Storage>>,
 
     /// The grandpa of the chain.
-    grandpa: Grandpa<S>,
+    grandpa: Grandpa<C::Storage>,
 
     /// The queued blocks.
     queue: BTreeMap<TimeSlot, BTreeMap<OpaqueHash, Block>>,
@@ -23,14 +26,14 @@ pub struct Chain<S: Storage> {
     series: BTreeMap<TimeSlot, TicketsOrKeys>,
 
     /// The storage of the chain.
-    state: S,
+    state: Arc<C::Storage>,
 }
 
-impl<S: Storage> Chain<S> {
+impl<C: Config> Chain<C> {
     /// Create a new chain.
-    pub fn new(state: S, grandpa: Grandpa<S>) -> Self {
+    pub fn new(state: Arc<C::Storage>, grandpa: Grandpa<C::Storage>) -> Self {
         Self {
-            forks: vec![],
+            forks: HashMap::new(),
             grandpa,
             queue: BTreeMap::new(),
             series: BTreeMap::new(),

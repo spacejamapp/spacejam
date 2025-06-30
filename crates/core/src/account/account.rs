@@ -2,7 +2,7 @@
 
 use crate::{
     service::{GasLimit, ServiceAccount, ServiceInfo},
-    OpaqueHash, StorageKey,
+    OpaqueHash, TrieKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -72,7 +72,7 @@ pub trait Account: Clone {
     fn info(&self) -> ServiceInfo;
 
     /// Get the operations of the account
-    fn ops(self) -> (BTreeMap<StorageKey, Vec<u8>>, BTreeSet<StorageKey>);
+    fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>);
 }
 
 impl Account for ServiceAccount {
@@ -160,7 +160,7 @@ impl Account for ServiceAccount {
         self.state()
     }
 
-    fn ops(self) -> (BTreeMap<StorageKey, Vec<u8>>, BTreeSet<StorageKey>) {
+    fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
         (BTreeMap::new(), BTreeSet::new())
     }
 }

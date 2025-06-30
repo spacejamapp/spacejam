@@ -1,6 +1,6 @@
 //! Account registry
 
-use crate::{account::Account, service::ServiceAccount, OpaqueHash, StorageKey};
+use crate::{account::Account, service::ServiceAccount, OpaqueHash, TrieKey};
 use std::collections::BTreeMap;
 
 /// Account registry
@@ -27,7 +27,7 @@ pub trait Accounts: Clone {
     fn accounts(&self) -> &BTreeMap<u32, impl Account>;
 
     /// Get the diff of the accounts
-    fn diff(self) -> (Vec<(StorageKey, Vec<u8>)>, Vec<StorageKey>);
+    fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
@@ -59,7 +59,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
         self
     }
 
-    fn diff(self) -> (Vec<(StorageKey, Vec<u8>)>, Vec<StorageKey>) {
+    fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>) {
         unimplemented!("account diff not implemented")
     }
 }

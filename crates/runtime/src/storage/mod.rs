@@ -4,6 +4,7 @@
 
 pub use {
     archive::ArchiveStorage,
+    branch::Branch,
     commit::{Commit, Operation},
     kv::{KVStorage, MemoryDb},
     state::Storage,

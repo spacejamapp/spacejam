@@ -1,7 +1,7 @@
 //! chain of blocks.
 
 use crate::{
-    storage::{Commit, MemoryDb},
+    storage::{Branch, Commit},
     tx, Storage,
 };
 use anyhow::Result;
@@ -17,7 +17,7 @@ use std::{
 };
 
 /// A chain of blocks.
-pub struct Fork {
+pub struct Fork<S: Storage> {
     /// The ancestors of the chain.
     pub chain: BTreeSet<Head>,
 
@@ -25,13 +25,23 @@ pub struct Fork {
     blocks: BTreeMap<TimeSlot, (Block, Commit<TrieKey, Vec<u8>>)>,
 
     /// The state of the chain.
-    state: Arc<MemoryDb>,
+    state: Branch<S>,
 
     /// tickets or keys for this fork chain
     series: BTreeMap<TimeSlot, TicketsOrKeys>,
 }
 
-impl Fork {
+impl<S: Storage> Fork<S> {
+    /// Create a new fork.
+    pub fn new(state: Branch<S>, series: BTreeMap<TimeSlot, TicketsOrKeys>) -> Self {
+        Self {
+            chain: BTreeSet::new(),
+            blocks: BTreeMap::new(),
+            state,
+            series,
+        }
+    }
+
     /// Get the best head of the chain.
     pub fn best(&self) -> Result<Head> {
         self.chain
@@ -78,7 +88,7 @@ impl Fork {
         //
         // We execute the block instead of querying the latest state from the remote.
         let hash = block.header.hash()?;
-        let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
+        let diff = tx::transit::<Vm>(block.clone(), Arc::new(self.state.clone()))?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
