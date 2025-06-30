@@ -1,8 +1,8 @@
 //! chain of blocks.
 
-use crate::{Config, Grandpa, Storage};
+use crate::{Config, Grandpa};
 use fork::Fork;
-use score::{block::Head, extrinsic::TicketsOrKeys, Block, OpaqueHash, TimeSlot};
+use score::{block::Head, extrinsic::TicketsOrKeys, OpaqueHash};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -19,8 +19,8 @@ pub struct Chain<C: Config> {
     /// The grandpa of the chain.
     grandpa: Grandpa<C::Storage>,
 
-    /// The cached series
-    series: BTreeMap<TimeSlot, TicketsOrKeys>,
+    /// The cached series per epoch.
+    series: BTreeMap<u32, TicketsOrKeys>,
 
     /// The storage of the chain.
     state: Arc<C::Storage>,

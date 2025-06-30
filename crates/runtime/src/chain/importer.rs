@@ -1,7 +1,7 @@
 //! Importer interface for the chain.
 
 use crate::{
-    chain::fork::Fork,
+    chain::fork::{BlockWithDiff, Fork},
     storage::{Branch, KVStorage, SyncStorage},
     Chain, Config,
 };
@@ -37,21 +37,51 @@ impl<C: Config> Chain<C> {
     }
 
     /// Try finalize the chain.
-    pub fn finalize(&mut self) -> Result<()> {
+    pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
         let best = self.best()?;
-        let fork = self
-            .forks
-            .get_mut(&best.hash)
-            .ok_or_else(|| anyhow::anyhow!("could not find the best chain"))?;
-
-        // nothing to finalize if the best fork chain is less than 5 blocks.
-        if fork.len() < 5 {
-            return Ok(());
+        if best.hash == self.grandpa.handshake.head.hash {
+            return Ok(vec![]);
         }
 
-        // now we need to truncate all forks.
+        // find the best chain
+        let Some(mut chain) = self.forks.get(&best.hash).cloned() else {
+            anyhow::bail!("could not find the best chain");
+        };
 
-        Ok(())
+        // nothing to finalize if the best fork chain is less than 5 blocks.
+        let Some(count) = chain.len().checked_sub(5) else {
+            return Ok(vec![]);
+        };
+
+        // truncate the series.
+        let timeslot = self.grandpa.handshake.head.slot;
+        let latest = timeslot + count as u32;
+        let epoch = latest / score::EPOCH_LENGTH;
+        chain.series.retain(|k, _| k < &epoch);
+
+        // apply the latest finalized blocks.
+        let mut blocks = Vec::new();
+        while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
+            let hash = block.header.hash()?;
+            blocks.push((block, commit.clone()));
+            self.state.commit_legacy(commit)?;
+            tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&hash[..3]));
+
+            if slot == latest {
+                break;
+            }
+        }
+
+        // now we need to truncate all fork chains.
+        self.forks.retain(|head, _fork| {
+            if !chain.chain.iter().any(|h| h.hash == *head) {
+                return false;
+            }
+
+            true
+        });
+        self.forks.insert(chain.head()?.hash, chain);
+        Ok(blocks)
     }
 
     /// Create a new fork at the latest finalized block.

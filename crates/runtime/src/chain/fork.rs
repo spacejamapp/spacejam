@@ -12,10 +12,12 @@ use score::{
     Block, TimeSlot, TrieKey,
 };
 use std::{
-    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+
+/// A block with a diff.
+pub type BlockWithDiff = (Block, Commit<TrieKey, Vec<u8>>);
 
 /// A chain of blocks.
 pub struct Fork<S: Storage> {
@@ -23,13 +25,13 @@ pub struct Fork<S: Storage> {
     pub chain: BTreeSet<Head>,
 
     /// The diff of the chain.
-    blocks: BTreeMap<TimeSlot, (Block, Commit<TrieKey, Vec<u8>>)>,
+    pub blocks: BTreeMap<TimeSlot, BlockWithDiff>,
 
     /// The state of the chain.
     state: Branch<S>,
 
-    /// tickets or keys for this fork chain
-    series: BTreeMap<TimeSlot, TicketsOrKeys>,
+    /// tickets or keys for this fork chain per epoch.
+    pub series: BTreeMap<u32, TicketsOrKeys>,
 }
 
 impl<S: Storage> Fork<S> {
@@ -50,6 +52,15 @@ impl<S: Storage> Fork<S> {
             .last()
             .cloned()
             .ok_or(anyhow::anyhow!("best block not exists"))
+    }
+
+    /// Get the head of the chain.
+    pub fn head(&self) -> Result<Head> {
+        self.chain
+            .iter()
+            .next()
+            .cloned()
+            .ok_or(anyhow::anyhow!("head block not exists"))
     }
 
     /// Get the length of the chain.
@@ -235,5 +246,16 @@ impl<S: Storage> Fork<S> {
             .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
 
         Ok(())
+    }
+}
+
+impl<S: Storage> Clone for Fork<S> {
+    fn clone(&self) -> Self {
+        Self {
+            chain: self.chain.clone(),
+            blocks: self.blocks.clone(),
+            state: self.state.clone(),
+            series: self.series.clone(),
+        }
     }
 }
