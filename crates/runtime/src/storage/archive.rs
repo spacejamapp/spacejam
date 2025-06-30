@@ -31,6 +31,11 @@ pub trait ArchiveStorage: KVStorage {
         Ok(())
     }
 
+    /// Batch all state into
+    fn batch(&self) -> Result<()> {
+        Ok(())
+    }
+
     /// Checkout the archive storage for a given block.
     fn checkout(&self, block: OpaqueHash) -> Result<()> {
         let prefix = [ARCHIVE, block.as_ref()].concat();

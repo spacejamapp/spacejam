@@ -20,7 +20,7 @@ impl<C: Config> Runtime<C> {
         state: &HashMap<[u8; 31], Vec<u8>>,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        let head = header.clone().try_into()?;
+        let head = header.head()?;
         let block = Block {
             header: header.clone(),
             ..Default::default()
@@ -128,7 +128,7 @@ impl<C: Config> Runtime<C> {
         }
 
         // 5. set the head as best block
-        self.storage.set_best(&block.header.clone().try_into()?)?;
+        self.storage.set_best(&block.header.head()?)?;
         self.storage.archive(hash)?;
         Ok(())
     }

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
+    chain::Chain,
     grandpa::{Ancestry, Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
@@ -14,6 +15,7 @@ pub use {
 };
 
 mod account;
+mod chain;
 mod ext;
 mod grandpa;
 mod hook;
@@ -41,8 +43,6 @@ pub struct Runtime<C: Config> {
     pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
 
     /// The received tickets
-    ///
-    /// TODO: merge author context here
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
 

@@ -53,7 +53,7 @@ impl<T: Storage> Grandpa<T> {
     ) -> impl Iterator<Item = (OpaqueHash, Header)> + '_ {
         Lookup::new(self.ancestry.clone(), hash, direction, maximum)
     }
-
+ 
     /// Add a leave to the grandpa.
     ///
     /// If there are ancestors of the leaf in the leaves,
@@ -65,7 +65,7 @@ impl<T: Storage> Grandpa<T> {
         // We're copying the handshake here because it takes less memory than
         // cloning the whole grandpa.
         let mut handshake = self.handshake.clone();
-        self.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
+        self.add_leaf_to(header.head()?, &mut handshake)?;
         self.handshake = handshake;
         Ok(())
     }
@@ -164,7 +164,7 @@ impl<T: Storage> Grandpa<T> {
         header: &Header,
         handshake: &Handshake,
     ) -> anyhow::Result<Head> {
-        let head = Head::try_from(header.clone())?;
+        let head = header.head()?;
         let shash = hex::encode(&head.hash.as_ref()[..3]);
 
         // 1. if the block has been announced by the remote

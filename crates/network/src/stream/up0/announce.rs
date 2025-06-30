@@ -102,7 +102,7 @@ pub async fn recv<C: runtime::Config>(
         {
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;
-            grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
+            grandpa.add_leaf_to(header.head()?, &mut handshake)?;
         }
 
         // 4. validate the header
