@@ -31,6 +31,9 @@ pub struct Network<C: runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
+    ///
+    /// TODO: possibly cache the history of unfinalized remote blocks
+    /// of each peer, wait for the refactor of grandpa.
     pub pool: Arc<RwLock<HashMap<PeerId, Connection>>>,
 
     /// (deprecated) The bootnodes of the network

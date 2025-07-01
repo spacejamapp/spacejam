@@ -95,7 +95,9 @@ impl<C: Config> Chain<C> {
     }
 
     /// Import a new block to the chain.
-    pub async fn import(&mut self, block: &Block) -> anyhow::Result<()> {
+    ///
+    /// returns true if the block is imported.
+    pub async fn import(&mut self, block: &Block) -> anyhow::Result<bool> {
         let head = block.header.head()?;
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
@@ -104,30 +106,41 @@ impl<C: Config> Chain<C> {
                 hex::encode(&head.hash[..6]),
                 self.grandpa.handshake.head.slot
             );
-            return Ok(());
+            return Ok(false);
         }
 
         // 1. the block is a child of the finalized
         if block.header.parent == self.grandpa.handshake.head.hash {
-            return self.fork(block);
+            self.fork(block)?;
+            return Ok(true);
         }
 
         // 2. the block is a child of a fork
         for (_, fork) in self.forks.iter_mut() {
+            // 2.1. The block is a child of a fork.
             if fork.best()?.hash == block.header.parent {
-                return fork.import::<C::Vm>(block);
+                fork.import::<C::Vm>(block)?;
+                return Ok(true);
             }
 
-            if fork.chain.iter().any(|h| h.hash == block.header.parent) {
-                let fork = fork.fork::<C::Vm>(block)?;
-                self.forks.insert(head.hash, fork);
-                return Ok(());
+            for fhead in fork.chain.iter() {
+                // 2.2. The block exists.
+                if fhead.hash == head.hash {
+                    return Ok(false);
+                }
+
+                // 2.3. the block is a fork of a fork
+                if fhead.hash == block.header.parent {
+                    let fork = fork.fork::<C::Vm>(block)?;
+                    self.forks.insert(head.hash, fork);
+                    return Ok(true);
+                }
             }
         }
 
         // 3. we don't have the ancestors of this block
         self.orphan.insert(head.hash, block.clone());
-        Ok(())
+        Ok(false)
     }
 
     /// Import the genesis block

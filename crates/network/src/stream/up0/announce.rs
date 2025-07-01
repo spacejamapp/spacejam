@@ -137,18 +137,13 @@ pub async fn recv<C: runtime::Config>(
             );
         }
 
-        // 6. skip if the header exists
-        {
-            let grandpa = runtime.grandpa().await;
-            if grandpa.ancestry.header(&hash).is_ok() {
-                continue;
-            }
-        }
-
-        // 7. Add this header to local leaves
+        // TODO: import the block to the chain directly.
         //
-        // Note that we don't verify the header here since we may
-        // not have the parent of it.
+        // 1. check if the parent can be tracked locally
+        // 2. request the block
+        // 3. import the block
+
+        // 7. Add this header to local leave
         runtime.grandpa.write().await.add_leaf(header.clone())?;
         runtime.select_best_chain(header.slot).await?;
     }

@@ -53,7 +53,7 @@ impl<T: Storage> Grandpa<T> {
     ) -> impl Iterator<Item = (OpaqueHash, Header)> + '_ {
         Lookup::new(self.ancestry.clone(), hash, direction, maximum)
     }
- 
+
     /// Add a leave to the grandpa.
     ///
     /// If there are ancestors of the leaf in the leaves,
