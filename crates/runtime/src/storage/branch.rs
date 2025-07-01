@@ -44,7 +44,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let mut diff = self
             .diff
             .write()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
         for key in commit.iremoval() {
             diff.remove(key);
         }
@@ -60,7 +60,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let mut diff = self
             .diff
             .write()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
         for key in commit.iremoval() {
             diff.remove(key.as_ref());
         }
@@ -72,7 +72,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let mut diff = self
             .diff
             .write()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
         diff.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
         Ok(())
     }
@@ -81,7 +81,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let diff = self
             .diff
             .read()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
 
         if let Some(value) = diff.get(key.as_ref()) {
             return Ok(Some(value.clone()));
@@ -94,7 +94,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let diff = self
             .diff
             .read()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
 
         Ok(BranchIter {
             diff: diff.clone(),
@@ -111,7 +111,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         let diff = self
             .diff
             .read()
-            .map_err(|_| anyhow::anyhow!("Failed to aquire diff lock"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
 
         Ok(BranchIter {
             diff: diff

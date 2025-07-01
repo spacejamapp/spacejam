@@ -146,7 +146,7 @@ impl<S: Storage> Fork<S> {
         // 5. save the block and the diff
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 6. udpate tickets or keys if any
+        // 6. update tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };
