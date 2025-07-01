@@ -3,7 +3,7 @@
 use crate::{
     peer::PeerId,
     stream::ext::{Read, Write},
-    Network,
+    Connection, Network,
 };
 use anyhow::Context;
 use quinn::{RecvStream, SendStream};
@@ -12,9 +12,20 @@ use runtime::Handshake;
 mod announce;
 
 impl<C: runtime::Config> Network<C> {
+    /// Get a connection from the pool
+    async fn conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
+        let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
+            self.disconnect(peer, "clean died connection".to_string())
+                .await?;
+            return Err(anyhow::anyhow!("no connection found for peer: {peer}"));
+        };
+
+        Ok(conn)
+    }
+
     /// Send a block announcement.
     pub async fn send_up0(&self, peer: PeerId) -> anyhow::Result<()> {
-        let conn = self.get_conn(peer).await?;
+        let conn = self.conn(peer).await?;
         let (mut send, mut recv) = conn.open_bi().await.context("failed to open bi-stream")?;
 
         // 1. send the stream type
@@ -55,7 +66,7 @@ impl<C: runtime::Config> Network<C> {
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
         tracing::debug!("receiving up0 stream from {peer}");
-        let conn = self.get_conn(peer).await?;
+        let conn = self.conn(peer).await?;
 
         // 1. send and receive the handshake data.
         let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(

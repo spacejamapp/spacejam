@@ -81,7 +81,7 @@ impl<C: runtime::Config> Validating<C> {
                     );
                 }
 
-                if let Err(e) = runtime.announce(Box::new(header.clone())).await {
+                if let Err(e) = runtime.announce(header.clone()).await {
                     tracing::error!("Failed to announce block: {:?}", e);
                 }
             }

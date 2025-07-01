@@ -8,6 +8,8 @@ use runtime::{
 };
 use score::{block::Head, OpaqueHash, TimeSlot};
 
+mod block;
+pub mod ticket;
 mod request;
 
 impl<C: runtime::Config> Network<C> {
