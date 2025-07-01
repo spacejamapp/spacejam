@@ -27,6 +27,9 @@ mod validator;
 /// Runtime of SpaceJam
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
+    /// The chain of blocks
+    pub chain: Arc<RwLock<Chain<C>>>,
+
     /// The validator of SpaceJam
     pub validator: C::Validator,
 
@@ -42,7 +45,7 @@ pub struct Runtime<C: Config> {
     /// The grandpa of SpaceJam
     pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
 
-    /// The received tickets
+    /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
 
@@ -52,6 +55,7 @@ impl<C: Config> Runtime<C> {
         let storage = Arc::new(storage);
         Self {
             validator,
+            chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
             storage: storage.clone(),
             hook,
             expool: Default::default(),

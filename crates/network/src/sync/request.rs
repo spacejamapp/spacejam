@@ -83,7 +83,7 @@ impl<'r, C: runtime::Config> BlockSync<'r, C> {
                 hex::encode(&hash[..3])
             );
 
-            self.runtime.announce(block.header.clone().into()).await?;
+            self.runtime.announce(block.header.clone()).await?;
             if let Err(e) = self.runtime.import(block.clone()).await {
                 tracing::warn!(
                     "failed to import block#{}@0x{}: {e}",

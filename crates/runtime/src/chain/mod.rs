@@ -18,7 +18,7 @@ pub struct Chain<C: Config> {
     forks: HashMap<OpaqueHash, Fork<C::Storage>>,
 
     /// The grandpa of the chain.
-    grandpa: Grandpa<C::Storage>,
+    pub grandpa: Grandpa<C::Storage>,
 
     /// The grid of the network.
     grid: Grid,
@@ -35,7 +35,8 @@ pub struct Chain<C: Config> {
 
 impl<C: Config> Chain<C> {
     /// Create a new chain.
-    pub fn new(state: Arc<C::Storage>, grandpa: Grandpa<C::Storage>) -> Self {
+    pub fn new(state: Arc<C::Storage>) -> Self {
+        let grandpa = Grandpa::new(state.clone());
         Self {
             forks: HashMap::new(),
             grandpa,
@@ -44,6 +45,29 @@ impl<C: Config> Chain<C> {
             series: BTreeMap::new(),
             state,
         }
+    }
+
+    /// Check if the chain contains the given hash.
+    pub fn contains(&self, block: OpaqueHash) -> bool {
+        if self.grandpa.handshake.head.hash == block
+            || self
+                .grandpa
+                .handshake
+                .leaves
+                .iter()
+                .any(|h| h.hash == block)
+        {
+            return true;
+        }
+
+        // check if the block is in the forks
+        for fork in self.forks.values() {
+            if fork.chain.iter().any(|h| h.hash == block) {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Get the finalized head of the chain.

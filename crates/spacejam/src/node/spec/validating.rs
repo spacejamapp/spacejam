@@ -23,16 +23,6 @@ impl<C: runtime::Config> Validating<C> {
             let epoch = timeslot / score::EPOCH_LENGTH;
             if let Ok(best) = runtime.storage.best() {
                 runtime.dial_validators().await;
-
-                if best.slot < timeslot.saturating_sub(1) {
-                    // select the best chain before authoring
-                    if let Err(e) = runtime.select_best_chain(timeslot).await {
-                        tracing::error!("Failed to select best chain: {:?}", e);
-                        continue;
-                    }
-                }
-
-                // check subscribing tickets
                 let Ok(finalized) = runtime.storage.finalized() else {
                     tracing::error!("Failed to get finalized block");
                     continue;

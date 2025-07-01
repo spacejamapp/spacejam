@@ -41,35 +41,16 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        let grandpa = runtime.grandpa().await;
         let handshake = conn.handshake.read().await;
-        tracing::debug!("sending announcement: #{}", header.slot);
-
-        // check if the block is acceptable for the remote peer.
-        match grandpa.accept_remote(&header, &handshake).await {
-            Ok(head) => {
-                let hash = head.hash;
-                let shash = hex::encode(&hash.as_ref()[..3]);
-                let handshake = conn.handshake.read().await;
-                tracing::trace!(
-                    "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
-                    header.slot,
-                    shash,
-                    grandpa.handshake.head.slot,
-                    hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
-                    handshake.head.slot,
-                    hex::encode(&handshake.head.hash.as_ref()[..3]),
-                );
-            }
-            Err(e) => {
-                tracing::trace!("{e}");
-                continue;
-            }
+        if !handshake.accept(&header.parent) {
+            continue;
         }
 
-        // send the announcement to the remote peer.
-        let data = (header, grandpa.handshake.head.clone());
+        // check if the block is acceptable for the remote peer.
+        let local = runtime.handshake().await?;
+        let data = (header, local.head.clone());
         data.write(&mut send).await?;
+        send.finish()?;
     }
 
     anyhow::bail!("announcement sender stream closed");
@@ -107,7 +88,7 @@ pub async fn recv<C: runtime::Config>(
 
         // 4. validate the header
         let hash = header.hash()?;
-        if grandpa.ancestry.header(&hash).is_ok() {
+        if runtime.chain.read().await.contains(hash) {
             continue;
         }
 
@@ -137,14 +118,7 @@ pub async fn recv<C: runtime::Config>(
             );
         }
 
-        // TODO: import the block to the chain directly.
-        //
-        // 1. check if the parent can be tracked locally
-        // 2. request the block
-        // 3. import the block
-
-        // 7. Add this header to local leave
-        runtime.grandpa.write().await.add_leaf(header.clone())?;
-        runtime.select_best_chain(header.slot).await?;
+        // 6. request the block
+        runtime.request(&header).await?;
     }
 }

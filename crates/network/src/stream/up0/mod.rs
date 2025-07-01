@@ -41,8 +41,8 @@ impl<C: runtime::Config> Network<C> {
         conn.handshake.write().await.head = handshake.head;
 
         // 3. send the handshake
-        let grandpa = self.grandpa().await;
-        let encoded = codec::encode(&grandpa.handshake)?;
+        let handshake = self.handshake().await?;
+        let encoded = codec::encode(&handshake)?;
         let length = encoded.len() as u32;
         send.write(&length.to_le_bytes()).await?;
         send.write(&encoded).await?;
@@ -68,29 +68,19 @@ impl<C: runtime::Config> Network<C> {
         tracing::debug!("receiving up0 stream from {peer}");
         let conn = self.conn(peer).await?;
 
-        // 1. send and receive the handshake data.
-        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
-            async {
-                let grandpa = self.grandpa().await;
-                let mut handshake = grandpa.handshake.clone();
-                handshake.leaves.insert(handshake.head.clone());
+        // 1. send the handshake data
+        let mut handshake = self.handshake().await?;
+        handshake.leaves.insert(handshake.head.clone());
+        handshake
+            .write(&mut send)
+            .await
+            .context("failed to send handshake")?;
 
-                handshake
-                    .write(&mut send)
-                    .await
-                    .context("failed to send handshake")
-            },
-            async {
-                let handshake = Handshake::read(&mut recv)
-                    .await
-                    .context("failed to read handshake")?;
-                conn.handshake.write().await.head = handshake.head;
-                Ok(())
-            }
-        );
-
-        hsend?;
-        hrecv?;
+        // 2. receive the handshake data
+        let handshake = Handshake::read(&mut recv)
+            .await
+            .context("failed to read handshake")?;
+        conn.handshake.write().await.head = handshake.head;
 
         // 3. announcement loop.
         let runtime = self.clone();
