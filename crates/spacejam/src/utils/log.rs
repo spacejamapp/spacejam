@@ -6,11 +6,12 @@ use score::block;
 
 /// Logging the initial status of the node
 pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
-    let grandpa = runtime.grandpa().await;
+    let chain = runtime.chain.read().await;
+    let handshake = chain.grandpa.handshake.clone();
     tracing::info!(
         "The latest finalized head #{}: 0x{}",
-        grandpa.handshake.head.slot,
-        hex::encode(grandpa.handshake.head.hash)
+        handshake.head.slot,
+        hex::encode(handshake.head.hash)
     );
 }
 
@@ -30,8 +31,8 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
 
     // check neighbours
     let (grid, handshake) = {
-        let grandpa = runtime.grandpa().await;
-        (grandpa.grid.clone(), grandpa.handshake.clone())
+        let chain = runtime.chain.read().await;
+        (chain.grid().unwrap(), chain.grandpa.handshake.clone())
     };
     let neighbours = grid.neighbours(runtime.validator.ed25519_public_key());
 

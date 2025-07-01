@@ -3,7 +3,7 @@
 use crate::{
     service::{GasLimit, GasLimitJson},
     state::account,
-    Gas, OpaqueHash, StorageKey, TimeSlot,
+    Gas, OpaqueHash, TimeSlot, TrieKey,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -102,7 +102,7 @@ impl ServiceAccount {
 
     /// Get all keys of the service account
     #[cfg(feature = "crypto")]
-    pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = StorageKey>> {
+    pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = TrieKey>> {
         let mut keys = BTreeSet::new();
         keys.insert(account::info(index));
         for (key, _) in self.storage.iter() {

@@ -2,7 +2,7 @@
 
 use crate::storage::{sync::SYNC, Commit, KVStorage};
 use anyhow::Result;
-use score::{OpaqueHash, StorageKey};
+use score::{OpaqueHash, TrieKey};
 
 /// The prefix of the archive storage.
 pub const ARCHIVE: &[u8] = b"archive";
@@ -31,6 +31,11 @@ pub trait ArchiveStorage: KVStorage {
         Ok(())
     }
 
+    /// Batch all state into
+    fn batch(&self) -> Result<()> {
+        Ok(())
+    }
+
     /// Checkout the archive storage for a given block.
     fn checkout(&self, block: OpaqueHash) -> Result<()> {
         let prefix = [ARCHIVE, block.as_ref()].concat();
@@ -42,13 +47,13 @@ pub trait ArchiveStorage: KVStorage {
         Ok(())
     }
 
-    fn set_diff(&self, block: OpaqueHash, diff: Commit<StorageKey, Vec<u8>>) -> Result<()> {
+    fn set_diff(&self, block: OpaqueHash, diff: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
         self.set(prefix, codec::encode(&diff)?)?;
         Ok(())
     }
 
-    fn diff(&self, block: OpaqueHash) -> Result<Commit<StorageKey, Vec<u8>>> {
+    fn diff(&self, block: OpaqueHash) -> Result<Commit<TrieKey, Vec<u8>>> {
         let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
         let value = self
             .get(&prefix)?

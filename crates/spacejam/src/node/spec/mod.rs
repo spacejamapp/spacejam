@@ -62,14 +62,16 @@ pub trait RuntimeSpec:
 
             // Initialize the database
             let runtime = Runtime::new(validator, storage, hook);
+            let mut chain = runtime.chain.write().await;
             if should_import {
-                runtime
+                chain
                     .import_genesis(genesis.genesis_header, &genesis.genesis_state)
                     .await?;
             } else {
-                runtime.init_from_db().await?;
+                chain.initialize().await?;
             }
 
+            drop(chain);
             Ok(runtime)
         }
     }

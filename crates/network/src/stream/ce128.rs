@@ -2,7 +2,6 @@
 
 use crate::{stream::ext::Write, Connection, Network};
 use quinn::{RecvStream, SendStream};
-use runtime::storage::SyncStorage;
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
 
@@ -32,8 +31,9 @@ impl<C: runtime::Config> Network<C> {
             request.direction,
             request.maximum,
         );
-        let grandpa = self.grandpa().await;
-        let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
+
+        // FIXME: implement the block lookup here.
+        /* let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
 
         // fetch and write the blocks
         for (hash, _header) in lookup {
@@ -46,7 +46,7 @@ impl<C: runtime::Config> Network<C> {
                 block.header.slot,
                 hex::encode(&block.header.hash()?[..3])
             );
-        }
+        } */
 
         send.finish()?;
         Ok(())

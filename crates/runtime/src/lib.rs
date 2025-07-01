@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
+    chain::{Chain, Fork, Grid},
     grandpa::{Ancestry, Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
@@ -14,7 +15,7 @@ pub use {
 };
 
 mod account;
-mod ext;
+mod chain;
 mod grandpa;
 mod hook;
 mod pool;
@@ -25,6 +26,9 @@ mod validator;
 /// Runtime of SpaceJam
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
+    /// The chain of blocks
+    pub chain: Arc<RwLock<Chain<C>>>,
+
     /// The validator of SpaceJam
     pub validator: C::Validator,
 
@@ -37,12 +41,7 @@ pub struct Runtime<C: Config> {
     /// The extrinsic pool of SpaceJam
     pub expool: Pool,
 
-    /// The grandpa of SpaceJam
-    pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
-
-    /// The received tickets
-    ///
-    /// TODO: merge author context here
+    /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
 
@@ -52,17 +51,12 @@ impl<C: Config> Runtime<C> {
         let storage = Arc::new(storage);
         Self {
             validator,
+            chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
             storage: storage.clone(),
             hook,
             expool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Grandpa::new(storage))),
             tickets: Default::default(),
         }
-    }
-
-    /// Get the grandpa of SpaceJam
-    pub async fn grandpa(&self) -> Grandpa<C::Storage> {
-        self.grandpa.read().await.clone()
     }
 
     /// Get the bandersnatch public key of the local validator

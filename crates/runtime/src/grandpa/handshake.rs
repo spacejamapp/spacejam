@@ -1,6 +1,6 @@
 //! Handshake data
 
-use score::block::Head;
+use score::{block::Head, OpaqueHash};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -25,5 +25,26 @@ impl Handshake {
             head,
             leaves: Default::default(),
         }
+    }
+
+    /// Check if the provided header is acceptable for the peer, it should be
+    /// skipped if:
+    ///
+    /// 1. A descendant of the block is announced instead.
+    /// 2. The block is not a descendant of the latest finalized block.
+    /// 3. The block, or a descendant of the block, has been announced by the
+    ///    other side of the stream.
+    ///
+    /// 1 and 2 will be checked by our local chain, so this method only checks 3.
+    pub fn accept(&self, parent: &OpaqueHash) -> bool {
+        self.head.hash == *parent || self.leaves.iter().any(|head| head.hash == *parent)
+    }
+
+    /// Add a leaf to the handshake.
+    pub fn add_leaf(&mut self, mut chain: BTreeSet<Head>, leaf: Head) {
+        chain.retain(|h| h.slot < leaf.slot);
+        self.leaves.insert(leaf);
+        self.leaves
+            .retain(|head| !chain.iter().any(|h| h.hash == head.hash));
     }
 }

@@ -3,7 +3,7 @@
 use crate::{account::Accounts, storage::Commit, Storage};
 use anyhow::Result;
 use pvm::Pvm;
-use score::{block::History, state::key, Accounts as _, Block, StorageKey};
+use score::{block::History, state::key, Accounts as _, Block, TrieKey};
 use std::sync::Arc;
 
 pub mod assurance;
@@ -17,7 +17,7 @@ pub mod ticket;
 pub fn transit<Vm: Pvm>(
     mut block: Block,
     storage: Arc<impl Storage>,
-) -> Result<Commit<StorageKey, Vec<u8>>> {
+) -> Result<Commit<TrieKey, Vec<u8>>> {
     let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
     let vdiff = Commit {
         update: diff
@@ -35,7 +35,7 @@ pub fn transit<Vm: Pvm>(
 pub fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
-) -> Result<Commit<StorageKey, Vec<u8>>> {
+) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut state: score::State = storage.state()?;
     let mut diff = Commit::default();
 

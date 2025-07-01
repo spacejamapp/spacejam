@@ -1,9 +1,9 @@
 //! Network implementation of Spacejam.
 
 use peer::PeerId;
-use quinn::Endpoint;
-use runtime::{storage::SyncStorage, Runtime, Storage, Validator};
-use score::block::{Head, Header};
+use quinn::{Endpoint, VarInt};
+use runtime::{Runtime, Storage, Validator};
+use score::block::Header;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
 pub use {
@@ -12,7 +12,7 @@ pub use {
     transport::Builder as TransportBuilder,
 };
 
-pub mod action;
+// pub mod action;
 mod config;
 pub mod peer;
 mod stream;
@@ -31,6 +31,9 @@ pub struct Network<C: runtime::Config> {
     pub runtime: Arc<Runtime<C>>,
 
     /// The manager of the network
+    ///
+    /// TODO: possibly cache the history of unfinalized remote blocks
+    /// of each peer, wait for the refactor of grandpa.
     pub pool: Arc<RwLock<HashMap<PeerId, Connection>>>,
 
     /// (deprecated) The bootnodes of the network
@@ -72,60 +75,75 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         Ok(this)
     }
 
-    /// Lookup the best head from the network
-    pub async fn lookup(&self, best: &Head) -> Vec<Connection> {
-        let grandpa = self.runtime.grandpa().await;
-        let pool = self.pool.read().await.clone();
-        let mut feeds = Vec::new();
-        for conn in pool.values() {
-            let handshake = conn.handshake.read().await;
+    /// Handle the connected event.
+    #[tracing::instrument(skip_all, name = "connect", fields(peer = conn.address.peer_id.to_string()))]
+    pub async fn connect(&self, conn: Connection) {
+        let address = conn.address.clone();
 
-            // check if the connection is a feedi
-            if handshake.head.hash == best.hash
-                || handshake.leaves.contains(best)
-                || grandpa
-                    .ancestry
-                    .is_descendant_of(&handshake.head.hash, &best.hash)
-            {
-                feeds.push(conn.clone());
+        // 1. establish the connection in the metrics
+        // self.metrics.conn.establish_connection(address.to_string());
+
+        // 2. spawn the connection
+        let runtime = self.clone();
+        let cloned_conn = conn.clone();
+        tokio::spawn(async move { runtime.serve(cloned_conn).await });
+
+        // 3. insert the connection into the manager
+        self.pool
+            .write()
+            .await
+            .insert(address.peer_id, conn.clone());
+
+        // 4. open the up0 stream if needed
+        if conn.outgoing {
+            let Ok(grid) = self.runtime.chain.read().await.grid() else {
+                tracing::warn!("failed to get network grid");
+                return;
+            };
+            let neighbours = grid.neighbours(self.validator.ed25519_public_key());
+
+            if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
+                let address = address.clone();
+                let runtime = self.clone();
+                if let Err(e) = runtime.send_up0(address.peer_id).await {
+                    tracing::warn!("failed to send up0 stream: {e:?} for {address}");
+                }
             }
         }
 
-        // we trust the feeds since
-        //
-        // - they are peers that we've connected to (validators)
-        // - the best head is at least a descendant of their finalized heads
-        //
-        // so we can directly fetch the missing blocks from the feeds.
-        feeds.sort_by_key(|conn| conn.rtt());
-        feeds
+        tracing::debug!("connection established");
     }
 
-    /// Spawn a task to handle events
-    pub async fn spawn(&self) {
-        let transport = self.transport.clone();
+    /// Handle the closed event.
+    #[tracing::instrument(skip_all, name = "disconnect", fields(peer = peer.to_string()))]
+    pub async fn disconnect(
+        &self,
+        peer: PeerId,
+        reason: String,
+    ) -> anyhow::Result<Option<Address>> {
+        tracing::debug!("{reason}");
+        let pool = self.pool.clone();
+        let Some(conn) = pool.write().await.remove(&peer) else {
+            return Ok(None);
+        };
 
-        loop {
-            let Some(conn) = transport.accept().await else {
-                tracing::error!("endpoint is closed");
-                break;
-            };
+        // close the connection in the pool and metrics
+        let address = Address::new(conn.remote_address(), peer);
+        conn.close(VarInt::from(0_u8), reason.as_bytes());
+        // self.metrics.conn.close_connection(address.to_string());
 
-            let Ok(conn) = conn
-                .await
-                .map_err(|e| tracing::warn!("failed to accept connection: {e:?}"))
-            else {
-                continue;
-            };
-
-            let Ok(conn) = Connection::new(conn, false).map_err(|e| {
-                tracing::warn!("failed to verify alpn: {e:?}");
-            }) else {
-                continue;
-            };
-
-            self.connect(conn).await;
+        // if the connection is incoming, we don't need to dial again
+        if !conn.outgoing {
+            return Ok(None);
         }
+
+        // check if the peer is a validator
+        let grid = self.runtime.chain.read().await.grid()?;
+        if grid.validators().contains(peer.as_ref()) {
+            return Ok(Some(address));
+        }
+
+        Ok(None)
     }
 
     /// Dial a new connection
@@ -180,15 +198,49 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         }
     }
 
-    /// Get a connection from the pool
-    pub(crate) async fn get_conn(&self, peer: PeerId) -> anyhow::Result<Connection> {
-        let Some(conn) = self.pool.read().await.get(&peer).cloned() else {
-            self.disconnect(peer, "clean died connection".to_string())
-                .await?;
-            return Err(anyhow::anyhow!("no connection found for peer: {peer}"));
-        };
+    /// Spawn a task to handle events
+    pub async fn spawn(&self) {
+        let transport = self.transport.clone();
 
-        Ok(conn)
+        loop {
+            let Some(conn) = transport.accept().await else {
+                tracing::error!("endpoint is closed");
+                break;
+            };
+
+            let Ok(conn) = conn
+                .await
+                .map_err(|e| tracing::warn!("failed to accept connection: {e:?}"))
+            else {
+                continue;
+            };
+
+            let Ok(conn) = Connection::new(conn, false).map_err(|e| {
+                tracing::warn!("failed to verify alpn: {e:?}");
+            }) else {
+                continue;
+            };
+
+            self.connect(conn).await;
+        }
+    }
+
+    /// Serve a connection.
+    async fn serve(&self, conn: Connection) {
+        let peer_id = conn.address.peer_id;
+        loop {
+            match conn.accept_bi().await {
+                Ok((send, recv)) => {
+                    self.handle(peer_id, send, recv).await;
+                }
+                Err(e) => {
+                    if let Err(e) = self.disconnect(peer_id, e.to_string()).await {
+                        tracing::error!("failed to disconnect: {e:?}");
+                    }
+                    break;
+                }
+            }
+        }
     }
 }
 

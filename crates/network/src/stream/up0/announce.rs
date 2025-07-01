@@ -6,7 +6,6 @@
 use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
-use runtime::storage::SyncStorage;
 use score::block::{Head, Header};
 
 /// Announce the block to the peer.
@@ -41,35 +40,16 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
 
     while let Ok(header) = rx.recv().await {
-        let grandpa = runtime.grandpa().await;
         let handshake = conn.handshake.read().await;
-        tracing::debug!("sending announcement: #{}", header.slot);
-
-        // check if the block is acceptable for the remote peer.
-        match grandpa.accept_remote(&header, &handshake).await {
-            Ok(head) => {
-                let hash = head.hash;
-                let shash = hex::encode(&hash.as_ref()[..3]);
-                let handshake = conn.handshake.read().await;
-                tracing::trace!(
-                    "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
-                    header.slot,
-                    shash,
-                    grandpa.handshake.head.slot,
-                    hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
-                    handshake.head.slot,
-                    hex::encode(&handshake.head.hash.as_ref()[..3]),
-                );
-            }
-            Err(e) => {
-                tracing::trace!("{e}");
-                continue;
-            }
+        if !handshake.accept(&header.parent) {
+            continue;
         }
 
-        // send the announcement to the remote peer.
-        let data = (header, grandpa.handshake.head.clone());
+        // check if the block is acceptable for the remote peer.
+        let local = runtime.handshake().await?;
+        let data = (header, local.head.clone());
         data.write(&mut send).await?;
+        send.finish()?;
     }
 
     anyhow::bail!("announcement sender stream closed");
@@ -98,28 +78,24 @@ pub async fn recv<C: runtime::Config>(
         let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
-        let grandpa = runtime.grandpa().await;
-        {
+        let lhead = header.head()?;
+        let exists = {
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;
-            grandpa.add_leaf_to(header.clone().try_into()?, &mut handshake)?;
-        }
+            runtime
+                .chain
+                .read()
+                .await
+                .add_leaf_to(lhead.clone(), &header, &mut handshake)?
+        };
 
         // 4. validate the header
-        let hash = header.hash()?;
-        if grandpa.ancestry.header(&hash).is_ok() {
-            continue;
-        }
-
-        if let Err(e) = runtime.validate(&header).await {
-            tracing::warn!(
-                "failed to validate header#{}@0x{}: {e}.",
+        if exists {
+            tracing::trace!(
+                "block#{}@0x{} is already in the chain",
                 header.slot,
-                hex::encode(&hash[..3]),
+                hex::encode(&lhead.hash.as_ref()[..3])
             );
-            if let Err(e) = runtime.fallback().await {
-                tracing::error!("failed to fallback: {e}");
-            }
             continue;
         }
 
@@ -127,29 +103,15 @@ pub async fn recv<C: runtime::Config>(
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
-                "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
+                "block#{}@0x{}, remote#{}@0x{}",
                 header.slot,
-                hex::encode(&hash.as_ref()[..3]),
-                grandpa.handshake.head.slot,
-                hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                hex::encode(&lhead.hash.as_ref()[..3]),
                 handshake.head.slot,
                 hex::encode(&handshake.head.hash.as_ref()[..3]),
             );
         }
 
-        // 6. skip if the header exists
-        {
-            let grandpa = runtime.grandpa().await;
-            if grandpa.ancestry.header(&hash).is_ok() {
-                continue;
-            }
-        }
-
-        // 7. Add this header to local leaves
-        //
-        // Note that we don't verify the header here since we may
-        // not have the parent of it.
-        runtime.grandpa.write().await.add_leaf(header.clone())?;
-        runtime.select_best_chain(header.slot).await?;
+        // 6. request the block
+        runtime.request(&header).await?;
     }
 }

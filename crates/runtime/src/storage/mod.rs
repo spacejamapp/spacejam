@@ -4,6 +4,7 @@
 
 pub use {
     archive::ArchiveStorage,
+    branch::Branch,
     commit::{Commit, Operation},
     kv::{KVStorage, MemoryDb},
     state::Storage,
@@ -11,6 +12,7 @@ pub use {
 };
 
 mod archive;
+mod branch;
 mod commit;
 mod kv;
 mod state;

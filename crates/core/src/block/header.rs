@@ -137,15 +137,12 @@ mod crypto_impl {
         pub fn hash(&self) -> anyhow::Result<HeaderHash> {
             Ok(crypto::blake2b(&codec::encode(self)?))
         }
-    }
 
-    impl TryFrom<Header> for Head {
-        type Error = anyhow::Error;
-
-        fn try_from(header: Header) -> Result<Self, Self::Error> {
-            Ok(Self {
-                hash: header.hash()?,
-                slot: header.slot,
+        /// Get the head of the header
+        pub fn head(&self) -> anyhow::Result<Head> {
+            Ok(Head {
+                hash: self.hash()?,
+                slot: self.slot,
             })
         }
     }
