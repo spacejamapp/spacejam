@@ -16,7 +16,6 @@ pub use {
 
 mod account;
 mod chain;
-mod ext;
 mod grandpa;
 mod hook;
 mod pool;
@@ -42,9 +41,6 @@ pub struct Runtime<C: Config> {
     /// The extrinsic pool of SpaceJam
     pub expool: Pool,
 
-    /// The grandpa of SpaceJam
-    pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
-
     /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
@@ -59,14 +55,8 @@ impl<C: Config> Runtime<C> {
             storage: storage.clone(),
             hook,
             expool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Grandpa::new(storage))),
             tickets: Default::default(),
         }
-    }
-
-    /// Get the grandpa of SpaceJam
-    pub async fn grandpa(&self) -> Grandpa<C::Storage> {
-        self.grandpa.read().await.clone()
     }
 
     /// Get the bandersnatch public key of the local validator

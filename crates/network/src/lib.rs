@@ -96,8 +96,11 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
         // 4. open the up0 stream if needed
         if conn.outgoing {
-            let grandpa = self.grandpa().await;
-            let neighbours = grandpa.grid.neighbours(self.validator.ed25519_public_key());
+            let Ok(grid) = self.runtime.chain.read().await.grid() else {
+                tracing::warn!("failed to get network grid");
+                return;
+            };
+            let neighbours = grid.neighbours(self.validator.ed25519_public_key());
 
             if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
                 let address = address.clone();
@@ -135,8 +138,8 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         }
 
         // check if the peer is a validator
-        let grandpa = self.grandpa().await;
-        if grandpa.grid.validators().contains(peer.as_ref()) {
+        let grid = self.runtime.chain.read().await.grid()?;
+        if grid.validators().contains(peer.as_ref()) {
             return Ok(Some(address));
         }
 

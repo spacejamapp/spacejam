@@ -1,6 +1,6 @@
 //! chain of blocks.
 
-use crate::{Config, Grandpa, Handshake};
+use crate::{storage::SyncStorage, Config, Grandpa, Handshake, Storage};
 use score::{
     block::{Head, Header},
     extrinsic::TicketsOrKeys,
@@ -12,6 +12,7 @@ use std::{
 };
 pub use {fork::Fork, grid::Grid};
 
+mod author;
 mod fork;
 mod grid;
 mod importer;
@@ -22,7 +23,7 @@ pub struct Chain<C: Config> {
     forks: HashMap<OpaqueHash, Fork<C::Storage>>,
 
     /// The grandpa of the chain.
-    pub grandpa: Grandpa<C::Storage>,
+    pub grandpa: Grandpa,
 
     /// The grid of the network.
     grid: Grid,
@@ -40,10 +41,9 @@ pub struct Chain<C: Config> {
 impl<C: Config> Chain<C> {
     /// Create a new chain.
     pub fn new(state: Arc<C::Storage>) -> Self {
-        let grandpa = Grandpa::new(state.clone());
         Self {
             forks: HashMap::new(),
-            grandpa,
+            grandpa: Default::default(),
             grid: Grid::default(),
             orphan: HashMap::new(),
             series: BTreeMap::new(),
@@ -108,5 +108,19 @@ impl<C: Config> Chain<C> {
     /// Get the finalized head of the chain.
     pub fn finalized(&self) -> Head {
         self.grandpa.handshake.head.clone()
+    }
+
+    /// Initialize the chain from the state.
+    pub async fn initialize(&mut self) -> anyhow::Result<()> {
+        let curr = self.state.current_validators()?;
+        let prev = self.state.previous_validators()?;
+        let next = self.state.next_validators()?;
+        let finalized = self.state.finalized()?;
+
+        self.grid.prev = prev;
+        self.grid.curr = curr;
+        self.grid.next = next;
+        self.grandpa.handshake.head = finalized;
+        Ok(())
     }
 }

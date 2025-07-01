@@ -3,7 +3,7 @@
 use crate::{
     chain::fork::{BlockWithDiff, Fork},
     storage::{Branch, KVStorage, SyncStorage},
-    Chain, Config,
+    Chain, Config, Grid,
 };
 use anyhow::Result;
 use score::{
@@ -14,26 +14,30 @@ use score::{
 use std::collections::HashMap;
 
 impl<C: Config> Chain<C> {
-    /// Get the best fork of the chain.
+    /// Get the best head of the chain.
     pub fn best(&self) -> Result<Head> {
         // if there are no forks, returns the finalized head directly.
         if self.forks.is_empty() {
             return Ok(self.grandpa.handshake.head.clone());
         }
 
-        // find the best chain
+        self.best_chain()?.best()
+    }
+
+    /// Get the best chain
+    pub fn best_chain(&self) -> Result<&Fork<C::Storage>> {
         let mut count = 0;
         let mut best = None;
-        for (_, fork) in self.forks.iter() {
+        for (hash, fork) in self.forks.iter() {
             let flen = fork.len();
             if flen > count {
                 count = flen;
-                best = Some(fork.best()?);
+                best = Some(hash);
             }
         }
 
-        // if there is no best chain, returns an error
-        best.ok_or_else(|| anyhow::anyhow!("could not find the best head"))
+        best.and_then(|hash| self.forks.get(hash))
+            .ok_or_else(|| anyhow::anyhow!("could not find the best chain"))
     }
 
     /// Try finalize the chain.
@@ -94,6 +98,11 @@ impl<C: Config> Chain<C> {
         Ok(())
     }
 
+    /// Get the grid of the best chain.
+    pub fn grid(&self) -> Result<Grid> {
+        self.best_chain().map(|fork| fork.grid.clone())
+    }
+
     /// Import a new block to the chain.
     ///
     /// returns true if the block is imported.
@@ -129,7 +138,7 @@ impl<C: Config> Chain<C> {
                     return Ok(false);
                 }
 
-                // 2.3. the block is a fork of a fork
+                // 2.3 the block is a fork of a fork
                 if fhead.hash == block.header.parent {
                     let fork = fork.fork::<C::Vm>(block)?;
                     self.forks.insert(head.hash, fork);

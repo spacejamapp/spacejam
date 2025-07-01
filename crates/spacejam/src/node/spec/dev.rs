@@ -26,7 +26,9 @@ impl<C: runtime::Config> Dev<C> {
                 block.header.slot,
                 hex::encode(&block.header.hash()?[..3])
             );
-            author.import(block).await?;
+
+            let mut chain = runtime.chain.write().await;
+            chain.import(&block).await?;
         }
     }
 }
