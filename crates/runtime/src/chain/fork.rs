@@ -1,6 +1,7 @@
 //! chain of blocks.
 
 use crate::{
+    chain::Grid,
     storage::{Branch, Commit, KVStorage},
     tx, Storage,
 };
@@ -27,6 +28,9 @@ pub struct Fork<S: Storage> {
     /// The diff of the chain.
     pub blocks: BTreeMap<TimeSlot, BlockWithDiff>,
 
+    /// The grid of the network.
+    pub grid: Grid,
+
     /// The state of the chain.
     state: Branch<S>,
 
@@ -36,10 +40,11 @@ pub struct Fork<S: Storage> {
 
 impl<S: Storage> Fork<S> {
     /// Create a new fork.
-    pub fn new(state: Branch<S>, series: BTreeMap<TimeSlot, TicketsOrKeys>) -> Self {
+    pub fn new(state: Branch<S>, grid: Grid, series: BTreeMap<TimeSlot, TicketsOrKeys>) -> Self {
         Self {
             chain: BTreeSet::new(),
             blocks: BTreeMap::new(),
+            grid,
             state,
             series,
         }
@@ -94,7 +99,7 @@ impl<S: Storage> Fork<S> {
         }
 
         // import the block
-        let mut fork = Fork::new(branch, self.series.clone());
+        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
         fork.import::<Vm>(block)?;
         Ok(fork)
     }
@@ -254,6 +259,7 @@ impl<S: Storage> Clone for Fork<S> {
         Self {
             chain: self.chain.clone(),
             blocks: self.blocks.clone(),
+            grid: self.grid.clone(),
             state: self.state.clone(),
             series: self.series.clone(),
         }

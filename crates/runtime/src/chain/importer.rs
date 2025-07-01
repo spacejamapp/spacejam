@@ -88,7 +88,7 @@ impl<C: Config> Chain<C> {
     pub fn fork(&mut self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
         let branch = Branch::checkout(self.state.clone());
-        let mut fork = Fork::new(branch, self.series.clone());
+        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
         fork.import::<C::Vm>(block)?;
         self.forks.insert(hash, fork);
         Ok(())
@@ -126,14 +126,8 @@ impl<C: Config> Chain<C> {
         }
 
         // 3. we don't have the ancestors of this block
-        //
-        // NOTE: This should have been checked in the grandpa before this
-        // function is called. however we still check it here to be safe.
-        anyhow::bail!(
-            "block#{}@0x{} is not a child of the finalized block or a fork",
-            head.slot,
-            hex::encode(&head.hash[..3])
-        );
+        self.orphan.insert(head.hash, block.clone());
+        Ok(())
     }
 
     /// Import the genesis block
@@ -152,13 +146,13 @@ impl<C: Config> Chain<C> {
             kvs.push((key.to_vec(), value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
-                    self.grandpa.grid.prev = codec::decode(value)?;
+                    self.grid.prev = codec::decode(value)?;
                 }
                 key::CURRENT_VALIDATORS => {
-                    self.grandpa.grid.curr = codec::decode(value)?;
+                    self.grid.curr = codec::decode(value)?;
                 }
                 key::NEXT_VALIDATORS => {
-                    self.grandpa.grid.next = codec::decode(value)?;
+                    self.grid.next = codec::decode(value)?;
                 }
                 _ => {}
             }

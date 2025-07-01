@@ -1,14 +1,15 @@
 //! chain of blocks.
 
 use crate::{Config, Grandpa};
-use fork::Fork;
-use score::{block::Head, extrinsic::TicketsOrKeys, OpaqueHash};
+use score::{block::Head, extrinsic::TicketsOrKeys, Block, OpaqueHash};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
+pub use {fork::Fork, grid::Grid};
 
 mod fork;
+mod grid;
 mod importer;
 
 /// A chain of blocks.
@@ -18,6 +19,12 @@ pub struct Chain<C: Config> {
 
     /// The grandpa of the chain.
     grandpa: Grandpa<C::Storage>,
+
+    /// The grid of the network.
+    grid: Grid,
+
+    /// The orphan blocks.
+    orphan: HashMap<OpaqueHash, Block>,
 
     /// The cached series per epoch.
     series: BTreeMap<u32, TicketsOrKeys>,
@@ -32,6 +39,8 @@ impl<C: Config> Chain<C> {
         Self {
             forks: HashMap::new(),
             grandpa,
+            grid: Grid::default(),
+            orphan: HashMap::new(),
             series: BTreeMap::new(),
             state,
         }
