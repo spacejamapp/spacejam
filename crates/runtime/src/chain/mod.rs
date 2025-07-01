@@ -1,7 +1,11 @@
 //! chain of blocks.
 
-use crate::{Config, Grandpa};
-use score::{block::Head, extrinsic::TicketsOrKeys, Block, OpaqueHash};
+use crate::{Config, Grandpa, Handshake};
+use score::{
+    block::{Head, Header},
+    extrinsic::TicketsOrKeys,
+    Block, OpaqueHash,
+};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -47,7 +51,38 @@ impl<C: Config> Chain<C> {
         }
     }
 
-    /// Check if the chain contains the given hash.
+    /// Add a leaf to the handshake.
+    ///
+    /// Returns `true` if the leaf is already in the chain.
+    pub fn add_leaf_to(
+        &self,
+        head: Head,
+        leaf: &Header,
+        handshake: &mut Handshake,
+    ) -> anyhow::Result<bool> {
+        let mut exists = false;
+        let mut added = false;
+        for fork in self.forks.values() {
+            for block in fork.chain.iter() {
+                if block.hash == leaf.parent {
+                    handshake.add_leaf(fork.chain.clone(), head.clone());
+                    added = true;
+                }
+
+                if block.hash == head.hash {
+                    exists = true;
+                }
+            }
+
+            if added {
+                break;
+            }
+        }
+
+        Ok(exists)
+    }
+
+    /// Select the chain of the given block.
     pub fn contains(&self, block: OpaqueHash) -> bool {
         if self.grandpa.handshake.head.hash == block
             || self

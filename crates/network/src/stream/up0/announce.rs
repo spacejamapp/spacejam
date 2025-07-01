@@ -6,7 +6,6 @@
 use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
-use runtime::storage::SyncStorage;
 use score::block::{Head, Header};
 
 /// Announce the block to the peer.
@@ -79,28 +78,24 @@ pub async fn recv<C: runtime::Config>(
         let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
-        let grandpa = runtime.grandpa().await;
-        {
+        let lhead = header.head()?;
+        let exists = {
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;
-            grandpa.add_leaf_to(header.head()?, &mut handshake)?;
-        }
+            runtime
+                .chain
+                .read()
+                .await
+                .add_leaf_to(lhead.clone(), &header, &mut handshake)?
+        };
 
         // 4. validate the header
-        let hash = header.hash()?;
-        if runtime.chain.read().await.contains(hash) {
-            continue;
-        }
-
-        if let Err(e) = runtime.validate(&header).await {
-            tracing::warn!(
-                "failed to validate header#{}@0x{}: {e}.",
+        if exists {
+            tracing::trace!(
+                "block#{}@0x{} is already in the chain",
                 header.slot,
-                hex::encode(&hash[..3]),
+                hex::encode(&lhead.hash.as_ref()[..3])
             );
-            if let Err(e) = runtime.fallback().await {
-                tracing::error!("failed to fallback: {e}");
-            }
             continue;
         }
 
@@ -108,11 +103,9 @@ pub async fn recv<C: runtime::Config>(
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
-                "block#{}@0x{}, grandpa#{}@0x{}, remote#{}@0x{}",
+                "block#{}@0x{}, remote#{}@0x{}",
                 header.slot,
-                hex::encode(&hash.as_ref()[..3]),
-                grandpa.handshake.head.slot,
-                hex::encode(&grandpa.handshake.head.hash.as_ref()[..3]),
+                hex::encode(&lhead.hash.as_ref()[..3]),
                 handshake.head.slot,
                 hex::encode(&handshake.head.hash.as_ref()[..3]),
             );

@@ -127,7 +127,10 @@ impl<S: Storage> Fork<S> {
             );
         }
 
-        // 3. transit the global state
+        // 3. verify the header
+        self.validate(&block.header)?;
+
+        // 4. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
         let hash = block.header.hash()?;
@@ -140,10 +143,10 @@ impl<S: Storage> Fork<S> {
             hex::encode(parent.hash[..3].as_ref())
         );
 
-        // 4. save the block and the diff
+        // 5. save the block and the diff
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 5. udpate tickets or keys if any
+        // 6. udpate tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };
@@ -165,7 +168,7 @@ impl<S: Storage> Fork<S> {
 
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "chain::validate")]
-    pub async fn validate(&self, header: &Header) -> anyhow::Result<()> {
+    pub fn validate(&self, header: &Header) -> anyhow::Result<()> {
         let best = self.best()?;
         let local_epoch = best.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;

@@ -39,4 +39,12 @@ impl Handshake {
     pub fn accept(&self, parent: &OpaqueHash) -> bool {
         self.head.hash == *parent || self.leaves.iter().any(|head| head.hash == *parent)
     }
+
+    /// Add a leaf to the handshake.
+    pub fn add_leaf(&mut self, mut chain: BTreeSet<Head>, leaf: Head) {
+        chain.retain(|h| h.slot < leaf.slot);
+        self.leaves.insert(leaf);
+        self.leaves
+            .retain(|head| !chain.iter().any(|h| h.hash == head.hash));
+    }
 }
