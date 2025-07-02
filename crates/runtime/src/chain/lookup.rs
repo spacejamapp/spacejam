@@ -1,15 +1,17 @@
 //! Lookup the chain.
 
-use crate::{storage::SyncStorage, Fork};
+use crate::{chain::Fork, storage::SyncStorage};
 use anyhow::Result;
 use score::{Block, OpaqueHash};
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// The direction of the lookup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[repr(u8)]
 pub enum Direction {
     /// Fetch the block in ascending order.
+    #[default]
     Ascending,
 
     /// Fetch the block in descending order.

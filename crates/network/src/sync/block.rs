@@ -5,7 +5,7 @@ use crate::{
     stream::{ce128, ext::Read},
     Network,
 };
-use runtime::Handshake;
+use runtime::{chain::Direction, Handshake};
 use score::{
     block::{Head, Header},
     Block,
@@ -67,7 +67,7 @@ impl<C: runtime::Config> Network<C> {
                 &feed,
                 ce128::Request {
                     hash: header.parent,
-                    direction: 0,
+                    direction: Direction::Ascending,
                     maximum: 1,
                 },
             )

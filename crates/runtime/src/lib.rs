@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
-    chain::{Chain, Direction, Fork, Grid, Lookup},
+    chain::{Chain, Grid, Lookup},
     grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
@@ -15,7 +15,7 @@ pub use {
 };
 
 mod account;
-mod chain;
+pub mod chain;
 mod grandpa;
 mod hook;
 mod pool;
