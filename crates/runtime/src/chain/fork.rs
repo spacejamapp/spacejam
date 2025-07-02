@@ -106,6 +106,7 @@ impl<S: Storage> Fork<S> {
     /// Insert a new block to the chain.
     pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
         // 1. check the parent
+        tracing::trace!("importing block...");
         if block.header.parent != parent.hash {
             anyhow::bail!(
                 "invalid parent: 0x{} != 0x{}",
@@ -115,6 +116,7 @@ impl<S: Storage> Fork<S> {
         }
 
         // 2. check the state root
+        tracing::trace!("checking state root");
         let root = self.state.root()?;
         if block.header.parent_state_root != root {
             anyhow::bail!(
@@ -125,11 +127,13 @@ impl<S: Storage> Fork<S> {
         }
 
         // 3. verify the header
+        tracing::trace!("validating block header");
         self.validate(parent, &block.header)?;
 
         // 4. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
+        tracing::trace!("transiting block");
         let head = block.header.head()?;
         let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
         tracing::info!(
@@ -143,6 +147,7 @@ impl<S: Storage> Fork<S> {
         // 5. save the block and the diff
         self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
+        
 
         // 6. update fallback tickets if need
         let epoch = block.header.slot / score::EPOCH_LENGTH;

@@ -100,10 +100,20 @@ impl<C: Config> Runtime<C> {
 
     /// Import a block to the chain
     pub async fn import(&self, block: &Block) -> anyhow::Result<bool> {
-        tracing::trace!("try unlock the chain");
         let mut chain = self.chain_mut().await;
-        tracing::trace!("unlocked the chain");
-        chain.import(block).await
+        let imported = chain.import(block).await?;
+        if imported {
+            let head = block.header.head()?;
+            let mut handshake = chain.grandpa.handshake.clone();
+            drop(chain);
+            tracing::trace!("adding leaf to the handshake");
+            self.add_leaf_to(head, &block.header, &mut handshake)
+                .await?;
+            self.chain_mut().await.grandpa.handshake = handshake;
+            tracing::trace!("leaf added");
+        }
+
+        Ok(imported)
     }
 
     /// Get the series for sealing / validating usages

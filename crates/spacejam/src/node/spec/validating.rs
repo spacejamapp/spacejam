@@ -16,15 +16,16 @@ impl<C: runtime::Config> Validating<C> {
 
         loop {
             tokio::time::sleep(block::next_slot()).await;
+            tracing::trace!("sleep done, new timeslot");
 
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-            let chain = runtime.runtime.chain().await;
 
-            if let Ok(best) = chain.best() {
+            tracing::trace!("try to dial validators");
+            if let Ok(best) = runtime.best().await {
                 runtime.dial_validators().await;
-                let finalized = chain.grandpa.handshake.head.clone();
+                let finalized = runtime.finalized().await;
                 if ticket::subscribe(timeslot % score::EPOCH_LENGTH, best.slot, finalized.slot) {
                     tokio::spawn({
                         let runtime = runtime.clone();
@@ -37,8 +38,8 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
-            drop(chain);
             // author block and maybe generate ticket
+            tracing::trace!("try authoring block and ticket");
             let (block, ticket) = match author.on_timeslot(timeslot).await {
                 Ok((header, ticket)) => (header, ticket),
                 Err(e) => {
@@ -47,9 +48,11 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
+            tracing::trace!("authoring block and ticket done");
             log::current(runtime).await;
 
             // author block
+            tracing::trace!("check authored block ...");
             if let Some(block) = block {
                 let hash = block.header.hash().expect("failed to get hash");
                 tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));

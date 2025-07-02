@@ -40,7 +40,7 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
     while let Ok(header) = rx.recv().await {
         let handshake = conn.handshake.read().await;
-        if !handshake.accept(&header.parent) {
+        if !handshake.accept(&header.hash()?) {
             continue;
         }
 

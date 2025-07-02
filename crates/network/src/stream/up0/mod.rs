@@ -65,22 +65,29 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        tracing::debug!("receiving up0 stream from {peer}");
+        tracing::debug!("receiving up0 stream");
         let conn = self.conn(peer).await?;
 
-        // 1. send the handshake data
-        let mut handshake = self.handshake().await;
-        handshake.leaves.insert(handshake.head.clone());
-        handshake
-            .write(&mut send)
-            .await
-            .context("failed to send handshake")?;
+        // 1. send and receive the handshake data.
+        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
+            async {
+                let handshake = self.handshake().await;
+                handshake
+                    .write(&mut send)
+                    .await
+                    .context("failed to send handshake")
+            },
+            async {
+                let handshake = Handshake::read(&mut recv)
+                    .await
+                    .context("failed to read handshake")?;
+                conn.handshake.write().await.head = handshake.head;
+                Ok(())
+            }
+        );
 
-        // 2. receive the handshake data
-        let handshake = Handshake::read(&mut recv)
-            .await
-            .context("failed to read handshake")?;
-        conn.handshake.write().await.head = handshake.head;
+        hsend?;
+        hrecv?;
 
         // 3. announcement loop.
         let runtime = self.clone();

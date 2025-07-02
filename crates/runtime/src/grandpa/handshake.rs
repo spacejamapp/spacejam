@@ -36,8 +36,8 @@ impl Handshake {
     ///    other side of the stream.
     ///
     /// 1 and 2 will be checked by our local chain, so this method only checks 3.
-    pub fn accept(&self, parent: &OpaqueHash) -> bool {
-        self.head.hash == *parent || self.leaves.iter().any(|head| head.hash == *parent)
+    pub fn accept(&self, hash: &OpaqueHash) -> bool {
+        self.head.hash != *hash && !self.leaves.iter().any(|head| head.hash == *hash)
     }
 
     /// Add a leaf to the handshake.
