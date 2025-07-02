@@ -57,29 +57,44 @@ impl<'s, S: Lookup> LookupIter<'s, S> {
         direction: Direction,
         count: usize,
     ) -> Result<Self> {
+        if count == 0 {
+            return Ok(Self {
+                lookup,
+                blocks: VecDeque::new(),
+            });
+        }
+
         let mut blocks = Vec::new();
         let mut current = from;
         match direction {
             Direction::Ascending => {
-                let mut blocks = Vec::new();
                 while blocks.len() < count {
-                    let next = lookup.descendant(current)?;
-                    blocks.push(next);
-                    current = next;
+                    match lookup.descendant(current) {
+                        Ok(next) => {
+                            blocks.push(next);
+                            current = next;
+                        }
+                        Err(_) => break,
+                    }
                 }
             }
             Direction::Descending => {
+                blocks.push(current);
                 while blocks.len() < count {
-                    let next = lookup.parent(current)?;
-                    blocks.push(next);
-                    current = next;
+                    match lookup.parent(current) {
+                        Ok(parent) => {
+                            current = parent;
+                            blocks.push(current);
+                        }
+                        Err(_) => break,
+                    }
                 }
             }
         };
 
         Ok(Self {
             lookup,
-            blocks: VecDeque::new(),
+            blocks: blocks.into(),
         })
     }
 }

@@ -61,7 +61,6 @@ impl<C: runtime::Config> Network<C> {
         header: &Header,
         direction: Direction,
     ) -> anyhow::Result<(bool, Header)> {
-        let head = header.head()?;
         let mut recv = ce128::send(
             conn,
             match direction {
@@ -71,7 +70,7 @@ impl<C: runtime::Config> Network<C> {
                     maximum: 1,
                 },
                 Direction::Descending => ce128::Request {
-                    hash: head.hash,
+                    hash: header.parent,
                     direction: Direction::Descending,
                     maximum: 1,
                 },
