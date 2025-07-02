@@ -122,23 +122,21 @@ impl<'a, C: Config> Author<'a, C> {
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
         tracing::trace!("authoring block...");
-        let chain = self.chain().await;
-        let best = chain.best_chain()?;
-        let keys = best.grid.curr.bandersnatch();
+        let keys = self.grid().await.curr.bandersnatch();
 
         // 1. get the last block
-        let blocks = best.state.recent_blocks()?;
+        let blocks = self.recent_blocks().await?;
         let mut parent = blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?
             .clone();
 
         // 2. collect the extrinsics
-        let envelopes = best.state.safrole()?.accumulator;
+        let envelopes = self.safrole().await?.accumulator;
         let extrinsic = self.expool.collect(envelopes).await?;
 
         // 3. init the builder
-        parent.state_root = best.state.root()?;
+        parent.state_root = self.root().await?;
         let mut builder = Block::builder()
             .parent(&parent)?
             .extrinsic(extrinsic)?
@@ -156,7 +154,14 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        let _diff = tx::simulate::<C::Vm>(&mut builder, best.state.clone())?;
+        tracing::trace!("simulating block...");
+        if let Ok(fork) = self.chain().await.best_chain() {
+            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone())?;
+        } else {
+            let _diff =
+                tx::simulate::<C::Vm>(&mut builder, self.runtime.chain().await.state.clone())?;
+        }
+        tracing::trace!("block simulated");
         let block: Block = builder.into();
 
         // 6. seal the block
@@ -169,8 +174,6 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
         tracing::trace!("generating ticket...");
         let epoch = timeslot / score::EPOCH_LENGTH;
-        let chain = self.chain().await;
-        let best = chain.best_chain()?;
 
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
@@ -179,8 +182,8 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 2. generate a ticket
-        let entropy = best.state.entropy()?;
-        let next_keys = best.grid.next.bandersnatch();
+        let entropy = self.entropy().await?;
+        let next_keys = self.grid().await.next.bandersnatch();
         let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(

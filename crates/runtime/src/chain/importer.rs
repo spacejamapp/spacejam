@@ -27,7 +27,7 @@ impl<C: Config> Chain<C> {
     }
 
     /// Get the best chain
-    pub fn best_chain(&self) -> Result<&Fork<C::Storage>> {
+    pub fn best_chain(&self) -> Result<Fork<C::Storage>> {
         let mut count = 0;
         let mut best = None;
         for (hash, fork) in self.forks.iter() {
@@ -38,7 +38,7 @@ impl<C: Config> Chain<C> {
             }
         }
 
-        best.and_then(|hash| self.forks.get(hash))
+        best.and_then(|hash| self.forks.get(hash).cloned())
             .ok_or_else(|| anyhow::anyhow!("could not find the best chain"))
     }
 
@@ -53,7 +53,7 @@ impl<C: Config> Chain<C> {
         }
 
         // find the best chain
-        let Ok(mut chain) = self.best_chain().cloned() else {
+        let Ok(mut chain) = self.best_chain() else {
             tracing::trace!("no fork chain found for best");
             return Ok(vec![]);
         };
@@ -75,6 +75,7 @@ impl<C: Config> Chain<C> {
         tracing::trace!("updated chain series ...");
         // apply the latest finalized blocks.
         let mut blocks = Vec::new();
+        let mut finalized = Vec::new();
         while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
             let hash = block.header.hash()?;
             self.state.commit(Column::State, commit.clone())?;
@@ -82,6 +83,7 @@ impl<C: Config> Chain<C> {
             self.state.finalize(&block, hash, root)?;
             self.grandpa.handshake.head = Head { slot, hash };
             blocks.push((block, commit));
+            finalized.push(hash);
             tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&hash[..3]));
 
             if slot >= latest {
@@ -90,14 +92,18 @@ impl<C: Config> Chain<C> {
         }
 
         // now we need to truncate all fork chains.
-        self.forks.retain(|head, _fork| {
-            if !chain.chain.iter().any(|h| h.hash == *head) {
-                return false;
-            }
+        if let Some(latest) = finalized.last() {
+            self.forks.retain(|_head, fork| {
+                if !fork.chain.iter().any(|h| h.hash == *latest) {
+                    return false;
+                }
 
-            true
-        });
-        self.forks.insert(chain.head()?.hash, chain);
+                fork.chain.retain(|h| !finalized.contains(&h.hash));
+                true
+            });
+
+            self.forks.insert(chain.head()?.hash, chain);
+        }
         Ok(blocks)
     }
 

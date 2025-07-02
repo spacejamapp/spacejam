@@ -2,10 +2,10 @@
 
 use crate::{storage::StateStorage, Chain, Config, Grid, Handshake, Runtime};
 use score::{
-    block::{Head, Header},
+    block::{BlockInfo, Head, Header},
     extrinsic::TicketsOrKeys,
-    safrole::ValidatorIter,
-    Block, EntropyBuffer,
+    safrole::{Safrole, ValidatorIter},
+    Block, EntropyBuffer, OpaqueHash,
 };
 use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
 
@@ -114,6 +114,36 @@ impl<C: Config> Runtime<C> {
         }
 
         Ok(imported)
+    }
+
+    /// Get the recent blocks of the runtime
+    pub async fn recent_blocks(&self) -> anyhow::Result<Vec<BlockInfo>> {
+        let chain = self.chain().await;
+        if let Ok(fork) = chain.best_chain() {
+            fork.state.recent_blocks()
+        } else {
+            chain.state.recent_blocks()
+        }
+    }
+
+    /// Get the state root
+    pub async fn root(&self) -> anyhow::Result<OpaqueHash> {
+        let chain = self.chain().await;
+        if let Ok(fork) = chain.best_chain() {
+            fork.state.root()
+        } else {
+            chain.state.root()
+        }
+    }
+
+    /// Get the safrole of the runtime
+    pub async fn safrole(&self) -> anyhow::Result<Safrole> {
+        let chain = self.chain().await;
+        if let Ok(fork) = chain.best_chain() {
+            fork.state.safrole()
+        } else {
+            chain.state.safrole()
+        }
     }
 
     /// Get the series for sealing / validating usages

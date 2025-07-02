@@ -147,7 +147,6 @@ impl<S: Storage> Fork<S> {
         // 5. save the block and the diff
         self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
-        
 
         // 6. update fallback tickets if need
         let epoch = block.header.slot / score::EPOCH_LENGTH;
@@ -181,10 +180,14 @@ impl<S: Storage> Fork<S> {
 
     /// Get the series for sealing / validating usages
     pub fn series(&self, epoch: u32) -> anyhow::Result<TicketsOrKeys> {
-        self.series
-            .get(&epoch)
-            .cloned()
-            .ok_or(anyhow::anyhow!("series not found"))
+        if let Some(series) = self.series.get(&epoch) {
+            Ok(series.clone())
+        } else {
+            let validators = self.state.next_validators()?.bandersnatch();
+            let entropy = self.state.entropy()?;
+            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            Ok(series)
+        }
     }
 
     /// Validate a block header.
