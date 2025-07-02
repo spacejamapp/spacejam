@@ -11,12 +11,7 @@ use std::{
 /// Key-value storage
 pub trait KVStorage {
     /// Batch write a set of key-value pairs to the storage
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()>;
-
-    /// Batch write a set of key-value pairs to the storage
-    fn commit_legacy(&self, _commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
-        Ok(())
-    }
+    fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()>;
 
     /// Set a key-value pair with column specified
     fn set(&self, column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
@@ -55,24 +50,7 @@ pub struct MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-
-        for (key, value) in commit.iset() {
-            data.insert(key.to_vec(), value.clone());
-        }
-
-        for key in commit.iremoval() {
-            data.remove(key);
-        }
-
-        Ok(())
-    }
-
-    fn commit_legacy(&self, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+    fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut data = self
             .data
             .write()

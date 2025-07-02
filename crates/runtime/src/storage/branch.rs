@@ -12,7 +12,7 @@ use std::{
 };
 
 /// A branch of the state
-pub struct Branch<S: Storage> {
+pub struct Branch<S: StateStorage> {
     /// The state of the branch
     state: Arc<S>,
 
@@ -36,31 +36,16 @@ impl<S: Storage> Branch<S> {
 }
 
 impl<S: Storage> KVStorage for Branch<S> {
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
-        for (key, value) in commit.iset() {
-            self.state_set(key, value)?;
-        }
-
+    fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut diff = self
             .diff
             .write()
             .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
-        for key in commit.iremoval() {
-            diff.remove(key);
-        }
 
-        Ok(())
-    }
-
-    fn commit_legacy(&self, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         for (key, value) in commit.iset() {
-            self.state_set(key, value)?;
+            diff.insert(key.to_vec(), value.clone());
         }
 
-        let mut diff = self
-            .diff
-            .write()
-            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
         for key in commit.iremoval() {
             diff.remove(key.as_ref());
         }

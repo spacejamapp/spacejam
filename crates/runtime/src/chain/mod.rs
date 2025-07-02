@@ -133,7 +133,11 @@ impl<C: Config> Chain<C> {
     }
 
     /// Get the series for sealing / validating usages
-    pub fn series(&self, _epoch: u32) -> anyhow::Result<TicketsOrKeys> {
-        todo!()
+    pub fn series(&self, epoch: u32) -> anyhow::Result<TicketsOrKeys> {
+        if let Some(series) = self.series.get(&epoch) {
+            Ok(series.clone())
+        } else {
+            self.best_chain()?.series(epoch)
+        }
     }
 }

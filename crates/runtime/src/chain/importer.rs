@@ -2,7 +2,7 @@
 
 use crate::{
     chain::fork::{BlockWithDiff, Fork},
-    storage::{Branch, KVStorage, SyncStorage},
+    storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
     Chain, Config, Grid,
 };
 use anyhow::Result;
@@ -62,13 +62,18 @@ impl<C: Config> Chain<C> {
         let latest = timeslot + count as u32;
         let epoch = latest / score::EPOCH_LENGTH;
         chain.series.retain(|k, _| k < &epoch);
+        self.series = chain.series.clone();
+        self.grid = chain.grid.clone();
 
         // apply the latest finalized blocks.
         let mut blocks = Vec::new();
         while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
             let hash = block.header.hash()?;
-            blocks.push((block, commit.clone()));
-            self.state.commit_legacy(commit)?;
+            self.state.commit(Column::State, commit.clone())?;
+            let root = self.state.root()?;
+            self.state.finalize(&block, hash, root)?;
+            self.grandpa.handshake.head = Head { slot, hash };
+            blocks.push((block, commit));
             tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&hash[..3]));
 
             if slot == latest {
@@ -160,12 +165,11 @@ impl<C: Config> Chain<C> {
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
         let head = header.head()?;
-        self.state.finalize(&head)?;
 
         // 2. set the genesis state
         let mut kvs = Vec::new();
         for (key, value) in state {
-            kvs.push((key.to_vec(), value.clone()));
+            kvs.push((*key, value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     self.grid.prev = codec::decode(value)?;
@@ -180,7 +184,17 @@ impl<C: Config> Chain<C> {
             }
         }
 
-        self.state.commit((kvs, vec![]).into())?;
+        let root = self.state.root()?;
+        self.state.commit(Column::State, (kvs, vec![]).into())?;
+        self.state.finalize(
+            &Block {
+                header,
+                extrinsic: Default::default(),
+            },
+            head.hash,
+            root,
+        )?;
+
         self.grandpa.handshake.head = head;
         Ok(())
     }

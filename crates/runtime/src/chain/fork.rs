@@ -2,7 +2,7 @@
 
 use crate::{
     chain::Grid,
-    storage::{Branch, Commit, KVStorage, StateStorage},
+    storage::{Branch, Column, Commit, KVStorage, StateStorage},
     tx, Storage,
 };
 use anyhow::Result;
@@ -10,6 +10,7 @@ use pvm::Pvm;
 use score::{
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
+    safrole::ValidatorIter,
     Block, TimeSlot, TrieKey,
 };
 use std::{
@@ -95,7 +96,7 @@ impl<S: Storage> Fork<S> {
                 break;
             }
 
-            branch.commit_legacy(commit.clone())?;
+            branch.commit(Column::State, commit.clone())?;
         }
 
         // import the block
@@ -146,7 +147,17 @@ impl<S: Storage> Fork<S> {
         // 5. save the block and the diff
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 6. update tickets or keys if any
+        // 6. update fallback tickets if need
+        let epoch = block.header.slot / score::EPOCH_LENGTH;
+        let prev_epoch = parent.slot / score::EPOCH_LENGTH;
+        if epoch > prev_epoch && !self.series.contains_key(&epoch) {
+            let validators = self.state.next_validators()?.bandersnatch();
+            let entropy = self.state.entropy()?;
+            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            self.series.insert(epoch, series);
+        }
+
+        // 7. update safrole tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };
@@ -164,6 +175,25 @@ impl<S: Storage> Fork<S> {
         let series = TicketsOrKeys::Tickets(series);
         self.series.insert(epoch, series);
         Ok(())
+    }
+
+    /// Get the series for sealing / validating usages
+    pub fn series(&self, epoch: u32) -> anyhow::Result<TicketsOrKeys> {
+        self.series
+            .get(&epoch)
+            .cloned()
+            .ok_or(anyhow::anyhow!("series not found"))
+
+        /* let best = self.best()?;
+        if best.slot / score::EPOCH_LENGTH != epoch {
+            anyhow::bail!("series not found for epoch={epoch}");
+        }
+
+        let validators = self.state.next_validators()?.bandersnatch();
+        let entropy = self.state.entropy()?;
+        let series = TicketsOrKeys::fallback(validators, entropy[1]);
+        self.series.insert(epoch, series.clone());
+        Ok(series) */
     }
 
     /// Validate a block header.
@@ -195,10 +225,10 @@ impl<S: Storage> Fork<S> {
 
         // check the ticket mark
         if new_epoch {
-            if let Some(TicketsOrKeys::Tickets(tickets)) = self.series.get(&remote_epoch) {
+            if let Ok(TicketsOrKeys::Tickets(tickets)) = self.series(remote_epoch) {
                 ticket = Some(tickets[slot]);
             }
-        } else if let Some(TicketsOrKeys::Tickets(tickets)) = self.series.get(&local_epoch) {
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.series(local_epoch) {
             ticket = Some(tickets[slot]);
         }
 

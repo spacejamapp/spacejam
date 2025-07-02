@@ -1,19 +1,19 @@
 //! Authoring service
 
-use crate::{
-    storage::{StateStorage, SyncStorage},
-    tx, Config, Runtime, Validator,
-};
+use crate::{storage::StateStorage, tx, Config, Runtime, Validator};
 use anyhow::Context;
 use score::{
-    block::{Block, Header},
+    block::Block,
     extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::ValidatorIter,
     BandersnatchPublic, OpaqueHash, TimeSlot,
 };
 use std::{
     ops::Deref,
-    sync::atomic::{AtomicU8, Ordering},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
 };
 
 /// Authoring context
@@ -50,7 +50,7 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn on_timeslot(
         &mut self,
         timeslot: TimeSlot,
-    ) -> anyhow::Result<(Option<Header>, Option<Ticket>)> {
+    ) -> anyhow::Result<(Option<Block>, Option<Ticket>)> {
         let best = self.chain.read().await.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
@@ -63,7 +63,10 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 1. check generating tickets
-        let finalized = self.storage.finalized()?;
+        let finalized = {
+            let chain = self.chain.read().await;
+            chain.grandpa.handshake.head.clone()
+        };
         if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
                 self.tickets.push(ticket.id);
@@ -73,7 +76,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 2. check authoring blocks
         if self.slots.contains(&slot) {
-            next.0 = Some(self.author(timeslot).await?.header);
+            next.0 = Some(self.author(timeslot).await?);
             self.slots.retain(|s| *s != slot);
         }
 
@@ -103,13 +106,6 @@ impl<'a, C: Config> Author<'a, C> {
             }
             TicketsOrKeys::Keys(keys) => {
                 fallback = true;
-                tracing::trace!(
-                    "fallback keys: {:#?}",
-                    keys.iter()
-                        .enumerate()
-                        .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
-                        .collect::<Vec<_>>()
-                );
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me() {
                         slots.push(i as TimeSlot);
@@ -131,21 +127,23 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
-        let keys = self.storage.current_validators()?.bandersnatch();
+        let chain = self.chain.read().await;
+        let best = chain.best_chain()?;
+        let keys = best.grid.curr.bandersnatch();
 
         // 1. get the last block
-        let blocks = self.storage.recent_blocks()?;
+        let blocks = best.state.recent_blocks()?;
         let mut parent = blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?
             .clone();
 
         // 2. collect the extrinsics
-        let envelopes = self.storage.safrole()?.accumulator;
+        let envelopes = best.state.safrole()?.accumulator;
         let extrinsic = self.expool.collect(envelopes).await?;
 
         // 3. init the builder
-        parent.state_root = self.storage.root()?;
+        parent.state_root = best.state.root()?;
         let mut builder = Block::builder()
             .parent(&parent)?
             .extrinsic(extrinsic)?
@@ -163,15 +161,11 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        let _diff = tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
+        let _diff = tx::simulate::<C::Vm>(&mut builder, Arc::new(best.state.clone()))?;
         let block: Block = builder.into();
 
         // 6. seal the block
         let block = self.seal(block, &keys).await?;
-
-        // 7. save the block to the fork storage
-        //
-        // FIXME: import block here.
         Ok(block)
     }
 
@@ -179,6 +173,8 @@ impl<'a, C: Config> Author<'a, C> {
     #[tracing::instrument(skip_all, name = "ticket::generate")]
     pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
         let epoch = timeslot / score::EPOCH_LENGTH;
+        let chain = self.chain.read().await;
+        let best = chain.best_chain()?;
 
         // 1. check if the current validator has exceeded the ticket limit
         let attempt = self.attempt.load(Ordering::Relaxed);
@@ -187,8 +183,8 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 2. generate a ticket
-        let entropy = self.storage.entropy()?;
-        let next_keys = self.storage.next_validators()?.bandersnatch();
+        let entropy = best.state.entropy()?;
+        let next_keys = best.grid.next.bandersnatch();
         let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
@@ -214,7 +210,9 @@ impl<'a, C: Config> Author<'a, C> {
     /// Seal a block
     #[tracing::instrument(skip_all, name = "seal")]
     async fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let entropy = self.storage.entropy()?;
+        let chain = self.chain.read().await;
+        let best = chain.best_chain()?;
+        let entropy = best.state.entropy()?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
             keys = mark.validators.iter().map(|v| v.bandersnatch).collect();
@@ -299,8 +297,10 @@ impl<C: Config> Runtime<C> {
 
     /// Verify a ticket
     pub async fn verify_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<Ticket> {
-        let keys = self.storage.next_validators()?.bandersnatch();
-        let entropy = self.storage.entropy()?;
+        let chain = self.chain.read().await;
+        let best = chain.best_chain()?;
+        let keys = best.grid.next.bandersnatch();
+        let entropy = best.state.entropy()?;
         let verifier = crypto::ring::verifier(keys);
         let id = verifier
             .ring_vrf_verify(

@@ -65,14 +65,13 @@ pub trait SyncStorage: KVStorage {
     }
 
     /// Set the finalized head
-    fn finalize(&self, head: &Head) -> Result<()> {
-        let key = Key::Finalized.key();
-        self.sync_set(key, codec::encode(head)?)?;
-
-        // set the descendant of the parent
-        let parent = self.parent(&head.hash)?;
-        let key = Key::Descendant(parent).key();
-        self.sync_set(key, head.hash)?;
+    fn finalize(&self, block: &Block, hash: OpaqueHash, state_root: OpaqueHash) -> Result<()> {
+        self.sync_set(Key::Block(hash).key(), codec::encode(block)?)?;
+        self.sync_set(Key::Descendant(block.header.parent).key(), hash)?;
+        self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()?)?)?;
+        self.sync_set(Key::Header(hash).key(), codec::encode(&block.header)?)?;
+        self.sync_set(Key::Parent(hash).key(), block.header.parent)?;
+        self.sync_set(Key::StateRoot(hash).key(), state_root)?;
         Ok(())
     }
 
@@ -112,20 +111,6 @@ pub trait SyncStorage: KVStorage {
             .sync_get(key)?
             .ok_or(anyhow::anyhow!("Beefy root not found"))?;
         Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Fetch the blocks
-    fn fetch_blocks(&self, hashes: &[OpaqueHash]) -> Result<Vec<Block>> {
-        Ok(self
-            .sync_batch_read(
-                hashes
-                    .iter()
-                    .map(|hash| Key::Block(*hash).key().to_vec())
-                    .collect::<Vec<_>>(),
-            )?
-            .into_iter()
-            .filter_map(|(_, value)| codec::decode(&value).ok())
-            .collect::<Vec<_>>())
     }
 }
 

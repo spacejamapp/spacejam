@@ -17,11 +17,10 @@ pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
 
 /// Logging the current status of the node
 pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
+    let chain = runtime.chain.read().await;
+    let best = chain.best_chain().unwrap();
     // TODO: handle this gracefully
-    let validators = runtime
-        .storage
-        .current_validators()
-        .expect("failed to get validators");
+    let validators = best.grid.curr;
     let pool = runtime.pool.read().await.clone();
     let peers = pool.keys().collect::<Vec<_>>();
     let connected = peers
@@ -43,12 +42,7 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     let total_neighbours = neighbours.len();
 
     // get the latest pending block
-    let tickets = runtime
-        .storage
-        .safrole()
-        .unwrap_or_default()
-        .accumulator
-        .len();
+    let tickets = best.state.safrole().unwrap_or_default().accumulator.len();
 
     // print the current status
     let timeslot = block::timeslot();

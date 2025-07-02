@@ -2,7 +2,7 @@
 
 use peer::PeerId;
 use quinn::{Endpoint, VarInt};
-use runtime::{storage::StateStorage, Runtime, Validator};
+use runtime::{Runtime, Validator};
 use score::block::Header;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
@@ -169,12 +169,18 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn dial_validators(&self) {
         let me = self.me();
         let pool = self.pool.read().await.clone();
-        let Ok(validators) = self.runtime.storage.current_validators() else {
-            tracing::warn!("failed to get validators from storage");
-            return;
+        let current = {
+            let chain = self.runtime.chain.read().await;
+            if let Ok(best) = chain.best_chain().inspect_err(|e| {
+                tracing::warn!("failed to get current validators: {e:?}");
+            }) {
+                best.grid.curr
+            } else {
+                Default::default()
+            }
         };
 
-        for validator in validators {
+        for validator in current {
             let key = validator.ed25519;
             let peer = PeerId::from(key);
 

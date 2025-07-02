@@ -4,6 +4,7 @@ use pvm::Pvm;
 use score::{extrinsic::TicketEnvelope, BandersnatchPublic};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
+
 pub use {
     account::{Account, Accounts},
     chain::{Chain, Grid, Lookup},
@@ -32,9 +33,6 @@ pub struct Runtime<C: Config> {
     /// The validator of SpaceJam
     pub validator: C::Validator,
 
-    /// The storage of SpaceJam
-    pub storage: Arc<C::Storage>,
-
     /// The hook of SpaceJam
     pub hook: C::Hook,
 
@@ -52,7 +50,6 @@ impl<C: Config> Runtime<C> {
         Self {
             validator,
             chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
-            storage: storage.clone(),
             hook,
             expool: Default::default(),
             tickets: Default::default(),

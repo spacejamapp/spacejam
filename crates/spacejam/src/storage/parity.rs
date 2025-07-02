@@ -3,16 +3,17 @@
 use anyhow::Result;
 use parity_db::{BTreeIterator, ColumnOptions, Db, Operation as Op, Options};
 use runtime::storage::{Column, Commit, KVStorage, Operation};
+use score::TrieKey;
 use std::path::PathBuf;
 
 /// The parity database storage
 pub struct Parity(Db);
 
 impl KVStorage for Parity {
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
+    fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         self.0.commit_changes(commit.ops().map(|op| match op {
-            Operation::Set(k, v) => (Column::State as u8, Op::Set(k.to_vec(), v)),
-            Operation::Remove(k) => (Column::State as u8, Op::Dereference(k.to_vec())),
+            Operation::Set(k, v) => (column as u8, Op::Set(k.to_vec(), v)),
+            Operation::Remove(k) => (column as u8, Op::Dereference(k.to_vec())),
         }))?;
         Ok(())
     }
