@@ -3,15 +3,15 @@
 use crate::{
     chain::fork::{BlockWithDiff, Fork},
     storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
-    Chain, Config, Grid,
+    Chain, Config,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use score::{
     block::{Head, Header},
     state::key,
     Block,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 impl<C: Config> Chain<C> {
     /// Get the best head of the chain.
@@ -21,7 +21,9 @@ impl<C: Config> Chain<C> {
             return Ok(self.grandpa.handshake.head.clone());
         }
 
-        self.best_chain()?.best()
+        self.best_chain()
+            .context("forks are not empty, but no best chain found")?
+            .best()
     }
 
     /// Get the best chain
@@ -42,6 +44,7 @@ impl<C: Config> Chain<C> {
 
     /// Try finalize the chain.
     pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
+        tracing::trace!("finalizing the chain...");
         let best = self.best()?;
         if best.hash == self.grandpa.handshake.head.hash {
             return Ok(vec![]);
@@ -49,7 +52,7 @@ impl<C: Config> Chain<C> {
 
         // find the best chain
         let Some(mut chain) = self.forks.get(&best.hash).cloned() else {
-            anyhow::bail!("could not find the best chain");
+            return Ok(vec![]);
         };
 
         // nothing to finalize if the best fork chain is less than 5 blocks.
@@ -95,23 +98,24 @@ impl<C: Config> Chain<C> {
 
     /// Create a new fork at the latest finalized block.
     pub fn fork(&mut self, block: &Block) -> Result<()> {
+        let head = self.grandpa.handshake.head.clone();
         let hash = block.header.hash()?;
         let branch = Branch::checkout(self.state.clone());
-        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
-        fork.import::<C::Vm>(block)?;
+        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        fork.import::<C::Vm>(&head, block)?;
         self.forks.insert(hash, fork);
         Ok(())
-    }
-
-    /// Get the grid of the best chain.
-    pub fn grid(&self) -> Result<Grid> {
-        self.best_chain().map(|fork| fork.grid.clone())
     }
 
     /// Import a new block to the chain.
     ///
     /// returns true if the block is imported.
     pub async fn import(&mut self, block: &Block) -> anyhow::Result<bool> {
+        tracing::trace!(
+            "importing block#{}@0x{}",
+            block.header.slot,
+            hex::encode(&block.header.hash()?[..3])
+        );
         let head = block.header.head()?;
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
@@ -125,6 +129,7 @@ impl<C: Config> Chain<C> {
 
         // 1. the block is a child of the finalized
         if block.header.parent == self.grandpa.handshake.head.hash {
+            tracing::trace!("block is child of the finalized head");
             self.fork(block)?;
             return Ok(true);
         }
@@ -132,8 +137,10 @@ impl<C: Config> Chain<C> {
         // 2. the block is a child of a fork
         for (_, fork) in self.forks.iter_mut() {
             // 2.1. The block is a child of a fork.
-            if fork.best()?.hash == block.header.parent {
-                fork.import::<C::Vm>(block)?;
+            let head = fork.best()?;
+            if head.hash == block.header.parent {
+                tracing::trace!("block is a child of a fork");
+                fork.import::<C::Vm>(&head, block)?;
                 return Ok(true);
             }
 
@@ -145,7 +152,8 @@ impl<C: Config> Chain<C> {
 
                 // 2.3 the block is a fork of a fork
                 if fhead.hash == block.header.parent {
-                    let fork = fork.fork::<C::Vm>(block)?;
+                    tracing::trace!("block is on a fork of a fork");
+                    let fork = fork.fork::<C::Vm>(fhead, block)?;
                     self.forks.insert(head.hash, fork);
                     return Ok(true);
                 }
@@ -153,6 +161,7 @@ impl<C: Config> Chain<C> {
         }
 
         // 3. we don't have the ancestors of this block
+        tracing::trace!("block is an orphan");
         self.orphan.insert(head.hash, block.clone());
         Ok(false)
     }

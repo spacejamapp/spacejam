@@ -41,7 +41,7 @@ impl<C: runtime::Config> Network<C> {
         conn.handshake.write().await.head = handshake.head;
 
         // 3. send the handshake
-        let handshake = self.handshake().await?;
+        let handshake = self.handshake().await;
         let encoded = codec::encode(&handshake)?;
         let length = encoded.len() as u32;
         send.write(&length.to_le_bytes()).await?;
@@ -69,7 +69,7 @@ impl<C: runtime::Config> Network<C> {
         let conn = self.conn(peer).await?;
 
         // 1. send the handshake data
-        let mut handshake = self.handshake().await?;
+        let mut handshake = self.handshake().await;
         handshake.leaves.insert(handshake.head.clone());
         handshake
             .write(&mut send)

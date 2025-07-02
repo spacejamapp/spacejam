@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// The direction of the lookup.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[repr(u8)]
 pub enum Direction {
     /// Fetch the block in ascending order.
@@ -128,7 +128,7 @@ impl<S: SyncStorage> Lookup for Fork<S> {
         {
             Ok(block)
         } else {
-            Lookup::block(&self.state, hash)
+            Lookup::block(&*self.state, hash)
         }
     }
 
@@ -142,7 +142,7 @@ impl<S: SyncStorage> Lookup for Fork<S> {
         {
             Ok(hash)
         } else {
-            Lookup::descendant(&self.state, block)
+            Lookup::descendant(&*self.state, block)
         }
     }
 
@@ -156,7 +156,7 @@ impl<S: SyncStorage> Lookup for Fork<S> {
         {
             Ok(hash)
         } else {
-            Lookup::parent(&self.state, block)
+            Lookup::parent(&*self.state, block)
         }
     }
 }

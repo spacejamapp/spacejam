@@ -33,8 +33,7 @@ impl<C: runtime::Config> Network<C> {
             request.maximum,
         );
 
-        // FIXME: implement the block lookup here.
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain()?;
         let lookup = best.fetch(request.hash, request.direction, request.maximum as usize)?;
 
@@ -54,7 +53,7 @@ impl<C: runtime::Config> Network<C> {
 }
 
 /// Send a block request.
-#[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
+#[tracing::instrument(skip_all, fields(peer = ?conn.address.to_string()), name="ce128::send", parent = None)]
 pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
     send.write(&[128]).await?;
@@ -80,4 +79,31 @@ pub struct Request {
 
     /// The maximum number of blocks to request.
     pub maximum: u32,
+}
+
+#[test]
+fn encoding() {
+    #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+    struct Req {
+        hash: OpaqueHash,
+        direction: u8,
+        maximum: u32,
+    }
+
+    let req = Req {
+        hash: Default::default(),
+        direction: 0,
+        maximum: 1,
+    };
+
+    let request = Request {
+        hash: Default::default(),
+        direction: Direction::Ascending,
+        maximum: 1,
+    };
+
+    assert_eq!(
+        codec::encode(&req).unwrap(),
+        codec::encode(&request).unwrap()
+    );
 }

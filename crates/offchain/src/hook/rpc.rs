@@ -35,7 +35,7 @@ impl<C: runtime::Config> RpcHook<C> {
 
     /// Migrate the statistics
     async fn migrate_statistics(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain()?;
         let Some(statistics) = best.state.state_get(key::STATISTICS)? else {
             return Ok(());
@@ -53,7 +53,7 @@ impl<C: runtime::Config> RpcHook<C> {
     ///
     /// TODO: make the beefy root key constant somewhere
     async fn migrate_beefy_root(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain()?;
         let history = best.state.recent_blocks()?;
         let Some(block) = history.last() else {
@@ -103,7 +103,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
         hash: OpaqueHash,
         data: BTreeMap<ServiceId, Vec<u8>>,
     ) -> anyhow::Result<()> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain()?;
 
         // update the service list

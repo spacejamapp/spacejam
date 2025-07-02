@@ -2,13 +2,9 @@
 
 use crate::{
     storage::{StateStorage, SyncStorage},
-    Config, Grandpa, Handshake,
+    Config, Grandpa,
 };
-use score::{
-    block::{Head, Header},
-    extrinsic::TicketsOrKeys,
-    Block, OpaqueHash,
-};
+use score::{extrinsic::TicketsOrKeys, Block, OpaqueHash};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -19,6 +15,7 @@ pub use {
     lookup::{Direction, Lookup},
 };
 
+mod api;
 mod author;
 mod fork;
 mod grid;
@@ -28,7 +25,7 @@ mod lookup;
 /// A chain of blocks.
 pub struct Chain<C: Config> {
     /// The forks of the chain.
-    forks: HashMap<OpaqueHash, Fork<C::Storage>>,
+    pub forks: HashMap<OpaqueHash, Fork<C::Storage>>,
 
     /// The grandpa of the chain.
     pub grandpa: Grandpa,
@@ -59,37 +56,6 @@ impl<C: Config> Chain<C> {
         }
     }
 
-    /// Add a leaf to the handshake.
-    ///
-    /// Returns `true` if the leaf is already in the chain.
-    pub fn add_leaf_to(
-        &self,
-        head: Head,
-        leaf: &Header,
-        handshake: &mut Handshake,
-    ) -> anyhow::Result<bool> {
-        let mut exists = false;
-        let mut added = false;
-        for fork in self.forks.values() {
-            for block in fork.chain.iter() {
-                if block.hash == leaf.parent {
-                    handshake.add_leaf(fork.chain.clone(), head.clone());
-                    added = true;
-                }
-
-                if block.hash == head.hash {
-                    exists = true;
-                }
-            }
-
-            if added {
-                break;
-            }
-        }
-
-        Ok(exists)
-    }
-
     /// Select the chain of the given block.
     pub fn contains(&self, block: OpaqueHash) -> bool {
         if self.grandpa.handshake.head.hash == block
@@ -113,11 +79,6 @@ impl<C: Config> Chain<C> {
         false
     }
 
-    /// Get the finalized head of the chain.
-    pub fn finalized(&self) -> Head {
-        self.grandpa.handshake.head.clone()
-    }
-
     /// Initialize the chain from the state.
     pub async fn initialize(&mut self) -> anyhow::Result<()> {
         let curr = self.state.current_validators()?;
@@ -130,14 +91,5 @@ impl<C: Config> Chain<C> {
         self.grid.next = next;
         self.grandpa.handshake.head = finalized;
         Ok(())
-    }
-
-    /// Get the series for sealing / validating usages
-    pub fn series(&self, epoch: u32) -> anyhow::Result<TicketsOrKeys> {
-        if let Some(series) = self.series.get(&epoch) {
-            Ok(series.clone())
-        } else {
-            self.best_chain()?.series(epoch)
-        }
     }
 }

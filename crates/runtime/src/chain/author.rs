@@ -10,10 +10,7 @@ use score::{
 };
 use std::{
     ops::Deref,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicU8, Ordering},
 };
 
 /// Authoring context
@@ -51,7 +48,7 @@ impl<'a, C: Config> Author<'a, C> {
         &mut self,
         timeslot: TimeSlot,
     ) -> anyhow::Result<(Option<Block>, Option<Ticket>)> {
-        let best = self.chain.read().await.best()?;
+        let best = self.runtime.best().await?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
         let prev = best.slot / score::EPOCH_LENGTH;
@@ -63,10 +60,7 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 1. check generating tickets
-        let finalized = {
-            let chain = self.chain.read().await;
-            chain.grandpa.handshake.head.clone()
-        };
+        let finalized = self.runtime.finalized().await;
         if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
                 self.tickets.push(ticket.id);
@@ -95,7 +89,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. update the authoring slots
         let mut slots = Vec::new();
         let mut fallback = false;
-        match self.chain.read().await.series(epoch)? {
+        match self.runtime.series(epoch).await? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -127,7 +121,8 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
-        let chain = self.chain.read().await;
+        tracing::trace!("authoring block...");
+        let chain = self.chain().await;
         let best = chain.best_chain()?;
         let keys = best.grid.curr.bandersnatch();
 
@@ -161,7 +156,7 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        let _diff = tx::simulate::<C::Vm>(&mut builder, Arc::new(best.state.clone()))?;
+        let _diff = tx::simulate::<C::Vm>(&mut builder, best.state.clone())?;
         let block: Block = builder.into();
 
         // 6. seal the block
@@ -172,8 +167,9 @@ impl<'a, C: Config> Author<'a, C> {
     /// Generate a ticket
     #[tracing::instrument(skip_all, name = "ticket::generate")]
     pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
+        tracing::trace!("generating ticket...");
         let epoch = timeslot / score::EPOCH_LENGTH;
-        let chain = self.chain.read().await;
+        let chain = self.chain().await;
         let best = chain.best_chain()?;
 
         // 1. check if the current validator has exceeded the ticket limit
@@ -210,7 +206,8 @@ impl<'a, C: Config> Author<'a, C> {
     /// Seal a block
     #[tracing::instrument(skip_all, name = "seal")]
     async fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let chain = self.chain.read().await;
+        tracing::trace!("sealing block...");
+        let chain = self.chain().await;
         let best = chain.best_chain()?;
         let entropy = best.state.entropy()?;
         let mut keys = keys.to_vec();
@@ -223,7 +220,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // construct the seal message
         let epoch = block.header.slot / score::EPOCH_LENGTH;
-        let series = self.chain.read().await.series(epoch)?;
+        let series = self.runtime.series(epoch).await?;
         let (message, ticket) = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
@@ -297,10 +294,9 @@ impl<C: Config> Runtime<C> {
 
     /// Verify a ticket
     pub async fn verify_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<Ticket> {
-        let chain = self.chain.read().await;
-        let best = chain.best_chain()?;
-        let keys = best.grid.next.bandersnatch();
-        let entropy = best.state.entropy()?;
+        tracing::trace!("verifying ticket...");
+        let keys = self.grid().await.next.bandersnatch();
+        let entropy = self.entropy().await?;
         let verifier = crypto::ring::verifier(keys);
         let id = verifier
             .ring_vrf_verify(

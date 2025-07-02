@@ -63,10 +63,16 @@ impl TryFrom<PathBuf> for Parity {
     fn try_from(path: PathBuf) -> Result<Self> {
         let options = Options {
             path,
-            columns: vec![ColumnOptions {
-                btree_index: true,
-                ..Default::default()
-            }],
+            columns: vec![
+                ColumnOptions {
+                    btree_index: true,
+                    ..Default::default()
+                },
+                ColumnOptions {
+                    btree_index: true,
+                    ..Default::default()
+                },
+            ],
             sync_wal: true,
             sync_data: true,
             stats: true,

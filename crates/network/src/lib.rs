@@ -3,8 +3,12 @@
 use peer::PeerId;
 use quinn::{Endpoint, VarInt};
 use runtime::{Runtime, Validator};
-use score::block::Header;
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use score::{block::Header, OpaqueHash};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+    sync::Arc,
+};
 use tokio::sync::{broadcast, RwLock};
 pub use {
     config::Config,
@@ -39,6 +43,9 @@ pub struct Network<C: runtime::Config> {
     /// (deprecated) The bootnodes of the network
     pub bootnode: Option<Address>,
 
+    /// The queue of the network
+    queue: Arc<RwLock<HashSet<OpaqueHash>>>,
+
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
 }
@@ -50,6 +57,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             runtime: self.runtime.clone(),
             pool: self.pool.clone(),
             bootnode: self.bootnode.clone(),
+            queue: self.queue.clone(),
             announce: self.announce.clone(),
         }
     }
@@ -69,6 +77,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             runtime,
             pool: Arc::new(RwLock::new(Default::default())),
             bootnode: config.bootnode,
+            queue: Arc::new(RwLock::new(Default::default())),
             announce: broadcast::channel(256).0,
         };
 
@@ -96,10 +105,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
 
         // 4. open the up0 stream if needed
         if conn.outgoing {
-            let Ok(grid) = self.runtime.chain.read().await.grid() else {
-                tracing::warn!("failed to get network grid");
-                return;
-            };
+            let grid = self.runtime.grid().await;
             let neighbours = grid.neighbours(self.validator.ed25519_public_key());
 
             if neighbours.contains(address.peer_id.as_ref()) || neighbours.is_empty() {
@@ -138,7 +144,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         }
 
         // check if the peer is a validator
-        let grid = self.runtime.chain.read().await.grid()?;
+        let grid = self.runtime.grid().await;
         if grid.validators().contains(peer.as_ref()) {
             return Ok(Some(address));
         }
@@ -169,16 +175,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn dial_validators(&self) {
         let me = self.me();
         let pool = self.pool.read().await.clone();
-        let current = {
-            let chain = self.runtime.chain.read().await;
-            if let Ok(best) = chain.best_chain().inspect_err(|e| {
-                tracing::warn!("failed to get current validators: {e:?}");
-            }) {
-                best.grid.curr
-            } else {
-                Default::default()
-            }
-        };
+        let current = self.runtime.grid().await.curr;
 
         for validator in current {
             let key = validator.ed25519;

@@ -28,7 +28,9 @@ mod validator;
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
     /// The chain of blocks
-    pub chain: Arc<RwLock<Chain<C>>>,
+    ///
+    /// This should never being used directly, use the `chain` method instead.
+    _chain: Arc<RwLock<Chain<C>>>,
 
     /// The validator of SpaceJam
     pub validator: C::Validator,
@@ -49,7 +51,7 @@ impl<C: Config> Runtime<C> {
         let storage = Arc::new(storage);
         Self {
             validator,
-            chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
+            _chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
             hook,
             expool: Default::default(),
             tickets: Default::default(),
@@ -58,7 +60,8 @@ impl<C: Config> Runtime<C> {
 
     /// Finalize the chain
     pub async fn finalize(&self) -> anyhow::Result<()> {
-        for (block, diff) in self.chain.write().await.finalize()? {
+        tracing::debug!("try aquiring the chain write lock for finalizing");
+        for (block, diff) in self._chain.write().await.finalize()? {
             self.hook.on_diff(block.header.hash()?, diff).await?;
             self.hook.on_finalized_block(block).await?;
         }

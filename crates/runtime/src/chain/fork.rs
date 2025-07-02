@@ -33,7 +33,7 @@ pub struct Fork<S: Storage> {
     pub grid: Grid,
 
     /// The state of the chain.
-    pub state: Branch<S>,
+    pub state: Arc<Branch<S>>,
 
     /// tickets or keys for this fork chain per epoch.
     pub series: BTreeMap<u32, TicketsOrKeys>,
@@ -41,7 +41,11 @@ pub struct Fork<S: Storage> {
 
 impl<S: Storage> Fork<S> {
     /// Create a new fork.
-    pub fn new(state: Branch<S>, grid: Grid, series: BTreeMap<TimeSlot, TicketsOrKeys>) -> Self {
+    pub fn new(
+        state: Arc<Branch<S>>,
+        grid: Grid,
+        series: BTreeMap<TimeSlot, TicketsOrKeys>,
+    ) -> Self {
         Self {
             chain: BTreeSet::new(),
             blocks: BTreeMap::new(),
@@ -80,14 +84,8 @@ impl<S: Storage> Fork<S> {
     }
 
     /// Create a fork of a fork
-    pub fn fork<Vm: Pvm>(&self, block: &Block) -> Result<Self> {
-        let parent = block.header.parent;
-        let timeslot = self
-            .chain
-            .iter()
-            .find(|h| h.hash == parent)
-            .map(|h| h.slot)
-            .ok_or(anyhow::anyhow!("parent block not found"))?;
+    pub fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
+        let timeslot = parent.slot;
 
         // checkout branch and commit diffs
         let branch = Branch::checkout(self.state.state());
@@ -100,15 +98,13 @@ impl<S: Storage> Fork<S> {
         }
 
         // import the block
-        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
-        fork.import::<Vm>(block)?;
+        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        fork.import::<Vm>(parent, block)?;
         Ok(fork)
     }
 
     /// Insert a new block to the chain.
-    pub fn import<Vm: Pvm>(&mut self, block: &Block) -> Result<()> {
-        let parent = self.best()?;
-
+    pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
         // 1. check the parent
         if block.header.parent != parent.hash {
             anyhow::bail!(
@@ -129,22 +125,23 @@ impl<S: Storage> Fork<S> {
         }
 
         // 3. verify the header
-        self.validate(&block.header)?;
+        self.validate(parent, &block.header)?;
 
         // 4. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
-        let hash = block.header.hash()?;
-        let diff = tx::transit::<Vm>(block.clone(), Arc::new(self.state.clone()))?;
+        let head = block.header.head()?;
+        let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
-            hex::encode(&hash[..3]),
+            hex::encode(&head.hash[..3]),
             parent.slot,
             hex::encode(parent.hash[..3].as_ref())
         );
 
         // 5. save the block and the diff
+        self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
         // 6. update fallback tickets if need
@@ -183,24 +180,12 @@ impl<S: Storage> Fork<S> {
             .get(&epoch)
             .cloned()
             .ok_or(anyhow::anyhow!("series not found"))
-
-        /* let best = self.best()?;
-        if best.slot / score::EPOCH_LENGTH != epoch {
-            anyhow::bail!("series not found for epoch={epoch}");
-        }
-
-        let validators = self.state.next_validators()?.bandersnatch();
-        let entropy = self.state.entropy()?;
-        let series = TicketsOrKeys::fallback(validators, entropy[1]);
-        self.series.insert(epoch, series.clone());
-        Ok(series) */
     }
 
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "chain::validate")]
-    pub fn validate(&self, header: &Header) -> anyhow::Result<()> {
-        let best = self.best()?;
-        let local_epoch = best.slot / score::EPOCH_LENGTH;
+    pub fn validate(&self, parent: &Head, header: &Header) -> anyhow::Result<()> {
+        let local_epoch = parent.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
 
         // if the epoch greater than the next, skip the validation.

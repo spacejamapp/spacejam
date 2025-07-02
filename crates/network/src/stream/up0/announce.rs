@@ -38,7 +38,6 @@ pub async fn send<C: runtime::Config>(
     conn: Connection,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
-
     while let Ok(header) = rx.recv().await {
         let handshake = conn.handshake.read().await;
         if !handshake.accept(&header.parent) {
@@ -46,7 +45,7 @@ pub async fn send<C: runtime::Config>(
         }
 
         // check if the block is acceptable for the remote peer.
-        let local = runtime.handshake().await?;
+        let local = runtime.handshake().await;
         let data = (header, local.head.clone());
         data.write(&mut send).await?;
         send.finish()?;
@@ -83,10 +82,8 @@ pub async fn recv<C: runtime::Config>(
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;
             runtime
-                .chain
-                .read()
-                .await
-                .add_leaf_to(lhead.clone(), &header, &mut handshake)?
+                .add_leaf_to(lhead.clone(), &header, &mut handshake)
+                .await?
         };
 
         // 4. validate the header
@@ -99,7 +96,16 @@ pub async fn recv<C: runtime::Config>(
             continue;
         }
 
-        // 5.trace the announcement data.
+        // 5. queue the block for requesting.
+        {
+            if runtime.queue.read().await.contains(&lhead.hash) {
+                continue;
+            } else {
+                runtime.queue.write().await.insert(lhead.hash);
+            }
+        }
+
+        // 6.trace the announcement data.
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
@@ -111,7 +117,7 @@ pub async fn recv<C: runtime::Config>(
             );
         }
 
-        // 6. request the block
+        // 7. request the block
         runtime.request(&header).await?;
     }
 }

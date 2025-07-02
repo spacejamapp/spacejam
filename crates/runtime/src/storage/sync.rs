@@ -146,27 +146,27 @@ impl Key {
             Key::Finalized => {}
             Key::BeefyRoot(hash) => {
                 key[0] = 0;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[..31].copy_from_slice(&hash[..30]);
             }
             Key::Block(hash) => {
                 key[0] = 1;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[1..].copy_from_slice(&hash[..30]);
             }
             Key::Descendant(hash) => {
                 key[0] = 2;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[1..].copy_from_slice(&hash[..30]);
             }
             Key::Header(hash) => {
                 key[0] = 3;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[1..].copy_from_slice(&hash[..30]);
             }
             Key::StateRoot(hash) => {
                 key[0] = 4;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[1..].copy_from_slice(&hash[..30]);
             }
             Key::Parent(hash) => {
                 key[0] = 5;
-                key[1..31].copy_from_slice(hash.as_ref());
+                key[1..].copy_from_slice(&hash[..30]);
             }
         }
 

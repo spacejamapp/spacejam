@@ -5,7 +5,7 @@ use crate::{
     stream::{ce128, ext::Read},
     Network,
 };
-use runtime::{chain::Direction, Handshake};
+use runtime::chain::Direction;
 use score::{
     block::{Head, Header},
     Block,
@@ -27,12 +27,6 @@ impl<C: runtime::Config> Network<C> {
         }
 
         Ok(())
-    }
-
-    /// Get the current handshake data
-    pub async fn handshake(&self) -> anyhow::Result<Handshake> {
-        let chain = self.chain.read().await;
-        Ok(chain.grandpa.handshake.clone())
     }
 
     /// Lookup the best head from the network
@@ -75,6 +69,7 @@ impl<C: runtime::Config> Network<C> {
             .inspect_err(|e| {
                 tracing::warn!("failed to send request: {e}, switching to the next peer")
             }) else {
+                tracing::warn!("failed to send request, switching to the next peer");
                 continue;
             };
 
@@ -87,8 +82,7 @@ impl<C: runtime::Config> Network<C> {
             );
 
             // check import the block
-            let mut chain = self.chain.write().await;
-            let imported = chain.import(&block).await?;
+            let imported = self.import(&block).await?;
             if !imported {
                 break;
             }

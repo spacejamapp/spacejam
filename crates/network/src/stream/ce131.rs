@@ -31,7 +31,7 @@ impl<C: runtime::Config> Network<C> {
         // check if the ticket is valid.
         let ticket = self.runtime.verify_ticket(request.ticket).await?;
         let submission = ticket.submission();
-        let validators = self.runtime.chain.read().await.grid()?.next;
+        let validators = self.runtime.grid().await.next;
         let validator = validators[submission];
         let me = self.me();
         if validator.bandersnatch != me {

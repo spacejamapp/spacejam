@@ -20,7 +20,8 @@ impl<C: runtime::Config> Validating<C> {
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-            let chain = runtime.runtime.chain.read().await;
+            let chain = runtime.runtime.chain().await;
+
             if let Ok(best) = chain.best() {
                 runtime.dial_validators().await;
                 let finalized = chain.grandpa.handshake.head.clone();
@@ -36,6 +37,7 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
+            drop(chain);
             // author block and maybe generate ticket
             let (block, ticket) = match author.on_timeslot(timeslot).await {
                 Ok((header, ticket)) => (header, ticket),
@@ -55,7 +57,8 @@ impl<C: runtime::Config> Validating<C> {
                     tracing::error!("Failed to announce block: {:?}", e);
                 }
 
-                if let Err(e) = runtime.chain.write().await.import(&block).await {
+                tracing::debug!("try aquiring the chain write lock for importing authored block");
+                if let Err(e) = runtime.chain_mut().await.import(&block).await {
                     tracing::error!("Failed to import block {e:?}")
                 }
             }

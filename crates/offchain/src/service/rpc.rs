@@ -53,25 +53,19 @@ impl<C: Config> Rpc<C> {
 #[async_trait]
 impl<C: Config> ApiServer for Rpc<C> {
     async fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let best = self
-            .runtime
-            .chain
-            .read()
-            .await
-            .best()
-            .map_err(to_owned_error)?;
+        let best = self.runtime.chain().await.best().map_err(to_owned_error)?;
         Ok((best.hash, best.slot))
     }
 
     async fn finalized_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let handshake = chain.grandpa.handshake.clone();
         let finalized = handshake.head.clone();
         Ok((finalized.hash, finalized.slot))
     }
 
     async fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let parent = best.state.parent(&hash).map_err(to_owned_error)?;
         let header = best.state.header(&hash).map_err(to_owned_error)?;
@@ -79,7 +73,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     }
 
     async fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let state_root = best.state.state_root(&hash).map_err(to_owned_error)?;
         Ok(state_root)
@@ -87,7 +81,7 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     async fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let statistics = best.state.state_get(&key).map_err(to_owned_error)?;
         Ok(statistics)
@@ -98,7 +92,7 @@ impl<C: Config> ApiServer for Rpc<C> {
         hash: OpaqueHash,
         service: ServiceId,
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let info = account::info(service);
         let key = [hash.as_ref(), info.as_ref()].concat();
@@ -114,7 +108,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let value = account::storage(service, &key);
         let key = [hash.as_ref(), value.as_ref()].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let data = best.state.state_get(&key).map_err(to_owned_error)?;
         Ok(data)
@@ -128,7 +122,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let pkey = account::preimage(service, key);
         let key = [hash.as_ref(), pkey.as_ref()].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let data = best.state.state_get(&key).map_err(to_owned_error)?;
         Ok(data)
@@ -143,7 +137,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u32>>, ErrorObjectOwned> {
         let lkey = account::lookup(service, length, hash);
         let key = [header_hash.as_ref(), lkey.as_ref()].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let data = best.state.state_get(&key).map_err(to_owned_error)?;
 
@@ -159,7 +153,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     // TODO: need to do snapshot for block state
     async fn beefy_root(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let key = [hash.as_ref(), b"beefy_root"].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let beefy_root = best.state.sync_get(&key).map_err(to_owned_error)?;
         Ok(beefy_root)
@@ -189,7 +183,7 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     async fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
         let key = [hash.as_ref(), b"services"].concat();
-        let chain = self.runtime.chain.read().await;
+        let chain = self.runtime.chain().await;
         let best = chain.best_chain().map_err(to_owned_error)?;
         let services = best.state.state_get(&key).map_err(to_owned_error)?;
         let Some(services) = services else {

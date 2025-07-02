@@ -1,12 +1,12 @@
 //! logging utilities
 
 use network::Network;
-use runtime::{storage::StateStorage, Validator};
+use runtime::Validator;
 use score::block;
 
 /// Logging the initial status of the node
 pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
-    let chain = runtime.chain.read().await;
+    let chain = runtime.chain().await;
     let handshake = chain.grandpa.handshake.clone();
     tracing::info!(
         "The latest finalized head #{}: 0x{}",
@@ -17,10 +17,9 @@ pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
 
 /// Logging the current status of the node
 pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
-    let chain = runtime.chain.read().await;
-    let best = chain.best_chain().unwrap();
+    let grid = runtime.grid().await;
     // TODO: handle this gracefully
-    let validators = best.grid.curr;
+    let validators = grid.curr;
     let pool = runtime.pool.read().await.clone();
     let peers = pool.keys().collect::<Vec<_>>();
     let connected = peers
@@ -30,8 +29,9 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
 
     // check neighbours
     let (grid, handshake) = {
-        let chain = runtime.chain.read().await;
-        (chain.grid().unwrap(), chain.grandpa.handshake.clone())
+        let grid = runtime.grid().await;
+        let handshake = runtime.handshake().await;
+        (grid, handshake)
     };
     let neighbours = grid.neighbours(runtime.validator.ed25519_public_key());
 
@@ -42,11 +42,11 @@ pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     let total_neighbours = neighbours.len();
 
     // get the latest pending block
-    let tickets = best.state.safrole().unwrap_or_default().accumulator.len();
+    let tickets = runtime.tickets().await;
 
     // print the current status
     let timeslot = block::timeslot();
-    let best = runtime.chain.read().await.best().unwrap_or_default();
+    let best = runtime.chain().await.best().unwrap_or_default();
     tracing::info!(
         "timeslot: #{}, epoch: #{}, progress: [{}/{}], best: #{}@0x{}, finalized: #{}@0x{}, tickets: {}",
         timeslot,

@@ -12,7 +12,7 @@ impl<C: runtime::Config> Network<C> {
     /// Broadcast a ticket to validators in the network.
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.envelope.attempt))]
     pub async fn submit(&self, epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
-        let validators = self.runtime.chain.read().await.grid()?.next;
+        let validators = self.runtime.grid().await.next;
         let pool = self.pool.read().await.clone();
         let validator: PeerId = validators[ticket.submission()].ed25519.into();
         let conn = pool
@@ -46,7 +46,7 @@ impl<C: runtime::Config> Network<C> {
             return Ok(());
         }
 
-        let validators = self.runtime.chain.read().await.grid()?.next;
+        let validators = self.runtime.grid().await.next;
         let me = self.me();
         let this = validators
             .iter()
