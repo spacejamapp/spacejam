@@ -71,6 +71,10 @@ impl<C: runtime::Config> Validating<C> {
                     }
                 });
             }
+
+            if let Err(e) = runtime.finalize().await {
+                tracing::warn!("Failed to subscribe to hooks: {:?}", e);
+            }
         }
     }
 }

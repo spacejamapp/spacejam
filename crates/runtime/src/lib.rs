@@ -56,6 +56,16 @@ impl<C: Config> Runtime<C> {
         }
     }
 
+    /// Finalize the chain
+    pub async fn finalize(&self) -> anyhow::Result<()> {
+        for (block, diff) in self.chain.write().await.finalize()? {
+            self.hook.on_diff(block.header.hash()?, diff).await?;
+            self.hook.on_finalized_block(block).await?;
+        }
+
+        Ok(())
+    }
+
     /// Get the bandersnatch public key of the local validator
     pub fn me(&self) -> BandersnatchPublic {
         self.validator.bandersnatch_public_key()
