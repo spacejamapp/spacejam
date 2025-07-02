@@ -14,40 +14,6 @@ pub const SYNC: &[u8] = b"sync";
 
 /// Sync storage
 pub trait SyncStorage: Storage {
-    /// Get the ancestors of the given hash.
-    fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Vec<OpaqueHash> {
-        if hash == ancestor {
-            return vec![];
-        }
-
-        let mut ancestors = Vec::new();
-        let mut current = *hash;
-        while let Ok(Some(parent)) = self.parent(&current) {
-            current.copy_from_slice(parent.as_ref());
-            if current == *ancestor {
-                return ancestors;
-            }
-
-            ancestors.push(parent);
-        }
-
-        vec![]
-    }
-
-    /// Check if the given hash is a descendant of the ancestor.
-    fn is_descendant_of(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> bool {
-        let mut current = *hash;
-        while let Ok(Some(parent)) = self.parent(&current) {
-            if parent == *ancestor {
-                return true;
-            }
-
-            current = parent;
-        }
-
-        false
-    }
-
     /// Get the block by hash
     fn block(&self, hash: &OpaqueHash) -> Result<Block> {
         let key = [SYNC, hash.as_ref()].concat();
