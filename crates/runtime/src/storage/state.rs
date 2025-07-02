@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{sync, Column, KVStorage};
+use crate::storage::{Column, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -113,10 +113,6 @@ pub trait StateStorage: KVStorage {
         let mut kvs = Vec::new();
         for pair in self.state_iter()? {
             let (k, v) = pair?;
-            if k.starts_with(sync::SYNC) || k.len() != 31 {
-                continue;
-            }
-
             let mut key = [0; 31];
             let len = k.len().min(31);
             key[..len].copy_from_slice(&k[..len]);

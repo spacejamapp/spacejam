@@ -8,9 +8,6 @@ use score::{
 
 use crate::storage::{Column, KVStorage};
 
-/// The key for the sync storage
-pub const SYNC: &[u8] = b"sync";
-
 /// Sync storage
 pub trait SyncStorage: KVStorage {
     /// Get the state from the storage
@@ -41,7 +38,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the descendant of the given hash in finalized chain.
     fn descendant(&self, parent: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = [SYNC, b"descendant", parent.as_ref()].concat();
+        let key = Key::Descendant(parent.clone()).key();
         let value = self
             .sync_get(&key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
@@ -50,7 +47,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the finalized head
     fn finalized(&self) -> Result<Head> {
-        let key = [SYNC, b"finalized"].concat();
+        let key = Key::Finalized.key();
         let value = self
             .sync_get(&key)?
             .ok_or(anyhow::anyhow!("Finalized head not found"))?;
@@ -59,21 +56,21 @@ pub trait SyncStorage: KVStorage {
 
     /// Set the finalized head
     fn finalize(&self, head: &Head) -> Result<()> {
-        let key = [SYNC, b"finalized"].concat();
+        let key = Key::Finalized.key();
         self.sync_set(key, codec::encode(head)?)?;
 
         // set the descendant of the parent
         let parent = self
             .parent(&head.hash)?
             .ok_or(anyhow::anyhow!("Parent not found"))?;
-        let key = [SYNC, b"descendant", parent.as_ref()].concat();
+        let key = Key::Descendant(parent).key();
         self.sync_set(key, head.hash)?;
         Ok(())
     }
 
     /// Get the header
     fn header(&self, hash: &OpaqueHash) -> Result<Header> {
-        let key = [SYNC, b"header", hash.as_ref()].concat();
+        let key = Key::Header(hash.clone()).key();
         let value = self
             .sync_get(&key)?
             .ok_or(anyhow::anyhow!("Header not found"))?;
@@ -82,7 +79,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the parent
     fn parent(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let key = [SYNC, b"parent", block.as_ref()].concat();
+        let key = Key::Parent(block.clone()).key();
         let value = self.sync_get(&key)?;
         if let Some(value) = value {
             Ok(Some(codec::decode(value.as_ref())?))
@@ -93,8 +90,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the state root
     fn state_root(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let mut key = [SYNC, b"state_root"].concat();
-        key.extend_from_slice(block.as_ref());
+        let key = Key::StateRoot(block.clone()).key();
         let value = self.sync_get(&key)?;
         if let Some(value) = value {
             Ok(Some(codec::decode(value.as_ref())?))
@@ -105,8 +101,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the beefy root
     fn beefy_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
-        let mut key = [SYNC, b"beefy_root"].concat();
-        key.extend_from_slice(block.as_ref());
+        let key = Key::BeefyRoot(block.clone()).key();
         let value = self
             .sync_get(&key)?
             .ok_or(anyhow::anyhow!("Beefy root not found"))?;
@@ -119,11 +114,71 @@ pub trait SyncStorage: KVStorage {
             .sync_batch_read(
                 hashes
                     .iter()
-                    .map(|hash| [SYNC, hash.as_ref()].concat())
+                    .map(|hash| Key::Block(hash.clone()).key().to_vec())
                     .collect::<Vec<_>>(),
             )?
             .into_iter()
             .filter_map(|(_, value)| codec::decode(&value).ok())
             .collect::<Vec<_>>())
+    }
+}
+
+/// The key of the sync storage
+pub enum Key {
+    /// The finalized head.
+    Finalized,
+
+    /// The beefy root of the given block hash.
+    BeefyRoot(OpaqueHash),
+
+    /// The block of the given hash.
+    Block(OpaqueHash),
+
+    /// The descendant of the given hash in finalized chain.
+    Descendant(OpaqueHash),
+
+    /// The header of the given block hash.
+    Header(OpaqueHash),
+
+    /// The parent of the given block hash.
+    Parent(OpaqueHash),
+
+    /// The state root of the given block hash.
+    StateRoot(OpaqueHash),
+}
+
+impl Key {
+    /// Get the key of the sync storage
+    pub fn key(&self) -> [u8; 31] {
+        let mut key = [0; 31];
+        match self {
+            Key::Finalized => {}
+            Key::BeefyRoot(hash) => {
+                key[0] = 0;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+            Key::Block(hash) => {
+                key[0] = 1;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+            Key::Descendant(hash) => {
+                key[0] = 2;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+            Key::Header(hash) => {
+                key[0] = 3;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+            Key::StateRoot(hash) => {
+                key[0] = 4;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+            Key::Parent(hash) => {
+                key[0] = 5;
+                key[1..31].copy_from_slice(hash.as_ref());
+            }
+        }
+
+        key
     }
 }
