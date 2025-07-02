@@ -40,7 +40,7 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
     while let Ok(header) = rx.recv().await {
         let handshake = conn.handshake.read().await;
-        if !handshake.accept(&header.hash()?) {
+        if !handshake.accept(&header.head()?) {
             continue;
         }
 
@@ -48,7 +48,6 @@ pub async fn send<C: runtime::Config>(
         let local = runtime.handshake().await;
         let data = (header, local.head.clone());
         data.write(&mut send).await?;
-        send.finish()?;
     }
 
     anyhow::bail!("announcement sender stream closed");

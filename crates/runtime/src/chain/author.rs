@@ -1,6 +1,6 @@
 //! Authoring service
 
-use crate::{storage::StateStorage, tx, Config, Runtime, Validator};
+use crate::{tx, Config, Runtime, Validator};
 use anyhow::Context;
 use score::{
     block::Block,
@@ -210,9 +210,7 @@ impl<'a, C: Config> Author<'a, C> {
     #[tracing::instrument(skip_all, name = "seal")]
     async fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
         tracing::trace!("sealing block...");
-        let chain = self.chain().await;
-        let best = chain.best_chain()?;
-        let entropy = best.state.entropy()?;
+        let entropy = self.entropy().await?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
             keys = mark.validators.iter().map(|v| v.bandersnatch).collect();

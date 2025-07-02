@@ -11,7 +11,10 @@ use score::{
     state::key,
     Block,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
 
 impl<C: Config> Chain<C> {
     /// Get the best head of the chain.
@@ -75,34 +78,54 @@ impl<C: Config> Chain<C> {
         tracing::trace!("updated chain series ...");
         // apply the latest finalized blocks.
         let mut blocks = Vec::new();
-        let mut finalized = Vec::new();
+        let mut finalized = BTreeSet::new();
         while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
-            let hash = block.header.hash()?;
+            let head = block.header.head()?;
             self.state.commit(Column::State, commit.clone())?;
-            let root = self.state.root()?;
-            self.state.finalize(&block, hash, root)?;
-            self.grandpa.handshake.head = Head { slot, hash };
-            blocks.push((block, commit));
-            finalized.push(hash);
-            tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&hash[..3]));
 
+            // finalize the block in storage
+            let root = self.state.root()?;
+            self.state.finalize(&block, head.hash, root)?;
+            tracing::info!(
+                "finalized block#{}@0x{}",
+                slot,
+                hex::encode(&head.hash[..3])
+            );
+
+            self.grandpa.handshake.head = head.clone();
+            blocks.push((block, commit));
+            finalized.insert(head);
             if slot >= latest {
                 break;
             }
         }
 
-        // now we need to truncate all fork chains.
-        if let Some(latest) = finalized.last() {
-            self.forks.retain(|_head, fork| {
-                if !fork.chain.iter().any(|h| h.hash == *latest) {
-                    return false;
+        // Reset forks after finalization
+        if !finalized.is_empty() {
+            let finalized_head_slot = self.grandpa.handshake.head.slot;
+            let finalized_slots = finalized.iter().map(|h| h.slot).collect::<BTreeSet<_>>();
+            let forks = std::mem::take(&mut self.forks);
+
+            // Rebuild forks with only valid ones
+            for (_, mut fork) in forks {
+                fork.chain.retain(|h| !finalized.contains(h));
+                fork.blocks
+                    .retain(|slot, _| !finalized_slots.contains(slot));
+                if fork.chain.is_empty() {
+                    continue;
                 }
 
-                fork.chain.retain(|h| !finalized.contains(&h.hash));
-                true
-            });
+                // Skip forks where the best block is older than the finalized head
+                if let Ok(best) = fork.best() {
+                    if best.slot < finalized_head_slot {
+                        continue;
+                    }
 
-            self.forks.insert(chain.head()?.hash, chain);
+                    self.forks.insert(fork.head()?.hash, fork);
+                }
+            }
+
+            tracing::debug!("{} forks remaining after finalization", self.forks.len());
         }
         Ok(blocks)
     }
@@ -157,14 +180,14 @@ impl<C: Config> Chain<C> {
                 return Ok(true);
             }
 
-            for fhead in fork.chain.iter() {
-                // 2.2. The block exists.
-                if fhead.hash == head.hash {
-                    tracing::trace!("block is already imported");
-                    return Ok(false);
-                }
+            // 2.2 block is already imported
+            if fork.chain.iter().any(|h| h.hash == head.hash) {
+                tracing::trace!("block is already imported");
+                return Ok(false);
+            }
 
-                // 2.3 the block is a fork of a fork
+            // 2.3 the block is a fork of a fork
+            for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
                     tracing::trace!("block is on a fork of a fork");
                     let fork = fork.fork::<C::Vm>(fhead, block)?;
