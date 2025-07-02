@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
-    chain::{Chain, Fork, Grid},
-    grandpa::{Ancestry, Grandpa, Handshake},
+    chain::{Chain, Direction, Fork, Grid, Lookup},
+    grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
     storage::Storage,

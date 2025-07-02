@@ -5,9 +5,8 @@
 //! and tracks chain state for consensus.
 
 use grid::Grid;
-pub use {ancestry::Ancestry, handshake::Handshake};
+pub use handshake::Handshake;
 
-mod ancestry;
 mod grid;
 mod handshake;
 

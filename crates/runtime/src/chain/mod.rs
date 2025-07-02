@@ -13,12 +13,17 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-pub use {fork::Fork, grid::Grid};
+pub use {
+    fork::Fork,
+    grid::Grid,
+    lookup::{Direction, Lookup},
+};
 
 mod author;
 mod fork;
 mod grid;
 mod importer;
+mod lookup;
 
 /// A chain of blocks.
 pub struct Chain<C: Config> {

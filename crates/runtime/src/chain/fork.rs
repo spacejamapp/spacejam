@@ -32,7 +32,7 @@ pub struct Fork<S: Storage> {
     pub grid: Grid,
 
     /// The state of the chain.
-    state: Branch<S>,
+    pub state: Branch<S>,
 
     /// tickets or keys for this fork chain per epoch.
     pub series: BTreeMap<u32, TicketsOrKeys>,

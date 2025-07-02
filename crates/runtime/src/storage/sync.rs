@@ -1,12 +1,11 @@
 //! Block storage
 
+use crate::storage::{Column, KVStorage};
 use anyhow::Result;
 use score::{
     block::{Head, Header},
     Block, OpaqueHash,
 };
-
-use crate::storage::{Column, KVStorage};
 
 /// Sync storage
 pub trait SyncStorage: KVStorage {
@@ -25,6 +24,7 @@ pub trait SyncStorage: KVStorage {
         self.iter(Column::Sync)
     }
 
+    /// Get the prefix iterator of the sync storage
     fn sync_prefix_iter(
         &self,
         prefix: impl AsRef<[u8]>,
@@ -32,15 +32,25 @@ pub trait SyncStorage: KVStorage {
         self.prefix_iter(Column::Sync, prefix)
     }
 
+    /// Get the batch read of the sync storage
     fn sync_batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         self.batch_read(Column::Sync, keys)
     }
 
+    /// Get the block from the sync storage
+    fn block(&self, hash: &OpaqueHash) -> Result<Block> {
+        let key = Key::Block(*hash).key();
+        let value = self
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Block not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
     /// Get the descendant of the given hash in finalized chain.
     fn descendant(&self, parent: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = Key::Descendant(parent.clone()).key();
+        let key = Key::Descendant(*parent).key();
         let value = self
-            .sync_get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -49,7 +59,7 @@ pub trait SyncStorage: KVStorage {
     fn finalized(&self) -> Result<Head> {
         let key = Key::Finalized.key();
         let value = self
-            .sync_get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Finalized head not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -60,9 +70,7 @@ pub trait SyncStorage: KVStorage {
         self.sync_set(key, codec::encode(head)?)?;
 
         // set the descendant of the parent
-        let parent = self
-            .parent(&head.hash)?
-            .ok_or(anyhow::anyhow!("Parent not found"))?;
+        let parent = self.parent(&head.hash)?;
         let key = Key::Descendant(parent).key();
         self.sync_set(key, head.hash)?;
         Ok(())
@@ -70,28 +78,26 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the header
     fn header(&self, hash: &OpaqueHash) -> Result<Header> {
-        let key = Key::Header(hash.clone()).key();
+        let key = Key::Header(*hash).key();
         let value = self
-            .sync_get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Header not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Get the parent
-    fn parent(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let key = Key::Parent(block.clone()).key();
-        let value = self.sync_get(&key)?;
-        if let Some(value) = value {
-            Ok(Some(codec::decode(value.as_ref())?))
-        } else {
-            Ok(None)
-        }
+    fn parent(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
+        let key = Key::Parent(*block).key();
+        let value = self
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Parent not found"))?;
+        Ok(codec::decode(value.as_ref())?)
     }
 
     /// Get the state root
     fn state_root(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let key = Key::StateRoot(block.clone()).key();
-        let value = self.sync_get(&key)?;
+        let key = Key::StateRoot(*block).key();
+        let value = self.sync_get(key)?;
         if let Some(value) = value {
             Ok(Some(codec::decode(value.as_ref())?))
         } else {
@@ -101,9 +107,9 @@ pub trait SyncStorage: KVStorage {
 
     /// Get the beefy root
     fn beefy_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = Key::BeefyRoot(block.clone()).key();
+        let key = Key::BeefyRoot(*block).key();
         let value = self
-            .sync_get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Beefy root not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
@@ -114,7 +120,7 @@ pub trait SyncStorage: KVStorage {
             .sync_batch_read(
                 hashes
                     .iter()
-                    .map(|hash| Key::Block(hash.clone()).key().to_vec())
+                    .map(|hash| Key::Block(*hash).key().to_vec())
                     .collect::<Vec<_>>(),
             )?
             .into_iter()
