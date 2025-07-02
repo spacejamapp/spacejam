@@ -29,7 +29,7 @@ pub trait Api {
 
     /// Returns the header hash and slot of the head of the "best" chain.
     #[method(name = "bestBlock")]
-    fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
+    async fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
 
     /// Returns the header hash and slot of the latest finalized block.
     #[method(name = "finalizedBlock")]

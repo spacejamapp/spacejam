@@ -51,7 +51,7 @@ impl<'a, C: Config> Author<'a, C> {
         &mut self,
         timeslot: TimeSlot,
     ) -> anyhow::Result<(Option<Header>, Option<Ticket>)> {
-        let best = self.storage.best()?;
+        let best = self.chain.read().await.best()?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
         let prev = best.slot / score::EPOCH_LENGTH;
@@ -82,8 +82,6 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// on new epoch
     pub async fn on_new_epoch(&mut self, epoch: u32) -> anyhow::Result<()> {
-        self.storage.on_new_epoch(epoch)?;
-
         // 1. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
 
@@ -94,7 +92,7 @@ impl<'a, C: Config> Author<'a, C> {
         // 3. update the authoring slots
         let mut slots = Vec::new();
         let mut fallback = false;
-        match self.storage.series(epoch)? {
+        match self.chain.read().await.series(epoch)? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -169,7 +167,7 @@ impl<'a, C: Config> Author<'a, C> {
         let block: Block = builder.into();
 
         // 6. seal the block
-        let block = self.seal(block, &keys)?;
+        let block = self.seal(block, &keys).await?;
 
         // 7. save the block to the fork storage
         //
@@ -217,7 +215,7 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Seal a block
     #[tracing::instrument(skip_all, name = "seal")]
-    fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
+    async fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
         let entropy = self.storage.entropy()?;
         let mut keys = keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
@@ -228,7 +226,8 @@ impl<'a, C: Config> Author<'a, C> {
         };
 
         // construct the seal message
-        let series = self.series(&block.header)?;
+        let epoch = block.header.slot / score::EPOCH_LENGTH;
+        let series = self.chain.read().await.series(epoch)?;
         let (message, ticket) = match series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
@@ -283,28 +282,6 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         Ok(block)
-    }
-
-    /// Get the series for sealing usage
-    fn series(&self, header: &Header) -> anyhow::Result<TicketsOrKeys> {
-        let epoch = header.slot / score::EPOCH_LENGTH;
-        if let Ok(series) = self.storage.series(epoch) {
-            return Ok(series);
-        }
-
-        let prev = self
-            .storage
-            .header(&header.parent)
-            .map(|prev| prev.slot / score::EPOCH_LENGTH)
-            .unwrap_or(0);
-
-        if epoch > prev {
-            let keys = self.storage.next_validators()?.bandersnatch();
-            let entropy = self.storage.entropy()?;
-            return Ok(TicketsOrKeys::fallback(keys, entropy[1]));
-        };
-
-        anyhow::bail!("current fallback series not tracked, this should never happen");
     }
 }
 

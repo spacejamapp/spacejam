@@ -33,7 +33,7 @@ impl<C: runtime::Config> RpcHook<C> {
         let parent = self.runtime.storage.block(parent)?;
         let head = parent.header.clone();
 
-        self.runtime.storage.set_header(&head)?;
+        // self.runtime.storage.set_header(&head)?;
         self.runtime
             .storage
             .set_state_root(&head.parent, state_root)?;
@@ -82,7 +82,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // together with the finalized block.
     async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
         let header = block.header.clone();
-        self.runtime.storage.set_header(&header)?;
+        // self.runtime.storage.set_header(&header)?;
 
         let head = Head {
             hash: header.hash()?,

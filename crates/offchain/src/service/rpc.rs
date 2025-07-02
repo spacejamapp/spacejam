@@ -52,8 +52,14 @@ impl<C: Config> Rpc<C> {
 
 #[async_trait]
 impl<C: Config> ApiServer for Rpc<C> {
-    fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
-        let best = self.runtime.storage.best().map_err(to_owned_error)?;
+    async fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned> {
+        let best = self
+            .runtime
+            .chain
+            .read()
+            .await
+            .best()
+            .map_err(to_owned_error)?;
         Ok((best.hash, best.slot))
     }
 

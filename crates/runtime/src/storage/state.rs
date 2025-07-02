@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{archive, sync, KVStorage};
+use crate::storage::{archive, sync, KVStorage, SyncStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -18,7 +18,7 @@ use score::{
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage: KVStorage {
+pub trait Storage: KVStorage + SyncStorage {
     /// Fetch state from the storage
     ///
     /// We don't decode account data in this batch since it will be too large.

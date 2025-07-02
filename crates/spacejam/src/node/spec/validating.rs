@@ -21,7 +21,7 @@ impl<C: runtime::Config> Validating<C> {
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-            if let Ok(best) = runtime.storage.best() {
+            if let Ok(best) = runtime.chain.read().await.best() {
                 runtime.dial_validators().await;
                 let Ok(finalized) = runtime.storage.finalized() else {
                     tracing::error!("Failed to get finalized block");

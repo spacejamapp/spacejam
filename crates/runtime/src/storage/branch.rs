@@ -1,7 +1,7 @@
 //! Branch of state
 
 use crate::{
-    storage::{Commit, KVStorage},
+    storage::{Column, Commit, KVStorage},
     Storage,
 };
 use anyhow::Result;
@@ -77,7 +77,16 @@ impl<S: Storage> KVStorage for Branch<S> {
         Ok(())
     }
 
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+    fn cset(&self, _column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        let mut diff = self
+            .diff
+            .write()
+            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
+        diff.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
+        Ok(())
+    }
+
+    fn cget(&self, _column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         let diff = self
             .diff
             .read()
@@ -90,7 +99,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         self.state.get(key)
     }
 
-    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+    fn citer(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let diff = self
             .diff
             .read()
@@ -104,8 +113,9 @@ impl<S: Storage> KVStorage for Branch<S> {
         })
     }
 
-    fn prefix_iter(
+    fn cprefix_iter(
         &self,
+        _column: Column,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let diff = self

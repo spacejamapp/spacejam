@@ -1,19 +1,18 @@
 //! Block storage
 
-use crate::Storage;
 use anyhow::Result;
 use score::{
     block::{Head, Header},
-    extrinsic::TicketsOrKeys,
-    safrole::ValidatorIter,
     Block, OpaqueHash,
 };
+
+use crate::storage::KVStorage;
 
 /// The key for the sync storage
 pub const SYNC: &[u8] = b"sync";
 
 /// Sync storage
-pub trait SyncStorage: Storage {
+pub trait SyncStorage: KVStorage {
     /// Get the block by hash
     fn block(&self, hash: &OpaqueHash) -> Result<Block> {
         let key = [SYNC, hash.as_ref()].concat();
@@ -25,24 +24,7 @@ pub trait SyncStorage: Storage {
     fn set_block(&self, block: &Block) -> Result<()> {
         let hash = block.header.hash()?;
         let key = [SYNC, hash.as_ref()].concat();
-        self.set_header(&block.header)?;
         self.set(key, codec::encode(block)?)?;
-        Ok(())
-    }
-
-    /// Get the best head
-    fn best(&self) -> Result<Head> {
-        let key = [SYNC, b"best"].concat();
-        let value = self
-            .get(&key)?
-            .ok_or(anyhow::anyhow!("Best head not found"))?;
-        Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Set the best head
-    fn set_best(&self, head: &Head) -> Result<()> {
-        let key = [SYNC, b"best"].concat();
-        self.set(key, codec::encode(head)?)?;
         Ok(())
     }
 
@@ -83,33 +65,6 @@ pub trait SyncStorage: Storage {
         let key = [SYNC, b"header", hash.as_ref()].concat();
         let value = self.get(&key)?.ok_or(anyhow::anyhow!("Header not found"))?;
         Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Set a new header to the storage
-    fn set_header(&self, header: &Header) -> Result<()> {
-        let hash = header.hash()?;
-        let parent = header.parent;
-
-        // set the header
-        {
-            let key = [SYNC, b"header", hash.as_ref()].concat();
-            self.set(key, codec::encode(header)?)?;
-        }
-
-        // set the parent of this header
-        {
-            let key = [SYNC, b"parent", hash.as_ref()].concat();
-            self.set(key, parent)?;
-        }
-
-        // set child
-        //
-        // FIXME: handle fork blocks
-        {
-            let key = [SYNC, b"descendant", parent.as_ref()].concat();
-            self.set(key, hash)?;
-        }
-        Ok(())
     }
 
     /// Get the parent
@@ -173,47 +128,5 @@ pub trait SyncStorage: Storage {
             .into_iter()
             .filter_map(|(_, value)| codec::decode(&value).ok())
             .collect::<Vec<_>>())
-    }
-
-    /// Get the series
-    fn series(&self, epoch: u32) -> Result<TicketsOrKeys> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
-        Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Set the series
-    fn set_series(&self, epoch: u32, series: &TicketsOrKeys) -> Result<()> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        self.set(key, codec::encode(&series)?)?;
-        Ok(())
-    }
-
-    /// On new epoch handler for rotating the series
-    ///
-    /// Set the fallback series if it is not tracked.
-    fn on_new_epoch(&self, epoch: u32) -> Result<()> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        if self.series(epoch).is_ok() {
-            return Ok(());
-        }
-
-        // check if the block with epoch mark left on fork chain
-        //
-        // FIXME: this may not correct since different nodes may have different tickets.
-        let safrole = self.safrole()?;
-        if safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
-            let mut tickets = [Default::default(); score::EPOCH_LENGTH as usize];
-            tickets.copy_from_slice(&safrole.accumulator);
-            self.set(key, codec::encode(&TicketsOrKeys::Tickets(tickets))?)?;
-            return Ok(());
-        }
-
-        // using fallback series
-        let keys = self.next_validators()?.bandersnatch();
-        let entropy = self.entropy()?;
-        let series = TicketsOrKeys::fallback(keys, entropy[1]);
-        self.set(key, codec::encode(&series)?)?;
-        Ok(())
     }
 }

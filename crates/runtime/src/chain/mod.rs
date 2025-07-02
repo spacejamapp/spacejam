@@ -123,4 +123,9 @@ impl<C: Config> Chain<C> {
         self.grandpa.handshake.head = finalized;
         Ok(())
     }
+
+    /// Get the series for sealing / validating usages
+    pub fn series(&self, _epoch: u32) -> anyhow::Result<TicketsOrKeys> {
+        todo!()
+    }
 }
