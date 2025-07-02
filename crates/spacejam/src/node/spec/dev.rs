@@ -29,7 +29,7 @@ impl<C: runtime::Config> Dev<C> {
 
             tracing::debug!("try aquiring the chain write lock for importing block");
             let mut chain = runtime.chain_mut().await;
-            chain.import(&block).await?;
+            chain.import(&block)?;
         }
     }
 }

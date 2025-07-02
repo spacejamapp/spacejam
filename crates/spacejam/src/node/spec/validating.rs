@@ -61,7 +61,7 @@ impl<C: runtime::Config> Validating<C> {
                 }
 
                 tracing::debug!("try aquiring the chain write lock for importing authored block");
-                if let Err(e) = runtime.chain_mut().await.import(&block).await {
+                if let Err(e) = runtime.chain_mut().await.import(&block) {
                     tracing::error!("Failed to import block {e:?}")
                 }
             }

@@ -6,6 +6,7 @@
 use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
+use runtime::chain::Direction;
 use score::block::{Head, Header};
 
 /// Announce the block to the peer.
@@ -117,6 +118,27 @@ pub async fn recv<C: runtime::Config>(
         }
 
         // 7. request the block
-        runtime.request(&header).await?;
+        let (imported, mut requested) = runtime
+            .request(&conn, &header, Direction::Ascending)
+            .await?;
+
+        if imported {
+            runtime.queue.write().await.insert(lhead.hash);
+            continue;
+        }
+
+        // try to trace the orphan block
+        let finalized = runtime.finalized().await;
+        loop {
+            let (imported, parent) = runtime
+                .request(&conn, &requested, Direction::Descending)
+                .await?;
+
+            if imported || parent.slot <= finalized.slot {
+                break;
+            }
+
+            requested = parent;
+        }
     }
 }

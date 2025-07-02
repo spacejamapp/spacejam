@@ -4,7 +4,7 @@ use crate::{
     storage::{StateStorage, SyncStorage},
     Config, Grandpa,
 };
-use score::{extrinsic::TicketsOrKeys, Block, OpaqueHash};
+use score::{extrinsic::TicketsOrKeys, Block, OpaqueHash, TimeSlot};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -12,11 +12,13 @@ use std::{
 pub use {
     fork::Fork,
     grid::Grid,
+    importer::Imported,
     lookup::{Direction, Lookup},
 };
 
 mod api;
 mod author;
+mod finalizer;
 mod fork;
 mod grid;
 mod importer;
@@ -34,7 +36,7 @@ pub struct Chain<C: Config> {
     grid: Grid,
 
     /// The orphan blocks.
-    orphan: HashMap<OpaqueHash, Block>,
+    orphan: BTreeMap<TimeSlot, BTreeMap<OpaqueHash, Block>>,
 
     /// The cached series per epoch.
     series: BTreeMap<u32, TicketsOrKeys>,
@@ -50,7 +52,7 @@ impl<C: Config> Chain<C> {
             forks: HashMap::new(),
             grandpa: Default::default(),
             grid: Grid::default(),
-            orphan: HashMap::new(),
+            orphan: BTreeMap::new(),
             series: BTreeMap::new(),
             state,
         }

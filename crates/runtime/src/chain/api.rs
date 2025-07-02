@@ -101,8 +101,8 @@ impl<C: Config> Runtime<C> {
     /// Import a block to the chain
     pub async fn import(&self, block: &Block) -> anyhow::Result<bool> {
         let mut chain = self.chain_mut().await;
-        let imported = chain.import(block).await?;
-        if imported {
+        let imported = chain.import(block)?;
+        if imported.imported() {
             let head = block.header.head()?;
             let mut handshake = chain.grandpa.handshake.clone();
             drop(chain);
@@ -113,7 +113,7 @@ impl<C: Config> Runtime<C> {
             tracing::trace!("leaf added");
         }
 
-        Ok(imported)
+        Ok(!imported.is_orphan())
     }
 
     /// Get the recent blocks of the runtime

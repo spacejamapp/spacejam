@@ -53,44 +53,46 @@ impl<C: runtime::Config> Network<C> {
     }
 
     /// Request a block from the network
-    pub async fn request(&self, header: &Header) -> anyhow::Result<()> {
+    ///
+    /// returns true if imported successfully
+    pub async fn request(
+        &self,
+        conn: &Connection,
+        header: &Header,
+        direction: Direction,
+    ) -> anyhow::Result<(bool, Header)> {
         let head = header.head()?;
-        let feeds = self.lookup(&head).await;
-        for feed in feeds {
-            let Ok(mut recv) = ce128::send(
-                &feed,
-                ce128::Request {
+        let mut recv = ce128::send(
+            conn,
+            match direction {
+                Direction::Ascending => ce128::Request {
                     hash: header.parent,
                     direction: Direction::Ascending,
                     maximum: 1,
                 },
-            )
-            .await
-            .inspect_err(|e| {
-                tracing::warn!("failed to send request: {e}, switching to the next peer")
-            }) else {
-                tracing::warn!("failed to send request, switching to the next peer");
-                continue;
-            };
+                Direction::Descending => ce128::Request {
+                    hash: head.hash,
+                    direction: Direction::Descending,
+                    maximum: 1,
+                },
+            },
+        )
+        .await?;
 
-            let block = Block::read(&mut recv).await?;
-            let hash = block.header.hash()?;
-            tracing::trace!(
-                "received block#{}@0x{}",
-                block.header.slot,
-                hex::encode(&hash[..3])
-            );
+        let block = Block::read(&mut recv).await?;
+        let hash = block.header.hash()?;
+        tracing::trace!(
+            "received block#{}@0x{}",
+            block.header.slot,
+            hex::encode(&hash[..3])
+        );
 
-            // check import the block
-            let imported = self.import(&block).await?;
-            if !imported {
-                break;
-            }
-
-            // announce the block
+        // check import the block
+        let imported = self.import(&block).await?;
+        if imported {
             self.announce(block.header.clone()).await?;
         }
 
-        Ok(())
+        Ok((imported, block.header))
     }
 }

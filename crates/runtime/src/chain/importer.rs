@@ -1,7 +1,7 @@
 //! Importer interface for the chain.
 
 use crate::{
-    chain::fork::{BlockWithDiff, Fork},
+    chain::fork::Fork,
     storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
     Chain, Config,
 };
@@ -11,10 +11,7 @@ use score::{
     state::key,
     Block,
 };
-use std::{
-    collections::{BTreeSet, HashMap},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 impl<C: Config> Chain<C> {
     /// Get the best head of the chain.
@@ -45,91 +42,6 @@ impl<C: Config> Chain<C> {
             .ok_or_else(|| anyhow::anyhow!("could not find the best chain"))
     }
 
-    /// Try finalize the chain.
-    pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
-        tracing::trace!("finalizing the chain...");
-        let best = self.best()?;
-        tracing::trace!("best: #{}@0x{}", best.slot, hex::encode(&best.hash[..3]));
-        if best.hash == self.grandpa.handshake.head.hash {
-            tracing::trace!("best is the same as the finalized head");
-            return Ok(vec![]);
-        }
-
-        // find the best chain
-        let Ok(mut chain) = self.best_chain() else {
-            tracing::trace!("no fork chain found for best");
-            return Ok(vec![]);
-        };
-
-        // nothing to finalize if the best fork chain is less than 5 blocks.
-        tracing::trace!("best chain length: {}", chain.len());
-        let Some(count) = chain.len().checked_sub(5) else {
-            return Ok(vec![]);
-        };
-
-        // truncate the series.
-        let timeslot = self.grandpa.handshake.head.slot;
-        let latest = timeslot + count as u32;
-        let epoch = latest / score::EPOCH_LENGTH;
-        chain.series.retain(|k, _| k < &epoch);
-        self.series = chain.series.clone();
-        self.grid = chain.grid.clone();
-
-        tracing::trace!("updated chain series ...");
-        // apply the latest finalized blocks.
-        let mut blocks = Vec::new();
-        let mut finalized = BTreeSet::new();
-        while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
-            let head = block.header.head()?;
-            self.state.commit(Column::State, commit.clone())?;
-
-            // finalize the block in storage
-            let root = self.state.root()?;
-            self.state.finalize(&block, head.hash, root)?;
-            tracing::info!(
-                "finalized block#{}@0x{}",
-                slot,
-                hex::encode(&head.hash[..3])
-            );
-
-            self.grandpa.handshake.head = head.clone();
-            blocks.push((block, commit));
-            finalized.insert(head);
-            if slot >= latest {
-                break;
-            }
-        }
-
-        // Reset forks after finalization
-        if !finalized.is_empty() {
-            let finalized_head_slot = self.grandpa.handshake.head.slot;
-            let finalized_slots = finalized.iter().map(|h| h.slot).collect::<BTreeSet<_>>();
-            let forks = std::mem::take(&mut self.forks);
-
-            // Rebuild forks with only valid ones
-            for (_, mut fork) in forks {
-                fork.chain.retain(|h| !finalized.contains(h));
-                fork.blocks
-                    .retain(|slot, _| !finalized_slots.contains(slot));
-                if fork.chain.is_empty() {
-                    continue;
-                }
-
-                // Skip forks where the best block is older than the finalized head
-                if let Ok(best) = fork.best() {
-                    if best.slot < finalized_head_slot {
-                        continue;
-                    }
-
-                    self.forks.insert(fork.head()?.hash, fork);
-                }
-            }
-
-            tracing::debug!("{} forks remaining after finalization", self.forks.len());
-        }
-        Ok(blocks)
-    }
-
     /// Create a new fork at the latest finalized block.
     pub fn fork(&mut self, block: &Block) -> Result<()> {
         let head = self.grandpa.handshake.head.clone();
@@ -144,7 +56,7 @@ impl<C: Config> Chain<C> {
     /// Import a new block to the chain.
     ///
     /// returns true if the block is imported.
-    pub async fn import(&mut self, block: &Block) -> anyhow::Result<bool> {
+    pub fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
         let head = block.header.head()?;
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
@@ -153,7 +65,7 @@ impl<C: Config> Chain<C> {
                 hex::encode(&head.hash[..6]),
                 self.grandpa.handshake.head.slot
             );
-            return Ok(false);
+            return Ok(Imported::Discarded);
         }
 
         tracing::trace!(
@@ -167,7 +79,7 @@ impl<C: Config> Chain<C> {
         if block.header.parent == self.grandpa.handshake.head.hash {
             tracing::trace!("block is child of the finalized head");
             self.fork(block)?;
-            return Ok(true);
+            return Ok(Imported::Finalized);
         }
 
         // 2. the block is a child of a fork
@@ -177,13 +89,13 @@ impl<C: Config> Chain<C> {
             if best.hash == block.header.parent {
                 tracing::trace!("block is a child of a fork");
                 fork.import::<C::Vm>(&best, block)?;
-                return Ok(true);
+                return Ok(Imported::Fork);
             }
 
             // 2.2 block is already imported
             if fork.chain.iter().any(|h| h.hash == head.hash) {
                 tracing::trace!("block is already imported");
-                return Ok(false);
+                return Ok(Imported::Skipped);
             }
 
             // 2.3 the block is a fork of a fork
@@ -192,15 +104,18 @@ impl<C: Config> Chain<C> {
                     tracing::trace!("block is on a fork of a fork");
                     let fork = fork.fork::<C::Vm>(fhead, block)?;
                     self.forks.insert(head.hash, fork);
-                    return Ok(true);
+                    return Ok(Imported::ForkOfFork);
                 }
             }
         }
 
         // 3. we don't have the ancestors of this block
         tracing::trace!("block is an orphan");
-        self.orphan.insert(head.hash, block.clone());
-        Ok(false)
+        self.orphan
+            .entry(head.slot)
+            .or_default()
+            .insert(head.hash, block.clone());
+        Ok(Imported::Orphan)
     }
 
     /// Import the genesis block
@@ -243,5 +158,37 @@ impl<C: Config> Chain<C> {
 
         self.grandpa.handshake.head = head;
         Ok(())
+    }
+}
+
+/// The imported status
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Imported {
+    /// The block is discarded
+    Discarded,
+    /// The block is skipped
+    Skipped,
+    /// A child of finalized block
+    Finalized,
+    /// A child of a fork
+    Fork,
+    /// A child of a fork of a fork
+    ForkOfFork,
+    /// An orphan block
+    Orphan,
+}
+
+impl Imported {
+    /// Returns true if the block is imported
+    pub fn imported(&self) -> bool {
+        matches!(
+            self,
+            Imported::Finalized | Imported::Fork | Imported::ForkOfFork
+        )
+    }
+
+    /// Returns true if the block is orphan
+    pub fn is_orphan(&self) -> bool {
+        *self == Imported::Orphan
     }
 }
