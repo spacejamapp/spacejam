@@ -27,7 +27,7 @@ impl<C: runtime::Config> Dev<C> {
                 hex::encode(&block.header.hash()?[..3])
             );
 
-            tracing::debug!("try aquiring the chain write lock for importing block");
+            tracing::debug!("try acquiring the chain write lock for importing block");
             let mut chain = runtime.chain_mut().await;
             chain.import(&block)?;
         }

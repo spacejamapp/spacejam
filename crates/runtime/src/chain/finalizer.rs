@@ -108,7 +108,7 @@ impl<C: Config> Chain<C> {
         let mut to_remove = Vec::new();
         let mut to_import = Vec::new();
         for (slot, blocks) in self.orphan.iter() {
-            for (hash, block) in blocks.into_iter() {
+            for (hash, block) in blocks.iter() {
                 if block.header.slot <= finalized.slot {
                     to_remove.push((*slot, *hash));
                 }
