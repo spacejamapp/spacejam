@@ -3,15 +3,13 @@
 //! introduce read-only storage interface for the state.
 
 pub use {
-    archive::ArchiveStorage,
     branch::Branch,
     commit::{Commit, Operation},
     kv::{KVStorage, MemoryDb},
-    state::Storage,
+    state::StateStorage,
     sync::SyncStorage,
 };
 
-mod archive;
 mod branch;
 mod commit;
 mod kv;
@@ -29,5 +27,9 @@ pub enum Column {
     Sync = 1,
 }
 
-impl<T: KVStorage> Storage for T {}
+/// The storage of SpaceJam
+pub trait Storage: StateStorage + SyncStorage {}
+
+impl<T: KVStorage> StateStorage for T {}
 impl<T: KVStorage> SyncStorage for T {}
+impl<T: KVStorage> Storage for T {}

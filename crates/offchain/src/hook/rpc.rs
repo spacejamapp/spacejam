@@ -5,7 +5,7 @@ use rpc::{
     core::server::SubscriptionMessage,
     server::{ServicePreimageFilter, ServiceRequestFilter, ServiceValueFilter},
 };
-use runtime::storage::{KVStorage, Storage, SyncStorage};
+use runtime::storage::{StateStorage, SyncStorage};
 use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, TrieKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,28 +27,21 @@ impl<C: runtime::Config> RpcHook<C> {
     fn migrate_parent(
         &self,
         _hash: &OpaqueHash,
-        parent: &OpaqueHash,
-        state_root: &OpaqueHash,
+        _parent: &OpaqueHash,
+        _state_root: &OpaqueHash,
     ) -> anyhow::Result<()> {
-        let parent = self.runtime.storage.block(parent)?;
-        let head = parent.header.clone();
-
-        // self.runtime.storage.set_header(&head)?;
-        self.runtime
-            .storage
-            .set_state_root(&head.parent, state_root)?;
         Ok(())
     }
 
     /// Migrate the statistics
     async fn migrate_statistics(&self, hash: &OpaqueHash) -> anyhow::Result<()> {
-        let Some(statistics) = self.runtime.storage.get(key::STATISTICS)? else {
+        let Some(statistics) = self.runtime.storage.state_get(key::STATISTICS)? else {
             return Ok(());
         };
 
         // 1. set the statistics
         let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
-        self.runtime.storage.set(key, statistics.clone())?;
+        self.runtime.storage.state_set(key, statistics.clone())?;
 
         // 2. subscribe the statistics
         self.dispatch_statistics(&statistics).await
@@ -72,7 +65,7 @@ impl<C: runtime::Config> RpcHook<C> {
         };
 
         let key = [hash.as_ref(), b"beefy_root"].concat();
-        self.runtime.storage.set(key, beefy_root)?;
+        self.runtime.storage.sync_set(key, beefy_root)?;
         Ok(())
     }
 }
@@ -117,9 +110,11 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
         if !data.is_empty() {
             let key = [hash.as_ref(), b"services"].concat();
             let mut plist: BTreeSet<u32> =
-                codec::decode(&self.runtime.storage.get(&key)?.unwrap_or_default())?;
+                codec::decode(&self.runtime.storage.state_get(&key)?.unwrap_or_default())?;
             plist.extend(data.keys().copied());
-            self.runtime.storage.set(key, codec::encode(&plist)?)?;
+            self.runtime
+                .storage
+                .state_set(key, codec::encode(&plist)?)?;
         }
 
         for (service, sink) in self.service_data_sub.lock().await.iter() {
@@ -192,7 +187,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
 
     fn on_key_value(&self, hash: OpaqueHash, key: TrieKey, value: &[u8]) -> anyhow::Result<()> {
         let bkey = [hash.as_ref(), key.as_ref()].concat();
-        self.runtime.storage.set(bkey, value)?;
+        self.runtime.storage.state_set(bkey, value)?;
         Ok(())
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::{
     chain::Grid,
-    storage::{Branch, Commit, KVStorage},
+    storage::{Branch, Commit, KVStorage, StateStorage},
     tx, Storage,
 };
 use anyhow::Result;

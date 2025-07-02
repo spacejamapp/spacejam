@@ -1,7 +1,7 @@
 //! Node specification
 
 use crate::chain;
-use runtime::{storage::KVStorage, Runtime, Validator};
+use runtime::{storage::StateStorage, Runtime, Validator};
 use std::path::PathBuf;
 pub use {dev::Dev, light::Light, validating::Validating};
 

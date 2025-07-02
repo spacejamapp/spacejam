@@ -7,7 +7,7 @@ use rpc::{
     PendingSubscriptionSink, RpcServiceBuilder, Server, SubscriptionResult,
 };
 use runtime::{
-    storage::{KVStorage, SyncStorage},
+    storage::{StateStorage, SyncStorage},
     Config, Runtime,
 };
 use score::{
@@ -85,7 +85,11 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let key = [hash.as_ref(), key::STATISTICS.as_ref()].concat();
-        let statistics = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let statistics = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
         Ok(statistics)
     }
 
@@ -96,7 +100,11 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let info = account::info(service);
         let key = [hash.as_ref(), info.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let data = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -108,7 +116,11 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let value = account::storage(service, &key);
         let key = [hash.as_ref(), value.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let data = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -120,7 +132,11 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let pkey = account::preimage(service, key);
         let key = [hash.as_ref(), pkey.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let data = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
         Ok(data)
     }
 
@@ -133,7 +149,11 @@ impl<C: Config> ApiServer for Rpc<C> {
     ) -> Result<Option<Vec<u32>>, ErrorObjectOwned> {
         let lkey = account::lookup(service, length, hash);
         let key = [header_hash.as_ref(), lkey.as_ref()].concat();
-        let data = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let data = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
 
         let Some(data) = data else {
             return Ok(None);
@@ -147,7 +167,7 @@ impl<C: Config> ApiServer for Rpc<C> {
     // TODO: need to do snapshot for block state
     fn beefy_root(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned> {
         let key = [hash.as_ref(), b"beefy_root"].concat();
-        let beefy_root = self.runtime.storage.get(&key).map_err(|e| {
+        let beefy_root = self.runtime.storage.sync_get(&key).map_err(|e| {
             ErrorObjectOwned::owned(
                 1,
                 format!("Beefy root not found: {e:?}"),
@@ -181,7 +201,11 @@ impl<C: Config> ApiServer for Rpc<C> {
 
     fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned> {
         let key = [hash.as_ref(), b"services"].concat();
-        let services = self.runtime.storage.get(&key).map_err(to_owned_error)?;
+        let services = self
+            .runtime
+            .storage
+            .state_get(&key)
+            .map_err(to_owned_error)?;
         let Some(services) = services else {
             return Ok(vec![]);
         };

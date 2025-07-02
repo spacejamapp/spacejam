@@ -5,8 +5,8 @@ use ::pvm::Invocation;
 use anyhow::Result;
 use pvmi::Interpreter;
 use runtime::{
-    storage::{KVStorage, MemoryDb},
-    tx, Storage,
+    storage::{MemoryDb, StateStorage},
+    tx,
 };
 use score::{
     block::{Block, History},
@@ -402,7 +402,7 @@ impl Runner {
                 let keyvals = input.pre_state.keyvals;
                 for keyval in keyvals {
                     memdb
-                        .set(keyval.key, keyval.value)
+                        .state_set(keyval.key, keyval.value)
                         .expect("failed to set keyval");
                 }
 
@@ -415,7 +415,7 @@ impl Runner {
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
-                    let Some(result) = memdb.get(&key)? else {
+                    let Some(result) = memdb.state_get(&key)? else {
                         tracing::error!(
                             "{info:?} key=0x{encoded} value=0x{} not exists",
                             hex::encode(&value)
@@ -439,7 +439,7 @@ impl Runner {
                 }
 
                 // check if spacejam left extra keyvals
-                for pair in memdb.iter()? {
+                for pair in memdb.state_iter()? {
                     let (key, value) = pair?;
                     if pkeys.contains(&key) {
                         continue;

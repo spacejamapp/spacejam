@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{archive, sync, KVStorage, SyncStorage};
+use crate::storage::{sync, Column, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -18,14 +18,50 @@ use score::{
 /// the provided methods in the trait performs storage IO,
 /// for higher performance, please reduce the number of IO operations
 /// as much as possible.
-pub trait Storage: KVStorage + SyncStorage {
+pub trait StateStorage: KVStorage {
+    /// Check if the storage is empty
+    fn is_empty(&self) -> bool {
+        let timeslot = self.state_get(key::TIMESLOT);
+        if let Ok(Some(timeslot)) = timeslot {
+            codec::decode::<TimeSlot>(timeslot.as_ref()).is_err()
+        } else {
+            true
+        }
+    }
+
+    /// Get the state from the storage
+    fn state_get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+        self.get(Column::State, key)
+    }
+
+    /// Get the state from the storage
+    fn state_set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(Column::State, key, value)
+    }
+
+    /// Get the state from the storage
+    fn state_iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        self.iter(Column::State)
+    }
+
+    fn state_prefix_iter(
+        &self,
+        prefix: impl AsRef<[u8]>,
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        self.prefix_iter(Column::State, prefix)
+    }
+
+    fn state_batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.batch_read(Column::State, keys)
+    }
+
     /// Fetch state from the storage
     ///
     /// We don't decode account data in this batch since it will be too large.
     fn state(&self) -> Result<State> {
         let mut state = State::default();
         let data: Vec<Vec<u8>> = self
-            .batch_read(
+            .state_batch_read(
                 vec![
                     key::AUTHORIZATION_POOLS,
                     key::AUTHORIZATION_QUEUE,
@@ -75,9 +111,9 @@ pub trait Storage: KVStorage + SyncStorage {
     /// for calculating the root.
     fn root(&self) -> Result<OpaqueHash> {
         let mut kvs = Vec::new();
-        for pair in self.iter()? {
+        for pair in self.state_iter()? {
             let (k, v) = pair?;
-            if k.starts_with(sync::SYNC) || k.starts_with(archive::ARCHIVE) || k.len() != 31 {
+            if k.starts_with(sync::SYNC) || k.len() != 31 {
                 continue;
             }
 
@@ -92,7 +128,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the authorization pools from the storage
     fn pools(&self) -> Result<Option<[Vec<OpaqueHash>; CORES_COUNT]>> {
-        self.get(key::AUTHORIZATION_POOLS)?
+        self.state_get(key::AUTHORIZATION_POOLS)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode pools: {e}"))
@@ -100,7 +136,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the authorization queue from the storage
     fn authorization_queue(&self) -> Result<Option<[Vec<OpaqueHash>; CORES_COUNT]>> {
-        self.get(key::AUTHORIZATION_QUEUE)?
+        self.state_get(key::AUTHORIZATION_QUEUE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode authorization queue: {e}"))
@@ -110,7 +146,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn recent_blocks(&self) -> Result<Vec<BlockInfo>> {
         codec::decode(
             &self
-                .get(key::RECENT_BLOCKS)?
+                .state_get(key::RECENT_BLOCKS)?
                 .ok_or(anyhow::anyhow!("recent blocks not found"))?,
         )
         .context("failed to decode recent blocks")
@@ -120,7 +156,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn safrole(&self) -> Result<Safrole> {
         codec::decode(
             &self
-                .get(key::SAFROLE)?
+                .state_get(key::SAFROLE)?
                 .ok_or(anyhow::anyhow!("safrole not found"))?,
         )
         .context("failed to decode safrole")
@@ -128,7 +164,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the judgements from the storage
     fn disputes(&self) -> Result<Option<DisputesRecords>> {
-        self.get(key::DISPUTES)?
+        self.state_get(key::DISPUTES)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode disputes: {e}"))
@@ -138,7 +174,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn entropy(&self) -> Result<EntropyBuffer> {
         codec::decode(
             &self
-                .get(key::ENTROPY)?
+                .state_get(key::ENTROPY)?
                 .ok_or(anyhow::anyhow!("entropy not found"))?,
         )
         .context("failed to decode entropy")
@@ -148,7 +184,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn next_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
-                .get(key::NEXT_VALIDATORS)?
+                .state_get(key::NEXT_VALIDATORS)?
                 .ok_or(anyhow::anyhow!("next validators not found"))?,
         )
         .context("failed to decode next validators")
@@ -158,7 +194,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn current_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
-                .get(key::CURRENT_VALIDATORS)?
+                .state_get(key::CURRENT_VALIDATORS)?
                 .ok_or(anyhow::anyhow!("current validators not found"))?,
         )
         .context("failed to decode current validators")
@@ -168,7 +204,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn previous_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
-                .get(key::PREVIOUS_VALIDATORS)?
+                .state_get(key::PREVIOUS_VALIDATORS)?
                 .ok_or(anyhow::anyhow!("previous validators not found"))?,
         )
         .context("failed to decode previous validators")
@@ -176,7 +212,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the pending reports
     fn pending_reports(&self) -> Result<AvailabilityAssignments> {
-        self.get(key::PENDING_REPORTS)?
+        self.state_get(key::PENDING_REPORTS)?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("pending reports not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode pending reports: {e}"))
@@ -186,7 +222,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn timeslot(&self) -> Result<TimeSlot> {
         codec::decode(
             &self
-                .get(key::TIMESLOT)?
+                .state_get(key::TIMESLOT)?
                 .ok_or(anyhow::anyhow!("timeslot not found"))?,
         )
         .context("failed to decode timeslot")
@@ -194,7 +230,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the privileged service indices
     fn privileges(&self) -> Result<Privileges> {
-        self.get(key::PRIVILEGED_SERVICE)?
+        self.state_get(key::PRIVILEGED_SERVICE)?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("privileged service not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode privileged service: {e}"))
@@ -202,7 +238,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the activity statistics
     fn statistics(&self) -> Result<Statistics> {
-        self.get(key::STATISTICS)?
+        self.state_get(key::STATISTICS)?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("statistics not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode statistics: {e}"))
@@ -213,7 +249,7 @@ pub trait Storage: KVStorage + SyncStorage {
     fn accumulation_queue(
         &self,
     ) -> Result<Option<[(Vec<WorkReport>, Vec<OpaqueHash>); EPOCH_LENGTH as usize]>> {
-        self.get(key::ACCUMULATION_QUEUE)?
+        self.state_get(key::ACCUMULATION_QUEUE)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode accumulation queue: {e}"))
@@ -221,7 +257,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the accumulation history
     fn accumulation_history(&self) -> Result<Option<[Vec<OpaqueHash>; EPOCH_LENGTH as usize]>> {
-        self.get(key::ACCUMULATION_HISTORY)?
+        self.state_get(key::ACCUMULATION_HISTORY)?
             .map(|value| codec::decode(&value))
             .transpose()
             .map_err(|e| anyhow::anyhow!("failed to decode accumulation history: {e}"))
@@ -232,7 +268,7 @@ pub trait Storage: KVStorage + SyncStorage {
     /// FIXME: this is not efficient, we should fetch a set of accounts in one batch.
     fn account(&self, index: u32) -> Result<ServiceAccount> {
         let mut account = ServiceAccount::default();
-        for item in self.iter()? {
+        for item in self.state_iter()? {
             let (key, value) = item?;
             match key.as_state_key().info() {
                 StateKey::Account {
@@ -292,7 +328,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the account state
     fn account_data(&self, service: u32) -> Result<ServiceData> {
-        self.get(account::info(service))?
+        self.state_get(account::info(service))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account state not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account state: {e}"))
@@ -300,7 +336,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the account storage
     fn account_storage(&self, service: u32, key: &[u8]) -> Result<Vec<u8>> {
-        self.get(account::storage(service, key))?
+        self.state_get(account::storage(service, key))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account storage not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account storage: {e}"))
@@ -308,7 +344,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the account preimage
     fn account_preimage(&self, service: u32, key: OpaqueHash) -> Result<Vec<u8>> {
-        self.get(account::preimage(service, key))?
+        self.state_get(account::preimage(service, key))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account preimage not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account preimage: {e}"))
@@ -316,7 +352,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Fetch the account lookup
     fn account_lookup(&self, service: u32, lookup: u32, hash: OpaqueHash) -> Result<Vec<u32>> {
-        self.get(account::lookup(service, lookup, hash))?
+        self.state_get(account::lookup(service, lookup, hash))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account lookup not found"))?
             .map_err(|e| anyhow::anyhow!("failed to decode account lookup: {e}"))
@@ -324,7 +360,7 @@ pub trait Storage: KVStorage + SyncStorage {
 
     /// Check if the storage contains the code
     fn contains_code(&self, code: OpaqueHash) -> Option<ServiceId> {
-        for pair in self.prefix_iter(&[255]).ok()? {
+        for pair in self.state_prefix_iter(&[255]).ok()? {
             let (key, value) = pair.ok()?;
             if value.starts_with(&code) {
                 return Some(u32::from_le_bytes([key[1], key[3], key[5], key[7]]));

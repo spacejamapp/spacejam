@@ -2,7 +2,7 @@
 
 use peer::PeerId;
 use quinn::{Endpoint, VarInt};
-use runtime::{Runtime, Storage, Validator};
+use runtime::{storage::StateStorage, Runtime, Validator};
 use score::block::Header;
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::sync::{broadcast, RwLock};

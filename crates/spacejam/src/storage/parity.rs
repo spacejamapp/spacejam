@@ -17,7 +17,7 @@ impl KVStorage for Parity {
         Ok(())
     }
 
-    fn cset(&self, column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+    fn set(&self, column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         self.0.commit(vec![(
             column as u8,
             key.as_ref().to_vec(),
@@ -26,15 +26,15 @@ impl KVStorage for Parity {
         Ok(())
     }
 
-    fn cget(&self, column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+    fn get(&self, column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         Ok(self.0.get(column as u8, key.as_ref())?)
     }
 
-    fn citer(&self, column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+    fn iter(&self, column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         Ok(ParityIter(self.0.iter(column as u8)?))
     }
 
-    fn cprefix_iter(
+    fn prefix_iter(
         &self,
         column: Column,
         prefix: impl AsRef<[u8]>,

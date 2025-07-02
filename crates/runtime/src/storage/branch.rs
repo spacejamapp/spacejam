@@ -1,7 +1,7 @@
 //! Branch of state
 
 use crate::{
-    storage::{Column, Commit, KVStorage},
+    storage::{Column, Commit, KVStorage, StateStorage},
     Storage,
 };
 use anyhow::Result;
@@ -38,7 +38,7 @@ impl<S: Storage> Branch<S> {
 impl<S: Storage> KVStorage for Branch<S> {
     fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
         for (key, value) in commit.iset() {
-            self.set(key, value)?;
+            self.state_set(key, value)?;
         }
 
         let mut diff = self
@@ -54,7 +54,7 @@ impl<S: Storage> KVStorage for Branch<S> {
 
     fn commit_legacy(&self, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         for (key, value) in commit.iset() {
-            self.set(key, value)?;
+            self.state_set(key, value)?;
         }
 
         let mut diff = self
@@ -68,7 +68,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         Ok(())
     }
 
-    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+    fn set(&self, _column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
         let mut diff = self
             .diff
             .write()
@@ -77,16 +77,7 @@ impl<S: Storage> KVStorage for Branch<S> {
         Ok(())
     }
 
-    fn cset(&self, _column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
-        let mut diff = self
-            .diff
-            .write()
-            .map_err(|_| anyhow::anyhow!("Failed to acquire diff lock"))?;
-        diff.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
-        Ok(())
-    }
-
-    fn cget(&self, _column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+    fn get(&self, _column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         let diff = self
             .diff
             .read()
@@ -96,10 +87,10 @@ impl<S: Storage> KVStorage for Branch<S> {
             return Ok(Some(value.clone()));
         }
 
-        self.state.get(key)
+        self.state.state_get(key)
     }
 
-    fn citer(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+    fn iter(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let diff = self
             .diff
             .read()
@@ -107,13 +98,13 @@ impl<S: Storage> KVStorage for Branch<S> {
 
         Ok(BranchIter {
             diff: diff.clone(),
-            state: self.state.iter()?,
+            state: self.state.state_iter()?,
             finished: false,
             iter: Default::default(),
         })
     }
 
-    fn cprefix_iter(
+    fn prefix_iter(
         &self,
         _column: Column,
         prefix: impl AsRef<[u8]>,
@@ -129,18 +120,10 @@ impl<S: Storage> KVStorage for Branch<S> {
                 .filter(|(key, _)| key.starts_with(prefix.as_ref()))
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect(),
-            state: self.state.iter()?,
+            state: self.state.state_iter()?,
             finished: false,
             iter: Default::default(),
         })
-    }
-
-    fn is_empty(&self) -> bool {
-        let Ok(diff) = self.diff.read() else {
-            return false;
-        };
-
-        diff.is_empty() && self.state.is_empty()
     }
 }
 

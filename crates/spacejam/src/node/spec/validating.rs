@@ -53,8 +53,8 @@ impl<C: runtime::Config> Validating<C> {
 
             // author block
             if let Some(header) = header {
-                if let Ok(hash) = header.hash() {
-                    let Ok(parent) = runtime.storage.block(&header.parent) else {
+                if let Ok(_hash) = header.hash() {
+                    /* let Ok(parent) = runtime.storage.block(&header.parent) else {
                         tracing::error!(
                             "Failed to get parent header of authored block#{}",
                             header.slot
@@ -68,7 +68,7 @@ impl<C: runtime::Config> Validating<C> {
                         hex::encode(&hash[..3]),
                         parent.header.slot,
                         hex::encode(&header.parent[..3])
-                    );
+                    ); */
                 }
 
                 if let Err(e) = runtime.announce(header.clone()).await {

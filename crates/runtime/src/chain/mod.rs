@@ -1,6 +1,9 @@
 //! chain of blocks.
 
-use crate::{storage::SyncStorage, Config, Grandpa, Handshake, Storage};
+use crate::{
+    storage::{StateStorage, SyncStorage},
+    Config, Grandpa, Handshake,
+};
 use score::{
     block::{Head, Header},
     extrinsic::TicketsOrKeys,

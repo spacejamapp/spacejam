@@ -2,10 +2,7 @@
 
 use crate::chain;
 use clap::Parser;
-use runtime::{
-    storage::{Commit, KVStorage, MemoryDb},
-    Storage,
-};
+use runtime::storage::{Commit, KVStorage, MemoryDb, StateStorage};
 use score::{
     service::{GasLimit, ServiceAccount, ServiceData},
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},

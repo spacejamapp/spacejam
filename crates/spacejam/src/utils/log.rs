@@ -1,7 +1,7 @@
 //! logging utilities
 
 use network::Network;
-use runtime::{Storage, Validator};
+use runtime::{storage::StateStorage, Validator};
 use score::block;
 
 /// Logging the initial status of the node
