@@ -39,7 +39,7 @@ pub struct Runtime<C: Config> {
     pub hook: C::Hook,
 
     /// The extrinsic pool of SpaceJam
-    pub expool: Pool,
+    pub expool: Arc<Mutex<Pool>>,
 
     /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,

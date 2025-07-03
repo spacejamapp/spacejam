@@ -84,7 +84,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 2. clean the ticket cache
         self.runtime.tickets.lock().await.clear();
-        self.expool.tickets.lock().await.clear();
+        self.runtime.expool.lock().await.tickets.clear();
 
         // 3. update the authoring slots
         let mut slots = Vec::new();
@@ -133,7 +133,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 2. collect the extrinsics
         let envelopes = self.safrole().await?.accumulator;
-        let extrinsic = self.expool.collect(envelopes).await?;
+        let extrinsic = self.runtime.expool.lock().await.collect(envelopes).await?;
 
         // 3. init the builder
         parent.state_root = self.root().await?;
@@ -314,9 +314,9 @@ impl<C: Config> Runtime<C> {
     }
 
     /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(&self, _epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
-        let mut tickets = self.expool.tickets.lock().await;
-        tickets.insert(ticket);
+    pub async fn insert_ticket(&self, epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
+        let mut pool = self.expool.lock().await;
+        pool.tickets.entry(epoch).or_default().insert(ticket);
         Ok(())
     }
 }
