@@ -30,15 +30,13 @@ impl<C: runtime::Config> Network<C> {
             current_epoch
         );
 
-        if request.epoch != current_epoch + 1 {
-            if request.epoch != current_epoch {
-                anyhow::bail!(
+        if request.epoch != current_epoch + 1 && request.epoch != current_epoch {
+            anyhow::bail!(
                     "received invalid ticket: epoch mismatch: {} != {} (current) or {} (next), rejecting out-of-epoch ticket",
                     request.epoch,
                     current_epoch,
                     current_epoch + 1
                 );
-            }
         }
 
         let attempt = request.ticket.attempt;

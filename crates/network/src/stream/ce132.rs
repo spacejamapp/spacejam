@@ -31,17 +31,15 @@ impl<C: runtime::Config> Network<C> {
             current_epoch
         );
 
-        if request.epoch != current_epoch + 1 {
-            if request.epoch != current_epoch {
-                tracing::warn!(
-                    "received out-of-epoch ticket: epoch {} != {} (current) or {} (next), ignoring",
-                    request.epoch,
-                    current_epoch,
-                    current_epoch + 1
-                );
-                send.finish()?;
-                return Ok(());
-            }
+        if request.epoch != current_epoch + 1 && request.epoch != current_epoch {
+            tracing::warn!(
+                "received out-of-epoch ticket: epoch {} != {} (current) or {} (next), ignoring",
+                request.epoch,
+                current_epoch,
+                current_epoch + 1
+            );
+            send.finish()?;
+            return Ok(());
         }
 
         let attempt = request.ticket.attempt;
