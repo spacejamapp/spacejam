@@ -129,6 +129,7 @@ pub async fn recv<C: runtime::Config>(
 
         // try to trace the orphan block
         let finalized = runtime.finalized().await;
+        let mut count = 0;
         loop {
             let (imported, parent) = runtime
                 .request(&conn, &requested, Direction::Descending)
@@ -138,7 +139,12 @@ pub async fn recv<C: runtime::Config>(
                 break;
             }
 
+            count += 1;
             requested = parent;
+
+            if count > 10 {
+                panic!("orphan block unhandled, we've got 10 blocks diff in the chain");
+            }
         }
     }
 }
