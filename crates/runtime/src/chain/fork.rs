@@ -119,10 +119,14 @@ impl<S: Storage> Fork<S> {
         tracing::trace!("checking state root");
         let root = self.state.root()?;
         if block.header.parent_state_root != root {
-            anyhow::bail!(
+            tracing::error!(
                 "invalid parent state root: 0x{} != 0x{}",
                 hex::encode(block.header.parent_state_root),
                 hex::encode(root)
+            );
+
+            panic!(
+                "if we meet this case, either we have problem in our branch or we got attacked."
             );
         }
 

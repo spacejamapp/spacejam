@@ -119,6 +119,8 @@ pub trait StateStorage: KVStorage {
             kvs.push((key, v));
         }
 
+        // Sort keys to ensure deterministic trie root calculation
+        kvs.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(merkle::trie31(&kvs))
     }
 
