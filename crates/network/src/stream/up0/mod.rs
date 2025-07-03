@@ -24,6 +24,7 @@ impl<C: runtime::Config> Network<C> {
     }
 
     /// Send a block announcement.
+    #[tracing::instrument(skip_all, fields(peer=peer.to_string()))]
     pub async fn send_up0(&self, peer: PeerId) -> anyhow::Result<()> {
         let conn = self.conn(peer).await?;
         let (mut send, mut recv) = conn.open_bi().await.context("failed to open bi-stream")?;
@@ -31,23 +32,29 @@ impl<C: runtime::Config> Network<C> {
         // 1. send the stream type
         send.write(&[0]).await?;
 
-        // 2. wait for the handshake
-        let mut buf = [0; 4];
-        recv.read_exact(&mut buf).await?;
-        let length = u32::from_le_bytes(buf);
-        let mut buf = vec![0; length as usize];
-        recv.read_exact(&mut buf).await?;
-        let handshake: Handshake = codec::decode(&buf)?;
-        conn.handshake.write().await.head = handshake.head;
+        // 2. send and receive the handshake data in parallel (JAMNP spec compliance)
+        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
+            async {
+                let handshake = self.handshake().await;
+                handshake
+                    .write(&mut send)
+                    .await
+                    .context("failed to send handshake")
+            },
+            async {
+                let handshake = Handshake::read(&mut recv)
+                    .await
+                    .context("failed to read handshake")?;
+                conn.handshake.write().await.head = handshake.head;
+                Ok(())
+            }
+        );
 
-        // 3. send the handshake
-        let handshake = self.handshake().await?;
-        let encoded = codec::encode(&handshake)?;
-        let length = encoded.len() as u32;
-        send.write(&length.to_le_bytes()).await?;
-        send.write(&encoded).await?;
+        hsend?;
+        hrecv?;
 
-        // 4. announcement loop
+        // 3. announcement loop
+        tracing::debug!("spawning announcement loop");
         let runtime = self.clone();
         tokio::spawn(async move {
             if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {
@@ -65,24 +72,31 @@ impl<C: runtime::Config> Network<C> {
         mut send: SendStream,
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
-        tracing::debug!("receiving up0 stream from {peer}");
+        tracing::debug!("receiving up0 stream");
         let conn = self.conn(peer).await?;
 
-        // 1. send the handshake data
-        let mut handshake = self.handshake().await?;
-        handshake.leaves.insert(handshake.head.clone());
-        handshake
-            .write(&mut send)
-            .await
-            .context("failed to send handshake")?;
+        // 1. send and receive the handshake data in parallel (JAMNP spec compliance)
+        let (hsend, hrecv): (Result<(), anyhow::Error>, Result<(), anyhow::Error>) = tokio::join!(
+            async {
+                let handshake = self.handshake().await;
+                handshake
+                    .write(&mut send)
+                    .await
+                    .context("failed to send handshake")
+            },
+            async {
+                let handshake = Handshake::read(&mut recv)
+                    .await
+                    .context("failed to read handshake")?;
+                conn.handshake.write().await.head = handshake.head;
+                Ok(())
+            }
+        );
 
-        // 2. receive the handshake data
-        let handshake = Handshake::read(&mut recv)
-            .await
-            .context("failed to read handshake")?;
-        conn.handshake.write().await.head = handshake.head;
+        hsend?;
+        hrecv?;
 
-        // 3. announcement loop.
+        // 2. announcement loop.
         let runtime = self.clone();
         tokio::spawn(async move {
             if let Err(e) = announce::spawn(runtime.clone(), send, recv, conn).await {

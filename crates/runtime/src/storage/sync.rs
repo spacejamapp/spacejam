@@ -1,167 +1,102 @@
 //! Block storage
 
-use crate::Storage;
+use crate::storage::{Column, KVStorage};
 use anyhow::Result;
 use score::{
     block::{Head, Header},
-    extrinsic::TicketsOrKeys,
-    safrole::ValidatorIter,
     Block, OpaqueHash,
 };
 
-/// The key for the sync storage
-pub const SYNC: &[u8] = b"sync";
-
 /// Sync storage
-pub trait SyncStorage: Storage {
-    /// Get the ancestors of the given hash.
-    fn ancestors(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> Vec<OpaqueHash> {
-        if hash == ancestor {
-            return vec![];
-        }
-
-        let mut ancestors = Vec::new();
-        let mut current = *hash;
-        while let Ok(Some(parent)) = self.parent(&current) {
-            current.copy_from_slice(parent.as_ref());
-            if current == *ancestor {
-                return ancestors;
-            }
-
-            ancestors.push(parent);
-        }
-
-        vec![]
+pub trait SyncStorage: KVStorage {
+    /// Get the state from the storage
+    fn sync_get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+        self.get(Column::Sync, key)
     }
 
-    /// Check if the given hash is a descendant of the ancestor.
-    fn is_descendant_of(&self, hash: &OpaqueHash, ancestor: &OpaqueHash) -> bool {
-        let mut current = *hash;
-        while let Ok(Some(parent)) = self.parent(&current) {
-            if parent == *ancestor {
-                return true;
-            }
-
-            current = parent;
-        }
-
-        false
+    /// Get the state from the storage
+    fn sync_set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        self.set(Column::Sync, key, value)
     }
 
-    /// Get the block by hash
+    /// Get the state from the storage
+    fn sync_iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        self.iter(Column::Sync)
+    }
+
+    /// Get the prefix iterator of the sync storage
+    fn sync_prefix_iter(
+        &self,
+        prefix: impl AsRef<[u8]>,
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        self.prefix_iter(Column::Sync, prefix)
+    }
+
+    /// Get the batch read of the sync storage
+    fn sync_batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.batch_read(Column::Sync, keys)
+    }
+
+    /// Get the block from the sync storage
     fn block(&self, hash: &OpaqueHash) -> Result<Block> {
-        let key = [SYNC, hash.as_ref()].concat();
-        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Block not found"))?;
-        Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Save the block
-    fn set_block(&self, block: &Block) -> Result<()> {
-        let hash = block.header.hash()?;
-        let key = [SYNC, hash.as_ref()].concat();
-        self.set_header(&block.header)?;
-        self.set(key, codec::encode(block)?)?;
-        Ok(())
-    }
-
-    /// Get the best head
-    fn best(&self) -> Result<Head> {
-        let key = [SYNC, b"best"].concat();
+        let key = Key::Block(*hash).key();
         let value = self
-            .get(&key)?
-            .ok_or(anyhow::anyhow!("Best head not found"))?;
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Block not found"))?;
         Ok(codec::decode(value.as_ref())?)
-    }
-
-    /// Set the best head
-    fn set_best(&self, head: &Head) -> Result<()> {
-        let key = [SYNC, b"best"].concat();
-        self.set(key, codec::encode(head)?)?;
-        Ok(())
     }
 
     /// Get the descendant of the given hash in finalized chain.
     fn descendant(&self, parent: &OpaqueHash) -> Result<OpaqueHash> {
-        let key = [SYNC, b"descendant", parent.as_ref()].concat();
+        let key = Key::Descendant(*parent).key();
         let value = self
-            .get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Descendant not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Get the finalized head
     fn finalized(&self) -> Result<Head> {
-        let key = [SYNC, b"finalized"].concat();
+        let key = Key::Finalized.key();
         let value = self
-            .get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Finalized head not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
     /// Set the finalized head
-    fn finalize(&self, head: &Head) -> Result<()> {
-        let key = [SYNC, b"finalized"].concat();
-        self.set(key, codec::encode(head)?)?;
-
-        // set the descendant of the parent
-        let parent = self
-            .parent(&head.hash)?
-            .ok_or(anyhow::anyhow!("Parent not found"))?;
-        let key = [SYNC, b"descendant", parent.as_ref()].concat();
-        self.set(key, head.hash)?;
+    fn finalize(&self, block: &Block, hash: OpaqueHash, state_root: OpaqueHash) -> Result<()> {
+        self.sync_set(Key::Block(hash).key(), codec::encode(block)?)?;
+        self.sync_set(Key::Descendant(block.header.parent).key(), hash)?;
+        self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()?)?)?;
+        self.sync_set(Key::Header(hash).key(), codec::encode(&block.header)?)?;
+        self.sync_set(Key::Parent(hash).key(), block.header.parent)?;
+        self.sync_set(Key::StateRoot(hash).key(), state_root)?;
         Ok(())
     }
 
     /// Get the header
     fn header(&self, hash: &OpaqueHash) -> Result<Header> {
-        let key = [SYNC, b"header", hash.as_ref()].concat();
-        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Header not found"))?;
+        let key = Key::Header(*hash).key();
+        let value = self
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Header not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
-    /// Set a new header to the storage
-    fn set_header(&self, header: &Header) -> Result<()> {
-        let hash = header.hash()?;
-        let parent = header.parent;
-
-        // set the header
-        {
-            let key = [SYNC, b"header", hash.as_ref()].concat();
-            self.set(key, codec::encode(header)?)?;
-        }
-
-        // set the parent of this header
-        {
-            let key = [SYNC, b"parent", hash.as_ref()].concat();
-            self.set(key, parent)?;
-        }
-
-        // set child
-        //
-        // FIXME: handle fork blocks
-        {
-            let key = [SYNC, b"descendant", parent.as_ref()].concat();
-            self.set(key, hash)?;
-        }
-        Ok(())
-    }
-
     /// Get the parent
-    fn parent(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let key = [SYNC, b"parent", block.as_ref()].concat();
-        let value = self.get(&key)?;
-        if let Some(value) = value {
-            Ok(Some(codec::decode(value.as_ref())?))
-        } else {
-            Ok(None)
-        }
+    fn parent(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
+        let key = Key::Parent(*block).key();
+        let value = self
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Parent not found"))?;
+        Ok(codec::decode(value.as_ref())?)
     }
 
     /// Get the state root
     fn state_root(&self, block: &OpaqueHash) -> Result<Option<OpaqueHash>> {
-        let mut key = [SYNC, b"state_root"].concat();
-        key.extend_from_slice(block.as_ref());
-        let value = self.get(&key)?;
+        let key = Key::StateRoot(*block).key();
+        let value = self.sync_get(key)?;
         if let Some(value) = value {
             Ok(Some(codec::decode(value.as_ref())?))
         } else {
@@ -169,85 +104,72 @@ pub trait SyncStorage: Storage {
         }
     }
 
-    /// Set the state root
-    fn set_state_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
-        let mut key = [SYNC, b"state_root"].concat();
-        key.extend_from_slice(block.as_ref());
-        self.set(key, codec::encode(root)?)?;
-        Ok(())
-    }
-
     /// Get the beefy root
     fn beefy_root(&self, block: &OpaqueHash) -> Result<OpaqueHash> {
-        let mut key = [SYNC, b"beefy_root"].concat();
-        key.extend_from_slice(block.as_ref());
+        let key = Key::BeefyRoot(*block).key();
         let value = self
-            .get(&key)?
+            .sync_get(key)?
             .ok_or(anyhow::anyhow!("Beefy root not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
+}
 
-    /// Set the beefy root
-    fn set_beefy_root(&self, block: &OpaqueHash, root: &OpaqueHash) -> Result<()> {
-        let mut key = [SYNC, b"beefy_root"].concat();
-        key.extend_from_slice(block.as_ref());
-        self.set(key, codec::encode(root)?)?;
-        Ok(())
-    }
+/// The key of the sync storage
+pub enum Key {
+    /// The finalized head.
+    Finalized,
 
-    /// Fetch the blocks
-    fn fetch_blocks(&self, hashes: &[OpaqueHash]) -> Result<Vec<Block>> {
-        Ok(self
-            .batch_read(
-                hashes
-                    .iter()
-                    .map(|hash| [SYNC, hash.as_ref()].concat())
-                    .collect::<Vec<_>>(),
-            )?
-            .into_iter()
-            .filter_map(|(_, value)| codec::decode(&value).ok())
-            .collect::<Vec<_>>())
-    }
+    /// The beefy root of the given block hash.
+    BeefyRoot(OpaqueHash),
 
-    /// Get the series
-    fn series(&self, epoch: u32) -> Result<TicketsOrKeys> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        let value = self.get(&key)?.ok_or(anyhow::anyhow!("Series not found"))?;
-        Ok(codec::decode(value.as_ref())?)
-    }
+    /// The block of the given hash.
+    Block(OpaqueHash),
 
-    /// Set the series
-    fn set_series(&self, epoch: u32, series: &TicketsOrKeys) -> Result<()> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        self.set(key, codec::encode(&series)?)?;
-        Ok(())
-    }
+    /// The descendant of the given hash in finalized chain.
+    Descendant(OpaqueHash),
 
-    /// On new epoch handler for rotating the series
-    ///
-    /// Set the fallback series if it is not tracked.
-    fn on_new_epoch(&self, epoch: u32) -> Result<()> {
-        let key = [SYNC, b"series", epoch.to_le_bytes().as_ref()].concat();
-        if self.series(epoch).is_ok() {
-            return Ok(());
+    /// The header of the given block hash.
+    Header(OpaqueHash),
+
+    /// The parent of the given block hash.
+    Parent(OpaqueHash),
+
+    /// The state root of the given block hash.
+    StateRoot(OpaqueHash),
+}
+
+impl Key {
+    /// Get the key of the sync storage
+    pub fn key(&self) -> [u8; 31] {
+        let mut key = [0; 31];
+        match self {
+            Key::Finalized => {}
+            Key::BeefyRoot(hash) => {
+                key[0] = 0;
+                key[..31].copy_from_slice(&hash[..30]);
+            }
+            Key::Block(hash) => {
+                key[0] = 1;
+                key[1..].copy_from_slice(&hash[..30]);
+            }
+            Key::Descendant(hash) => {
+                key[0] = 2;
+                key[1..].copy_from_slice(&hash[..30]);
+            }
+            Key::Header(hash) => {
+                key[0] = 3;
+                key[1..].copy_from_slice(&hash[..30]);
+            }
+            Key::StateRoot(hash) => {
+                key[0] = 4;
+                key[1..].copy_from_slice(&hash[..30]);
+            }
+            Key::Parent(hash) => {
+                key[0] = 5;
+                key[1..].copy_from_slice(&hash[..30]);
+            }
         }
 
-        // check if the block with epoch mark left on fork chain
-        //
-        // FIXME: this may not correct since different nodes may have different tickets.
-        let safrole = self.safrole()?;
-        if safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
-            let mut tickets = [Default::default(); score::EPOCH_LENGTH as usize];
-            tickets.copy_from_slice(&safrole.accumulator);
-            self.set(key, codec::encode(&TicketsOrKeys::Tickets(tickets))?)?;
-            return Ok(());
-        }
-
-        // using fallback series
-        let keys = self.next_validators()?.bandersnatch();
-        let entropy = self.entropy()?;
-        let series = TicketsOrKeys::fallback(keys, entropy[1]);
-        self.set(key, codec::encode(&series)?)?;
-        Ok(())
+        key
     }
 }

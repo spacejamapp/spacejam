@@ -2,6 +2,7 @@
 
 use crate::{stream::ext::Write, Connection, Network};
 use quinn::{RecvStream, SendStream};
+use runtime::{chain::Direction, Lookup};
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
 
@@ -26,27 +27,25 @@ impl<C: runtime::Config> Network<C> {
         // parse the block request
         let request: Request = codec::decode(&buf)?;
         tracing::trace!(
-            "received block request for block @{}, direction={}, maximum={}",
+            "received block request for block @{}, direction={:?}, maximum={}",
             hex::encode(&request.hash[..3]),
             request.direction,
             request.maximum,
         );
 
-        // FIXME: implement the block lookup here.
-        /* let lookup = grandpa.lookup(request.hash, request.direction, request.maximum);
+        let chain = self.runtime.chain().await;
+        let best = chain.best_chain()?;
+        let lookup = best.fetch(request.hash, request.direction, request.maximum as usize)?;
 
         // fetch and write the blocks
-        for (hash, _header) in lookup {
-            let Ok(block) = self.storage.block(&hash) else {
-                break;
-            };
+        for block in lookup {
             block.write(&mut send).await?;
             tracing::trace!(
                 "sent block#{}@{}",
                 block.header.slot,
                 hex::encode(&block.header.hash()?[..3])
             );
-        } */
+        }
 
         send.finish()?;
         Ok(())
@@ -54,7 +53,7 @@ impl<C: runtime::Config> Network<C> {
 }
 
 /// Send a block request.
-#[tracing::instrument(skip_all, fields(peer = ?conn.address.peer_id), name="ce128::send", parent = None)]
+#[tracing::instrument(skip_all, fields(peer = ?conn.address.to_string()), name="ce128::send", parent = None)]
 pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStream> {
     let (mut send, recv) = conn.open_bi().await?;
     send.write(&[128]).await?;
@@ -64,7 +63,7 @@ pub async fn send(conn: &Connection, request: Request) -> anyhow::Result<RecvStr
 }
 
 /// A block request.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 pub struct Request {
     /// The hash of the block.
     pub hash: OpaqueHash,
@@ -76,8 +75,35 @@ pub struct Request {
     ///   with a child of the given block, followed by a grandchild, and so on.
     /// * Descending inclusive: The sequence of blocks in the response should start
     ///   with the given block, followed by its parent, grandparent, and so on.
-    pub direction: u8,
+    pub direction: Direction,
 
     /// The maximum number of blocks to request.
     pub maximum: u32,
+}
+
+#[test]
+fn encoding() {
+    #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+    struct Req {
+        hash: OpaqueHash,
+        direction: u8,
+        maximum: u32,
+    }
+
+    let req = Req {
+        hash: Default::default(),
+        direction: 0,
+        maximum: 1,
+    };
+
+    let request = Request {
+        hash: Default::default(),
+        direction: Direction::Ascending,
+        maximum: 1,
+    };
+
+    assert_eq!(
+        codec::encode(&req).unwrap(),
+        codec::encode(&request).unwrap()
+    );
 }

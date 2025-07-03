@@ -2,7 +2,6 @@
 
 use crate::{node::spec::NodeSpec, utils::log};
 use network::Network;
-use runtime::storage::SyncStorage;
 use score::{block, extrinsic::ticket};
 
 /// Validating and authoring blocks with network
@@ -17,17 +16,16 @@ impl<C: runtime::Config> Validating<C> {
 
         loop {
             tokio::time::sleep(block::next_slot()).await;
+            tracing::trace!("sleep done, new timeslot");
 
             // get the current epoch
             let timeslot = block::timeslot();
             let epoch = timeslot / score::EPOCH_LENGTH;
-            if let Ok(best) = runtime.storage.best() {
-                runtime.dial_validators().await;
-                let Ok(finalized) = runtime.storage.finalized() else {
-                    tracing::error!("Failed to get finalized block");
-                    continue;
-                };
 
+            tracing::trace!("try to dial validators");
+            if let Ok(best) = runtime.best().await {
+                runtime.dial_validators().await;
+                let finalized = runtime.finalized().await;
                 if ticket::subscribe(timeslot % score::EPOCH_LENGTH, best.slot, finalized.slot) {
                     tokio::spawn({
                         let runtime = runtime.clone();
@@ -41,7 +39,8 @@ impl<C: runtime::Config> Validating<C> {
             };
 
             // author block and maybe generate ticket
-            let (header, ticket) = match author.on_timeslot(timeslot).await {
+            tracing::trace!("try authoring block and ticket");
+            let (block, ticket) = match author.on_timeslot(timeslot).await {
                 Ok((header, ticket)) => (header, ticket),
                 Err(e) => {
                     tracing::error!("Authoring error: {:?}", e);
@@ -49,30 +48,21 @@ impl<C: runtime::Config> Validating<C> {
                 }
             };
 
+            tracing::trace!("authoring block and ticket done");
             log::current(runtime).await;
 
             // author block
-            if let Some(header) = header {
-                if let Ok(hash) = header.hash() {
-                    let Ok(parent) = runtime.storage.block(&header.parent) else {
-                        tracing::error!(
-                            "Failed to get parent header of authored block#{}",
-                            header.slot
-                        );
-                        continue;
-                    };
-
-                    tracing::info!(
-                        "block#{}@0x{}, parent#{}@0x{}",
-                        header.slot,
-                        hex::encode(&hash[..3]),
-                        parent.header.slot,
-                        hex::encode(&header.parent[..3])
-                    );
+            tracing::trace!("check authored block ...");
+            if let Some(block) = block {
+                let hash = block.header.hash().expect("failed to get hash");
+                tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
+                if let Err(e) = runtime.announce(block.header.clone()).await {
+                    tracing::error!("Failed to announce block: {:?}", e);
                 }
 
-                if let Err(e) = runtime.announce(header.clone()).await {
-                    tracing::error!("Failed to announce block: {:?}", e);
+                tracing::debug!("try acquiring the chain write lock for importing authored block");
+                if let Err(e) = runtime.chain_mut().await.import(&block) {
+                    tracing::error!("Failed to import block {e:?}")
                 }
             }
 
@@ -86,6 +76,10 @@ impl<C: runtime::Config> Validating<C> {
                         }
                     }
                 });
+            }
+
+            if let Err(e) = runtime.finalize().await {
+                tracing::warn!("Failed to subscribe to hooks: {:?}", e);
             }
         }
     }

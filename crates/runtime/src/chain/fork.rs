@@ -2,7 +2,7 @@
 
 use crate::{
     chain::Grid,
-    storage::{Branch, Commit, KVStorage},
+    storage::{Branch, Column, Commit, KVStorage, StateStorage},
     tx, Storage,
 };
 use anyhow::Result;
@@ -10,6 +10,7 @@ use pvm::Pvm;
 use score::{
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
+    safrole::ValidatorIter,
     Block, TimeSlot, TrieKey,
 };
 use std::{
@@ -32,7 +33,7 @@ pub struct Fork<S: Storage> {
     pub grid: Grid,
 
     /// The state of the chain.
-    state: Branch<S>,
+    pub state: Arc<Branch<S>>,
 
     /// tickets or keys for this fork chain per epoch.
     pub series: BTreeMap<u32, TicketsOrKeys>,
@@ -40,7 +41,11 @@ pub struct Fork<S: Storage> {
 
 impl<S: Storage> Fork<S> {
     /// Create a new fork.
-    pub fn new(state: Branch<S>, grid: Grid, series: BTreeMap<TimeSlot, TicketsOrKeys>) -> Self {
+    pub fn new(
+        state: Arc<Branch<S>>,
+        grid: Grid,
+        series: BTreeMap<TimeSlot, TicketsOrKeys>,
+    ) -> Self {
         Self {
             chain: BTreeSet::new(),
             blocks: BTreeMap::new(),
@@ -79,14 +84,8 @@ impl<S: Storage> Fork<S> {
     }
 
     /// Create a fork of a fork
-    pub fn fork<Vm: Pvm>(&self, block: &Block) -> Result<Self> {
-        let parent = block.header.parent;
-        let timeslot = self
-            .chain
-            .iter()
-            .find(|h| h.hash == parent)
-            .map(|h| h.slot)
-            .ok_or(anyhow::anyhow!("parent block not found"))?;
+    pub fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
+        let timeslot = parent.slot;
 
         // checkout branch and commit diffs
         let branch = Branch::checkout(self.state.state());
@@ -95,20 +94,19 @@ impl<S: Storage> Fork<S> {
                 break;
             }
 
-            branch.commit_legacy(commit.clone())?;
+            branch.commit(Column::State, commit.clone())?;
         }
 
         // import the block
-        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
-        fork.import::<Vm>(block)?;
+        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        fork.import::<Vm>(parent, block)?;
         Ok(fork)
     }
 
     /// Insert a new block to the chain.
-    pub fn import<Vm: Pvm>(&mut self, block: &Block) -> Result<()> {
-        let parent = self.best()?;
-
+    pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
         // 1. check the parent
+        tracing::trace!("importing block...");
         if block.header.parent != parent.hash {
             anyhow::bail!(
                 "invalid parent: 0x{} != 0x{}",
@@ -118,6 +116,7 @@ impl<S: Storage> Fork<S> {
         }
 
         // 2. check the state root
+        tracing::trace!("checking state root");
         let root = self.state.root()?;
         if block.header.parent_state_root != root {
             anyhow::bail!(
@@ -128,25 +127,38 @@ impl<S: Storage> Fork<S> {
         }
 
         // 3. verify the header
-        self.validate(&block.header)?;
+        tracing::trace!("validating block header");
+        self.validate(parent, &block.header)?;
 
         // 4. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
-        let hash = block.header.hash()?;
-        let diff = tx::transit::<Vm>(block.clone(), Arc::new(self.state.clone()))?;
+        tracing::trace!("transiting block");
+        let head = block.header.head()?;
+        let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
-            hex::encode(&hash[..3]),
+            hex::encode(&head.hash[..3]),
             parent.slot,
             hex::encode(parent.hash[..3].as_ref())
         );
 
         // 5. save the block and the diff
+        self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 6. update tickets or keys if any
+        // 6. update fallback tickets if need
+        let epoch = block.header.slot / score::EPOCH_LENGTH;
+        let prev_epoch = parent.slot / score::EPOCH_LENGTH;
+        if epoch > prev_epoch && !self.series.contains_key(&epoch) {
+            let validators = self.state.next_validators()?.bandersnatch();
+            let entropy = self.state.entropy()?;
+            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            self.series.insert(epoch, series);
+        }
+
+        // 7. update safrole tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };
@@ -166,11 +178,22 @@ impl<S: Storage> Fork<S> {
         Ok(())
     }
 
+    /// Get the series for sealing / validating usages
+    pub fn series(&self, epoch: u32) -> anyhow::Result<TicketsOrKeys> {
+        if let Some(series) = self.series.get(&epoch) {
+            Ok(series.clone())
+        } else {
+            let validators = self.state.next_validators()?.bandersnatch();
+            let entropy = self.state.entropy()?;
+            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            Ok(series)
+        }
+    }
+
     /// Validate a block header.
     #[tracing::instrument(skip_all, name = "chain::validate")]
-    pub fn validate(&self, header: &Header) -> anyhow::Result<()> {
-        let best = self.best()?;
-        let local_epoch = best.slot / score::EPOCH_LENGTH;
+    pub fn validate(&self, parent: &Head, header: &Header) -> anyhow::Result<()> {
+        let local_epoch = parent.slot / score::EPOCH_LENGTH;
         let remote_epoch = header.slot / score::EPOCH_LENGTH;
 
         // if the epoch greater than the next, skip the validation.
@@ -195,10 +218,10 @@ impl<S: Storage> Fork<S> {
 
         // check the ticket mark
         if new_epoch {
-            if let Some(TicketsOrKeys::Tickets(tickets)) = self.series.get(&remote_epoch) {
+            if let Ok(TicketsOrKeys::Tickets(tickets)) = self.series(remote_epoch) {
                 ticket = Some(tickets[slot]);
             }
-        } else if let Some(TicketsOrKeys::Tickets(tickets)) = self.series.get(&local_epoch) {
+        } else if let Ok(TicketsOrKeys::Tickets(tickets)) = self.series(local_epoch) {
             ticket = Some(tickets[slot]);
         }
 

@@ -1,26 +1,33 @@
 //! chain of blocks.
 
-use crate::{storage::SyncStorage, Config, Grandpa, Handshake, Storage};
-use score::{
-    block::{Head, Header},
-    extrinsic::TicketsOrKeys,
-    Block, OpaqueHash,
+use crate::{
+    storage::{StateStorage, SyncStorage},
+    Config, Grandpa,
 };
+use score::{extrinsic::TicketsOrKeys, Block, OpaqueHash, TimeSlot};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-pub use {fork::Fork, grid::Grid};
+pub use {
+    fork::Fork,
+    grid::Grid,
+    importer::Imported,
+    lookup::{Direction, Lookup},
+};
 
+mod api;
 mod author;
+mod finalizer;
 mod fork;
 mod grid;
 mod importer;
+mod lookup;
 
 /// A chain of blocks.
 pub struct Chain<C: Config> {
     /// The forks of the chain.
-    forks: HashMap<OpaqueHash, Fork<C::Storage>>,
+    pub forks: HashMap<OpaqueHash, Fork<C::Storage>>,
 
     /// The grandpa of the chain.
     pub grandpa: Grandpa,
@@ -29,7 +36,7 @@ pub struct Chain<C: Config> {
     grid: Grid,
 
     /// The orphan blocks.
-    orphan: HashMap<OpaqueHash, Block>,
+    orphan: BTreeMap<TimeSlot, BTreeMap<OpaqueHash, Block>>,
 
     /// The cached series per epoch.
     series: BTreeMap<u32, TicketsOrKeys>,
@@ -45,41 +52,10 @@ impl<C: Config> Chain<C> {
             forks: HashMap::new(),
             grandpa: Default::default(),
             grid: Grid::default(),
-            orphan: HashMap::new(),
+            orphan: BTreeMap::new(),
             series: BTreeMap::new(),
             state,
         }
-    }
-
-    /// Add a leaf to the handshake.
-    ///
-    /// Returns `true` if the leaf is already in the chain.
-    pub fn add_leaf_to(
-        &self,
-        head: Head,
-        leaf: &Header,
-        handshake: &mut Handshake,
-    ) -> anyhow::Result<bool> {
-        let mut exists = false;
-        let mut added = false;
-        for fork in self.forks.values() {
-            for block in fork.chain.iter() {
-                if block.hash == leaf.parent {
-                    handshake.add_leaf(fork.chain.clone(), head.clone());
-                    added = true;
-                }
-
-                if block.hash == head.hash {
-                    exists = true;
-                }
-            }
-
-            if added {
-                break;
-            }
-        }
-
-        Ok(exists)
     }
 
     /// Select the chain of the given block.
@@ -103,11 +79,6 @@ impl<C: Config> Chain<C> {
         }
 
         false
-    }
-
-    /// Get the finalized head of the chain.
-    pub fn finalized(&self) -> Head {
-        self.grandpa.handshake.head.clone()
     }
 
     /// Initialize the chain from the state.

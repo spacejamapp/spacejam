@@ -6,6 +6,7 @@
 use crate::{peer::Connection, stream::ext::Write, Network};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
+use runtime::chain::Direction;
 use score::block::{Head, Header};
 
 /// Announce the block to the peer.
@@ -38,18 +39,16 @@ pub async fn send<C: runtime::Config>(
     conn: Connection,
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
-
     while let Ok(header) = rx.recv().await {
         let handshake = conn.handshake.read().await;
-        if !handshake.accept(&header.parent) {
+        if !handshake.accept(&header.head()?) {
             continue;
         }
 
         // check if the block is acceptable for the remote peer.
-        let local = runtime.handshake().await?;
+        let local = runtime.handshake().await;
         let data = (header, local.head.clone());
         data.write(&mut send).await?;
-        send.finish()?;
     }
 
     anyhow::bail!("announcement sender stream closed");
@@ -83,10 +82,8 @@ pub async fn recv<C: runtime::Config>(
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;
             runtime
-                .chain
-                .read()
-                .await
-                .add_leaf_to(lhead.clone(), &header, &mut handshake)?
+                .add_leaf_to(lhead.clone(), &header, &mut handshake)
+                .await?
         };
 
         // 4. validate the header
@@ -99,7 +96,16 @@ pub async fn recv<C: runtime::Config>(
             continue;
         }
 
-        // 5.trace the announcement data.
+        // 5. queue the block for requesting.
+        {
+            if runtime.queue.read().await.contains(&lhead.hash) {
+                continue;
+            } else {
+                runtime.queue.write().await.insert(lhead.hash);
+            }
+        }
+
+        // 6.trace the announcement data.
         {
             let handshake = conn.handshake.read().await.clone();
             tracing::trace!(
@@ -111,7 +117,34 @@ pub async fn recv<C: runtime::Config>(
             );
         }
 
-        // 6. request the block
-        runtime.request(&header).await?;
+        // 7. request the block
+        let (imported, mut requested) = runtime
+            .request(&conn, &header, Direction::Ascending)
+            .await?;
+
+        if imported {
+            runtime.queue.write().await.insert(lhead.hash);
+            continue;
+        }
+
+        // try to trace the orphan block
+        let finalized = runtime.finalized().await;
+        let mut count = 0;
+        loop {
+            let (imported, parent) = runtime
+                .request(&conn, &requested, Direction::Descending)
+                .await?;
+
+            if imported || parent.slot <= finalized.slot {
+                break;
+            }
+
+            count += 1;
+            requested = parent;
+
+            if count > 10 {
+                panic!("orphan block unhandled, we've got 10 blocks diff in the chain");
+            }
+        }
     }
 }

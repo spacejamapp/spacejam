@@ -1,6 +1,6 @@
 //! Handshake data
 
-use score::{block::Head, OpaqueHash};
+use score::block::Head;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -35,9 +35,9 @@ impl Handshake {
     /// 3. The block, or a descendant of the block, has been announced by the
     ///    other side of the stream.
     ///
-    /// 1 and 2 will be checked by our local chain, so this method only checks 3.
-    pub fn accept(&self, parent: &OpaqueHash) -> bool {
-        self.head.hash == *parent || self.leaves.iter().any(|head| head.hash == *parent)
+    /// 1 and 2 are checked on importing, so this method only checks 3.
+    pub fn accept(&self, head: &Head) -> bool {
+        self.head.hash != head.hash && !self.leaves.iter().any(|h| h.hash == head.hash)
     }
 
     /// Add a leaf to the handshake.

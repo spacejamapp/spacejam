@@ -4,10 +4,11 @@ use pvm::Pvm;
 use score::{extrinsic::TicketEnvelope, BandersnatchPublic};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
+
 pub use {
     account::{Account, Accounts},
-    chain::{Chain, Fork, Grid},
-    grandpa::{Ancestry, Grandpa, Handshake},
+    chain::{Chain, Grid, Lookup},
+    grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
     storage::Storage,
@@ -15,7 +16,7 @@ pub use {
 };
 
 mod account;
-mod chain;
+pub mod chain;
 mod grandpa;
 mod hook;
 mod pool;
@@ -27,13 +28,12 @@ mod validator;
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
     /// The chain of blocks
-    pub chain: Arc<RwLock<Chain<C>>>,
+    ///
+    /// This should never being used directly, use the `chain` method instead.
+    _chain: Arc<RwLock<Chain<C>>>,
 
     /// The validator of SpaceJam
     pub validator: C::Validator,
-
-    /// The storage of SpaceJam
-    pub storage: Arc<C::Storage>,
 
     /// The hook of SpaceJam
     pub hook: C::Hook,
@@ -51,12 +51,22 @@ impl<C: Config> Runtime<C> {
         let storage = Arc::new(storage);
         Self {
             validator,
-            chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
-            storage: storage.clone(),
+            _chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
             hook,
             expool: Default::default(),
             tickets: Default::default(),
         }
+    }
+
+    /// Finalize the chain
+    pub async fn finalize(&self) -> anyhow::Result<()> {
+        tracing::debug!("try acquiring the chain write lock for finalizing");
+        for (block, diff) in self._chain.write().await.finalize()? {
+            self.hook.on_diff(block.header.hash()?, diff).await?;
+            self.hook.on_finalized_block(block).await?;
+        }
+
+        Ok(())
     }
 
     /// Get the bandersnatch public key of the local validator

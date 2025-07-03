@@ -5,7 +5,7 @@ use crate::{
     stream::{ce128, ext::Read},
     Network,
 };
-use runtime::Handshake;
+use runtime::chain::Direction;
 use score::{
     block::{Head, Header},
     Block,
@@ -27,12 +27,6 @@ impl<C: runtime::Config> Network<C> {
         }
 
         Ok(())
-    }
-
-    /// Get the current handshake data
-    pub async fn handshake(&self) -> anyhow::Result<Handshake> {
-        let chain = self.chain.read().await;
-        Ok(chain.grandpa.handshake.clone())
     }
 
     /// Lookup the best head from the network
@@ -59,44 +53,45 @@ impl<C: runtime::Config> Network<C> {
     }
 
     /// Request a block from the network
-    pub async fn request(&self, header: &Header) -> anyhow::Result<()> {
-        let head = header.head()?;
-        let feeds = self.lookup(&head).await;
-        for feed in feeds {
-            let Ok(mut recv) = ce128::send(
-                &feed,
-                ce128::Request {
+    ///
+    /// returns true if imported successfully
+    pub async fn request(
+        &self,
+        conn: &Connection,
+        header: &Header,
+        direction: Direction,
+    ) -> anyhow::Result<(bool, Header)> {
+        let mut recv = ce128::send(
+            conn,
+            match direction {
+                Direction::Ascending => ce128::Request {
                     hash: header.parent,
-                    direction: 0,
+                    direction: Direction::Ascending,
                     maximum: 1,
                 },
-            )
-            .await
-            .inspect_err(|e| {
-                tracing::warn!("failed to send request: {e}, switching to the next peer")
-            }) else {
-                continue;
-            };
+                Direction::Descending => ce128::Request {
+                    hash: header.parent,
+                    direction: Direction::Descending,
+                    maximum: 1,
+                },
+            },
+        )
+        .await?;
 
-            let block = Block::read(&mut recv).await?;
-            let hash = block.header.hash()?;
-            tracing::trace!(
-                "received block#{}@0x{}",
-                block.header.slot,
-                hex::encode(&hash[..3])
-            );
+        let block = Block::read(&mut recv).await?;
+        let hash = block.header.hash()?;
+        tracing::trace!(
+            "received block#{}@0x{}",
+            block.header.slot,
+            hex::encode(&hash[..3])
+        );
 
-            // check import the block
-            let mut chain = self.chain.write().await;
-            let imported = chain.import(&block).await?;
-            if !imported {
-                break;
-            }
-
-            // announce the block
+        // check import the block
+        let imported = self.import(&block).await?;
+        if imported {
             self.announce(block.header.clone()).await?;
         }
 
-        Ok(())
+        Ok((imported, block.header))
     }
 }

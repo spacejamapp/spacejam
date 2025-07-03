@@ -1,17 +1,17 @@
 //! Importer interface for the chain.
 
 use crate::{
-    chain::fork::{BlockWithDiff, Fork},
-    storage::{Branch, KVStorage, SyncStorage},
-    Chain, Config, Grid,
+    chain::fork::Fork,
+    storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
+    Chain, Config,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use score::{
     block::{Head, Header},
     state::key,
     Block,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 impl<C: Config> Chain<C> {
     /// Get the best head of the chain.
@@ -21,11 +21,13 @@ impl<C: Config> Chain<C> {
             return Ok(self.grandpa.handshake.head.clone());
         }
 
-        self.best_chain()?.best()
+        self.best_chain()
+            .context("forks are not empty, but no best chain found")?
+            .best()
     }
 
     /// Get the best chain
-    pub fn best_chain(&self) -> Result<&Fork<C::Storage>> {
+    pub fn best_chain(&self) -> Result<Fork<C::Storage>> {
         let mut count = 0;
         let mut best = None;
         for (hash, fork) in self.forks.iter() {
@@ -36,77 +38,25 @@ impl<C: Config> Chain<C> {
             }
         }
 
-        best.and_then(|hash| self.forks.get(hash))
+        best.and_then(|hash| self.forks.get(hash).cloned())
             .ok_or_else(|| anyhow::anyhow!("could not find the best chain"))
-    }
-
-    /// Try finalize the chain.
-    pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
-        let best = self.best()?;
-        if best.hash == self.grandpa.handshake.head.hash {
-            return Ok(vec![]);
-        }
-
-        // find the best chain
-        let Some(mut chain) = self.forks.get(&best.hash).cloned() else {
-            anyhow::bail!("could not find the best chain");
-        };
-
-        // nothing to finalize if the best fork chain is less than 5 blocks.
-        let Some(count) = chain.len().checked_sub(5) else {
-            return Ok(vec![]);
-        };
-
-        // truncate the series.
-        let timeslot = self.grandpa.handshake.head.slot;
-        let latest = timeslot + count as u32;
-        let epoch = latest / score::EPOCH_LENGTH;
-        chain.series.retain(|k, _| k < &epoch);
-
-        // apply the latest finalized blocks.
-        let mut blocks = Vec::new();
-        while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
-            let hash = block.header.hash()?;
-            blocks.push((block, commit.clone()));
-            self.state.commit_legacy(commit)?;
-            tracing::info!("finalized block#{}@0x{}", slot, hex::encode(&hash[..3]));
-
-            if slot == latest {
-                break;
-            }
-        }
-
-        // now we need to truncate all fork chains.
-        self.forks.retain(|head, _fork| {
-            if !chain.chain.iter().any(|h| h.hash == *head) {
-                return false;
-            }
-
-            true
-        });
-        self.forks.insert(chain.head()?.hash, chain);
-        Ok(blocks)
     }
 
     /// Create a new fork at the latest finalized block.
     pub fn fork(&mut self, block: &Block) -> Result<()> {
+        let head = self.grandpa.handshake.head.clone();
         let hash = block.header.hash()?;
         let branch = Branch::checkout(self.state.clone());
-        let mut fork = Fork::new(branch, self.grid.clone(), self.series.clone());
-        fork.import::<C::Vm>(block)?;
+        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        fork.import::<C::Vm>(&head, block)?;
         self.forks.insert(hash, fork);
         Ok(())
-    }
-
-    /// Get the grid of the best chain.
-    pub fn grid(&self) -> Result<Grid> {
-        self.best_chain().map(|fork| fork.grid.clone())
     }
 
     /// Import a new block to the chain.
     ///
     /// returns true if the block is imported.
-    pub async fn import(&mut self, block: &Block) -> anyhow::Result<bool> {
+    pub fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
         let head = block.header.head()?;
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
@@ -115,41 +65,57 @@ impl<C: Config> Chain<C> {
                 hex::encode(&head.hash[..6]),
                 self.grandpa.handshake.head.slot
             );
-            return Ok(false);
+            return Ok(Imported::Discarded);
         }
+
+        tracing::trace!(
+            "importing block#{}@0x{}, parent=0x{}",
+            head.slot,
+            hex::encode(&head.hash[..3]),
+            hex::encode(&block.header.parent[..3])
+        );
 
         // 1. the block is a child of the finalized
         if block.header.parent == self.grandpa.handshake.head.hash {
+            tracing::trace!("block is child of the finalized head");
             self.fork(block)?;
-            return Ok(true);
+            return Ok(Imported::Finalized);
         }
 
         // 2. the block is a child of a fork
         for (_, fork) in self.forks.iter_mut() {
             // 2.1. The block is a child of a fork.
-            if fork.best()?.hash == block.header.parent {
-                fork.import::<C::Vm>(block)?;
-                return Ok(true);
+            let best = fork.best()?;
+            if best.hash == block.header.parent {
+                tracing::trace!("block is a child of a fork");
+                fork.import::<C::Vm>(&best, block)?;
+                return Ok(Imported::Fork);
             }
 
-            for fhead in fork.chain.iter() {
-                // 2.2. The block exists.
-                if fhead.hash == head.hash {
-                    return Ok(false);
-                }
+            // 2.2 block is already imported
+            if fork.chain.iter().any(|h| h.hash == head.hash) {
+                tracing::trace!("block is already imported");
+                return Ok(Imported::Skipped);
+            }
 
-                // 2.3 the block is a fork of a fork
+            // 2.3 the block is a fork of a fork
+            for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
-                    let fork = fork.fork::<C::Vm>(block)?;
+                    tracing::trace!("block is on a fork of a fork");
+                    let fork = fork.fork::<C::Vm>(fhead, block)?;
                     self.forks.insert(head.hash, fork);
-                    return Ok(true);
+                    return Ok(Imported::ForkOfFork);
                 }
             }
         }
 
         // 3. we don't have the ancestors of this block
-        self.orphan.insert(head.hash, block.clone());
-        Ok(false)
+        tracing::trace!("block is an orphan");
+        self.orphan
+            .entry(head.slot)
+            .or_default()
+            .insert(head.hash, block.clone());
+        Ok(Imported::Orphan)
     }
 
     /// Import the genesis block
@@ -160,12 +126,11 @@ impl<C: Config> Chain<C> {
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
         let head = header.head()?;
-        self.state.finalize(&head)?;
 
         // 2. set the genesis state
         let mut kvs = Vec::new();
         for (key, value) in state {
-            kvs.push((key.to_vec(), value.clone()));
+            kvs.push((*key, value.clone()));
             match *key {
                 key::PREVIOUS_VALIDATORS => {
                     self.grid.prev = codec::decode(value)?;
@@ -180,8 +145,50 @@ impl<C: Config> Chain<C> {
             }
         }
 
-        self.state.commit((kvs, vec![]).into())?;
+        let root = self.state.root()?;
+        self.state.commit(Column::State, (kvs, vec![]).into())?;
+        self.state.finalize(
+            &Block {
+                header,
+                extrinsic: Default::default(),
+            },
+            head.hash,
+            root,
+        )?;
+
         self.grandpa.handshake.head = head;
         Ok(())
+    }
+}
+
+/// The imported status
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Imported {
+    /// The block is discarded
+    Discarded,
+    /// The block is skipped
+    Skipped,
+    /// A child of finalized block
+    Finalized,
+    /// A child of a fork
+    Fork,
+    /// A child of a fork of a fork
+    ForkOfFork,
+    /// An orphan block
+    Orphan,
+}
+
+impl Imported {
+    /// Returns true if the block is imported
+    pub fn imported(&self) -> bool {
+        matches!(
+            self,
+            Imported::Finalized | Imported::Fork | Imported::ForkOfFork
+        )
+    }
+
+    /// Returns true if the block is orphan
+    pub fn is_orphan(&self) -> bool {
+        *self == Imported::Orphan
     }
 }
