@@ -66,6 +66,7 @@ pub trait SyncStorage: KVStorage {
 
     /// Set the finalized head
     fn finalize(&self, block: &Block, hash: OpaqueHash, state_root: OpaqueHash) -> Result<()> {
+        tracing::info!("finalize: #{}", block.header.slot);
         self.sync_set(Key::Block(hash).key(), codec::encode(block)?)?;
         self.sync_set(Key::Descendant(block.header.parent).key(), hash)?;
         self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()?)?)?;
@@ -143,7 +144,9 @@ impl Key {
     pub fn key(&self) -> [u8; 31] {
         let mut key = [0; 31];
         match self {
-            Key::Finalized => {}
+            Key::Finalized => {
+                key = [255; 31];
+            }
             Key::BeefyRoot(hash) => {
                 key[0] = 0;
                 key[..31].copy_from_slice(&hash[..30]);

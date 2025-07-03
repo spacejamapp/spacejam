@@ -135,13 +135,20 @@ pub async fn recv<C: runtime::Config>(
                 .request(&conn, &requested, Direction::Descending)
                 .await?;
 
-            if imported || parent.slot <= finalized.slot {
+            if imported {
+                runtime.finalize().await?;
+                break;
+            }
+
+            if parent.slot <= finalized.slot {
+                tracing::trace!(
+                    "orphan block is a child of a fork which has header older than the finalized block"
+                );
                 break;
             }
 
             count += 1;
             requested = parent;
-
             if count > 10 {
                 panic!("orphan block unhandled, we've got 10 blocks diff in the chain");
             }

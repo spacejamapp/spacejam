@@ -89,21 +89,18 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     pub async fn connect(&self, conn: Connection) {
         let address = conn.address.clone();
 
-        // 1. establish the connection in the metrics
-        // self.metrics.conn.establish_connection(address.to_string());
-
-        // 2. spawn the connection
+        // 1. spawn the connection
         let runtime = self.clone();
         let cloned_conn = conn.clone();
         tokio::spawn(async move { runtime.serve(cloned_conn).await });
 
-        // 3. insert the connection into the manager
+        // 2. insert the connection into the manager
         self.pool
             .write()
             .await
             .insert(address.peer_id, conn.clone());
 
-        // 4. open the up0 stream if needed
+        // 3. open the up0 stream if needed
         if conn.outgoing {
             let grid = self.runtime.grid().await;
             let neighbours = grid.neighbours(self.validator.ed25519_public_key());
@@ -204,6 +201,10 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
     /// Spawn a task to handle events
     pub async fn spawn(&self) {
         let transport = self.transport.clone();
+        if let Err(e) = self.bootstrap().await {
+            tracing::error!("failed to sync with the bootnode: {e:?}");
+            panic!("stop here");
+        }
 
         loop {
             let Some(conn) = transport.accept().await else {

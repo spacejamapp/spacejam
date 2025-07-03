@@ -58,12 +58,17 @@ impl<C: Config> Chain<C> {
     /// returns true if the block is imported.
     pub fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
         let head = block.header.head()?;
-        if block.header.slot <= self.grandpa.handshake.head.slot {
+        if block.header.slot <= self.grandpa.handshake.head.slot
+            || self
+                .orphan
+                .get(&head.slot)
+                .and_then(|o| o.get(&head.hash))
+                .is_some()
+        {
             tracing::trace!(
-                "Discarding block#{}@0x{}... since it's before the finalized block={}",
+                "Discarding block#{}@0x{}...",
                 head.slot,
                 hex::encode(&head.hash[..6]),
-                self.grandpa.handshake.head.slot
             );
             return Ok(Imported::Discarded);
         }
@@ -75,16 +80,22 @@ impl<C: Config> Chain<C> {
             hex::encode(&block.header.parent[..3])
         );
 
-        // 1. the block is a child of the finalized
+        // 1 the block is already imported
+        if self.forks.iter().any(|(fhead, _fork)| fhead == &head.hash) {
+            tracing::trace!("block is already imported");
+            return Ok(Imported::Skipped);
+        }
+
+        // 2. the block is a child of the finalized
         if block.header.parent == self.grandpa.handshake.head.hash {
             tracing::trace!("block is child of the finalized head");
             self.fork(block)?;
             return Ok(Imported::Finalized);
         }
 
-        // 2. the block is a child of a fork
+        // 3. the block is a child of a fork
         for (_, fork) in self.forks.iter_mut() {
-            // 2.1. The block is a child of a fork.
+            // 3.1. The block is a child of a fork.
             let best = fork.best()?;
             if best.hash == block.header.parent {
                 tracing::trace!("block is a child of a fork");
@@ -92,13 +103,13 @@ impl<C: Config> Chain<C> {
                 return Ok(Imported::Fork);
             }
 
-            // 2.2 block is already imported
+            // 3.2 block is already imported
             if fork.chain.iter().any(|h| h.hash == head.hash) {
                 tracing::trace!("block is already imported");
                 return Ok(Imported::Skipped);
             }
 
-            // 2.3 the block is a fork of a fork
+            // 3.3 the block is a fork of a fork
             for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
                     tracing::trace!("block is on a fork of a fork");
@@ -109,7 +120,7 @@ impl<C: Config> Chain<C> {
             }
         }
 
-        // 3. we don't have the ancestors of this block
+        // 4. we don't have the ancestors of this block
         tracing::trace!("block is an orphan");
         self.orphan
             .entry(head.slot)
@@ -157,6 +168,26 @@ impl<C: Config> Chain<C> {
         )?;
 
         self.grandpa.handshake.head = head;
+        Ok(())
+    }
+
+    /// Resolve the orphan blocks
+    pub fn resolve_orphan(&mut self) -> anyhow::Result<()> {
+        let mut imported = vec![];
+        let orphan = self.orphan.clone();
+        for (slot, orphans) in orphan.iter() {
+            for (hash, block) in orphans.iter() {
+                if self.import(block)?.imported() {
+                    imported.push((slot, hash));
+                }
+            }
+        }
+
+        for (slot, hash) in imported {
+            self.orphan.entry(*slot).or_default().remove(hash);
+        }
+
+        self.orphan.retain(|_, orphans| !orphans.is_empty());
         Ok(())
     }
 }

@@ -60,7 +60,6 @@ impl<C: Config> Runtime<C> {
 
     /// Finalize the chain
     pub async fn finalize(&self) -> anyhow::Result<()> {
-        tracing::debug!("try acquiring the chain write lock for finalizing");
         for (block, diff) in self._chain.write().await.finalize()? {
             self.hook.on_diff(block.header.hash()?, diff).await?;
             self.hook.on_finalized_block(block).await?;

@@ -87,6 +87,7 @@ impl<C: Config> Chain<C> {
         let prev = self.state.previous_validators()?;
         let next = self.state.next_validators()?;
         let finalized = self.state.finalized()?;
+        tracing::info!("finalized: #{}", finalized.slot);
 
         self.grid.prev = prev;
         self.grid.curr = curr;

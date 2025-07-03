@@ -4,17 +4,6 @@ use network::Network;
 use runtime::Validator;
 use score::block;
 
-/// Logging the initial status of the node
-pub async fn init<C: runtime::Config>(runtime: &Network<C>) {
-    let chain = runtime.chain().await;
-    let handshake = chain.grandpa.handshake.clone();
-    tracing::info!(
-        "The latest finalized head #{}: 0x{}",
-        handshake.head.slot,
-        hex::encode(handshake.head.hash)
-    );
-}
-
 /// Logging the current status of the node
 pub async fn current<C: runtime::Config>(runtime: &Network<C>) {
     let grid = runtime.grid().await;
