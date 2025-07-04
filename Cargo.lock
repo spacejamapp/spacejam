@@ -3063,6 +3063,7 @@ dependencies = [
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejam-erasure",
  "spacejson",
  "tokio",
  "tracing",

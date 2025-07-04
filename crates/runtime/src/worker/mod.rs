@@ -2,9 +2,7 @@
 
 use crate::{Config, Runtime};
 use anyhow::Result;
-use score::service::{ReportedWorkPackage, WorkPackage, WorkReport};
-use score::OpaqueHash;
-use std::collections::HashMap;
+use score::service::{WorkPackage, WorkReport};
 
 mod authorize;
 mod compute;
@@ -19,15 +17,6 @@ pub struct Worker<'a, C: Config> {
 
     /// the computed work report
     report: WorkReport,
-}
-
-/// Segment root lookup result
-#[derive(Debug)]
-pub struct SegmentRootLookupResult {
-    /// Segment root lookup directory for work report
-    segment_root_lookup: Vec<ReportedWorkPackage>,
-    /// Hash map for quick segment root resolution
-    segment_lookup_map: HashMap<OpaqueHash, OpaqueHash>,
 }
 
 impl<'a, C: Config> Worker<'a, C> {

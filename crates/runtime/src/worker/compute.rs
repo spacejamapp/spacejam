@@ -1,9 +1,6 @@
 //! work report computation
 
-use crate::{
-    worker::{SegmentRootLookupResult, Worker},
-    Config,
-};
+use crate::{worker::Worker, Config};
 use anyhow::Result;
 use score::{
     service::{WorkPackage, WorkReport},
@@ -19,18 +16,12 @@ impl<'a, C: Config> Worker<'a, C> {
         mut accounts: R,
     ) -> Result<WorkReport> {
         self.authorize(&work, core_idx, &mut accounts)?;
-        let segment_lookup = self.build_segment_root_lookup(&work, &accounts)?;
-        self.refine(&work, &segment_lookup, &mut accounts)?;
-        self.report(work, core_idx, segment_lookup)
+        self.refine(&work, &mut accounts)?;
+        self.report(work, core_idx)
     }
 
     /// Phase 4: Build the final work report
-    fn report(
-        mut self,
-        work: WorkPackage,
-        core_idx: usize,
-        segment_lookup: SegmentRootLookupResult,
-    ) -> Result<WorkReport> {
+    fn report(mut self, work: WorkPackage, core_idx: usize) -> Result<WorkReport> {
         let encoded = codec::encode(&work)?;
         self.report.spec.hash = crypto::blake2b(&encoded);
         self.report.spec.erasure_root = self.erasure_root(&work)?;
@@ -38,7 +29,7 @@ impl<'a, C: Config> Worker<'a, C> {
         self.report.context = work.context;
         self.report.core_index = core_idx as CoreIndex;
         self.report.authorizer_hash = work.authorizer.hash();
-        self.report.lookup = segment_lookup.segment_root_lookup;
+        self.report.lookup = vec![];
         Ok(self.report)
     }
 
