@@ -1,6 +1,6 @@
 //! Block storage
 
-use crate::storage::{Column, KVStorage};
+use crate::storage::{ArchiveStorage, Column, KVStorage};
 use anyhow::Result;
 use score::{
     block::{Head, Header},
@@ -9,7 +9,7 @@ use score::{
 };
 
 /// Sync storage
-pub trait SyncStorage: KVStorage {
+pub trait SyncStorage: KVStorage + ArchiveStorage {
     /// Get the state from the storage
     fn sync_get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         self.get(Column::Sync, key)
@@ -82,6 +82,8 @@ pub trait SyncStorage: KVStorage {
                 codec::encode(&TicketsOrKeys::Tickets(tickets))?,
             )?;
         }
+
+        self.archive(&hash)?;
         Ok(())
     }
 

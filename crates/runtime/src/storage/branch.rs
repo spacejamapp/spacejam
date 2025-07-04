@@ -5,7 +5,7 @@ use crate::{
     Storage,
 };
 use anyhow::Result;
-use score::TrieKey;
+use score::{state::StateKeyLike, TrieKey};
 use std::{
     collections::{btree_map::IntoIter, BTreeMap},
     sync::{Arc, RwLock},
@@ -57,7 +57,7 @@ impl<S: Storage> KVStorage for Branch<S> {
             .read()
             .map_err(|_| anyhow::anyhow!("Failed to acquire commit lock"))?;
 
-        let trie_key = to_trie_key(key.as_ref());
+        let trie_key = key.as_ref().as_state_key();
 
         // Check if the key is marked for removal
         if commit.removal.contains(&trie_key) {
@@ -164,7 +164,7 @@ impl<I: Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> Iterator for BranchIter<I> 
             return Some(next);
         };
 
-        let trie_key = to_trie_key(&key);
+        let trie_key = key.as_state_key();
 
         // Skip if the key is marked for removal
         if self.removals.contains(&trie_key) {
@@ -179,12 +179,4 @@ impl<I: Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> Iterator for BranchIter<I> 
         // Return the state value if not in updates and not removed
         Some(Ok((key, value)))
     }
-}
-
-/// Convert a byte slice to a TrieKey
-fn to_trie_key(key: &[u8]) -> TrieKey {
-    let mut trie_key = [0u8; 31];
-    let len = key.len().min(31);
-    trie_key[..len].copy_from_slice(&key[..len]);
-    trie_key
 }
