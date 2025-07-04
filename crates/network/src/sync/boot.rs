@@ -1,12 +1,5 @@
 //! Bootstrap the network if bootnode is specified.
 
-use std::time::Duration;
-
-use anyhow::Context;
-use quinn::{Connection, VarInt};
-use runtime::{chain::Direction, Handshake};
-use score::Block;
-
 use crate::{
     stream::{
         ce128,
@@ -14,6 +7,11 @@ use crate::{
     },
     Network,
 };
+use anyhow::Context;
+use quinn::{Connection, VarInt};
+use runtime::{chain::Direction, Handshake};
+use score::Block;
+use std::time::Duration;
 
 impl<C: runtime::Config> Network<C> {
     /// Bootstrap the network if bootnode is specified.
@@ -62,9 +60,9 @@ impl<C: runtime::Config> Network<C> {
             current = hash;
             count += 1;
 
-            if count % 100 == 0 {
+            if count % 10 == 0 {
                 tracing::info!("synced {} blocks", count);
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_millis(500)).await;
             }
         }
 
