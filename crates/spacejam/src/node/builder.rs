@@ -13,23 +13,23 @@ use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 pub struct Builder {
     /// The genesis path
     #[cfg_attr(feature = "cmd", arg(long))]
-    chain: Option<PathBuf>,
+    pub chain: Option<PathBuf>,
 
     /// The data path
     #[cfg_attr(feature = "cmd", arg(short, long, default_value_t = default::data_path()))]
-    data_path: String,
+    pub data_path: String,
 
     /// Whether running in dev mode
     #[cfg_attr(feature = "cmd", arg(long))]
-    dev: bool,
+    pub dev: bool,
 
     /// Whether running in light mode
     #[cfg_attr(feature = "cmd", arg(long))]
-    light: bool,
+    pub light: bool,
 
     /// The network configuration
     #[cfg_attr(feature = "cmd", command(flatten))]
-    network: network::Config,
+    pub network: network::Config,
 
     /// Whether pruning the data directory before running
     #[cfg_attr(feature = "cmd", arg(short, long))]
@@ -37,11 +37,11 @@ pub struct Builder {
 
     /// The RPC address
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:6789"))]
-    rpc: SocketAddr,
+    pub rpc: SocketAddr,
 
     /// The seed of the validator
     #[cfg_attr(feature = "cmd", arg(long))]
-    validator: Option<String>,
+    pub validator: Option<String>,
 }
 
 impl Builder {
@@ -71,6 +71,51 @@ impl Builder {
         }
 
         let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
+        if self.dev {
+            return Ok(SpaceJam::Dev(spec::Dev {
+                runtime,
+                rpc: self.rpc,
+            }));
+        }
+
+        let network = Network::new(self.network.clone(), Arc::new(runtime)).await?;
+        if self.light {
+            return Ok(SpaceJam::Light(spec::Light {
+                network,
+                rpc: self.rpc,
+            }));
+        }
+
+        Ok(SpaceJam::Validating(spec::Validating(network)))
+    }
+
+    /// Build the node
+    pub async fn build_with_hook<C: spec::RuntimeSpec>(
+        mut self,
+        hook: C::Hook,
+    ) -> anyhow::Result<SpaceJam<C>> {
+        let genesis = if let Some(genesis) = self.chain {
+            serde_json::from_slice(fs::read(&genesis)?.as_slice())?
+        } else {
+            chain::Spec::dev()
+        }
+        .parse()?;
+
+        // apply config from the spec file
+        //
+        // TODO: handle bootnode and peer id
+        self.network.genesis = genesis.genesis_header.hash()?;
+
+        // prepare the runtime
+        let data = {
+            let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
+            if !data.exists() {
+                fs::create_dir_all(&data)?;
+            }
+            data
+        };
+
+        let runtime = C::runtime_with_hook(self.validator.as_deref(), data, genesis, hook).await?;
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
