@@ -87,7 +87,12 @@ impl<C: Config> Chain<C> {
         let prev = self.state.previous_validators()?;
         let next = self.state.next_validators()?;
         let finalized = self.state.finalized()?;
-        tracing::info!("finalized: #{}", finalized.slot);
+        let epoch = finalized.slot / score::EPOCH_LENGTH;
+        for epoch in epoch..=epoch + 1 {
+            if let Ok(series) = self.state.series(epoch) {
+                self.series.insert(epoch, series);
+            }
+        }
 
         self.grid.prev = prev;
         self.grid.curr = curr;

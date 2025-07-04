@@ -58,13 +58,7 @@ impl<C: Config> Chain<C> {
     /// returns true if the block is imported.
     pub fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
         let head = block.header.head()?;
-        if block.header.slot <= self.grandpa.handshake.head.slot
-            || self
-                .orphan
-                .get(&head.slot)
-                .and_then(|o| o.get(&head.hash))
-                .is_some()
-        {
+        if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
                 "Discarding block#{}@0x{}...",
                 head.slot,

@@ -98,7 +98,7 @@ impl<C: Config> Chain<C> {
                 }
             }
 
-            tracing::debug!("{} forks remaining after finalization", self.forks.len());
+            tracing::trace!("{} forks remaining after finalization", self.forks.len());
         }
         Ok(())
     }

@@ -4,6 +4,7 @@ use crate::storage::{Column, KVStorage};
 use anyhow::Result;
 use score::{
     block::{Head, Header},
+    extrinsic::TicketsOrKeys,
     Block, OpaqueHash,
 };
 
@@ -65,14 +66,22 @@ pub trait SyncStorage: KVStorage {
     }
 
     /// Set the finalized head
+    ///
+    /// FIXME: use a commit instead.
     fn finalize(&self, block: &Block, hash: OpaqueHash, state_root: OpaqueHash) -> Result<()> {
-        tracing::info!("finalize: #{}", block.header.slot);
         self.sync_set(Key::Block(hash).key(), codec::encode(block)?)?;
         self.sync_set(Key::Descendant(block.header.parent).key(), hash)?;
         self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()?)?)?;
         self.sync_set(Key::Header(hash).key(), codec::encode(&block.header)?)?;
         self.sync_set(Key::Parent(hash).key(), block.header.parent)?;
         self.sync_set(Key::StateRoot(hash).key(), state_root)?;
+        if let Some(tickets) = block.header.tickets_mark {
+            let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
+            self.sync_set(
+                Key::Safrole(epoch).key(),
+                codec::encode(&TicketsOrKeys::Tickets(tickets))?,
+            )?;
+        }
         Ok(())
     }
 
@@ -91,6 +100,14 @@ pub trait SyncStorage: KVStorage {
         let value = self
             .sync_get(key)?
             .ok_or(anyhow::anyhow!("Parent not found"))?;
+        Ok(codec::decode(value.as_ref())?)
+    }
+
+    fn series(&self, epoch: u32) -> Result<TicketsOrKeys> {
+        let key = Key::Safrole(epoch).key();
+        let value = self
+            .sync_get(key)?
+            .ok_or(anyhow::anyhow!("Series not found"))?;
         Ok(codec::decode(value.as_ref())?)
     }
 
@@ -135,6 +152,9 @@ pub enum Key {
     /// The parent of the given block hash.
     Parent(OpaqueHash),
 
+    /// The safrole keys
+    Safrole(u32),
+
     /// The state root of the given block hash.
     StateRoot(OpaqueHash),
 }
@@ -163,12 +183,16 @@ impl Key {
                 key[0] = 3;
                 key[1..].copy_from_slice(&hash[..30]);
             }
-            Key::StateRoot(hash) => {
+            Key::Safrole(epoch) => {
                 key[0] = 4;
+                key[1..5].copy_from_slice(&epoch.to_le_bytes());
+            }
+            Key::StateRoot(hash) => {
+                key[0] = 5;
                 key[1..].copy_from_slice(&hash[..30]);
             }
             Key::Parent(hash) => {
-                key[0] = 5;
+                key[0] = 6;
                 key[1..].copy_from_slice(&hash[..30]);
             }
         }
