@@ -35,6 +35,11 @@ pub trait Argument<R: Accounts> {
     fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
         crate::bail!("not a refine")
     }
+
+    /// returns the arguments of the invocation
+    fn args(&self) -> &[u8] {
+        &[]
+    }
 }
 
 /// Input data of general host functions
@@ -93,3 +98,5 @@ impl<R: Accounts> Argument<R> for General<R> {
         Ok(())
     }
 }
+
+impl<R: Accounts> Argument<R> for () {}

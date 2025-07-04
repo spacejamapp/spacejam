@@ -1,5 +1,7 @@
 //! API for the invocation
 
+use std::collections::BTreeMap;
+
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
@@ -10,7 +12,7 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{WorkExecResult, WorkPackage},
+    service::{ServiceAccount, WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -138,21 +140,17 @@ pub trait Invocation {
             state,
             data: _,
         } = Self::invoke(code, pc, gas, registers, memory);
-
-        // if error occurs, return the state WITH THE PRESERVED INPUT DATA
         let Reason::HostCall(call) = reason else {
             return state.stepped(reason).with(input);
         };
 
+        // FIXME: refactor with loop
         let stepped = host::call::<R, _, _>(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
                 .stepped(Reason::Fault { page })
                 .with(stepped.data),
-            // FIXME: this recursive call should be optimized in production.
-            //
-            // mb create a new call_inner function and set up a loop for it.
             Reason::Continue | Reason::HostCall(_) => Self::call(
                 code,
                 stepped.state.pc,
@@ -213,12 +211,53 @@ pub trait Invocation {
     ///
     /// Defined per graypaper (B.1)
     fn is_authorized(
-        // (p) The work package
-        _package: WorkPackage,
+        // (p_c) the authorization code blob
+        code: &[u8],
         // (i) The core index
-        _core_idx: usize,
+        core_idx: u16,
     ) -> Executed {
-        Executed::new(Vec::new(), WorkExecResult::Panic, 0)
+        // Check if authorization code exists (BAD if none)
+        if code.is_empty() {
+            tracing::warn!("Authorization code is empty");
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        }
+
+        // Check authorization code size limit (W_A - BIG if too big)
+        if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
+            tracing::warn!(
+                "Authorization code too big: {} bytes > {} bytes limit",
+                code.len(),
+                score::MAX_IS_AUTHORIZED_CODE_SIZE as usize
+            );
+            return Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0);
+        }
+
+        // Prepare arguments
+        //
+        // FIXME: still need to handle fetch call, what kind of context shall we
+        // pass for this?
+        let args = codec::encode(&core_idx).unwrap_or_default();
+        let result = Self::argument::<BTreeMap<u32, ServiceAccount>, ()>(
+            &code,
+            0,
+            score::GAS_IS_AUTHORIZED,
+            &args,
+            (),
+        );
+
+        // Convert PVM result to WorkExecResult
+        let exec = match result.reason {
+            Reason::Halt => WorkExecResult::Ok(result.output),
+            Reason::OOG => WorkExecResult::OutOfGas,
+            Reason::Panic(_) => WorkExecResult::Panic,
+            _ => WorkExecResult::BadCode,
+        };
+
+        Executed::new(
+            Vec::new(),
+            exec,
+            score::GAS_IS_AUTHORIZED.saturating_sub(result.gas),
+        )
     }
 
     /// (ΨR): Refine invocation
