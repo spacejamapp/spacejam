@@ -12,6 +12,7 @@ pub use {
         WorkReportJson,
     },
     result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
+    validate::PackageValidation,
     work::{
         WorkItem, WorkItemJson, WorkPackage, WorkPackageJson, WorkPackageSpec, WorkPackageSpecJson,
     },
@@ -21,6 +22,7 @@ mod account;
 mod refine;
 mod report;
 mod result;
+mod validate;
 mod work;
 
 /// The ready queue (θ)

@@ -1,7 +1,8 @@
 use crate::{
-    service::{RefineContext, RefineContextJson},
+    service::{PackageValidation, RefineContext, RefineContextJson},
     ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -50,35 +51,50 @@ pub struct WorkPackage {
     pub items: Vec<WorkItem>,
 }
 
+impl WorkPackage {
+    /// Validate the work package according to Gray Paper specifications
+    pub fn validate(&self) -> Result<PackageValidation> {
+        let validation = PackageValidation::new(self);
+        validation.validate()?;
+        Ok(validation)
+    }
+}
+
 /// Represents an individual work item within a work package.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkItem {
-    /// The service
+    /// (s) The service
     pub service: ServiceId,
 
-    /// The code hash
+    /// (h) The code hash
     #[json(hex)]
     pub code_hash: OpaqueHash,
 
-    /// The payload
+    /// (y) The payload
     #[json(hex)]
     pub payload: Vec<u8>,
 
-    /// The refine gas limit
+    /// (g) The refine gas limit
     pub refine_gas_limit: Gas,
 
-    /// The accumulate gas limit
+    /// (a) The accumulate gas limit
     pub accumulate_gas_limit: Gas,
 
-    /// The import segments
+    /// (i) The import segments
+    ///
+    /// MAX=W_M=3072
     #[json(nested)]
     pub import_segments: Vec<ImportSpec>,
 
-    /// The extrinsic
+    /// (x) The extrinsic
+    ///
+    /// MAX=T=128
     #[json(nested)]
     pub extrinsic: Vec<ExtrinsicSpec>,
 
-    /// The export count
+    /// (e) The export count
+    ///
+    /// MAX=W_X=3072
     pub export_count: u16,
 }
 
