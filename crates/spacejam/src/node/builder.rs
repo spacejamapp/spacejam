@@ -31,6 +31,10 @@ pub struct Builder {
     #[cfg_attr(feature = "cmd", command(flatten))]
     network: network::Config,
 
+    /// Whether pruning the data directory before running
+    #[cfg_attr(feature = "cmd", arg(short, long))]
+    prune: bool,
+
     /// The RPC address
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:6789"))]
     rpc: SocketAddr,
@@ -56,13 +60,15 @@ impl Builder {
         self.network.genesis = genesis.genesis_header.hash()?;
 
         // prepare the runtime
-        let data = {
-            let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
-            if !data.exists() {
-                fs::create_dir_all(&data)?;
-            }
-            data
-        };
+        let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
+        if self.prune {
+            fs::remove_dir_all(&data)?;
+        }
+
+        // create the data directory if it doesn't exist
+        if !data.exists() {
+            fs::create_dir_all(&data)?;
+        }
 
         let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
         if self.dev {
@@ -91,6 +97,7 @@ impl Default for Builder {
             data_path: default::data_path(),
             rpc: SocketAddr::from(([0, 0, 0, 0], 6789)),
             network: network::Config::default(),
+            prune: false,
             validator: None,
             dev: false,
             light: false,

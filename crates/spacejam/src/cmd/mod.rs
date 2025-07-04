@@ -59,7 +59,6 @@ impl App {
         }
 
         subscriber.init();
-
         let Some(cmd) = app.cmd else {
             return;
         };
