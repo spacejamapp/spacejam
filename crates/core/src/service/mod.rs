@@ -14,7 +14,8 @@ pub use {
     result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
     validate::PackageValidation,
     work::{
-        WorkItem, WorkItemJson, WorkPackage, WorkPackageJson, WorkPackageSpec, WorkPackageSpecJson,
+        Authorizer, WorkItem, WorkItemJson, WorkPackage, WorkPackageJson, WorkPackageSpec,
+        WorkPackageSpecJson,
     },
 };
 

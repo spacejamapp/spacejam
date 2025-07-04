@@ -131,3 +131,12 @@ pub struct Authorizer {
     #[json(hex)]
     pub params: Vec<u8>,
 }
+
+impl Authorizer {
+    /// Compute the authorizer hash
+    ///
+    /// FIXME: shall we hash it after encoding?
+    pub fn hash(&self) -> OpaqueHash {
+        crypto::blake2b(&[self.code_hash.as_ref(), &self.params].concat())
+    }
+}

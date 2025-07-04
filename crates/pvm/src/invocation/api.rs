@@ -12,7 +12,7 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    service::{ServiceAccount, WorkExecResult, WorkItem},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -238,7 +238,7 @@ pub trait Invocation {
         // pass for this?
         let args = codec::encode(&core_idx).unwrap_or_default();
         let result = Self::argument::<BTreeMap<u32, ServiceAccount>, ()>(
-            &code,
+            code,
             0,
             score::GAS_IS_AUTHORIZED,
             &args,
@@ -267,13 +267,13 @@ pub trait Invocation {
         // (i) the index of the work item to refine
         _work_idx: usize,
         // (p) the work package
-        _package: WorkPackage,
+        _item: &WorkItem,
         // (o) the authorizer output
-        _output: Vec<u8>,
+        _output: &[u8],
         // (i) import segments
-        _imports: Vec<Vec<[u8; score::SEGMENT_SIZE as usize]>>,
+        _imports: &[[u8; score::SEGMENT_SIZE as usize]],
         // (ς) export segment offset
-        _export_offset: usize,
+        _export_offset: u16,
     ) -> Refined {
         Refined::new(
             Executed::new(Vec::new(), WorkExecResult::Panic, 0),

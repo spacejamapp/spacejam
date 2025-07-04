@@ -4,7 +4,6 @@ use pvm::Pvm;
 use score::{extrinsic::TicketEnvelope, BandersnatchPublic};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-
 pub use {
     account::{Account, Accounts},
     chain::{Chain, Grid, Lookup},
@@ -23,7 +22,7 @@ mod pool;
 pub mod storage;
 pub mod tx;
 mod validator;
-mod work;
+mod worker;
 
 /// Runtime of SpaceJam
 #[derive(Clone)]
