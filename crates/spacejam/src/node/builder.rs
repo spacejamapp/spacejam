@@ -1,7 +1,7 @@
 //! Configuration for the spacejam node
 
 use crate::{
-    chain,
+    chain::{ParsedSpec, Spec},
     node::{spec, SpaceJam},
 };
 use network::Network;
@@ -45,77 +45,60 @@ pub struct Builder {
 }
 
 impl Builder {
-    /// Build the node
-    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
-        let genesis = if let Some(genesis) = self.chain {
-            serde_json::from_slice(fs::read(&genesis)?.as_slice())?
+    fn genesis(&mut self) -> anyhow::Result<ParsedSpec> {
+        let parsed_genesis = if let Some(genesis) = &self.chain {
+            serde_json::from_slice(fs::read(genesis)?.as_slice())?
         } else {
-            chain::Spec::dev()
+            Spec::dev()
         }
         .parse()?;
 
         // apply config from the spec file
         //
         // TODO: handle bootnode and peer id
-        self.network.genesis = genesis.genesis_header.hash()?;
+        self.network.genesis = parsed_genesis.genesis_header.hash()?;
 
-        // prepare the runtime
-        let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
-        if self.prune {
-            fs::remove_dir_all(&data)?;
-        }
+        Ok(parsed_genesis)
+    }
 
-        // create the data directory if it doesn't exist
+    fn data(&self, genesis: &ParsedSpec) -> anyhow::Result<PathBuf> {
+        let data = PathBuf::from(&self.data_path).join(genesis.id.to_string());
         if !data.exists() {
             fs::create_dir_all(&data)?;
         }
-
-        let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
-        if self.dev {
-            return Ok(SpaceJam::Dev(spec::Dev {
-                runtime,
-                rpc: self.rpc,
-            }));
-        }
-
-        let network = Network::new(self.network.clone(), Arc::new(runtime)).await?;
-        if self.light {
-            return Ok(SpaceJam::Light(spec::Light {
-                network,
-                rpc: self.rpc,
-            }));
-        }
-
-        Ok(SpaceJam::Validating(spec::Validating(network)))
+        Ok(data)
     }
 
     /// Build the node
+    pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
+        let genesis = self.genesis()?;
+        let data = self.data(&genesis)?;
+
+        // prepare the runtime
+        let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
+
+        self.build_with_runtime(runtime).await
+    }
+
+    /// Build the node with hook
     pub async fn build_with_hook<C: spec::RuntimeSpec>(
         mut self,
         hook: C::Hook,
     ) -> anyhow::Result<SpaceJam<C>> {
-        let genesis = if let Some(genesis) = self.chain {
-            serde_json::from_slice(fs::read(&genesis)?.as_slice())?
-        } else {
-            chain::Spec::dev()
-        }
-        .parse()?;
-
-        // apply config from the spec file
-        //
-        // TODO: handle bootnode and peer id
-        self.network.genesis = genesis.genesis_header.hash()?;
+        let genesis = self.genesis()?;
+        let data = self.data(&genesis)?;
 
         // prepare the runtime
-        let data = {
-            let data = PathBuf::from(self.data_path).join(genesis.id.to_string());
-            if !data.exists() {
-                fs::create_dir_all(&data)?;
-            }
-            data
-        };
-
         let runtime = C::runtime_with_hook(self.validator.as_deref(), data, genesis, hook).await?;
+
+        self.build_with_runtime(runtime).await
+    }
+
+    /// Build the node with hook
+    pub async fn build_with_runtime<C: spec::RuntimeSpec>(
+        &self,
+        runtime: runtime::Runtime<C>,
+    ) -> anyhow::Result<SpaceJam<C>> {
         if self.dev {
             return Ok(SpaceJam::Dev(spec::Dev {
                 runtime,
