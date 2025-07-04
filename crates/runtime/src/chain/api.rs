@@ -106,11 +106,9 @@ impl<C: Config> Runtime<C> {
             let head = block.header.head()?;
             let mut handshake = chain.grandpa.handshake.clone();
             drop(chain);
-            tracing::trace!("adding leaf to the handshake");
             self.add_leaf_to(head, &block.header, &mut handshake)
                 .await?;
             self.chain_mut().await.grandpa.handshake = handshake;
-            tracing::trace!("leaf added");
         }
 
         Ok(!imported.is_orphan())

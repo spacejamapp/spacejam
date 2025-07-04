@@ -5,12 +5,22 @@
 use crate::node::spec::NodeSpec;
 use network::Network;
 use offchain::Offchain;
+use score::block;
 use std::net::SocketAddr;
 
 /// Importing and finalizing blocks with grandpa with JSON-RPC provided
 pub struct Light<C: runtime::Config> {
     pub(crate) network: Network<C>,
     pub(crate) rpc: SocketAddr,
+}
+
+impl<C: runtime::Config> Light<C> {
+    async fn sync(runtime: &Network<C>) {
+        loop {
+            tokio::time::sleep(block::next_slot()).await;
+            runtime.dial_validators().await;
+        }
+    }
 }
 
 impl<C: runtime::Config> NodeSpec for Light<C> {
@@ -20,6 +30,7 @@ impl<C: runtime::Config> NodeSpec for Light<C> {
         let offchain = Offchain::new(runtime.runtime.clone());
 
         tokio::select! {
+            _ = Self::sync(&runtime) => {}
             _ = offchain.start(self.rpc) => {}
             _ = runtime.spawn() => {}
             _ = tokio::signal::ctrl_c() => {}

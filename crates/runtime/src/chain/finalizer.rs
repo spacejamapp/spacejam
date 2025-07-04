@@ -13,6 +13,7 @@ impl<C: Config> Chain<C> {
     /// Try finalize the chain.
     pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
         tracing::trace!("finalizing the chain...");
+        self.resolve_orphan()?;
         let best = self.best()?;
         tracing::trace!("best: #{}@0x{}", best.slot, hex::encode(&best.hash[..3]));
         if best.hash == self.grandpa.handshake.head.hash {
@@ -97,7 +98,7 @@ impl<C: Config> Chain<C> {
                 }
             }
 
-            tracing::debug!("{} forks remaining after finalization", self.forks.len());
+            tracing::trace!("{} forks remaining after finalization", self.forks.len());
         }
         Ok(())
     }

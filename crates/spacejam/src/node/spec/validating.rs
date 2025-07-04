@@ -11,7 +11,6 @@ impl<C: runtime::Config> Validating<C> {
     /// Authoring service
     #[tracing::instrument(skip_all, name = "author")]
     async fn author(runtime: &Network<C>) {
-        log::init(runtime).await;
         let mut author = runtime.author();
 
         loop {
@@ -60,7 +59,7 @@ impl<C: runtime::Config> Validating<C> {
                     tracing::error!("Failed to announce block: {:?}", e);
                 }
 
-                tracing::debug!("try acquiring the chain write lock for importing authored block");
+                tracing::trace!("try acquiring the chain write lock for importing authored block");
                 if let Err(e) = runtime.chain_mut().await.import(&block) {
                     tracing::error!("Failed to import block {e:?}")
                 }

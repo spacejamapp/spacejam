@@ -39,7 +39,7 @@ pub struct Runtime<C: Config> {
     pub hook: C::Hook,
 
     /// The extrinsic pool of SpaceJam
-    pub expool: Pool,
+    pub expool: Arc<Mutex<Pool>>,
 
     /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
@@ -60,7 +60,6 @@ impl<C: Config> Runtime<C> {
 
     /// Finalize the chain
     pub async fn finalize(&self) -> anyhow::Result<()> {
-        tracing::debug!("try acquiring the chain write lock for finalizing");
         for (block, diff) in self._chain.write().await.finalize()? {
             self.hook.on_diff(block.header.hash()?, diff).await?;
             self.hook.on_finalized_block(block).await?;
