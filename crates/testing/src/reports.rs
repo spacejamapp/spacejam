@@ -63,8 +63,8 @@ mod types {
         block::{BlockInfo, BlockInfoJson},
         safrole::{ValidatorDataJson, ValidatorsData},
         service::{
-            AvailabilityAssignmentJson, AvailabilityAssignments, GasLimit, ServiceAccount,
-            ServiceInfo, ServiceInfoJson,
+            AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
+            ServiceInfoJson,
         },
         Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, CORES_COUNT,
     };
@@ -124,10 +124,8 @@ mod types {
                 state.accounts.entry(id).or_default().code = data.service.code;
                 state.accounts.entry(id).and_modify(|account| {
                     account.balance = data.service.balance;
-                    account.gas = GasLimit {
-                        accumulate: data.service.accumulate,
-                        transfer: data.service.transfer,
-                    };
+                    account.accumulate_gas = data.service.accumulate;
+                    account.transfer_gas = data.service.transfer;
                 });
             }
         }
@@ -241,10 +239,8 @@ mod types {
                 lookup,
                 code: data.service.code,
                 balance: data.service.balance,
-                gas: GasLimit {
-                    accumulate: data.service.accumulate,
-                    transfer: data.service.transfer,
-                },
+                accumulate_gas: data.service.accumulate,
+                transfer_gas: data.service.transfer,
             }
         }
     }

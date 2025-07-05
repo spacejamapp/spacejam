@@ -2,9 +2,10 @@
 
 use crate::{storage::Commit, Storage};
 use anyhow::Result;
+use pvm::Gas;
 pub use registry::Accounts;
 use score::{
-    service::{GasLimit, ServiceAccount, ServiceInfo},
+    service::{ServiceAccount, ServiceInfo},
     state::account,
     OpaqueHash, TrieKey,
 };
@@ -98,12 +99,20 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.code = code;
     }
 
-    fn gas(&self) -> GasLimit {
-        self.account.gas.clone()
+    fn accumulate_gas(&self) -> Gas {
+        self.account.accumulate_gas
     }
 
-    fn set_gas(&mut self, gas: GasLimit) {
-        self.account.gas = gas;
+    fn set_accumulate_gas(&mut self, gas: Gas) {
+        self.account.accumulate_gas = gas;
+    }
+
+    fn transfer_gas(&self) -> Gas {
+        self.account.transfer_gas
+    }
+
+    fn set_transfer_gas(&mut self, gas: Gas) {
+        self.account.transfer_gas = gas;
     }
 
     fn threshold(&self) -> u64 {
@@ -203,8 +212,8 @@ impl<S: Storage> score::Account for Account<S> {
             code: self.account.code,
             balance: self.account.balance,
             threshold: self.account.threshold(),
-            transfer: self.account.gas.transfer,
-            accumulate: self.account.gas.accumulate,
+            transfer: self.account.transfer_gas,
+            accumulate: self.account.accumulate_gas,
             total: self.account.total(),
             items: self.account.items(),
         }

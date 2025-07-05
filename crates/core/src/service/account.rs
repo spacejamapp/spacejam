@@ -1,10 +1,6 @@
 //! Service account types
 
-use crate::{
-    service::{GasLimit, GasLimitJson},
-    state::account,
-    Gas, OpaqueHash, TimeSlot, TrieKey,
-};
+use crate::{service::GasLimit, state::account, Gas, OpaqueHash, TimeSlot, TrieKey};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -28,10 +24,11 @@ pub struct ServiceAccount {
     /// The balance of the service account (b)
     pub balance: u64,
 
-    /// The gas limits of the service account (g) and (m)
-    #[serde(flatten)]
-    #[json(nested)]
-    pub gas: GasLimit,
+    /// The accumulate gas of the service account (g)
+    pub accumulate_gas: Gas,
+
+    /// The transfer gas of the service account (m)
+    pub transfer_gas: Gas,
 }
 
 impl ServiceAccount {
@@ -43,7 +40,8 @@ impl ServiceAccount {
             lookup: BTreeMap::new(),
             code: [0u8; 32],
             balance: crate::BALANCE_PER_SERVICE,
-            gas,
+            accumulate_gas: gas.accumulate,
+            transfer_gas: gas.transfer,
         }
     }
 
@@ -81,8 +79,8 @@ impl ServiceAccount {
             code: self.code,
             balance: self.balance,
             threshold: self.threshold(),
-            accumulate: self.gas.accumulate,
-            transfer: self.gas.transfer,
+            accumulate: self.accumulate_gas,
+            transfer: self.transfer_gas,
             total,
             items,
         }
@@ -91,8 +89,8 @@ impl ServiceAccount {
     /// Get the data of the service account
     pub fn data(&self) -> ServiceData {
         ServiceData {
-            accumulate: self.gas.accumulate,
-            transfer: self.gas.transfer,
+            accumulate: self.accumulate_gas,
+            transfer: self.transfer_gas,
             total: self.total(),
             items: self.items(),
             code: self.code,

@@ -1,8 +1,8 @@
 //! Account abstraction
 
 use crate::{
-    service::{GasLimit, ServiceAccount, ServiceInfo},
-    OpaqueHash, TrieKey,
+    service::{ServiceAccount, ServiceInfo},
+    Gas, OpaqueHash, TrieKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,11 +35,17 @@ pub trait Account: Clone {
     /// Set the code of the account
     fn set_code(&mut self, code: OpaqueHash);
 
-    /// Get the gas of the account
-    fn gas(&self) -> GasLimit;
+    /// Get the accumulate gas of the account
+    fn accumulate_gas(&self) -> Gas;
 
-    /// Set the gas of the account
-    fn set_gas(&mut self, gas: GasLimit);
+    /// Set the accumulate gas of the account
+    fn set_accumulate_gas(&mut self, gas: Gas);
+
+    /// Get the transfer gas of the account
+    fn transfer_gas(&self) -> Gas;
+
+    /// Set the transfer gas of the account
+    fn set_transfer_gas(&mut self, gas: Gas);
 
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
@@ -127,12 +133,20 @@ impl Account for ServiceAccount {
         self.code = code;
     }
 
-    fn gas(&self) -> GasLimit {
-        self.gas.clone()
+    fn accumulate_gas(&self) -> Gas {
+        self.accumulate_gas
     }
 
-    fn set_gas(&mut self, gas: GasLimit) {
-        self.gas = gas;
+    fn set_accumulate_gas(&mut self, gas: Gas) {
+        self.accumulate_gas = gas;
+    }
+
+    fn transfer_gas(&self) -> Gas {
+        self.transfer_gas
+    }
+
+    fn set_transfer_gas(&mut self, gas: Gas) {
+        self.transfer_gas = gas;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {

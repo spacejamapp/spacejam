@@ -132,6 +132,7 @@ pub struct Authorizer {
     pub params: Vec<u8>,
 }
 
+#[cfg(feature = "crypto")]
 impl Authorizer {
     /// Compute the authorizer hash
     ///

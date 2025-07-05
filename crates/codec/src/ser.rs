@@ -315,11 +315,12 @@ impl ser::SerializeMap for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, _key: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        key.serialize(&mut **self)
+        Ok(())
+        // key.serialize(&mut **self)
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<()>
