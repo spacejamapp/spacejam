@@ -10,8 +10,10 @@ name = "builder"
 
 [dependencies]
 anyhow.workspace = true
-runtime.workspace = true
-score.workspace = true
-pvm.workspace = true
 codec.workspace = true
 crypto.workspace = true
+runtime.workspace = true
+score.workspace = true
+tokio.workspace = true
+network.workspace = true
+pvm.workspace = true

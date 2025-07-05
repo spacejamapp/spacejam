@@ -9,7 +9,7 @@ use score::{
     Account, Accounts,
 };
 
-impl<'a, C: Config> Worker<'a, C> {
+impl<C: Config> Worker<C> {
     /// Phase 1: Process authorization (validation + Is-Authorized invocation)
     pub fn authorize<R: Accounts>(
         &mut self,

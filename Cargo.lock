@@ -2927,7 +2927,9 @@ dependencies = [
  "pvm",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejam-network",
  "spacejam-runtime",
+ "tokio",
 ]
 
 [[package]]

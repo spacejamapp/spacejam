@@ -1,9 +1,9 @@
 //! Service account types
 
-use crate::{service::GasLimit, state::account, Gas, OpaqueHash, TimeSlot, TrieKey};
+use crate::{service::GasLimit, Gas, OpaqueHash, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
@@ -97,28 +97,6 @@ impl ServiceAccount {
             balance: self.balance,
         }
     }
-
-    /// Get all keys of the service account
-    #[cfg(feature = "crypto")]
-    pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = TrieKey>> {
-        let mut keys = BTreeSet::new();
-        keys.insert(account::info(index));
-        for (key, _) in self.storage.iter() {
-            keys.insert(key.to_vec().try_into().map_err(|_| {
-                anyhow::anyhow!(
-                    "invalid storage key, expected 31 bytes got {} bytes",
-                    key.len()
-                )
-            })?);
-        }
-        for (key, _) in self.preimage.iter() {
-            keys.insert(account::preimage(index, *key));
-        }
-        for ((key, lookup), _) in self.lookup.iter() {
-            keys.insert(account::lookup(index, *lookup, *key));
-        }
-        Ok(keys.into_iter())
-    }
 }
 
 /// Service info for pvm execution
@@ -189,6 +167,36 @@ impl From<ServiceInfo> for ServiceData {
             transfer: state.transfer,
             total: state.total,
             items: state.items,
+        }
+    }
+}
+
+#[cfg(feature = "crypto")]
+mod crypto_impl {
+    use super::*;
+    use crate::{state::account, TrieKey};
+    use std::collections::BTreeSet;
+
+    impl ServiceAccount {
+        /// Get all keys of the service account
+        pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = TrieKey>> {
+            let mut keys = BTreeSet::new();
+            keys.insert(account::info(index));
+            for (key, _) in self.storage.iter() {
+                keys.insert(key.to_vec().try_into().map_err(|_| {
+                    anyhow::anyhow!(
+                        "invalid storage key, expected 31 bytes got {} bytes",
+                        key.len()
+                    )
+                })?);
+            }
+            for (key, _) in self.preimage.iter() {
+                keys.insert(account::preimage(index, *key));
+            }
+            for ((key, lookup), _) in self.lookup.iter() {
+                keys.insert(account::lookup(index, *lookup, *key));
+            }
+            Ok(keys.into_iter())
         }
     }
 }

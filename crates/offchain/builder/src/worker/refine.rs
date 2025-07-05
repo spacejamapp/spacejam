@@ -9,7 +9,7 @@ use score::{
     Accounts, TimeSlot,
 };
 
-impl<'a, C: Config> Worker<'a, C> {
+impl<C: Config> Worker<C> {
     /// Process all work items with Refine invocations
     pub fn refine<R: Accounts>(&mut self, work: &WorkPackage, accounts: &mut R) -> Result<()> {
         let mut work_results = Vec::new();

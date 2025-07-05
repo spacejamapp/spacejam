@@ -9,7 +9,7 @@ use anyhow::Result;
 use runtime::Config;
 use score::{service::WorkItem, OpaqueHash};
 
-impl<'a, C: Config> Worker<'a, C> {
+impl<C: Config> Worker<C> {
     /// Import segments for a work item using erasure coding reconstruction
     #[allow(dead_code)]
     pub fn import_segments<R: score::Accounts>(

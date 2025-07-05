@@ -8,7 +8,7 @@ use score::{
     CoreIndex, ErasureRoot,
 };
 
-impl<'a, C: Config> Worker<'a, C> {
+impl<C: Config> Worker<C> {
     /// Compute the work package according to Gray Paper specifications
     pub fn compute<R: score::Accounts>(
         mut self,
