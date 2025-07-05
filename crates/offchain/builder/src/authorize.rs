@@ -1,8 +1,9 @@
 //! authorization
 
-use crate::{worker::Worker, Config};
+use crate::Worker;
 use anyhow::Result;
 use pvm::Invocation;
+use runtime::Config;
 use score::{
     service::{WorkExecResult, WorkPackage},
     Account, Accounts,

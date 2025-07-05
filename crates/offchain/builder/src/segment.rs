@@ -4,8 +4,9 @@
 //! at that time, mb introduce a queue in runtime to do the
 //! interaction.
 
-use crate::{worker::Worker, Config};
+use crate::Worker;
 use anyhow::Result;
+use runtime::Config;
 use score::{service::WorkItem, OpaqueHash};
 
 impl<'a, C: Config> Worker<'a, C> {

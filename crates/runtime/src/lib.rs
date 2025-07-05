@@ -22,7 +22,6 @@ mod pool;
 pub mod storage;
 pub mod tx;
 mod validator;
-mod worker;
 
 /// Runtime of SpaceJam
 #[derive(Clone)]

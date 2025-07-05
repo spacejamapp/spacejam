@@ -4,7 +4,7 @@ members = [
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
-    "crates/offchain/metrics",
+    "crates/offchain/builder",
     "crates/offchain/rpc",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
@@ -21,7 +21,6 @@ score = { path = "crates/core", package = "spacejam-core" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
-metrics = { path = "crates/offchain/metrics", package = "spacejam-metrics" }
 network = { path = "crates/network", package = "spacejam-network" }
 offchain = { path = "crates/offchain", package = "spacejam-offchain" }
 pvm = { path = "crates/pvm", package = "pvm" }

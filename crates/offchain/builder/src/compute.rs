@@ -1,7 +1,8 @@
 //! work report computation
 
-use crate::{worker::Worker, Config};
+use crate::Worker;
 use anyhow::Result;
+use runtime::Config;
 use score::{
     service::{WorkPackage, WorkReport},
     CoreIndex, ErasureRoot,
