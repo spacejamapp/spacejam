@@ -33,7 +33,7 @@ pub struct Builder {
 
     /// Whether pruning the data directory before running
     #[cfg_attr(feature = "cmd", arg(short, long))]
-    prune: bool,
+    pub prune: bool,
 
     /// The RPC address
     #[cfg_attr(feature = "cmd", arg(short, long, default_value = "0.0.0.0:6789"))]
@@ -45,30 +45,6 @@ pub struct Builder {
 }
 
 impl Builder {
-    fn genesis(&mut self) -> anyhow::Result<ParsedSpec> {
-        let parsed_genesis = if let Some(genesis) = &self.chain {
-            serde_json::from_slice(fs::read(genesis)?.as_slice())?
-        } else {
-            Spec::dev()
-        }
-        .parse()?;
-
-        // apply config from the spec file
-        //
-        // TODO: handle bootnode and peer id
-        self.network.genesis = parsed_genesis.genesis_header.hash()?;
-
-        Ok(parsed_genesis)
-    }
-
-    fn data(&self, genesis: &ParsedSpec) -> anyhow::Result<PathBuf> {
-        let data = PathBuf::from(&self.data_path).join(genesis.id.to_string());
-        if !data.exists() {
-            fs::create_dir_all(&data)?;
-        }
-        Ok(data)
-    }
-
     /// Build the node
     pub async fn build<C: spec::RuntimeSpecSelf>(mut self) -> anyhow::Result<SpaceJam<C>> {
         let genesis = self.genesis()?;
@@ -115,6 +91,30 @@ impl Builder {
         }
 
         Ok(SpaceJam::Validating(spec::Validating(network)))
+    }
+
+    fn genesis(&mut self) -> anyhow::Result<ParsedSpec> {
+        let parsed_genesis = if let Some(genesis) = &self.chain {
+            serde_json::from_slice(fs::read(genesis)?.as_slice())?
+        } else {
+            Spec::dev()
+        }
+        .parse()?;
+
+        // apply config from the spec file
+        //
+        // TODO: handle bootnode and peer id
+        self.network.genesis = parsed_genesis.genesis_header.hash()?;
+
+        Ok(parsed_genesis)
+    }
+
+    fn data(&self, genesis: &ParsedSpec) -> anyhow::Result<PathBuf> {
+        let data = PathBuf::from(&self.data_path).join(genesis.id.to_string());
+        if !data.exists() {
+            fs::create_dir_all(&data)?;
+        }
+        Ok(data)
     }
 }
 
