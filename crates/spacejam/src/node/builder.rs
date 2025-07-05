@@ -114,6 +114,11 @@ impl Builder {
 
     fn data(&self, genesis: &ParsedSpec) -> anyhow::Result<PathBuf> {
         let data = PathBuf::from(&self.data_path).join(genesis.id.to_string());
+
+        if self.prune && data.exists() {
+            fs::remove_dir_all(&data)?;
+        }
+
         if !data.exists() {
             fs::create_dir_all(&data)?;
         }
