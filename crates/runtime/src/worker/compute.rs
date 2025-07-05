@@ -16,20 +16,16 @@ impl<'a, C: Config> Worker<'a, C> {
         mut accounts: R,
     ) -> Result<WorkReport> {
         self.authorize(&work, core_idx, &mut accounts)?;
-        self.refine(&work, &mut accounts)?;
-        self.report(work, core_idx)
-    }
-
-    /// Phase 4: Build the final work report
-    fn report(mut self, work: WorkPackage, core_idx: usize) -> Result<WorkReport> {
         let encoded = codec::encode(&work)?;
         self.report.spec.hash = crypto::blake2b(&encoded);
         self.report.spec.erasure_root = self.erasure_root(&work)?;
         self.report.spec.length = encoded.len() as u32;
-        self.report.context = work.context;
         self.report.core_index = core_idx as CoreIndex;
         self.report.authorizer_hash = work.authorizer.hash();
         self.report.lookup = vec![];
+
+        self.refine(&work, &mut accounts)?;
+        self.report.context = work.context;
         Ok(self.report)
     }
 

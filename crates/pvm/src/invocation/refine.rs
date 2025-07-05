@@ -1,9 +1,41 @@
 //! Primitives for the refine invocation
 
-use crate::Executed;
+use crate::{invocation::General, Argument, Executed};
+use score::{Accounts, ServiceId};
 
 /// Reine host call arguments
-pub struct Refine {}
+pub struct Refine<R: Accounts> {
+    /// (δ) accounts for historical lookup
+    pub accounts: R,
+
+    /// (s) service id
+    pub service: ServiceId,
+}
+
+impl<R: Accounts> Argument<R> for Refine<R> {
+    fn as_general(&self) -> crate::Result<General<R>> {
+        Ok(super::General::new(
+            self.service,
+            self.accounts.clone(),
+            Vec::new(),
+        ))
+    }
+
+    // FIXME: find a better way to update the account
+    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
+        let index = general.index;
+        let Some(account) = general.account() else {
+            crate::bail!("Account {} not found in context", general.index);
+        };
+
+        self.accounts.upsert(index, account.clone());
+        Ok(())
+    }
+
+    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine<R>> {
+        Ok(self)
+    }
+}
 
 /// The result of refine invocation (ΨR)
 pub struct Refined {

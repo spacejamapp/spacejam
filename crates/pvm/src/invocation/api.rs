@@ -12,12 +12,12 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{ServiceAccount, WorkExecResult, WorkItem},
-    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
+    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
-/// The invocation interface of PVM
+/// The invocation Interface of PVM
 ///
 /// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
@@ -245,29 +245,22 @@ pub trait Invocation {
             (),
         );
 
-        // Convert PVM result to WorkExecResult
-        let exec = match result.reason {
-            Reason::Halt => WorkExecResult::Ok(result.output),
-            Reason::OOG => WorkExecResult::OutOfGas,
-            Reason::Panic(_) => WorkExecResult::Panic,
-            _ => WorkExecResult::BadCode,
-        };
-
-        Executed::new(
-            Vec::new(),
-            exec,
-            score::GAS_IS_AUTHORIZED.saturating_sub(result.gas),
-        )
+        let gas = result.gas;
+        Executed::new(Vec::new(), result.result(), gas)
     }
 
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)
-    fn refine(
-        // (i) the index of the work item to refine
-        _work_idx: usize,
+    fn refine<R: Accounts>(
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (i) the work item index
+        index: usize,
         // (p) the work package
-        _item: &WorkItem,
+        package: &WorkPackage,
         // (o) the authorizer output
         _output: &[u8],
         // (i) import segments
@@ -275,10 +268,46 @@ pub trait Invocation {
         // (ς) export segment offset
         _export_offset: u16,
     ) -> Refined {
-        Refined::new(
-            Executed::new(Vec::new(), WorkExecResult::Panic, 0),
-            Vec::new(),
-        )
+        let item = &package.items[index];
+        let Some(account) = accounts.get(item.service) else {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        if code.len() > score::MAX_REFINE_CODE_SIZE as usize {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0),
+                Vec::new(),
+            );
+        }
+
+        // FIXME: passing the hash into this function mb. do not hash it for twice!
+        let package = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let params = RefineParams {
+            index,
+            id: item.service,
+            payload: item.payload.clone(),
+            package,
+        };
+
+        let result = Self::argument::<R, _>(
+            &code,
+            0,
+            item.refine_gas_limit,
+            &codec::encode(&params).expect("failed to params"),
+            (),
+        );
+        let gas = result.gas;
+        Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }
 
     /// (ΨA): Accumulation invocation

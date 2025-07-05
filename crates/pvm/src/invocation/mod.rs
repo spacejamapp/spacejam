@@ -32,7 +32,7 @@ pub trait Argument<R: Accounts> {
     }
 
     /// returns some if the input data is refine
-    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine> {
+    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine<R>> {
         crate::bail!("not a refine")
     }
 

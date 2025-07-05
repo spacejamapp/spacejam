@@ -31,22 +31,22 @@ pub struct WorkPackageSpec {
 /// Represents a work package in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackage {
-    /// The authorization
+    /// (j) The authorization token
     #[json(hex)]
     pub authorization: Vec<u8>,
 
-    /// The auth code host
+    /// (h) The auth code host
     pub auth_code_host: ServiceId,
 
-    /// The authorizer
+    /// (u, a) The authorizer
     #[json(nested)]
     pub authorizer: Authorizer,
 
-    /// The context
+    /// (c) The context
     #[json(nested)]
     pub context: RefineContext,
 
-    /// The items
+    /// (w) The items
     #[json(nested)]
     pub items: Vec<WorkItem>,
 }
