@@ -29,6 +29,7 @@ impl<C: runtime::Config> Dev<C> {
 
             let mut chain = runtime.chain_mut().await;
             chain.import(&block)?;
+            runtime.finalize().await?;
         }
     }
 }
