@@ -55,7 +55,6 @@ impl Builder {
 
         // prepare the runtime
         let runtime = C::runtime(self.validator.as_deref(), data, genesis).await?;
-
         self.build_with_runtime(runtime).await
     }
 
@@ -69,7 +68,6 @@ impl Builder {
 
         // prepare the runtime
         let runtime = C::runtime_with_hook(self.validator.as_deref(), data, genesis, hook).await?;
-
         self.build_with_runtime(runtime).await
     }
 
@@ -85,7 +83,7 @@ impl Builder {
             }));
         }
 
-        let network = Network::new(self.network.clone(), Arc::new(runtime)).await?;
+        let mut network = Network::new(self.network.clone(), Arc::new(runtime)).await?;
         if self.light {
             return Ok(SpaceJam::Light(spec::Light {
                 network,
@@ -93,6 +91,7 @@ impl Builder {
             }));
         }
 
+        network.broadcast = true;
         Ok(SpaceJam::Validating(spec::Validating(network)))
     }
 

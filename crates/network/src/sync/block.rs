@@ -88,7 +88,7 @@ impl<C: runtime::Config> Network<C> {
 
         // check import the block
         let imported = self.import(&block).await?;
-        if imported {
+        if imported && self.broadcast {
             self.announce(block.header.clone()).await?;
         }
 
