@@ -124,7 +124,6 @@ pub async fn recv<C: runtime::Config>(
 
         if imported {
             runtime.queue.write().await.remove(&lhead.hash);
-            runtime.finalize().await?;
             continue;
         }
 
@@ -136,9 +135,7 @@ pub async fn recv<C: runtime::Config>(
                 .request(&conn, &requested, Direction::Descending)
                 .await?;
 
-            tracing::debug!("imported: {imported}");
             if imported {
-                tracing::debug!("finalizing the chain.");
                 runtime.finalize().await?;
                 break;
             }
