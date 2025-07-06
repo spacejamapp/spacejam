@@ -29,7 +29,7 @@ impl<C: Config> Chain<C> {
 
         // nothing to finalize if the best fork chain is less than 5 blocks.
         tracing::trace!("best chain length: {}", chain.len());
-        let Some(count) = chain.len().checked_sub(10) else {
+        let Some(count) = chain.len().checked_sub(5) else {
             return Ok(vec![]);
         };
 
