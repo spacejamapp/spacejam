@@ -107,9 +107,10 @@ impl Default for Header {
 }
 
 /// The head of the chain
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, Json)]
 pub struct Head {
     /// The hash of the head of the chain.
+    #[json(hex)]
     pub hash: OpaqueHash,
 
     /// The slot of this head.

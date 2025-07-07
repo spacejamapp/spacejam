@@ -125,6 +125,8 @@ impl<S: Storage> Fork<S> {
                 hex::encode(root)
             );
 
+            self.on_state_root_mismatch(block.clone(), block.header.parent_state_root, root)?;
+
             panic!(
                 "if we meet this case, either we have problem in our branch or we got attacked."
             );
