@@ -73,7 +73,7 @@ impl<S: Storage> Fork<S> {
             pre_state = post_state;
         }
 
-        println!("Generated 12 trace files in {}", TRACES_OUTPUT);
+        println!("Generated 12 trace files in {dir:?}");
         Ok(())
     }
 }
