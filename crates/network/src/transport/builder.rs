@@ -104,12 +104,24 @@ impl Builder {
         // Configure QUIC transport parameters
         let transport_config = Arc::new({
             let mut transport = quinn::TransportConfig::default();
-            transport.keep_alive_interval(Some(Duration::from_secs(5)));
+
+            // Basic transport settings
+            transport.keep_alive_interval(Some(Duration::from_secs(6)));
             transport
-                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(60))?));
+                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(30))?)); // Increased from 20s
             transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
             transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
             transport.send_window(8 * 1024 * 1024);
+
+            // Simple loss detection tweaks for stability
+            transport.packet_threshold(3);
+            transport.time_threshold(1.25);
+            transport.persistent_congestion_threshold(3);
+            transport.initial_rtt(Duration::from_millis(250));
+            transport.congestion_controller_factory(std::sync::Arc::new(
+                quinn::congestion::NewRenoConfig::default(),
+            ));
+
             transport
         });
 

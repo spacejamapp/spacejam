@@ -40,6 +40,10 @@ pub async fn send<C: runtime::Config>(
 ) -> anyhow::Result<()> {
     let mut rx = runtime.announce.subscribe();
     while let Ok(header) = rx.recv().await {
+        if conn.close_reason().is_some() {
+            break;
+        }
+
         let handshake = conn.handshake.read().await;
         if !handshake.accept(&header.head()?) {
             continue;
@@ -51,7 +55,7 @@ pub async fn send<C: runtime::Config>(
         data.write(&mut send).await?;
     }
 
-    anyhow::bail!("announcement sender stream closed");
+    Ok(())
 }
 
 /// Receive the block announcement from a remote peer.
