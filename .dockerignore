@@ -1,3 +1,5 @@
 target
 chain.db
 genesis.json
+res
+!target/release/spacejam

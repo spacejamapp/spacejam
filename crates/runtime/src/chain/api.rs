@@ -171,7 +171,7 @@ impl<C: Config> Runtime<C> {
     }
 
     /// Get the author context
-    pub async fn author_context(&self, timeslot: TimeSlot) -> anyhow::Result<AuthorContext> {
+    pub async fn author_context(&self, timeslot: TimeSlot) -> anyhow::Result<AuthorContext<C>> {
         let context = if let Ok(fork) = self.chain().await.best_chain() {
             let recent_blocks = fork.state.recent_blocks()?;
             let safrole = fork.state.safrole()?;
@@ -185,6 +185,8 @@ impl<C: Config> Runtime<C> {
                 root,
                 series,
                 keys: fork.grid.curr.bandersnatch(),
+                fork: Some(fork),
+                state: None,
             }
         } else {
             let chain = self.chain().await;
@@ -200,6 +202,8 @@ impl<C: Config> Runtime<C> {
                 root,
                 series,
                 keys: chain.grid.curr.bandersnatch(),
+                fork: None,
+                state: Some(chain.state.clone()),
             }
         };
 

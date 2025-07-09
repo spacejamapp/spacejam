@@ -1,6 +1,6 @@
 //! Authoring service
 
-use crate::{tx, Config, Runtime, Validator};
+use crate::{chain::Fork, tx, Config, Runtime, Validator};
 use anyhow::Context;
 use score::{
     block::{Block, BlockInfo},
@@ -10,7 +10,10 @@ use score::{
 };
 use std::{
     ops::Deref,
-    sync::atomic::{AtomicU8, Ordering},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
 };
 
 /// Authoring context
@@ -156,12 +159,14 @@ impl<'a, C: Config> Author<'a, C> {
         //
         // do not simulate the block but just calculate the required data
         tracing::trace!("simulating block...");
-        if let Ok(fork) = self.chain().await.best_chain() {
+        if let Some(fork) = &context.fork {
             let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone())?;
+        } else if let Some(state) = &context.state {
+            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone())?;
         } else {
-            let _diff =
-                tx::simulate::<C::Vm>(&mut builder, self.runtime.chain().await.state.clone())?;
+            anyhow::bail!("no state found");
         }
+
         tracing::trace!("block simulated");
         let block: Block = builder.into();
 
@@ -209,7 +214,7 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Seal a block
     #[tracing::instrument(skip_all, name = "seal")]
-    async fn seal(&self, mut block: Block, context: AuthorContext) -> anyhow::Result<Block> {
+    async fn seal(&self, mut block: Block, context: AuthorContext<C>) -> anyhow::Result<Block> {
         tracing::trace!("sealing block...");
         let entropy = self.entropy().await?;
         let mut keys = context.keys.to_vec();
@@ -321,7 +326,7 @@ impl<C: Config> Runtime<C> {
 }
 
 /// The context for authoring blocks
-pub struct AuthorContext {
+pub struct AuthorContext<C: Config> {
     /// The recent blocks
     pub recent_blocks: Vec<BlockInfo>,
 
@@ -339,4 +344,10 @@ pub struct AuthorContext {
 
     /// The series
     pub series: TicketsOrKeys,
+
+    /// The fork
+    pub fork: Option<Fork<C::Storage>>,
+
+    /// The chain
+    pub state: Option<Arc<C::Storage>>,
 }

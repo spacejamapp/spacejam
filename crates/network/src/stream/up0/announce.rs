@@ -123,12 +123,13 @@ pub async fn recv<C: runtime::Config>(
             .await?;
 
         if imported {
-            runtime.queue.write().await.insert(lhead.hash);
+            runtime.queue.write().await.remove(&lhead.hash);
             continue;
         }
 
         // try to trace the orphan block
         let finalized = runtime.finalized().await;
+        tracing::trace!("tracing the orphan block: {:?}", requested);
         let mut count = 0;
         loop {
             let (imported, parent) = runtime
