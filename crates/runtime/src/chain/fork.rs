@@ -84,21 +84,33 @@ impl<S: Storage> Fork<S> {
     }
 
     /// Create a fork of a fork
+    ///
+    /// FIXME: there could be problem in this implementation.
     pub fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
         let timeslot = parent.slot;
 
         // checkout branch and commit diffs
         let branch = Branch::checkout(self.state.state());
-        for (slot, (_, commit)) in self.blocks.iter() {
+        let mut blocks = BTreeMap::new();
+        let mut chain = BTreeSet::new();
+        for (slot, (this, commit)) in self.blocks.iter() {
             if slot > &timeslot {
                 break;
             }
 
+            chain.insert(this.header.head()?);
+            blocks.insert(*slot, (this.clone(), commit.clone()));
             branch.commit(Column::State, commit.clone())?;
         }
 
         // import the block
-        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        let mut fork = Fork {
+            chain,
+            blocks,
+            grid: self.grid.clone(),
+            state: Arc::new(branch),
+            series: self.series.clone(),
+        };
         fork.import::<Vm>(parent, block)?;
         Ok(fork)
     }
@@ -126,7 +138,6 @@ impl<S: Storage> Fork<S> {
             );
 
             self.on_state_root_mismatch(block.clone(), block.header.parent_state_root, root)?;
-
             panic!(
                 "if we meet this case, either we have problem in our branch or we got attacked."
             );

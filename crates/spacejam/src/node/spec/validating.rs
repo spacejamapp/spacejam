@@ -60,6 +60,8 @@ impl<C: runtime::Config> Validating<C> {
                         tracing::error!("Failed to announce block: {:?}", e);
                     }
 
+                    // not import the block we authored directly but do it
+                    // after the network get it imported
                     tracing::trace!(
                         "try acquiring the chain write lock for importing authored block"
                     );
