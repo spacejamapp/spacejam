@@ -56,14 +56,15 @@ impl<C: runtime::Config> Validating<C> {
                 if let Some(block) = block {
                     let hash = block.header.hash().expect("failed to get hash");
                     tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
-                    runtime
-                        .chain_mut()
-                        .await
-                        .pending
-                        .insert(hash, block.clone());
-
-                    if let Err(e) = runtime.announce(block.header.clone()).await {
-                        tracing::error!("Failed to announce block: {:?}", e);
+                    match runtime.chain_mut().await.import(&block) {
+                        Ok(imported) => {
+                            if imported.imported() {
+                                if let Err(e) = runtime.announce(block.header.clone()).await {
+                                    tracing::error!("Failed to announce block: {:?}", e);
+                                }
+                            }
+                        }
+                        Err(e) => tracing::warn!("Failed to import block: {:?}", e),
                     }
                 }
             }

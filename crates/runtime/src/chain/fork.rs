@@ -117,17 +117,7 @@ impl<S: Storage> Fork<S> {
 
     /// Insert a new block to the chain.
     pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
-        // 1. check the parent
-        tracing::trace!("importing block...");
-        if block.header.parent != parent.hash {
-            anyhow::bail!(
-                "invalid parent: 0x{} != 0x{}",
-                hex::encode(block.header.parent[..3].as_ref()),
-                hex::encode(parent.hash[..3].as_ref())
-            );
-        }
-
-        // 2. check the state root
+        // 1. check the state root
         tracing::trace!("checking state root");
         let root = self.state.root()?;
         if block.header.parent_state_root != root {
@@ -143,16 +133,17 @@ impl<S: Storage> Fork<S> {
             );
         }
 
-        // 3. verify the header
+        // 2. verify the header
         tracing::trace!("validating block header");
         self.validate(parent, &block.header)?;
 
-        // 4. transit the global state
+        // 3. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
         tracing::trace!("transiting block");
         let head = block.header.head()?;
-        let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
+        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
+        self.state.commit(Column::State, diff.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
@@ -161,11 +152,11 @@ impl<S: Storage> Fork<S> {
             hex::encode(parent.hash[..3].as_ref())
         );
 
-        // 5. save the block and the diff
+        // 4. save the block and the diff
         self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 6. update fallback tickets if need
+        // 5. update fallback tickets if need
         let epoch = block.header.slot / score::EPOCH_LENGTH;
         let prev_epoch = parent.slot / score::EPOCH_LENGTH;
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
@@ -175,7 +166,7 @@ impl<S: Storage> Fork<S> {
             self.series.insert(epoch, series);
         }
 
-        // 7. update safrole tickets or keys if any
+        // 6. update safrole tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };

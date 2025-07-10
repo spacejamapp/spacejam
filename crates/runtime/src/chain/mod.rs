@@ -44,9 +44,6 @@ pub struct Chain<C: Config> {
 
     /// The storage of the chain.
     pub state: Arc<C::Storage>,
-
-    /// The pending blocks authored by this node.
-    pub pending: HashMap<OpaqueHash, Block>,
 }
 
 impl<C: Config> Chain<C> {
@@ -59,7 +56,6 @@ impl<C: Config> Chain<C> {
             orphan: BTreeMap::new(),
             series: BTreeMap::new(),
             state,
-            pending: Default::default(),
         }
     }
 

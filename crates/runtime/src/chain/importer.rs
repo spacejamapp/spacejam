@@ -189,20 +189,6 @@ impl<C: Config> Chain<C> {
         self.orphan.retain(|_, orphans| !orphans.is_empty());
         Ok(())
     }
-
-    /// Resolve the pending blocks
-    pub fn resolve_pending(&mut self) -> anyhow::Result<()> {
-        let pending = self.pending.keys().cloned().collect::<Vec<_>>();
-        for block in pending {
-            for fork in self.forks.values() {
-                if fork.chain.iter().any(|h| h.hash == block) {
-                    self.pending.remove(&block);
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// The imported status
