@@ -31,6 +31,7 @@ impl<C: runtime::Config> Network<C> {
         );
 
         if request.epoch != current_epoch + 1 && request.epoch != current_epoch {
+            send.finish()?; // Finish stream before error
             anyhow::bail!(
                     "received invalid ticket: epoch mismatch: {} != {} (current) or {} (next), rejecting out-of-epoch ticket",
                     request.epoch,
@@ -46,6 +47,7 @@ impl<C: runtime::Config> Network<C> {
         let validator = validators[submission];
         let me = self.me();
         if validator.bandersnatch != me {
+            send.finish()?; // Finish stream before error
             anyhow::bail!(
                 "received invalid ticket: not the proxy validator, expected: {}, this: {:?}",
                 submission,

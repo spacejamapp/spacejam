@@ -41,6 +41,7 @@ pub async fn send<C: runtime::Config>(
     let mut rx = runtime.announce.subscribe();
     while let Ok(header) = rx.recv().await {
         if conn.close_reason().is_some() {
+            send.finish()?;
             break;
         }
 
@@ -52,7 +53,10 @@ pub async fn send<C: runtime::Config>(
         // check if the block is acceptable for the remote peer.
         let local = runtime.handshake().await;
         let data = (header, local.head.clone());
-        data.write(&mut send).await?;
+        if let Err(e) = data.write(&mut send).await {
+            send.finish()?;
+            return Err(e);
+        }
     }
 
     Ok(())
@@ -133,7 +137,6 @@ pub async fn recv<C: runtime::Config>(
 
         // try to trace the orphan block
         let finalized = runtime.finalized().await;
-        tracing::trace!("tracing the orphan block: {:?}", requested);
         let mut count = 0;
         loop {
             let (imported, parent) = runtime

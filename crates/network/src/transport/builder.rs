@@ -105,26 +105,32 @@ impl Builder {
         let transport_config = Arc::new({
             let mut transport = quinn::TransportConfig::default();
 
-            // Basic transport settings
-            transport.keep_alive_interval(Some(Duration::from_secs(6)));
+            // Basic transport settings - optimized for speed
+            transport.keep_alive_interval(Some(Duration::from_secs(4)));
             transport
-                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(30))?)); // Increased from 20s
-            transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
-            transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
-            transport.send_window(8 * 1024 * 1024);
+                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(20))?));
+            transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(200));
+            transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(200));
+            transport.send_window(16 * 1024 * 1024);
+            transport.receive_window(quinn::VarInt::from_u32(16 * 1024 * 1024));
+            transport.stream_receive_window(quinn::VarInt::from_u32(2 * 1024 * 1024));
+            transport.datagram_receive_buffer_size(Some(32 * 1024));
+            transport.datagram_send_buffer_size(16 * 1024);
 
-            // ack config
+            // ack config - optimized for faster ACK sending
             let mut ack_config = AckFrequencyConfig::default();
             ack_config.max_ack_delay(Some(Duration::from_millis(5)));
             transport.ack_frequency_config(Some(ack_config));
 
-            // Simple loss detection tweaks for stability
-            transport.packet_threshold(3);
-            transport.time_threshold(1.25);
-            transport.persistent_congestion_threshold(3);
-            transport.initial_rtt(Duration::from_millis(250));
+            // Optimized loss detection for speed + faster ACK processing
+            transport.packet_threshold(2);
+            transport.time_threshold(1.125);
+            transport.persistent_congestion_threshold(2);
+            transport.initial_rtt(Duration::from_millis(50));
+
+            // Use BBR for better throughput in high-bandwidth scenarios
             transport.congestion_controller_factory(std::sync::Arc::new(
-                quinn::congestion::NewRenoConfig::default(),
+                quinn::congestion::BbrConfig::default(),
             ));
 
             transport
