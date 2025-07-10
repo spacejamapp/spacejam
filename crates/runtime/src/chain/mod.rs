@@ -44,6 +44,9 @@ pub struct Chain<C: Config> {
 
     /// The storage of the chain.
     pub state: Arc<C::Storage>,
+
+    /// The pending blocks authored by this node.
+    pub pending: HashMap<OpaqueHash, Block>,
 }
 
 impl<C: Config> Chain<C> {
@@ -56,30 +59,8 @@ impl<C: Config> Chain<C> {
             orphan: BTreeMap::new(),
             series: BTreeMap::new(),
             state,
+            pending: Default::default(),
         }
-    }
-
-    /// Select the chain of the given block.
-    pub fn contains(&self, block: OpaqueHash) -> bool {
-        if self.grandpa.handshake.head.hash == block
-            || self
-                .grandpa
-                .handshake
-                .leaves
-                .iter()
-                .any(|h| h.hash == block)
-        {
-            return true;
-        }
-
-        // check if the block is in the forks
-        for fork in self.forks.values() {
-            if fork.chain.iter().any(|h| h.hash == block) {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Initialize the chain from the state.

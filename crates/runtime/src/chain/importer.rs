@@ -74,22 +74,33 @@ impl<C: Config> Chain<C> {
             hex::encode(&block.header.parent[..3])
         );
 
-        // 1. the block is a child of the finalized
-        if block.header.parent == self.grandpa.handshake.head.hash {
-            tracing::trace!("block is child of the finalized head");
-            self.fork(block)?;
-            return Ok(Imported::Finalized);
-        }
-
-        // 2. the block is a child of a fork
-        for (fhead, fork) in self.forks.iter_mut() {
+        // 1. check if the block is already imported
+        //
+        // can't avoid two loops here, otherwise we may incorrectly import existing blocks
+        // when multiple forks share same block
+        for (fhead, fork) in self.forks.iter() {
             // 2.1 the block is already imported
             if fhead == &head.hash {
                 tracing::trace!("block is already imported");
                 return Ok(Imported::Skipped);
             }
 
-            // 2.2. The block is a child of a fork.
+            if fork.chain.iter().any(|h| h.hash == head.hash) {
+                tracing::trace!("block is already imported");
+                return Ok(Imported::Skipped);
+            }
+        }
+
+        // 2. the block is a child of the finalized
+        if block.header.parent == self.grandpa.handshake.head.hash {
+            tracing::trace!("block is child of the finalized head");
+            self.fork(block)?;
+            return Ok(Imported::Finalized);
+        }
+
+        // 3. the block is a child of a fork
+        for (_, fork) in self.forks.iter_mut() {
+            // 3.1. The block is a child of a fork.
             let best = fork.best()?;
             if best.hash == block.header.parent {
                 tracing::trace!("block is a child of a fork");
@@ -97,32 +108,18 @@ impl<C: Config> Chain<C> {
                 return Ok(Imported::Fork);
             }
 
-            // 2.3 block is already imported
-            if fork.chain.iter().any(|h| h.hash == head.hash) {
-                tracing::trace!("block is already imported");
-                return Ok(Imported::Skipped);
-            }
-
-            // 2.4. the block is a fork of a fork
+            // 3.2. the block is a fork of a fork
             for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
-                    let tfork = fork.fork::<C::Vm>(fhead, block);
-                    match tfork {
-                        Ok(nfork) => {
-                            tracing::trace!("block is on a fork of a fork");
-                            self.forks.insert(head.hash, nfork);
-                            return Ok(Imported::ForkOfFork);
-                        }
-                        Err(e) => {
-                            tracing::warn!("{e}, trying next fork");
-                            continue;
-                        }
-                    }
+                    tracing::trace!("block is on a fork of a fork");
+                    let nfork = fork.fork::<C::Vm>(fhead, block)?;
+                    self.forks.insert(head.hash, nfork);
+                    return Ok(Imported::ForkOfFork);
                 }
             }
         }
 
-        // 3. we don't have the ancestors of this block
+        // 4. we don't have the ancestors of this block
         tracing::trace!("block is an orphan");
         self.orphan
             .entry(head.slot)
@@ -190,6 +187,20 @@ impl<C: Config> Chain<C> {
         }
 
         self.orphan.retain(|_, orphans| !orphans.is_empty());
+        Ok(())
+    }
+
+    /// Resolve the pending blocks
+    pub fn resolve_pending(&mut self) -> anyhow::Result<()> {
+        let pending = self.pending.keys().cloned().collect::<Vec<_>>();
+        for block in pending {
+            for fork in self.forks.values() {
+                if fork.chain.iter().any(|h| h.hash == block) {
+                    self.pending.remove(&block);
+                }
+            }
+        }
+
         Ok(())
     }
 }

@@ -56,17 +56,14 @@ impl<C: runtime::Config> Validating<C> {
                 if let Some(block) = block {
                     let hash = block.header.hash().expect("failed to get hash");
                     tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
+                    runtime
+                        .chain_mut()
+                        .await
+                        .pending
+                        .insert(hash, block.clone());
+
                     if let Err(e) = runtime.announce(block.header.clone()).await {
                         tracing::error!("Failed to announce block: {:?}", e);
-                    }
-
-                    // not import the block we authored directly but do it
-                    // after the network get it imported
-                    tracing::trace!(
-                        "try acquiring the chain write lock for importing authored block"
-                    );
-                    if let Err(e) = runtime.chain_mut().await.import(&block) {
-                        tracing::error!("Failed to import block {e:?}")
                     }
                 }
             }

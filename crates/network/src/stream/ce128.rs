@@ -34,6 +34,22 @@ impl<C: runtime::Config> Network<C> {
             request.maximum,
         );
 
+        // Check if the block is in the pending blocks
+        let chain = self.runtime.chain().await;
+        if request.maximum == 1 && request.direction == Direction::Descending {
+            if let Some(block) = chain.pending.get(&request.hash) {
+                tracing::trace!("block is in the pending blocks");
+                block.write(&mut send).await?;
+                tracing::trace!(
+                    "sent pending block#{}@{}",
+                    block.header.slot,
+                    hex::encode(&block.header.hash()?[..3]),
+                );
+                send.finish()?;
+                return Ok(());
+            }
+        }
+
         let chain = self.runtime.chain().await;
         let best = chain.best_chain()?;
         let lookup = best.fetch(request.hash, request.direction, request.maximum as usize)?;
