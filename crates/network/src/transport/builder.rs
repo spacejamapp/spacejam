@@ -4,7 +4,7 @@ use crate::{peer::PeerId, transport::Verifier};
 use crypto::ed25519;
 use quinn::{
     crypto::rustls::{QuicClientConfig, QuicServerConfig},
-    Endpoint,
+    AckFrequencyConfig, Endpoint,
 };
 use rcgen::CertificateParams;
 use rustls::{
@@ -112,6 +112,11 @@ impl Builder {
             transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
             transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
             transport.send_window(8 * 1024 * 1024);
+
+            // ack config
+            let mut ack_config = AckFrequencyConfig::default();
+            ack_config.max_ack_delay(Some(Duration::from_millis(5)));
+            transport.ack_frequency_config(Some(ack_config));
 
             // Simple loss detection tweaks for stability
             transport.packet_threshold(3);

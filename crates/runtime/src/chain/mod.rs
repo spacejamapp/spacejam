@@ -43,7 +43,7 @@ pub struct Chain<C: Config> {
     series: BTreeMap<u32, TicketsOrKeys>,
 
     /// The storage of the chain.
-    state: Arc<C::Storage>,
+    pub state: Arc<C::Storage>,
 }
 
 impl<C: Config> Chain<C> {
