@@ -1,11 +1,12 @@
 //! Test the fork behavior of the runtime.
 
 /* use anyhow::Result;
-use score::{block::Header, Block};
+use score::{block::Header, state::key, Block, EntropyBuffer};
 use spacejam_runtime::{
-    storage::{MemoryDb, SyncStorage},
-    Runtime, Storage, Validator,
+    storage::{MemoryDb, StateStorage, SyncStorage},
+    Runtime, Validator,
 };
+use std::collections::HashMap;
 
 /// A chain of blocks.
 pub struct Chain {
@@ -17,8 +18,12 @@ impl Chain {
     pub async fn new() -> Result<Self> {
         let validator = crypto::ed25519::KeyPair::dev();
         let runtime = Runtime::new(validator, MemoryDb::default(), ());
+        let mut state = HashMap::new();
+        state.insert(key::ENTROPY, codec::encode(&EntropyBuffer::default())?);
         runtime
-            .import_genesis(Default::default(), &Default::default())
+            .chain_mut()
+            .await
+            .import_genesis(Default::default(), &state)
             .await?;
         Ok(Self { runtime })
     }
@@ -28,7 +33,8 @@ impl Chain {
         let mut header = parent.clone();
         header.slot += 1;
         header.parent = parent.hash()?;
-        header.parent_state_root = self.runtime.storage.root()?;
+        let chain = self.runtime.chain().await;
+        header.parent_state_root = chain.state.root()?;
         Ok(Block {
             header,
             ..Default::default()
@@ -39,14 +45,14 @@ impl Chain {
     pub async fn chain(&self, blocks: usize) -> Result<Vec<Header>> {
         let mut headers = Vec::new();
         for _ in 1..blocks {
-            let finalized = self.runtime.storage.finalized()?;
-            let parent = self.runtime.storage.header(&finalized.hash)?;
+            let finalized = self.runtime.finalized().await;
+            let parent = self.runtime.chain().await.state.header(&finalized.hash)?;
             let block = self.author(&parent).await?;
             let header = block.header.clone();
             headers.push(header.clone());
             let head = header.head()?;
-            self.runtime.import(block.clone()).await?;
-            self.runtime.storage.finalize(&head)?;
+            self.runtime.import(&block).await?;
+            self.runtime.chain_mut().await.grandpa.handshake.head = head;
         }
 
         Ok(headers)
@@ -57,12 +63,11 @@ impl Chain {
 async fn test_non_fork() -> Result<()> {
     let chain = Chain::new().await?;
     for _ in 1..100 {
-        let finalized = chain.runtime.storage.finalized()?;
-        let parent = chain.runtime.storage.header(&finalized.hash)?;
+        let finalized = chain.runtime.finalized().await;
+        let parent = chain.runtime.chain().await.state.header(&finalized.hash)?;
         let block = chain.author(&parent).await?;
-        let head = block.header.head()?;
-        chain.runtime.import(block.clone()).await?;
-        chain.runtime.storage.finalize(&head)?;
+        chain.runtime.import(&block).await?;
+        chain.runtime.finalize().await?;
     }
 
     Ok(())
@@ -72,7 +77,7 @@ async fn test_non_fork() -> Result<()> {
 async fn test_checkout() -> Result<()> {
     let chain = Chain::new().await?;
     chain.chain(100).await?;
-    assert_eq!(chain.runtime.storage.finalized()?.slot, 100);
+    assert_eq!(chain.runtime.finalized().await.slot, 100);
     Ok(())
 }
  */

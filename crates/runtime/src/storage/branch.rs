@@ -59,14 +59,14 @@ impl<S: Storage> KVStorage for Branch<S> {
 
         let trie_key = key.as_ref().as_state_key();
 
-        // Check if the key is marked for removal
-        if commit.removal.contains(&trie_key) {
-            return Ok(None);
-        }
-
         // Check if the key exists in the updates
         if let Some(value) = commit.update.get(&trie_key) {
             return Ok(Some(value.clone()));
+        }
+
+        // Check if the key is marked for removal
+        if commit.removal.contains(&trie_key) {
+            return Ok(None);
         }
 
         // Fall back to the underlying state
@@ -164,16 +164,15 @@ impl<I: Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> Iterator for BranchIter<I> 
             return Some(next);
         };
 
+        // Override with the update value if it exists
         let trie_key = key.as_state_key();
+        if let Some(updated) = self.updates.remove(&trie_key) {
+            return Some(Ok((key, updated)));
+        }
 
         // Skip if the key is marked for removal
         if self.removals.contains(&trie_key) {
             return self.next();
-        }
-
-        // Override with the update value if it exists
-        if let Some(updated_value) = self.updates.remove(&trie_key) {
-            return Some(Ok((key, updated_value)));
         }
 
         // Return the state value if not in updates and not removed

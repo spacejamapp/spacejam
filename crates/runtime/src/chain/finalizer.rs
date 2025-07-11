@@ -73,33 +73,42 @@ impl<C: Config> Chain<C> {
     }
 
     fn reset_forks(&mut self, finalized: BTreeSet<Head>) -> Result<()> {
+        if finalized.is_empty() {
+            return Ok(());
+        }
+
         // Reset forks after finalization
         let head = &self.grandpa.handshake.head;
-        if !finalized.is_empty() {
-            let finalized_slots = finalized.iter().map(|h| h.slot).collect::<BTreeSet<_>>();
-            let forks = std::mem::take(&mut self.forks);
+        let finalized_slots = finalized.iter().map(|h| h.slot).collect::<BTreeSet<_>>();
+        let forks = std::mem::take(&mut self.forks);
 
-            // Rebuild forks with only valid ones
-            for (_, mut fork) in forks {
-                fork.chain.retain(|h| !finalized.contains(h));
-                fork.blocks
-                    .retain(|slot, _| !finalized_slots.contains(slot));
-                if fork.chain.is_empty() {
+        // Rebuild forks with only valid ones
+        for (original_key, mut fork) in forks {
+            fork.chain.retain(|h| !finalized.contains(h));
+            fork.blocks
+                .retain(|slot, _| !finalized_slots.contains(slot));
+            if fork.chain.is_empty() {
+                continue;
+            }
+
+            // Skip forks where the best block is older than the finalized head
+            if let Ok(best) = fork.best() {
+                if best.slot < head.slot {
                     continue;
                 }
 
-                // Skip forks where the best block is older than the finalized head
-                if let Ok(best) = fork.best() {
-                    if best.slot < head.slot {
-                        continue;
-                    }
-
-                    self.forks.insert(fork.head()?.hash, fork);
+                // Check if the original key block is still in the fork
+                if fork.chain.iter().any(|h| h.hash == original_key) {
+                    // Use the original key if the block is still present
+                    self.forks.insert(original_key, fork);
+                } else {
+                    // If the original key block was finalized, use the current best block as the key
+                    self.forks.insert(best.hash, fork);
                 }
             }
-
-            tracing::trace!("{} forks remaining after finalization", self.forks.len());
         }
+
+        tracing::trace!("{} forks remaining after finalization", self.forks.len());
         Ok(())
     }
 

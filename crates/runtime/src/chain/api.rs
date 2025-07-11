@@ -1,11 +1,13 @@
 //! Chain APIs for the runtime.
 
-use crate::{storage::StateStorage, Chain, Config, Grid, Handshake, Runtime};
+use crate::{
+    chain::author::AuthorContext, storage::StateStorage, Chain, Config, Grid, Handshake, Runtime,
+};
 use score::{
     block::{BlockInfo, Head, Header},
     extrinsic::TicketsOrKeys,
     safrole::{Safrole, ValidatorIter},
-    Block, EntropyBuffer, OpaqueHash,
+    Block, EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
 
@@ -166,5 +168,45 @@ impl<C: Config> Runtime<C> {
         } else {
             chain.state.safrole().unwrap_or_default().accumulator.len() as u32
         }
+    }
+
+    /// Get the author context
+    pub async fn author_context(&self, timeslot: TimeSlot) -> anyhow::Result<AuthorContext<C>> {
+        let context = if let Ok(fork) = self.chain().await.best_chain() {
+            let recent_blocks = fork.state.recent_blocks()?;
+            let safrole = fork.state.safrole()?;
+            let entropy = fork.state.entropy()?;
+            let root = fork.state.root()?;
+            let series = fork.series(timeslot / score::EPOCH_LENGTH)?;
+            AuthorContext {
+                recent_blocks,
+                safrole,
+                entropy,
+                root,
+                series,
+                keys: fork.grid.curr.bandersnatch(),
+                fork: Some(fork),
+                state: None,
+            }
+        } else {
+            let chain = self.chain().await;
+            let recent_blocks = chain.state.recent_blocks()?;
+            let safrole = chain.state.safrole()?;
+            let entropy = chain.state.entropy()?;
+            let root = chain.state.root()?;
+            let series = self.series(timeslot / score::EPOCH_LENGTH).await?;
+            AuthorContext {
+                recent_blocks,
+                safrole,
+                entropy,
+                root,
+                series,
+                keys: chain.grid.curr.bandersnatch(),
+                fork: None,
+                state: Some(chain.state.clone()),
+            }
+        };
+
+        Ok(context)
     }
 }

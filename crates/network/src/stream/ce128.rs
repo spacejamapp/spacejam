@@ -18,6 +18,7 @@ impl<C: runtime::Config> Network<C> {
         recv.read_exact(&mut buf).await?;
         let length = u32::from_le_bytes(buf);
         if length != 37 {
+            send.finish()?; // Finish stream before error
             anyhow::bail!("invalid length of block request message, expected 37, got {length}");
         }
 

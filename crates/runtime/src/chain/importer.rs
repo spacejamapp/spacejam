@@ -74,10 +74,21 @@ impl<C: Config> Chain<C> {
             hex::encode(&block.header.parent[..3])
         );
 
-        // 1 the block is already imported
-        if self.forks.iter().any(|(fhead, _fork)| fhead == &head.hash) {
-            tracing::trace!("block is already imported");
-            return Ok(Imported::Skipped);
+        // 1. check if the block is already imported
+        //
+        // can't avoid two loops here, otherwise we may incorrectly import existing blocks
+        // when multiple forks share same block
+        for (fhead, fork) in self.forks.iter() {
+            // 2.1 the block is already imported
+            if fhead == &head.hash {
+                tracing::trace!("block is already imported");
+                return Ok(Imported::Skipped);
+            }
+
+            if fork.chain.iter().any(|h| h.hash == head.hash) {
+                tracing::trace!("block is already imported");
+                return Ok(Imported::Skipped);
+            }
         }
 
         // 2. the block is a child of the finalized
@@ -97,18 +108,12 @@ impl<C: Config> Chain<C> {
                 return Ok(Imported::Fork);
             }
 
-            // 3.2 block is already imported
-            if fork.chain.iter().any(|h| h.hash == head.hash) {
-                tracing::trace!("block is already imported");
-                return Ok(Imported::Skipped);
-            }
-
-            // 3.3 the block is a fork of a fork
+            // 3.2. the block is a fork of a fork
             for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
                     tracing::trace!("block is on a fork of a fork");
-                    let fork = fork.fork::<C::Vm>(fhead, block)?;
-                    self.forks.insert(head.hash, fork);
+                    let nfork = fork.fork::<C::Vm>(fhead, block)?;
+                    self.forks.insert(head.hash, nfork);
                     return Ok(Imported::ForkOfFork);
                 }
             }

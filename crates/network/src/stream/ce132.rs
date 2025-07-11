@@ -70,11 +70,7 @@ impl<C: runtime::Config> Network<C> {
 #[tracing::instrument(skip_all, name = "ce132::send", parent = None)]
 pub async fn send(mut send: SendStream, _recv: RecvStream, request: Request) -> anyhow::Result<()> {
     send.write(&[132]).await?;
-
-    // 1. send the request
     request.write(&mut send).await?;
-
-    // 2. finish sending and wait for the response to be fully received
     send.finish()?;
     Ok(())
 }

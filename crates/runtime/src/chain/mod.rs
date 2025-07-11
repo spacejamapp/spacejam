@@ -18,6 +18,7 @@ pub use {
 
 mod api;
 mod author;
+mod dbg;
 mod finalizer;
 mod fork;
 mod grid;
@@ -42,7 +43,7 @@ pub struct Chain<C: Config> {
     series: BTreeMap<u32, TicketsOrKeys>,
 
     /// The storage of the chain.
-    state: Arc<C::Storage>,
+    pub state: Arc<C::Storage>,
 }
 
 impl<C: Config> Chain<C> {
@@ -56,29 +57,6 @@ impl<C: Config> Chain<C> {
             series: BTreeMap::new(),
             state,
         }
-    }
-
-    /// Select the chain of the given block.
-    pub fn contains(&self, block: OpaqueHash) -> bool {
-        if self.grandpa.handshake.head.hash == block
-            || self
-                .grandpa
-                .handshake
-                .leaves
-                .iter()
-                .any(|h| h.hash == block)
-        {
-            return true;
-        }
-
-        // check if the block is in the forks
-        for fork in self.forks.values() {
-            if fork.chain.iter().any(|h| h.hash == block) {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Initialize the chain from the state.

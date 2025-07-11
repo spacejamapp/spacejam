@@ -113,9 +113,7 @@ pub trait StateStorage: KVStorage {
         let mut kvs = Vec::new();
         for pair in self.state_iter()? {
             let (k, v) = pair?;
-            let mut key = [0; 31];
-            let len = k.len().min(31);
-            key[..len].copy_from_slice(&k[..len]);
+            let key = k.as_state_key();
             kvs.push((key, v));
         }
 

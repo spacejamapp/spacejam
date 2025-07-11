@@ -84,38 +84,40 @@ impl<S: Storage> Fork<S> {
     }
 
     /// Create a fork of a fork
+    ///
+    /// FIXME: there could be problem in this implementation.
     pub fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
         let timeslot = parent.slot;
 
         // checkout branch and commit diffs
         let branch = Branch::checkout(self.state.state());
-        for (slot, (_, commit)) in self.blocks.iter() {
+        let mut blocks = BTreeMap::new();
+        let mut chain = BTreeSet::new();
+        for (slot, (this, commit)) in self.blocks.iter() {
             if slot > &timeslot {
                 break;
             }
 
+            chain.insert(this.header.head()?);
+            blocks.insert(*slot, (this.clone(), commit.clone()));
             branch.commit(Column::State, commit.clone())?;
         }
 
         // import the block
-        let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
+        let mut fork = Fork {
+            chain,
+            blocks,
+            grid: self.grid.clone(),
+            state: Arc::new(branch),
+            series: self.series.clone(),
+        };
         fork.import::<Vm>(parent, block)?;
         Ok(fork)
     }
 
     /// Insert a new block to the chain.
     pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
-        // 1. check the parent
-        tracing::trace!("importing block...");
-        if block.header.parent != parent.hash {
-            anyhow::bail!(
-                "invalid parent: 0x{} != 0x{}",
-                hex::encode(block.header.parent[..3].as_ref()),
-                hex::encode(parent.hash[..3].as_ref())
-            );
-        }
-
-        // 2. check the state root
+        // 1. check the state root
         tracing::trace!("checking state root");
         let root = self.state.root()?;
         if block.header.parent_state_root != root {
@@ -125,21 +127,23 @@ impl<S: Storage> Fork<S> {
                 hex::encode(root)
             );
 
+            self.on_state_root_mismatch(block.clone(), block.header.parent_state_root, root)?;
             panic!(
                 "if we meet this case, either we have problem in our branch or we got attacked."
             );
         }
 
-        // 3. verify the header
+        // 2. verify the header
         tracing::trace!("validating block header");
         self.validate(parent, &block.header)?;
 
-        // 4. transit the global state
+        // 3. transit the global state
         //
         // We execute the block instead of querying the latest state from the remote.
         tracing::trace!("transiting block");
         let head = block.header.head()?;
-        let diff = tx::transit::<Vm>(block.clone(), self.state.clone())?;
+        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
+        self.state.commit(Column::State, diff.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
@@ -148,11 +152,11 @@ impl<S: Storage> Fork<S> {
             hex::encode(parent.hash[..3].as_ref())
         );
 
-        // 5. save the block and the diff
+        // 4. save the block and the diff
         self.chain.insert(head);
         self.blocks.insert(block.header.slot, (block.clone(), diff));
 
-        // 6. update fallback tickets if need
+        // 5. update fallback tickets if need
         let epoch = block.header.slot / score::EPOCH_LENGTH;
         let prev_epoch = parent.slot / score::EPOCH_LENGTH;
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
@@ -162,7 +166,7 @@ impl<S: Storage> Fork<S> {
             self.series.insert(epoch, series);
         }
 
-        // 7. update safrole tickets or keys if any
+        // 6. update safrole tickets or keys if any
         let Some(series) = block.header.tickets_mark else {
             return Ok(());
         };

@@ -79,8 +79,9 @@ pub mod ext {
         async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()> {
             let encoded = codec::encode(&self)?;
             let length = encoded.len() as u32;
-            stream.write(&length.to_le_bytes()).await?;
-            stream.write(&encoded).await?;
+            stream
+                .write_all(&[length.to_le_bytes().to_vec(), encoded].concat())
+                .await?;
             Ok(())
         }
     }
