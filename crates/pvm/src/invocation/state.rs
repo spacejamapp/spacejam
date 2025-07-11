@@ -76,16 +76,16 @@ impl<Memory: crate::Memory, X> Stepped<Memory, X> {
 
 /// The received data from (ΨM)
 pub struct Received<X> {
-    /// The gas we used
+    /// (u) The gas we used
     pub gas: Gas,
 
-    /// The output
+    /// (o) The output
     pub output: Vec<u8>,
 
-    /// program exit-reason
+    /// (e) program exit-reason
     pub reason: Reason,
 
-    /// The data we got
+    /// (m??) The data we got
     pub data: X,
 }
 
@@ -97,6 +97,16 @@ impl<X> Received<X> {
             output: Vec::new(),
             reason: Reason::Panic(message.to_string()),
             data,
+        }
+    }
+
+    /// Convert the received result to a work exec result
+    pub fn result(self) -> WorkExecResult {
+        match self.reason {
+            Reason::Halt => WorkExecResult::Ok(self.output.clone()),
+            Reason::OOG => WorkExecResult::OutOfGas,
+            Reason::Panic(_) => WorkExecResult::Panic,
+            _ => WorkExecResult::BadCode,
         }
     }
 }

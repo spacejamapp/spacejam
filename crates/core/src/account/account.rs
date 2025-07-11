@@ -1,8 +1,8 @@
 //! Account abstraction
 
 use crate::{
-    service::{GasLimit, ServiceAccount, ServiceInfo},
-    OpaqueHash, TrieKey,
+    service::{ServiceAccount, ServiceInfo},
+    Gas, OpaqueHash, TrieKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,14 +35,35 @@ pub trait Account: Clone {
     /// Set the code of the account
     fn set_code(&mut self, code: OpaqueHash);
 
-    /// Get the gas of the account
-    fn gas(&self) -> GasLimit;
+    /// Get the accumulate gas of the account
+    fn accumulate_gas(&self) -> Gas;
 
-    /// Set the gas of the account
-    fn set_gas(&mut self, gas: GasLimit);
+    /// Set the accumulate gas of the account
+    fn set_accumulate_gas(&mut self, gas: Gas);
+
+    /// Get the transfer gas of the account
+    fn transfer_gas(&self) -> Gas;
+
+    /// Set the transfer gas of the account
+    fn set_transfer_gas(&mut self, gas: Gas);
 
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
+
+    /// (Λ) lookup preimage in the recent histories
+    fn historical_lookup(&mut self, timeslot: u32, hash: [u8; 32]) -> Option<Vec<u8>> {
+        let preimage = self.preimage(hash)?;
+        let lookup = self.lookup(hash, preimage.len() as u32)?;
+        if (lookup.len() == 1 && timeslot >= lookup[0])
+            || (lookup.len() == 2 && timeslot >= lookup[0] && timeslot <= lookup[1])
+            || (lookup.len() == 3
+                && ((timeslot >= lookup[0] && timeslot < lookup[1]) || timeslot >= lookup[2]))
+        {
+            Some(preimage)
+        } else {
+            None
+        }
+    }
 
     /// Insert a lookup to the account
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>);
@@ -112,12 +133,20 @@ impl Account for ServiceAccount {
         self.code = code;
     }
 
-    fn gas(&self) -> GasLimit {
-        self.gas.clone()
+    fn accumulate_gas(&self) -> Gas {
+        self.accumulate_gas
     }
 
-    fn set_gas(&mut self, gas: GasLimit) {
-        self.gas = gas;
+    fn set_accumulate_gas(&mut self, gas: Gas) {
+        self.accumulate_gas = gas;
+    }
+
+    fn transfer_gas(&self) -> Gas {
+        self.transfer_gas
+    }
+
+    fn set_transfer_gas(&mut self, gas: Gas) {
+        self.transfer_gas = gas;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {

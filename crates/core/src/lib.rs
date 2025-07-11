@@ -119,7 +119,7 @@ pub const MAX_REFINE_MEMORY: u32 = 0;
 pub const MAX_IS_AUTHORIZED_MEMORY: usize = 0;
 
 /// (W_M) The maximum number of imports and exports in a work package
-pub const MAX_IMPORTS_EXPORTS: u32 = 3072;
+pub const MAX_IMPORTS: u32 = 3072;
 
 /// (W_P) The number of erasure-coded pieces in a segment
 pub const ERASURE_CODED_PIECES: u32 = 6;
@@ -128,7 +128,7 @@ pub const ERASURE_CODED_PIECES: u32 = 6;
 pub const TRANSFER_MEMO_SIZE: u32 = 128;
 
 /// (W_X) The maximum number of exports in a work package
-pub const MAX_EXPORTS: u32 = 0;
+pub const MAX_EXPORTS: u32 = 3072;
 
 /// (Y) The number of slots into an epoch at which ticket-submission ends.
 pub const TICKET_SUBMISSION_PERIOD: u32 = 10;

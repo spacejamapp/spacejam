@@ -1,5 +1,7 @@
 //! API for the invocation
 
+use std::collections::BTreeMap;
+
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
@@ -10,12 +12,12 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{WorkExecResult, WorkPackage},
-    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand},
+    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
-/// The invocation interface of PVM
+/// The invocation Interface of PVM
 ///
 /// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
@@ -138,21 +140,17 @@ pub trait Invocation {
             state,
             data: _,
         } = Self::invoke(code, pc, gas, registers, memory);
-
-        // if error occurs, return the state WITH THE PRESERVED INPUT DATA
         let Reason::HostCall(call) = reason else {
             return state.stepped(reason).with(input);
         };
 
+        // FIXME: refactor with loop
         let stepped = host::call::<R, _, _>(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
                 .stepped(Reason::Fault { page })
                 .with(stepped.data),
-            // FIXME: this recursive call should be optimized in production.
-            //
-            // mb create a new call_inner function and set up a loop for it.
             Reason::Continue | Reason::HostCall(_) => Self::call(
                 code,
                 stepped.state.pc,
@@ -213,33 +211,103 @@ pub trait Invocation {
     ///
     /// Defined per graypaper (B.1)
     fn is_authorized(
-        // (p) The work package
-        _package: WorkPackage,
+        // (p_c) the authorization code blob
+        code: &[u8],
         // (i) The core index
-        _core_idx: usize,
+        core_idx: u16,
     ) -> Executed {
-        Executed::new(Vec::new(), WorkExecResult::Panic, 0)
+        // Check if authorization code exists (BAD if none)
+        if code.is_empty() {
+            tracing::warn!("Authorization code is empty");
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        }
+
+        // Check authorization code size limit (W_A - BIG if too big)
+        if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
+            tracing::warn!(
+                "Authorization code too big: {} bytes > {} bytes limit",
+                code.len(),
+                score::MAX_IS_AUTHORIZED_CODE_SIZE as usize
+            );
+            return Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0);
+        }
+
+        // Prepare arguments
+        //
+        // FIXME: still need to handle fetch call, what kind of context shall we
+        // pass for this?
+        let args = codec::encode(&core_idx).unwrap_or_default();
+        let result = Self::argument::<BTreeMap<u32, ServiceAccount>, ()>(
+            code,
+            0,
+            score::GAS_IS_AUTHORIZED,
+            &args,
+            (),
+        );
+
+        let gas = result.gas;
+        Executed::new(Vec::new(), result.result(), gas)
     }
 
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)
-    fn refine(
-        // (i) the index of the work item to refine
-        _work_idx: usize,
+    fn refine<R: Accounts>(
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (i) the work item index
+        index: usize,
         // (p) the work package
-        _package: WorkPackage,
+        package: &WorkPackage,
         // (o) the authorizer output
-        _output: Vec<u8>,
+        _output: &[u8],
         // (i) import segments
-        _imports: Vec<Vec<[u8; score::SEGMENT_SIZE as usize]>>,
+        _imports: &[[u8; score::SEGMENT_SIZE as usize]],
         // (ς) export segment offset
-        _export_offset: usize,
+        _export_offset: u16,
     ) -> Refined {
-        Refined::new(
-            Executed::new(Vec::new(), WorkExecResult::Panic, 0),
-            Vec::new(),
-        )
+        let item = &package.items[index];
+        let Some(account) = accounts.get(item.service) else {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        if code.len() > score::MAX_REFINE_CODE_SIZE as usize {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0),
+                Vec::new(),
+            );
+        }
+
+        // FIXME: passing the hash into this function mb. do not hash it for twice!
+        let package = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let params = RefineParams {
+            index,
+            id: item.service,
+            payload: item.payload.clone(),
+            package,
+        };
+
+        let result = Self::argument::<R, _>(
+            &code,
+            0,
+            item.refine_gas_limit,
+            &codec::encode(&params).expect("failed to params"),
+            (),
+        );
+        let gas = result.gas;
+        Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }
 
     /// (ΨA): Accumulation invocation
