@@ -46,6 +46,9 @@ pub struct Network<C: runtime::Config> {
     /// The queue of the network
     queue: Arc<RwLock<HashSet<OpaqueHash>>>,
 
+    /// The broadcast channel of the network
+    pub broadcast: bool,
+
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
 }
@@ -59,6 +62,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             bootnode: self.bootnode.clone(),
             queue: self.queue.clone(),
             announce: self.announce.clone(),
+            broadcast: self.broadcast,
         }
     }
 }
@@ -79,6 +83,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             bootnode: config.bootnode,
             queue: Arc::new(RwLock::new(Default::default())),
             announce: broadcast::channel(256).0,
+            broadcast: false,
         };
 
         Ok(this)

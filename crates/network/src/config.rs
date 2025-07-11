@@ -9,16 +9,19 @@ use std::net::{Ipv4Addr, SocketAddr};
 #[cfg_attr(feature = "cmd", derive(clap::Parser))]
 pub struct Config {
     /// The address to listen on.
-    #[cfg_attr(feature = "cmd", arg(long, default_value = "0.0.0.0:0"))]
+    #[cfg_attr(
+        feature = "cmd",
+        arg(long, default_value = "0.0.0.0:0", env = "ADDRESS")
+    )]
     #[serde(alias = "listen-ip")]
     pub address: SocketAddr,
 
     /// The peer id.
-    #[cfg_attr(feature = "cmd", arg(long))]
+    #[cfg_attr(feature = "cmd", arg(long, env = "PEER_ID"))]
     pub peer_id: Option<PeerId>,
 
     /// The bootstrap address.
-    #[cfg_attr(feature = "cmd", arg(long))]
+    #[cfg_attr(feature = "cmd", arg(long, env = "BOOTNODE"))]
     pub bootnode: Option<Address>,
 
     /// The genesis hash.
