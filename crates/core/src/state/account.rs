@@ -1,6 +1,6 @@
 //! Account state
 
-use crate::state::key::{self, StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX, ACCOUNT_STORAGE_PREFIX};
+use crate::state::key::{StorageKeyEncode, ACCOUNT_PREIMAGE_PREFIX};
 use crate::{OpaqueHash, TrieKey};
 
 #[cfg(feature = "crypto")]
@@ -22,6 +22,7 @@ pub fn preimage(service: u32, h: OpaqueHash) -> TrieKey {
 #[cfg(feature = "crypto")]
 mod crypto_impl {
     use super::*;
+    use crate::state::key::{self, ACCOUNT_STORAGE_PREFIX};
 
     /// C(s, [(2^32 - 1), k0...28])  ((s ->a ->k ->v) δ)
     ///

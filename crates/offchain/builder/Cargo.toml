@@ -1,16 +1,19 @@
 [package]
-name = "spacejam-offchain"
+name = "spacejam-builder"
 version.workspace = true
 edition.workspace = true
+description = "Spacejam work package builder"
+
+[lib]
+path = "src/lib.rs"
+name = "builder"
 
 [dependencies]
 anyhow.workspace = true
-async-trait.workspace = true
 codec.workspace = true
-hyper.workspace = true
-hyper-util.workspace = true
+crypto.workspace = true
 runtime.workspace = true
-rpc.workspace = true
 score.workspace = true
 tokio.workspace = true
-tracing.workspace = true
+network.workspace = true
+pvm.workspace = true

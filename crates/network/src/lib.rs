@@ -46,6 +46,9 @@ pub struct Network<C: runtime::Config> {
     /// The queue of the network
     queue: Arc<RwLock<HashSet<OpaqueHash>>>,
 
+    /// The broadcast channel of the network
+    pub broadcast: bool,
+
     /// The announce channel of the network
     announce: broadcast::Sender<Header>,
 }
@@ -59,6 +62,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Clone for Network<C> {
             bootnode: self.bootnode.clone(),
             queue: self.queue.clone(),
             announce: self.announce.clone(),
+            broadcast: self.broadcast,
         }
     }
 }
@@ -79,6 +83,7 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
             bootnode: config.bootnode,
             queue: Arc::new(RwLock::new(Default::default())),
             announce: broadcast::channel(256).0,
+            broadcast: false,
         };
 
         Ok(this)
@@ -133,7 +138,6 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         // close the connection in the pool and metrics
         let address = Address::new(conn.remote_address(), peer);
         conn.close(VarInt::from(0_u8), reason.as_bytes());
-        // self.metrics.conn.close_connection(address.to_string());
 
         // if the connection is incoming, we don't need to dial again
         if !conn.outgoing {

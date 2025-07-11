@@ -19,6 +19,9 @@ impl<C: runtime::Config> Light<C> {
         loop {
             tokio::time::sleep(block::next_slot()).await;
             runtime.dial_validators().await;
+            if let Err(e) = runtime.finalize().await {
+                tracing::error!("finalize error: {}", e);
+            }
         }
     }
 }

@@ -186,10 +186,8 @@ impl<R: Accounts> Accumulate<R> {
         let account = self.account()?;
 
         account.set_code(code);
-        account.set_gas(GasLimit {
-            transfer: m,
-            accumulate: g,
-        });
+        account.set_transfer_gas(m);
+        account.set_accumulate_gas(g);
         Ok(Exit::Ok as u64)
     }
 
@@ -212,7 +210,7 @@ impl<R: Accounts> Accumulate<R> {
         };
 
         // check if the transfer limit is enough
-        if limit < dest.gas().transfer {
+        if limit < dest.transfer_gas() {
             return Ok(Exit::Low as u64);
         }
 

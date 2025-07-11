@@ -2,7 +2,7 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{block::Head, state::key, Block, OpaqueHash, ServiceId, TrieKey};
+use score::{block::Head, service::WorkPackage, state::key, Block, OpaqueHash, ServiceId, TrieKey};
 use std::{collections::BTreeMap, future::Future};
 
 /// Hooks for the runtime
@@ -132,6 +132,26 @@ pub trait Hook: Send + Sync {
         &self,
         _hash: OpaqueHash,
         _data: BTreeMap<ServiceId, (u32, Vec<u8>, Vec<u8>)>,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
+
+    /// Called when a work package is received
+    fn on_work_package(&self, _work: WorkPackage) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
+
+    /// Called when a work package request is received
+    fn on_work_report_request(&self, _hash: OpaqueHash) -> impl Future<Output = Result<()>> + Send {
+        async { Ok(()) }
+    }
+
+    /// Called when a segment shard request is received
+    fn on_segment_shard_request(
+        &self,
+        _root: OpaqueHash,
+        _index: u32,
+        _segments: Vec<u16>,
     ) -> impl Future<Output = Result<()>> + Send {
         async { Ok(()) }
     }

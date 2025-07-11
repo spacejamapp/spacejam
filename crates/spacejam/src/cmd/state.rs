@@ -4,7 +4,7 @@ use crate::chain;
 use clap::Parser;
 use runtime::storage::{Column, Commit, KVStorage, MemoryDb, StateStorage};
 use score::{
-    service::{GasLimit, ServiceAccount, ServiceData},
+    service::{ServiceAccount, ServiceData},
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     Account,
 };
@@ -52,10 +52,8 @@ impl State {
                         .or_insert_with(ServiceAccount::default);
                     entry.balance = account.balance;
                     entry.code = account.code;
-                    entry.gas = GasLimit {
-                        transfer: account.transfer,
-                        accumulate: account.accumulate,
-                    };
+                    entry.transfer_gas = account.transfer;
+                    entry.accumulate_gas = account.accumulate;
                 }
                 StateKey::Account {
                     service,

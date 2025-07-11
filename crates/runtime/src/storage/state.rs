@@ -277,8 +277,8 @@ pub trait StateStorage: KVStorage {
 
                     account.code = value[..32].try_into()?;
                     account.balance = u64::from_le_bytes(value[32..40].try_into()?);
-                    account.gas.accumulate = u64::from_le_bytes(value[40..48].try_into()?);
-                    account.gas.transfer = u64::from_le_bytes(value[48..56].try_into()?);
+                    account.accumulate_gas = u64::from_le_bytes(value[40..48].try_into()?);
+                    account.transfer_gas = u64::from_le_bytes(value[48..56].try_into()?);
                 }
                 StateKey::Account {
                     service,

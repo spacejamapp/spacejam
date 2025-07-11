@@ -1,7 +1,8 @@
 use crate::{
-    service::{RefineContext, RefineContextJson},
+    service::{PackageValidation, RefineContext, RefineContextJson},
     ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
 };
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -30,55 +31,70 @@ pub struct WorkPackageSpec {
 /// Represents a work package in the system.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackage {
-    /// The authorization
+    /// (j) The authorization token
     #[json(hex)]
     pub authorization: Vec<u8>,
 
-    /// The auth code host
+    /// (h) The auth code host
     pub auth_code_host: ServiceId,
 
-    /// The authorizer
+    /// (u, a) The authorizer
     #[json(nested)]
     pub authorizer: Authorizer,
 
-    /// The context
+    /// (c) The context
     #[json(nested)]
     pub context: RefineContext,
 
-    /// The items
+    /// (w) The items
     #[json(nested)]
     pub items: Vec<WorkItem>,
+}
+
+impl WorkPackage {
+    /// Validate the work package according to Gray Paper specifications
+    pub fn validate(&self) -> Result<PackageValidation> {
+        let validation = PackageValidation::new(self);
+        validation.validate()?;
+        Ok(validation)
+    }
 }
 
 /// Represents an individual work item within a work package.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
 pub struct WorkItem {
-    /// The service
+    /// (s) The service
     pub service: ServiceId,
 
-    /// The code hash
+    /// (h) The code hash
     #[json(hex)]
     pub code_hash: OpaqueHash,
 
-    /// The payload
+    /// (y) The payload
     #[json(hex)]
     pub payload: Vec<u8>,
 
-    /// The refine gas limit
+    /// (g) The refine gas limit
     pub refine_gas_limit: Gas,
 
-    /// The accumulate gas limit
+    /// (a) The accumulate gas limit
     pub accumulate_gas_limit: Gas,
 
-    /// The import segments
+    /// (i) The import segments
+    ///
+    /// MAX=W_M=3072
     #[json(nested)]
     pub import_segments: Vec<ImportSpec>,
 
-    /// The extrinsic
+    /// (x) The extrinsic
+    ///
+    /// MAX=T=128
     #[json(nested)]
     pub extrinsic: Vec<ExtrinsicSpec>,
 
-    /// The export count
+    /// (e) The export count
+    ///
+    /// MAX=W_X=3072
     pub export_count: u16,
 }
 
@@ -114,4 +130,14 @@ pub struct Authorizer {
     /// The params
     #[json(hex)]
     pub params: Vec<u8>,
+}
+
+#[cfg(feature = "crypto")]
+impl Authorizer {
+    /// Compute the authorizer hash
+    ///
+    /// FIXME: shall we hash it after encoding?
+    pub fn hash(&self) -> OpaqueHash {
+        crypto::blake2b(&[self.code_hash.as_ref(), &self.params].concat())
+    }
 }
