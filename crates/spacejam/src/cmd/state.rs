@@ -2,12 +2,9 @@
 
 use crate::chain;
 use clap::Parser;
-use runtime::{
-    storage::{Commit, KVStorage, MemoryDb},
-    Storage,
-};
+use runtime::storage::{Column, Commit, KVStorage, MemoryDb, StateStorage};
 use score::{
-    service::{GasLimit, ServiceAccount, ServiceData},
+    service::{ServiceAccount, ServiceData},
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
     Account,
 };
@@ -42,7 +39,7 @@ impl State {
             let info = key.as_state_key().info();
             let mut skey = [0; 31];
             skey.copy_from_slice(&key[..31]);
-            commit.set(skey.to_vec(), value.clone());
+            commit.set(skey, value.clone());
 
             match info {
                 StateKey::Account {
@@ -55,10 +52,8 @@ impl State {
                         .or_insert_with(ServiceAccount::default);
                     entry.balance = account.balance;
                     entry.code = account.code;
-                    entry.gas = GasLimit {
-                        transfer: account.transfer,
-                        accumulate: account.accumulate,
-                    };
+                    entry.transfer_gas = account.transfer;
+                    entry.accumulate_gas = account.accumulate;
                 }
                 StateKey::Account {
                     service,
@@ -97,7 +92,7 @@ impl State {
             }
         }
 
-        memdb.commit(commit)?;
+        memdb.commit(Column::State, commit)?;
         let mut state = memdb.state()?;
         state.accounts = accounts;
         println!("{:?}", state.to_json());

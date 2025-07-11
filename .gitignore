@@ -4,7 +4,9 @@
 /crates/pvm/rvparser/riscv-opcodes
 /crates/spacejam/spec
 /docs/js
+/docker/data
 /docker/node
+/docker/polkajam
 /monitor/data
 /monitor/logs
 /monitor/prometheus-data

@@ -5,7 +5,7 @@ use crate::{
     invocation::{General, State},
     Result,
 };
-use score::{state::account, Account, Accounts, Gas, Parameters, ServiceId};
+use score::{state::account, Account, Accounts, Parameters, ServiceId};
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -19,7 +19,7 @@ impl<R: Accounts> General<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         match call {
-            0 => self.gas(state.gas as u64),
+            0 => Self::gas(state),
             1 => self.lookup(state),
             2 => self.read(state),
             3 => self.write(state),
@@ -30,8 +30,8 @@ impl<R: Accounts> General<R> {
     }
 
     /// (ΩG) Get the gas to register
-    fn gas(&mut self, gas: Gas) -> Result<u64> {
-        Ok(gas)
+    fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
+        Ok(state.gas as u64)
     }
 
     /// (ΩL) account lookup

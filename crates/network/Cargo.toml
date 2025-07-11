@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-clap = { workspace = true, features = ["derive"], optional = true }
+clap = { workspace = true, features = ["derive", "env"], optional = true }
 crypto = { workspace = true, features = ["ed25519", "rand", "tls"] }
 hex.workspace = true
 quinn.workspace = true

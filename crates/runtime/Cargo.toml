@@ -7,6 +7,7 @@ edition.workspace = true
 anyhow.workspace = true
 codec.workspace = true
 crypto = { workspace = true, features = ["shuffle", "vrf"] }
+erasure.workspace = true
 hex.workspace = true
 pvm.workspace = true
 score = { workspace = true, features = ["crypto"] }

@@ -1,19 +1,19 @@
 //! Authoring service
 
-use crate::{
-    storage::{ArchiveStorage, SyncStorage},
-    tx, Config, Runtime, Storage, Validator,
-};
+use crate::{chain::Fork, tx, Config, Runtime, Validator};
 use anyhow::Context;
 use score::{
-    block::{Block, Header},
+    block::{Block, BlockInfo},
     extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
-    safrole::ValidatorIter,
-    BandersnatchPublic, OpaqueHash, TimeSlot,
+    safrole::{Safrole, ValidatorIter},
+    BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use std::{
     ops::Deref,
-    sync::atomic::{AtomicU8, Ordering},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
 };
 
 /// Authoring context
@@ -50,8 +50,8 @@ impl<'a, C: Config> Author<'a, C> {
     pub async fn on_timeslot(
         &mut self,
         timeslot: TimeSlot,
-    ) -> anyhow::Result<(Option<Header>, Option<Ticket>)> {
-        let best = self.storage.best()?;
+    ) -> anyhow::Result<(Option<Block>, Option<Ticket>)> {
+        let best = self.runtime.best().await?;
         let slot = timeslot % score::EPOCH_LENGTH;
         let epoch = timeslot / score::EPOCH_LENGTH;
         let prev = best.slot / score::EPOCH_LENGTH;
@@ -63,7 +63,7 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 1. check generating tickets
-        let finalized = self.storage.finalized()?;
+        let finalized = self.runtime.finalized().await;
         if ticket::generate(slot, best.slot, finalized.slot) {
             if let Some(ticket) = self.ticket(best.slot).await? {
                 self.tickets.push(ticket.id);
@@ -73,7 +73,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 2. check authoring blocks
         if self.slots.contains(&slot) {
-            next.0 = Some(self.author(timeslot).await?.header);
+            next.0 = Some(self.author(timeslot).await?);
             self.slots.retain(|s| *s != slot);
         }
 
@@ -82,19 +82,17 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// on new epoch
     pub async fn on_new_epoch(&mut self, epoch: u32) -> anyhow::Result<()> {
-        self.storage.on_new_epoch(epoch)?;
-
         // 1. reset the attempt number
         self.attempt.store(0, Ordering::Relaxed);
 
         // 2. clean the ticket cache
         self.runtime.tickets.lock().await.clear();
-        self.expool.tickets.lock().await.clear();
+        self.runtime.expool.lock().await.tickets.clear();
 
         // 3. update the authoring slots
         let mut slots = Vec::new();
         let mut fallback = false;
-        match self.storage.series(epoch)? {
+        match self.runtime.series(epoch).await? {
             TicketsOrKeys::Tickets(tickets) => {
                 for (i, ticket) in tickets.iter().enumerate() {
                     if self.tickets.contains(&ticket.id) {
@@ -105,13 +103,6 @@ impl<'a, C: Config> Author<'a, C> {
             }
             TicketsOrKeys::Keys(keys) => {
                 fallback = true;
-                tracing::trace!(
-                    "fallback keys: {:#?}",
-                    keys.iter()
-                        .enumerate()
-                        .map(|(i, k)| format!("{i:02} | 0x{}", hex::encode(k)))
-                        .collect::<Vec<_>>()
-                );
                 for (i, author) in keys.iter().enumerate() {
                     if author == &self.me() {
                         slots.push(i as TimeSlot);
@@ -133,28 +124,30 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Author a block
     pub async fn author(&self, timeslot: TimeSlot) -> anyhow::Result<Block> {
-        let keys = self.storage.current_validators()?.bandersnatch();
+        tracing::trace!("authoring block...");
+        let context = self.author_context(timeslot).await?;
 
         // 1. get the last block
-        let blocks = self.storage.recent_blocks()?;
-        let mut parent = blocks
+        let mut parent = context
+            .recent_blocks
             .last()
             .ok_or(anyhow::anyhow!("genesis block not found"))?
             .clone();
 
         // 2. collect the extrinsics
-        let envelopes = self.storage.safrole()?.accumulator;
-        let extrinsic = self.expool.collect(envelopes).await?;
+        let envelopes = context.safrole.accumulator.clone();
+        let extrinsic = self.runtime.expool.lock().await.collect(envelopes).await?;
 
         // 3. init the builder
-        parent.state_root = self.storage.root()?;
+        parent.state_root = context.root;
         let mut builder = Block::builder()
             .parent(&parent)?
             .extrinsic(extrinsic)?
             .timeslot(timeslot);
 
         // 4. set the author index
-        let author_index = keys
+        let author_index = context
+            .keys
             .iter()
             .position(|v| *v == self.me())
             .ok_or_else(|| anyhow::anyhow!("validator not present in the current validator set"))?;
@@ -165,22 +158,27 @@ impl<'a, C: Config> Author<'a, C> {
         // FIXME:
         //
         // do not simulate the block but just calculate the required data
-        let diff = tx::simulate::<C::Vm>(&mut builder, self.storage.clone())?;
+        tracing::trace!("simulating block...");
+        if let Some(fork) = &context.fork {
+            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone())?;
+        } else if let Some(state) = &context.state {
+            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone())?;
+        } else {
+            anyhow::bail!("no state found");
+        }
+
+        tracing::trace!("block simulated");
         let block: Block = builder.into();
 
         // 6. seal the block
-        let block = self.seal(block, &keys)?;
-
-        // 7. save the block to the fork storage
-        self.grandpa.write().await.add_leaf(block.header.clone())?;
-        self.storage.set_block(&block)?;
-        self.storage.set_diff(block.header.hash()?, diff)?;
+        let block = self.seal(block, context).await?;
         Ok(block)
     }
 
     /// Generate a ticket
     #[tracing::instrument(skip_all, name = "ticket::generate")]
     pub async fn ticket(&self, timeslot: TimeSlot) -> anyhow::Result<Option<Ticket>> {
+        tracing::trace!("generating ticket...");
         let epoch = timeslot / score::EPOCH_LENGTH;
 
         // 1. check if the current validator has exceeded the ticket limit
@@ -190,8 +188,8 @@ impl<'a, C: Config> Author<'a, C> {
         }
 
         // 2. generate a ticket
-        let entropy = self.storage.entropy()?;
-        let next_keys = self.storage.next_validators()?.bandersnatch();
+        let entropy = self.entropy().await?;
+        let next_keys = self.grid().await.next.bandersnatch();
         let envelope = TicketEnvelope {
             attempt,
             signature: self.validator.bandersnatch_ring_sign(
@@ -216,9 +214,10 @@ impl<'a, C: Config> Author<'a, C> {
 
     /// Seal a block
     #[tracing::instrument(skip_all, name = "seal")]
-    fn seal(&self, mut block: Block, keys: &[BandersnatchPublic]) -> anyhow::Result<Block> {
-        let entropy = self.storage.entropy()?;
-        let mut keys = keys.to_vec();
+    async fn seal(&self, mut block: Block, context: AuthorContext<C>) -> anyhow::Result<Block> {
+        tracing::trace!("sealing block...");
+        let entropy = self.entropy().await?;
+        let mut keys = context.keys.to_vec();
         let entropy = if let Some(mark) = block.header.epoch_mark.clone() {
             keys = mark.validators.iter().map(|v| v.bandersnatch).collect();
             entropy[2]
@@ -227,8 +226,7 @@ impl<'a, C: Config> Author<'a, C> {
         };
 
         // construct the seal message
-        let series = self.series(&block.header)?;
-        let (message, ticket) = match series {
+        let (message, ticket) = match context.series {
             TicketsOrKeys::Tickets(tickets) => {
                 let slot = (block.header.slot % score::EPOCH_LENGTH) as usize;
                 let ticket = tickets[slot];
@@ -283,28 +281,6 @@ impl<'a, C: Config> Author<'a, C> {
 
         Ok(block)
     }
-
-    /// Get the series for sealing usage
-    fn series(&self, header: &Header) -> anyhow::Result<TicketsOrKeys> {
-        let epoch = header.slot / score::EPOCH_LENGTH;
-        if let Ok(series) = self.storage.series(epoch) {
-            return Ok(series);
-        }
-
-        let prev = self
-            .storage
-            .header(&header.parent)
-            .map(|prev| prev.slot / score::EPOCH_LENGTH)
-            .unwrap_or(0);
-
-        if epoch > prev {
-            let keys = self.storage.next_validators()?.bandersnatch();
-            let entropy = self.storage.entropy()?;
-            return Ok(TicketsOrKeys::fallback(keys, entropy[1]));
-        };
-
-        anyhow::bail!("current fallback series not tracked, this should never happen");
-    }
 }
 
 impl<C: Config> Deref for Author<'_, C> {
@@ -323,8 +299,9 @@ impl<C: Config> Runtime<C> {
 
     /// Verify a ticket
     pub async fn verify_ticket(&self, ticket: TicketEnvelope) -> anyhow::Result<Ticket> {
-        let keys = self.storage.next_validators()?.bandersnatch();
-        let entropy = self.storage.entropy()?;
+        tracing::trace!("verifying ticket...");
+        let keys = self.grid().await.next.bandersnatch();
+        let entropy = self.entropy().await?;
         let verifier = crypto::ring::verifier(keys);
         let id = verifier
             .ring_vrf_verify(
@@ -341,9 +318,36 @@ impl<C: Config> Runtime<C> {
     }
 
     /// Sort and insert a ticket into the pool
-    pub async fn insert_ticket(&self, _epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
-        let mut tickets = self.expool.tickets.lock().await;
-        tickets.insert(ticket);
+    pub async fn insert_ticket(&self, epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
+        let mut pool = self.expool.lock().await;
+        pool.tickets.entry(epoch).or_default().insert(ticket);
         Ok(())
     }
+}
+
+/// The context for authoring blocks
+pub struct AuthorContext<C: Config> {
+    /// The recent blocks
+    pub recent_blocks: Vec<BlockInfo>,
+
+    /// The safrole
+    pub safrole: Safrole,
+
+    /// The entropy
+    pub entropy: EntropyBuffer,
+
+    /// The grid
+    pub keys: Vec<BandersnatchPublic>,
+
+    /// The root of the state
+    pub root: OpaqueHash,
+
+    /// The series
+    pub series: TicketsOrKeys,
+
+    /// The fork
+    pub fork: Option<Fork<C::Storage>>,
+
+    /// The chain
+    pub state: Option<Arc<C::Storage>>,
 }

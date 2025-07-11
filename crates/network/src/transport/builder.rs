@@ -104,12 +104,24 @@ impl Builder {
         // Configure QUIC transport parameters
         let transport_config = Arc::new({
             let mut transport = quinn::TransportConfig::default();
-            transport.keep_alive_interval(Some(Duration::from_secs(10)));
+
+            // Basic transport settings
+            transport.keep_alive_interval(Some(Duration::from_secs(6)));
             transport
-                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(60))?));
-            transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(100));
-            transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(100));
-            transport.send_window(8 * 1024 * 1024);
+                .max_idle_timeout(Some(quinn::IdleTimeout::try_from(Duration::from_secs(20))?));
+            transport.max_concurrent_bidi_streams(quinn::VarInt::from_u32(200));
+            transport.max_concurrent_uni_streams(quinn::VarInt::from_u32(200));
+            transport.send_window(16 * 1024 * 1024);
+            transport.receive_window(quinn::VarInt::from_u32(16 * 1024 * 1024));
+            transport.stream_receive_window(quinn::VarInt::from_u32(2 * 1024 * 1024));
+            transport.datagram_receive_buffer_size(Some(32 * 1024));
+            transport.datagram_send_buffer_size(16 * 1024);
+
+            // Use BBR for better throughput in high-bandwidth scenarios
+            transport.congestion_controller_factory(std::sync::Arc::new(
+                quinn::congestion::BbrConfig::default(),
+            ));
+
             transport
         });
 

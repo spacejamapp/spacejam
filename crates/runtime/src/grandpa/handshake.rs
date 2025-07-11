@@ -26,4 +26,25 @@ impl Handshake {
             leaves: Default::default(),
         }
     }
+
+    /// Check if the provided header is acceptable for the peer, it should be
+    /// skipped if:
+    ///
+    /// 1. A descendant of the block is announced instead.
+    /// 2. The block is not a descendant of the latest finalized block.
+    /// 3. The block, or a descendant of the block, has been announced by the
+    ///    other side of the stream.
+    ///
+    /// 1 and 2 are checked on importing, so this method only checks 3.
+    pub fn accept(&self, head: &Head) -> bool {
+        self.head.hash != head.hash && !self.leaves.iter().any(|h| h.hash == head.hash)
+    }
+
+    /// Add a leaf to the handshake.
+    pub fn add_leaf(&mut self, mut chain: BTreeSet<Head>, leaf: Head) {
+        chain.retain(|h| h.slot < leaf.slot);
+        self.leaves.insert(leaf);
+        self.leaves
+            .retain(|head| !chain.iter().any(|h| h.hash == head.hash));
+    }
 }

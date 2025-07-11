@@ -6,33 +6,13 @@ use crate::{
     Connection, Network,
 };
 use anyhow::Context;
-use score::{
-    block::Header,
-    extrinsic::{Ticket, TicketEnvelope},
-};
+use score::extrinsic::{Ticket, TicketEnvelope};
 
 impl<C: runtime::Config> Network<C> {
-    /// Announce a block to the network
-    #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
-    pub async fn announce(&self, header: Box<Header>) -> anyhow::Result<()> {
-        let grandpa = self.grandpa().await;
-        if let Err(e) = grandpa.accept_local(&header).await {
-            tracing::trace!("skip because: {e}");
-            return Ok(());
-        }
-
-        match self.announce.send(*header) {
-            Ok(count) => tracing::trace!("broadcasting to {} peers", count),
-            Err(e) => tracing::warn!("failed to broadcast block: {e}"),
-        }
-
-        Ok(())
-    }
-
     /// Broadcast a ticket to validators in the network.
     #[tracing::instrument(skip_all, name = "ticket", fields(attempt = %ticket.envelope.attempt))]
     pub async fn submit(&self, epoch: u32, ticket: Ticket) -> anyhow::Result<()> {
-        let validators = self.grandpa().await.grid.next;
+        let validators = self.runtime.grid().await.next;
         let pool = self.pool.read().await.clone();
         let validator: PeerId = validators[ticket.submission()].ed25519.into();
         let conn = pool
@@ -66,7 +46,7 @@ impl<C: runtime::Config> Network<C> {
             return Ok(());
         }
 
-        let validators = self.grandpa().await.grid.next;
+        let validators = self.runtime.grid().await.next;
         let me = self.me();
         let this = validators
             .iter()

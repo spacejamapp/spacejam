@@ -19,22 +19,35 @@ impl<C: runtime::Config> Network<C> {
         mut recv: RecvStream,
     ) -> anyhow::Result<()> {
         let request = Request::read(&mut recv).await?;
-        let epoch = block::timeslot() / score::EPOCH_LENGTH;
+        let current_slot = block::timeslot();
+        let current_epoch = current_slot / score::EPOCH_LENGTH;
 
         tracing::trace!(
-            "ticket#{}@{} for epoch: {}",
+            "ticket#{}@{} for epoch: {} (current epoch: {})",
             request.ticket.attempt,
             hex::encode(&request.ticket.signature[..3]),
             request.epoch,
+            current_epoch
         );
 
-        // check if the ticket is valid.
+        if request.epoch != current_epoch + 1 && request.epoch != current_epoch {
+            send.finish()?; // Finish stream before error
+            anyhow::bail!(
+                    "received invalid ticket: epoch mismatch: {} != {} (current) or {} (next), rejecting out-of-epoch ticket",
+                    request.epoch,
+                    current_epoch,
+                    current_epoch + 1
+                );
+        }
+
+        let attempt = request.ticket.attempt;
         let ticket = self.runtime.verify_ticket(request.ticket).await?;
         let submission = ticket.submission();
-        let validators = self.grandpa().await.grid.next;
+        let validators = self.runtime.grid().await.next;
         let validator = validators[submission];
         let me = self.me();
         if validator.bandersnatch != me {
+            send.finish()?; // Finish stream before error
             anyhow::bail!(
                 "received invalid ticket: not the proxy validator, expected: {}, this: {:?}",
                 submission,
@@ -42,20 +55,18 @@ impl<C: runtime::Config> Network<C> {
             );
         }
 
-        if request.epoch != epoch {
-            anyhow::bail!(
-                "received invalid ticket: epoch mismatch: {} != {}, FIXME: detect epoch from best head",
-                request.epoch,
-                epoch
-            );
-        }
-
-        self.insert_ticket(epoch, ticket.clone()).await?;
+        self.insert_ticket(request.epoch, ticket.clone()).await?;
         self.runtime
             .tickets
             .lock()
             .await
-            .push((epoch, ticket.envelope));
+            .push((request.epoch, ticket.envelope));
+
+        tracing::debug!(
+            "accepted ticket#{} for epoch {}, stored in pool",
+            attempt,
+            request.epoch
+        );
 
         send.finish()?;
         Ok(())

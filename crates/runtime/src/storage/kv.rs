@@ -1,8 +1,8 @@
 //! Key-value storage abstraction
 
-use crate::storage::Commit;
+use crate::storage::{Column, Commit};
 use anyhow::Result;
-use score::{state::key, TimeSlot};
+use score::TrieKey;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -11,38 +11,32 @@ use std::{
 /// Key-value storage
 pub trait KVStorage {
     /// Batch write a set of key-value pairs to the storage
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()>;
+    fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()>;
 
-    /// Set a key-value pair to the storage
-    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
+    /// Set a key-value pair with column specified
+    fn set(&self, column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
 
-    /// Get a value from the storage
-    fn get(&self, _key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
+    /// Get a value from the storage with column specified
+    fn get(&self, column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>>;
 
-    /// Iterate over the storage
-    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
+    /// Iterate over the storage with column specified
+    fn iter(&self, column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
 
-    /// Iterate over the storage with a prefix
+    /// Iterate over the storage with a prefix and column specified
     fn prefix_iter(
         &self,
+        column: Column,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>>;
 
-    /// Batch read a set of key-value pairs from the storage
-    fn batch_read(&self, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    /// Batch read a set of key-value pairs from the storage with column specified
+    fn batch_read(&self, column: Column, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         keys.iter()
-            .map(|key| self.get(key).map(|v| (key.to_vec(), v.unwrap_or_default())))
+            .map(|key| {
+                self.get(column, key)
+                    .map(|v| (key.to_vec(), v.unwrap_or_default()))
+            })
             .collect::<Result<Vec<_>>>()
-    }
-
-    /// Check if the storage is empty
-    fn is_empty(&self) -> bool {
-        let timeslot = self.get(key::TIMESLOT);
-        if let Ok(Some(timeslot)) = timeslot {
-            codec::decode::<TimeSlot>(timeslot.as_ref()).is_err()
-        } else {
-            true
-        }
     }
 }
 
@@ -56,7 +50,7 @@ pub struct MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn commit(&self, commit: Commit<Vec<u8>, Vec<u8>>) -> Result<()> {
+    fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut data = self
             .data
             .write()
@@ -67,21 +61,23 @@ impl KVStorage for MemoryDb {
         }
 
         for key in commit.iremoval() {
-            data.remove(key);
+            data.remove(key.as_ref());
         }
 
         Ok(())
     }
 
-    fn set(&self, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
-        self.data
+    fn set(&self, _column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()> {
+        let mut data = self
+            .data
             .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?
-            .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
+
+        data.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
         Ok(())
     }
 
-    fn get(&self, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+    fn get(&self, _column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
         let data = self
             .data
             .read()
@@ -89,7 +85,7 @@ impl KVStorage for MemoryDb {
         Ok(data.get(key.as_ref()).cloned())
     }
 
-    fn iter(&self) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+    fn iter(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let data = self
             .data
             .read()
@@ -104,6 +100,7 @@ impl KVStorage for MemoryDb {
 
     fn prefix_iter(
         &self,
+        _column: Column,
         prefix: impl AsRef<[u8]>,
     ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
         let data = self
@@ -120,12 +117,5 @@ impl KVStorage for MemoryDb {
             .collect();
 
         Ok(matches.into_iter().map(Ok))
-    }
-
-    fn is_empty(&self) -> bool {
-        match self.data.read() {
-            Ok(data) => data.is_empty(),
-            Err(_) => true, // Consider poisoned lock as empty
-        }
     }
 }

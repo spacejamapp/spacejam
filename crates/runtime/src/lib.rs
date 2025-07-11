@@ -6,7 +6,8 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {
     account::{Account, Accounts},
-    grandpa::{Ancestry, Grandpa, Handshake},
+    chain::{Chain, Grid, Lookup},
+    grandpa::{Grandpa, Handshake},
     hook::Hook,
     pool::Pool,
     storage::Storage,
@@ -14,7 +15,7 @@ pub use {
 };
 
 mod account;
-mod ext;
+pub mod chain;
 mod grandpa;
 mod hook;
 mod pool;
@@ -25,24 +26,21 @@ mod validator;
 /// Runtime of SpaceJam
 #[derive(Clone)]
 pub struct Runtime<C: Config> {
+    /// The chain of blocks
+    ///
+    /// This should never being used directly, use the `chain` method instead.
+    _chain: Arc<RwLock<Chain<C>>>,
+
     /// The validator of SpaceJam
     pub validator: C::Validator,
-
-    /// The storage of SpaceJam
-    pub storage: Arc<C::Storage>,
 
     /// The hook of SpaceJam
     pub hook: C::Hook,
 
     /// The extrinsic pool of SpaceJam
-    pub expool: Pool,
+    pub expool: Arc<Mutex<Pool>>,
 
-    /// The grandpa of SpaceJam
-    pub grandpa: Arc<RwLock<Grandpa<C::Storage>>>,
-
-    /// The received tickets
-    ///
-    /// TODO: merge author context here
+    /// The received tickets per epoch
     pub tickets: Arc<Mutex<Vec<(u32, TicketEnvelope)>>>,
 }
 
@@ -52,17 +50,21 @@ impl<C: Config> Runtime<C> {
         let storage = Arc::new(storage);
         Self {
             validator,
-            storage: storage.clone(),
+            _chain: Arc::new(RwLock::new(Chain::new(storage.clone()))),
             hook,
             expool: Default::default(),
-            grandpa: Arc::new(RwLock::new(Grandpa::new(storage))),
             tickets: Default::default(),
         }
     }
 
-    /// Get the grandpa of SpaceJam
-    pub async fn grandpa(&self) -> Grandpa<C::Storage> {
-        self.grandpa.read().await.clone()
+    /// Finalize the chain
+    pub async fn finalize(&self) -> anyhow::Result<()> {
+        for (block, diff) in self._chain.write().await.finalize()? {
+            self.hook.on_diff(block.header.hash()?, diff).await?;
+            self.hook.on_finalized_block(block).await?;
+        }
+
+        Ok(())
     }
 
     /// Get the bandersnatch public key of the local validator

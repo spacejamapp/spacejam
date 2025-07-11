@@ -1,106 +1,69 @@
 # docker compose config for local tiny network.
 
 services:
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports: [9090:9090]
-    networks: ["spacenet"]
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
+  polkajam-0:
+    image: polkajam:0.1.23
+    network_mode: host
+    command: -c dev --chain /shared/spec.json run -d /data --dev-validator 0 --port 40000 --rpc-port 19800 --pvm-backend=interpreter
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  spacejam-1:
-    image: spacejam:latest
+      - ./data:/shared
+      - ./node/0:/data
+    environment:
+      - RUST_LOG=jam_node=trace
+  polkajam-1:
+    image: polkajam:0.1.23
     depends_on:
-      - prometheus
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.10
-    command: >
-      spawn --validator 0
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9091
-      --addresses /ip4/172.20.0.10/udp/30333/quic-v1
-    ports: [9091:9091]
-    volumes: [./node/0:/data]
-  spacejam-2:
-    image: spacejam:latest
+      - polkajam-0
+    network_mode: host
+    command: -c dev --chain /shared/spec.json run -d /data --dev-validator 1 --port 40001 --rpc-port 19801 --pvm-backend=interpreter
+    volumes:
+      - ./data:/shared
+      - ./node/1:/data
+    environment:
+      - RUST_LOG=jam_node=trace
+  polkajam-2:
+    image: polkajam:0.1.23
     depends_on:
-      - spacejam-1
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.11
-    command: >
-      spawn --validator 1
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9092
-      --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
-    ports: [9092:9092]
-    volumes: [./node/1:/data]
-  spacejam-3:
-    image: spacejam:latest
+      - polkajam-0
+    network_mode: host
+    command: -c dev --chain /shared/spec.json run -d /data --dev-validator 2 --port 40002 --rpc-port 19802 --pvm-backend=interpreter
+    volumes:
+      - ./data:/shared
+      - ./node/2:/data
+    environment:
+      - RUST_LOG=jam_node=trace
+  polkajam-3:
+    image: polkajam:0.1.23
     depends_on:
-      - spacejam-1
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.12
-    command: >
-      spawn --validator 2
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9093
-      --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
-    ports: [9093:9093]
-    volumes: [./node/2:/data]
-  spacejam-4:
-    image: spacejam:latest
+      - polkajam-0
+    network_mode: host
+    command: -c dev --chain /shared/spec.json run -d /data --dev-validator 3 --port 40003 --rpc-port 19803 --pvm-backend=interpreter
+    volumes:
+      - ./data:/shared
+      - ./node/3:/data
+    environment:
+      - RUST_LOG=jam_node=trace
+  polkajam-4:
+    image: polkajam:0.1.23
     depends_on:
-      - spacejam-1
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.13
-    command: >
-      spawn --validator 3
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9094
-      --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
-    ports: [9094:9094]
-    volumes: [./node/3:/data]
-  spacejam-5:
-    image: spacejam:latest
+      - polkajam-0
+    network_mode: host
+    command: -c dev --chain /shared/spec.json run -d /data --dev-validator 4 --port 40004 --rpc-port 19804 --pvm-backend=interpreter
+    volumes:
+      - ./data:/shared
+      - ./node/4:/data
+    environment:
+      - RUST_LOG=jam_node=trace
+  spacejam:
+    image: spacejam:0.0.1
     depends_on:
-      - spacejam-1
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.14
-    command: >
-      spawn --validator 4
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9095
-      --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
-    ports: [9095:9095]
-    volumes: [./node/4:/data]
-  spacejam-6:
-    image: spacejam:latest
-    depends_on:
-      - spacejam-1
-    networks:
-      spacenet:
-        ipv4_address: 172.20.0.15
-    command: >
-      spawn --validator 5
-      --genesis ./data/genesis.json
-      --metrics 0.0.0.0:9096
-      --bootstrap /ip4/172.20.0.10/udp/30333/quic-v1/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN
-    ports: [9096:9096]
-    volumes: [./node/5:/data]
-networks:
-  spacenet:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
+      - polkajam-0
+    network_mode: host
+    command: run -d /data --chain /shared/spec.json --validator 5 --address 127.0.0.1:40005
+    volumes:
+      - ./data:/shared
+      - ./node/5:/data
+    environment:
+      - RUST_LOG=spacejam,runtime,network=trace
+
+# Using host networking mode - no custom network needed

@@ -29,35 +29,35 @@ pub trait Api {
 
     /// Returns the header hash and slot of the head of the "best" chain.
     #[method(name = "bestBlock")]
-    fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
+    async fn best_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
 
     /// Returns the header hash and slot of the latest finalized block.
     #[method(name = "finalizedBlock")]
-    fn finalized_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
+    async fn finalized_block(&self) -> Result<BlockResponse, ErrorObjectOwned>;
 
     /// Returns the header hash and slot of the parent of the block with the given
     /// header hash, or null if this is not known.
     #[method(name = "parent")]
-    fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned>;
+    async fn parent(&self, hash: OpaqueHash) -> Result<Option<BlockResponse>, ErrorObjectOwned>;
 
     /// Returns the state root of the block with the given header hash, or null if
     /// this is not known.
     #[method(name = "stateRoot")]
-    fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned>;
+    async fn state_root(&self, hash: OpaqueHash) -> Result<Option<OpaqueHash>, ErrorObjectOwned>;
 
     /// Returns the activity statistics stored in the posterior state of the block
     /// with the given header hash. The statistics are encoded as per the GP.
     ///
     /// null is returned if the block's posterior state is not known.
     #[method(name = "statistics")]
-    fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
+    async fn statistics(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
 
     /// Returns the service info for the given service ID. The data are encoded as per the GP.
     ///
     /// null is returned if the block's posterior state is not known. Some(None) is returned if
     /// there is no value associated with the given service ID.
     #[method(name = "serviceData")]
-    fn service_data(
+    async fn service_data(
         &self,
         hash: OpaqueHash,
         service: ServiceId,
@@ -67,7 +67,7 @@ pub trait Api {
     /// the block with the given header hash. null is returned if there is no value associated with
     /// the given service ID and key.
     #[method(name = "serviceValue")]
-    fn service_value(
+    async fn service_value(
         &self,
         hash: OpaqueHash,
         service: ServiceId,
@@ -78,7 +78,7 @@ pub trait Api {
     /// with the given header hash. null is returned if there is no preimage associated with the
     /// given service ID and key.
     #[method(name = "servicePreimage")]
-    fn service_preimage(
+    async fn service_preimage(
         &self,
         hash: OpaqueHash,
         service: ServiceId,
@@ -89,7 +89,7 @@ pub trait Api {
     /// state of the block with the given header hash. null is returned if there is no preimage request
     /// associated with the given service ID, hash and length.
     #[method(name = "serviceRequest")]
-    fn service_request(
+    async fn service_request(
         &self,
         header_hash: OpaqueHash,
         service: ServiceId,
@@ -99,11 +99,11 @@ pub trait Api {
 
     /// Returns the BEEFY root of the block with the given header hash, or null if this is not known.
     #[method(name = "beefyRoot")]
-    fn beefy_root(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
+    async fn beefy_root(&self, hash: OpaqueHash) -> Result<Option<Vec<u8>>, ErrorObjectOwned>;
 
     /// Submit a work-package to the guarantors currently assigned to the given core.
     #[method(name = "submitWorkPackage")]
-    fn submit_work_package(
+    async fn submit_work_package(
         &self,
         core: CoreIndex,
         package: Vec<u8>,
@@ -112,7 +112,7 @@ pub trait Api {
 
     /// Submit a preimage which is being requested by a given service.
     #[method(name = "submitPreimage")]
-    fn submit_preimage(
+    async fn submit_preimage(
         &self,
         service: ServiceId,
         preimage: Vec<u8>,
@@ -123,7 +123,7 @@ pub trait Api {
     /// not reflect the true state. Nodes could e.g. reasonably hide services which are not recently
     /// active from this list.
     #[method(name = "listServices")]
-    fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned>;
+    async fn list_services(&self, hash: OpaqueHash) -> Result<Vec<ServiceId>, ErrorObjectOwned>;
 
     /// Subscribe to updates of the head of the "best" chain, as returned by bestBlock.
     #[subscription(name = "subscribeBestBlock", item = BlockResponse)]

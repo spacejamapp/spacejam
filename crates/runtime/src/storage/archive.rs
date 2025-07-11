@@ -1,60 +1,71 @@
-//! The archive storage per block.
+//! Archived storage
 
-use crate::storage::{sync::SYNC, Commit, KVStorage};
+use std::sync::Arc;
+
+use crate::storage::{Column, Commit, KVStorage};
 use anyhow::Result;
-use score::{OpaqueHash, StorageKey};
+use score::{state::StateKeyLike, OpaqueHash, TrieKey};
 
-/// The prefix of the archive storage.
-pub const ARCHIVE: &[u8] = b"archive";
-
-/// The archive storage interface.
+/// The archived storage
 pub trait ArchiveStorage: KVStorage {
-    /// Get the archive storage for a given block.
-    ///
-    /// TODO: introduce a better solution for archiving storage per block
-    fn archive(&self, block: OpaqueHash) -> Result<()> {
-        let mut iter = self.iter()?;
+    /// Archive a block
+    fn archive(&self, block: &OpaqueHash) -> Result<()> {
         let mut commit = Commit::default();
-        while let Some(Ok((key, value))) = iter.next() {
-            if key.starts_with(ARCHIVE) || key.starts_with(SYNC) || key.len() != 31 {
-                continue;
-            }
-
-            let mut skey = [0; 31];
-            skey.copy_from_slice(key.as_ref());
-            commit.set([ARCHIVE, block.as_ref(), &skey].concat(), value);
-            if commit.len() > 20 {
-                self.commit(commit.clone())?;
-                commit = Commit::default();
-            }
-        }
-        Ok(())
-    }
-
-    /// Checkout the archive storage for a given block.
-    fn checkout(&self, block: OpaqueHash) -> Result<()> {
-        let prefix = [ARCHIVE, block.as_ref()].concat();
-        let mut iter = self.prefix_iter(prefix)?;
-        while let Some(Ok((key, value))) = iter.next() {
-            self.set(&key[39..], value)?;
+        let iter = self.iter(Column::State)?;
+        for pair in iter {
+            let (key, value) = pair?;
+            let key = [block[..6].to_vec(), key].concat().as_state_key();
+            commit.set(key, value);
         }
 
+        self.commit(Column::Archive, commit)?;
         Ok(())
-    }
-
-    fn set_diff(&self, block: OpaqueHash, diff: Commit<StorageKey, Vec<u8>>) -> Result<()> {
-        let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
-        self.set(prefix, codec::encode(&diff)?)?;
-        Ok(())
-    }
-
-    fn diff(&self, block: OpaqueHash) -> Result<Commit<StorageKey, Vec<u8>>> {
-        let prefix = [ARCHIVE, b"diff", block.as_ref()].concat();
-        let value = self
-            .get(&prefix)?
-            .ok_or(anyhow::anyhow!("Diff not found"))?;
-        Ok(codec::decode(value.as_ref())?)
     }
 }
 
-impl<T: KVStorage> ArchiveStorage for T {}
+/// The archived storage
+pub struct Archive<S: KVStorage> {
+    /// The block that is archived
+    block: OpaqueHash,
+
+    /// The state of the archive
+    state: Arc<S>,
+}
+
+impl<S: KVStorage> Archive<S> {
+    /// Create a new archive
+    pub fn checkout(state: Arc<S>, block: OpaqueHash) -> Self {
+        Self { block, state }
+    }
+}
+
+impl<S: KVStorage> KVStorage for Archive<S> {
+    fn commit(&self, _column: Column, _commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        anyhow::bail!("commit is not allowed on archive")
+    }
+
+    fn set(&self, _column: Column, _key: impl AsRef<[u8]>, _value: impl AsRef<[u8]>) -> Result<()> {
+        anyhow::bail!("set is not allowed on archive")
+    }
+
+    fn get(&self, _column: Column, key: impl AsRef<[u8]>) -> Result<Option<Vec<u8>>> {
+        let key = [self.block[..6].to_vec(), key.as_ref().to_vec()]
+            .concat()
+            .as_state_key();
+        self.state.get(Column::Archive, key)
+    }
+
+    fn iter(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        self.state
+            .prefix_iter(Column::Archive, self.block[..6].to_vec())
+    }
+
+    fn prefix_iter(
+        &self,
+        _column: Column,
+        prefix: impl AsRef<[u8]>,
+    ) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
+        let prefix = [self.block[..6].to_vec(), prefix.as_ref().to_vec()].concat();
+        self.state.prefix_iter(Column::Archive, prefix)
+    }
+}

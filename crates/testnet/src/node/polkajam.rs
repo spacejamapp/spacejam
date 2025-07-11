@@ -9,8 +9,6 @@ impl Node {
     pub fn polkajam(&self, net: &Network) -> Result<Command> {
         let mut command = Command::new(&self.command);
         command.envs(&self.env).args([
-            "-p",
-            "tiny",
             "-c",
             "dev",
             "--chain",

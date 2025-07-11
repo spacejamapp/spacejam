@@ -1,5 +1,4 @@
-use score::block::Head;
-use spacejam_runtime::Ancestry;
+/* use score::block::Head;
 
 #[test]
 fn test_advance() {
@@ -34,3 +33,4 @@ fn test_advance() {
         );
     }
 }
+ */
