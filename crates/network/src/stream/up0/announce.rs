@@ -123,7 +123,7 @@ pub async fn recv<C: runtime::Config>(
             .await?;
 
         if imported {
-            runtime.queue.write().await.insert(lhead.hash);
+            runtime.queue.write().await.remove(&lhead.hash);
             continue;
         }
 
