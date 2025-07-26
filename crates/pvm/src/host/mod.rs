@@ -20,7 +20,30 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     let mut data = data;
     tracing::debug!("calling host call {call}");
     let reason = match call {
-        0..5 | 18 => {
+        0 | 18 => {
+            // For is_authorized context, only gas and fetch are allowed
+            if let Ok(is_auth) = data.as_is_authorized() {
+                match call {
+                    0 => general::gas(&mut state),
+                    18 => general::fetch_is_authorized(&mut state, is_auth),
+                    _ => Ok(Exit::What as u64),
+                }
+            } else {
+                // For other contexts with general host calls
+                let mut general = match data.as_general() {
+                    Ok(g) => g,
+                    Err(e) => return Stepped::new(e, state).with(data),
+                };
+                let ret = general.call(call, &mut state);
+                if general.updated {
+                    if let Err(e) = data.update_general(general) {
+                        return Stepped::new(e, state).with(data);
+                    }
+                }
+                ret
+            }
+        }
+        1..5 => {
             let mut general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),

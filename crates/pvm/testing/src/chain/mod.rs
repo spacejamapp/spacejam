@@ -8,6 +8,8 @@ use score::{
 };
 use std::collections::BTreeMap;
 
+mod vm;
+
 /// Chain environment
 pub struct Chain {
     /// Best block

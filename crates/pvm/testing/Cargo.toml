@@ -6,4 +6,6 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 builder.workspace = true
+pvm.workspace = true
+pvmi.workspace = true
 score.workspace = true
