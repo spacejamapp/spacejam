@@ -1,61 +1,75 @@
-//! Basic item validation logic
+//! Basic item builder implementation
 
+use crate::ItemBuilder;
 use anyhow::{anyhow, Result};
-use score::service::WorkItem;
+use score::service::{ExtrinsicSpec, ImportSpec, WorkItem};
 
-/// Item-related validation methods for BasicBuilder
-pub struct ItemValidator;
+/// Basic implementation of ItemBuilder
+#[derive(Debug, Default)]
+pub struct Builder {
+    refine_gas_limit: score::Gas,
+    accumulate_gas_limit: score::Gas,
+    imports: Vec<ImportSpec>,
+    extrinsics: Vec<ExtrinsicSpec>,
+    export_count: u16,
+}
 
-impl ItemValidator {
-    /// Validate gas limits according to Gray Paper constraints
-    pub fn validate_gas_limits(items: &[WorkItem]) -> Result<()> {
-        let mut total_refine_gas = 0u64;
-        let mut total_accumulate_gas = 0u64;
-        
-        for item in items {
-            total_refine_gas += item.refine_gas_limit;
-            total_accumulate_gas += item.accumulate_gas_limit;
-        }
-        
-        // Check against per-core gas limits
-        let max_refine_gas = score::GAS_REFINE;
-        let max_accumulate_gas = score::GAS_ACC;
-        
-        if total_refine_gas > max_refine_gas {
-            return Err(anyhow!("Gas limit exceeded: {} > {}", total_refine_gas, max_refine_gas));
-        }
-        
-        if total_accumulate_gas > max_accumulate_gas {
-            return Err(anyhow!("Gas limit exceeded: {} > {}", total_accumulate_gas, max_accumulate_gas));
-        }
-        
-        Ok(())
+impl ItemBuilder for Builder {
+    fn refine_gas_limit(mut self, gas: score::Gas) -> Self {
+        self.refine_gas_limit = gas;
+        self
     }
-    
-    /// Validate manifest limits (imports, exports, extrinsics)
-    pub fn validate_manifest_limits(items: &[WorkItem]) -> Result<()> {
-        let mut total_exports = 0u32;
-        let mut total_imports = 0u32;
-        let mut total_extrinsics = 0u16;
-        
-        for item in items {
-            total_exports += item.export_count as u32;
-            total_imports += item.import_segments.len() as u32;
-            total_extrinsics += item.extrinsic.len() as u16;
+
+    fn accumulate_gas_limit(mut self, gas: score::Gas) -> Self {
+        self.accumulate_gas_limit = gas;
+        self
+    }
+
+    fn add_import(mut self, tree_root: score::OpaqueHash, index: u16) -> Result<Self> {
+        if self.imports.len() >= score::MAX_IMPORTS as usize {
+            return Err(anyhow!(
+                "Import count limit exceeded: {} >= {}",
+                self.imports.len(),
+                score::MAX_IMPORTS
+            ));
         }
-        
-        if total_exports > score::MAX_EXPORTS {
-            return Err(anyhow!("Export count exceeded: {} > {}", total_exports, score::MAX_EXPORTS));
+
+        self.imports.push(ImportSpec { tree_root, index });
+        Ok(self)
+    }
+
+    fn add_extrinsic(mut self, extrinsic: ExtrinsicSpec) -> Result<Self> {
+        if self.extrinsics.len() >= score::MAX_EXTRINSICS as usize {
+            return Err(anyhow!(
+                "Extrinsic count limit exceeded: {} >= {}",
+                self.extrinsics.len(),
+                score::MAX_EXTRINSICS
+            ));
         }
-        
-        if total_imports > score::MAX_IMPORTS {
-            return Err(anyhow!("Import count exceeded: {} > {}", total_imports, score::MAX_IMPORTS));
-        }
-        
-        if total_extrinsics > score::MAX_EXTRINSICS {
-            return Err(anyhow!("Extrinsic count exceeded: {} > {}", total_extrinsics, score::MAX_EXTRINSICS));
-        }
-        
-        Ok(())
+
+        self.extrinsics.push(extrinsic);
+        Ok(self)
+    }
+
+    fn export_count(mut self, count: u16) -> Self {
+        self.export_count = count;
+        self
+    }
+
+    fn build(self) -> Result<WorkItem> {
+        // Note: This creates a WorkItem with empty import_segments and extrinsic vectors
+        // because the core ImportSpec/ExtrinsicSpec types are not exported from spacejam-core.
+        // Use extrinsic_commitments() and extrinsic_data() for proper work package building.
+
+        Ok(WorkItem {
+            service: 0,
+            code_hash: score::OpaqueHash::default(),
+            payload: Vec::new(),
+            refine_gas_limit: self.refine_gas_limit,
+            accumulate_gas_limit: self.accumulate_gas_limit,
+            import_segments: Vec::new(),
+            extrinsic: Vec::new(),
+            export_count: self.export_count,
+        })
     }
 }

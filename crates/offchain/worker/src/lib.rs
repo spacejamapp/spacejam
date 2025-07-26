@@ -3,8 +3,9 @@
 
 use runtime::Config;
 use std::sync::Arc;
-pub use {context::Context, worker::Worker};
+pub use {bundle::Bundle, context::Context, worker::Worker};
 
+mod bundle;
 mod context;
 mod worker;
 

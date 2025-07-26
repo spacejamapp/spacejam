@@ -3,5 +3,5 @@
 pub mod item;
 pub mod package;
 
-pub use item::{ExtrinsicSpec, ImportSpec, ItemBuilder};
-pub use package::Builder;
+pub use item::Builder as ItemBuilder;
+pub use package::Builder as PackageBuilder;

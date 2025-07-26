@@ -10,7 +10,7 @@ name = "builder"
 
 [dependencies]
 score.workspace = true
-crypto.workspace = true
+crypto = { workspace = true, features = ["blake2"] }
 codec.workspace = true
 spacejson.workspace = true
 anyhow.workspace = true

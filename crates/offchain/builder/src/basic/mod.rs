@@ -3,5 +3,5 @@
 pub mod item;
 pub mod package;
 
-pub use item::ItemValidator;
-pub use package::Builder;
+pub use item::Builder as BasicItemBuilder;
+pub use package::{Builder, WorkBundle};
