@@ -2921,6 +2921,13 @@ dependencies = [
 [[package]]
 name = "spacejam-builder"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejson",
+]
 
 [[package]]
 name = "spacejam-core"
