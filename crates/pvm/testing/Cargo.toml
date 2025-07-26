@@ -1,0 +1,9 @@
+[package]
+name = "pvm-testing"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+builder.workspace = true
+score.workspace = true

@@ -9,16 +9,21 @@ members = [
     "crates/offchain/rpc",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
+    "crates/pvm/testing",
     "crates/testing/spec",
 ]
 resolver = "1"
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 version = "0.0.0"
+homepage = "https://github.com/spacejamapp/spacejam"
+repository = "https://github.com/spacejamapp/spacejam"
+license = "GPL-3.0"
+authors = ["clearloop <tianyi.gc@gmail.com>"]
 
 [workspace.dependencies]
-score = { path = "crates/core", package = "spacejam-core" }
+builder = { path = "crates/offchain/builder", package = "spacejam-builder" }
 codec = { path = "crates/codec", package = "jamcodec" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
@@ -27,8 +32,10 @@ offchain = { path = "crates/offchain", package = "spacejam-offchain" }
 pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
+pvm-testing = { path = "crates/pvm/testing" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
+score = { path = "crates/core", package = "spacejam-core" }
 serde-jam = { path = "crates/codec", package = "jamcodec" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
