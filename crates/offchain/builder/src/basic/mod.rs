@@ -4,4 +4,4 @@ pub mod item;
 pub mod package;
 
 pub use item::ItemValidator;
-pub use package::BasicBuilder;
+pub use package::Builder;

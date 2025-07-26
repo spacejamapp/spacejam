@@ -7,9 +7,7 @@
 //! because the core types are not publicly exposed. This should be addressed in a future
 //! update to spacejam-core.
 
-pub use builder::{
-    Builder, DefaultWorkItemBuilder, ExtrinsicSpec, ImportSpec, ItemBuilder, WorkPackageBuilder,
-};
+pub use builder::{Builder, ExtrinsicSpec, ImportSpec, ItemBuilder};
 
 pub mod basic;
 pub mod builder;
