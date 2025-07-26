@@ -1,17 +1,18 @@
 //! chain of blocks.
 
 use crate::{
+    Storage,
     chain::Grid,
     storage::{Branch, Column, Commit, KVStorage, StateStorage},
-    tx, Storage,
+    tx,
 };
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
+    Block, TimeSlot, TrieKey,
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
     safrole::ValidatorIter,
-    Block, TimeSlot, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -171,9 +172,9 @@ impl<S: Storage> Fork<S> {
             return Ok(());
         };
 
-        let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
         tracing::info!(
-            "tickets for epoch={epoch}: {:#?}",
+            "tickets for epoch={}: {:#?}",
+            epoch + 1,
             series
                 .iter()
                 .enumerate()
