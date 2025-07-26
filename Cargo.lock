@@ -2921,16 +2921,6 @@ dependencies = [
 [[package]]
 name = "spacejam-builder"
 version = "0.0.0"
-dependencies = [
- "anyhow",
- "jamcodec",
- "pvm",
- "spacejam-core",
- "spacejam-crypto",
- "spacejam-network",
- "spacejam-runtime",
- "tokio",
-]
 
 [[package]]
 name = "spacejam-core"
@@ -3082,6 +3072,20 @@ dependencies = [
  "colored",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "spacejam-worker"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "pvm",
+ "spacejam-core",
+ "spacejam-crypto",
+ "spacejam-network",
+ "spacejam-runtime",
+ "tokio",
 ]
 
 [[package]]

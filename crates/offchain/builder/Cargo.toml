@@ -9,11 +9,3 @@ path = "src/lib.rs"
 name = "builder"
 
 [dependencies]
-anyhow.workspace = true
-codec.workspace = true
-crypto.workspace = true
-runtime.workspace = true
-score.workspace = true
-tokio.workspace = true
-network.workspace = true
-pvm.workspace = true

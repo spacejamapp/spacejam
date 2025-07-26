@@ -5,6 +5,7 @@ members = [
     "crates/codec/json",
     "crates/codec/json/derive",
     "crates/offchain/builder",
+    "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
