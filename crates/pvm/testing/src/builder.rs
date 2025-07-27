@@ -15,9 +15,6 @@ impl Jam {
         self.items.push(item);
     }
 
-    /// Set the authorizer
-    pub fn authorizer(&mut self) {}
-
     /// Build a work package
     pub fn build(&mut self) -> Result<WorkPackage> {
         let package = WorkPackage {

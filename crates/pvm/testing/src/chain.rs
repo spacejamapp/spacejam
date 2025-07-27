@@ -8,9 +8,6 @@ use score::{
 };
 use std::collections::BTreeMap;
 
-mod service;
-mod vm;
-
 /// Chain environment
 #[derive(Clone, Default)]
 pub struct Chain {
