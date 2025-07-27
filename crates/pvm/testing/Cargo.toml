@@ -14,4 +14,4 @@ pvm.workspace = true
 pvmi.workspace = true
 score.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber.workspace = true

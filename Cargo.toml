@@ -123,12 +123,14 @@ tokio = { version = "1.42.0", features = [
 tokio-stream = "0.1.17"
 toml = { version = "0.8.19", features = ["parse"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.19", default-features = false, features = [
+    "env-filter",
+    "fmt",
+] }
 trait-variant = "0.1.2"
 uint = "0.10.0"
 w3f-bls = "0.1.8"
 x509-parser = "0.17.0"
-
 
 [patch.crates-io]
 jam-types = { path = "polkajam/jam-types" }
