@@ -3,12 +3,12 @@
 use crate::tx::guarantee::error::{Error, Result};
 use crypto::shuffle;
 use score::{
+    Account, Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
+    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
+    TimeSlot, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     safrole::ValidatorData,
     service::{ReportedWorkPackage, WorkExecResult},
-    Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
-    MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
-    VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
 };
 use std::collections::BTreeMap;
 

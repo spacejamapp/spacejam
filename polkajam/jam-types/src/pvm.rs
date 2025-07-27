@@ -4,8 +4,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, Default)]
 pub struct InvokeArgs {
-	pub gas: i64,
-	pub regs: [u64; 13],
+    pub gas: i64,
+    pub regs: [u64; 13],
 }
 
 impl codec::ConstEncodedLen for InvokeArgs {}

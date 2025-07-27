@@ -7,7 +7,7 @@
 use crate::Worker;
 use anyhow::Result;
 use runtime::Config;
-use score::{service::WorkItem, OpaqueHash};
+use score::{OpaqueHash, service::WorkItem};
 
 impl<C: Config> Worker<C> {
     /// Import segments for a work item using erasure coding reconstruction

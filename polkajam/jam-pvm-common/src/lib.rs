@@ -83,42 +83,42 @@ mod host_calls;
 /// Host-call APIs available for the [Authorizer::is_authorized] entry-point.
 #[cfg(any(feature = "authorizer", doc))]
 pub mod is_authorized {
-	pub use super::host_calls::gas;
+    pub use super::host_calls::gas;
 }
 
 /// Host-call APIs available for the [Service::refine] entry-point.
 #[cfg(any(feature = "service", doc))]
 pub mod refine {
-	pub use super::host_calls::{
-		export, export_slice, expunge, foreign_historical_lookup as foreign_lookup,
-		foreign_historical_lookup_into as foreign_lookup_into, gas, historical_lookup as lookup,
-		historical_lookup_into as lookup_into, import, invoke,
-		is_foreign_historical_available as is_foreign_available,
-		is_historical_available as is_available, machine, peek, peek_into, peek_value, poke,
-		poke_value, void, zero, Fetch,
-	};
+    pub use super::host_calls::{
+        Fetch, export, export_slice, expunge, foreign_historical_lookup as foreign_lookup,
+        foreign_historical_lookup_into as foreign_lookup_into, gas, historical_lookup as lookup,
+        historical_lookup_into as lookup_into, import, invoke,
+        is_foreign_historical_available as is_foreign_available,
+        is_historical_available as is_available, machine, peek, peek_into, peek_value, poke,
+        poke_value, void, zero,
+    };
 }
 
 /// Host-call APIs available for the [Service::accumulate] entry-point.
 #[cfg(any(feature = "service", doc))]
 pub mod accumulate {
-	pub use super::host_calls::{
-		assign, bless, checkpoint, create_service, designate, eject, foreign_lookup,
-		foreign_lookup_into, forget, gas, get, get_foreign, get_foreign_storage, get_storage,
-		is_available, is_foreign_available, lookup, lookup_into, my_info, provide, query, remove,
-		remove_storage, service_info, set, set_storage, solicit, transfer, upgrade, yield_hash,
-		zombify, ForgetImplication, LookupRequestStatus,
-	};
+    pub use super::host_calls::{
+        ForgetImplication, LookupRequestStatus, assign, bless, checkpoint, create_service,
+        designate, eject, foreign_lookup, foreign_lookup_into, forget, gas, get, get_foreign,
+        get_foreign_storage, get_storage, is_available, is_foreign_available, lookup, lookup_into,
+        my_info, provide, query, remove, remove_storage, service_info, set, set_storage, solicit,
+        transfer, upgrade, yield_hash, zombify,
+    };
 }
 
 /// Host-call APIs available for the [Service::on_transfer] entry-point.
 #[cfg(any(feature = "service", doc))]
 pub mod on_transfer {
-	pub use super::host_calls::{
-		foreign_lookup, foreign_lookup_into, forget, gas, get, get_foreign, get_foreign_storage,
-		get_storage, is_available, is_foreign_available, lookup, lookup_into, my_info, remove,
-		remove_storage, service_info, set, set_storage, solicit,
-	};
+    pub use super::host_calls::{
+        foreign_lookup, foreign_lookup_into, forget, gas, get, get_foreign, get_foreign_storage,
+        get_storage, is_available, is_foreign_available, lookup, lookup_into, my_info, remove,
+        remove_storage, service_info, set, set_storage, solicit,
+    };
 }
 
 pub(crate) mod imports;

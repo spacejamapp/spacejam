@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use score::{
-    extrinsic::{Preimage, PreimagesExtrinsic},
     Account, Accounts, TimeSlot,
+    extrinsic::{Preimage, PreimagesExtrinsic},
 };
 use std::collections::HashSet;
 

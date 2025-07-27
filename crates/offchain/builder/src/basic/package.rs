@@ -1,6 +1,6 @@
 //! Basic package validation and building logic
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use score::service::{Authorizer, RefineContext, WorkItem, WorkPackage};
 
 /// Work bundle containing both the work package and extrinsic data

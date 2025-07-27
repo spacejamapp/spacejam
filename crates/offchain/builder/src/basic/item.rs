@@ -1,7 +1,7 @@
 //! Basic item builder implementation
 
 use crate::ItemBuilder;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use score::service::{ExtrinsicSpec, ImportSpec, WorkItem};
 
 /// Basic implementation of ItemBuilder

@@ -2,12 +2,12 @@
 
 pub use error::{Error, Result};
 use score::{
+    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
     extrinsic::{
-        ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
+        ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
     },
     safrole::{Safrole, ValidatorData, Validators, ValidatorsData},
-    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 
 pub mod error;

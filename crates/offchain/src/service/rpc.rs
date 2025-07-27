@@ -3,16 +3,16 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use rpc::{
-    server::middleware, server::SubscriptionManager, ApiServer, BlockResponse, ErrorObjectOwned,
-    PendingSubscriptionSink, RpcServiceBuilder, Server, SubscriptionResult,
+    ApiServer, BlockResponse, ErrorObjectOwned, PendingSubscriptionSink, RpcServiceBuilder, Server,
+    SubscriptionResult, server::SubscriptionManager, server::middleware,
 };
 use runtime::{
-    storage::{StateStorage, SyncStorage},
     Config, Runtime,
+    storage::{StateStorage, SyncStorage},
 };
 use score::{
-    state::{account, key},
     CoreIndex, OpaqueHash, ServiceId,
+    state::{account, key},
 };
 use std::{net::SocketAddr, ops::Deref, sync::Arc};
 

@@ -1,8 +1,8 @@
 //! Queue of work reports
 
 use score::{
-    service::{AccumulatedQueue, ReadyQueue, ReadyReport, WorkReport},
     OpaqueHash, TimeSlot,
+    service::{AccumulatedQueue, ReadyQueue, ReadyReport, WorkReport},
 };
 
 /// Extracts the accumulatable work reports

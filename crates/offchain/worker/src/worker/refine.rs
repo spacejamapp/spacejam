@@ -5,8 +5,8 @@ use anyhow::Result;
 use pvm::Invocation;
 use runtime::Config;
 use score::{
-    service::{RefineLoad, WorkExecResult, WorkPackage, WorkResult},
     Accounts, TimeSlot,
+    service::{RefineLoad, WorkExecResult, WorkPackage, WorkResult},
 };
 
 impl<C: Config> Worker<C> {

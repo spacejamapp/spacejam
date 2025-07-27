@@ -2,11 +2,11 @@
 
 pub use error::{Error, Result};
 use score::{
+    CORES_COUNT, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    WORK_REPORT_TIMEOUT_PERIOD,
     extrinsic::AvailAssurance,
     safrole::ValidatorData,
     service::{AvailabilityAssignments, WorkReport},
-    OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
-    WORK_REPORT_TIMEOUT_PERIOD,
 };
 use std::collections::HashSet;
 

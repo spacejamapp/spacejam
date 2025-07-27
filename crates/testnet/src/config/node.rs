@@ -1,6 +1,6 @@
 //! Node configuration.
 
-use crate::{config::Filter, Arch};
+use crate::{Arch, config::Filter};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, net::SocketAddr, path::PathBuf, str::FromStr};

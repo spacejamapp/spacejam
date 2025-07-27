@@ -3,13 +3,13 @@
 use error::{Error, Result};
 use pvm::Pvm;
 use score::{
+    Accounts, CORES_COUNT, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
     vm::{AccumulateState, Accumulation, DeferredTransfer},
-    Accounts, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT,
 };
 use std::collections::BTreeMap;
 

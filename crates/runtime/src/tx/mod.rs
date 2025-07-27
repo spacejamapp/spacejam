@@ -1,13 +1,13 @@
 //! Block sync validation
 
 use crate::{
+    Storage,
     account::Accounts,
     storage::{Column, Commit},
-    Storage,
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{block::History, state::key, Accounts as _, Block, TrieKey};
+use score::{Accounts as _, Block, TrieKey, block::History, state::key};
 use std::sync::Arc;
 
 pub mod assurance;

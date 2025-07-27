@@ -3,7 +3,7 @@
 
 use network::Network;
 use runtime::Config;
-use score::{service::WorkReport, OpaqueHash};
+use score::{OpaqueHash, service::WorkReport};
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 
