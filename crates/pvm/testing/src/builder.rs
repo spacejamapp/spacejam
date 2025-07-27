@@ -3,11 +3,34 @@
 use crate::Jam;
 use anyhow::Result;
 use score::{
-    ServiceId,
     service::{WorkItem, WorkPackage},
+    ServiceId,
 };
 
 impl Jam {
+    /// Add a work item
+    ///
+    /// TODO: validate the work item
+    pub fn add_item(&mut self, item: WorkItem) {
+        self.items.push(item);
+    }
+
+    /// Set the authorizer
+    pub fn authorizer(&mut self) {}
+
+    /// Build a work package
+    pub fn build(&mut self) -> Result<WorkPackage> {
+        let package = WorkPackage {
+            authorization: self.auth.token.clone(),
+            auth_code_host: self.auth.host,
+            authorizer: self.auth.authorizer.clone(),
+            context: self.chain.refine_context(),
+            items: self.items.drain(..).collect(),
+        };
+
+        Ok(package)
+    }
+
     /// pack a work item
     pub fn pack(&mut self, service: ServiceId, payload: Vec<u8>) -> Result<()> {
         let item = WorkItem {
@@ -25,23 +48,9 @@ impl Jam {
         Ok(())
     }
 
-    /// Add a work item
-    ///
-    /// TODO: validate the work item
-    pub fn add_item(&mut self, item: WorkItem) {
-        self.items.push(item);
-    }
-
-    /// Build a work package
-    pub fn build(&mut self) -> Result<WorkPackage> {
-        let package = WorkPackage {
-            authorization: self.auth.token.clone(),
-            auth_code_host: self.auth.host,
-            authorizer: self.auth.authorizer.clone(),
-            context: self.chain.refine_context(),
-            items: self.items.drain(..).collect(),
-        };
-
-        Ok(package)
+    /// Send a work package
+    pub fn send(&mut self, service: ServiceId, payload: Vec<u8>) -> Result<WorkPackage> {
+        self.pack(service, payload)?;
+        self.build()
     }
 }

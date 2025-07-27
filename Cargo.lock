@@ -1802,6 +1802,7 @@ dependencies = [
  "jam-pvm-common",
  "jam-types",
  "polkavm-derive 0.24.0",
+ "pvm-testing",
 ]
 
 [[package]]
@@ -2674,6 +2675,8 @@ dependencies = [
  "pvmi",
  "spacejam-builder",
  "spacejam-core",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

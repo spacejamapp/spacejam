@@ -74,6 +74,14 @@ pub trait Account: Clone {
     /// Get a preimage from the account
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>>;
 
+    /// Add a preimage to the account
+    fn add_preimage(&mut self, preimage: Vec<u8>, timeslot: u32) -> OpaqueHash {
+        let hash = crypto::blake2b(&preimage);
+        self.insert_lookup(hash, preimage.len() as u32, vec![timeslot]);
+        self.insert_preimage(hash, preimage);
+        hash
+    }
+
     /// Insert a preimage to the account
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>);
 

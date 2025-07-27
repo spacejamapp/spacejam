@@ -10,6 +10,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 pub struct Build {
     /// Path of crate to build; defaults to current directory if not supplied.
+    #[arg(short, long)]
     path: Option<std::path::PathBuf>,
     /// Output path; defaults to `<crate-name>.pvm` in the current directory if not supplied.
     #[arg(short, long)]

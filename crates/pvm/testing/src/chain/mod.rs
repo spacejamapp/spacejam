@@ -1,16 +1,18 @@
 //! Chain environment
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use score::{
-    OpaqueHash, ServiceId,
     block::Head,
     service::{RefineContext, ServiceAccount},
+    OpaqueHash, ServiceId,
 };
 use std::collections::BTreeMap;
 
+mod service;
 mod vm;
 
 /// Chain environment
+#[derive(Clone, Default)]
 pub struct Chain {
     /// Best block
     pub best: Head,
