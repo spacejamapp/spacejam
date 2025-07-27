@@ -16,7 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: dtolnay/rust-toolchain@nightly-2024-11-01
       - uses: taiki-e/install-action@sccache
       - uses: taiki-e/install-action@nextest
       - name: Build Services
