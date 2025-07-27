@@ -64,16 +64,11 @@ impl Build {
             self.auto_install,
             self.profile.clone().into(),
         );
-        let output_file = self
-            .output
-            .clone()
-            .unwrap_or_else(|| cd.join(format!("{crate_name}.jam")));
-        std::fs::copy(pvm_path, &output_file).expect("Unable to write to output file");
 
         println!(
             "Written JAM-PVM blob for {} to {}...",
             crate_name,
-            output_file.display()
+            pvm_path.display()
         );
 
         Ok(())

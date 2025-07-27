@@ -1,9 +1,8 @@
 //! Cargo manifest related utilities
 
-use jam_program_blob::CrateInfo;
-
 use crate::builder::ProfileType;
-use std::{fs, path::Path};
+use jam_program_blob::CrateInfo;
+use std::{path::Path, process::Command};
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 #[value(rename_all = "lowercase")]
@@ -44,27 +43,34 @@ impl From<Profile> for ProfileType {
 
 /// Get the crate info from the Cargo.toml file
 pub fn crate_info(krate: &Path) -> anyhow::Result<CrateInfo> {
-    let manifest = krate.join("Cargo.toml");
-    let manifest = fs::read_to_string(manifest)?;
-    let man = toml::from_str::<toml::Value>(&manifest)?;
-    let pkg = man
-        .get("package")
-        .expect("could not find package in Cargo.toml");
-    let name = pkg
+    let man = serde_json::from_str::<serde_json::Value>(&String::from_utf8(
+        Command::new("cargo")
+            .arg("read-manifest")
+            .current_dir(krate)
+            .output()?
+            .stdout,
+    )?)?;
+
+    let name = man
         .get("name")
         .expect("could not find package name in Cargo.toml")
-        .to_string()
-        .replace('"', "");
+        .as_str()
+        .expect("package name is not a string")
+        .to_string();
 
-    let version = pkg
+    let version = man
         .get("version")
         .expect("could not find package version in Cargo.toml")
+        .as_str()
+        .expect("package version is not a string")
         .to_string();
-    let license = pkg
+    let license = man
         .get("license")
         .expect("could not find package license in Cargo.toml")
+        .as_str()
+        .expect("package license is not a string")
         .to_string();
-    let authors = pkg
+    let authors = man
         .get("authors")
         .expect("could not find authors in Cargo.toml")
         .as_array()
