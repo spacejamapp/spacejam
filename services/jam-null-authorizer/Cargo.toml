@@ -20,7 +20,7 @@ jam-pvm-common = { workspace = true, default-features = false, features = [
 polkavm-derive.workspace = true
 
 [dev-dependencies]
-pvm-testing.workspace = true
+pvm-testing = { workspace = true, features = ["build"] }
 
 [features]
 tiny = ["jam-types/tiny", "jam-pvm-common/tiny"]

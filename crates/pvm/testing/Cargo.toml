@@ -10,10 +10,16 @@ name = "testing"
 [dependencies]
 anyhow.workspace = true
 builder.workspace = true
-cjam.workspace = true
 etc.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
 score.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+# If building the service is needed, add `build` feature
+cjam = { workspace = true, optional = true }
+
+[features]
+default = []
+build = ["cjam"]
