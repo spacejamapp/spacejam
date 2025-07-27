@@ -16,7 +16,7 @@ pub fn load_service(package: &str) -> Result<Vec<u8>> {
     let target = etc::find_up("target")
         .expect("Failed to find target directory")
         .join("jam")
-        .join(format!("{}.jam", package));
+        .join(format!("{package}.jam"));
 
     std::fs::read(&target).context(format!("Failed to read {}", target.display()))
 }
@@ -27,7 +27,7 @@ pub fn build_service(package: &str) {
     config.path = Some(PathBuf::from(package));
     config
         .run()
-        .expect(&format!("Failed to build service at {}", package));
+        .unwrap_or_else(|_| panic!("Failed to build service at {package}"));
 }
 
 /// Load the current service
