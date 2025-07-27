@@ -11,6 +11,8 @@ members = [
     "crates/pvm/parser",
     "crates/pvm/testing",
     "crates/testing/spec",
+    "polkajam/*",
+    "services/*",
 ]
 resolver = "1"
 
@@ -21,6 +23,13 @@ homepage = "https://github.com/spacejamapp/spacejam"
 repository = "https://github.com/spacejamapp/spacejam"
 license = "GPL-3.0"
 authors = ["clearloop <tianyi.gc@gmail.com>"]
+
+[profile.release]
+debug = false
+strip = true
+lto = true
+opt-level = "z"
+panic = "abort"
 
 [workspace.dependencies]
 builder = { path = "crates/offchain/builder", package = "spacejam-builder" }
@@ -44,12 +53,19 @@ specjam = { path = "crates/testing/spec", package = "specjam" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 
 # polkajam dependencies
-jam-types = "0.1.22"
+bounded-collections = { version = "0.3.2", default-features = false }
+jam-types = { version = "0.1.22", default-features = false }
 jam-codec = "0.1.0"
 jam-pvm-build = "0.1.22"
 jam-pvm-builder = "0.1.22"
-jam-pvm-common = "0.1.22"
+jam-pvm-common = { version = "0.1.22", default-features = false }
 jam-program-blob = "0.1.22"
+polkavm-linker = "0.24.0"
+polkavm-derive = "0.24.0"
+polkavm-common = "0.24.0"
+podec = { version = "0.1.0", package = "jam-codec", default-features = false, features = [
+    "derive",
+] }
 
 # crates.io
 anyhow = "1.0.93"
@@ -110,9 +126,7 @@ uint = "0.10.0"
 w3f-bls = "0.1.8"
 x509-parser = "0.17.0"
 
-[profile.release]
-debug = false
-strip = true
-lto = true
-opt-level = "z"
-panic = "abort"
+
+[patch.crates-io]
+jam-types = { path = "polkajam/jam-types" }
+jam-pvm-common = { path = "polkajam/jam-pvm-common" }
