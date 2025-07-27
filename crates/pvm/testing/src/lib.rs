@@ -10,6 +10,7 @@ mod builder;
 mod chain;
 mod exec;
 mod extrinsic;
+pub mod util;
 
 /// JAM environment
 #[derive(Default)]
@@ -25,12 +26,4 @@ pub struct Jam {
 
     /// extrinsics
     _extrinsic: Vec<Extrinsic>,
-}
-
-/// Initialize the logger
-pub fn init_logger() {
-    use tracing_subscriber::EnvFilter;
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .try_init();
 }

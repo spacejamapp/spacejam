@@ -7,11 +7,11 @@ use crate::{
 use clap::Parser;
 
 /// CLI utility for building PVM code blobs, particularly services and authorizers.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 pub struct Build {
     /// Path of crate to build; defaults to current directory if not supplied.
     #[arg(short, long)]
-    path: Option<std::path::PathBuf>,
+    pub path: Option<std::path::PathBuf>,
     /// Output path; defaults to `<crate-name>.pvm` in the current directory if not supplied.
     #[arg(short, long)]
     output: Option<std::path::PathBuf>,

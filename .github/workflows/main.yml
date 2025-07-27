@@ -18,10 +18,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@sccache
       - uses: taiki-e/install-action@nextest
-      - name: Build Services
-        run: make services
       - name: Run Tests
-        run: cargo nextest run --workspace --no-fail-fast --release
+        run: |
+          rustup toolchain install nightly-2024-11-01 -c rust-src --profile minimal
+          cargo nextest run --workspace --no-fail-fast --release
 
   check:
     name: Check

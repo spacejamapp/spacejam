@@ -10,6 +10,8 @@ name = "testing"
 [dependencies]
 anyhow.workspace = true
 builder.workspace = true
+cjam.workspace = true
+etc.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
 score.workspace = true

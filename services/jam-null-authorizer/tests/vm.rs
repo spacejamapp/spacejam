@@ -2,14 +2,12 @@
 
 use testing::Jam;
 
-const PROGRAM: &[u8] = include_bytes!("../../../target/jam/jam-null-authorizer.jam");
 const AUTHORIZER: u32 = 500;
 
 #[test]
 fn test_null_authorizer() {
-    testing::init_logger();
-
-    let mut jam = Jam::default().with_auth(AUTHORIZER, PROGRAM.to_vec());
+    let service = testing::service!();
+    let mut jam = Jam::default().with_auth(AUTHORIZER, service);
     let package = jam
         .send(AUTHORIZER, vec![])
         .expect("failed to send work item");

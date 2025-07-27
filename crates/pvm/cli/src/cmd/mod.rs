@@ -1,6 +1,6 @@
 //! Command registry
 
-use build::Build;
+pub use build::Build;
 use clap::{command, Parser};
 
 mod build;

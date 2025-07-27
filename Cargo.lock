@@ -2654,6 +2654,8 @@ name = "pvm-testing"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "cargo-jam",
+ "etc",
  "pvm",
  "pvmi",
  "spacejam-builder",

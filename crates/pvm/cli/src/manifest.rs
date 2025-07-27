@@ -4,11 +4,12 @@ use crate::builder::ProfileType;
 use jam_program_blob::CrateInfo;
 use std::{path::Path, process::Command};
 
-#[derive(clap::ValueEnum, Clone, Debug)]
+#[derive(clap::ValueEnum, Clone, Debug, Default)]
 #[value(rename_all = "lowercase")]
 pub enum ModuleType {
     /// Automatically derive the module type from the crate name.
     #[clap(alias = "auto")]
+    #[default]
     Automatic,
     /// Service module.
     #[clap(alias = "serv")]
@@ -21,12 +22,13 @@ pub enum ModuleType {
     CoreVmGuest,
 }
 
-#[derive(clap::ValueEnum, Clone, Debug)]
+#[derive(clap::ValueEnum, Clone, Debug, Default)]
 #[value(rename_all = "lowercase")]
 pub enum Profile {
     /// The "debug" profile (debug symbols and no optimizations).
     Debug,
     /// The "release" profile (debug symbols and optimizations).
+    #[default]
     Release,
     /// The "production" profile (optimizations and no debug symbols).
     Production,
