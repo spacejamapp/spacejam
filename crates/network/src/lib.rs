@@ -122,6 +122,11 @@ impl<C: runtime::Config + Send + Sync + 'static> Network<C> {
         tracing::debug!("connection established");
     }
 
+    /// Get the core index
+    pub async fn core(&self) -> u16 {
+        0
+    }
+
     /// Handle the closed event.
     #[tracing::instrument(skip_all, name = "disconnect", fields(peer = peer.to_string()))]
     pub async fn disconnect(

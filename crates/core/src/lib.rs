@@ -98,7 +98,7 @@ pub const AVAILABILITY_TIMEOUT: u16 = 5;
 pub const VALIDATORS_COUNT: u16 = 6;
 
 /// (W_A) The maximum size of is-authorized code in octets
-pub const MAX_IS_AUTHORIZED_CODE_SIZE: u32 = 0;
+pub const MAX_IS_AUTHORIZED_CODE_SIZE: u32 = 64_000;
 
 /// (W_B) The maximum size of a work package together with all extrinsic data and imported segments.
 pub const MAX_INPUT: u32 = 12 * (1 << 20);

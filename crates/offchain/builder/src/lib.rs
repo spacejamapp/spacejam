@@ -1,22 +1,15 @@
 //! Spacejam work package builder
-//! Work package computation
+//!
+//! This module provides the work package builder infrastructure for SpaceJam,
+//! allowing the construction of work packages according to the Gray Paper specification.
+//!
+//! Note: Currently the builder uses local copies of ImportSpec and ExtrinsicSpec types
+//! because the core types are not publicly exposed. This should be addressed in a future
+//! update to spacejam-core.
 
-use runtime::Config;
-use std::sync::Arc;
-pub use {context::Context, worker::Worker};
+pub use builder::{ItemBuilder, PackageBuilder};
+pub use extrinsic::Extrinsic;
 
-mod context;
-mod worker;
-
-/// Builder for work package computation
-pub struct Builder<C: Config> {
-    /// The context of the builder
-    pub context: Arc<Context<C>>,
-}
-
-impl<C: Config> Builder<C> {
-    /// Create a new builder
-    pub fn new(context: Arc<Context<C>>) -> Self {
-        Self { context }
-    }
-}
+pub mod basic;
+pub mod builder;
+mod extrinsic;

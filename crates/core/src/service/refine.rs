@@ -1,6 +1,6 @@
 //! Refine types
 
-use crate::{BeefyRoot, HeaderHash, OpaqueHash, StateRoot, TimeSlot};
+use crate::{BeefyRoot, OpaqueHash, StateRoot, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -9,7 +9,7 @@ use spacejson::Json;
 pub struct RefineContext {
     /// The anchor
     #[json(hex)]
-    pub anchor: HeaderHash,
+    pub anchor: OpaqueHash,
 
     /// The state root
     #[json(hex)]
@@ -21,7 +21,7 @@ pub struct RefineContext {
 
     /// The lookup anchor
     #[json(hex)]
-    pub lookup_anchor: HeaderHash,
+    pub lookup_anchor: OpaqueHash,
 
     /// The lookup anchor slot
     pub lookup_anchor_slot: TimeSlot,

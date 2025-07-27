@@ -16,4 +16,5 @@
 # misc
 spacejam.db
 genesis.json
+*.jam
 .DS_Store

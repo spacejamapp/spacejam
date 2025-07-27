@@ -1,0 +1,25 @@
+[package]
+name = "pvm-testing"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+path = "src/lib.rs"
+name = "testing"
+
+[dependencies]
+anyhow.workspace = true
+builder.workspace = true
+etc.workspace = true
+pvm.workspace = true
+pvmi.workspace = true
+score.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# If building the service is needed, add `build` feature
+cjam = { workspace = true, optional = true }
+
+[features]
+default = []
+build = ["cjam"]

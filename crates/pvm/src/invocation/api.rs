@@ -1,7 +1,5 @@
 //! API for the invocation
 
-use std::collections::BTreeMap;
-
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
@@ -12,7 +10,7 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -209,18 +207,34 @@ pub trait Invocation {
 
     /// (ΨI): The Is-Authorized invocation
     ///
-    /// Defined per graypaper (B.1)
-    fn is_authorized(
-        // (p_c) the authorization code blob
-        code: &[u8],
-        // (i) The core index
+    /// Defined per graypaper (B.5)
+    fn is_authorized<R: Accounts>(
+        // (p) the work package
+        package: &WorkPackage,
+        // (c) The core index
         core_idx: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
     ) -> Executed {
-        // Check if authorization code exists (BAD if none)
-        if code.is_empty() {
-            tracing::warn!("Authorization code is empty");
+        // Get the service account that hosts the authorization code
+        let Some(account) = accounts.get(package.auth_code_host) else {
+            tracing::warn!(
+                "Authorization code host service {} not found",
+                package.auth_code_host
+            );
             return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
-        }
+        };
+
+        // Resolve authorization code using historical lookup
+        let Some(code) = account.historical_lookup(timeslot, package.authorizer.code_hash) else {
+            tracing::warn!(
+                "Authorization code not found for hash {:?}",
+                package.authorizer.code_hash
+            );
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        };
 
         // Check authorization code size limit (W_A - BIG if too big)
         if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
@@ -233,20 +247,15 @@ pub trait Invocation {
         }
 
         // Prepare arguments
-        //
-        // FIXME: still need to handle fetch call, what kind of context shall we
-        // pass for this?
         let args = codec::encode(&core_idx).unwrap_or_default();
-        let result = Self::argument::<BTreeMap<u32, ServiceAccount>, ()>(
-            code,
-            0,
-            score::GAS_IS_AUTHORIZED,
-            &args,
-            (),
-        );
+        let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
+        let result = Self::argument::<R, _>(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
 
+        // construct the result
         let gas = result.gas;
-        Executed::new(Vec::new(), result.result(), gas)
+        let output = result.output.clone();
+        let exec_result = result.result();
+        Executed::new(output, exec_result, gas)
     }
 
     /// (ΨR): Refine invocation

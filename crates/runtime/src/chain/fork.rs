@@ -171,9 +171,9 @@ impl<S: Storage> Fork<S> {
             return Ok(());
         };
 
-        let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
         tracing::info!(
-            "tickets for epoch={epoch}: {:#?}",
+            "tickets for epoch={}: {:#?}",
+            epoch + 1,
             series
                 .iter()
                 .enumerate()

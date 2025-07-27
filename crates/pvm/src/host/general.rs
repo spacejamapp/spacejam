@@ -2,10 +2,43 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::{General, State},
+    invocation::{General, IsAuthorized, State},
     Result,
 };
 use score::{state::account, Account, Accounts, Parameters, ServiceId};
+
+/// (ΩG) Get the gas to register
+pub fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
+    Ok(state.gas as u64)
+}
+
+/// (ΩY) Fetch for is_authorized context
+pub fn fetch_is_authorized<Memory: crate::Memory>(
+    state: &mut State<Memory>,
+    _context: &IsAuthorized,
+) -> Result<ExitCode> {
+    // According to Gray Paper, fetch in is_authorized context should return work package data
+    let value: Vec<u8> = match state.registers[10] {
+        0 => codec::encode(&Parameters::default()).expect("should not fail"),
+        // Add other fetch types as needed for is_authorized
+        kind => {
+            tracing::warn!("kind {kind} not supported in is_authorized");
+            return Ok(Exit::None as u64);
+        }
+    };
+
+    let vlen = value.len() as u64;
+    let out = state.registers[7];
+    let from = state.registers[8].min(vlen);
+    let length = state.registers[9].min(vlen - from);
+    if length > 0 {
+        state
+            .memory
+            .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
+    }
+
+    Ok(vlen)
+}
 
 impl<R: Accounts> General<R> {
     /// General host calls
@@ -19,7 +52,7 @@ impl<R: Accounts> General<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         match call {
-            0 => Self::gas(state),
+            0 => gas(state),
             1 => self.lookup(state),
             2 => self.read(state),
             3 => self.write(state),
@@ -27,11 +60,6 @@ impl<R: Accounts> General<R> {
             18 => self.fetch(state),
             _ => Ok(Exit::What as u64),
         }
-    }
-
-    /// (ΩG) Get the gas to register
-    fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
-        Ok(state.gas as u64)
     }
 
     /// (ΩL) account lookup

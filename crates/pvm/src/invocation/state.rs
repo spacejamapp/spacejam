@@ -148,4 +148,9 @@ impl Executed {
     pub fn new(data: Vec<u8>, exec: WorkExecResult, gas: Gas) -> Self {
         Self { data, exec, gas }
     }
+
+    /// Check if the execution is successful
+    pub fn is_ok(&self) -> bool {
+        matches!(self.exec, WorkExecResult::Ok(_))
+    }
 }
