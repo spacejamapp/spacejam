@@ -1,13 +1,13 @@
 //! Account registry with cached state
 
-use crate::{Storage, storage::Commit};
+use crate::{storage::Commit, Storage};
 use anyhow::Result;
 use pvm::Gas;
 pub use registry::Accounts;
 use score::{
-    OpaqueHash, TrieKey,
     service::{ServiceAccount, ServiceInfo},
     state::account,
+    OpaqueHash, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},

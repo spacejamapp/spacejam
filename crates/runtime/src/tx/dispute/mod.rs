@@ -5,10 +5,10 @@
 use super::dispute;
 pub use error::{Error, Result};
 use score::{
-    EPOCH_LENGTH, Ed25519Public, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
     safrole::{ValidatorIter, ValidatorsData},
     service::AvailabilityAssignments,
+    Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use std::collections::{BTreeMap, HashSet};
 

@@ -47,15 +47,15 @@ mod opaque;
 
 pub use fixed_vec::{BoundedMap, FixedVec};
 pub use simple::{
-    AuthConfig, AuthQueue, AuthQueueLen, AuthTrace, Authorization, AuthorizerHash, Balance,
-    CodeHash, CoreIndex, ExtrinsicHash, GP_VERSION, Hash, HeaderHash, JAM_COMMON_ERA, MEMO_LEN,
-    MaxImports, MaxWorkItems, Memo, OpaqueBandersnatchPublic, OpaqueEd25519Public,
-    OpaqueValidatorMetadata, PAGE_SIZE, POINT_LEN, Parameters, PayloadHash, SEGMENT_LEN, Segment,
-    SegmentHash, SegmentLen, SegmentSliceLen, SegmentTreeRoot, ServiceId, SignedGas, Slot, ToAny,
-    ValCount, ValIndex, WorkOutput, WorkPackageHash, WorkPayload, auth_queue_len, basic_piece_len,
-    basic_piece_points, max_dependencies, max_exports, max_extrinsics, max_imports, max_input,
-    max_work_items, min_turnaround_period, pieces_per_segment, segment_len, segment_slice_len,
-    val_count,
+    auth_queue_len, basic_piece_len, basic_piece_points, max_dependencies, max_exports,
+    max_extrinsics, max_imports, max_input, max_work_items, min_turnaround_period,
+    pieces_per_segment, segment_len, segment_slice_len, val_count, AuthConfig, AuthQueue,
+    AuthQueueLen, AuthTrace, Authorization, AuthorizerHash, Balance, CodeHash, CoreIndex,
+    ExtrinsicHash, Hash, HeaderHash, MaxImports, MaxWorkItems, Memo, OpaqueBandersnatchPublic,
+    OpaqueEd25519Public, OpaqueValidatorMetadata, Parameters, PayloadHash, Segment, SegmentHash,
+    SegmentLen, SegmentSliceLen, SegmentTreeRoot, ServiceId, SignedGas, Slot, ToAny, ValCount,
+    ValIndex, WorkOutput, WorkPackageHash, WorkPayload, GP_VERSION, JAM_COMMON_ERA, MEMO_LEN,
+    PAGE_SIZE, POINT_LEN, SEGMENT_LEN,
 };
 pub use vec_map::{MapLike, VecMap};
 pub use vec_set::{SetLike, VecSet};
@@ -68,9 +68,9 @@ pub use types::{
 
 #[doc(hidden)]
 pub use simple::{
-    AccumulateRootHash, AnyHash, AnyVec, Bundle, Code, DoubleBalance, DoubleGas,
-    MAX_PREIMAGE_BLOB_LEN, MAX_PREIMAGE_LEN, MerkleNodeHash, MmrPeakHash, StateRootHash,
-    UnsignedGas, ValSuperMajority, WorkReportHash,
+    AccumulateRootHash, AnyHash, AnyVec, Bundle, Code, DoubleBalance, DoubleGas, MerkleNodeHash,
+    MmrPeakHash, StateRootHash, UnsignedGas, ValSuperMajority, WorkReportHash,
+    MAX_PREIMAGE_BLOB_LEN, MAX_PREIMAGE_LEN,
 };
 
 // Internal use: here and `jam-node` crates.
@@ -79,7 +79,7 @@ pub mod hex;
 
 // Internal use: `jam-node` and `jam-pvm-builder` crates.
 #[doc(hidden)]
-pub use simple_result_code::{InvokeOutcomeCode, LOWEST_ERROR, SimpleResult, SimpleResultCode};
+pub use simple_result_code::{InvokeOutcomeCode, SimpleResult, SimpleResultCode, LOWEST_ERROR};
 
 // Internal use: `jam-node` and/or `jam-pvm-common` crates.
 // TODO: Anything only used in one or the other should be moved to the respective crate.

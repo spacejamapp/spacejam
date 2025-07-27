@@ -1,4 +1,4 @@
-use jam_types::{InvokeOutcomeCode, LOWEST_ERROR, SimpleResult, SimpleResultCode};
+use jam_types::{InvokeOutcomeCode, SimpleResult, SimpleResultCode, LOWEST_ERROR};
 
 /// Error type for host-calls.
 #[derive(Debug)]

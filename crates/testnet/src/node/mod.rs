@@ -1,9 +1,9 @@
 //! Node implementations.
 
 use crate::{
-    Arch, Network, Node,
     config::Filter,
     log::{Message, Stream},
+    Arch, Network, Node,
 };
 use anyhow::Result;
 use std::{

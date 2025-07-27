@@ -1,13 +1,13 @@
 //! Chain APIs for the runtime.
 
 use crate::{
-    Chain, Config, Grid, Handshake, Runtime, chain::author::AuthorContext, storage::StateStorage,
+    chain::author::AuthorContext, storage::StateStorage, Chain, Config, Grid, Handshake, Runtime,
 };
 use score::{
-    Block, EntropyBuffer, OpaqueHash, TimeSlot,
     block::{BlockInfo, Head, Header},
     extrinsic::TicketsOrKeys,
     safrole::{Safrole, ValidatorIter},
+    Block, EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
 

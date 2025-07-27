@@ -1,6 +1,6 @@
 use super::*;
 use bounded_collections::Get;
-use codec::{ConstEncodedLen, Error as DecodeError, Output, decode_vec_with_len};
+use codec::{decode_vec_with_len, ConstEncodedLen, Error as DecodeError, Output};
 use core::fmt;
 
 /// Trait for vector types which have a bounded length allowing element-wise transformation.

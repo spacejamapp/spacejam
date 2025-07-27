@@ -4,8 +4,8 @@ use crate::Worker;
 use anyhow::Result;
 use runtime::Config;
 use score::{
-    CoreIndex, ErasureRoot,
     service::{WorkPackage, WorkReport},
+    CoreIndex, ErasureRoot,
 };
 
 impl<C: Config> Worker<C> {

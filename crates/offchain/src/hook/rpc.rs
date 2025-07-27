@@ -6,7 +6,7 @@ use rpc::{
     server::{ServicePreimageFilter, ServiceRequestFilter, ServiceValueFilter},
 };
 use runtime::storage::{StateStorage, SyncStorage};
-use score::{Block, OpaqueHash, ServiceId, state::key};
+use score::{state::key, Block, OpaqueHash, ServiceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Deref,

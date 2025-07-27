@@ -1,7 +1,7 @@
 //! Runtime utilities of SpaceJam
 
 use pvm::Pvm;
-use score::{BandersnatchPublic, extrinsic::TicketEnvelope};
+use score::{extrinsic::TicketEnvelope, BandersnatchPublic};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 pub use {

@@ -1,9 +1,9 @@
 //! Finalizer interface for the chain.
 
 use crate::{
-    Chain, Config,
     chain::fork::BlockWithDiff,
     storage::{Column, KVStorage, StateStorage, SyncStorage},
+    Chain, Config,
 };
 use anyhow::Result;
 use score::block::Head;

@@ -2,11 +2,12 @@
 #![allow(unused)]
 
 use score::{
-    OpaqueHash, block,
+    block,
     extrinsic::{
         AvailAssurance, Culprit, Extrinsic, Fault, Preimage, ReportGuarantee, Ticket, TicketBody,
         TicketEnvelope, Verdict,
     },
+    OpaqueHash,
 };
 use std::{
     collections::{BTreeMap, HashSet},

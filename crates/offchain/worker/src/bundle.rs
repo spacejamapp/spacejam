@@ -1,6 +1,6 @@
 //! Work package bundle
 
-use score::{OpaqueHash, service::WorkPackage};
+use score::{service::WorkPackage, OpaqueHash};
 use std::collections::HashMap;
 
 /// Work package bundle

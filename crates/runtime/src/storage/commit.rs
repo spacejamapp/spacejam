@@ -1,6 +1,6 @@
 //! The commit of the storage
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A commit of storage

@@ -1,18 +1,17 @@
 //! chain of blocks.
 
 use crate::{
-    Storage,
     chain::Grid,
     storage::{Branch, Column, Commit, KVStorage, StateStorage},
-    tx,
+    tx, Storage,
 };
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    Block, TimeSlot, TrieKey,
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
     safrole::ValidatorIter,
+    Block, TimeSlot, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},

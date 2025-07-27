@@ -1,18 +1,18 @@
 //! Authoring service
 
-use crate::{Config, Runtime, Validator, chain::Fork, tx};
+use crate::{chain::Fork, tx, Config, Runtime, Validator};
 use anyhow::Context;
 use score::{
-    BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
     block::{Block, BlockInfo},
-    extrinsic::{Ticket, TicketBody, TicketEnvelope, TicketsOrKeys, ticket},
+    extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
     safrole::{Safrole, ValidatorIter},
+    BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use std::{
     ops::Deref,
     sync::{
-        Arc,
         atomic::{AtomicU8, Ordering},
+        Arc,
     },
 };
 

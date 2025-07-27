@@ -2,7 +2,7 @@
 
 use crate::storage::Commit;
 use anyhow::Result;
-use score::{Block, OpaqueHash, ServiceId, TrieKey, block::Head, service::WorkPackage, state::key};
+use score::{block::Head, service::WorkPackage, state::key, Block, OpaqueHash, ServiceId, TrieKey};
 use std::{collections::BTreeMap, future::Future};
 
 /// Hooks for the runtime

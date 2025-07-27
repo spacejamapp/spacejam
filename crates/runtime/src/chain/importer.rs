@@ -1,15 +1,15 @@
 //! Importer interface for the chain.
 
 use crate::{
-    Chain, Config,
     chain::fork::Fork,
     storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
+    Chain, Config,
 };
 use anyhow::{Context, Result};
 use score::{
-    Block,
     block::{Head, Header},
     state::key,
+    Block,
 };
 use std::{collections::HashMap, sync::Arc};
 

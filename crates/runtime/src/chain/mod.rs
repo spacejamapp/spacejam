@@ -1,10 +1,10 @@
 //! chain of blocks.
 
 use crate::{
-    Config, Grandpa,
     storage::{StateStorage, SyncStorage},
+    Config, Grandpa,
 };
-use score::{Block, OpaqueHash, TimeSlot, extrinsic::TicketsOrKeys};
+use score::{extrinsic::TicketsOrKeys, Block, OpaqueHash, TimeSlot};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
