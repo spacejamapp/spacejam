@@ -1,10 +1,11 @@
 //! Basic VM tests
 
-use podec::Encode;
-use simple_token_service::{Instruction, SERVICE};
+use podec::{Decode, Encode};
+use simple_token_service::{Holders, Instruction, SERVICE};
 use testing::Jam;
 
 const SERVICE_ID: u32 = 500;
+const ALICE: u32 = 0;
 
 #[test]
 fn test_mint() {
@@ -13,14 +14,17 @@ fn test_mint() {
     jam.add_service(SERVICE_ID, SERVICE.to_vec());
 
     // 1. send a mint instruction
-    let instr = vec![Instruction::Mint { to: 0, amount: 100 }];
-    let package = jam
-        .send(SERVICE_ID, instr.encode())
-        .expect("failed to send work item");
+    let amount = 100;
+    let instr = vec![Instruction::Mint { to: ALICE, amount }];
+    let _result = jam
+        .execute(SERVICE_ID, instr.encode())
+        .expect("failed to execute work item");
 
-    // 2. refine the package
-    let report = jam.refine(&package).expect("failed to refine");
+    // 2. check the balance
+    let encoded = jam
+        .get_storage(SERVICE_ID, &Holders::key().encode())
+        .expect("failed to get holders");
 
-    // 3. run accumulate
-    jam.accumulate(&report).expect("failed to accumulate");
+    let holders = Holders::decode(&mut encoded.as_ref()).expect("failed to decode holders");
+    assert_eq!(holders.balance(ALICE), amount);
 }

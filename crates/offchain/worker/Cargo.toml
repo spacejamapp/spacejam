@@ -15,3 +15,4 @@ crypto.workspace = true
 score.workspace = true
 tokio.workspace = true
 pvm.workspace = true
+tracing.workspace = true

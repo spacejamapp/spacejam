@@ -8,16 +8,8 @@ mod refine;
 mod segment;
 
 /// Worker for work package computation
+#[derive(Default)]
 pub struct Worker {
     /// the computed work report
     pub report: WorkReport,
-}
-
-impl Worker {
-    /// Create a new worker
-    pub fn new() -> Self {
-        Self {
-            report: WorkReport::default(),
-        }
-    }
 }

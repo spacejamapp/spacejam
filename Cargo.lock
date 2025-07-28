@@ -3544,6 +3544,7 @@ dependencies = [
  "spacejam-core",
  "spacejam-crypto",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

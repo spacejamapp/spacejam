@@ -1,8 +1,8 @@
 //! Simple Token Service Storage
 
 use alloc::collections::BTreeMap;
-use podec::{Decode, Encode};
 use jam_pvm_common::{accumulate, error};
+use podec::{Decode, Encode};
 
 /// A map of account IDs to their balances
 #[derive(Encode, Decode, Default)]
@@ -18,7 +18,9 @@ impl Holders {
 
     /// Save the holders map
     pub fn save(&self) {
-        accumulate::set(Self::key(), self.encode()).expect("failed to encode holders");
+        if let Err(e) = accumulate::set(Self::key(), self) {
+            error!("failed to save holders: {:?}", e);
+        }
     }
 
     /// Get the balance of the given account

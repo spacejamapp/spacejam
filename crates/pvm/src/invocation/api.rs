@@ -191,15 +191,21 @@ pub trait Invocation {
         };
 
         let memory = Self::Memory::from_raw(memory);
-        let stepped = Self::call(&code, pc, gas, registers, memory, data);
+        let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
         let mut output = vec![];
-        let registers = stepped.state.registers;
-        let registered = [registers[7].to_le_bytes(), registers[8].to_le_bytes()].concat();
-        if stepped.reason == Reason::Halt && stepped.state.memory.contains(&registered) {
-            output = registered;
-        };
+        if stepped.reason == Reason::Halt {
+            let ptr = stepped.state.registers[7] as u32;
+            let len = stepped.state.registers[8] as u32;
+
+            // Read output data from memory using ptr and len
+            if let Ok(data) = stepped.state.memory.read_bytes(ptr, len) {
+                output = data;
+            } else {
+                stepped.reason = Reason::Panic("failed to read output from memory".to_string());
+            }
+        }
 
         let gas = gas - (stepped.state.gas.max(0) as u64);
         stepped.received(gas, output)
@@ -340,10 +346,10 @@ pub trait Invocation {
             &codec::encode(&params).expect("failed to encode params"),
             refine_context,
         );
-        let gas = result.gas;
 
         // TODO: Implement actual segment export when host calls are ready
         // For now, return empty segments as before
+        let gas = result.gas;
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }
 

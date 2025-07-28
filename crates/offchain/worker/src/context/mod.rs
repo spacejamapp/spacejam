@@ -9,16 +9,8 @@ mod package;
 mod segment;
 
 /// Context for the builder
+#[derive(Default)]
 pub struct Context {
     /// The reports of the builder
     pub reports: RwLock<BTreeMap<OpaqueHash, WorkReport>>,
-}
-
-impl Context {
-    /// Create a new context
-    pub fn new() -> Self {
-        Self {
-            reports: RwLock::new(BTreeMap::new()),
-        }
-    }
 }

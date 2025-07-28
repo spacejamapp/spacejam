@@ -1,7 +1,7 @@
 //! Service account builder
 
 use crate::Jam;
-use score::{service::ServiceAccount, Account, OpaqueHash, ServiceId};
+use score::{service::ServiceAccount, state::account, Account, OpaqueHash, ServiceId};
 
 impl Jam {
     /// Add a service account
@@ -13,12 +13,20 @@ impl Jam {
     pub fn add_service(&mut self, service: ServiceId, code: Vec<u8>) {
         let hash = self.add_preimage(service, code);
         self.set_code(service, hash);
+        self.mint(service, 1_000_000_000);
     }
 
     /// Add a preimage to the service account
     pub fn add_preimage(&mut self, service: ServiceId, preimage: Vec<u8>) -> OpaqueHash {
         let account = self.chain.accounts.entry(service).or_default();
         account.add_preimage(preimage, self.chain.finalized.slot)
+    }
+
+    /// Get a storage of an account
+    pub fn get_storage(&self, service: ServiceId, key: &[u8]) -> Option<Vec<u8>> {
+        let account = self.chain.accounts.get(&service)?;
+        let key = account::storage(service, key);
+        account.storage.get(key.as_ref()).map(|v| v.clone())
     }
 
     /// Set the code of the service account

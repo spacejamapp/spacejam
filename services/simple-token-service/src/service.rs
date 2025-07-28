@@ -29,17 +29,22 @@ impl jam_pvm_common::Service for Service {
             target = "simple-token-service",
             "instructions: {:?}", instructions
         );
+        info!("payload: {:?}", payload.0);
         WorkOutput(payload.0)
     }
 
     fn accumulate(_now: Slot, _id: ServiceId, results: Vec<AccumulateItem>) -> Option<Hash> {
-        info!("entering accumulate logic ...");
+        info!("accumulate items: {}", results.len());
         let mut holders = Holders::get();
         for raw_instructions in results.into_iter().filter_map(|x| x.result.ok()) {
-            for inst in Vec::<Instruction>::decode(&mut &raw_instructions[..]).unwrap() {
-                info!(target = "simple-token-service", "instruction: {:?}", inst);
+            let instructions = Vec::<Instruction>::decode(&mut &raw_instructions[..]).unwrap();
+            for inst in instructions {
                 match inst {
                     Instruction::Mint { to, amount } => {
+                        info!(
+                            target = "simple-token-service",
+                            "minting {} tokens to {}", amount, to
+                        );
                         holders.mint(to, amount);
                     }
                     Instruction::Transfer { from, to, amount } => {
