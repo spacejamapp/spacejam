@@ -2,22 +2,26 @@
 
 use crate::Worker;
 use anyhow::Result;
-use pvm::Invocation;
-use runtime::Config;
+use pvm::Pvm;
 use score::{
     service::{RefineLoad, WorkExecResult, WorkPackage, WorkResult},
     Accounts, TimeSlot,
 };
 
-impl<C: Config> Worker<C> {
+impl Worker {
     /// Process all work items with Refine invocations
-    pub fn refine<R: Accounts>(&mut self, work: &WorkPackage, accounts: &mut R, core_idx: u16) -> Result<()> {
+    pub fn refine<R: Accounts, VM: Pvm>(
+        &mut self,
+        work: &WorkPackage,
+        accounts: &mut R,
+        core_idx: u16,
+    ) -> Result<()> {
         let mut work_results = Vec::new();
         let mut total_exports = 0u16;
 
         // TODO: doing this in parallel if possible
         for (item_index, item) in work.items.iter().enumerate() {
-            let work_result = self.refine_single(
+            let work_result = self.refine_single::<R, VM>(
                 core_idx,
                 work.context.lookup_anchor_slot,
                 work,
@@ -38,7 +42,7 @@ impl<C: Config> Worker<C> {
     }
 
     /// Process a single work item
-    fn refine_single<R: score::Accounts>(
+    fn refine_single<R: Accounts, VM: Pvm>(
         &self,
         core: u16,
         timeslot: TimeSlot,
@@ -48,7 +52,7 @@ impl<C: Config> Worker<C> {
         export_offset: u16,
     ) -> Result<WorkResult> {
         // Execute Refine invocation (Ψ_R)
-        let refine_result = C::Vm::refine(
+        let refined = VM::refine(
             core,
             item_index,
             package,
@@ -60,7 +64,7 @@ impl<C: Config> Worker<C> {
         );
 
         // Check output size constraints and create work result
-        let result = match refine_result.executed.exec {
+        let result = match refined.executed.exec {
             WorkExecResult::Ok(output) if output.len() <= score::MAX_WORK_REPORT_OUTPUT_SIZE => {
                 WorkExecResult::Ok(output)
             }
@@ -79,7 +83,7 @@ impl<C: Config> Worker<C> {
             accumulate_gas: item.accumulate_gas_limit,
             result,
             refine_load: RefineLoad {
-                gas_used: refine_result.executed.gas,
+                gas_used: refined.executed.gas,
                 imports: item.import_segments.len() as u16,
                 extrinsic_count: item.extrinsic.len() as u16,
                 extrinsic_size: item.extrinsic.iter().map(|e| e.len).sum(),

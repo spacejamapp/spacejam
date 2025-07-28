@@ -2616,8 +2616,8 @@ dependencies = [
  "etc",
  "pvm",
  "pvmi",
- "spacejam-builder",
  "spacejam-core",
+ "spacejam-worker",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3543,8 +3543,6 @@ dependencies = [
  "pvm",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-network",
- "spacejam-runtime",
  "tokio",
 ]
 

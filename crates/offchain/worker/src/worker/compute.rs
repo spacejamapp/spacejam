@@ -2,21 +2,21 @@
 
 use crate::Worker;
 use anyhow::Result;
-use runtime::Config;
+use pvm::Pvm;
 use score::{
     service::{WorkPackage, WorkReport},
-    CoreIndex, ErasureRoot,
+    Accounts, CoreIndex, ErasureRoot,
 };
 
-impl<C: Config> Worker<C> {
+impl Worker {
     /// Compute the work package according to Gray Paper specifications
-    pub fn compute<R: score::Accounts>(
+    pub fn compute<R: Accounts, VM: Pvm>(
         mut self,
         work: WorkPackage,
         core_idx: usize,
         mut accounts: R,
     ) -> Result<WorkReport> {
-        self.authorize(&work, core_idx, &mut accounts)?;
+        self.authorize::<R, VM>(&work, core_idx, &mut accounts)?;
         let encoded = codec::encode(&work)?;
         self.report.spec.hash = crypto::blake2b(&encoded);
         self.report.spec.erasure_root = self.erasure_root(&work)?;
@@ -25,7 +25,7 @@ impl<C: Config> Worker<C> {
         self.report.authorizer_hash = work.authorizer.hash();
         self.report.lookup = vec![];
 
-        self.refine(&work, &mut accounts, core_idx as u16)?;
+        self.refine::<R, VM>(&work, &mut accounts, core_idx as u16)?;
         self.report.context = work.context;
         Ok(self.report)
     }

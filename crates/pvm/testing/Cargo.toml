@@ -9,7 +9,7 @@ name = "testing"
 
 [dependencies]
 anyhow.workspace = true
-builder.workspace = true
+worker.workspace = true
 cjam.workspace = true
 etc.workspace = true
 pvm.workspace = true

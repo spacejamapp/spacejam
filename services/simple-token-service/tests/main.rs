@@ -7,7 +7,7 @@ use testing::Jam;
 const SERVICE_ID: u32 = 500;
 
 #[test]
-fn test_refine() {
+fn test_mint() {
     testing::util::init_logger();
     let mut jam = Jam::default();
     jam.add_service(SERVICE_ID, SERVICE.to_vec());
@@ -19,10 +19,8 @@ fn test_refine() {
         .expect("failed to send work item");
 
     // 2. refine the package
-    let refined = jam.refine(&package).expect("failed to refine");
-    assert!(
-        refined.executed.is_ok(),
-        "refine execution failed: {:?}",
-        refined.executed.exec
-    );
+    let report = jam.refine(&package).expect("failed to refine");
+
+    // 3. run accumulate
+    jam.accumulate(&report).expect("failed to accumulate");
 }

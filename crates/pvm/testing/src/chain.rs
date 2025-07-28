@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use score::{
     block::Head,
     service::{RefineContext, ServiceAccount},
-    OpaqueHash, ServiceId,
+    EntropyBuffer, OpaqueHash, ServiceId,
 };
 use std::collections::BTreeMap;
 
@@ -13,6 +13,9 @@ use std::collections::BTreeMap;
 pub struct Chain {
     /// Best block
     pub best: Head,
+
+    /// Entropy buffer
+    pub entropy: EntropyBuffer,
 
     /// Finalized block
     pub finalized: Head,
