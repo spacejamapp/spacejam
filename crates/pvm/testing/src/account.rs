@@ -1,7 +1,6 @@
 //! Service account builder
 
 use crate::Jam;
-use anyhow::Result;
 use score::{service::ServiceAccount, Account, OpaqueHash, ServiceId};
 
 impl Jam {
@@ -10,11 +9,22 @@ impl Jam {
         self.chain.accounts.insert(service, account);
     }
 
+    /// Add a service account
+    pub fn add_service(&mut self, service: ServiceId, code: Vec<u8>) {
+        let hash = self.add_preimage(service, code);
+        self.set_code(service, hash);
+    }
+
     /// Add a preimage to the service account
-    pub fn add_preimage(&mut self, service: ServiceId, preimage: Vec<u8>) -> Result<OpaqueHash> {
+    pub fn add_preimage(&mut self, service: ServiceId, preimage: Vec<u8>) -> OpaqueHash {
         let account = self.chain.accounts.entry(service).or_default();
-        let hash = account.add_preimage(preimage, self.chain.finalized.slot);
-        Ok(hash)
+        account.add_preimage(preimage, self.chain.finalized.slot)
+    }
+
+    /// Set the code of the service account
+    pub fn set_code(&mut self, service: ServiceId, code: OpaqueHash) {
+        let account = self.chain.accounts.entry(service).or_default();
+        account.set_code(code);
     }
 
     /// Mint balance to a service account

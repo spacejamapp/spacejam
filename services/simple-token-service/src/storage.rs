@@ -1,7 +1,7 @@
 //! Simple Token Service Storage
 
 use alloc::collections::BTreeMap;
-use codec::{Decode, Encode};
+use podec::{Decode, Encode};
 use jam_pvm_common::{accumulate, error};
 
 /// A map of account IDs to their balances

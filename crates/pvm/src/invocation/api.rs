@@ -282,6 +282,7 @@ pub trait Invocation {
     ) -> Refined {
         let item = &package.items[index];
         let Some(account) = accounts.get(item.service) else {
+            tracing::warn!("no account found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -289,6 +290,7 @@ pub trait Invocation {
         };
 
         let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
+            tracing::warn!("no code found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -307,7 +309,7 @@ pub trait Invocation {
             crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
         let params = RefineParams {
             core,
-            index,
+            index: index as u16,
             id: item.service,
             payload: item.payload.clone(),
             package: package_hash,

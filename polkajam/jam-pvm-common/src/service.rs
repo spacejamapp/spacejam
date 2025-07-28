@@ -1,6 +1,6 @@
 use jam_types::{
-    AccumulateItem, CodeHash, Hash, RefineContext, ServiceId, Slot, TransferRecord, Vec,
-    WorkOutput, WorkPackageHash, WorkPayload,
+    AccumulateItem, Hash, ServiceId, Slot, TransferRecord, Vec, WorkOutput, WorkPackageHash,
+    WorkPayload,
 };
 
 /// Declare that this crate is a JAM service characterized by `$service_impl` and create necessary
@@ -13,19 +13,14 @@ macro_rules! declare_service {
         #[polkavm_derive::polkavm_export]
         extern "C" fn refine_ext(ptr: u32, size: u32) -> (u64, u64) {
             let $crate::jam_types::RefineParams {
+                core,
+                index,
                 id,
                 payload,
                 package_hash,
-                context,
-                auth_code_hash,
             } = $crate::mem::decode_buf(ptr, size);
-            let result = <$service_impl as $crate::Service>::refine(
-                id,
-                payload,
-                package_hash,
-                context,
-                auth_code_hash,
-            );
+            let result =
+                <$service_impl as $crate::Service>::refine(core, index, id, payload, package_hash);
             ((&result).as_ptr() as u64, result.len() as u64)
         }
         #[polkavm_derive::polkavm_export]
@@ -73,11 +68,11 @@ pub trait Service {
     /// Returns the Work Output, which will be passed into [Self::accumulate] in the on-chain
     /// (stateful) context.
     fn refine(
+        core: u16,
+        index: u16,
         id: ServiceId,
         payload: WorkPayload,
         package_hash: WorkPackageHash,
-        context: RefineContext,
-        auth_code_hash: CodeHash,
     ) -> WorkOutput;
 
     /// The Accumulate entry-point, used on-chain on one or more Work Item Outputs, or possibly none

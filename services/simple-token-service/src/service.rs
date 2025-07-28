@@ -10,11 +10,11 @@ jam_pvm_common::declare_service!(Service);
 
 impl jam_pvm_common::Service for Service {
     fn refine(
-        _id: ServiceId,
+        _core: u16,
+        _index: u16,
+        _id: u32,
         payload: WorkPayload,
         _package_hash: WorkPackageHash,
-        _context: RefineContext,
-        _auth_code_hash: CodeHash,
     ) -> WorkOutput {
         info!("entering refine logic ...");
         let Ok(instructions) = Vec::<Instruction>::decode(&mut payload.0.as_slice()) else {
@@ -22,7 +22,7 @@ impl jam_pvm_common::Service for Service {
                 target = "simple-token-service",
                 "failed to decode instructions"
             );
-            panic!("failed to decode instructions");
+            return WorkOutput(Vec::new());
         };
 
         info!(

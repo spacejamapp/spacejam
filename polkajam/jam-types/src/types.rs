@@ -390,6 +390,12 @@ pub struct OnTransferParamsRef<'a> {
 #[derive(Debug, Encode, Decode)]
 #[doc(hidden)]
 pub struct RefineParams {
+    /// The core index.
+    #[codec(compact)]
+    pub core: u16,
+    /// The index of the work item being refined.
+    #[codec(compact)]
+    pub index: u16,
     /// The index of the service being refined.
     #[codec(compact)]
     pub id: ServiceId,
@@ -397,10 +403,6 @@ pub struct RefineParams {
     pub payload: WorkPayload,
     /// The hash of the Work Package.
     pub package_hash: WorkPackageHash,
-    /// Various pieces of contextual information for the Refinement process.
-    pub context: RefineContext,
-    /// The hash of the code of the authorizer which was used to authorize the Work Package.
-    pub auth_code_hash: CodeHash,
 }
 
 // TODO: @gav Consider moving to jam-node.
