@@ -33,4 +33,6 @@ jobs:
       - name: Format
         run: cargo fmt --check
       - name: Clippy
-        run: cargo clippy --all -- -D warnings
+        run: |
+          rustup toolchain install nightly-2024-11-01 -c rust-src --profile minimal
+          cargo clippy --all -- -D warnings
