@@ -22,8 +22,9 @@ jam-pvm-common = { workspace = true, default-features = false, features = [
 ] }
 jam-bootstrap-service-common = { version = "0.1.22", default-features = false }
 
-# [dev-dependencies]
-# testing.workspace = true
+[dev-dependencies]
+jam-null-authorizer = { path = "../jam-null-authorizer" }
+pvm-testing.workspace = true
 
 [features]
 default = []

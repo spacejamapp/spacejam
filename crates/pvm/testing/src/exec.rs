@@ -18,7 +18,27 @@ impl Jam {
     }
 
     /// Refine the work package
-    pub fn refine(&mut self, _work: &WorkPackage) -> Result<pvm::Executed> {
+    ///
+    /// NOTE: run refine for all work items
+    pub fn refine(&mut self, work: &WorkPackage) -> Result<pvm::Refined> {
+        Ok(Interpreter::refine(
+            0,
+            0,
+            work,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            &mut self.chain.accounts,
+            self.chain.best.slot,
+        ))
+    }
+
+    /// Accumulate the work package
+    ///
+    /// 1. convert work package to work report
+    /// 2. run accumulate for all work items
+    /// 3. return the accumulated result
+    pub fn accumulate(&mut self, _work: &WorkPackage) -> Result<pvm::Executed> {
         todo!()
     }
 }

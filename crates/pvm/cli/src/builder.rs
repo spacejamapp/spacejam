@@ -6,6 +6,7 @@
 // If you update this, you should also update the toolchain installed by .github/workflows/rust.yml
 const TOOLCHAIN: &str = "nightly-2024-11-01";
 
+use crate::manifest;
 use codec::Encode;
 use jam_program_blob::{ConventionalMetadata, CoreVmProgramBlob, ProgramBlob};
 use std::{
@@ -15,8 +16,6 @@ use std::{
     process::Command,
     sync::OnceLock,
 };
-
-use crate::manifest;
 
 pub enum BlobType {
     Service,

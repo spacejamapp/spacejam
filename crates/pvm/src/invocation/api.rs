@@ -2,7 +2,7 @@
 
 use crate::{
     host,
-    invocation::{General, Received, Refine, State, Stepped},
+    invocation::{General, Received, State, Stepped},
     AccumulateContext, Accumulated, Argument, Executed, Memory as _, Reason, Refined, Transferred,
 };
 use parser::{
@@ -261,6 +261,7 @@ pub trait Invocation {
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)
+    #[allow(clippy::too_many_arguments)]
     fn refine<R: Accounts>(
         // (c) the core index
         core: u16,
@@ -302,7 +303,8 @@ pub trait Invocation {
         }
 
         // FIXME: passing the hash into this function mb. do not hash it for twice!
-        let package_hash = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let package_hash =
+            crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
         let params = RefineParams {
             core,
             index,
@@ -313,9 +315,9 @@ pub trait Invocation {
 
         // Get import segments for this work item
         let _work_item_imports = if index < all_imports.len() {
-            &all_imports[index]
+            all_imports[index].clone()
         } else {
-            &Vec::new()
+            Vec::new()
         };
 
         // Create refine context with proper parameters
@@ -324,7 +326,7 @@ pub trait Invocation {
             service: item.service,
             core,
             auth_output: auth_output.to_vec(),
-            all_imports: all_imports.iter().cloned().collect(),
+            all_imports: all_imports.to_vec(),
             export_offset,
             exports: Vec::new(),
         };
@@ -337,7 +339,7 @@ pub trait Invocation {
             refine_context,
         );
         let gas = result.gas;
-        
+
         // TODO: Implement actual segment export when host calls are ready
         // For now, return empty segments as before
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())

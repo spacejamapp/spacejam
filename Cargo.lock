@@ -1799,6 +1799,7 @@ dependencies = [
 name = "jam-null-authorizer"
 version = "0.0.0"
 dependencies = [
+ "cargo-jam",
  "jam-pvm-common",
  "jam-types",
  "polkavm-derive 0.24.0",
@@ -3321,9 +3322,11 @@ dependencies = [
  "bounded-collections",
  "jam-bootstrap-service-common",
  "jam-codec",
+ "jam-null-authorizer",
  "jam-pvm-common",
  "jam-types",
  "polkavm-derive 0.26.0",
+ "pvm-testing",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ publish = true
 description = "A JAM authorizer which always authorizes"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 jam-types = { workspace = true, default-features = false }
@@ -20,7 +20,11 @@ jam-pvm-common = { workspace = true, default-features = false, features = [
 polkavm-derive.workspace = true
 
 [dev-dependencies]
-pvm-testing = { workspace = true, features = ["build"] }
+pvm-testing.workspace = true
+
+[build-dependencies]
+cjam.workspace = true
 
 [features]
 tiny = ["jam-types/tiny", "jam-pvm-common/tiny"]
+embedded = []
