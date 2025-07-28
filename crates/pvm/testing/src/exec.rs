@@ -6,24 +6,57 @@ use pvm::{Accumulated, Invocation, Reason};
 use pvmi::Interpreter;
 use score::{
     service::{Privileges, ServiceAccount, WorkExecResult, WorkPackage, WorkReport},
+    state::account,
     vm::AccumulateState,
     ServiceId,
 };
 use std::collections::BTreeMap;
 use worker::Worker;
 
+/// The result of an execution
+#[derive(Debug, Default)]
+pub struct ExecutionInfo {
+    /// The refine gas used
+    pub refine_gas: u64,
+
+    /// The accumulate gas used
+    pub accumulate_gas: u64,
+
+    /// The account changes
+    pub accounts: BTreeMap<ServiceId, ServiceAccount>,
+}
+
+impl ExecutionInfo {
+    /// Create a new execution info
+    pub fn new(acc: Vec<Accumulated<BTreeMap<ServiceId, ServiceAccount>>>) -> Self {
+        let mut info = Self::default();
+        for acc in acc.iter() {
+            info.accumulate_gas += acc.gas;
+
+            // FIXME: need to merge account data
+            info.accounts = acc.context.accounts.clone();
+        }
+
+        info
+    }
+
+    /// Get a storage of an account
+    pub fn get_storage<V: podec::Decode>(&self, service: ServiceId, key: &[u8]) -> Option<V> {
+        let account = self.accounts.get(&service)?;
+        let key = account::storage(service, key);
+        let encoded = account.storage.get(key.as_ref())?;
+        V::decode(&mut &encoded[..]).ok()
+    }
+}
+
 impl Jam {
     /// Execute a work item directly
     ///
     /// TODO: introduce better execution result
-    pub fn execute(
-        &mut self,
-        service: ServiceId,
-        payload: Vec<u8>,
-    ) -> Result<Vec<Accumulated<BTreeMap<ServiceId, ServiceAccount>>>> {
+    pub fn execute(&mut self, service: ServiceId, payload: Vec<u8>) -> Result<ExecutionInfo> {
         let package = self.send(service, payload)?;
         let report = self.refine(&package)?;
-        self.accumulate(&report)
+        Ok(ExecutionInfo::new(self.accumulate(&report)?))
     }
 
     /// Authorize the work package

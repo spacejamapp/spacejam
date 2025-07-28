@@ -1,6 +1,6 @@
 //! Basic VM tests
 
-use podec::{Decode, Encode};
+use podec::Encode;
 use simple_token_service::{Holders, Instruction, SERVICE};
 use testing::Jam;
 
@@ -16,15 +16,13 @@ fn test_mint() {
     // 1. send a mint instruction
     let amount = 100;
     let instr = vec![Instruction::Mint { to: ALICE, amount }];
-    let _result = jam
+    let info = jam
         .execute(SERVICE_ID, instr.encode())
         .expect("failed to execute work item");
 
     // 2. check the balance
-    let encoded = jam
-        .get_storage(SERVICE_ID, &Holders::key().encode())
+    let holders: Holders = info
+        .get_storage(SERVICE_ID, &Holders::key())
         .expect("failed to get holders");
-
-    let holders = Holders::decode(&mut encoded.as_ref()).expect("failed to decode holders");
     assert_eq!(holders.balance(ALICE), amount);
 }

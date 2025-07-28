@@ -12,6 +12,7 @@ anyhow.workspace = true
 worker.workspace = true
 cjam.workspace = true
 etc.workspace = true
+podec.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
 score.workspace = true

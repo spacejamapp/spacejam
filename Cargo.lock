@@ -2614,6 +2614,7 @@ dependencies = [
  "anyhow",
  "cargo-jam",
  "etc",
+ "jam-codec",
  "pvm",
  "pvmi",
  "spacejam-core",

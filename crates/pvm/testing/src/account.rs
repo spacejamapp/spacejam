@@ -23,10 +23,11 @@ impl Jam {
     }
 
     /// Get a storage of an account
-    pub fn get_storage(&self, service: ServiceId, key: &[u8]) -> Option<Vec<u8>> {
+    pub fn get_storage<V: podec::Decode>(&self, service: ServiceId, key: &[u8]) -> Option<V> {
         let account = self.chain.accounts.get(&service)?;
         let key = account::storage(service, key);
-        account.storage.get(key.as_ref()).map(|v| v.clone())
+        let encoded = account.storage.get(key.as_ref())?;
+        V::decode(&mut &encoded[..]).ok()
     }
 
     /// Set the code of the service account
