@@ -25,7 +25,7 @@ impl<C: Config> Worker<C> {
         self.report.authorizer_hash = work.authorizer.hash();
         self.report.lookup = vec![];
 
-        self.refine(&work, &mut accounts)?;
+        self.refine(&work, &mut accounts, core_idx as u16)?;
         self.report.context = work.context;
         Ok(self.report)
     }

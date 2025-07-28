@@ -11,13 +11,14 @@ use score::{
 
 impl<C: Config> Worker<C> {
     /// Process all work items with Refine invocations
-    pub fn refine<R: Accounts>(&mut self, work: &WorkPackage, accounts: &mut R) -> Result<()> {
+    pub fn refine<R: Accounts>(&mut self, work: &WorkPackage, accounts: &mut R, core_idx: u16) -> Result<()> {
         let mut work_results = Vec::new();
         let mut total_exports = 0u16;
 
         // TODO: doing this in parallel if possible
         for (item_index, item) in work.items.iter().enumerate() {
             let work_result = self.refine_single(
+                core_idx,
                 work.context.lookup_anchor_slot,
                 work,
                 item_index,
@@ -39,6 +40,7 @@ impl<C: Config> Worker<C> {
     /// Process a single work item
     fn refine_single<R: score::Accounts>(
         &self,
+        core: u16,
         timeslot: TimeSlot,
         package: &WorkPackage,
         item_index: usize,
@@ -47,13 +49,14 @@ impl<C: Config> Worker<C> {
     ) -> Result<WorkResult> {
         // Execute Refine invocation (Ψ_R)
         let refine_result = C::Vm::refine(
-            timeslot,
-            accounts,
+            core,
             item_index,
             package,
             &self.report.auth_output,
-            &[],
+            &[], // TODO: Pass actual import segments when available
             export_offset,
+            accounts,
+            timeslot,
         );
 
         // Check output size constraints and create work result

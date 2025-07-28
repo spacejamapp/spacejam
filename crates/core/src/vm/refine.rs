@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 /// Refine parameters
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
 pub struct RefineParams {
+    /// (c) the core index
+    pub core: u16,
+
     /// (i) the work item index
     pub index: usize,
 

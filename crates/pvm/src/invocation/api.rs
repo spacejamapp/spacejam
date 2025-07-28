@@ -2,7 +2,7 @@
 
 use crate::{
     host,
-    invocation::{General, Received, State, Stepped},
+    invocation::{General, Received, Refine, State, Stepped},
     AccumulateContext, Accumulated, Argument, Executed, Memory as _, Reason, Refined, Transferred,
 };
 use parser::{
@@ -262,20 +262,22 @@ pub trait Invocation {
     ///
     /// Defined per graypaper (B.5)
     fn refine<R: Accounts>(
-        // (N_t) timeslot for the current operation
-        timeslot: TimeSlot,
-        // (δ) accounts for historical lookup
-        accounts: &mut R,
+        // (c) the core index
+        core: u16,
         // (i) the work item index
         index: usize,
         // (p) the work package
         package: &WorkPackage,
-        // (o) the authorizer output
-        _output: &[u8],
-        // (i) import segments
-        _imports: &[[u8; score::SEGMENT_SIZE as usize]],
+        // (r) the authorizer output
+        auth_output: &[u8],
+        // (ī) all work items' import segments
+        all_imports: &[Vec<[u8; score::SEGMENT_SIZE as usize]>],
         // (ς) export segment offset
-        _export_offset: u16,
+        export_offset: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
     ) -> Refined {
         let item = &package.items[index];
         let Some(account) = accounts.get(item.service) else {
@@ -300,22 +302,44 @@ pub trait Invocation {
         }
 
         // FIXME: passing the hash into this function mb. do not hash it for twice!
-        let package = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let package_hash = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
         let params = RefineParams {
+            core,
             index,
             id: item.service,
             payload: item.payload.clone(),
-            package,
+            package: package_hash,
+        };
+
+        // Get import segments for this work item
+        let _work_item_imports = if index < all_imports.len() {
+            &all_imports[index]
+        } else {
+            &Vec::new()
+        };
+
+        // Create refine context with proper parameters
+        let refine_context = crate::invocation::Refine {
+            accounts: accounts.clone(),
+            service: item.service,
+            core,
+            auth_output: auth_output.to_vec(),
+            all_imports: all_imports.iter().cloned().collect(),
+            export_offset,
+            exports: Vec::new(),
         };
 
         let result = Self::argument::<R, _>(
             &code,
             0,
             item.refine_gas_limit,
-            &codec::encode(&params).expect("failed to params"),
-            (),
+            &codec::encode(&params).expect("failed to encode params"),
+            refine_context,
         );
         let gas = result.gas;
+        
+        // TODO: Implement actual segment export when host calls are ready
+        // For now, return empty segments as before
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }
 
