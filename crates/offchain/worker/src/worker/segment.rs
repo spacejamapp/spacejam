@@ -6,10 +6,9 @@
 
 use crate::Worker;
 use anyhow::Result;
-use runtime::Config;
 use score::{service::WorkItem, OpaqueHash};
 
-impl<C: Config> Worker<C> {
+impl Worker {
     /// Import segments for a work item using erasure coding reconstruction
     #[allow(dead_code)]
     pub fn import_segments<R: score::Accounts>(

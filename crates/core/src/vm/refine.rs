@@ -6,10 +6,16 @@ use serde::{Deserialize, Serialize};
 /// Refine parameters
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
 pub struct RefineParams {
+    /// (c) the core index
+    #[serde(with = "codec::compact")]
+    pub core: u16,
+
     /// (i) the work item index
-    pub index: usize,
+    #[serde(with = "codec::compact")]
+    pub index: u16,
 
     /// (w_s) the service id
+    #[serde(with = "codec::compact")]
     pub id: ServiceId,
 
     /// (y) the payload

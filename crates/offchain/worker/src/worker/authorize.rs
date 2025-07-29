@@ -2,16 +2,15 @@
 
 use crate::Worker;
 use anyhow::Result;
-use pvm::Invocation;
-use runtime::Config;
+use pvm::Pvm;
 use score::{
     service::{WorkExecResult, WorkPackage},
     Accounts,
 };
 
-impl<C: Config> Worker<C> {
+impl Worker {
     /// Phase 1: Process authorization (validation + Is-Authorized invocation)
-    pub fn authorize<R: Accounts>(
+    pub fn authorize<R: Accounts, VM: Pvm>(
         &mut self,
         work: &WorkPackage,
         core_idx: usize,
@@ -21,7 +20,7 @@ impl<C: Config> Worker<C> {
         let _validation = work.validate()?;
 
         // execute is-authorized invocation (Ψ_I)
-        let auth_result = C::Vm::is_authorized(
+        let auth_result = VM::is_authorized(
             work,
             core_idx as u16,
             accounts,

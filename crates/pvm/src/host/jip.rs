@@ -39,26 +39,21 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     // Read target if provided (for structured logging)
     let target = if target_len > 0 {
         match state.memory.read_bytes(target_addr, target_len) {
-            Ok(data) => Some(String::from_utf8_lossy(&data).to_string()),
+            Ok(data) => String::from_utf8_lossy(&data).to_string(),
             Err(reason) => return Err(reason),
         }
     } else {
-        None
+        Default::default()
     };
 
-    let lvl = match level {
-        0 => log::Level::Error,
-        1 => log::Level::Warn,
-        2 => log::Level::Info,
-        3 => log::Level::Debug,
-        4 => log::Level::Trace,
-        _ => log::Level::Info,
-    };
-
-    if let Some(target) = target {
-        log::log!(target: &target, lvl,  "{message}");
-    } else {
-        log::log!(lvl, "{message}");
+    // Convert numeric level to log::Level
+    match level {
+        0 => tracing::error!(target = target, "{message}"),
+        1 => tracing::warn!(target = target, "{message}"),
+        2 => tracing::info!(target = target, "{message}"),
+        3 => tracing::debug!(target = target, "{message}"),
+        4 => tracing::trace!(target = target, "{message}"),
+        _ => tracing::warn!(target = target, "{message}"),
     }
 
     Ok(Exit::Ok as u64)

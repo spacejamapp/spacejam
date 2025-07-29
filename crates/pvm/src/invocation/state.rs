@@ -118,7 +118,7 @@ impl<R: Accounts> Received<Accumulate<R>> {
         // Only Panic, OOG, and Fault should use Y context (exceptional dimension)
         match self.reason {
             Reason::Continue | Reason::Halt => {
-                let mut result = self.data.x.to_result(self.gas);
+                let mut result = self.data.x.to_result(self.gas, self.reason);
                 if self.output.len() == 32 {
                     let mut hash = [0; 32];
                     hash.copy_from_slice(&self.output);
@@ -126,7 +126,7 @@ impl<R: Accounts> Received<Accumulate<R>> {
                 }
                 result
             }
-            _ => self.data.y.to_result(self.gas),
+            _ => self.data.y.to_result(self.gas, self.reason),
         }
     }
 }

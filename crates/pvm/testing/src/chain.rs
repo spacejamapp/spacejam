@@ -4,18 +4,18 @@ use anyhow::{anyhow, Result};
 use score::{
     block::Head,
     service::{RefineContext, ServiceAccount},
-    OpaqueHash, ServiceId,
+    EntropyBuffer, OpaqueHash, ServiceId,
 };
 use std::collections::BTreeMap;
-
-mod service;
-mod vm;
 
 /// Chain environment
 #[derive(Clone, Default)]
 pub struct Chain {
     /// Best block
     pub best: Head,
+
+    /// Entropy buffer
+    pub entropy: EntropyBuffer,
 
     /// Finalized block
     pub finalized: Head,
@@ -27,6 +27,7 @@ pub struct Chain {
 impl Chain {
     /// Find a service code
     pub fn service(&self, service: ServiceId) -> Result<OpaqueHash> {
+        tracing::info!("service: {:?}", service);
         self.accounts
             .get(&service)
             .map(|account| account.code)

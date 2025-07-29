@@ -9,26 +9,23 @@ version.workspace = true
 description = "The JAM Bootstrap Service, a simple swiss-army-knife service for JAM Genesis"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-bounded-collections = { workspace = true, default-features = false }
-codec = { package = "jam-codec", version = "0.1.0", default-features = false }
-polkavm-derive = "0.26.0"
+podec.workspace = true
+polkavm-derive.workspace = true
 jam-types = { workspace = true, default-features = false }
 jam-pvm-common = { workspace = true, default-features = false, features = [
     "service",
     "logging",
 ] }
-jam-bootstrap-service-common = { version = "0.1.22", default-features = false }
 
-# [dev-dependencies]
-# testing.workspace = true
+[dev-dependencies]
+pvm-testing.workspace = true
+
+[build-dependencies]
+cjam.workspace = true
 
 [features]
 default = []
-tiny = [
-    "jam-types/tiny",
-    "jam-pvm-common/tiny",
-    "jam-bootstrap-service-common/tiny",
-]
+tiny = ["jam-types/tiny", "jam-pvm-common/tiny"]

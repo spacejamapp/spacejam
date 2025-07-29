@@ -118,12 +118,13 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate result
-    pub fn to_result(self, gas: Gas) -> Accumulated<R> {
+    pub fn to_result(self, gas: Gas, reason: Reason) -> Accumulated<R> {
         Accumulated {
             context: self.context,
             transfers: self.transfer,
             hash: self.output,
             gas,
+            reason,
         }
     }
 }
@@ -141,6 +142,9 @@ pub struct Accumulated<R: Accounts> {
 
     /// (u) The gas used
     pub gas: Gas,
+
+    /// (_e) The reason for the accumulation
+    pub reason: Reason,
 }
 
 impl<R: Accounts> Accumulated<R> {
@@ -151,6 +155,7 @@ impl<R: Accounts> Accumulated<R> {
             transfers: Vec::new(),
             hash: None,
             gas: 0,
+            reason: Reason::Continue,
         }
     }
 }

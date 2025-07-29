@@ -18,7 +18,7 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     data: X,
 ) -> Stepped<Memory, X> {
     let mut data = data;
-    tracing::debug!("calling host call {call}");
+    tracing::trace!("calling host call {call}");
     let reason = match call {
         0 | 18 => {
             // For is_authorized context, only gas and fetch are allowed

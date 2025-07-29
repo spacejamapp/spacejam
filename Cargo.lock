@@ -612,16 +612,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bounded-collections-next"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efd2a9551c1e5966aed7e93d6d98add117687e65b01a4a2c6b26b1a982a74f4f"
-dependencies = [
- "jam-codec",
- "log",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1756,18 +1746,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
-name = "jam-bootstrap-service-common"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8a5f9d338ca3992116adc51a2ca9ef0cc5adfb1aeb342e265afd05a861b2d03"
-dependencies = [
- "bounded-collections-next",
- "jam-codec",
- "jam-types",
- "rand 0.9.1",
-]
-
-[[package]]
 name = "jam-codec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1799,9 +1777,10 @@ dependencies = [
 name = "jam-null-authorizer"
 version = "0.0.0"
 dependencies = [
+ "cargo-jam",
  "jam-pvm-common",
  "jam-types",
- "polkavm-derive 0.24.0",
+ "polkavm-derive",
  "pvm-testing",
 ]
 
@@ -1822,7 +1801,7 @@ dependencies = [
  "bounded-collections",
  "jam-codec",
  "jam-types",
- "polkavm-derive 0.24.0",
+ "polkavm-derive",
 ]
 
 [[package]]
@@ -2081,9 +2060,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.171"
+version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
+checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
 name = "libloading"
@@ -2241,6 +2220,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-ansi-term"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
+dependencies = [
+ "overload",
+ "winapi",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2318,6 +2307,12 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "overload"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "parity-db"
@@ -2464,7 +2459,7 @@ dependencies = [
  "libc",
  "log",
  "polkavm-assembler",
- "polkavm-common 0.24.0",
+ "polkavm-common",
  "polkavm-linux-raw",
 ]
 
@@ -2488,27 +2483,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkavm-common"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49a5794b695626ba70d29e66e3f4f4835767452a6723f3a0bc20884b07088fe8"
-
-[[package]]
 name = "polkavm-derive"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "176144f8661117ea95fa7cf868c9a62d6b143e8a2ebcb7582464c3faade8669a"
 dependencies = [
- "polkavm-derive-impl-macro 0.24.0",
-]
-
-[[package]]
-name = "polkavm-derive"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95282a203ae1f6828a04ff334145c3f6dc718bba6d3959805d273358b45eab93"
-dependencies = [
- "polkavm-derive-impl-macro 0.26.0",
+ "polkavm-derive-impl-macro",
 ]
 
 [[package]]
@@ -2517,19 +2497,7 @@ version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5a21844afdfcc10c92b9ef288ccb926211af27478d1730fcd55e4aec710179d"
 dependencies = [
- "polkavm-common 0.24.0",
- "proc-macro2",
- "quote",
- "syn 2.0.100",
-]
-
-[[package]]
-name = "polkavm-derive-impl"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6069dc7995cde6e612b868a02ce48b54397c6d2582bd1b97b63aabbe962cd779"
-dependencies = [
- "polkavm-common 0.26.0",
+ "polkavm-common",
  "proc-macro2",
  "quote",
  "syn 2.0.100",
@@ -2541,17 +2509,7 @@ version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba0ef0f17ad81413ea1ca5b1b67553aedf5650c88269b673d3ba015c83bc2651"
 dependencies = [
- "polkavm-derive-impl 0.24.0",
- "syn 2.0.100",
-]
-
-[[package]]
-name = "polkavm-derive-impl-macro"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "581d34cafec741dc5ffafbb341933c205b6457f3d76257a9d99fb56687219c91"
-dependencies = [
- "polkavm-derive-impl 0.26.0",
+ "polkavm-derive-impl",
  "syn 2.0.100",
 ]
 
@@ -2566,7 +2524,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "log",
  "object",
- "polkavm-common 0.24.0",
+ "polkavm-common",
  "regalloc2",
  "rustc-demangle",
 ]
@@ -2656,10 +2614,11 @@ dependencies = [
  "anyhow",
  "cargo-jam",
  "etc",
+ "jam-codec",
  "pvm",
  "pvmi",
- "spacejam-builder",
  "spacejam-core",
+ "spacejam-worker",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3318,12 +3277,12 @@ dependencies = [
 name = "simple-token-service"
 version = "0.0.0"
 dependencies = [
- "bounded-collections",
- "jam-bootstrap-service-common",
+ "cargo-jam",
  "jam-codec",
  "jam-pvm-common",
  "jam-types",
- "polkavm-derive 0.26.0",
+ "polkavm-derive",
+ "pvm-testing",
 ]
 
 [[package]]
@@ -3585,9 +3544,8 @@ dependencies = [
  "pvm",
  "spacejam-core",
  "spacejam-crypto",
- "spacejam-network",
- "spacejam-runtime",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3978,6 +3936,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8189decb5ac0fa7bc8b96b7cb9b2701d60d48805aca84a238004d665fcc4008"
 dependencies = [
  "matchers",
+ "nu-ansi-term",
  "once_cell",
  "regex",
  "sharded-slab",

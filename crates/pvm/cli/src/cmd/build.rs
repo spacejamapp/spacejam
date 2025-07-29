@@ -1,5 +1,7 @@
 //! `jam build` command
 
+use std::path::PathBuf;
+
 use crate::{
     builder,
     manifest::{ModuleType, Profile},
@@ -24,6 +26,9 @@ pub struct Build {
     /// The build profile to use.
     #[arg(short, long, value_enum, default_value_t = Profile::Release)]
     profile: Profile,
+    /// The target directory to build to.
+    #[arg(short, long)]
+    pub target: Option<PathBuf>,
 }
 
 impl Build {
@@ -57,7 +62,8 @@ impl Build {
             ModuleType::CoreVmGuest => builder::BlobType::CoreVmGuest,
         };
 
-        let out_dir = etc::find_up("target")?;
+        let target = etc::find_up("target")?;
+        let out_dir = self.target.clone().unwrap_or(target);
         let (crate_name, pvm_path) = builder::build_pvm_blob(
             &crate_dir,
             blob_type,

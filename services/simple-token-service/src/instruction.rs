@@ -1,8 +1,8 @@
 //! Simple Token Service Instructions
 
-use codec::{Decode, Encode};
+use podec::{Decode, Encode};
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub enum Instruction {
     /// Mint tokens to the given account
     Mint { to: u32, amount: u64 },

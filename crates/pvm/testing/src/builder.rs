@@ -15,9 +15,6 @@ impl Jam {
         self.items.push(item);
     }
 
-    /// Set the authorizer
-    pub fn authorizer(&mut self) {}
-
     /// Build a work package
     pub fn build(&mut self) -> Result<WorkPackage> {
         let package = WorkPackage {
@@ -37,8 +34,8 @@ impl Jam {
             service,
             code_hash: self.chain.service(service)?,
             payload,
-            refine_gas_limit: Default::default(),
-            accumulate_gas_limit: Default::default(),
+            refine_gas_limit: 1_000_000,
+            accumulate_gas_limit: 1_000_000,
             import_segments: Default::default(),
             extrinsic: Default::default(),
             export_count: Default::default(),

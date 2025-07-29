@@ -10,11 +10,11 @@ jam_pvm_common::declare_service!(Service);
 
 impl jam_pvm_common::Service for Service {
     fn refine(
-        _id: ServiceId,
+        _core: u16,
+        _index: u16,
+        _id: u32,
         payload: WorkPayload,
         _package_hash: WorkPackageHash,
-        _context: RefineContext,
-        _auth_code_hash: CodeHash,
     ) -> WorkOutput {
         info!("entering refine logic ...");
         let Ok(instructions) = Vec::<Instruction>::decode(&mut payload.0.as_slice()) else {
@@ -22,24 +22,29 @@ impl jam_pvm_common::Service for Service {
                 target = "simple-token-service",
                 "failed to decode instructions"
             );
-            panic!("failed to decode instructions");
+            return WorkOutput(Vec::new());
         };
 
         info!(
             target = "simple-token-service",
             "instructions: {:?}", instructions
         );
+        info!("payload: {:?}", payload.0);
         WorkOutput(payload.0)
     }
 
     fn accumulate(_now: Slot, _id: ServiceId, results: Vec<AccumulateItem>) -> Option<Hash> {
-        info!("entering accumulate logic ...");
+        info!("accumulate items: {}", results.len());
         let mut holders = Holders::get();
         for raw_instructions in results.into_iter().filter_map(|x| x.result.ok()) {
-            for inst in Vec::<Instruction>::decode(&mut &raw_instructions[..]).unwrap() {
-                info!(target = "simple-token-service", "instruction: {:?}", inst);
+            let instructions = Vec::<Instruction>::decode(&mut &raw_instructions[..]).unwrap();
+            for inst in instructions {
                 match inst {
                     Instruction::Mint { to, amount } => {
+                        info!(
+                            target = "simple-token-service",
+                            "minting {} tokens to {}", amount, to
+                        );
                         holders.mint(to, amount);
                     }
                     Instruction::Transfer { from, to, amount } => {
