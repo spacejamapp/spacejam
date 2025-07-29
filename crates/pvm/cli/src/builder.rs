@@ -14,7 +14,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::OnceLock,
 };
 
 pub enum BlobType {
@@ -74,95 +73,6 @@ impl ProfileType {
             ProfileType::Other(s) => format!("--profile={s}"),
         }
     }
-}
-
-fn build_pvm_blob_in_build_script(crate_name: &str, crate_dir: &Path, blob_type: BlobType) {
-    let out_dir: PathBuf = std::env::var("OUT_DIR").expect("No OUT_DIR").into();
-    let crate_dir = if !crate_dir.exists() {
-        // This provided path doesn't exist - this probably means we're building one crate at a
-        // time. It should still be available, but in the dependencies folder.
-        println!("Provided source path invalid. Presume building from crates.io");
-        let cd = std::env::current_dir().unwrap();
-        println!("Current path: {}", cd.display());
-
-        let lock = cd.join("Cargo.lock");
-        if !lock.exists() {
-            panic!("Cargo.lock not found in current directory. Presume building from crates.io");
-        }
-        let lock = fs::read_to_string(lock)
-            .expect("Failed to read Cargo.lock")
-            .parse::<toml::Value>()
-            .unwrap();
-        let package = lock["package"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter_map(|x| x.as_table().map(|x| x.to_owned()))
-            .find(|x| x.get("name").unwrap().as_str().unwrap() == crate_name)
-            .expect("Dependency not found in Cargo.lock. Cannot continue.");
-        let version = package.get("version").unwrap().as_str().unwrap();
-
-        println!("Found dependency {crate_name} in manifest of version {version}");
-        let mut source_path = cd.clone();
-        source_path.pop();
-        source_path.push(format!("{crate_name}-{version}"));
-        if source_path.exists() {
-            println!("Found source path: {}", source_path.display());
-            source_path
-        } else {
-            println!(
-                "Dependency source not found at {}. Packages found:",
-                source_path.display()
-            );
-            for entry in std::fs::read_dir(cd.parent().unwrap()).unwrap() {
-                let entry = entry.unwrap();
-                if entry.file_type().unwrap().is_dir() {
-                    println!("  - {}", entry.file_name().to_string_lossy());
-                }
-            }
-            panic!("Cannot continue.");
-        }
-    } else {
-        crate_dir.to_owned()
-    };
-    println!("cargo:rerun-if-env-changed=SKIP_PVM_BUILDS");
-    if std::env::var_os("SKIP_PVM_BUILDS").is_some() {
-        let output_file = blob_type.output_file(&out_dir, crate_name);
-        fs::write(&output_file, []).expect("error creating dummy program blob");
-        println!("cargo:rustc-env=PVM_BINARY={}", output_file.display());
-    } else {
-        println!("cargo:rerun-if-changed={}", crate_dir.to_str().unwrap());
-        let (_crate_name, output_file) =
-            build_pvm_blob(&crate_dir, blob_type, &out_dir, false, ProfileType::Release);
-        println!("cargo:rustc-env=PVM_BINARY={}", output_file.display());
-    }
-}
-
-/// Build the service crate in `crate_dir` for the RISCV target, convert to PVM code and finish
-/// by creating a `<crate_name>.pvm` blob file.
-///
-/// This is intended to be called from a crate's `build.rs`. The generated blob may be included in
-/// the crate by using the `pvm_binary` macro.
-pub fn build_service(crate_name: &str, crate_dir: &Path) {
-    build_pvm_blob_in_build_script(crate_name, crate_dir, BlobType::Service);
-}
-
-/// Build the authorizer crate in `crate_dir` for the RISCV target, convert to PVM code and finish
-/// by creating a `<crate_name>.pvm` blob file.
-///
-/// This is intended to be called from a crate's `build.rs`. The generated blob may be included in
-/// the crate by using the `pvm_binary` macro.
-pub fn build_authorizer(crate_name: &str, crate_dir: &Path) {
-    build_pvm_blob_in_build_script(crate_name, crate_dir, BlobType::Authorizer);
-}
-
-/// Build the CoreVM guest program crate in `crate_dir` for the RISCV target, convert to PVM code
-/// and finish by creating a `<crate_name>.pvm` blob file.
-///
-/// If used in `build.rs`, then this may be included in the relevant crate by using the `pvm_binary`
-/// macro.
-pub fn build_corevm(crate_name: &str, crate_dir: &Path) {
-    build_pvm_blob_in_build_script(crate_name, crate_dir, BlobType::CoreVmGuest);
 }
 
 /// Build the PVM crate in `crate_dir` called `crate_name` for the RISCV target, convert to PVM
@@ -271,12 +181,6 @@ pub fn build_pvm_blob(
             ),
         );
 
-    // Use job server to not oversubscribe CPU cores when compiling multiple PVM binaries in
-    // parallel.
-    if let Some(client) = get_job_server_client() {
-        client.configure(&mut child);
-    }
-
     let mut child = child.spawn().expect("Failed to execute cargo process");
     let status = child.wait().expect("Failed to execute cargo process");
 
@@ -321,12 +225,12 @@ pub fn build_pvm_blob(
         .expect("Failed to link pvm program:");
 
     // Write out a full `.pvm` blob for debugging/inspection.
-    fs::create_dir_all(&out_dir).expect("Failed to create jam directory");
-    let output_path_pvm = &out_dir.join(format!("{}.pvm", &info.name));
+    fs::create_dir_all(out_dir).expect("Failed to create jam directory");
+    let output_path_pvm = out_dir.join(format!("{}.pvm", &info.name));
     fs::write(output_path_pvm, &linked).expect("Error writing resulting binary");
     let name = info.name.clone();
     let metadata = ConventionalMetadata::Info(info).encode().into();
-    let output_file = blob_type.output_file(&out_dir, &name);
+    let output_file = blob_type.output_file(out_dir, &name);
     if !matches!(blob_type, BlobType::CoreVmGuest) {
         let parts = polkavm_linker::ProgramParts::from_bytes(linked.into())
             .expect("failed to deserialize linked PolkaVM program");
@@ -345,13 +249,6 @@ pub fn build_pvm_blob(
     }
 
     (name, output_file)
-}
-
-fn get_job_server_client() -> Option<&'static jobserver::Client> {
-    static CLIENT: OnceLock<Option<jobserver::Client>> = OnceLock::new();
-    CLIENT
-        .get_or_init(|| unsafe { jobserver::Client::from_env() })
-        .as_ref()
 }
 
 #[macro_export]

@@ -1,7 +1,7 @@
 //! Basic VM tests
 
-use testing::Jam;
 use jam_null_authorizer::SERVICE;
+use testing::Jam;
 
 const AUTHORIZER: u32 = 500;
 
