@@ -14,7 +14,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    sync::OnceLock,
 };
 
 pub enum BlobType {
@@ -273,12 +272,6 @@ pub fn build_pvm_blob(
             ),
         );
 
-    // Use job server to not oversubscribe CPU cores when compiling multiple PVM binaries in
-    // parallel.
-    if let Some(client) = get_job_server_client() {
-        client.configure(&mut child);
-    }
-
     let mut child = child.spawn().expect("Failed to execute cargo process");
     let status = child.wait().expect("Failed to execute cargo process");
 
@@ -348,13 +341,6 @@ pub fn build_pvm_blob(
     }
 
     (name, output_file)
-}
-
-fn get_job_server_client() -> Option<&'static jobserver::Client> {
-    static CLIENT: OnceLock<Option<jobserver::Client>> = OnceLock::new();
-    CLIENT
-        .get_or_init(|| unsafe { jobserver::Client::from_env() })
-        .as_ref()
 }
 
 #[macro_export]

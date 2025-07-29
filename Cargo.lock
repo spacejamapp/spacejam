@@ -645,7 +645,6 @@ dependencies = [
  "jam-codec",
  "jam-program-blob",
  "jam-types",
- "jobserver",
  "polkavm-linker",
  "serde_json",
  "toml",

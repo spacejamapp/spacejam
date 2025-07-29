@@ -17,7 +17,8 @@ pub fn build(package: &str) -> Result<()> {
     }
 
     // Build the service
-    let jam = etc::find_up("target")?.join("jam");
+    let target = etc::find_up("target")?;
+    let jam = target.join("jam");
     let current = env::current_dir()?;
     let output = jam.join(format!("{package}.jam"));
     let rebuild = if !output.exists() {
