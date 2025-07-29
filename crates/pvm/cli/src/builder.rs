@@ -14,6 +14,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::OnceLock,
 };
 
 pub enum BlobType {
@@ -256,8 +257,6 @@ pub fn build_pvm_blob(
         .arg(profile.to_arg())
         .arg("--target")
         .arg(target_json_path)
-        .arg("--jobs")
-        .arg("1")
         .arg("--features")
         .arg(if !matches!(blob_type, BlobType::CoreVmGuest) {
             "tiny"
@@ -271,6 +270,12 @@ pub fn build_pvm_blob(
                 std::env::var("RUSTFLAGS").unwrap_or_default()
             ),
         );
+
+    // Use job server to not oversubscribe CPU cores when compiling multiple PVM binaries in
+    // parallel.
+    if let Some(client) = get_job_server_client() {
+        client.configure(&mut child);
+    }
 
     let mut child = child.spawn().expect("Failed to execute cargo process");
     let status = child.wait().expect("Failed to execute cargo process");
@@ -316,13 +321,12 @@ pub fn build_pvm_blob(
         .expect("Failed to link pvm program:");
 
     // Write out a full `.pvm` blob for debugging/inspection.
-    let jam = out_dir.join("jam");
-    fs::create_dir_all(&jam).expect("Failed to create jam directory");
-    let output_path_pvm = &jam.join(format!("{}.pvm", &info.name));
+    fs::create_dir_all(&out_dir).expect("Failed to create jam directory");
+    let output_path_pvm = &out_dir.join(format!("{}.pvm", &info.name));
     fs::write(output_path_pvm, &linked).expect("Error writing resulting binary");
     let name = info.name.clone();
     let metadata = ConventionalMetadata::Info(info).encode().into();
-    let output_file = blob_type.output_file(&jam, &name);
+    let output_file = blob_type.output_file(&out_dir, &name);
     if !matches!(blob_type, BlobType::CoreVmGuest) {
         let parts = polkavm_linker::ProgramParts::from_bytes(linked.into())
             .expect("failed to deserialize linked PolkaVM program");
@@ -341,6 +345,13 @@ pub fn build_pvm_blob(
     }
 
     (name, output_file)
+}
+
+fn get_job_server_client() -> Option<&'static jobserver::Client> {
+    static CLIENT: OnceLock<Option<jobserver::Client>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| unsafe { jobserver::Client::from_env() })
+        .as_ref()
 }
 
 #[macro_export]

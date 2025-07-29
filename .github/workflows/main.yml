@@ -23,7 +23,7 @@ jobs:
       - uses: taiki-e/install-action@sccache
       - uses: taiki-e/install-action@nextest
       - name: Run Tests
-        run: cargo nextest run --workspace --no-fail-fast --release
+        run: cargo nextest run --no-fail-fast --release
 
   check:
     name: Check
@@ -35,7 +35,7 @@ jobs:
           toolchain: nightly-2024-11-01
           components: rust-src
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@sccache
       - name: Format
         run: cargo fmt --check
       - name: Clippy

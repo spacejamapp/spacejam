@@ -22,22 +22,24 @@ pub fn build(package: &str, path: Option<String>) -> Result<()> {
     let current = path
         .map(PathBuf::from)
         .unwrap_or_else(|| env::current_dir().expect("Unable to get current directory"));
-    let output = jam.join(format!("{package}.jam"));
-    let rebuild = if !output.exists() {
+    let binary = jam.join(package).join(format!("{package}.jam"));
+    let rebuild = if !binary.exists() {
         true
     } else {
-        let modified = fs::metadata(&output)?.modified()?;
+        let modified = fs::metadata(&binary)?.modified()?;
         check_modified(&current, modified)?
     };
 
     if rebuild {
-        crate::cmd::Build::default().run()?;
+        let mut build = crate::cmd::Build::default();
+        build.target = Some(jam.join(package));
+        build.run()?;
     }
 
     // copy service to OUT_DIR
     let service = PathBuf::from(env::var("OUT_DIR")?).join("service.jam");
     println!("Copying service to OUT_DIR: {}", service.display());
-    fs::copy(&output, &service)?;
+    fs::copy(&binary, &service)?;
     Ok(())
 }
 

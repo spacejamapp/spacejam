@@ -1,12 +1,13 @@
 //! Basic VM tests
 
 use testing::Jam;
+use jam_null_authorizer::SERVICE;
 
 const AUTHORIZER: u32 = 500;
 
 #[test]
 fn test_null_authorizer() {
-    let mut jam = Jam::default().with_auth(AUTHORIZER, testing::service!());
+    let mut jam = Jam::default().with_auth(AUTHORIZER, SERVICE.to_vec());
     let package = jam
         .send(AUTHORIZER, vec![])
         .expect("failed to send work item");

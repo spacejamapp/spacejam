@@ -15,8 +15,6 @@ impl jam_pvm_common::Authorizer for Authorizer {
     }
 }
 
-// TODO: handle parallel builds
-//
-// /// The service blob for the null authorizer
-// #[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64")))]
-// pub const SERVICE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/service.jam"));
+/// The service blob for the null authorizer
+#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64")))]
+pub const SERVICE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/service.jam"));
