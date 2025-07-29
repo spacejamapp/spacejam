@@ -1,7 +1,7 @@
 //! Basic VM tests
 
 use podec::Encode;
-use simple_token_service::{Holders, Instruction, SERVICE};
+use simple_token_service::{Holders, Instruction};
 use testing::Jam;
 
 const SERVICE_ID: u32 = 500;
@@ -11,7 +11,7 @@ const ALICE: u32 = 0;
 fn test_mint() {
     testing::util::init_logger();
     let mut jam = Jam::default();
-    jam.add_service(SERVICE_ID, SERVICE.to_vec());
+    jam.add_service(SERVICE_ID, testing::service!());
 
     // 1. send a mint instruction
     let amount = 100;

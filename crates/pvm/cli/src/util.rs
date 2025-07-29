@@ -1,16 +1,16 @@
 //! Utility functions for the PVM CLI
 
 use anyhow::Result;
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
-use std::time::SystemTime;
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 /// Build the PVM blob
 ///
 /// NOTE: this is used for the build script of services
-pub fn build(package: &str) -> Result<()> {
+pub fn build(package: &str, path: Option<String>) -> Result<()> {
     let target = env::var("TARGET")?;
     if target.contains("polkavm") {
         return Ok(());
@@ -19,7 +19,9 @@ pub fn build(package: &str) -> Result<()> {
     // Build the service
     let target = etc::find_up("target")?;
     let jam = target.join("jam");
-    let current = env::current_dir()?;
+    let current = path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().expect("Unable to get current directory"));
     let output = jam.join(format!("{package}.jam"));
     let rebuild = if !output.exists() {
         true

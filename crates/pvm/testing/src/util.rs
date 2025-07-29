@@ -1,7 +1,6 @@
 //! Prelude for the PVM testing library
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
 /// Initialize the logger
@@ -22,12 +21,8 @@ pub fn load_service(package: &str) -> Result<Vec<u8>> {
 }
 
 /// Build the service
-pub fn build_service(package: &str) {
-    let mut config = cjam::cmd::Build::default();
-    config.path = Some(PathBuf::from(package));
-    config
-        .run()
-        .unwrap_or_else(|_| panic!("Failed to build service at {package}"));
+pub fn build_service(package: &str, path: Option<String>) {
+    cjam::util::build(package, path).expect("Failed to build service");
 }
 
 /// Load the current service
@@ -38,7 +33,10 @@ macro_rules! service {
         match $crate::util::load_service(env!("CARGO_PKG_NAME")) {
             Ok(blob) => blob,
             Err(e) => {
-                $crate::util::build_service(env!("CARGO_MANIFEST_DIR"));
+                $crate::util::build_service(
+                    env!("CARGO_PKG_NAME"),
+                    Some(env!("CARGO_MANIFEST_DIR").to_string()),
+                );
                 $crate::util::load_service(env!("CARGO_PKG_NAME")).expect("Failed to load service")
             }
         }

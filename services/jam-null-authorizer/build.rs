@@ -1,5 +1,7 @@
 //! Build the service
 
 fn main() {
-    cjam::util::build(env!("CARGO_PKG_NAME")).expect("Failed to build service");
+    // TODO: handle parallel builds
+    //
+    // cjam::util::build(env!("CARGO_PKG_NAME")).expect("Failed to build service");
 }
