@@ -15,25 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2024-11-01
+          components: rust-src
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@sccache
       - uses: taiki-e/install-action@nextest
       - name: Run Tests
-        run: |
-          rustup toolchain install nightly-2024-11-01 -c rust-src --profile minimal
-          cargo b --release -vv
-          cargo nextest run --workspace --no-fail-fast --release
+        run: cargo nextest run --workspace --no-fail-fast --release
 
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2024-11-01
+          components: rust-src
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Format
         run: cargo fmt --check
       - name: Clippy
-        run: |
-          rustup toolchain install nightly-2024-11-01 -c rust-src --profile minimal
-          cargo clippy --all -- -D warnings
+        run: cargo clippy --all -- -D warnings

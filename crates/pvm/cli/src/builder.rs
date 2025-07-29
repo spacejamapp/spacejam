@@ -257,6 +257,8 @@ pub fn build_pvm_blob(
         .arg(profile.to_arg())
         .arg("--target")
         .arg(target_json_path)
+        .arg("--jobs")
+        .arg("1")
         .arg("--features")
         .arg(if !matches!(blob_type, BlobType::CoreVmGuest) {
             "tiny"
