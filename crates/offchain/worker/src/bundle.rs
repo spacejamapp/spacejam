@@ -4,7 +4,7 @@ use score::{service::WorkPackage, OpaqueHash};
 use std::collections::HashMap;
 
 /// Work package bundle
-pub struct Bundle {
+pub struct WorkPackageBundle {
     /// The work package
     pub package: WorkPackage,
 

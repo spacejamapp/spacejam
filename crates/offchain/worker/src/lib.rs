@@ -1,8 +1,12 @@
 //! Spacejam work package builder
 //! Work package computation
 
-pub use {bundle::Bundle, context::Context, worker::Worker};
+pub use {
+    bundle::WorkPackageBundle,
+    segment::{InMemorySegmentProvider, SegmentBundle, SegmentProvider, SegmentStorage},
+    worker::Worker,
+};
 
 mod bundle;
-mod context;
+mod segment;
 mod worker;

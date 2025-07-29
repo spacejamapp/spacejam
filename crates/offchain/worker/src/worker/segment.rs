@@ -1,47 +1,75 @@
-//! segment related operations
-//!
-//! TODO: we may need to implement this in the network layer.
-//! at that time, mb introduce a queue in runtime to do the
-//! interaction.
+//! Worker segment operations
 
-use crate::Worker;
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
-use score::{service::WorkItem, OpaqueHash};
+use score::{service::WorkItem, OpaqueHash, Segment};
 
 impl Worker {
-    /// Import segments for a work item using erasure coding reconstruction
+    /// Import segments for a work item using provider
+    pub async fn import_segments_with_provider<P: SegmentProvider>(
+        &self,
+        item: &WorkItem,
+        provider: &P,
+    ) -> Result<Vec<Segment>> {
+        if item.import_segments.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Extract tree roots from import specs
+        let segment_hashes: Vec<OpaqueHash> = item
+            .import_segments
+            .iter()
+            .map(|spec| spec.tree_root)
+            .collect();
+
+        provider.import_segments(&segment_hashes).await
+    }
+
+    /// Export segments using provider
+    pub async fn export_segments_with_provider<P: SegmentProvider>(
+        &self,
+        exported_segments: &[Segment],
+        work_package_hash: &OpaqueHash,
+        provider: &P,
+    ) -> Result<OpaqueHash> {
+        if exported_segments.is_empty() {
+            return Ok([0u8; 32]);
+        }
+
+        provider
+            .export_segments(exported_segments, work_package_hash)
+            .await
+    }
+
+    /// Legacy import method
     #[allow(dead_code)]
     pub fn import_segments<R: score::Accounts>(
         &self,
         item: &WorkItem,
         _accounts: &R,
-    ) -> Result<Vec<[u8; score::SEGMENT_SIZE as usize]>> {
-        // If no imports, return empty
+    ) -> Result<Vec<Segment>> {
         if item.import_segments.is_empty() {
             return Ok(vec![]);
         }
 
-        // For now, return error if segments are actually needed
         Err(anyhow::anyhow!(
-            "Segment imports not yet implemented - service requires segments"
+            "Segment imports not yet implemented - use import_segments_with_provider instead"
         ))
     }
 
-    /// Export segments to DA layer
+    /// Legacy export method
     #[allow(dead_code)]
     pub fn export_segments(
         &self,
-        exported_segments: &[[u8; score::SEGMENT_SIZE as usize]],
+        exported_segments: &[Segment],
         _work_package_hash: &OpaqueHash,
     ) -> Result<OpaqueHash> {
-        // If no exports, return empty root
         if exported_segments.is_empty() {
             return Ok([0u8; 32]);
         }
 
-        // For now, return error if segments are actually exported
         Err(anyhow::anyhow!(
-            "Segment exports not yet implemented - service tried to export segments"
+            "Segment exports not yet implemented - use export_segments_with_provider instead"
         ))
     }
 }
