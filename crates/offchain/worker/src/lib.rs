@@ -3,7 +3,7 @@
 
 pub use {
     bundle::WorkPackageBundle,
-    segment::{InMemorySegmentProvider, SegmentBundle, SegmentProvider, SegmentStorage},
+    segment::{InMemorySegmentProvider, SegmentBundle, SegmentProvider},
     worker::Worker,
 };
 

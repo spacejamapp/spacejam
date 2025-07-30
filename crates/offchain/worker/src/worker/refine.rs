@@ -21,7 +21,7 @@ impl<P: SegmentProvider> Worker<P> {
         let mut all_import_segments = Vec::new();
 
         for item in &work.items {
-            let segments = self.import_segments_with_provider(item).await?;
+            let segments = self.import_segments(item).await?;
             all_import_segments.extend_from_slice(&segments);
             all_imports.push(segments);
         }
@@ -67,14 +67,11 @@ impl<P: SegmentProvider> Worker<P> {
             justifications: vec![], // TODO: Implement justification collection
         };
 
-        // Compute erasure root according to Gray Paper
+        // Compute erasure root and exports root
         let erasure_root = bundle.erasure_root(&all_exported_segments)?;
-
-        // Compute exports root (merkle root of exported segments)
         let exports_root = if all_exported_segments.is_empty() {
             [0u8; 32]
         } else {
-            // Simple merkle root of segment hashes
             let hashes: Vec<_> = all_exported_segments
                 .iter()
                 .map(|seg| crypto::blake2b(seg))
@@ -119,7 +116,7 @@ impl<P: SegmentProvider> Worker<P> {
             let encoded = codec::encode(package)?;
             let package_hash = crypto::blake2b(&encoded);
             let exports_root = self
-                .export_segments_with_provider(&refined.segments, &package_hash, &self.provider)
+                .export_segments(&refined.segments, &package_hash)
                 .await?;
 
             // Update the exports root in the worker (will be used later)

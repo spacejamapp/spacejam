@@ -43,14 +43,12 @@ fn transpose_chunks(bundle_chunks: &[Vec<u8>], segment_chunks: &[Vec<u8>]) -> Ve
 
     (0..max_chunks)
         .map(|i| {
-            let mut concatenated = Vec::new();
-            if i < bundle_chunks.len() {
-                concatenated.extend_from_slice(&bundle_chunks[i]);
-            }
-            if i < segment_chunks.len() {
-                concatenated.extend_from_slice(&segment_chunks[i]);
-            }
-            concatenated
+            [bundle_chunks.get(i), segment_chunks.get(i)]
+                .into_iter()
+                .flatten()
+                .flat_map(|chunk| chunk.iter())
+                .copied()
+                .collect()
         })
         .collect()
 }

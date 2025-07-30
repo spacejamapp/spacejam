@@ -20,9 +20,6 @@ pub trait SegmentProvider: Send + Sync {
 
     /// Check if segments are available by their hashes
     async fn segments_available(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<bool>>;
-
-    /// Get segment by hash
-    async fn get_segment_by_hash(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>>;
 }
 
 /// In-memory segment provider for testing
@@ -30,6 +27,8 @@ pub trait SegmentProvider: Send + Sync {
 pub struct InMemorySegmentProvider {
     segments: tokio::sync::RwLock<HashMap<OpaqueHash, Segment>>,
     shards: tokio::sync::RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
+    /// Segments grouped by root hash (for bundle operations)
+    bundles: tokio::sync::RwLock<HashMap<OpaqueHash, Vec<Segment>>>,
 }
 
 impl InMemorySegmentProvider {
@@ -43,6 +42,16 @@ impl InMemorySegmentProvider {
 
         Ok(())
     }
+
+    /// Store segments under a root hash (for bundle operations)
+    pub async fn store_bundle(&self, root: OpaqueHash, segments: Vec<Segment>) {
+        self.bundles.write().await.insert(root, segments);
+    }
+
+    /// Get segments by root hash
+    pub async fn get_bundle(&self, root: &OpaqueHash) -> Option<Vec<Segment>> {
+        self.bundles.read().await.get(root).cloned()
+    }
 }
 
 impl SegmentProvider for InMemorySegmentProvider {
@@ -51,7 +60,7 @@ impl SegmentProvider for InMemorySegmentProvider {
 
         for &hash in segment_hashes {
             // Try direct retrieval first
-            if let Some(segment) = self.get_segment_by_hash(&hash).await? {
+            if let Some(segment) = self.segments.read().await.get(&hash).copied() {
                 segments.push(segment);
                 continue;
             }
@@ -68,7 +77,6 @@ impl SegmentProvider for InMemorySegmentProvider {
                     .collect();
 
                 let reconstructed = erasure::decode_sync(indexed_shards)?;
-
                 if reconstructed.len() == score::SEGMENT_SIZE as usize {
                     let mut segment = [0u8; score::SEGMENT_SIZE as usize];
                     segment.copy_from_slice(&reconstructed);
@@ -98,7 +106,6 @@ impl SegmentProvider for InMemorySegmentProvider {
         }
 
         let mut all_hashes = Vec::new();
-
         for segment in segments {
             let segment_hash = crypto::blake2b(segment);
             self.store_segment(segment_hash, *segment).await?;
@@ -118,7 +125,4 @@ impl SegmentProvider for InMemorySegmentProvider {
             .collect())
     }
 
-    async fn get_segment_by_hash(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>> {
-        Ok(self.segments.read().await.get(segment_hash).copied())
-    }
 }

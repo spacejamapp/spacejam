@@ -8,10 +8,8 @@
 
 mod bundle;
 mod provider;
-mod storage;
 
 pub use {
     bundle::SegmentBundle,
     provider::{InMemorySegmentProvider, SegmentProvider},
-    storage::SegmentStorage,
 };
