@@ -23,7 +23,7 @@ impl<P: SegmentProvider> Worker<P> {
         self.report.spec.length = encoded.len() as u32;
         self.report.core_index = core_idx as CoreIndex;
         self.report.authorizer_hash = work.authorizer.hash();
-        self.report.lookup = vec![];
+        self.report.lookup = Default::default();
         self.refine::<R, VM>(&work, &mut accounts, core_idx as u16)
             .await?;
         self.report.context = work.context;

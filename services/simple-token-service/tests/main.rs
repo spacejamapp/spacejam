@@ -27,7 +27,7 @@ fn test_mint() {
 
     // 2. check the balance
     let holders: Holders = info
-        .get_storage(SERVICE_ID, &Holders::key())
+        .get_storage(SERVICE_ID, Holders::key())
         .expect("failed to get holders");
     assert_eq!(holders.balance(ALICE), amount);
 }

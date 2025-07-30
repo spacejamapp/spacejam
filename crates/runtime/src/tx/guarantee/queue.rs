@@ -54,7 +54,7 @@ fn pairing(pending: Vec<WorkReport>, accumulated: &[OpaqueHash]) -> Vec<ReadyRep
                     .prerequisites
                     .iter()
                     .cloned()
-                    .chain(report.lookup.iter().map(|lookup| lookup.hash))
+                    .chain(report.lookup.keys().copied())
                     .collect::<Vec<_>>();
 
                 ReadyReport {

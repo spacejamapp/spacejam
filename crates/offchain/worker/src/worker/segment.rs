@@ -30,6 +30,8 @@ impl<P: SegmentProvider> Worker<P> {
             return Ok([0u8; 32]);
         }
 
-        self.provider.export_segments(segments, work_package_hash).await
+        self.provider
+            .export_segments(segments, work_package_hash)
+            .await
     }
 }

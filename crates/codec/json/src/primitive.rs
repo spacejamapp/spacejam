@@ -30,5 +30,6 @@ impl_primitive!(
     i128,
     usize,
     bool,
-    ()
+    (),
+    String
 );

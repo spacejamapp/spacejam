@@ -124,5 +124,4 @@ impl SegmentProvider for InMemorySegmentProvider {
             .map(|hash| segments.contains_key(hash) || shards.contains_key(hash))
             .collect())
     }
-
 }
