@@ -3279,6 +3279,7 @@ version = "0.0.0"
 dependencies = [
  "cargo-jam",
  "jam-codec",
+ "jam-null-authorizer",
  "jam-pvm-common",
  "jam-types",
  "polkavm-derive",
