@@ -8,6 +8,7 @@ members = [
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/pvm/cli",
+    "crates/pvm/compiler",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
     "crates/pvm/testing",
@@ -81,6 +82,10 @@ async-trait = "0.1.88"
 blake2 = "0.10.6"
 clap = "4.5.23"
 colored = "3.0.0"
+cranelift = "0.120.0"
+cranelift-codegen = "0.120.0"
+cranelift-frontend = "0.120.0"
+cranelift-native = "0.120.0"
 dirs = "6.0.0"
 ed25519-dalek = "2.1.1"
 etc = "0.1.20"
