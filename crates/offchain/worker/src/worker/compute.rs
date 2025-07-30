@@ -8,14 +8,13 @@ use score::{
     Accounts, CoreIndex,
 };
 
-impl Worker {
+impl<P: SegmentProvider> Worker<P> {
     /// Compute the work package according to Gray Paper specifications with segment provider
-    pub async fn compute_with_provider<R: Accounts, VM: Pvm, P: SegmentProvider>(
+    pub async fn compute_with_provider<R: Accounts, VM: Pvm>(
         mut self,
         work: WorkPackage,
         core_idx: usize,
         mut accounts: R,
-        segment_provider: &P,
     ) -> Result<WorkReport> {
         self.authorize::<R, VM>(&work, core_idx, &mut accounts)?;
         let encoded = codec::encode(&work)?;
@@ -26,13 +25,8 @@ impl Worker {
         self.report.authorizer_hash = work.authorizer.hash();
         self.report.lookup = vec![];
 
-        self.refine_with_provider::<R, VM, P>(
-            &work,
-            &mut accounts,
-            core_idx as u16,
-            segment_provider,
-        )
-        .await?;
+        self.refine_with_provider::<R, VM>(&work, &mut accounts, core_idx as u16)
+            .await?;
         self.report.context = work.context;
         Ok(self.report)
     }

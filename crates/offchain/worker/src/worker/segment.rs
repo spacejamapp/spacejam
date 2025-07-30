@@ -4,13 +4,9 @@ use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use score::{service::WorkItem, OpaqueHash, Segment};
 
-impl Worker {
+impl<P: SegmentProvider> Worker<P> {
     /// Import segments for a work item using provider
-    pub async fn import_segments_with_provider<P: SegmentProvider>(
-        &self,
-        item: &WorkItem,
-        provider: &P,
-    ) -> Result<Vec<Segment>> {
+    pub async fn import_segments_with_provider(&self, item: &WorkItem) -> Result<Vec<Segment>> {
         if item.import_segments.is_empty() {
             return Ok(vec![]);
         }
@@ -22,11 +18,11 @@ impl Worker {
             .map(|spec| spec.tree_root)
             .collect();
 
-        provider.import_segments(&segment_hashes).await
+        self.provider.import_segments(&segment_hashes).await
     }
 
     /// Export segments using provider
-    pub async fn export_segments_with_provider<P: SegmentProvider>(
+    pub async fn export_segments_with_provider(
         &self,
         exported_segments: &[Segment],
         work_package_hash: &OpaqueHash,

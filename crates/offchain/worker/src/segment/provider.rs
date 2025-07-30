@@ -33,10 +33,6 @@ pub struct InMemorySegmentProvider {
 }
 
 impl InMemorySegmentProvider {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Store a segment with its erasure shards
     pub async fn store_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()> {
         self.segments.write().await.insert(segment_hash, segment);

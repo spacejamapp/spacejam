@@ -12,7 +12,7 @@ use score::{
     ServiceId,
 };
 use std::collections::BTreeMap;
-use worker::Worker;
+use worker::{InMemorySegmentProvider, Worker};
 
 /// The result of an execution
 #[derive(Debug, Default)]
@@ -74,7 +74,7 @@ impl Jam {
     ///
     /// NOTE: run refine for all work items
     pub fn refine(&mut self, work: &WorkPackage) -> Result<WorkReport> {
-        let mut worker = Worker::default();
+        let mut worker = Worker::new(InMemorySegmentProvider::default());
         worker.refine::<_, Interpreter>(work, &mut self.chain.accounts, 0)?;
 
         // verify the work results

@@ -8,23 +8,20 @@ use score::{
     Accounts, Segment, TimeSlot,
 };
 
-impl Worker {
+impl<P: SegmentProvider> Worker<P> {
     /// Process all work items with Refine invocations using segment provider
-    pub async fn refine_with_provider<R: Accounts, VM: Pvm, P: SegmentProvider>(
+    pub async fn refine_with_provider<R: Accounts, VM: Pvm>(
         &mut self,
         work: &WorkPackage,
         accounts: &mut R,
         core_idx: u16,
-        segment_provider: &P,
     ) -> Result<()> {
         // Import all required segments for all work items
         let mut all_imports = Vec::new();
         let mut all_import_segments = Vec::new();
 
         for item in &work.items {
-            let segments = self
-                .import_segments_with_provider(item, segment_provider)
-                .await?;
+            let segments = self.import_segments_with_provider(item).await?;
             all_import_segments.extend_from_slice(&segments);
             all_imports.push(segments);
         }
@@ -36,7 +33,7 @@ impl Worker {
         // TODO: doing this in parallel if possible
         for (item_index, item) in work.items.iter().enumerate() {
             let (work_result, exported) = self
-                .refine_single_with_provider::<R, VM, P>(
+                .refine_single_with_provider::<R, VM>(
                     core_idx,
                     work.context.lookup_anchor_slot,
                     work,
@@ -44,7 +41,6 @@ impl Worker {
                     accounts,
                     total_exports,
                     &all_imports,
-                    segment_provider,
                 )
                 .await?;
 
@@ -129,7 +125,7 @@ impl Worker {
 
     /// Process a single work item with segment provider
     #[allow(clippy::too_many_arguments)]
-    async fn refine_single_with_provider<R: Accounts, VM: Pvm, P: SegmentProvider>(
+    async fn refine_single_with_provider<R: Accounts, VM: Pvm>(
         &self,
         core: u16,
         timeslot: TimeSlot,
@@ -138,7 +134,6 @@ impl Worker {
         accounts: &mut R,
         export_offset: u16,
         all_imports: &[Vec<Segment>],
-        segment_provider: &P,
     ) -> Result<(WorkResult, Vec<Segment>)> {
         // Execute Refine invocation (Ψ_R) with imported segments
         let refined = VM::refine(
@@ -157,7 +152,7 @@ impl Worker {
             let encoded = codec::encode(package)?;
             let package_hash = crypto::blake2b(&encoded);
             let exports_root = self
-                .export_segments_with_provider(&refined.segments, &package_hash, segment_provider)
+                .export_segments_with_provider(&refined.segments, &package_hash, &self.provider)
                 .await?;
 
             // Update the exports root in the worker (will be used later)
