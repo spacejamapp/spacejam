@@ -99,7 +99,7 @@ impl<'s, S: Lookup> LookupIter<'s, S> {
     }
 }
 
-impl<'s, S: Lookup> Iterator for LookupIter<'s, S> {
+impl<S: Lookup> Iterator for LookupIter<'_, S> {
     type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
