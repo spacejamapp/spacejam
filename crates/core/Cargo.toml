@@ -15,10 +15,9 @@ spacejson.workspace = true
 crypto = { workspace = true, features = [
     "blake2",
     "ed25519",
-    "mmr",
+    "merkle",
     "shuffle",
 ], optional = true }
-
 
 [features]
 default = []

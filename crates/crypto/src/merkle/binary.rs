@@ -94,7 +94,8 @@ impl MerkleProof {
     }
 }
 
-fn tree(leaves: Vec<[u8; 32]>) -> Vec<Vec<[u8; 32]>> {
+/// Compute the Merkle tree.
+pub fn tree(leaves: Vec<[u8; 32]>) -> Vec<Vec<[u8; 32]>> {
     let depth = leaves.len().ilog2() as usize + 1;
     let mut tree = vec![vec![]; depth];
     tree[0] = leaves;
@@ -114,6 +115,25 @@ fn tree(leaves: Vec<[u8; 32]>) -> Vec<Vec<[u8; 32]>> {
     }
 
     tree
+}
+
+/// Compute the root of a Merkle tree from chunks.
+pub fn root(chunks: &[Vec<u8>]) -> [u8; 32] {
+    let leaves = chunks
+        .iter()
+        .map(|chunk| blake2b(chunk))
+        .collect::<Vec<[u8; 32]>>();
+    hroot(&leaves)
+}
+
+/// Compute the root of a Merkle tree from hashes.
+pub fn hroot(hashes: &[[u8; 32]]) -> [u8; 32] {
+    if hashes.is_empty() {
+        return [0u8; 32];
+    }
+
+    let tree = tree(hashes.to_vec());
+    tree[tree.len() - 1][0]
 }
 
 /// Get the bit at the given index.

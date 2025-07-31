@@ -22,6 +22,7 @@ jam-pvm-common = { workspace = true, default-features = false, features = [
 
 [dev-dependencies]
 pvm-testing.workspace = true
+jam-null-authorizer = { path = "../jam-null-authorizer" }
 
 [build-dependencies]
 cjam.workspace = true

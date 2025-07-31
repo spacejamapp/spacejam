@@ -1,11 +1,16 @@
 //! Map tests
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Foo {
     map: BTreeMap<u32, u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct Bar {
+    map: HashMap<u32, u32>,
 }
 
 #[test]

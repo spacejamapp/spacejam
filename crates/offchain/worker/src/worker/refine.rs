@@ -1,48 +1,137 @@
 //! refinement
 
-use crate::Worker;
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
     service::{RefineLoad, WorkExecResult, WorkPackage, WorkResult},
-    Accounts, TimeSlot,
+    Accounts, Segment, TimeSlot,
 };
 
-impl Worker {
-    /// Process all work items with Refine invocations
-    pub fn refine<R: Accounts, VM: Pvm>(
+impl<P: SegmentProvider> Worker<P> {
+    /// Process all work items with Refine invocations using segment provider
+    pub async fn refine<R: Accounts, VM: Pvm>(
         &mut self,
         work: &WorkPackage,
         accounts: &mut R,
         core_idx: u16,
     ) -> Result<()> {
+        // Import all required segments for all work items
+        let mut all_imports = Vec::new();
+        let mut all_import_segments = Vec::new();
+
+        for item in &work.items {
+            let segments = self.import_segments(item).await?;
+            all_import_segments.extend_from_slice(&segments);
+            all_imports.push(segments);
+        }
+
         let mut work_results = Vec::new();
         let mut total_exports = 0u16;
+        let mut all_exported_segments = Vec::new();
 
         // TODO: doing this in parallel if possible
         for (item_index, item) in work.items.iter().enumerate() {
-            let work_result = self.refine_single::<R, VM>(
-                core_idx,
-                work.context.lookup_anchor_slot,
-                work,
-                item_index,
-                accounts,
-                total_exports,
-            )?;
+            let (work_result, exported) = self
+                .refine_single::<R, VM>(
+                    core_idx,
+                    work.context.lookup_anchor_slot,
+                    work,
+                    item_index,
+                    accounts,
+                    total_exports,
+                    &all_imports,
+                )
+                .await?;
 
             total_exports += item.export_count;
+            all_exported_segments.extend(exported);
             work_results.push(work_result);
         }
 
-        // update work report
+        // Collect all extrinsic data
+        let mut all_extrinsics = Vec::new();
+        for item in &work.items {
+            for ext_spec in &item.extrinsic {
+                // Fetch actual extrinsic data by hash
+                let ext_data = self.extrinsic_data.get(&ext_spec.hash).ok_or_else(|| {
+                    anyhow::anyhow!("Missing extrinsic data for hash {:?}", ext_spec.hash)
+                })?;
+
+                // Verify the length matches
+                if ext_data.len() != ext_spec.len as usize {
+                    return Err(anyhow::anyhow!(
+                        "Extrinsic data length mismatch for hash {:?}: expected {}, got {}",
+                        ext_spec.hash,
+                        ext_spec.len,
+                        ext_data.len()
+                    ));
+                }
+
+                all_extrinsics.push(ext_data.clone());
+            }
+        }
+
+        // Collect justifications for imported segments
+        let mut justifications = Vec::new();
+        for item in &work.items {
+            for import_spec in &item.import_segments {
+                // Try to get justification for this segment from the provider
+                // For imported segments, we'll try shard_index 0 as a default
+                // In practice, this should be determined by the import requirements
+                let shard_index = 0u16;
+
+                if let Ok(Some(segment_justification)) = self
+                    .provider
+                    .segment_justification(&import_spec.tree_root, import_spec.index, shard_index)
+                    .await
+                {
+                    // Use the first justification in the path, or create a hash justification
+                    if let Some(first_justification) = segment_justification.path.path.first() {
+                        justifications.push(first_justification.clone());
+                    } else {
+                        // If no path, use the erasure root as a hash justification
+                        justifications
+                            .push(crate::segment::Justification::Hash(import_spec.tree_root));
+                    }
+                } else {
+                    // Fallback: use the tree_root as a hash justification instead of zeros
+                    justifications.push(crate::segment::Justification::Hash(import_spec.tree_root));
+                }
+            }
+        }
+
+        // Create bundle for erasure root computation
+        let bundle = crate::SegmentBundle {
+            package: work.clone(),
+            extrinsics: all_extrinsics,
+            imports: all_import_segments,
+            justifications,
+        };
+
+        // Compute erasure root and exports root
+        let erasure_root = bundle.erasure_root(&all_exported_segments)?;
+        let exports_root = if all_exported_segments.is_empty() {
+            [0u8; 32]
+        } else {
+            let hashes: Vec<_> = all_exported_segments
+                .iter()
+                .map(|seg| crypto::blake2b(seg))
+                .collect();
+            crypto::merkle::hroot(&hashes)
+        };
+
+        // Update work report
         self.report.spec.exports_count = work_results.iter().map(|r| r.refine_load.exports).sum();
-        self.report.spec.exports_root = [0u8; 32]; // TODO: Compute proper exports root from exported segments
+        self.report.spec.exports_root = exports_root;
+        self.report.spec.erasure_root = erasure_root;
         self.report.results = work_results;
         Ok(())
     }
 
-    /// Process a single work item
-    fn refine_single<R: Accounts, VM: Pvm>(
+    /// Process a single work item with segment provider
+    #[allow(clippy::too_many_arguments)]
+    async fn refine_single<R: Accounts, VM: Pvm>(
         &self,
         core: u16,
         timeslot: TimeSlot,
@@ -50,18 +139,32 @@ impl Worker {
         item_index: usize,
         accounts: &mut R,
         export_offset: u16,
-    ) -> Result<WorkResult> {
-        // Execute Refine invocation (Ψ_R)
+        all_imports: &[Vec<Segment>],
+    ) -> Result<(WorkResult, Vec<Segment>)> {
+        // Execute Refine invocation (Ψ_R) with imported segments
         let refined = VM::refine(
             core,
             item_index,
             package,
             &self.report.auth_output,
-            &[], // TODO: Pass actual import segments when available
+            all_imports,
             export_offset,
             accounts,
             timeslot,
         );
+
+        // Handle segment exports if any were produced
+        if !refined.segments.is_empty() {
+            let encoded = codec::encode(package)?;
+            let package_hash = crypto::blake2b(&encoded);
+            let exports_root = self
+                .export_segments(&refined.segments, &package_hash)
+                .await?;
+
+            // Update the exports root in the worker (will be used later)
+            // TODO: Store this exports_root properly for the final work report
+            tracing::debug!("Exported segments with root: {:?}", exports_root);
+        }
 
         // Check output size constraints and create work result
         let result = match refined.executed.exec {
@@ -87,14 +190,10 @@ impl Worker {
                 imports: item.import_segments.len() as u16,
                 extrinsic_count: item.extrinsic.len() as u16,
                 extrinsic_size: item.extrinsic.iter().map(|e| e.len).sum(),
-                exports: item.export_count,
+                exports: refined.segments.len() as u16,
             },
         };
 
-        // TODO: Handle segment exports with erasure coding
-        // This would involve using the erasure coding library to encode exported segments
-        // and distribute them according to the availability specifier
-
-        Ok(work_result)
+        Ok((work_result, refined.segments))
     }
 }
