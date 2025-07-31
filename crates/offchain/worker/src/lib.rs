@@ -8,5 +8,5 @@ pub use {
 };
 
 mod bundle;
-mod segment;
+pub mod segment;
 mod worker;

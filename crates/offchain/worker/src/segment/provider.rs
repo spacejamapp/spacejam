@@ -1,5 +1,6 @@
 //! Segment provider trait and implementations
 
+use crate::segment::{shard, BundleShardJustification, SegmentShardJustification};
 use anyhow::Result;
 use score::{OpaqueHash, Segment, WorkPackageHash};
 use std::collections::{BTreeMap, HashMap};
@@ -9,112 +10,47 @@ use tokio::sync::RwLock;
 /// Allows different implementations (in-memory, network-based, etc.)
 #[allow(async_fn_in_trait)]
 pub trait SegmentProvider: Send + Sync {
-    /// Import segments by their hashes using erasure coding reconstruction
-    async fn import_segments(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<Segment>>;
+    /// Get a segment
+    async fn segment(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>>;
 
-    /// Export segments to the data availability layer
-    async fn export_segments(
-        &self,
-        segments: &[Segment],
-        work_package_hash: &OpaqueHash,
-    ) -> Result<OpaqueHash>;
+    /// Get shards
+    async fn shards(&self, segment_hash: &OpaqueHash) -> Result<Option<Vec<Vec<u8>>>>;
 
-    /// Check if segments are available by their hashes
-    async fn segments_available(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<bool>>;
+    /// set a segment
+    async fn set_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()>;
 
-    /// Get segment root for a work-package hash
-    /// Returns None if the work-package hash is not known
-    async fn get_segment_root(
-        &self,
-        work_package_hash: &WorkPackageHash,
-    ) -> Result<Option<OpaqueHash>>;
+    /// set shards
+    async fn set_shards(&self, segment_hash: OpaqueHash, shards: Vec<Vec<u8>>) -> Result<()>;
 
-    /// Register a mapping from work-package hash to segment root
+    /// Get the segment root for a work package
+    async fn segment_root(&self, work_package_hash: &WorkPackageHash)
+        -> Result<Option<OpaqueHash>>;
+
+    /// Register a work package with a segment root
     async fn register_work_package(
         &self,
         work_package_hash: WorkPackageHash,
         segment_root: OpaqueHash,
     ) -> Result<()>;
 
-    /// Build segment root lookup for a set of work-package hashes
-    /// This is used to build the lookup dictionary for work reports
-    async fn build_lookup(
-        &self,
-        work_package_hashes: &[WorkPackageHash],
-    ) -> Result<BTreeMap<WorkPackageHash, OpaqueHash>>;
-}
-
-/// In-memory segment provider for testing
-#[derive(Default)]
-pub struct InMemorySegmentProvider {
-    segments: RwLock<HashMap<OpaqueHash, Segment>>,
-    shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
-    bundles: RwLock<HashMap<OpaqueHash, Vec<Segment>>>,
-    lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
-}
-
-impl InMemorySegmentProvider {
-    /// Store a segment with its erasure shards
-    pub async fn store_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()> {
-        self.segments.write().await.insert(segment_hash, segment);
-        let shards = erasure::encode_sync(segment.to_vec())?;
-        self.shards.write().await.insert(segment_hash, shards);
-        Ok(())
-    }
-
-    /// Store segments under a root hash (for bundle operations)
-    pub async fn store_bundle(&self, root: OpaqueHash, segments: Vec<Segment>) {
-        self.bundles.write().await.insert(root, segments);
-    }
-
-    /// Get segments by root hash
-    pub async fn get_bundle(&self, root: &OpaqueHash) -> Option<Vec<Segment>> {
-        self.bundles.read().await.get(root).cloned()
-    }
-}
-
-impl SegmentProvider for InMemorySegmentProvider {
-    async fn import_segments(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<Segment>> {
-        let mut segments = Vec::new();
+    /// Check if segments are available
+    async fn segments_available(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<bool>> {
+        let mut availability = Vec::with_capacity(segment_hashes.len());
 
         for &hash in segment_hashes {
-            // Try direct retrieval first
-            if let Some(segment) = self.segments.read().await.get(&hash).copied() {
-                segments.push(segment);
-                continue;
-            }
-
-            // Try reconstruction from shards
-            let shards = self.shards.read().await;
-            if let Some(shard_data) = shards.get(&hash) {
-                // Take minimum required shards for reconstruction
-                let indexed_shards: Vec<(usize, Vec<u8>)> = shard_data
-                    .iter()
-                    .enumerate()
-                    .take(shard_data.len() / 2)
-                    .map(|(i, shard)| (i, shard.clone()))
-                    .collect();
-
-                let reconstructed = erasure::decode_sync(indexed_shards)?;
-                if reconstructed.len() == score::SEGMENT_SIZE as usize {
-                    let mut segment = [0u8; score::SEGMENT_SIZE as usize];
-                    segment.copy_from_slice(&reconstructed);
-                    segments.push(segment);
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "Reconstructed segment has wrong size: {} != {}",
-                        reconstructed.len(),
-                        score::SEGMENT_SIZE
-                    ));
-                }
-            } else {
-                return Err(anyhow::anyhow!("Segment not available: {:?}", hash));
-            }
+            // Short-circuit: if we have segment directly, no need to check shards
+            let available = self.segment(&hash).await?.is_some()
+                || (self
+                    .shards(&hash)
+                    .await?
+                    .is_some_and(|shards| shards.len() >= shard::min_shards()));
+            availability.push(available);
         }
 
-        Ok(segments)
+        Ok(availability)
     }
 
+    /// Export segments
     async fn export_segments(
         &self,
         segments: &[Segment],
@@ -124,58 +60,224 @@ impl SegmentProvider for InMemorySegmentProvider {
             return Ok([0u8; 32]);
         }
 
-        let mut all_hashes = Vec::new();
+        let mut all_hashes = Vec::with_capacity(segments.len() * 32);
         for segment in segments {
             let segment_hash = crypto::blake2b(segment);
-            self.store_segment(segment_hash, *segment).await?;
+            let shards = erasure::encode(segment.to_vec()).await?;
+
+            // Store both segment and shards concurrently if possible
+            self.set_segment(segment_hash, *segment).await?;
+            self.set_shards(segment_hash, shards).await?;
+
             all_hashes.extend_from_slice(&segment_hash);
         }
 
         Ok(crypto::blake2b(&all_hashes))
     }
 
-    async fn segments_available(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<bool>> {
-        let segments = self.segments.read().await;
-        let shards = self.shards.read().await;
+    /// Import segments
+    async fn import_segments(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<Segment>> {
+        let mut segments = Vec::with_capacity(segment_hashes.len());
+        for &hash in segment_hashes {
+            let segment = match (self.segment(&hash).await?, self.shards(&hash).await?) {
+                (Some(segment), _) => segment,
+                (None, Some(shards)) => {
+                    let partial = shard::partial_shards(&shards);
+                    shard::reconstruct_segment(&partial)?
+                }
+                (None, None) => return Err(anyhow::anyhow!("Segment not available: {:?}", hash)),
+            };
+            segments.push(segment);
+        }
 
-        Ok(segment_hashes
-            .iter()
-            .map(|hash| segments.contains_key(hash) || shards.contains_key(hash))
-            .collect())
+        Ok(segments)
     }
 
-    async fn get_segment_root(
+    /// Import segments with validation against erasure root
+    async fn import_segments_with_validation(
         &self,
-        work_package_hash: &WorkPackageHash,
-    ) -> Result<Option<OpaqueHash>> {
-        Ok(self.lookup.read().await.get(work_package_hash).copied())
+        erasure_root: &OpaqueHash,
+        segment_specs: &[(u16, u16)],
+    ) -> Result<Vec<Segment>> {
+        let Some(shards) = self.shards(erasure_root).await? else {
+            return Err(anyhow::anyhow!("No shards available: {:?}", erasure_root));
+        };
+
+        if !shard::verify_root(&shards, erasure_root)? {
+            return Err(anyhow::anyhow!("Invalid erasure root: {:?}", erasure_root));
+        }
+
+        let cached_segment = self.segment(erasure_root).await?;
+        segment_specs
+            .iter()
+            .map(|&(segment_index, shard_index)| {
+                let expected_shard = shards
+                    .get(shard_index as usize)
+                    .ok_or_else(|| anyhow::anyhow!("Shard index {} out of bounds", shard_index))?;
+
+                match cached_segment {
+                    Some(segment)
+                        if shard::verify_shard(&segment, expected_shard, shard_index)? =>
+                    {
+                        Ok(segment)
+                    }
+                    Some(_) => Err(anyhow::anyhow!(
+                        "Segment validation failed: {} shard {}",
+                        segment_index,
+                        shard_index
+                    )),
+                    None => shard::validate_reconstruction(&shards, shard_index, expected_shard),
+                }
+            })
+            .collect()
+    }
+
+    /// Get the justification for a segment shard - with smart orchestration
+    async fn segment_justification(
+        &self,
+        erasure_root: &OpaqueHash,
+        segment_index: u16,
+        shard_index: u16,
+    ) -> Result<Option<SegmentShardJustification>> {
+        // Try cache first, then compute and cache
+        if let Some(cached) = self
+            .get_segment_justification(erasure_root, segment_index, shard_index)
+            .await?
+        {
+            return Ok(Some(cached));
+        }
+
+        let Some(shards) = self.shards(erasure_root).await? else {
+            return Ok(None);
+        };
+
+        let justification =
+            SegmentShardJustification::new(&shards, erasure_root, segment_index, shard_index)?;
+        if let Some(ref j) = justification {
+            self.set_segment_justification(*erasure_root, segment_index, shard_index, j.clone())
+                .await?;
+        }
+        Ok(justification)
+    }
+
+    /// Get the justification for a bundle shard - with smart orchestration
+    async fn bundle_justification(
+        &self,
+        erasure_root: &OpaqueHash,
+        shard_index: u16,
+    ) -> Result<Option<BundleShardJustification>> {
+        // Try cache first, then compute and cache
+        if let Some(cached) = self
+            .get_bundle_justification(erasure_root, shard_index)
+            .await?
+        {
+            return Ok(Some(cached));
+        }
+
+        let Some(shards) = self.shards(erasure_root).await? else {
+            return Ok(None);
+        };
+
+        let justification = BundleShardJustification::new(&shards, erasure_root, shard_index)?;
+        if let Some(ref j) = justification {
+            self.set_bundle_justification(*erasure_root, shard_index, j.clone())
+                .await?;
+        }
+        Ok(justification)
+    }
+
+    /// Build a lookup for work package hashes to segment roots
+    async fn lookup(
+        &self,
+        work_package_hashes: &[WorkPackageHash],
+    ) -> Result<BTreeMap<WorkPackageHash, OpaqueHash>> {
+        let mut lookup = BTreeMap::new();
+        for &work_package_hash in work_package_hashes {
+            if let Some(segment_root) = self.segment_root(&work_package_hash).await? {
+                lookup.insert(work_package_hash, segment_root);
+            }
+        }
+        Ok(lookup)
+    }
+
+    /// Cache lookup hook for segment justifications
+    async fn get_segment_justification(
+        &self,
+        _erasure_root: &OpaqueHash,
+        _segment_index: u16,
+        _shard_index: u16,
+    ) -> Result<Option<SegmentShardJustification>> {
+        Ok(None)
+    }
+
+    /// Cache lookup hook for bundle justifications
+    async fn get_bundle_justification(
+        &self,
+        _erasure_root: &OpaqueHash,
+        _shard_index: u16,
+    ) -> Result<Option<BundleShardJustification>> {
+        Ok(None)
+    }
+
+    /// set a segment justification
+    async fn set_segment_justification(
+        &self,
+        _erasure_root: OpaqueHash,
+        _segment_index: u16,
+        _shard_index: u16,
+        _justification: SegmentShardJustification,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// set a bundle justification
+    async fn set_bundle_justification(
+        &self,
+        _erasure_root: OpaqueHash,
+        _shard_index: u16,
+        _justification: BundleShardJustification,
+    ) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// In-memory segment provider for testing
+#[derive(Default)]
+pub struct InMemorySegmentProvider {
+    segments: RwLock<HashMap<OpaqueHash, Segment>>,
+    shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
+    lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
+}
+
+impl SegmentProvider for InMemorySegmentProvider {
+    async fn segment(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>> {
+        Ok(self.segments.read().await.get(segment_hash).copied())
+    }
+
+    async fn shards(&self, segment_hash: &OpaqueHash) -> Result<Option<Vec<Vec<u8>>>> {
+        Ok(self.shards.read().await.get(segment_hash).cloned())
+    }
+
+    async fn set_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()> {
+        self.segments.write().await.insert(segment_hash, segment);
+        Ok(())
+    }
+
+    async fn set_shards(&self, segment_hash: OpaqueHash, shards: Vec<Vec<u8>>) -> Result<()> {
+        self.shards.write().await.insert(segment_hash, shards);
+        Ok(())
+    }
+
+    async fn segment_root(&self, package: &WorkPackageHash) -> Result<Option<OpaqueHash>> {
+        Ok(self.lookup.read().await.get(package).copied())
     }
 
     async fn register_work_package(
         &self,
-        work_package_hash: WorkPackageHash,
+        package: WorkPackageHash,
         segment_root: OpaqueHash,
     ) -> Result<()> {
-        self.lookup
-            .write()
-            .await
-            .insert(work_package_hash, segment_root);
+        self.lookup.write().await.insert(package, segment_root);
         Ok(())
-    }
-
-    async fn build_lookup(
-        &self,
-        work_package_hashes: &[WorkPackageHash],
-    ) -> Result<BTreeMap<WorkPackageHash, OpaqueHash>> {
-        let mappings = self.lookup.read().await;
-        let mut lookup = BTreeMap::new();
-
-        for &work_package_hash in work_package_hashes {
-            if let Some(&segment_root) = mappings.get(&work_package_hash) {
-                lookup.insert(work_package_hash, segment_root);
-            }
-        }
-
-        Ok(lookup)
     }
 }

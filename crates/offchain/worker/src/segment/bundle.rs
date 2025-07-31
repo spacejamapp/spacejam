@@ -1,5 +1,6 @@
 //! Segment bundle operations
 
+use crate::segment::Justification;
 use score::{service::WorkPackage, OpaqueHash, Segment};
 use serde::{Deserialize, Serialize};
 
@@ -16,8 +17,8 @@ pub struct SegmentBundle {
     #[serde(with = "codec::bytes::array")]
     pub imports: Vec<Segment>,
 
-    /// The justifications
-    pub justifications: Vec<Vec<u8>>,
+    /// The justifications for imported segments per Gray Paper specification
+    pub justifications: Vec<Justification>,
 }
 
 impl SegmentBundle {

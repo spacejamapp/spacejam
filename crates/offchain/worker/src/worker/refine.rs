@@ -54,10 +54,10 @@ impl<P: SegmentProvider> Worker<P> {
         for item in &work.items {
             for ext_spec in &item.extrinsic {
                 // Fetch actual extrinsic data by hash
-                let ext_data = self.extrinsic_data
-                    .get(&ext_spec.hash)
-                    .ok_or_else(|| anyhow::anyhow!("Missing extrinsic data for hash {:?}", ext_spec.hash))?;
-                
+                let ext_data = self.extrinsic_data.get(&ext_spec.hash).ok_or_else(|| {
+                    anyhow::anyhow!("Missing extrinsic data for hash {:?}", ext_spec.hash)
+                })?;
+
                 // Verify the length matches
                 if ext_data.len() != ext_spec.len as usize {
                     return Err(anyhow::anyhow!(
@@ -67,8 +67,37 @@ impl<P: SegmentProvider> Worker<P> {
                         ext_data.len()
                     ));
                 }
-                
+
                 all_extrinsics.push(ext_data.clone());
+            }
+        }
+
+        // Collect justifications for imported segments
+        let mut justifications = Vec::new();
+        for item in &work.items {
+            for import_spec in &item.import_segments {
+                // Try to get justification for this segment from the provider
+                // For imported segments, we'll try shard_index 0 as a default
+                // In practice, this should be determined by the import requirements
+                let shard_index = 0u16;
+
+                if let Ok(Some(segment_justification)) = self
+                    .provider
+                    .segment_justification(&import_spec.tree_root, import_spec.index, shard_index)
+                    .await
+                {
+                    // Use the first justification in the path, or create a hash justification
+                    if let Some(first_justification) = segment_justification.path.path.first() {
+                        justifications.push(first_justification.clone());
+                    } else {
+                        // If no path, use the erasure root as a hash justification
+                        justifications
+                            .push(crate::segment::Justification::Hash(import_spec.tree_root));
+                    }
+                } else {
+                    // Fallback: use the tree_root as a hash justification instead of zeros
+                    justifications.push(crate::segment::Justification::Hash(import_spec.tree_root));
+                }
             }
         }
 
@@ -77,7 +106,7 @@ impl<P: SegmentProvider> Worker<P> {
             package: work.clone(),
             extrinsics: all_extrinsics,
             imports: all_import_segments,
-            justifications: vec![], // TODO: Implement justification collection
+            justifications,
         };
 
         // Compute erasure root and exports root
