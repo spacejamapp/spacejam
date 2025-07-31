@@ -1,8 +1,9 @@
 //! Segment provider trait and implementations
 
 use anyhow::Result;
-use score::{OpaqueHash, Segment};
-use std::collections::HashMap;
+use score::{OpaqueHash, Segment, WorkPackageHash};
+use std::collections::{BTreeMap, HashMap};
+use tokio::sync::RwLock;
 
 /// Trait for segment operations abstraction
 /// Allows different implementations (in-memory, network-based, etc.)
@@ -20,26 +21,44 @@ pub trait SegmentProvider: Send + Sync {
 
     /// Check if segments are available by their hashes
     async fn segments_available(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<bool>>;
+
+    /// Get segment root for a work-package hash
+    /// Returns None if the work-package hash is not known
+    async fn get_segment_root(
+        &self,
+        work_package_hash: &WorkPackageHash,
+    ) -> Result<Option<OpaqueHash>>;
+
+    /// Register a mapping from work-package hash to segment root
+    async fn register_work_package(
+        &self,
+        work_package_hash: WorkPackageHash,
+        segment_root: OpaqueHash,
+    ) -> Result<()>;
+
+    /// Build segment root lookup for a set of work-package hashes
+    /// This is used to build the lookup dictionary for work reports
+    async fn build_lookup(
+        &self,
+        work_package_hashes: &[WorkPackageHash],
+    ) -> Result<BTreeMap<WorkPackageHash, OpaqueHash>>;
 }
 
 /// In-memory segment provider for testing
 #[derive(Default)]
 pub struct InMemorySegmentProvider {
-    segments: tokio::sync::RwLock<HashMap<OpaqueHash, Segment>>,
-    shards: tokio::sync::RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
-    /// Segments grouped by root hash (for bundle operations)
-    bundles: tokio::sync::RwLock<HashMap<OpaqueHash, Vec<Segment>>>,
+    segments: RwLock<HashMap<OpaqueHash, Segment>>,
+    shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
+    bundles: RwLock<HashMap<OpaqueHash, Vec<Segment>>>,
+    lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
 }
 
 impl InMemorySegmentProvider {
     /// Store a segment with its erasure shards
     pub async fn store_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()> {
         self.segments.write().await.insert(segment_hash, segment);
-
-        // Generate erasure shards
         let shards = erasure::encode_sync(segment.to_vec())?;
         self.shards.write().await.insert(segment_hash, shards);
-
         Ok(())
     }
 
@@ -123,5 +142,40 @@ impl SegmentProvider for InMemorySegmentProvider {
             .iter()
             .map(|hash| segments.contains_key(hash) || shards.contains_key(hash))
             .collect())
+    }
+
+    async fn get_segment_root(
+        &self,
+        work_package_hash: &WorkPackageHash,
+    ) -> Result<Option<OpaqueHash>> {
+        Ok(self.lookup.read().await.get(work_package_hash).copied())
+    }
+
+    async fn register_work_package(
+        &self,
+        work_package_hash: WorkPackageHash,
+        segment_root: OpaqueHash,
+    ) -> Result<()> {
+        self.lookup
+            .write()
+            .await
+            .insert(work_package_hash, segment_root);
+        Ok(())
+    }
+
+    async fn build_lookup(
+        &self,
+        work_package_hashes: &[WorkPackageHash],
+    ) -> Result<BTreeMap<WorkPackageHash, OpaqueHash>> {
+        let mappings = self.lookup.read().await;
+        let mut lookup = BTreeMap::new();
+
+        for &work_package_hash in work_package_hashes {
+            if let Some(&segment_root) = mappings.get(&work_package_hash) {
+                lookup.insert(work_package_hash, segment_root);
+            }
+        }
+
+        Ok(lookup)
     }
 }

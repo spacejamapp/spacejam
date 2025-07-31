@@ -53,9 +53,22 @@ impl<P: SegmentProvider> Worker<P> {
         let mut all_extrinsics = Vec::new();
         for item in &work.items {
             for ext_spec in &item.extrinsic {
-                // TODO: Fetch actual extrinsic data by hash
-                // For now, use placeholder
-                all_extrinsics.push(vec![0u8; ext_spec.len as usize]);
+                // Fetch actual extrinsic data by hash
+                let ext_data = self.extrinsic_data
+                    .get(&ext_spec.hash)
+                    .ok_or_else(|| anyhow::anyhow!("Missing extrinsic data for hash {:?}", ext_spec.hash))?;
+                
+                // Verify the length matches
+                if ext_data.len() != ext_spec.len as usize {
+                    return Err(anyhow::anyhow!(
+                        "Extrinsic data length mismatch for hash {:?}: expected {}, got {}",
+                        ext_spec.hash,
+                        ext_spec.len,
+                        ext_data.len()
+                    ));
+                }
+                
+                all_extrinsics.push(ext_data.clone());
             }
         }
 
