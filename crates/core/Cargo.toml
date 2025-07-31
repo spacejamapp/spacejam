@@ -16,6 +16,7 @@ crypto = { workspace = true, features = [
     "blake2",
     "ed25519",
     "mmr",
+    "shuffle",
 ], optional = true }
 
 

@@ -9,8 +9,8 @@ use crate::{
 };
 use pvmi::Interpreter;
 use runtime::{
-    storage::{ArchiveStorage, Commit, KVStorage},
-    tx, Storage,
+    storage::{ArchiveStorage, Commit, StateStorage},
+    tx,
 };
 use score::{Block, OpaqueHash};
 use std::{
@@ -83,7 +83,7 @@ impl Target {
         stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
 
-        self.data.archive(hash)?;
+        self.data.archive(&hash)?;
         Ok(())
     }
 
@@ -102,14 +102,14 @@ impl Target {
         stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
         stream.flush()?;
 
-        self.data.archive(hash)?;
+        self.data.archive(&hash)?;
         Ok(())
     }
 
     /// Received get state request
     pub fn get_state(&mut self, hash: OpaqueHash) -> anyhow::Result<()> {
         let mut state = Vec::new();
-        let iter = self.data.prefix_iter(hash)?;
+        let iter = self.data.state_prefix_iter(&hash)?;
         for pair in iter {
             let (key, value) = pair?;
             state.push(KeyValue {

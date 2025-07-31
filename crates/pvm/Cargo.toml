@@ -13,6 +13,3 @@ log.workspace = true
 score = { workspace = true, features = ["crypto"] }
 tracing.workspace = true
 pvm-parser.workspace = true
-
-[dev-dependencies]
-tracing-subscriber = { workspace = true, features = ["env-filter"] }

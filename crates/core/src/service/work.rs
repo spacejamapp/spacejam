@@ -1,3 +1,5 @@
+//! Work package related stuffs
+
 use crate::{
     service::{PackageValidation, RefineContext, RefineContextJson},
     ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
@@ -29,6 +31,8 @@ pub struct WorkPackageSpec {
 }
 
 /// Represents a work package in the system.
+///
+/// TODO: embed token and host to the authorizer?
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackage {
     /// (j) The authorization token

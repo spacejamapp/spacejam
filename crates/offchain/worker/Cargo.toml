@@ -1,0 +1,18 @@
+[package]
+name = "spacejam-worker"
+version.workspace = true
+edition.workspace = true
+description = "Spacejam worker"
+
+[lib]
+path = "src/lib.rs"
+name = "worker"
+
+[dependencies]
+anyhow.workspace = true
+codec.workspace = true
+crypto.workspace = true
+score.workspace = true
+tokio.workspace = true
+pvm.workspace = true
+tracing.workspace = true

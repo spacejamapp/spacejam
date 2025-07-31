@@ -3,13 +3,28 @@
 use crate::{invocation::General, Argument, Executed};
 use score::{Accounts, ServiceId};
 
-/// Reine host call arguments
+/// Refine host call arguments
 pub struct Refine<R: Accounts> {
     /// (δ) accounts for historical lookup
     pub accounts: R,
 
     /// (s) service id
     pub service: ServiceId,
+
+    /// (c) core index
+    pub core: u16,
+
+    /// (r) authorizer output
+    pub auth_output: Vec<u8>,
+
+    /// (ī) all work items' import segments
+    pub all_imports: Vec<Vec<[u8; score::SEGMENT_SIZE as usize]>>,
+
+    /// (ς) export segment offset
+    pub export_offset: u16,
+
+    /// (e) exported segments (to be filled during execution)
+    pub exports: Vec<[u8; score::SEGMENT_SIZE as usize]>,
 }
 
 impl<R: Accounts> Argument<R> for Refine<R> {

@@ -36,6 +36,11 @@ pub trait Argument<R: Accounts> {
         crate::bail!("not a refine")
     }
 
+    /// returns some if the input data is is_authorized
+    fn as_is_authorized(&self) -> crate::Result<&IsAuthorized> {
+        crate::bail!("not an is_authorized")
+    }
+
     /// returns the arguments of the invocation
     fn args(&self) -> &[u8] {
         &[]
@@ -100,3 +105,25 @@ impl<R: Accounts> Argument<R> for General<R> {
 }
 
 impl<R: Accounts> Argument<R> for () {}
+
+/// IsAuthorized invocation context
+#[derive(Debug, Clone)]
+pub struct IsAuthorized {
+    /// The work package being authorized
+    pub package: score::service::WorkPackage,
+    /// The core index
+    pub core_idx: u16,
+}
+
+impl IsAuthorized {
+    /// Create a new IsAuthorized context
+    pub fn new(package: score::service::WorkPackage, core_idx: u16) -> Self {
+        Self { package, core_idx }
+    }
+}
+
+impl<R: Accounts> Argument<R> for IsAuthorized {
+    fn as_is_authorized(&self) -> crate::Result<&IsAuthorized> {
+        Ok(self)
+    }
+}

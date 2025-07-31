@@ -1,7 +1,5 @@
 //! API for the invocation
 
-use std::collections::BTreeMap;
-
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
@@ -12,7 +10,7 @@ use parser::{
     ProgramBlob,
 };
 use score::{
-    service::{ServiceAccount, WorkExecResult, WorkPackage},
+    service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -193,15 +191,21 @@ pub trait Invocation {
         };
 
         let memory = Self::Memory::from_raw(memory);
-        let stepped = Self::call(&code, pc, gas, registers, memory, data);
+        let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
         let mut output = vec![];
-        let registers = stepped.state.registers;
-        let registered = [registers[7].to_le_bytes(), registers[8].to_le_bytes()].concat();
-        if stepped.reason == Reason::Halt && stepped.state.memory.contains(&registered) {
-            output = registered;
-        };
+        if stepped.reason == Reason::Halt {
+            let ptr = stepped.state.registers[7] as u32;
+            let len = stepped.state.registers[8] as u32;
+
+            // Read output data from memory using ptr and len
+            if let Ok(data) = stepped.state.memory.read_bytes(ptr, len) {
+                output = data;
+            } else {
+                stepped.reason = Reason::Panic("failed to read output from memory".to_string());
+            }
+        }
 
         let gas = gas - (stepped.state.gas.max(0) as u64);
         stepped.received(gas, output)
@@ -209,18 +213,34 @@ pub trait Invocation {
 
     /// (ΨI): The Is-Authorized invocation
     ///
-    /// Defined per graypaper (B.1)
-    fn is_authorized(
-        // (p_c) the authorization code blob
-        code: &[u8],
-        // (i) The core index
+    /// Defined per graypaper (B.5)
+    fn is_authorized<R: Accounts>(
+        // (p) the work package
+        package: &WorkPackage,
+        // (c) The core index
         core_idx: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
     ) -> Executed {
-        // Check if authorization code exists (BAD if none)
-        if code.is_empty() {
-            tracing::warn!("Authorization code is empty");
+        // Get the service account that hosts the authorization code
+        let Some(account) = accounts.get(package.auth_code_host) else {
+            tracing::warn!(
+                "Authorization code host service {} not found",
+                package.auth_code_host
+            );
             return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
-        }
+        };
+
+        // Resolve authorization code using historical lookup
+        let Some(code) = account.historical_lookup(timeslot, package.authorizer.code_hash) else {
+            tracing::warn!(
+                "Authorization code not found for hash {:?}",
+                package.authorizer.code_hash
+            );
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        };
 
         // Check authorization code size limit (W_A - BIG if too big)
         if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
@@ -233,43 +253,42 @@ pub trait Invocation {
         }
 
         // Prepare arguments
-        //
-        // FIXME: still need to handle fetch call, what kind of context shall we
-        // pass for this?
         let args = codec::encode(&core_idx).unwrap_or_default();
-        let result = Self::argument::<BTreeMap<u32, ServiceAccount>, ()>(
-            code,
-            0,
-            score::GAS_IS_AUTHORIZED,
-            &args,
-            (),
-        );
+        let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
+        let result = Self::argument::<R, _>(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
 
+        // construct the result
         let gas = result.gas;
-        Executed::new(Vec::new(), result.result(), gas)
+        let output = result.output.clone();
+        let exec_result = result.result();
+        Executed::new(output, exec_result, gas)
     }
 
     /// (ΨR): Refine invocation
     ///
     /// Defined per graypaper (B.5)
+    #[allow(clippy::too_many_arguments)]
     fn refine<R: Accounts>(
-        // (N_t) timeslot for the current operation
-        timeslot: TimeSlot,
-        // (δ) accounts for historical lookup
-        accounts: &mut R,
+        // (c) the core index
+        core: u16,
         // (i) the work item index
         index: usize,
         // (p) the work package
         package: &WorkPackage,
-        // (o) the authorizer output
-        _output: &[u8],
-        // (i) import segments
-        _imports: &[[u8; score::SEGMENT_SIZE as usize]],
+        // (r) the authorizer output
+        auth_output: &[u8],
+        // (ī) all work items' import segments
+        all_imports: &[Vec<[u8; score::SEGMENT_SIZE as usize]>],
         // (ς) export segment offset
-        _export_offset: u16,
+        export_offset: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
     ) -> Refined {
         let item = &package.items[index];
         let Some(account) = accounts.get(item.service) else {
+            tracing::warn!("no account found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -277,6 +296,7 @@ pub trait Invocation {
         };
 
         let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
+            tracing::warn!("no code found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -291,21 +311,44 @@ pub trait Invocation {
         }
 
         // FIXME: passing the hash into this function mb. do not hash it for twice!
-        let package = crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let package_hash =
+            crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
         let params = RefineParams {
-            index,
+            core,
+            index: index as u16,
             id: item.service,
             payload: item.payload.clone(),
-            package,
+            package: package_hash,
+        };
+
+        // Get import segments for this work item
+        let _work_item_imports = if index < all_imports.len() {
+            all_imports[index].clone()
+        } else {
+            Vec::new()
+        };
+
+        // Create refine context with proper parameters
+        let refine_context = crate::invocation::Refine {
+            accounts: accounts.clone(),
+            service: item.service,
+            core,
+            auth_output: auth_output.to_vec(),
+            all_imports: all_imports.to_vec(),
+            export_offset,
+            exports: Vec::new(),
         };
 
         let result = Self::argument::<R, _>(
             &code,
             0,
             item.refine_gas_limit,
-            &codec::encode(&params).expect("failed to params"),
-            (),
+            &codec::encode(&params).expect("failed to encode params"),
+            refine_context,
         );
+
+        // TODO: Implement actual segment export when host calls are ready
+        // For now, return empty segments as before
         let gas = result.gas;
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }

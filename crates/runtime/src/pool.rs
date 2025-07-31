@@ -78,10 +78,10 @@ impl Pool {
         // collect tickets only during submission period (m' < Y)
         if slot_phase >= score::TICKET_SUBMISSION_PERIOD {
             tracing::debug!(
-                    "skipping ticket collection: slot_phase={} >= submission_period={} (per graypaper: |xttickets| = 0 when m' >= Y)",
-                    slot_phase,
-                    score::TICKET_SUBMISSION_PERIOD
-                );
+                "skipping ticket collection: slot_phase={} >= submission_period={} (per graypaper: |xttickets| = 0 when m' >= Y)",
+                slot_phase,
+                score::TICKET_SUBMISSION_PERIOD
+            );
             return Ok(Default::default());
         }
 
