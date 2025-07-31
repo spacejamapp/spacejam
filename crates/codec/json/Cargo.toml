@@ -8,3 +8,6 @@ anyhow.workspace = true
 hex.workspace = true
 serde.workspace = true
 spacejson-derive.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

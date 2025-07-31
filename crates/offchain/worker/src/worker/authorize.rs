@@ -1,6 +1,6 @@
 //! authorization
 
-use crate::Worker;
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -8,7 +8,7 @@ use score::{
     Accounts,
 };
 
-impl Worker {
+impl<P: SegmentProvider> Worker<P> {
     /// Phase 1: Process authorization (validation + Is-Authorized invocation)
     pub fn authorize<R: Accounts, VM: Pvm>(
         &mut self,

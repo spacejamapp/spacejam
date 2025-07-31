@@ -1,47 +1,37 @@
-//! segment related operations
-//!
-//! TODO: we may need to implement this in the network layer.
-//! at that time, mb introduce a queue in runtime to do the
-//! interaction.
+//! Worker segment operations
 
-use crate::Worker;
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
-use score::{service::WorkItem, OpaqueHash};
+use score::{service::WorkItem, OpaqueHash, Segment};
 
-impl Worker {
-    /// Import segments for a work item using erasure coding reconstruction
-    #[allow(dead_code)]
-    pub fn import_segments<R: score::Accounts>(
-        &self,
-        item: &WorkItem,
-        _accounts: &R,
-    ) -> Result<Vec<[u8; score::SEGMENT_SIZE as usize]>> {
-        // If no imports, return empty
+impl<P: SegmentProvider> Worker<P> {
+    /// Import segments for a work item
+    pub async fn import_segments(&self, item: &WorkItem) -> Result<Vec<Segment>> {
         if item.import_segments.is_empty() {
             return Ok(vec![]);
         }
 
-        // For now, return error if segments are actually needed
-        Err(anyhow::anyhow!(
-            "Segment imports not yet implemented - service requires segments"
-        ))
+        let segment_hashes: Vec<_> = item
+            .import_segments
+            .iter()
+            .map(|spec| spec.tree_root)
+            .collect();
+
+        self.provider.import_segments(&segment_hashes).await
     }
 
-    /// Export segments to DA layer
-    #[allow(dead_code)]
-    pub fn export_segments(
+    /// Export segments for a work package
+    pub async fn export_segments(
         &self,
-        exported_segments: &[[u8; score::SEGMENT_SIZE as usize]],
-        _work_package_hash: &OpaqueHash,
+        segments: &[Segment],
+        work_package_hash: &OpaqueHash,
     ) -> Result<OpaqueHash> {
-        // If no exports, return empty root
-        if exported_segments.is_empty() {
+        if segments.is_empty() {
             return Ok([0u8; 32]);
         }
 
-        // For now, return error if segments are actually exported
-        Err(anyhow::anyhow!(
-            "Segment exports not yet implemented - service tried to export segments"
-        ))
+        self.provider
+            .export_segments(segments, work_package_hash)
+            .await
     }
 }

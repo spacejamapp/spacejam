@@ -181,7 +181,6 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
-        println!("serialize_map: {len:?}");
         if let Some(len) = len {
             let length = vlen::encode(len as u64);
             self.output.extend_from_slice(&length);
@@ -315,12 +314,11 @@ impl ser::SerializeMap for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T>(&mut self, _key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Ok(())
-        // key.serialize(&mut **self)
+        key.serialize(&mut **self)
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<()>

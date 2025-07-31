@@ -8,8 +8,10 @@ use crate::{
     vm::Operand,
     CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
 };
+use anyhow;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+use std::collections::BTreeMap;
 
 /// Represents a work report.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Json, Eq, Clone, Default)]
@@ -36,9 +38,9 @@ pub struct WorkReport {
     pub auth_output: Vec<u8>,
 
     /// The segment root lookup directory
-    #[json(nested)]
     #[serde(alias = "segment_root_lookup")]
-    pub lookup: Vec<ReportedWorkPackage>,
+    #[json(array(key = "work_package_hash", value = "segment_tree_root"))]
+    pub lookup: BTreeMap<WorkPackageHash, OpaqueHash>,
 
     /// The results of the work items
     #[json(nested)]

@@ -4,7 +4,6 @@ members = [
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
-    "crates/offchain/builder",
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/pvm/cli",
@@ -33,7 +32,6 @@ opt-level = "z"
 panic = "abort"
 
 [workspace.dependencies]
-builder = { path = "crates/offchain/builder", package = "spacejam-builder" }
 codec = { path = "crates/codec", package = "jamcodec" }
 cjam = { path = "crates/pvm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
@@ -115,6 +113,7 @@ time = "0.3.41"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 tokio = { version = "1.42.0", features = [
     "rt",
+    "rt-multi-thread",
     "sync",
     "net",
     "macros",
