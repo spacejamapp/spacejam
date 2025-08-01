@@ -11,8 +11,11 @@ cranelift-frontend.workspace = true
 cranelift-native.workspace = true
 pvm.workspace = true
 pvm-parser.workspace = true
+pvmi.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+codec.workspace = true
+serde.workspace = true
 libc = "0.2"
 
 [build-dependencies]

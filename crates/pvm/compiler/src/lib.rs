@@ -3,11 +3,11 @@
 pub use {
     compiler::Compiler,
     jit::JitCompiler,
-    module::{Context, Info, Module},
+    module::{Context, Info, Memory, Module},
     translator::Translator,
 };
 
 mod compiler;
 mod jit;
-mod module;
+pub mod module;
 mod translator;

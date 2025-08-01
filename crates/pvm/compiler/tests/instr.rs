@@ -3,7 +3,7 @@
 //! Tests the PVM compiler (JIT) against the official JAM test vectors.
 
 use anyhow::Result;
-use pvmc::JitCompiler;
+use pvmc::{JitCompiler, Memory as CompilerMemory};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 
@@ -20,11 +20,22 @@ impl Runner {
         let mut initial_registers = [0u64; 13];
         initial_registers.copy_from_slice(&input.initial_regs);
 
+        // Initialize memory from test input
+        let mut initial_memory = CompilerMemory::new();
+        for mem in &input.initial_memory {
+            initial_memory.write_bytes(mem.address, &mem.contents)?;
+        }
+
         let module = compiler.compile(&input.program)?;
-        let result = module.execute(&initial_registers, input.initial_pc as u64)?;
+        let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
+
         assert_eq!(result.registers.len(), 13);
         assert_eq!(result.registers.to_vec(), output.expected_regs);
         assert_eq!(result.pc, output.expected_pc as u64);
+
+        // Validate memory state using helper function
+        let final_memory_test = to_test_memory(&result.memory);
+        assert_eq!(final_memory_test, output.expected_memory);
         Ok(())
     }
 }
@@ -79,23 +90,49 @@ pub struct Page {
     pub is_writable: bool,
 }
 
+// Convert from compiler memory to test vector memory format
+fn to_test_memory(compiler_memory: &CompilerMemory) -> Vec<Memory> {
+    let mut result = Vec::new();
+
+    for (&page_num, page) in &compiler_memory.pages {
+        let base_address = page_num * 4096; // PAGE_SIZE
+        let mut current_addr = None;
+        let mut data = Vec::new();
+
+        // Find non-zero data segments in the page
+        for (offset, &byte) in page.data.iter().enumerate() {
+            if byte == 0 {
+                if !data.is_empty() {
+                    if let Some(addr) = current_addr {
+                        result.push(Memory {
+                            address: addr,
+                            contents: data,
+                        });
+                    }
+                    data = Vec::new();
+                    current_addr = None;
+                }
+            } else {
+                if current_addr.is_none() {
+                    current_addr = Some(base_address + offset as u32);
+                }
+                data.push(byte);
+            }
+        }
+
+        // Handle remaining data at end of page
+        if !data.is_empty() {
+            if let Some(addr) = current_addr {
+                result.push(Memory {
+                    address: addr,
+                    contents: data,
+                });
+            }
+        }
+    }
+
+    result
+}
+
 // Include the generated tests
 include!(concat!(env!("OUT_DIR"), "/pvm_compiler_tests.rs"));
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_runner_basic() {
-        // Test that the runner can be instantiated
-        let _runner = Runner;
-    }
-
-    #[test]
-    fn test_compiler_creation() {
-        // Test that we can create a JIT compiler
-        let compiler = JitCompiler::new();
-        assert!(compiler.is_ok());
-    }
-}

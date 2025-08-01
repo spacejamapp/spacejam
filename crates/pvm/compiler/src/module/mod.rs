@@ -1,10 +1,11 @@
 //! Compiled function metadata
 
 use anyhow::Result;
-pub use {context::Context, info::Info};
+pub use {context::Context, info::Info, memory::Memory};
 
 mod context;
 mod info;
+pub mod memory;
 
 /// Compiled function metadata
 #[derive(Debug, Clone)]
@@ -41,25 +42,38 @@ impl Module {
         self.entry_point.is_null() && self.size == 0
     }
 
-    /// Execute the compiled module with initial register values and PC
-    pub fn execute(&self, initial_registers: &[u64; 13], initial_pc: u64) -> Result<Info> {
+    /// Execute the compiled module with initial register values, PC, and memory
+    pub fn execute(&self, initial_registers: &[u64; 13], initial_pc: u64, initial_memory: Memory) -> Result<Info> {
         if self.is_placeholder() {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
         unsafe {
-            // Prepare execution context: registers + PC
+            // Serialize memory for passing to compiled function
+            let memory_data = codec::encode(&initial_memory)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize memory: {}", e))?;
+            let mut memory_bytes = memory_data;
+            
+            // Prepare execution context: registers + PC + memory
             let mut context = Context {
                 registers: *initial_registers,
                 pc: initial_pc,
+                memory_ptr: memory_bytes.as_mut_ptr(),
+                memory_size: memory_bytes.len(),
             };
 
             let func_ptr = std::mem::transmute::<*const u8, fn(*mut Context)>(self.entry_point);
             func_ptr(&mut context);
 
+            // Deserialize memory from the context
+            let memory_slice = std::slice::from_raw_parts(context.memory_ptr, context.memory_size);
+            let final_memory: Memory = codec::decode(memory_slice)
+                .map_err(|e| anyhow::anyhow!("Failed to deserialize memory: {}", e))?;
+
             Ok(Info {
                 registers: context.registers,
                 pc: context.pc,
+                memory: final_memory,
             })
         }
     }
