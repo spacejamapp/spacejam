@@ -20,8 +20,8 @@ impl Compiler {
     /// Compile a PVM program blob to native code
     ///
     /// TODO: cache the compiled programs using hash as index.
-    pub fn compile(&mut self, program_blob: &[u8], registers: [u64; 13]) -> Result<Module> {
-        self.jit.compile(program_blob, registers)
+    pub fn compile(&mut self, program_blob: &[u8]) -> Result<Module> {
+        self.jit.compile(program_blob)
     }
 }
 

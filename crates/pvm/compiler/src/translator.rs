@@ -6,26 +6,39 @@ use std::collections::HashMap;
 
 /// Temporary visitor wrapper to avoid lifetime issues
 pub struct Translator<'a, 'b> {
-    registers: HashMap<u8, Variable>,
+    pub registers: HashMap<u8, Variable>,
     builder: &'a mut FunctionBuilder<'b>,
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
-    /// Create a new translator with initialized PVM registers
-    pub fn new(builder: &'a mut FunctionBuilder<'b>, initial_registers: [u64; 13]) -> Self {
+    /// Create a new translator with PVM register variables
+    pub fn new(builder: &'a mut FunctionBuilder<'b>) -> Self {
         let mut registers = HashMap::new();
 
-        // Initialize all 13 PVM registers as Cranelift variables
+        // Declare all 13 PVM registers as Cranelift variables
         // PVM has 13 registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
-        for (i, register) in initial_registers.iter().enumerate() {
+        for i in 0..13 {
             let var = Variable::new(i);
             builder.declare_var(var, types::I64);
-            let value = builder.ins().iconst(types::I64, *register as i64);
-            builder.def_var(var, value);
             registers.insert(i as u8, var);
         }
 
         Self { registers, builder }
+    }
+
+    /// Load initial register values from memory pointer
+    pub fn load_initial_registers(&mut self, registers_ptr: Value) -> Result<(), anyhow::Error> {
+        for i in 0..13 {
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(registers_ptr, offset);
+            let value = self
+                .builder
+                .ins()
+                .load(types::I64, MemFlags::new(), addr, 0);
+            let var = self.registers[&(i as u8)];
+            self.builder.def_var(var, value);
+        }
+        Ok(())
     }
 
     /// Translate a PVM program to Cranelift IR

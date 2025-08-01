@@ -20,8 +20,8 @@ impl Runner {
         let mut initial_registers = [0u64; 13];
         initial_registers.copy_from_slice(&input.initial_regs);
 
-        let module = compiler.compile(&input.program, initial_registers)?;
-        let registers = module.execute(&[])?;
+        let module = compiler.compile(&input.program)?;
+        let registers = module.execute(&initial_registers)?;
         assert_eq!(registers.len(), 13);
         assert_eq!(registers.to_vec(), output.expected_regs);
         Ok(())

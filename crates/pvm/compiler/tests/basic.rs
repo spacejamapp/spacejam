@@ -9,8 +9,8 @@ const ADD_IMM_32_PROGRAM: &[u8] = &[0, 0, 3, 131, 121, 2, 1];
 #[test]
 fn test_load_imm() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
-    let module = compiler.compile(LOAD_IMM_PROGRAM, [0; 13])?;
-    let registers = module.execute(&[])?;
+    let module = compiler.compile(LOAD_IMM_PROGRAM)?;
+    let registers = module.execute(&[0; 13])?;
 
     // Expected registers from test vector
     let expected = [0, 0, 0, 0, 0, 0, 0, 3735928559, 0, 0, 0, 0, 0];
@@ -21,8 +21,8 @@ fn test_load_imm() -> anyhow::Result<()> {
 #[test]
 fn test_add_imm_32() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
-    let module = compiler.compile(ADD_IMM_32_PROGRAM, [0; 13])?;
-    let registers = module.execute(&[])?;
+    let module = compiler.compile(ADD_IMM_32_PROGRAM)?;
+    let registers = module.execute(&[0; 13])?;
 
     // With zero initialization, register 9 should contain 0 + 2 = 2 (from add_imm_32 instruction)
     let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0];

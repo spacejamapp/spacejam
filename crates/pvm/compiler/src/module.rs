@@ -37,15 +37,17 @@ impl Module {
         self.entry_point.is_null() && self.size == 0
     }
 
-    /// Execute the compiled module
-    pub fn execute(&self, _args: &[u64]) -> Result<[u64; 13]> {
+    /// Execute the compiled module with initial register values
+    pub fn execute(&self, initial_registers: &[u64; 13]) -> Result<[u64; 13]> {
         if self.is_placeholder() {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
         unsafe {
-            // Allocate space for the 13 registers
+            // Copy initial registers to mutable array
             let mut registers = [0u64; 13];
+            registers.copy_from_slice(initial_registers);
+
             let func_ptr = std::mem::transmute::<*const u8, fn(*mut u64)>(self.entry_point);
             func_ptr(registers.as_mut_ptr());
             Ok(registers)

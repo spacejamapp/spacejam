@@ -36,7 +36,7 @@ impl JitCompiler {
     }
 
     /// Compile PVM program to native code using Cranelift
-    pub fn compile(&mut self, program: &[u8], registers: [u64; 13]) -> Result<Module> {
+    pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
         // Clear previous compilation state
         self.context.clear();
 
@@ -57,7 +57,12 @@ impl JitCompiler {
 
         // Get the pointer parameter
         let registers_ptr = builder.block_params(entry_block)[0];
-        let registers = Translator::new(&mut builder, registers).translate(program)?;
+
+        // Create translator and load initial register values
+        let mut translator = Translator::new(&mut builder);
+        translator.load_initial_registers(registers_ptr)?;
+
+        let registers = translator.translate(program)?;
 
         // Store all 13 register values to the output array
         for (i, value) in registers.iter().enumerate() {
