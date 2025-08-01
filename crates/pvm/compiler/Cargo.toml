@@ -14,3 +14,15 @@ pvm-parser.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 libc = "0.2"
+
+[build-dependencies]
+anyhow.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+specjam.workspace = true
+syn.workspace = true
+
+[dev-dependencies]
+specjam.workspace = true
+serde.workspace = true
+serde_json.workspace = true

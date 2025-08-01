@@ -2,7 +2,6 @@
 
 use crate::{jit::JitCompiler, Module};
 use anyhow::Result;
-use tracing;
 
 /// Main compiler struct that manages compilation state
 pub struct Compiler {
@@ -19,11 +18,10 @@ impl Compiler {
     }
 
     /// Compile a PVM program blob to native code
-    pub fn compile(&mut self, program_blob: &[u8]) -> Result<Module> {
-        tracing::debug!("Compiling PVM program blob of {} bytes", program_blob.len());
-
-        // Compile using JIT compiler
-        self.jit.compile(program_blob)
+    ///
+    /// TODO: cache the compiled programs using hash as index.
+    pub fn compile(&mut self, program_blob: &[u8], registers: [u64; 13]) -> Result<Module> {
+        self.jit.compile(program_blob, registers)
     }
 }
 

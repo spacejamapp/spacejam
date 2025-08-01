@@ -12,16 +12,16 @@ pub struct Translator<'a, 'b> {
 
 impl<'a, 'b> Translator<'a, 'b> {
     /// Create a new translator with initialized PVM registers
-    pub fn new(builder: &'a mut FunctionBuilder<'b>) -> Self {
+    pub fn new(builder: &'a mut FunctionBuilder<'b>, initial_registers: [u64; 13]) -> Self {
         let mut registers = HashMap::new();
 
         // Initialize all 13 PVM registers as Cranelift variables
         // PVM has 13 registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
-        for i in 0..13 {
+        for (i, register) in initial_registers.iter().enumerate() {
             let var = Variable::new(i);
             builder.declare_var(var, types::I64);
-            let zero = builder.ins().iconst(types::I64, 0);
-            builder.def_var(var, zero);
+            let value = builder.ins().iconst(types::I64, *register as i64);
+            builder.def_var(var, value);
             registers.insert(i as u8, var);
         }
 
