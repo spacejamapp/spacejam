@@ -4,7 +4,7 @@ use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    service::{WorkExecResult, WorkPackage},
+    service::{WorkExecResult, WorkPackage, WorkReport},
     Accounts,
 };
 
@@ -15,6 +15,7 @@ impl<P: SegmentProvider> Worker<P> {
         work: &WorkPackage,
         core_idx: usize,
         accounts: &mut R,
+        report: &mut WorkReport,
     ) -> Result<()> {
         // TODO: subscribe the validation statistics
         let _validation = work.validate()?;
@@ -35,8 +36,8 @@ impl<P: SegmentProvider> Worker<P> {
             _ => Vec::new(),
         };
 
-        self.report.auth_output = auth_output;
-        self.report.auth_gas_used = auth_result.gas;
+        report.auth_output = auth_output;
+        report.auth_gas_used = auth_result.gas;
         Ok(())
     }
 }

@@ -4,7 +4,7 @@ use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    service::{RefineLoad, WorkExecResult, WorkPackage, WorkResult},
+    service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
     Accounts, Segment, TimeSlot,
 };
 
@@ -15,6 +15,7 @@ impl<P: SegmentProvider> Worker<P> {
         work: &WorkPackage,
         accounts: &mut R,
         core_idx: u16,
+        report: &mut WorkReport,
     ) -> Result<()> {
         // Import all required segments for all work items
         let mut all_imports = Vec::new();
@@ -41,6 +42,7 @@ impl<P: SegmentProvider> Worker<P> {
                     accounts,
                     total_exports,
                     &all_imports,
+                    &report.auth_output,
                 )
                 .await?;
 
@@ -122,10 +124,10 @@ impl<P: SegmentProvider> Worker<P> {
         };
 
         // Update work report
-        self.report.spec.exports_count = work_results.iter().map(|r| r.refine_load.exports).sum();
-        self.report.spec.exports_root = exports_root;
-        self.report.spec.erasure_root = erasure_root;
-        self.report.results = work_results;
+        report.spec.exports_count = work_results.iter().map(|r| r.refine_load.exports).sum();
+        report.spec.exports_root = exports_root;
+        report.spec.erasure_root = erasure_root;
+        report.results = work_results;
         Ok(())
     }
 
@@ -140,13 +142,14 @@ impl<P: SegmentProvider> Worker<P> {
         accounts: &mut R,
         export_offset: u16,
         all_imports: &[Vec<Segment>],
+        auth_output: &[u8],
     ) -> Result<(WorkResult, Vec<Segment>)> {
         // Execute Refine invocation (Ψ_R) with imported segments
         let refined = VM::refine(
             core,
             item_index,
             package,
-            &self.report.auth_output,
+            auth_output,
             all_imports,
             export_offset,
             accounts,

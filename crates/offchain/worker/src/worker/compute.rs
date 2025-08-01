@@ -16,12 +16,13 @@ impl<P: SegmentProvider> Worker<P> {
         core_idx: usize,
         mut accounts: R,
     ) -> Result<WorkReport> {
-        self.authorize::<R, VM>(&work, core_idx, &mut accounts)?;
+        let mut report = WorkReport::default();
         let encoded = codec::encode(&work)?;
-        self.report.spec.hash = crypto::blake2b(&encoded);
-        self.report.spec.length = encoded.len() as u32;
-        self.report.core_index = core_idx as CoreIndex;
-        self.report.authorizer_hash = work.authorizer.hash();
+        self.authorize::<R, VM>(&work, core_idx, &mut accounts, &mut report)?;
+        report.spec.hash = crypto::blake2b(&encoded);
+        report.spec.length = encoded.len() as u32;
+        report.core_index = core_idx as CoreIndex;
+        report.authorizer_hash = work.authorizer.hash();
 
         // Build segment root lookup by checking if any imports are work-package hashes
         let mut work_package_hashes = Vec::new();
@@ -34,11 +35,11 @@ impl<P: SegmentProvider> Worker<P> {
             }
         }
 
-        self.report.lookup = self.provider.lookup(&work_package_hashes).await?;
-        self.refine::<R, VM>(&work, &mut accounts, core_idx as u16)
+        report.lookup = self.provider.lookup(&work_package_hashes).await?;
+        self.refine::<R, VM>(&work, &mut accounts, core_idx as u16, &mut report)
             .await?;
-        self.report.context = work.context;
-        Ok(self.report)
+        report.context = work.context;
+        Ok(report)
     }
 
     /// Compute the work package bundle according to Gray Paper specifications
@@ -57,22 +58,23 @@ impl<P: SegmentProvider> Worker<P> {
                 .await?;
         }
 
-        self.authorize::<R, VM>(work, core_idx, &mut accounts)?;
         let encoded = codec::encode(work)?;
-        self.report.spec.hash = crypto::blake2b(&encoded);
-        self.report.spec.length = encoded.len() as u32;
-        self.report.core_index = core_idx as CoreIndex;
-        self.report.authorizer_hash = work.authorizer.hash();
+        let mut report = WorkReport::default();
+        self.authorize::<R, VM>(work, core_idx, &mut accounts, &mut report)?;
+        report.spec.hash = crypto::blake2b(&encoded);
+        report.spec.length = encoded.len() as u32;
+        report.core_index = core_idx as CoreIndex;
+        report.authorizer_hash = work.authorizer.hash();
 
         // Build segment root lookup using the segment provider
         let work_package_hashes: Vec<_> = bundle.segment_roots.keys().copied().collect();
-        self.report.lookup = self.provider.lookup(&work_package_hashes).await?;
+        report.lookup = self.provider.lookup(&work_package_hashes).await?;
 
         self.extrinsic_data = bundle.extrinsic;
-        self.refine::<R, VM>(work, &mut accounts, core_idx as u16)
+        self.refine::<R, VM>(work, &mut accounts, core_idx as u16, &mut report)
             .await?;
-        self.report.context = work.context.clone();
-        Ok(self.report)
+        report.context = work.context.clone();
+        Ok(report)
     }
 
     /// Legacy compute method for backward compatibility
