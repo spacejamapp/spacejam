@@ -13,6 +13,6 @@ pub mod shard;
 
 pub use {
     bundle::SegmentBundle,
-    justification::{BundleShardJustification, Justification, SegmentShardJustification},
+    justification::{BundleShardJustification, Justification, PageProof, SegmentShardJustification},
     provider::{InMemorySegmentProvider, SegmentProvider},
 };

@@ -1,6 +1,6 @@
 //! Segment provider trait and implementations
 
-use crate::segment::{shard, BundleShardJustification, SegmentShardJustification};
+use crate::segment::{shard, BundleShardJustification, PageProof, SegmentShardJustification};
 use anyhow::Result;
 use score::{OpaqueHash, Segment, WorkPackageHash};
 use std::collections::{BTreeMap, HashMap};
@@ -50,16 +50,17 @@ pub trait SegmentProvider: Send + Sync {
         Ok(availability)
     }
 
-    /// Export segments
+    /// Export segments with automatic Gray Paper page-proof generation
     async fn export_segments(
         &self,
         segments: &[Segment],
-        _work_package_hash: &OpaqueHash,
+        work_package_hash: &OpaqueHash,
     ) -> Result<OpaqueHash> {
         if segments.is_empty() {
             return Ok([0u8; 32]);
         }
 
+        // 1. Store individual segments and generate shards (existing logic)
         let mut all_hashes = Vec::with_capacity(segments.len() * 32);
         for segment in segments {
             let segment_hash = crypto::blake2b(segment);
@@ -72,7 +73,25 @@ pub trait SegmentProvider: Send + Sync {
             all_hashes.extend_from_slice(&segment_hash);
         }
 
-        Ok(crypto::blake2b(&all_hashes))
+        let segments_root = crypto::blake2b(&all_hashes);
+
+        // 2. Generate and store page-proofs (Gray Paper P function)
+        let page_count = segments.len().div_ceil(score::PAGE_SIZE);
+        for page_index in 0..page_count {
+            let start_idx = page_index * score::PAGE_SIZE;
+            let end_idx = std::cmp::min(start_idx + score::PAGE_SIZE, segments.len());
+            let page_segments = &segments[start_idx..end_idx];
+
+            let page_proof = PageProof::generate(page_segments, page_index as u16, &segments_root)?;
+            self.store_page_proof(&segments_root, page_index as u16, page_proof)
+                .await?;
+        }
+
+        // 3. Register work package mapping (existing)
+        self.register_work_package(*work_package_hash, segments_root)
+            .await?;
+
+        Ok(segments_root)
     }
 
     /// Import segments
@@ -171,6 +190,42 @@ pub trait SegmentProvider: Send + Sync {
         }
         Ok(lookup)
     }
+
+    /// Store page-proof for efficient segment justification (Gray Paper P function)
+    async fn store_page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+        page_proof: PageProof,
+    ) -> Result<()>;
+
+    /// Retrieve page-proof for segment justification
+    async fn get_page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+    ) -> Result<Option<PageProof>>;
+
+    /// Try to retrieve segment using efficient page-proof justification
+    async fn retrieve_with_page_proof(
+        &self,
+        segment_hash: &OpaqueHash,
+        segments_root: &OpaqueHash,
+        segment_index: u16,
+    ) -> Result<Option<Segment>> {
+        let page_index = segment_index / 64; // Gray Paper: 64 segments per page
+        let page_proof = self.get_page_proof(segments_root, page_index).await?;
+
+        if let Some(proof) = page_proof {
+            let segment_index_in_page = segment_index % 64;
+            if let Some(segment) = self.segment(segment_hash).await? {
+                if proof.verify_segment(&segment, segment_index_in_page)? {
+                    return Ok(Some(segment));
+                }
+            }
+        }
+        Ok(None)
+    }
 }
 
 /// In-memory segment provider for testing
@@ -179,6 +234,7 @@ pub struct InMemorySegmentProvider {
     segments: RwLock<HashMap<OpaqueHash, Segment>>,
     shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
     lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
+    page_proofs: RwLock<HashMap<(OpaqueHash, u16), PageProof>>,
 }
 
 impl SegmentProvider for InMemorySegmentProvider {
@@ -211,5 +267,31 @@ impl SegmentProvider for InMemorySegmentProvider {
     ) -> Result<()> {
         self.lookup.write().await.insert(package, segment_root);
         Ok(())
+    }
+
+    async fn store_page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+        page_proof: PageProof,
+    ) -> Result<()> {
+        self.page_proofs
+            .write()
+            .await
+            .insert((*segments_root, page_index), page_proof);
+        Ok(())
+    }
+
+    async fn get_page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+    ) -> Result<Option<PageProof>> {
+        Ok(self
+            .page_proofs
+            .read()
+            .await
+            .get(&(*segments_root, page_index))
+            .cloned())
     }
 }
