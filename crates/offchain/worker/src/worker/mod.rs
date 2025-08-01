@@ -1,6 +1,6 @@
 //! A worker that dispatched for a work package
 
-use crate::{NetworkProvider, SegmentProvider};
+use crate::SegmentProvider;
 use score::OpaqueHash;
 use std::collections::HashMap;
 
@@ -9,37 +9,34 @@ mod compute;
 mod refine;
 mod segment;
 
-/// Worker for work package computation
-pub struct Worker<S: SegmentProvider, N: NetworkProvider> {
+/// Worker for work package computation - simplified without network dependencies
+///
+/// In the refined architecture, Worker is generic over SegmentProvider only.
+/// Network operations are handled by the Network library calling Runtime methods directly.
+pub struct Worker<S: SegmentProvider> {
     /// the segment provider
     segment_provider: S,
-
-    /// the network provider
-    network_provider: N,
 
     /// extrinsic data for the work package
     extrinsic_data: HashMap<OpaqueHash, Vec<u8>>,
 }
 
-impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
-    /// Create a new worker with a segment provider and network provider
-    pub fn new(segment_provider: S, network_provider: N) -> Self {
+impl<S: SegmentProvider> Worker<S> {
+    /// Create a new worker with a segment provider
+    pub fn new(segment_provider: S) -> Self {
         Self {
             segment_provider,
-            network_provider,
             extrinsic_data: HashMap::new(),
         }
     }
 
-    /// Create a new worker with providers and extrinsic data
+    /// Create a new worker with segment provider and extrinsic data
     pub fn with_extrinsics(
         segment_provider: S,
-        network_provider: N,
         extrinsic_data: HashMap<OpaqueHash, Vec<u8>>,
     ) -> Self {
         Self {
             segment_provider,
-            network_provider,
             extrinsic_data,
         }
     }

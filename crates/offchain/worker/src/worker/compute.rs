@@ -1,6 +1,6 @@
 //! work report computation
 
-use crate::{NetworkProvider, SegmentProvider, WorkPackageBundle, Worker};
+use crate::{SegmentProvider, WorkPackageBundle, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -8,19 +8,17 @@ use score::{
     Accounts, CoreIndex,
 };
 
-impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
+impl<S: SegmentProvider> Worker<S> {
     /// Compute the work package according to Gray Paper specifications
+    ///
+    /// Note: In the refined architecture, networking (CE133, CE135) is handled
+    /// by the Network library calling Runtime methods directly.
     pub async fn compute<R: Accounts, VM: Pvm>(
         mut self,
         work: WorkPackage,
         core_idx: usize,
         mut accounts: R,
     ) -> Result<WorkReport> {
-        // Submit work package to guarantors before computation (CE133)
-        self.network_provider
-            .submit_work_package(work.clone(), core_idx)
-            .await?;
-
         let mut report = WorkReport::default();
         let encoded = codec::encode(&work)?;
         self.authorize::<R, VM>(&work, core_idx, &mut accounts, &mut report)?;
@@ -49,10 +47,6 @@ impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
             .await?;
         report.context = work.context;
 
-        // Distribute the work report after computation (CE135)
-        self.network_provider
-            .distribute_report(report.clone())
-            .await?;
         Ok(report)
     }
 
@@ -64,11 +58,6 @@ impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
         mut accounts: R,
     ) -> Result<WorkReport> {
         let work = &bundle.package;
-
-        // Submit work package to guarantors before computation (CE133)
-        self.network_provider
-            .submit_work_package(work.clone(), core_idx)
-            .await?;
 
         // Register work-package mappings with the segment provider
         for (&work_package_hash, &segment_root) in &bundle.segment_roots {
@@ -93,11 +82,6 @@ impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
         self.refine::<R, VM>(work, &mut accounts, core_idx as u16, &mut report)
             .await?;
         report.context = work.context.clone();
-
-        // Distribute the work report after computation (CE135)
-        self.network_provider
-            .distribute_report(report.clone())
-            .await?;
 
         Ok(report)
     }

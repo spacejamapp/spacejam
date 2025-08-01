@@ -1,6 +1,6 @@
 //! refinement
 
-use crate::{NetworkProvider, SegmentProvider, Worker};
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -8,7 +8,7 @@ use score::{
     Accounts, Segment, TimeSlot,
 };
 
-impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
+impl<S: SegmentProvider> Worker<S> {
     /// Get segment justification for an import specification
     async fn get_segment_justification(
         &self,

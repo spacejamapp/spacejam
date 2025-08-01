@@ -1,10 +1,10 @@
 //! Worker segment operations
 
-use crate::{NetworkProvider, SegmentProvider, Worker};
+use crate::{SegmentProvider, Worker};
 use anyhow::Result;
 use score::{service::WorkItem, OpaqueHash, Segment};
 
-impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
+impl<S: SegmentProvider> Worker<S> {
     /// Import segments for a work item
     pub async fn import_segments(&self, item: &WorkItem) -> Result<Vec<Segment>> {
         if item.import_segments.is_empty() {
