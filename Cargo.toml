@@ -4,7 +4,6 @@ members = [
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
-    "crates/offchain/builder",
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/pvm/cli",
@@ -34,7 +33,6 @@ opt-level = "z"
 panic = "abort"
 
 [workspace.dependencies]
-builder = { path = "crates/offchain/builder", package = "spacejam-builder" }
 codec = { path = "crates/codec", package = "jamcodec" }
 cjam = { path = "crates/pvm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
@@ -53,6 +51,8 @@ spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
+testing = { path = "crates/testing", package = "spacejam-testing" }
+validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 
 # polkajam dependencies
@@ -120,6 +120,7 @@ time = "0.3.41"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 tokio = { version = "1.42.0", features = [
     "rt",
+    "rt-multi-thread",
     "sync",
     "net",
     "macros",

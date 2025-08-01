@@ -1,12 +1,12 @@
 //! Merkle related utilities
 
-#![cfg(feature = "mmr")]
+#![cfg(feature = "merkle")]
 
 mod binary;
 pub mod mmr;
 mod trie;
 pub mod trie31;
 
-pub use binary::MerkleTree;
+pub use binary::{hroot, root, tree, MerkleTree};
 pub use trie::merkle as trie;
 pub use trie31::trie as trie31;

@@ -3468,6 +3468,7 @@ version = "0.0.0"
 dependencies = [
  "cargo-jam",
  "jam-codec",
+ "jam-null-authorizer",
  "jam-pvm-common",
  "jam-types",
  "polkavm-derive",
@@ -3544,6 +3545,7 @@ dependencies = [
  "hex",
  "jamcodec",
  "parity-db",
+ "pvmi",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -3552,6 +3554,7 @@ dependencies = [
  "spacejam-network",
  "spacejam-offchain",
  "spacejam-runtime",
+ "spacejam-testing",
  "spacejson",
  "temp-dir",
  "time",
@@ -3559,17 +3562,6 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "spacejam-builder"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "jamcodec",
- "spacejam-core",
- "spacejam-crypto",
- "spacejson",
 ]
 
 [[package]]
@@ -3700,7 +3692,6 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
- "spacejam",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-erasure",
@@ -3731,8 +3722,10 @@ dependencies = [
  "anyhow",
  "jamcodec",
  "pvm",
+ "serde",
  "spacejam-core",
  "spacejam-crypto",
+ "spacejam-erasure",
  "tokio",
  "tracing",
 ]
@@ -3744,6 +3737,7 @@ dependencies = [
  "anyhow",
  "hex",
  "serde",
+ "serde_json",
  "spacejson-derive",
 ]
 

@@ -48,6 +48,7 @@ impl Registry {
             Section::Trace(Trace::Safrole) => self.trace(Trace::Safrole),
             Section::Trace(Trace::ReportsL0) => self.trace(Trace::ReportsL0),
             Section::Trace(Trace::ReportsL1) => self.trace(Trace::ReportsL1),
+            Section::Trace(Trace::Any) => self.trace(Trace::Any),
         }
     }
 

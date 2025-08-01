@@ -4,13 +4,18 @@ use podec::Encode;
 use simple_token_service::{Holders, Instruction, SERVICE};
 use testing::Jam;
 
-const SERVICE_ID: u32 = 500;
+const AUTHORIZER_ID: u32 = 500;
+const SERVICE_ID: u32 = 501;
 const ALICE: u32 = 0;
 
 #[test]
 fn test_mint() {
     testing::util::init_logger();
-    let mut jam = Jam::default();
+
+    // Set up JAM with authorization using the null authorizer service
+    let mut jam = Jam::default().with_auth(AUTHORIZER_ID, jam_null_authorizer::SERVICE.to_vec());
+
+    // Add the token service
     jam.add_service(SERVICE_ID, SERVICE.to_vec());
 
     // 1. send a mint instruction
@@ -22,7 +27,7 @@ fn test_mint() {
 
     // 2. check the balance
     let holders: Holders = info
-        .get_storage(SERVICE_ID, &Holders::key())
+        .get_storage(SERVICE_ID, Holders::key())
         .expect("failed to get holders");
     assert_eq!(holders.balance(ALICE), amount);
 }

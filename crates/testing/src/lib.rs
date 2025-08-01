@@ -1,7 +1,9 @@
 //! Spacejam testing library
-#![cfg(test)]
 
-use runner::Runner;
+#![allow(unused_imports)]
+
+pub use runner::Runner;
+pub use specjam::{Entry, Section, Test, Trace};
 use tracing_subscriber::EnvFilter;
 
 /// Initialize tracing subscriber

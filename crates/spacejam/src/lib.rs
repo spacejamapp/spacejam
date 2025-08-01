@@ -5,6 +5,7 @@ pub use runtime::{Config, Storage, Validator};
 
 pub mod chain;
 pub mod cmd;
+mod fuzz;
 mod node;
 pub mod storage;
 mod utils;

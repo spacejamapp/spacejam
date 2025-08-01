@@ -87,6 +87,7 @@ impl AsRef<str> for Section {
                 Trace::Safrole => "traces/safrole",
                 Trace::ReportsL0 => "traces/reports-l0",
                 Trace::ReportsL1 => "traces/reports-l1",
+                Trace::Any => ".",
             },
         }
     }
@@ -109,15 +110,6 @@ pub enum Trace {
     ReportsL0,
     /// The reports traces
     ReportsL1,
-}
-
-impl AsRef<str> for Trace {
-    fn as_ref(&self) -> &str {
-        match self {
-            Trace::Fallback => "fallback",
-            Trace::Safrole => "safrole",
-            Trace::ReportsL0 => "reports-l0",
-            Trace::ReportsL1 => "reports-l1",
-        }
-    }
+    /// Any trace
+    Any,
 }

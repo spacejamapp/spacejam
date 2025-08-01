@@ -19,12 +19,14 @@ hex.workspace = true
 network.workspace = true
 offchain.workspace = true
 parity-db.workspace = true
+pvmi.workspace = true
 rand.workspace = true
 runtime.workspace = true
 score = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
+testing.workspace = true
 time = { workspace = true, optional = true, features = ["local-offset"] }
 toml = { workspace = true, optional = true }
 tokio = { workspace = true, features = [

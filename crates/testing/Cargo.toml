@@ -3,7 +3,7 @@ name = "spacejam-testing"
 version.workspace = true
 edition.workspace = true
 
-[dev-dependencies]
+[dependencies]
 anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true
@@ -14,7 +14,6 @@ pvm.workspace = true
 pvmi.workspace = true
 pvm-parser.workspace = true
 runtime.workspace = true
-spacejam.workspace = true
 specjam.workspace = true
 score.workspace = true
 serde.workspace = true

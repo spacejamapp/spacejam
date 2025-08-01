@@ -241,6 +241,9 @@ pub type OpaqueHash = [u8; 32];
 /// The type for a timeslot
 pub type TimeSlot = u32;
 
+/// The type for a segment
+pub type Segment = [u8; SEGMENT_SIZE as usize];
+
 /// The type for a validator index
 pub type ValidatorIndex = u16;
 

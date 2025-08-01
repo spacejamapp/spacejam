@@ -312,16 +312,16 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     /// Validate segment lookup
     pub fn validate_segment_lookup(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        for lookup in guarantee.report.lookup.iter() {
-            if self.reported.contains(&lookup.hash) {
+        for (hash, root) in guarantee.report.lookup.iter() {
+            if self.reported.contains(hash) {
                 continue;
             }
 
-            let Some(reported) = self.recent.iter().find(|r| r.hash == lookup.hash) else {
+            let Some(reported) = self.recent.iter().find(|r| r.hash == *hash) else {
                 return Err(Error::SegmentRootLookupInvalid);
             };
 
-            if reported.exports_root != lookup.exports_root {
+            if reported.exports_root != *root {
                 return Err(Error::SegmentRootLookupInvalid);
             }
         }
