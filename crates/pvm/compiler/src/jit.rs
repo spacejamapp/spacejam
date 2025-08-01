@@ -40,9 +40,9 @@ impl JitCompiler {
         // Clear previous compilation state
         self.context.clear();
 
-        // Create function signature (takes *mut [u64; 13] param, no returns)
+        // Create function signature (takes *mut ExecutionContext param, no returns)
         let mut sig = Signature::new(self.isa.default_call_conv());
-        sig.params.push(AbiParam::new(types::I64)); // pointer to register array
+        sig.params.push(AbiParam::new(types::I64)); // pointer to ExecutionContext
 
         // Create function and builder
         let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig);
@@ -55,21 +55,26 @@ impl JitCompiler {
         builder.switch_to_block(entry_block);
         builder.seal_block(entry_block);
 
-        // Get the pointer parameter
-        let registers_ptr = builder.block_params(entry_block)[0];
+        // Get the ExecutionContext pointer parameter
+        let context_ptr = builder.block_params(entry_block)[0];
 
-        // Create translator and load initial register values
+        // Create translator and load initial execution context
         let mut translator = Translator::new(&mut builder);
-        translator.load_initial_registers(registers_ptr)?;
+        translator.load_initial_context(context_ptr)?;
 
-        let registers = translator.translate(program)?;
+        let (registers, pc) = translator.translate(program)?;
 
-        // Store all 13 register values to the output array
+        // Store all 13 register values back to context.registers
         for (i, value) in registers.iter().enumerate() {
             let offset = builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = builder.ins().iadd(registers_ptr, offset);
+            let addr = builder.ins().iadd(context_ptr, offset);
             builder.ins().store(MemFlags::new(), *value, addr, 0);
         }
+
+        // Store PC back to context.pc (offset 104)
+        let pc_offset = builder.ins().iconst(types::I64, 104);
+        let pc_addr = builder.ins().iadd(context_ptr, pc_offset);
+        builder.ins().store(MemFlags::new(), pc, pc_addr, 0);
 
         builder.ins().return_(&[]);
         builder.finalize();

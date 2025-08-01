@@ -21,9 +21,10 @@ impl Runner {
         initial_registers.copy_from_slice(&input.initial_regs);
 
         let module = compiler.compile(&input.program)?;
-        let registers = module.execute(&initial_registers)?;
-        assert_eq!(registers.len(), 13);
-        assert_eq!(registers.to_vec(), output.expected_regs);
+        let result = module.execute(&initial_registers, input.initial_pc as u64)?;
+        assert_eq!(result.registers.len(), 13);
+        assert_eq!(result.registers.to_vec(), output.expected_regs);
+        assert_eq!(result.pc, output.expected_pc as u64);
         Ok(())
     }
 }

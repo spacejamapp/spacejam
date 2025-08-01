@@ -7,11 +7,12 @@ use std::collections::HashMap;
 /// Temporary visitor wrapper to avoid lifetime issues
 pub struct Translator<'a, 'b> {
     pub registers: HashMap<u8, Variable>,
+    pub pc: Variable,
     builder: &'a mut FunctionBuilder<'b>,
 }
-
+ 
 impl<'a, 'b> Translator<'a, 'b> {
-    /// Create a new translator with PVM register variables
+    /// Create a new translator with PVM register variables and PC
     pub fn new(builder: &'a mut FunctionBuilder<'b>) -> Self {
         let mut registers = HashMap::new();
 
@@ -23,14 +24,19 @@ impl<'a, 'b> Translator<'a, 'b> {
             registers.insert(i as u8, var);
         }
 
-        Self { registers, builder }
+        // Declare PC variable (use variable index 13)
+        let pc = Variable::new(13);
+        builder.declare_var(pc, types::I64);
+
+        Self { registers, pc, builder }
     }
 
-    /// Load initial register values from memory pointer
-    pub fn load_initial_registers(&mut self, registers_ptr: Value) -> Result<(), anyhow::Error> {
+    /// Load initial execution context (registers + PC) from memory pointer
+    pub fn load_initial_context(&mut self, context_ptr: Value) -> Result<(), anyhow::Error> {
+        // Load all 13 registers from context.registers
         for i in 0..13 {
             let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(registers_ptr, offset);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
             let value = self
                 .builder
                 .ins()
@@ -38,11 +44,21 @@ impl<'a, 'b> Translator<'a, 'b> {
             let var = self.registers[&(i as u8)];
             self.builder.def_var(var, value);
         }
+
+        // Load PC from context.pc (offset 13 * 8 = 104 bytes after start)
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        let pc_value = self
+            .builder
+            .ins()
+            .load(types::I64, MemFlags::new(), pc_addr, 0);
+        self.builder.def_var(self.pc, pc_value);
+
         Ok(())
     }
 
-    /// Translate a PVM program to Cranelift IR
-    pub fn translate(&mut self, program: &[u8]) -> Result<Vec<Value>, anyhow::Error> {
+    /// Translate a PVM program to Cranelift IR and return final context values
+    pub fn translate(&mut self, program: &[u8]) -> Result<(Vec<Value>, Value), anyhow::Error> {
         let blob = parser::program::deblob(program)?;
         let mut reader = blob.reader();
 
@@ -52,14 +68,16 @@ impl<'a, 'b> Translator<'a, 'b> {
             self.visit(instruction)?;
         }
 
-        // Return all 13 register values
+        // Return all 13 register values + PC
         let mut register_values = Vec::with_capacity(13);
         for i in 0..13 {
             let var = self.registers[&(i as u8)];
             register_values.push(self.builder.use_var(var));
         }
+        
+        let pc_value = self.builder.use_var(self.pc);
 
-        Ok(register_values)
+        Ok((register_values, pc_value))
     }
 }
 

@@ -1,6 +1,10 @@
 //! Compiled function metadata
 
 use anyhow::Result;
+pub use {context::Context, info::Info};
+
+mod context;
+mod info;
 
 /// Compiled function metadata
 #[derive(Debug, Clone)]
@@ -37,20 +41,26 @@ impl Module {
         self.entry_point.is_null() && self.size == 0
     }
 
-    /// Execute the compiled module with initial register values
-    pub fn execute(&self, initial_registers: &[u64; 13]) -> Result<[u64; 13]> {
+    /// Execute the compiled module with initial register values and PC
+    pub fn execute(&self, initial_registers: &[u64; 13], initial_pc: u64) -> Result<Info> {
         if self.is_placeholder() {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
         unsafe {
-            // Copy initial registers to mutable array
-            let mut registers = [0u64; 13];
-            registers.copy_from_slice(initial_registers);
+            // Prepare execution context: registers + PC
+            let mut context = Context {
+                registers: *initial_registers,
+                pc: initial_pc,
+            };
 
-            let func_ptr = std::mem::transmute::<*const u8, fn(*mut u64)>(self.entry_point);
-            func_ptr(registers.as_mut_ptr());
-            Ok(registers)
+            let func_ptr = std::mem::transmute::<*const u8, fn(*mut Context)>(self.entry_point);
+            func_ptr(&mut context);
+
+            Ok(Info {
+                registers: context.registers,
+                pc: context.pc,
+            })
         }
     }
 }
