@@ -139,25 +139,11 @@ pub trait SegmentProvider: Send + Sync {
         segment_index: u16,
         shard_index: u16,
     ) -> Result<Option<SegmentShardJustification>> {
-        // Try cache first, then compute and cache
-        if let Some(cached) = self
-            .get_segment_justification(erasure_root, segment_index, shard_index)
-            .await?
-        {
-            return Ok(Some(cached));
-        }
-
         let Some(shards) = self.shards(erasure_root).await? else {
             return Ok(None);
         };
 
-        let justification =
-            SegmentShardJustification::new(&shards, erasure_root, segment_index, shard_index)?;
-        if let Some(ref j) = justification {
-            self.set_segment_justification(*erasure_root, segment_index, shard_index, j.clone())
-                .await?;
-        }
-        Ok(justification)
+        SegmentShardJustification::new(&shards, erasure_root, segment_index, shard_index)
     }
 
     /// Get the justification for a bundle shard - with smart orchestration
@@ -166,24 +152,10 @@ pub trait SegmentProvider: Send + Sync {
         erasure_root: &OpaqueHash,
         shard_index: u16,
     ) -> Result<Option<BundleShardJustification>> {
-        // Try cache first, then compute and cache
-        if let Some(cached) = self
-            .get_bundle_justification(erasure_root, shard_index)
-            .await?
-        {
-            return Ok(Some(cached));
-        }
-
         let Some(shards) = self.shards(erasure_root).await? else {
             return Ok(None);
         };
-
-        let justification = BundleShardJustification::new(&shards, erasure_root, shard_index)?;
-        if let Some(ref j) = justification {
-            self.set_bundle_justification(*erasure_root, shard_index, j.clone())
-                .await?;
-        }
-        Ok(justification)
+        BundleShardJustification::new(&shards, erasure_root, shard_index)
     }
 
     /// Build a lookup for work package hashes to segment roots
@@ -198,46 +170,6 @@ pub trait SegmentProvider: Send + Sync {
             }
         }
         Ok(lookup)
-    }
-
-    /// Cache lookup hook for segment justifications
-    async fn get_segment_justification(
-        &self,
-        _erasure_root: &OpaqueHash,
-        _segment_index: u16,
-        _shard_index: u16,
-    ) -> Result<Option<SegmentShardJustification>> {
-        Ok(None)
-    }
-
-    /// Cache lookup hook for bundle justifications
-    async fn get_bundle_justification(
-        &self,
-        _erasure_root: &OpaqueHash,
-        _shard_index: u16,
-    ) -> Result<Option<BundleShardJustification>> {
-        Ok(None)
-    }
-
-    /// set a segment justification
-    async fn set_segment_justification(
-        &self,
-        _erasure_root: OpaqueHash,
-        _segment_index: u16,
-        _shard_index: u16,
-        _justification: SegmentShardJustification,
-    ) -> Result<()> {
-        Ok(())
-    }
-
-    /// set a bundle justification
-    async fn set_bundle_justification(
-        &self,
-        _erasure_root: OpaqueHash,
-        _shard_index: u16,
-        _justification: BundleShardJustification,
-    ) -> Result<()> {
-        Ok(())
     }
 }
 
