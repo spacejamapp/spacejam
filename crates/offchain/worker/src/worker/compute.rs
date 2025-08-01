@@ -1,6 +1,6 @@
 //! work report computation
 
-use crate::{SegmentProvider, WorkPackageBundle, Worker};
+use crate::{NetworkProvider, SegmentProvider, WorkPackageBundle, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -8,7 +8,7 @@ use score::{
     Accounts, CoreIndex,
 };
 
-impl<P: SegmentProvider> Worker<P> {
+impl<S: SegmentProvider, N: NetworkProvider> Worker<S, N> {
     /// Compute the work package according to Gray Paper specifications
     pub async fn compute<R: Accounts, VM: Pvm>(
         mut self,
@@ -16,6 +16,11 @@ impl<P: SegmentProvider> Worker<P> {
         core_idx: usize,
         mut accounts: R,
     ) -> Result<WorkReport> {
+        // Submit work package to guarantors before computation (CE133)
+        self.network_provider
+            .submit_work_package(work.clone(), core_idx)
+            .await?;
+
         let mut report = WorkReport::default();
         let encoded = codec::encode(&work)?;
         self.authorize::<R, VM>(&work, core_idx, &mut accounts, &mut report)?;
@@ -29,16 +34,25 @@ impl<P: SegmentProvider> Worker<P> {
         for item in &work.items {
             for import_spec in &item.import_segments {
                 // Check if this tree_root is a known work-package hash
-                if let Ok(Some(_)) = self.provider.segment_root(&import_spec.tree_root).await {
+                if let Ok(Some(_)) = self
+                    .segment_provider
+                    .segment_root(&import_spec.tree_root)
+                    .await
+                {
                     work_package_hashes.push(import_spec.tree_root);
                 }
             }
         }
 
-        report.lookup = self.provider.lookup(&work_package_hashes).await?;
+        report.lookup = self.segment_provider.lookup(&work_package_hashes).await?;
         self.refine::<R, VM>(&work, &mut accounts, core_idx as u16, &mut report)
             .await?;
         report.context = work.context;
+
+        // Distribute the work report after computation (CE135)
+        self.network_provider
+            .distribute_report(report.clone())
+            .await?;
         Ok(report)
     }
 
@@ -51,9 +65,14 @@ impl<P: SegmentProvider> Worker<P> {
     ) -> Result<WorkReport> {
         let work = &bundle.package;
 
+        // Submit work package to guarantors before computation (CE133)
+        self.network_provider
+            .submit_work_package(work.clone(), core_idx)
+            .await?;
+
         // Register work-package mappings with the segment provider
         for (&work_package_hash, &segment_root) in &bundle.segment_roots {
-            self.provider
+            self.segment_provider
                 .register_work_package(work_package_hash, segment_root)
                 .await?;
         }
@@ -68,12 +87,18 @@ impl<P: SegmentProvider> Worker<P> {
 
         // Build segment root lookup using the segment provider
         let work_package_hashes: Vec<_> = bundle.segment_roots.keys().copied().collect();
-        report.lookup = self.provider.lookup(&work_package_hashes).await?;
+        report.lookup = self.segment_provider.lookup(&work_package_hashes).await?;
 
         self.extrinsic_data = bundle.extrinsic;
         self.refine::<R, VM>(work, &mut accounts, core_idx as u16, &mut report)
             .await?;
         report.context = work.context.clone();
+
+        // Distribute the work report after computation (CE135)
+        self.network_provider
+            .distribute_report(report.clone())
+            .await?;
+
         Ok(report)
     }
 

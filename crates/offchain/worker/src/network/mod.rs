@@ -1,12 +1,12 @@
 //! Network layer for the worker
 
-mod provider;
-
 pub use provider::NetworkProvider;
 use score::{
     service::{WorkPackage, WorkReport},
     OpaqueHash,
 };
+
+mod provider;
 
 /// Dummy network provider for testing
 impl NetworkProvider for () {

@@ -74,7 +74,7 @@ impl Jam {
     ///
     /// NOTE: run refine for all work items
     pub fn refine(&mut self, work: &WorkPackage) -> Result<WorkReport> {
-        let worker = Worker::new(InMemorySegmentProvider::default());
+        let worker = Worker::new(InMemorySegmentProvider::default(), ());
         let report =
             worker.compute_sync::<_, Interpreter>(work.clone(), 0, self.chain.accounts.clone())?;
 
