@@ -2,11 +2,10 @@
 //! Work package computation
 
 pub use {
-    bundle::WorkPackageBundle,
-    segment::{InMemorySegmentProvider, SegmentBundle, SegmentProvider},
+    d3l::{DataLake, InMemoryDataLake, Specifier},
     worker::Worker,
 };
 
 mod bundle;
-pub mod segment;
+pub mod d3l;
 mod worker;

@@ -219,7 +219,8 @@ impl PageProof {
             ));
         }
 
-        if segments.len() > score::PAGE_SIZE {
+        if segments.len() > 64 {
+            // Gray Paper: 64 segments per page
             return Err(anyhow::anyhow!(
                 "Page size exceeds Gray Paper limit of 64 segments"
             ));
@@ -255,7 +256,7 @@ impl PageProof {
     }
 
     /// Get the number of segments in this page
-    pub fn segment_count(&self) -> usize {
+    pub const fn segment_count(&self) -> usize {
         self.segment_hashes.len()
     }
 }

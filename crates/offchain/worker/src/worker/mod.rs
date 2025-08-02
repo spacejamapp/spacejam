@@ -1,6 +1,6 @@
 //! A worker that dispatched for a work package
 
-use crate::SegmentProvider;
+use crate::DataLake;
 use score::OpaqueHash;
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ mod segment;
 ///
 /// In the refined architecture, Worker is generic over SegmentProvider only.
 /// Network operations are handled by the Network library calling Runtime methods directly.
-pub struct Worker<S: SegmentProvider> {
+pub struct Worker<S: DataLake> {
     /// the segment provider
     segment_provider: S,
 
@@ -21,7 +21,7 @@ pub struct Worker<S: SegmentProvider> {
     extrinsic_data: HashMap<OpaqueHash, Vec<u8>>,
 }
 
-impl<S: SegmentProvider> Worker<S> {
+impl<S: DataLake> Worker<S> {
     /// Create a new worker with a segment provider
     pub fn new(segment_provider: S) -> Self {
         Self {

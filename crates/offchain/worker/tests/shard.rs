@@ -1,7 +1,7 @@
 //! Shard tests
 
 use score::SEGMENT_SIZE;
-use worker::segment::shard;
+use worker::d3l::shard;
 
 #[test]
 fn test_round_trip() {

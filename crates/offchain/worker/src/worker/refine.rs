@@ -1,19 +1,19 @@
 //! refinement
 
-use crate::{SegmentProvider, Worker};
+use crate::{DataLake, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
+    service::{RefineLoad, WorkExecResult, WorkPackage, WorkPackageSpec, WorkResult},
     Accounts, Segment, TimeSlot,
 };
 
-impl<S: SegmentProvider> Worker<S> {
+impl<S: DataLake> Worker<S> {
     /// Get segment justification for an import specification
-    async fn get_segment_justification(
+    async fn segment_justification(
         &self,
         import_spec: &score::service::ImportSpec,
-    ) -> crate::segment::Justification {
+    ) -> crate::d3l::Justification {
         // Try to get justification with default shard_index 0
         if let Ok(Some(segment_justification)) = self
             .segment_provider
@@ -26,10 +26,10 @@ impl<S: SegmentProvider> Worker<S> {
                 .path
                 .first()
                 .cloned()
-                .unwrap_or(crate::segment::Justification::Hash(import_spec.tree_root))
+                .unwrap_or(crate::d3l::Justification::Hash(import_spec.tree_root))
         } else {
             // Fallback: use the tree_root as a hash justification
-            crate::segment::Justification::Hash(import_spec.tree_root)
+            crate::d3l::Justification::Hash(import_spec.tree_root)
         }
     }
 
@@ -39,39 +39,28 @@ impl<S: SegmentProvider> Worker<S> {
         work: &WorkPackage,
         accounts: &mut R,
         core_idx: u16,
-        report: &mut WorkReport,
-    ) -> Result<()> {
-        // Import segments, collect extrinsics and justifications
+        auth_output: &[u8],
+    ) -> Result<(WorkPackageSpec, Vec<WorkResult>)> {
+        let mut specifier = crate::Specifier::new(work.clone())?;
         let mut all_imports = Vec::new();
-        let mut all_import_segments = Vec::new();
-        let mut all_extrinsics = Vec::new();
-        let mut justifications = Vec::new();
         for item in &work.items {
             // Import segments
             let segments = self.import_segments(item).await?;
-            all_import_segments.extend_from_slice(&segments);
+            specifier.import(&segments);
             all_imports.push(segments);
 
             // Collect extrinsics
-            for ext_spec in &item.extrinsic {
-                let ext_data = self.extrinsic_data.get(&ext_spec.hash).ok_or_else(|| {
-                    anyhow::anyhow!("Missing extrinsic data for hash {:?}", ext_spec.hash)
+            for spec in &item.extrinsic {
+                let ex = self.extrinsic_data.get(&spec.hash).ok_or_else(|| {
+                    anyhow::anyhow!("Missing extrinsic data for hash {:?}", spec.hash)
                 })?;
 
-                if ext_data.len() != ext_spec.len as usize {
-                    return Err(anyhow::anyhow!(
-                        "Extrinsic data length mismatch for hash {:?}: expected {}, got {}",
-                        ext_spec.hash,
-                        ext_spec.len,
-                        ext_data.len()
-                    ));
-                }
-                all_extrinsics.push(ext_data.clone());
+                specifier.extrinsic(spec, ex)?;
             }
 
             // Collect justifications for imported segments
             for import_spec in &item.import_segments {
-                justifications.push(self.get_segment_justification(import_spec).await);
+                specifier.justification(self.segment_justification(import_spec).await);
             }
         }
 
@@ -91,7 +80,7 @@ impl<S: SegmentProvider> Worker<S> {
                     accounts,
                     total_exports,
                     &all_imports,
-                    &report.auth_output,
+                    auth_output,
                 )
                 .await?;
 
@@ -100,40 +89,22 @@ impl<S: SegmentProvider> Worker<S> {
             work_results.push(work_result);
         }
 
-        // Export all segments together if any were produced
-        if !all_exported_segments.is_empty() {
-            let package_hash = crypto::blake2b(&codec::encode(work)?);
-            self.export_segments(&all_exported_segments, &package_hash)
-                .await?;
-        }
-
-        // Compute erasure root from all segments
-        let bundle = crate::SegmentBundle {
-            package: work.clone(),
-            extrinsics: all_extrinsics,
-            imports: all_import_segments,
-            justifications,
-        };
-        let erasure_root = bundle.erasure_root(&all_exported_segments)?;
-
-        // Compute exports root from exported segments
-        let exports_root = if all_exported_segments.is_empty() {
-            [0u8; 32]
+        // Export all segments and get efficient data for specifier creation
+        let (exports_root, segment_chunk_hashes) = if all_exported_segments.is_empty() {
+            ([0u8; 32], Vec::new())
         } else {
-            crypto::merkle::hroot(
-                &all_exported_segments
-                    .iter()
-                    .map(|seg| crypto::blake2b(seg))
-                    .collect::<Vec<_>>(),
-            )
+            self.segment_provider
+                .export_segments(&all_exported_segments, &specifier.package_hash())
+                .await?
         };
 
-        // Update work report with final results
-        report.spec.exports_count = work_results.iter().map(|r| r.refine_load.exports).sum();
-        report.spec.exports_root = exports_root;
-        report.spec.erasure_root = erasure_root;
-        report.results = work_results;
-        Ok(())
+        let spec = specifier.specify(
+            exports_root,
+            work_results.iter().map(|r| r.refine_load.exports).sum(),
+            segment_chunk_hashes,
+        )?;
+
+        Ok((spec, work_results))
     }
 
     /// Process a single work item with segment provider

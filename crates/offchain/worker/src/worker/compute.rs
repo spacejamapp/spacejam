@@ -1,6 +1,6 @@
 //! work report computation
 
-use crate::{SegmentProvider, WorkPackageBundle, Worker};
+use crate::{bundle::WorkPackageBundle, DataLake, Worker};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
@@ -8,7 +8,7 @@ use score::{
     Accounts, CoreIndex,
 };
 
-impl<S: SegmentProvider> Worker<S> {
+impl<S: DataLake> Worker<S> {
     /// Compute the work package according to Gray Paper specifications
     ///
     /// Note: In the refined architecture, networking (CE133, CE135) is handled
@@ -20,10 +20,7 @@ impl<S: SegmentProvider> Worker<S> {
         mut accounts: R,
     ) -> Result<WorkReport> {
         let mut report = WorkReport::default();
-        let encoded = codec::encode(&work)?;
         self.authorize::<R, VM>(&work, core_idx, &mut accounts, &mut report)?;
-        report.spec.hash = crypto::blake2b(&encoded);
-        report.spec.length = encoded.len() as u32;
         report.core_index = core_idx as CoreIndex;
         report.authorizer_hash = work.authorizer.hash();
 
@@ -42,48 +39,28 @@ impl<S: SegmentProvider> Worker<S> {
             }
         }
 
+        // Refine the work package
         report.lookup = self.segment_provider.lookup(&work_package_hashes).await?;
-        self.refine::<R, VM>(&work, &mut accounts, core_idx as u16, &mut report)
+        let (spec, results) = self
+            .refine::<R, VM>(&work, &mut accounts, core_idx as u16, &report.auth_output)
             .await?;
+        report.spec = spec;
+        report.results = results;
         report.context = work.context;
-
         Ok(report)
     }
 
     /// Compute the work package bundle according to Gray Paper specifications
+    ///
+    /// TODO: validate the work package bundle?
     pub async fn compute_bundle<R: Accounts, VM: Pvm>(
-        mut self,
+        self,
         bundle: WorkPackageBundle,
         core_idx: usize,
-        mut accounts: R,
+        accounts: R,
     ) -> Result<WorkReport> {
-        let work = &bundle.package;
-
-        // Register work-package mappings with the segment provider
-        for (&work_package_hash, &segment_root) in &bundle.segment_roots {
-            self.segment_provider
-                .register_work_package(work_package_hash, segment_root)
-                .await?;
-        }
-
-        let encoded = codec::encode(work)?;
-        let mut report = WorkReport::default();
-        self.authorize::<R, VM>(work, core_idx, &mut accounts, &mut report)?;
-        report.spec.hash = crypto::blake2b(&encoded);
-        report.spec.length = encoded.len() as u32;
-        report.core_index = core_idx as CoreIndex;
-        report.authorizer_hash = work.authorizer.hash();
-
-        // Build segment root lookup using the segment provider
-        let work_package_hashes: Vec<_> = bundle.segment_roots.keys().copied().collect();
-        report.lookup = self.segment_provider.lookup(&work_package_hashes).await?;
-
-        self.extrinsic_data = bundle.extrinsic;
-        self.refine::<R, VM>(work, &mut accounts, core_idx as u16, &mut report)
-            .await?;
-        report.context = work.context.clone();
-
-        Ok(report)
+        self.compute::<R, VM>(bundle.package, core_idx, accounts)
+            .await
     }
 
     /// Legacy compute method for backward compatibility

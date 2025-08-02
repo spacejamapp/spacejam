@@ -1,20 +1,34 @@
 //! Segment provider trait and implementations
 
-use crate::segment::{shard, BundleShardJustification, PageProof, SegmentShardJustification};
+use crate::d3l::{shard, BundleShardJustification, PageProof, SegmentShardJustification};
 use anyhow::Result;
 use score::{OpaqueHash, Segment, WorkPackageHash};
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
 
-/// Trait for segment operations abstraction
-/// Allows different implementations (in-memory, network-based, etc.)
+/// Trait for data lake operations abstraction
 #[allow(async_fn_in_trait)]
-pub trait SegmentProvider: Send + Sync {
+pub trait DataLake: Send + Sync {
+    /// Retrieve page-proof for segment justification
+    async fn page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+    ) -> Result<Option<PageProof>>;
+
     /// Get a segment
     async fn segment(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>>;
 
     /// Get shards
     async fn shards(&self, segment_hash: &OpaqueHash) -> Result<Option<Vec<Vec<u8>>>>;
+
+    /// Store page-proof for efficient segment justification (Gray Paper P function)
+    async fn set_page_proof(
+        &self,
+        segments_root: &OpaqueHash,
+        page_index: u16,
+        page_proof: PageProof,
+    ) -> Result<()>;
 
     /// set a segment
     async fn set_segment(&self, segment_hash: OpaqueHash, segment: Segment) -> Result<()>;
@@ -51,13 +65,14 @@ pub trait SegmentProvider: Send + Sync {
     }
 
     /// Export segments with automatic Gray Paper page-proof generation
+    /// Returns (segments_root, segment_chunk_hashes) for efficient specifier creation
     async fn export_segments(
         &self,
         segments: &[Segment],
         work_package_hash: &OpaqueHash,
-    ) -> Result<OpaqueHash> {
+    ) -> Result<(OpaqueHash, Vec<OpaqueHash>)> {
         if segments.is_empty() {
-            return Ok([0u8; 32]);
+            return Ok(([0u8; 32], Vec::new()));
         }
 
         // 1. Store individual segments and generate shards (existing logic)
@@ -69,29 +84,52 @@ pub trait SegmentProvider: Send + Sync {
             // Store both segment and shards concurrently if possible
             self.set_segment(segment_hash, *segment).await?;
             self.set_shards(segment_hash, shards).await?;
-
             all_hashes.extend_from_slice(&segment_hash);
         }
 
         let segments_root = crypto::blake2b(&all_hashes);
 
         // 2. Generate and store page-proofs (Gray Paper P function)
-        let page_count = segments.len().div_ceil(score::PAGE_SIZE);
+        // Gray Paper specifies 64 segments per page for page-proofs
+        let page_count = segments.len().div_ceil(64);
+        let mut page_proofs = Vec::new();
         for page_index in 0..page_count {
-            let start_idx = page_index * score::PAGE_SIZE;
-            let end_idx = std::cmp::min(start_idx + score::PAGE_SIZE, segments.len());
+            let start_idx = page_index * 64;
+            let end_idx = std::cmp::min(start_idx + 64, segments.len());
             let page_segments = &segments[start_idx..end_idx];
-
             let page_proof = PageProof::generate(page_segments, page_index as u16, &segments_root)?;
-            self.store_page_proof(&segments_root, page_index as u16, page_proof)
+            self.set_page_proof(&segments_root, page_index as u16, page_proof.clone())
                 .await?;
+            page_proofs.push(page_proof);
         }
 
-        // 3. Register work package mapping (existing)
+        // 3. Generate segment chunks (s♣) for availability specifier
+        // Combine segments and page-proofs, then erasure encode for chunk hashes
+        let mut segments_with_proofs = Vec::new();
+        for segment in segments {
+            segments_with_proofs.extend_from_slice(segment);
+        }
+        for proof in &page_proofs {
+            let encoded_proof = codec::encode(proof)?;
+            segments_with_proofs.extend_from_slice(&encoded_proof);
+        }
+
+        let segment_chunks = if !segments_with_proofs.is_empty() {
+            erasure::encode(segments_with_proofs).await?
+        } else {
+            Vec::new()
+        };
+
+        let segment_chunk_hashes: Vec<OpaqueHash> = segment_chunks
+            .iter()
+            .map(|chunk| crypto::blake2b(chunk))
+            .collect();
+
+        // 4. Register work package mapping (existing)
         self.register_work_package(*work_package_hash, segments_root)
             .await?;
 
-        Ok(segments_root)
+        Ok((segments_root, segment_chunk_hashes))
     }
 
     /// Import segments
@@ -113,7 +151,7 @@ pub trait SegmentProvider: Send + Sync {
     }
 
     /// Import segments with validation against erasure root
-    async fn import_segments_with_validation(
+    async fn vimport_segments(
         &self,
         erasure_root: &OpaqueHash,
         segment_specs: &[(u16, u16)],
@@ -151,7 +189,7 @@ pub trait SegmentProvider: Send + Sync {
             .collect()
     }
 
-    /// Get the justification for a segment shard - with smart orchestration
+    /// Get the justification for a segment shard
     async fn segment_justification(
         &self,
         erasure_root: &OpaqueHash,
@@ -165,7 +203,7 @@ pub trait SegmentProvider: Send + Sync {
         SegmentShardJustification::new(&shards, erasure_root, segment_index, shard_index)
     }
 
-    /// Get the justification for a bundle shard - with smart orchestration
+    /// Get the justification for a bundle shard
     async fn bundle_justification(
         &self,
         erasure_root: &OpaqueHash,
@@ -191,30 +229,15 @@ pub trait SegmentProvider: Send + Sync {
         Ok(lookup)
     }
 
-    /// Store page-proof for efficient segment justification (Gray Paper P function)
-    async fn store_page_proof(
-        &self,
-        segments_root: &OpaqueHash,
-        page_index: u16,
-        page_proof: PageProof,
-    ) -> Result<()>;
-
-    /// Retrieve page-proof for segment justification
-    async fn get_page_proof(
-        &self,
-        segments_root: &OpaqueHash,
-        page_index: u16,
-    ) -> Result<Option<PageProof>>;
-
-    /// Try to retrieve segment using efficient page-proof justification
-    async fn retrieve_with_page_proof(
+    /// Try to retrieve segment using page-proof justification
+    async fn psegment(
         &self,
         segment_hash: &OpaqueHash,
         segments_root: &OpaqueHash,
         segment_index: u16,
     ) -> Result<Option<Segment>> {
-        let page_index = segment_index / 64; // Gray Paper: 64 segments per page
-        let page_proof = self.get_page_proof(segments_root, page_index).await?;
+        let page_index = segment_index / 64;
+        let page_proof = self.page_proof(segments_root, page_index).await?;
 
         if let Some(proof) = page_proof {
             let segment_index_in_page = segment_index % 64;
@@ -230,14 +253,14 @@ pub trait SegmentProvider: Send + Sync {
 
 /// In-memory segment provider for testing
 #[derive(Default)]
-pub struct InMemorySegmentProvider {
+pub struct InMemoryDataLake {
     segments: RwLock<HashMap<OpaqueHash, Segment>>,
     shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
     lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
     page_proofs: RwLock<HashMap<(OpaqueHash, u16), PageProof>>,
 }
 
-impl SegmentProvider for InMemorySegmentProvider {
+impl DataLake for InMemoryDataLake {
     async fn segment(&self, segment_hash: &OpaqueHash) -> Result<Option<Segment>> {
         Ok(self.segments.read().await.get(segment_hash).copied())
     }
@@ -269,7 +292,7 @@ impl SegmentProvider for InMemorySegmentProvider {
         Ok(())
     }
 
-    async fn store_page_proof(
+    async fn set_page_proof(
         &self,
         segments_root: &OpaqueHash,
         page_index: u16,
@@ -282,7 +305,7 @@ impl SegmentProvider for InMemorySegmentProvider {
         Ok(())
     }
 
-    async fn get_page_proof(
+    async fn page_proof(
         &self,
         segments_root: &OpaqueHash,
         page_index: u16,

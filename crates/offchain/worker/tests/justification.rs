@@ -1,6 +1,6 @@
 //! Justification tests
 
-use worker::segment::justification::{
+use worker::d3l::proof::{
     BundleShardJustification, Justification, JustificationPath, SegmentShardJustification,
 };
 

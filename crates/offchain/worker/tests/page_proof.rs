@@ -1,8 +1,8 @@
 //! Tests for page-proof functionality
 
 use score::Segment;
-use worker::segment::PageProof;
-use worker::{InMemorySegmentProvider, SegmentProvider};
+use worker::d3l::PageProof;
+use worker::{DataLake, InMemoryDataLake};
 
 /// Test basic page-proof generation and verification
 #[tokio::test]
@@ -40,7 +40,7 @@ async fn test_page_proof_generation() {
 /// Test page-proof integration with SegmentProvider
 #[tokio::test]
 async fn test_segment_provider_page_proof_integration() {
-    let provider = InMemorySegmentProvider::default();
+    let provider = InMemoryDataLake::default();
     let work_package_hash = [1u8; 32];
 
     // Create test segments
@@ -53,13 +53,13 @@ async fn test_segment_provider_page_proof_integration() {
         .collect();
 
     // Export segments (should automatically generate page-proofs)
-    let segments_root = provider
+    let (segments_root, _segment_chunks) = provider
         .export_segments(&segments, &work_package_hash)
         .await
         .unwrap();
 
     // Verify page-proof was stored
-    let page_proof = provider.get_page_proof(&segments_root, 0).await.unwrap();
+    let page_proof = provider.page_proof(&segments_root, 0).await.unwrap();
     assert!(page_proof.is_some());
 
     let page_proof = page_proof.unwrap();
@@ -75,7 +75,7 @@ async fn test_segment_provider_page_proof_integration() {
 /// Test multiple pages (>64 segments)
 #[tokio::test]
 async fn test_multiple_page_proofs() {
-    let provider = InMemorySegmentProvider::default();
+    let provider = InMemoryDataLake::default();
     let work_package_hash = [2u8; 32];
 
     // Create test segments (more than 64 to test multiple pages)
@@ -89,14 +89,14 @@ async fn test_multiple_page_proofs() {
         .collect();
 
     // Export segments
-    let segments_root = provider
+    let (segments_root, _segment_chunks) = provider
         .export_segments(&segments, &work_package_hash)
         .await
         .unwrap();
 
     // Should have 2 pages: page 0 (64 segments) and page 1 (36 segments)
-    let page_0 = provider.get_page_proof(&segments_root, 0).await.unwrap();
-    let page_1 = provider.get_page_proof(&segments_root, 1).await.unwrap();
+    let page_0 = provider.page_proof(&segments_root, 0).await.unwrap();
+    let page_1 = provider.page_proof(&segments_root, 1).await.unwrap();
 
     assert!(page_0.is_some());
     assert!(page_1.is_some());
@@ -107,15 +107,13 @@ async fn test_multiple_page_proofs() {
     assert_eq!(page_0.segment_count(), 64);
     assert_eq!(page_1.segment_count(), 36);
 
-    // Verify segments in each page
-    for i in 0..score::PAGE_SIZE as usize {
+    // Verify segments in each page (Gray Paper: 64 segments per page)
+    for i in 0..64 {
         assert!(page_0.verify_segment(&segments[i], i as u16).unwrap());
     }
 
-    for i in 0..(100 - score::PAGE_SIZE as usize) {
-        assert!(page_1
-            .verify_segment(&segments[score::PAGE_SIZE as usize + i], i as u16)
-            .unwrap());
+    for i in 0..(100 - 64) {
+        assert!(page_1.verify_segment(&segments[64 + i], i as u16).unwrap());
     }
 }
 
