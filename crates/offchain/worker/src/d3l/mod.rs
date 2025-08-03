@@ -15,4 +15,5 @@ pub use {
     erasure::Specifier,
     proof::{BundleShardJustification, Justification, PageProof, SegmentShardJustification},
     provider::{DataLake, InMemoryDataLake},
+    shard::Shard,
 };

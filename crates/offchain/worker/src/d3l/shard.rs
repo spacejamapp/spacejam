@@ -4,6 +4,20 @@ use anyhow::Result;
 use erasure::{decode_sync, encode_sync, Config};
 use score::SEGMENT_SIZE;
 
+use crate::d3l::BundleShardJustification;
+
+/// A shard of a work report
+pub struct Shard {
+    /// The bundle shard
+    pub bundle: Vec<u8>,
+
+    /// The segment shards
+    pub segment_shards: Vec<u8>,
+
+    /// The bundle shard justifications
+    pub justifications: BundleShardJustification,
+}
+
 /// Get minimum shards needed for reconstruction (Reed-Solomon needs original count)
 ///
 /// TODO: use constant for this
