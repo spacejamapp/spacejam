@@ -4,6 +4,9 @@ use anyhow::Result;
 use score::{OpaqueHash, Segment};
 use serde::{Deserialize, Serialize};
 
+/// The number of segments per page for page-proofs
+pub const PROOF_PAGE_SIZE: usize = 64;
+
 /// Justification for segment/bundle shard correctness per network protocol
 /// Discriminators match CE 137/139/140 protocol specification
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -241,6 +244,21 @@ impl PageProof {
             merkle_proof,
             page_index,
         })
+    }
+
+    /// Generate page-proofs for a set of exported segments (function P)
+    pub async fn proofs(exported: &[Segment], exports_root: &OpaqueHash) -> Result<Vec<Self>> {
+        let page_count = exported.len().div_ceil(64);
+        let mut page_proofs = Vec::new();
+        for page_index in 0..page_count {
+            let start_idx = page_index * 64;
+            let end_idx = std::cmp::min(start_idx + 64, exported.len());
+            let page_segments = &exported[start_idx..end_idx];
+            let page_proof = PageProof::generate(page_segments, page_index as u16, exports_root)?;
+            page_proofs.push(page_proof);
+        }
+
+        Ok(page_proofs)
     }
 
     /// Verify a segment using this page-proof

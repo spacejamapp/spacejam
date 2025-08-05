@@ -9,6 +9,12 @@ use score::{
 use serde::{Deserialize, Serialize};
 
 /// Bundle specifier
+///
+/// TODO: taking
+///
+/// - package hash
+/// - an octet sequence of the audit-friendly work-package bundle
+/// - the sequence of exported segements
 pub struct Specifier {
     /// Components of erasure computation
     bundle: Bundle,
@@ -123,7 +129,6 @@ pub fn root(bundle: Vec<u8>, segment_chunk_hashes: &[OpaqueHash]) -> Result<Opaq
 /// Combines bundle chunk hashes and segment chunk hashes into transposed matrix
 fn transpose(bundle_chunks: &[OpaqueHash], segment_chunks: &[OpaqueHash]) -> Vec<Vec<u8>> {
     let max_chunks = bundle_chunks.len().max(segment_chunks.len());
-
     (0..max_chunks)
         .map(|i| {
             let mut transposed_chunk = Vec::new();
