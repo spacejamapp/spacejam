@@ -1,12 +1,11 @@
 //! Guarantor abstraction
 
-use crate::{bundle::WorkPackageBundle, d3l::Shard, DataLake};
+use crate::{d3l::Shard, DataLake, WorkPackageBundle};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    extrinsic::{ReportGuarantee, ValidatorSignature},
     service::{WorkPackage, WorkReport},
-    Accounts, CoreIndex, OpaqueHash, TimeSlot,
+    Accounts, CoreIndex, OpaqueHash,
 };
 use std::collections::BTreeMap;
 
@@ -89,18 +88,6 @@ pub trait Guarantor: DataLake + Sized {
 
         report.lookup = segment_roots;
         Ok(report)
-    }
-
-    /// Create guaranteed work report (CE135)
-    ///
-    /// Guarantor -> Validator
-    async fn guarantee(
-        &self,
-        _report: &WorkReport,
-        _slot: TimeSlot,
-        _singatures: Vec<ValidatorSignature>,
-    ) -> Result<ReportGuarantee> {
-        todo!()
     }
 
     /// On shard requests (CE137)

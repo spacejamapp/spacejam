@@ -7,6 +7,7 @@
 //! - Bundle creation and erasure root computation
 
 // pub mod erasure;
+pub mod bundle;
 pub mod proof;
 mod provider;
 pub mod shard;

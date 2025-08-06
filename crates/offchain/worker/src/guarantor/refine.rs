@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{bundle::WorkPackageBundle, Guarantor};
+use crate::{Guarantor, WorkPackageBundle};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{

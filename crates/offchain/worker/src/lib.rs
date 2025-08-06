@@ -4,12 +4,11 @@
 pub use {
     assurer::Assurer,
     auditor::Auditor,
-    d3l::{DataLake, InMemoryDataLake},
+    d3l::{bundle::WorkPackageBundle, DataLake, InMemoryDataLake},
     guarantor::Guarantor,
 };
 
 mod assurer;
 mod auditor;
-mod bundle;
 pub mod d3l;
 mod guarantor;

@@ -21,7 +21,7 @@ pub struct WorkPackageBundle {
     /// TODO: Vec instead of Map?
     pub extrinsic: BTreeMap<OpaqueHash, Vec<u8>>,
 
-    /// The concatenated import segments along with their proofs of correctnes
+    /// The concatenated import segments along with their proofs of correctness
     pub imports_with_proofs: Vec<(Vec<u8>, Vec<Justification>)>,
 }
 
