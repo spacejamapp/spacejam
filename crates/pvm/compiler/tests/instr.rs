@@ -3,6 +3,7 @@
 //! Tests the PVM compiler (JIT) against the official JAM test vectors.
 
 use anyhow::Result;
+use pvmc::module::memory::Page as CompilerPage;
 use pvmc::{JitCompiler, Memory as CompilerMemory};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
@@ -22,6 +23,17 @@ impl Runner {
 
         // Initialize memory from test input
         let mut initial_memory = CompilerMemory::new();
+
+        // First, allocate pages based on initial_page_map
+        for page_info in &input.initial_page_map {
+            let page_num = page_info.address / 4096; // PAGE_SIZE
+            let access = if page_info.is_writable { 0 } else { 1 }; // 0=Mutable, 1=Immutable
+            initial_memory
+                .pages
+                .insert(page_num, CompilerPage::new(access));
+        }
+
+        // Then write initial memory data
         for mem in &input.initial_memory {
             initial_memory.write_bytes(mem.address, &mem.contents)?;
         }

@@ -43,32 +43,38 @@ impl Module {
     }
 
     /// Execute the compiled module with initial register values, PC, and memory
-    pub fn execute(&self, initial_registers: &[u64; 13], initial_pc: u64, initial_memory: Memory) -> Result<Info> {
+    pub fn execute(
+        &self,
+        initial_registers: &[u64; 13],
+        initial_pc: u64,
+        initial_memory: Memory,
+    ) -> Result<Info> {
         if self.is_placeholder() {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
         unsafe {
-            // Serialize memory for passing to compiled function
-            let memory_data = codec::encode(&initial_memory)
-                .map_err(|e| anyhow::anyhow!("Failed to serialize memory: {}", e))?;
-            let mut memory_bytes = memory_data;
-            
-            // Prepare execution context: registers + PC + memory
-            let mut context = Context {
-                registers: *initial_registers,
-                pc: initial_pc,
-                memory_ptr: memory_bytes.as_mut_ptr(),
-                memory_size: memory_bytes.len(),
-            };
+            // Create execution context with direct memory reference
+            let mut memory_copy = initial_memory.clone();
+            let mut context = Context::new(&mut memory_copy);
+            context.registers = *initial_registers;
+            context.pc = initial_pc;
 
             let func_ptr = std::mem::transmute::<*const u8, fn(*mut Context)>(self.entry_point);
             func_ptr(&mut context);
 
-            // Deserialize memory from the context
-            let memory_slice = std::slice::from_raw_parts(context.memory_ptr, context.memory_size);
-            let final_memory: Memory = codec::decode(memory_slice)
-                .map_err(|e| anyhow::anyhow!("Failed to deserialize memory: {}", e))?;
+            // Apply any recorded memory operations to the memory state
+            context
+                .apply_memory_operations()
+                .map_err(|e| anyhow::anyhow!("Failed to apply memory operations: {}", e))?;
+
+            // Sync linear memory changes back to PVM pages
+            context
+                .sync_linear_to_pages()
+                .map_err(|e| anyhow::anyhow!("Failed to sync linear memory: {}", e))?;
+
+            // Get the final memory state
+            let final_memory = memory_copy;
 
             Ok(Info {
                 registers: context.registers,

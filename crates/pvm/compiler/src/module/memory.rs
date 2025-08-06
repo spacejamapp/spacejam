@@ -37,19 +37,9 @@ impl Page {
             },
         }
     }
-
-    /// Get page data as slice
-    pub fn data_slice(&self) -> &[u8] {
-        &self.data
-    }
-
-    /// Get mutable page data as slice
-    pub fn data_slice_mut(&mut self) -> &mut [u8] {
-        &mut self.data
-    }
 }
 
-/// Simplified memory representation for compiled functions
+/// Memory representation for compiled functions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Memory {
     /// Memory pages
@@ -77,44 +67,38 @@ impl Memory {
         }
     }
 
-    /// Read bytes from memory
-    pub fn read_bytes(&self, address: u32, len: u32) -> Result<Vec<u8>> {
-        let mut bytes = vec![0; len as usize];
-        let mut read = 0u32;
-
-        while read < len {
-            let page_num = (address + read) / PAGE_SIZE;
-            let page_offset = (address + read) % PAGE_SIZE;
-            let to_read = (len - read).min(PAGE_SIZE - page_offset);
-
-            if let Some(page) = self.pages.get(&page_num) {
-                let start = page_offset as usize;
-                let end = (page_offset + to_read) as usize;
-                bytes[read as usize..(read + to_read) as usize]
-                    .copy_from_slice(&page.data[start..end]);
-            }
-
-            read += to_read;
-        }
-
-        Ok(bytes)
-    }
-
     /// Write bytes to memory
     pub fn write_bytes(&mut self, address: u32, bytes: &[u8]) -> Result<()> {
         let len = bytes.len() as u32;
-        let mut written = 0u32;
 
+        // First pass: validate all pages that will be accessed
+        let mut check_offset = 0u32;
+        while check_offset < len {
+            let page_num = (address + check_offset) / PAGE_SIZE;
+            let page_offset = (address + check_offset) % PAGE_SIZE;
+            let to_check = (len - check_offset).min(PAGE_SIZE - page_offset);
+
+            // Check if page exists and is writable
+            if let Some(page) = self.pages.get(&page_num) {
+                if page.access != 0 {
+                    anyhow::bail!("Page {} is not writable", page_num);
+                }
+            } else {
+                // Page doesn't exist - this should cause a page fault
+                anyhow::bail!("Page {} is not allocated", page_num);
+            }
+
+            check_offset += to_check;
+        }
+
+        // Second pass: perform the actual write (all pages are now validated)
+        let mut written = 0u32;
         while written < len {
             let page_num = (address + written) / PAGE_SIZE;
             let page_offset = (address + written) % PAGE_SIZE;
             let to_write = (len - written).min(PAGE_SIZE - page_offset);
 
-            let page = self.pages.entry(page_num).or_insert_with(|| Page::new(0));
-
-            if page.access != 0 {
-                anyhow::bail!("Page {} is not writable", page_num);
-            }
+            let page = self.pages.get_mut(&page_num).unwrap(); // Safe due to validation above
 
             let start = page_offset as usize;
             let end = (page_offset + to_write) as usize;
@@ -127,6 +111,28 @@ impl Memory {
         Ok(())
     }
 
+    /// Write a single byte to memory
+    pub fn write_u8(&mut self, address: u32, value: u8) -> Result<()> {
+        self.write_bytes(address, &[value])
+    }
+
+    /// Write a 16-bit value to memory (little endian)
+    pub fn write_u16(&mut self, address: u32, value: u16) -> Result<()> {
+        let bytes = value.to_le_bytes();
+        self.write_bytes(address, &bytes)
+    }
+
+    /// Write a 32-bit value to memory (little endian)
+    pub fn write_u32(&mut self, address: u32, value: u32) -> Result<()> {
+        let bytes = value.to_le_bytes();
+        self.write_bytes(address, &bytes)
+    }
+
+    /// Write a 64-bit value to memory (little endian)
+    pub fn write_u64(&mut self, address: u32, value: u64) -> Result<()> {
+        let bytes = value.to_le_bytes();
+        self.write_bytes(address, &bytes)
+    }
 }
 
 impl Default for Memory {
