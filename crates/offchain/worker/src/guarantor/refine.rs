@@ -96,7 +96,7 @@ pub async fn refine<R: Accounts, VM: Pvm>(
         extrinsic: extrinsic.clone(),
         imports_with_proofs,
     };
-    let spec = bundle.specify(all_exported_segments).await?;
+    let spec = d3l.specify_bundle(&bundle, all_exported_segments).await?;
 
     Ok((
         WorkReport {

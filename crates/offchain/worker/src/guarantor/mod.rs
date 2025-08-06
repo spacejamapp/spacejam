@@ -47,7 +47,7 @@ pub trait Guarantor: DataLake + Sized {
         let mut work_package_hashes = Vec::new();
         for item in &work.items {
             for import_spec in &item.import_segments {
-                if let Ok(Some(_)) = self.segment_root(&import_spec.tree_root).await {
+                if let Ok(Some(_)) = self.get_segment_root(&import_spec.tree_root).await {
                     work_package_hashes.push(import_spec.tree_root);
                 }
             }
@@ -91,8 +91,45 @@ pub trait Guarantor: DataLake + Sized {
     }
 
     /// On shard requests (CE137)
-    async fn shard(&self, _erasure_root: OpaqueHash, _shard_index: u16) -> Result<Shard> {
-        todo!()
+    async fn shard(&self, erasure_root: OpaqueHash, shard_index: u16) -> Result<Shard> {
+        // Get the specific shard data
+        let bundle_shard = self
+            .get_shard(&erasure_root, shard_index)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!("Shard not found: {:?} index {}", erasure_root, shard_index)
+            })?;
+
+        // Get all shards to extract segment shards
+        let all_shards = self.get_shards(&erasure_root).await?.ok_or_else(|| {
+            anyhow::anyhow!("No shards found for erasure root: {:?}", erasure_root)
+        })?;
+
+        // For CE137, we return segment shards as well as bundle shard
+        // TODO: Properly separate bundle vs segment shards based on the erasure coding layout
+        let segment_shards = if (shard_index as usize) < all_shards.len() {
+            all_shards[shard_index as usize].clone()
+        } else {
+            Vec::new()
+        };
+
+        // Generate justification for the shard
+        let justifications = self
+            .bundle_justification(&erasure_root, shard_index)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Could not generate justification for shard {} of {:?}",
+                    shard_index,
+                    erasure_root
+                )
+            })?;
+
+        Ok(Shard {
+            bundle: bundle_shard,
+            segment_shards,
+            justifications,
+        })
     }
 }
 
