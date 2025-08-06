@@ -8,12 +8,14 @@
 
 // pub mod erasure;
 pub mod bundle;
+pub mod justification;
 pub mod proof;
 mod provider;
 pub mod shard;
 
 pub use {
-    proof::{BundleShardJustification, Justification, PageProof, SegmentShardJustification},
+    justification::{Justification, JustificationPath},
+    proof::{BundleShardJustification, PageProof, SegmentShardJustification},
     provider::{DataLake, InMemoryDataLake},
     shard::Shard,
 };

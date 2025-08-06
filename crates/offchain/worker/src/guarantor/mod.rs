@@ -15,9 +15,7 @@ mod refine;
 /// Guarantor abstraction
 #[allow(async_fn_in_trait)]
 pub trait Guarantor: DataLake + Sized {
-    /// On receiving a work package submission (CE133)
-    ///
-    /// Builder -> Guarantor
+    /// Compute work package and produce work report
     async fn compute<A: Accounts, VM: Pvm>(
         &self,
         core_idx: CoreIndex,
@@ -68,9 +66,7 @@ pub trait Guarantor: DataLake + Sized {
         runtime.block_on(self.compute::<A, VM>(core_idx, extrinsic, work, accounts))
     }
 
-    /// Validate a work package bundle (CE134)
-    ///
-    /// Guarantor -> Guarantor
+    /// Validate a work package bundle
     ///
     /// TODO: handle the segment roots
     async fn validate<A: Accounts, VM: Pvm>(
@@ -90,7 +86,7 @@ pub trait Guarantor: DataLake + Sized {
         Ok(report)
     }
 
-    /// On shard requests (CE137)
+    /// Get shard data with justifications
     async fn shard(&self, erasure_root: OpaqueHash, shard_index: u16) -> Result<Shard> {
         // Get the specific shard data
         let bundle_shard = self
@@ -105,7 +101,7 @@ pub trait Guarantor: DataLake + Sized {
             anyhow::anyhow!("No shards found for erasure root: {:?}", erasure_root)
         })?;
 
-        // For CE137, we return segment shards as well as bundle shard
+        // Return segment shards as well as bundle shard
         // TODO: Properly separate bundle vs segment shards based on the erasure coding layout
         let segment_shards = if (shard_index as usize) < all_shards.len() {
             all_shards[shard_index as usize].clone()

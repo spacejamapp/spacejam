@@ -3,7 +3,10 @@
 use crate::d3l::{shard, BundleShardJustification, PageProof, SegmentShardJustification};
 use crate::WorkPackageBundle;
 use anyhow::Result;
-use score::{service::WorkPackageSpec, OpaqueHash, Segment, WorkPackageHash};
+use score::{
+    service::{WorkPackageSpec, WorkReport},
+    OpaqueHash, Segment, WorkPackageHash,
+};
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
 
@@ -59,6 +62,12 @@ pub trait DataLake: Send + Sync {
         page_index: u16,
         page_proof: PageProof,
     ) -> Result<()>;
+
+    /// Get a work report by its hash
+    async fn get_work_report(&self, report_hash: &OpaqueHash) -> Result<Option<WorkReport>>;
+
+    /// Store a work report by its hash  
+    async fn store_work_report(&self, report_hash: OpaqueHash, report: WorkReport) -> Result<()>;
 
     /// Compute availability specification and store associated shards
     async fn specify_bundle(
@@ -221,6 +230,7 @@ pub struct InMemoryDataLake {
     shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
     lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
     page_proofs: RwLock<HashMap<(OpaqueHash, u16), PageProof>>,
+    work_reports: RwLock<HashMap<OpaqueHash, WorkReport>>,
 }
 
 impl DataLake for InMemoryDataLake {
@@ -286,4 +296,16 @@ impl DataLake for InMemoryDataLake {
             .insert((*segments_root, page_index), page_proof);
         Ok(())
     }
+
+    async fn get_work_report(&self, report_hash: &OpaqueHash) -> Result<Option<WorkReport>> {
+        Ok(self.work_reports.read().await.get(report_hash).cloned())
+    }
+
+    async fn store_work_report(&self, report_hash: OpaqueHash, report: WorkReport) -> Result<()> {
+        self.work_reports.write().await.insert(report_hash, report);
+        Ok(())
+    }
 }
+
+// Implement Assurer trait for InMemoryDataLake
+impl crate::Assurer for InMemoryDataLake {}
