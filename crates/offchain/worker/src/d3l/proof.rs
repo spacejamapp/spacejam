@@ -269,7 +269,6 @@ impl PageProof {
 
         let segment_hash = crypto::blake2b(segment);
         let expected_hash = self.segment_hashes[segment_index_in_page as usize];
-
         Ok(segment_hash == expected_hash)
     }
 

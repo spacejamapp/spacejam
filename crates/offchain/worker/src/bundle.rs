@@ -6,7 +6,7 @@ use score::{
     OpaqueHash, Segment,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::d3l::{Justification, PageProof};
 
@@ -19,7 +19,7 @@ pub struct WorkPackageBundle {
     /// The extrinsic data
     ///
     /// TODO: Vec instead of Map?
-    pub extrinsic: HashMap<OpaqueHash, Vec<u8>>,
+    pub extrinsic: BTreeMap<OpaqueHash, Vec<u8>>,
 
     /// The concatenated import segments along with their proofs of correctnes
     pub imports_with_proofs: Vec<(Vec<u8>, Vec<Justification>)>,

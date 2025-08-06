@@ -27,19 +27,6 @@ pub trait Guarantor: DataLake + Sized {
         accounts: &mut A,
     ) -> Result<(WorkReport, WorkPackageBundle)> {
         let (auth_output, auth_gas_used) = authorize::authorize::<A, VM>(work, core_idx, accounts)?;
-
-        // Build segment root lookup by checking if any imports are work-package hashes
-        let mut work_package_hashes = Vec::new();
-        for item in &work.items {
-            for import_spec in &item.import_segments {
-                // Check if this tree_root is a known work-package hash
-                if let Ok(Some(_)) = self.segment_root(&import_spec.tree_root).await {
-                    work_package_hashes.push(import_spec.tree_root);
-                }
-            }
-        }
-
-        // Refine the work package
         let mut extrinsic_data = BTreeMap::new();
         for extrinsic in extrinsic {
             extrinsic_data.insert(crypto::blake2b(&extrinsic), extrinsic);
@@ -54,9 +41,19 @@ pub trait Guarantor: DataLake + Sized {
             accounts,
         )
         .await?;
-        report.lookup = self.lookup(&work_package_hashes).await?;
         report.auth_output = auth_output;
         report.auth_gas_used = auth_gas_used;
+
+        // build the segment roots
+        let mut work_package_hashes = Vec::new();
+        for item in &work.items {
+            for import_spec in &item.import_segments {
+                if let Ok(Some(_)) = self.segment_root(&import_spec.tree_root).await {
+                    work_package_hashes.push(import_spec.tree_root);
+                }
+            }
+        }
+        report.lookup = self.lookup(&work_package_hashes).await?;
         Ok((report, bundle))
     }
 
@@ -75,14 +72,23 @@ pub trait Guarantor: DataLake + Sized {
     /// Validate a work package bundle (CE134)
     ///
     /// Guarantor -> Guarantor
-    async fn validate<A: Accounts>(
+    ///
+    /// TODO: handle the segment roots
+    async fn validate<A: Accounts, VM: Pvm>(
         &self,
-        _bundle: &WorkPackageBundle,
-        _core_index: CoreIndex,
-        _segment_roots: BTreeMap<OpaqueHash, OpaqueHash>,
-        _accounts: &mut A,
-    ) -> Result<(WorkReport, ValidatorSignature)> {
-        todo!()
+        bundle: &WorkPackageBundle,
+        core_index: CoreIndex,
+        segment_roots: BTreeMap<OpaqueHash, OpaqueHash>,
+        accounts: &mut A,
+    ) -> Result<WorkReport> {
+        let work = &bundle.package;
+        let extrinsic: Vec<Vec<u8>> = bundle.extrinsic.values().cloned().collect();
+        let (mut report, _) = self
+            .compute::<A, VM>(core_index, extrinsic, work, accounts)
+            .await?;
+
+        report.lookup = segment_roots;
+        Ok(report)
     }
 
     /// Create guaranteed work report (CE135)

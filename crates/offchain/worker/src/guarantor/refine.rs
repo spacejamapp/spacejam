@@ -1,6 +1,6 @@
 //! Refine interface
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use crate::{bundle::WorkPackageBundle, Guarantor};
 use anyhow::Result;
@@ -14,7 +14,7 @@ use score::{
 pub async fn refine<R: Accounts, VM: Pvm>(
     d3l: &impl Guarantor,
     work: &WorkPackage,
-    extrinsic_data: &BTreeMap<OpaqueHash, Vec<u8>>,
+    extrinsic: &BTreeMap<OpaqueHash, Vec<u8>>,
     core_idx: u16,
     auth_output: &[u8],
     accounts: &mut R,
@@ -93,10 +93,7 @@ pub async fn refine<R: Accounts, VM: Pvm>(
     // TODO: cache proofs
     let bundle = WorkPackageBundle {
         package: work.clone(),
-        extrinsic: extrinsic_data
-            .clone()
-            .into_iter()
-            .collect::<HashMap<_, _>>(),
+        extrinsic: extrinsic.clone(),
         imports_with_proofs,
     };
     let spec = bundle.specify(all_exported_segments).await?;
