@@ -69,6 +69,61 @@ pub trait DataLake: Send + Sync {
     /// Store a work report by its hash  
     async fn store_work_report(&self, report_hash: OpaqueHash, report: WorkReport) -> Result<()>;
 
+    /// Get shard layout information (bundle shard count vs segment shard count)
+    async fn get_shard_layout(&self, erasure_root: &OpaqueHash) -> Result<Option<(usize, usize)>>;
+
+    /// Store shard layout information  
+    async fn store_shard_layout(
+        &self,
+        erasure_root: OpaqueHash,
+        bundle_count: usize,
+        segment_count: usize,
+    ) -> Result<()>;
+
+    /// Get a specific bundle shard by index
+    async fn get_bundle_shard(
+        &self,
+        erasure_root: &OpaqueHash,
+        shard_index: u16,
+    ) -> Result<Option<Vec<u8>>> {
+        let shards = self.get_shards(erasure_root).await?;
+        let layout = self.get_shard_layout(erasure_root).await?;
+
+        match (shards, layout) {
+            (Some(shards), Some((bundle_count, _))) => {
+                if (shard_index as usize) < bundle_count && (shard_index as usize) < shards.len() {
+                    Ok(Some(shards[shard_index as usize].clone()))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Get segment shards for a specific segment index
+    async fn get_segment_shards(
+        &self,
+        erasure_root: &OpaqueHash,
+        _segment_index: u16,
+    ) -> Result<Option<Vec<Vec<u8>>>> {
+        let shards = self.get_shards(erasure_root).await?;
+        let layout = self.get_shard_layout(erasure_root).await?;
+
+        match (shards, layout) {
+            (Some(shards), Some((bundle_count, _segment_count))) => {
+                let segment_shards_start = bundle_count;
+                if segment_shards_start < shards.len() {
+                    let segment_shards: Vec<Vec<u8>> = shards[segment_shards_start..].to_vec();
+                    Ok(Some(segment_shards))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Compute availability specification and store associated shards
     async fn specify_bundle(
         &self,
@@ -122,10 +177,16 @@ pub trait DataLake: Send + Sync {
         let erasure_root = crypto::merkle::root(&leaves);
 
         // 4. Store shards for later retrieval
+        let bundle_shard_count = bundle_chunks.len();
+        let segment_shard_count = exported_chunks.len();
         let mut all_shards = Vec::new();
         all_shards.extend(bundle_chunks);
         all_shards.extend(exported_chunks);
         self.store_shards(erasure_root, all_shards).await?;
+
+        // Store shard layout information
+        self.store_shard_layout(erasure_root, bundle_shard_count, segment_shard_count)
+            .await?;
 
         // 5. Store exported segments for import
         for segment in &exported {
@@ -228,6 +289,7 @@ pub trait DataLake: Send + Sync {
 pub struct InMemoryDataLake {
     segments: RwLock<HashMap<OpaqueHash, Segment>>,
     shards: RwLock<HashMap<OpaqueHash, Vec<Vec<u8>>>>,
+    shard_layouts: RwLock<HashMap<OpaqueHash, (usize, usize)>>, // (bundle_count, segment_count)
     lookup: RwLock<HashMap<WorkPackageHash, OpaqueHash>>,
     page_proofs: RwLock<HashMap<(OpaqueHash, u16), PageProof>>,
     work_reports: RwLock<HashMap<OpaqueHash, WorkReport>>,
@@ -305,7 +367,21 @@ impl DataLake for InMemoryDataLake {
         self.work_reports.write().await.insert(report_hash, report);
         Ok(())
     }
-}
 
-// Implement Assurer trait for InMemoryDataLake
-impl crate::Assurer for InMemoryDataLake {}
+    async fn get_shard_layout(&self, erasure_root: &OpaqueHash) -> Result<Option<(usize, usize)>> {
+        Ok(self.shard_layouts.read().await.get(erasure_root).copied())
+    }
+
+    async fn store_shard_layout(
+        &self,
+        erasure_root: OpaqueHash,
+        bundle_count: usize,
+        segment_count: usize,
+    ) -> Result<()> {
+        self.shard_layouts
+            .write()
+            .await
+            .insert(erasure_root, (bundle_count, segment_count));
+        Ok(())
+    }
+}

@@ -14,15 +14,15 @@ pub trait Assurer: DataLake {
             .ok_or_else(|| anyhow::anyhow!("Work report not found: {:?}", report_hash))
     }
 
-    /// Get audit shard data with justification
+    /// Get audit shard data with justification (CE138)
     async fn audit_shard(
         &self,
         erasure_root: OpaqueHash,
         shard_index: u16,
     ) -> Result<(Vec<u8>, Justification)> {
-        // Get the bundle shard
+        // Get the bundle shard (not segment shard)
         let bundle_shard = self
-            .get_shard(&erasure_root, shard_index)
+            .get_bundle_shard(&erasure_root, shard_index)
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!(
@@ -48,7 +48,7 @@ pub trait Assurer: DataLake {
         let justification = justification
             .path
             .path
-            .get(0)
+            .first()
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "Empty justification path for shard {} of {:?}",
@@ -58,53 +58,17 @@ pub trait Assurer: DataLake {
             })?
             .clone();
 
-
         Ok((bundle_shard, justification))
     }
 
-    /// Get segment shard data with justifications
-    async fn segment(
-        &self,
-        erasure_root: OpaqueHash,
-        shard_index: u16,
-        segment_indices: Vec<u16>,
-    ) -> Result<Vec<(Segment, Justification)>> {
-        // Default to including justifications
-        let results = self
-            .segment_shards(erasure_root, shard_index, segment_indices, true)
-            .await?;
-
-        // Convert to expected return type
-        results
-            .into_iter()
-            .map(|(shard_data, justification)| {
-                let segment: Segment = if shard_data.len() == score::SEGMENT_SIZE as usize {
-                    let mut segment = [0u8; score::SEGMENT_SIZE as usize];
-                    segment.copy_from_slice(&shard_data);
-                    segment
-                } else {
-                    // If not proper segment size, zero-pad or truncate as needed
-                    let mut segment = [0u8; score::SEGMENT_SIZE as usize];
-                    let copy_len = shard_data.len().min(score::SEGMENT_SIZE as usize);
-                    segment[..copy_len].copy_from_slice(&shard_data[..copy_len]);
-                    segment
-                };
-
-                let justification = justification.unwrap_or(Justification::Hash([0u8; 32]));
-                Ok((segment, justification))
-            })
-            .collect()
-    }
-
-    /// Get segment shard data with optional justification control
+    /// Get segment shard data with optional justification control (CE139/CE140)
     async fn segment_shards(
         &self,
         erasure_root: OpaqueHash,
         shard_index: u16,
         segment_indices: Vec<u16>,
         with_justification: bool,
-    ) -> Result<Vec<(Vec<u8>, Option<Justification>)>> {
-
+    ) -> Result<Vec<(Segment, Option<Justification>)>> {
         // Get all shards for the erasure root
         let all_shards = self.get_shards(&erasure_root).await?.ok_or_else(|| {
             anyhow::anyhow!("No shards found for erasure root: {:?}", erasure_root)
@@ -119,28 +83,47 @@ pub trait Assurer: DataLake {
             ));
         }
 
+        // Get the shard layout to properly separate bundle vs segment shards
         let mut results = Vec::with_capacity(segment_indices.len());
+        let layout = self.get_shard_layout(&erasure_root).await?.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Shard layout not found for erasure root: {:?}",
+                erasure_root
+            )
+        })?;
+
+        // TODO: verify the count of the chunks
+        let (bundle_count, _) = layout;
+        let segment_shards_start = bundle_count;
         for segment_index in segment_indices {
-            // For now, return the shard data at the shard_index
-            // TODO: Properly separate bundle vs segment shards based on erasure layout
+            let segment_shard_idx = segment_shards_start + (shard_index as usize);
             let segment_shard = all_shards
-                .get(shard_index as usize)
-                .ok_or_else(|| anyhow::anyhow!("Shard {} not available", shard_index))?
+                .get(segment_shard_idx)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Segment shard {} not available at index {}",
+                        shard_index,
+                        segment_shard_idx
+                    )
+                })?
                 .clone();
 
+            // Embed justification if requested
             let justification = if with_justification {
-                // Generate justification if requested
                 self.segment_justification(&erasure_root, segment_index, shard_index)
                     .await?
-                    .and_then(|sj| sj.path.path.get(0).cloned())
+                    .and_then(|sj| sj.path.path.first().cloned())
             } else {
-                // No justification
                 None
             };
 
-            results.push((segment_shard, justification));
+            let mut segment = [0u8; score::SEGMENT_SIZE as usize];
+            segment.copy_from_slice(&segment_shard);
+            results.push((segment, justification));
         }
 
         Ok(results)
     }
 }
+
+impl<T: DataLake> Assurer for T {}

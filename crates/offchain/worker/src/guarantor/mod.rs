@@ -67,8 +67,6 @@ pub trait Guarantor: DataLake + Sized {
     }
 
     /// Validate a work package bundle
-    ///
-    /// TODO: handle the segment roots
     async fn validate<A: Accounts, VM: Pvm>(
         &self,
         bundle: &WorkPackageBundle,
@@ -82,32 +80,47 @@ pub trait Guarantor: DataLake + Sized {
             .compute::<A, VM>(core_index, extrinsic, work, accounts)
             .await?;
 
+        // Validate that provided segment roots match expected ones
+        let expected_lookup = &report.lookup;
+        for (work_package_hash, expected_root) in expected_lookup {
+            if let Some(provided_root) = segment_roots.get(work_package_hash) {
+                if provided_root != expected_root {
+                    return Err(anyhow::anyhow!(
+                        "Segment root mismatch for work package {:?}: expected {:?}, got {:?}",
+                        work_package_hash,
+                        expected_root,
+                        provided_root
+                    ));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Missing segment root for work package: {:?}",
+                    work_package_hash
+                ));
+            }
+        }
+
+        // Use the provided segment roots (now validated)
         report.lookup = segment_roots;
         Ok(report)
     }
 
     /// Get shard data with justifications
     async fn shard(&self, erasure_root: OpaqueHash, shard_index: u16) -> Result<Shard> {
-        // Get the specific shard data
+        // Get the specific bundle shard data
         let bundle_shard = self
-            .get_shard(&erasure_root, shard_index)
+            .get_bundle_shard(&erasure_root, shard_index)
             .await?
             .ok_or_else(|| {
-                anyhow::anyhow!("Shard not found: {:?} index {}", erasure_root, shard_index)
+                anyhow::anyhow!("Bundle shard not found: {:?} index {}", erasure_root, shard_index)
             })?;
 
-        // Get all shards to extract segment shards
-        let all_shards = self.get_shards(&erasure_root).await?.ok_or_else(|| {
-            anyhow::anyhow!("No shards found for erasure root: {:?}", erasure_root)
-        })?;
-
-        // Return segment shards as well as bundle shard
-        // TODO: Properly separate bundle vs segment shards based on the erasure coding layout
-        let segment_shards = if (shard_index as usize) < all_shards.len() {
-            all_shards[shard_index as usize].clone()
-        } else {
-            Vec::new()
-        };
+        // Get segment shards for this shard index
+        let segment_shards = self
+            .get_segment_shards(&erasure_root, shard_index)
+            .await?
+            .and_then(|shards| shards.get(shard_index as usize).cloned())
+            .unwrap_or_else(Vec::new);
 
         // Generate justification for the shard
         let justifications = self
