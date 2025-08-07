@@ -221,7 +221,7 @@ pub trait DataLake: Send + Sync {
         Ok(availability)
     }
 
-    /// Import segments (with default implementation)
+    /// Import segments
     async fn import_segments(&self, segment_hashes: &[OpaqueHash]) -> Result<Vec<Segment>> {
         let mut segments = Vec::with_capacity(segment_hashes.len());
         for &hash in segment_hashes {

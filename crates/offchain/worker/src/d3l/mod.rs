@@ -10,12 +10,12 @@
 pub mod bundle;
 pub mod justification;
 pub mod proof;
-mod provider;
+mod lake;
 pub mod shard;
 
 pub use {
     justification::{Justification, JustificationPath},
     proof::{BundleShardJustification, PageProof, SegmentShardJustification},
-    provider::{DataLake, InMemoryDataLake},
+    lake::{DataLake, InMemoryDataLake},
     shard::Shard,
 };

@@ -24,12 +24,6 @@ pub fn min_shards() -> usize {
     Config::default().original
 }
 
-/// Validate that shards form a valid Merkle tree with expected root
-pub fn verify_root(shards: &[Vec<u8>], expected_root: &[u8; 32]) -> Result<bool> {
-    let merkle_tree = crypto::merkle::MerkleTree::from(shards.to_vec());
-    Ok(merkle_tree.root() == *expected_root)
-}
-
 /// Validate that a segment produces the expected shard at given index
 pub fn verify_shard(segment: &[u8], expected_shard: &[u8], shard_index: u16) -> Result<bool> {
     let shards = encode_sync(segment.to_vec())?;
@@ -69,24 +63,4 @@ pub fn partial_shards(shards: &[Vec<u8>]) -> Vec<(usize, Vec<u8>)> {
         .take(needed)
         .map(|(i, shard)| (i, shard.clone()))
         .collect()
-}
-
-/// Validate segment reconstruction pipeline (generic over size)
-pub fn validate_reconstruction(
-    shards: &[Vec<u8>],
-    shard_index: u16,
-    expected_shard: &[u8],
-) -> Result<[u8; SEGMENT_SIZE as usize]> {
-    let partial = partial_shards(shards);
-    let segment = reconstruct_segment(&partial)?;
-
-    // Validate reconstructed segment produces the expected shard
-    if !verify_shard(&segment, expected_shard, shard_index)? {
-        return Err(anyhow::anyhow!(
-            "Reconstructed segment validation failed for shard {}",
-            shard_index
-        ));
-    }
-
-    Ok(segment)
 }
