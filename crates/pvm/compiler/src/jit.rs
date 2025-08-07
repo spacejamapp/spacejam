@@ -64,19 +64,23 @@ impl JitCompiler {
 
         let (registers, pc) = translator.translate(program)?;
 
-        // Store all 13 register values back to context.registers
-        for (i, value) in registers.iter().enumerate() {
-            let offset = builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = builder.ins().iadd(context_ptr, offset);
-            builder.ins().store(MemFlags::new(), *value, addr, 0);
+        // Only add return handling for linear programs (no control flow)
+        if !registers.is_empty() {
+            // Store all 13 register values back to context.registers
+            for (i, value) in registers.iter().enumerate() {
+                let offset = builder.ins().iconst(types::I64, (i * 8) as i64);
+                let addr = builder.ins().iadd(context_ptr, offset);
+                builder.ins().store(MemFlags::new(), *value, addr, 0);
+            }
+
+            // Store PC back to context.pc (offset 104)
+            let pc_offset = builder.ins().iconst(types::I64, 104);
+            let pc_addr = builder.ins().iadd(context_ptr, pc_offset);
+            builder.ins().store(MemFlags::new(), pc, pc_addr, 0);
+
+            builder.ins().return_(&[]);
         }
-
-        // Store PC back to context.pc (offset 104)
-        let pc_offset = builder.ins().iconst(types::I64, 104);
-        let pc_addr = builder.ins().iadd(context_ptr, pc_offset);
-        builder.ins().store(MemFlags::new(), pc, pc_addr, 0);
-
-        builder.ins().return_(&[]);
+        // For control flow programs, translate() already handled the return
         builder.finalize();
 
         // Compile the function
