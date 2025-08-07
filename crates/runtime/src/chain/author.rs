@@ -293,7 +293,7 @@ impl<C: Config> Deref for Author<'_, C> {
 
 impl<C: Config> Runtime<C> {
     /// Get the authoring context
-    pub fn author(&self) -> Author<C> {
+    pub fn author(&self) -> Author<'_, C> {
         Author::new(self)
     }
 

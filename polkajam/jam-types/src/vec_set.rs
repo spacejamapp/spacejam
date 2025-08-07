@@ -96,7 +96,7 @@ impl<T: Eq + PartialEq + Ord + PartialOrd> VecSet<T> {
         is_disjoint(&self.0, &other.0)
     }
     /// Return an iterator over the items in this set in order.
-    pub fn iter(&self) -> core::slice::Iter<T> {
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.0.iter()
     }
     /// Consume this set and return a [Vec] of transformed items.
