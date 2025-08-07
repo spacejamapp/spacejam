@@ -112,7 +112,11 @@ pub trait Guarantor: DataLake + Sized {
             .get_bundle_shard(&erasure_root, shard_index)
             .await?
             .ok_or_else(|| {
-                anyhow::anyhow!("Bundle shard not found: {:?} index {}", erasure_root, shard_index)
+                anyhow::anyhow!(
+                    "Bundle shard not found: {:?} index {}",
+                    erasure_root,
+                    shard_index
+                )
             })?;
 
         // Get segment shards for this shard index

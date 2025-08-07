@@ -1,10 +1,9 @@
 //! Shard utilities for segment validation and reconstruction
 
+use crate::d3l::BundleShardJustification;
 use anyhow::Result;
 use erasure::{decode_sync, encode_sync, Config};
 use score::SEGMENT_SIZE;
-
-use crate::d3l::BundleShardJustification;
 
 /// A shard of a work report
 pub struct Shard {

@@ -26,7 +26,6 @@ impl Justification {
         let path = JustificationPath::new(*erasure_root, 0, vec![self.clone()]);
         path.verify_shard(&shard_hash)
     }
-
 }
 
 /// Merkle co-path from erasure root to a specific shard

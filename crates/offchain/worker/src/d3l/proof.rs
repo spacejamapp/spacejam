@@ -100,53 +100,57 @@ impl PageProof {
 
     /// Generate page-proof for a page of segments (Gray Paper P function implementation)
     pub fn generate(
-        segments: &[Segment],
+        segment_hashes: &[OpaqueHash],
         page_index: u16,
         segments_root: &OpaqueHash,
     ) -> Result<Self> {
-        if segments.is_empty() {
+        if segment_hashes.is_empty() {
             return Err(anyhow::anyhow!(
                 "Cannot generate page-proof for empty segments"
             ));
         }
 
-        if segments.len() > 64 {
+        if segment_hashes.len() > 64 {
             // Gray Paper: 64 segments per page
             return Err(anyhow::anyhow!(
                 "Page size exceeds Gray Paper limit of 64 segments"
             ));
         }
 
-        // 1. Hash all segments in this page
-        let segment_hashes: Vec<OpaqueHash> = segments
-            .iter()
-            .map(|segment| crypto::blake2b(segment))
-            .collect();
-
-        // 2. Generate Merkle proof from segments_root to this subtree
+        // Generate Merkle proof from segments_root to this subtree
         // For now, create a simple proof - this will be enhanced with proper tree traversal
         let merkle_proof = vec![Justification::Hash(*segments_root)];
 
         Ok(PageProof {
-            segment_hashes,
+            segment_hashes: segment_hashes.to_vec(),
             merkle_proof,
             page_index,
         })
     }
 
     /// Generate page-proofs for a set of exported segments (function P)
-    pub async fn proofs(exported: &[Segment], exports_root: &OpaqueHash) -> Result<Vec<Self>> {
+    pub async fn proofs(
+        exported: &[Segment],
+        exports_root: &OpaqueHash,
+    ) -> Result<(Vec<Self>, Vec<OpaqueHash>)> {
+        let all_segment_hashes: Vec<OpaqueHash> = exported
+            .iter()
+            .map(|segment| crypto::blake2b(segment))
+            .collect();
+
+        // split into pages of 64 segments
         let page_count = exported.len().div_ceil(64);
         let mut page_proofs = Vec::new();
         for page_index in 0..page_count {
             let start_idx = page_index * 64;
             let end_idx = std::cmp::min(start_idx + 64, exported.len());
-            let page_segments = &exported[start_idx..end_idx];
-            let page_proof = PageProof::generate(page_segments, page_index as u16, exports_root)?;
+            let page_segment_hashes = &all_segment_hashes[start_idx..end_idx];
+            let page_proof =
+                PageProof::generate(page_segment_hashes, page_index as u16, exports_root)?;
             page_proofs.push(page_proof);
         }
 
-        Ok(page_proofs)
+        Ok((page_proofs, all_segment_hashes))
     }
 
     /// Verify a segment using this page-proof

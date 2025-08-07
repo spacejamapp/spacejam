@@ -88,17 +88,15 @@ pub trait DataLake: Send + Sync {
     ) -> Result<Option<Vec<u8>>> {
         let shards = self.get_shards(erasure_root).await?;
         let layout = self.get_shard_layout(erasure_root).await?;
+        let (Some(shards), Some((bundle_count, _))) = (shards, layout) else {
+            return Ok(None);
+        };
 
-        match (shards, layout) {
-            (Some(shards), Some((bundle_count, _))) => {
-                if (shard_index as usize) < bundle_count && (shard_index as usize) < shards.len() {
-                    Ok(Some(shards[shard_index as usize].clone()))
-                } else {
-                    Ok(None)
-                }
-            }
-            _ => Ok(None),
+        if shard_index as usize >= bundle_count {
+            anyhow::bail!("Shard index out of bounds");
         }
+
+        Ok(Some(shards[shard_index as usize].clone()))
     }
 
     /// Get segment shards for a specific segment index
@@ -109,19 +107,19 @@ pub trait DataLake: Send + Sync {
     ) -> Result<Option<Vec<Vec<u8>>>> {
         let shards = self.get_shards(erasure_root).await?;
         let layout = self.get_shard_layout(erasure_root).await?;
+        let (Some(shards), Some((bundle_count, _segment_count))) = (shards, layout) else {
+            return Ok(None);
+        };
 
-        match (shards, layout) {
-            (Some(shards), Some((bundle_count, _segment_count))) => {
-                let segment_shards_start = bundle_count;
-                if segment_shards_start < shards.len() {
-                    let segment_shards: Vec<Vec<u8>> = shards[segment_shards_start..].to_vec();
-                    Ok(Some(segment_shards))
-                } else {
-                    Ok(None)
-                }
-            }
-            _ => Ok(None),
+        // returns if there are no segment shards
+        let segment_shards_start = bundle_count;
+        if segment_shards_start >= shards.len() {
+            return Ok(None);
         }
+
+        // return the segment shards
+        let segment_shards: Vec<Vec<u8>> = shards[segment_shards_start..].to_vec();
+        Ok(Some(segment_shards))
     }
 
     /// Compute availability specification and store associated shards
@@ -139,7 +137,7 @@ pub trait DataLake: Send + Sync {
                 .collect::<Vec<_>>()
                 .as_slice(),
         );
-        let proofs = PageProof::proofs(&exported, &exports_root).await?;
+        let (proofs, segment_hashes) = PageProof::proofs(&exported, &exports_root).await?;
         let encoded = codec::encode(&(
             exported.to_vec().iter().flatten().collect::<Vec<_>>(),
             proofs,
@@ -188,9 +186,8 @@ pub trait DataLake: Send + Sync {
         self.store_shard_layout(erasure_root, bundle_shard_count, segment_shard_count)
             .await?;
 
-        // 5. Store exported segments for import
-        for segment in &exported {
-            let segment_hash = crypto::blake2b(segment);
+        // 5. Store exported segments for import (using pre-computed hashes)
+        for (segment, &segment_hash) in exported.iter().zip(segment_hashes.iter()) {
             self.store_segment(segment_hash, *segment).await?;
         }
 
