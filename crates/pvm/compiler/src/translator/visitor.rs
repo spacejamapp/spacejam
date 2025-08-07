@@ -1,1109 +1,8 @@
-//! Translator module that converts PVM instructions to Cranelift IR
+//! Visitor implementation for PVM instructions
 
+use crate::{translator::memory::MemorySize, Translator};
 use cranelift::prelude::*;
-use parser::{format, Instruction, Visitor};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
-
-/// Memory operation sizes
-#[derive(Debug, Copy, Clone)]
-enum MemorySize {
-    Byte,  // 8 bits
-    Word,  // 16 bits
-    DWord, // 32 bits
-    QWord, // 64 bits
-}
-
-// Context structure offsets
-const MEMORY_PTR_OFFSET: i64 = 112; // 13*8 + 8 = registers + pc
-const MAX_MEMORY: i64 = 0x100000; // 1MB linear memory size
-const OPS_COUNT_OFFSET: i64 = 1664; // memory_ops_count offset
-const OPS_OFFSET: i64 = 128; // memory_ops array offset
-const OP_SIZE: i64 = 24; // Size of each MemoryOp struct
-const MAX_OPS: i32 = 64; // Maximum recorded memory operations
-
-/// Temporary visitor wrapper to avoid lifetime issues
-pub struct Translator<'a, 'b> {
-    pub registers: HashMap<u8, Variable>,
-    pub pc: Variable,
-    pub memory_ptr: Variable,
-    pub execution_mask: Variable, // Track which execution path we're on
-    pub context_var: Variable,    // Context variable for accessing runtime state
-    builder: &'a mut FunctionBuilder<'b>,
-
-    // Control flow analysis
-    basic_blocks: BTreeMap<usize, Block>, // PC offset -> Cranelift block
-    branch_targets: BTreeSet<usize>,      // Set of all branch target offsets
-}
-
-impl<'a, 'b> Translator<'a, 'b> {
-    /// Create a new translator with PVM register variables and PC
-    pub fn new(builder: &'a mut FunctionBuilder<'b>) -> Self {
-        let mut registers = HashMap::new();
-
-        // Declare all 13 PVM registers as Cranelift variables
-        // PVM has 13 registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
-        for i in 0..13 {
-            let var = Variable::new(i);
-            builder.declare_var(var, types::I64);
-            registers.insert(i as u8, var);
-        }
-
-        // Declare PC variable (use variable index 13)
-        let pc = Variable::new(13);
-        builder.declare_var(pc, types::I64);
-
-        // Declare memory pointer variable (use variable index 14)
-        let memory_ptr = Variable::new(14);
-        builder.declare_var(memory_ptr, types::I64);
-
-        // Declare execution mask variable (use variable index 15)
-        let execution_mask = Variable::new(15);
-        builder.declare_var(execution_mask, types::I8);
-
-        // Declare context variable (use variable index 16)
-        let context_var = Variable::new(16);
-        builder.declare_var(context_var, types::I64);
-
-        // Memory operations will be handled inline, not via external functions
-
-        Self {
-            registers,
-            pc,
-            memory_ptr,
-            execution_mask,
-            context_var,
-            builder,
-            basic_blocks: BTreeMap::new(),
-            branch_targets: BTreeSet::new(),
-        }
-    }
-
-    /// Load initial execution context (registers + PC) from memory pointer
-    pub fn load_initial_context(&mut self, context_ptr: Value) -> Result<(), anyhow::Error> {
-        // Store context_ptr in a variable for use throughout translation
-        self.builder.def_var(self.context_var, context_ptr);
-        // Load all 13 registers from context.registers
-        for i in 0..13 {
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(context_ptr, offset);
-            let value = self
-                .builder
-                .ins()
-                .load(types::I64, MemFlags::new(), addr, 0);
-            let var = self.registers[&(i as u8)];
-            self.builder.def_var(var, value);
-        }
-
-        // Load PC from context.pc (offset 13 * 8 = 104 bytes after start)
-        let pc_offset = self.builder.ins().iconst(types::I64, 104);
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        let pc_value = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), pc_addr, 0);
-        self.builder.def_var(self.pc, pc_value);
-
-        // Load memory pointer from context.memory_ptr (offset 112 bytes after start)
-        let mem_offset = self.builder.ins().iconst(types::I64, 112);
-        let mem_addr = self.builder.ins().iadd(context_ptr, mem_offset);
-        let mem_ptr_value = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), mem_addr, 0);
-        self.builder.def_var(self.memory_ptr, mem_ptr_value);
-
-        // Initialize execution mask to true (all instructions execute initially)
-        let true_val = self.builder.ins().iconst(types::I8, 1);
-        self.builder.def_var(self.execution_mask, true_val);
-
-        Ok(())
-    }
-
-    /// Translate a PVM program to Cranelift IR and return final context values
-    pub fn translate(&mut self, program: &[u8]) -> Result<(Vec<Value>, Value), anyhow::Error> {
-        let blob = parser::program::deblob(program)?;
-        let mut reader = blob.reader();
-
-        // For simple programs without branches, use linear execution
-        if self.has_control_flow(&blob)? {
-            // Create dummy value before we start control flow generation
-            let dummy_val = self.builder.ins().iconst(types::I32, 0);
-
-            // Pass 1: Analyze control flow to identify basic block boundaries
-            self.analyze_control_flow(&blob)?;
-
-            // Pass 2: Generate code with proper control flow
-            self.generate_code(&blob)?;
-
-            // Control flow handled everything including return - return dummy values
-            Ok((vec![], dummy_val))
-        } else {
-            // Linear execution - no branches
-            while !reader.eof() {
-                let instruction_offset = reader.read()?;
-                let instruction = instruction_offset.value;
-
-                // Increment PC by instruction size before executing instruction
-                let current_pc = self.builder.use_var(self.pc);
-                let instruction_size = self
-                    .builder
-                    .ins()
-                    .iconst(types::I64, instruction_offset.range.len() as i64);
-                let new_pc = self.builder.ins().iadd(current_pc, instruction_size);
-                self.builder.def_var(self.pc, new_pc);
-
-                self.visit(instruction)?;
-            }
-
-            // Return all 13 register values + PC (the JIT will handle the return instruction)
-            let mut register_values = Vec::with_capacity(13);
-            for i in 0..13 {
-                let var = self.registers[&(i as u8)];
-                register_values.push(self.builder.use_var(var));
-            }
-
-            let pc_value = self.builder.use_var(self.pc);
-
-            Ok((register_values, pc_value))
-        }
-    }
-
-    /// Check if the program has any control flow instructions
-    fn has_control_flow(&self, blob: &parser::program::ProgramBlob) -> Result<bool, anyhow::Error> {
-        let mut reader = blob.reader();
-
-        while !reader.eof() {
-            let instruction_offset = reader.read()?;
-            let instruction = &instruction_offset.value;
-
-            match instruction {
-                Instruction::Jump(_)
-                | Instruction::JumpInd(_)
-                | Instruction::LoadImmJump(_)
-                | Instruction::LoadImmJumpInd(_)
-                | Instruction::BranchEq(_)
-                | Instruction::BranchNe(_)
-                | Instruction::BranchLtU(_)
-                | Instruction::BranchLtS(_)
-                | Instruction::BranchGeU(_)
-                | Instruction::BranchGeS(_)
-                | Instruction::BranchEqImm(_)
-                | Instruction::BranchNeImm(_)
-                | Instruction::BranchLtUImm(_)
-                | Instruction::BranchLtSImm(_)
-                | Instruction::BranchGeUImm(_)
-                | Instruction::BranchGeSImm(_)
-                | Instruction::BranchLeUImm(_)
-                | Instruction::BranchLeSImm(_)
-                | Instruction::BranchGtUImm(_)
-                | Instruction::BranchGtSImm(_) => {
-                    return Ok(true);
-                }
-                _ => {}
-            }
-        }
-
-        Ok(false)
-    }
-
-    /// Pass 1: Analyze the program to identify all branch targets and basic block boundaries
-    fn analyze_control_flow(
-        &mut self,
-        blob: &parser::program::ProgramBlob,
-    ) -> Result<(), anyhow::Error> {
-        let mut reader = blob.reader();
-
-        // Always start at offset 0
-        self.branch_targets.insert(0);
-
-        while !reader.eof() {
-            let instruction_offset = reader.read()?;
-            let current_pc = instruction_offset.range.start;
-            let instruction = &instruction_offset.value;
-
-            // Check if this instruction is a control flow instruction
-            match instruction {
-                Instruction::Jump(format) => {
-                    let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                    self.branch_targets.insert(target_offset);
-                    // Next instruction after jump is also a basic block start
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                Instruction::JumpInd(_) => {
-                    // For indirect jumps, we can't determine the target statically
-                    // But the next instruction is still a basic block boundary
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                Instruction::LoadImmJump(format) => {
-                    let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                    self.branch_targets.insert(target_offset);
-                    // Next instruction after jump is also a basic block start
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                Instruction::LoadImmJumpInd(_) => {
-                    // For indirect jumps, we can't determine the target statically
-                    // But the next instruction is still a basic block boundary
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                Instruction::BranchEq(format)
-                | Instruction::BranchNe(format)
-                | Instruction::BranchLtU(format)
-                | Instruction::BranchLtS(format)
-                | Instruction::BranchGeU(format)
-                | Instruction::BranchGeS(format) => {
-                    let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                    self.branch_targets.insert(target_offset);
-                    // Next instruction after branch is also a basic block start (fall-through path)
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                Instruction::BranchEqImm(format)
-                | Instruction::BranchNeImm(format)
-                | Instruction::BranchLtUImm(format)
-                | Instruction::BranchLtSImm(format)
-                | Instruction::BranchGeUImm(format)
-                | Instruction::BranchGeSImm(format)
-                | Instruction::BranchLeUImm(format)
-                | Instruction::BranchLeSImm(format)
-                | Instruction::BranchGtUImm(format)
-                | Instruction::BranchGtSImm(format) => {
-                    let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                    self.branch_targets.insert(target_offset);
-                    // Next instruction after branch is also a basic block start (fall-through path)
-                    self.branch_targets.insert(instruction_offset.range.end);
-                }
-                _ => {} // Not a control flow instruction
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Pass 2: Generate Cranelift IR with proper basic blocks
-    fn generate_code(&mut self, blob: &parser::program::ProgramBlob) -> Result<(), anyhow::Error> {
-        // Create Cranelift blocks for all branch targets
-        for &target_offset in &self.branch_targets {
-            let block = self.builder.create_block();
-            self.basic_blocks.insert(target_offset, block);
-        }
-
-        // Create exit block for function termination
-        let exit_block = self.builder.create_block();
-
-        // Jump from the current block (JIT entry block) to our entry block (offset 0)
-        let our_entry_block = self.basic_blocks[&0];
-        // TODO: Fix context parameter passing later
-        self.builder.ins().jump(our_entry_block, &[]);
-
-        // Start with our entry block (offset 0)
-        self.builder.switch_to_block(our_entry_block);
-
-        let mut reader = blob.reader();
-        let mut current_block_start = 0;
-        let mut needs_fallthrough = true;
-
-        while !reader.eof() {
-            let instruction_offset = reader.read()?;
-            let current_pc = instruction_offset.range.start;
-            let instruction = instruction_offset.value;
-
-            // Check if we need to switch to a new basic block
-            if current_pc != current_block_start && self.branch_targets.contains(&current_pc) {
-                // Seal the previous block since we're done with it
-                let prev_block = self.basic_blocks[&current_block_start];
-                self.builder.seal_block(prev_block);
-
-                // Add fallthrough jump if the previous block didn't terminate
-                if needs_fallthrough {
-                    self.builder.ins().jump(exit_block, &[]);
-                }
-
-                // We've reached a new basic block target - switch to it
-                let target_block = self.basic_blocks[&current_pc];
-                self.builder.switch_to_block(target_block);
-
-                // Set PC for this block (entry block or branch target)
-                // Fallthrough blocks from branches already have PC set
-                let target_pc = self.builder.ins().iconst(types::I64, current_pc as i64);
-                self.builder.def_var(self.pc, target_pc);
-                current_block_start = current_pc;
-            }
-
-            // Check if this is a branch/jump instruction
-            let is_control_flow = matches!(
-                instruction,
-                Instruction::Trap
-                    | Instruction::BranchEq(_)
-                    | Instruction::BranchNe(_)
-                    | Instruction::BranchLtU(_)
-                    | Instruction::BranchLtS(_)
-                    | Instruction::BranchGeU(_)
-                    | Instruction::BranchGeS(_)
-                    | Instruction::BranchEqImm(_)
-                    | Instruction::BranchNeImm(_)
-                    | Instruction::BranchLtUImm(_)
-                    | Instruction::BranchLtSImm(_)
-                    | Instruction::BranchGeUImm(_)
-                    | Instruction::BranchGeSImm(_)
-                    | Instruction::BranchLeUImm(_)
-                    | Instruction::BranchLeSImm(_)
-                    | Instruction::BranchGtUImm(_)
-                    | Instruction::BranchGtSImm(_)
-                    | Instruction::Jump(_)
-                    | Instruction::JumpInd(_)
-                    | Instruction::LoadImmJump(_)
-                    | Instruction::LoadImmJumpInd(_)
-            );
-
-            // Increment PC for non-control-flow instructions
-            // We always increment PC unless it's a control flow instruction
-            if !is_control_flow {
-                let current_pc_val = self.builder.use_var(self.pc);
-                let instruction_size = self
-                    .builder
-                    .ins()
-                    .iconst(types::I64, instruction_offset.range.len() as i64);
-                let new_pc = self.builder.ins().iadd(current_pc_val, instruction_size);
-                self.builder.def_var(self.pc, new_pc);
-            }
-
-            // Execute the instruction
-            needs_fallthrough = self.visit_with_control_flow(
-                instruction,
-                current_pc,
-                instruction_offset.range.end,
-            )?;
-        }
-
-        // Seal the final block since we're done with it
-        let final_block = self.basic_blocks[&current_block_start];
-        self.builder.seal_block(final_block);
-
-        // If the last block needs fallthrough, jump to exit
-        if needs_fallthrough {
-            self.builder.ins().jump(exit_block, &[]);
-        }
-
-        // Switch to exit block and save state to context before returning
-        self.builder.switch_to_block(exit_block);
-        self.builder.seal_block(exit_block);
-
-        // Get the context pointer parameter from entry block
-        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-        let context_ptr = self.builder.block_params(entry_block)[0];
-
-        // Store all 13 register values back to context.registers
-        for i in 0..13 {
-            let reg_var = self.registers[&(i as u8)];
-            let reg_value = self.builder.use_var(reg_var);
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(context_ptr, offset);
-            self.builder
-                .ins()
-                .store(MemFlags::new(), reg_value, addr, 0);
-        }
-
-        // Store PC back to context.pc (offset 104)
-        let pc_value = self.builder.use_var(self.pc);
-        let pc_offset = self.builder.ins().iconst(types::I64, 104);
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), pc_value, pc_addr, 0);
-
-        self.builder.ins().return_(&[]);
-
-        Ok(())
-    }
-
-    /// Execute an instruction with proper control flow handling
-    /// Returns true if the block still needs fallthrough, false if it's terminated
-    fn visit_with_control_flow(
-        &mut self,
-        instruction: Instruction,
-        current_pc: usize,
-        next_pc: usize,
-    ) -> Result<bool, anyhow::Error> {
-        match instruction {
-            // Control flow instructions need special handling
-            Instruction::Jump(format) => {
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-
-                // Set PC for the target block
-                let target_pc = self.builder.ins().iconst(types::I64, target_offset as i64);
-                self.builder.def_var(self.pc, target_pc);
-
-                // TODO: Pass context parameter to the target block
-                self.builder.ins().jump(target_block, &[]);
-                Ok(false) // Block is terminated, no fallthrough needed
-            }
-            Instruction::JumpInd(format) => {
-                // Indirect jump: PC = reg0 + immediate
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let offset = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let target_addr = self.builder.ins().iadd(reg0_val, offset);
-
-                // Set PC to the computed target address
-                self.builder.def_var(self.pc, target_addr);
-
-                // For indirect jumps, we can't statically determine the target block
-                // So we need to jump to an exit block and let the runtime handle it
-                // This is a limitation of static compilation - we'd need dynamic dispatch
-                // For now, just jump to exit block
-                // TODO: Implement proper indirect jump handling
-                self.builder.ins().trap(TrapCode::user(1).unwrap()); // Use user-defined trap code
-                Ok(false) // Block is terminated
-            }
-            Instruction::LoadImmJump(format) => {
-                // Load immediate into register and then jump
-                // First load the immediate
-                let reg_var = self.registers[&format.reg0];
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                self.builder.def_var(reg_var, imm_val);
-
-                // Then perform the jump
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-
-                // Set PC for the target block
-                let target_pc = self.builder.ins().iconst(types::I64, target_offset as i64);
-                self.builder.def_var(self.pc, target_pc);
-
-                self.builder.ins().jump(target_block, &[]);
-                Ok(false) // Block is terminated
-            }
-            Instruction::LoadImmJumpInd(format) => {
-                // Load immediate into first register and jump indirect to second register + immediate
-                // First load the immediate into reg0
-                let reg0_var = self.registers[&format.reg0];
-                let imm0_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                self.builder.def_var(reg0_var, imm0_val);
-
-                // Then compute jump target: reg1 + imm1
-                let reg1_var = self.registers[&format.reg1];
-                let reg1_val = self.builder.use_var(reg1_var);
-                let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
-                let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
-
-                // Set PC to the computed target address
-                self.builder.def_var(self.pc, target_addr);
-
-                // For indirect jumps, we can't statically determine the target
-                self.builder.ins().trap(TrapCode::user(1).unwrap());
-                Ok(false) // Block is terminated
-            }
-            Instruction::BranchEq(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                // Create PC values for both paths
-                let target_pc = self.builder.ins().iconst(types::I64, target_offset as i64);
-                let fallthrough_pc = self.builder.ins().iconst(types::I64, next_pc as i64);
-
-                // Use select to set PC based on condition before branching
-                let new_pc = self
-                    .builder
-                    .ins()
-                    .select(condition, target_pc, fallthrough_pc);
-                self.builder.def_var(self.pc, new_pc);
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchNe(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchEqImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchNeImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Signed comparison branches (register-register)
-            Instruction::BranchLtS(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition = self
-                    .builder
-                    .ins()
-                    .icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGeS(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Unsigned comparison branches (register-register)
-            Instruction::BranchLtU(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGeU(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let reg1_val = self.builder.use_var(reg1_var);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Signed immediate comparison branches
-            Instruction::BranchLtSImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition = self
-                    .builder
-                    .ins()
-                    .icmp(IntCC::SignedLessThan, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGeSImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Unsigned immediate comparison branches
-            Instruction::BranchLtUImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition = self
-                    .builder
-                    .ins()
-                    .icmp(IntCC::UnsignedLessThan, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGeUImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Additional immediate comparison branches (Le = Less or Equal, Gt = Greater Than)
-            Instruction::BranchLeSImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::SignedLessThanOrEqual, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchLeUImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::UnsignedLessThanOrEqual, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGtSImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::SignedGreaterThan, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            Instruction::BranchGtUImm(format) => {
-                let reg0_var = self.registers[&format.reg0];
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-                let condition =
-                    self.builder
-                        .ins()
-                        .icmp(IntCC::UnsignedGreaterThan, reg0_val, imm_val);
-
-                let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
-
-                self.builder
-                    .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
-                Ok(false) // Block is terminated with conditional branch
-            }
-            // Conditional move instructions
-            Instruction::CmovIz(format) => {
-                // Conditional move if zero: if reg2 == 0, reg0 = reg1
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg2_var = self.registers[&format.reg2];
-
-                let reg1_val = self.builder.use_var(reg1_var);
-                let reg2_val = self.builder.use_var(reg2_var);
-                let reg0_val = self.builder.use_var(reg0_var);
-
-                // Check if reg2 is zero
-                let zero = self.builder.ins().iconst(types::I64, 0);
-                let is_zero = self.builder.ins().icmp(IntCC::Equal, reg2_val, zero);
-
-                // Select between reg1 (if zero) or current reg0 value (if not zero)
-                let new_val = self.builder.ins().select(is_zero, reg1_val, reg0_val);
-                self.builder.def_var(reg0_var, new_val);
-
-                Ok(true) // Not a control flow instruction, needs fallthrough
-            }
-            Instruction::CmovNz(format) => {
-                // Conditional move if not zero: if reg2 != 0, reg0 = reg1
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-                let reg2_var = self.registers[&format.reg2];
-
-                let reg1_val = self.builder.use_var(reg1_var);
-                let reg2_val = self.builder.use_var(reg2_var);
-                let reg0_val = self.builder.use_var(reg0_var);
-
-                // Check if reg2 is not zero
-                let zero = self.builder.ins().iconst(types::I64, 0);
-                let not_zero = self.builder.ins().icmp(IntCC::NotEqual, reg2_val, zero);
-
-                // Select between reg1 (if not zero) or current reg0 value (if zero)
-                let new_val = self.builder.ins().select(not_zero, reg1_val, reg0_val);
-                self.builder.def_var(reg0_var, new_val);
-
-                Ok(true) // Not a control flow instruction, needs fallthrough
-            }
-            Instruction::CmovIzImm(format) => {
-                // Conditional move immediate if zero: if reg1 == 0, reg0 = imm
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-
-                let reg1_val = self.builder.use_var(reg1_var);
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-
-                // Check if reg1 is zero
-                let zero = self.builder.ins().iconst(types::I64, 0);
-                let is_zero = self.builder.ins().icmp(IntCC::Equal, reg1_val, zero);
-
-                // Select between immediate (if zero) or current reg0 value (if not zero)
-                let new_val = self.builder.ins().select(is_zero, imm_val, reg0_val);
-                self.builder.def_var(reg0_var, new_val);
-
-                Ok(true) // Not a control flow instruction, needs fallthrough
-            }
-            Instruction::CmovNzImm(format) => {
-                // Conditional move immediate if not zero: if reg1 != 0, reg0 = imm
-                let reg0_var = self.registers[&format.reg0];
-                let reg1_var = self.registers[&format.reg1];
-
-                let reg1_val = self.builder.use_var(reg1_var);
-                let reg0_val = self.builder.use_var(reg0_var);
-                let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
-
-                // Check if reg1 is not zero
-                let zero = self.builder.ins().iconst(types::I64, 0);
-                let not_zero = self.builder.ins().icmp(IntCC::NotEqual, reg1_val, zero);
-
-                // Select between immediate (if not zero) or current reg0 value (if zero)
-                let new_val = self.builder.ins().select(not_zero, imm_val, reg0_val);
-                self.builder.def_var(reg0_var, new_val);
-
-                Ok(true) // Not a control flow instruction, needs fallthrough
-            }
-            _ => {
-                // For non-control-flow instructions, use the existing visitor
-                self.visit(instruction)?;
-                Ok(true) // Block still needs fallthrough
-            }
-        }
-    }
-}
-
-impl Translator<'_, '_> {
-    /// Generate direct linear memory read
-    fn emit_memory_read(&mut self, address: Value, size: MemorySize) -> Value {
-        // Get the context pointer - use current block if it has params, otherwise entry block
-        let context_param = if let Some(current_block) = self.builder.current_block() {
-            let params = self.builder.block_params(current_block);
-            if !params.is_empty() {
-                params[0]
-            } else {
-                // Fall back to entry block
-                let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-                self.builder.block_params(entry_block)[0]
-            }
-        } else {
-            // Fall back to entry block
-            let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-            self.builder.block_params(entry_block)[0]
-        };
-
-        // Convert address to 32-bit for PVM memory addressing
-        let addr_32 = self.builder.ins().ireduce(types::I32, address);
-        let addr_64 = self.builder.ins().uextend(types::I64, addr_32);
-
-        // Load linear memory pointer from context
-        let mem_ptr_addr = self
-            .builder
-            .ins()
-            .iadd_imm(context_param, MEMORY_PTR_OFFSET);
-        let memory_ptr = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), mem_ptr_addr, 0);
-
-        // Bounds check: address < MAX_MEMORY
-        let in_bounds = self
-            .builder
-            .ins()
-            .icmp_imm(IntCC::UnsignedLessThan, addr_64, MAX_MEMORY);
-
-        // Calculate read address
-        let read_addr = self.builder.ins().iadd(memory_ptr, addr_64);
-
-        // Load from linear memory with proper type
-        let loaded_value = match size {
-            MemorySize::Byte => self
-                .builder
-                .ins()
-                .load(types::I8, MemFlags::new(), read_addr, 0),
-            MemorySize::Word => self
-                .builder
-                .ins()
-                .load(types::I16, MemFlags::new(), read_addr, 0),
-            MemorySize::DWord => self
-                .builder
-                .ins()
-                .load(types::I32, MemFlags::new(), read_addr, 0),
-            MemorySize::QWord => self
-                .builder
-                .ins()
-                .load(types::I64, MemFlags::new(), read_addr, 0),
-        };
-
-        // Return 0 if out of bounds, otherwise return the loaded value
-        let zero_value = match size {
-            MemorySize::Byte => self.builder.ins().iconst(types::I8, 0),
-            MemorySize::Word => self.builder.ins().iconst(types::I16, 0),
-            MemorySize::DWord => self.builder.ins().iconst(types::I32, 0),
-            MemorySize::QWord => self.builder.ins().iconst(types::I64, 0),
-        };
-
-        self.builder
-            .ins()
-            .select(in_bounds, loaded_value, zero_value)
-    }
-
-    fn emit_memory_read_signed(&mut self, address: Value, size: MemorySize) -> Value {
-        // Read the unsigned value first
-        let unsigned_value = self.emit_memory_read(address, size);
-
-        // Sign-extend to 64-bit based on the size
-        match size {
-            MemorySize::Byte => self.builder.ins().sextend(types::I64, unsigned_value),
-            MemorySize::Word => self.builder.ins().sextend(types::I64, unsigned_value),
-            MemorySize::DWord => self.builder.ins().sextend(types::I64, unsigned_value),
-            MemorySize::QWord => unsigned_value, // Already 64-bit
-        }
-    }
-
-    /// Generate direct memory write using inline pointer dereferencing
-    fn emit_memory_write(&mut self, address: Value, value: Value, size: MemorySize) {
-        // Get the context pointer - use current block if it has params, otherwise entry block
-        let context_param = if let Some(current_block) = self.builder.current_block() {
-            let params = self.builder.block_params(current_block);
-            if !params.is_empty() {
-                params[0]
-            } else {
-                // Fall back to entry block
-                let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-                self.builder.block_params(entry_block)[0]
-            }
-        } else {
-            // Fall back to entry block
-            let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-            self.builder.block_params(entry_block)[0]
-        };
-
-        // Convert address to 32-bit for PVM memory addressing
-        let addr_32 = self.builder.ins().ireduce(types::I32, address);
-
-        // Prepare value in correct type
-        let value_type = self.builder.func.dfg.value_type(value);
-        let write_value = match size {
-            MemorySize::Byte => {
-                if value_type.bits() > 8 {
-                    self.builder.ins().ireduce(types::I8, value)
-                } else {
-                    value
-                }
-            }
-            MemorySize::Word => {
-                if value_type.bits() > 16 {
-                    self.builder.ins().ireduce(types::I16, value)
-                } else {
-                    value
-                }
-            }
-            MemorySize::DWord => {
-                if value_type.bits() > 32 {
-                    self.builder.ins().ireduce(types::I32, value)
-                } else {
-                    value
-                }
-            }
-            MemorySize::QWord => value,
-        };
-
-        // Record the memory write operation in the context for post-execution processing
-        // This is a simplified approach that avoids complex JIT memory integration
-
-        // Convert value to 64-bit for storage
-        let value_64 = match size {
-            MemorySize::Byte | MemorySize::Word | MemorySize::DWord => {
-                self.builder.ins().uextend(types::I64, write_value)
-            }
-            MemorySize::QWord => write_value,
-        };
-
-        // Size byte
-        let size_byte = match size {
-            MemorySize::Byte => 1u8,
-            MemorySize::Word => 2u8,
-            MemorySize::DWord => 4u8,
-            MemorySize::QWord => 8u8,
-        };
-        let size_val = self.builder.ins().iconst(types::I8, size_byte as i64);
-        let is_write_val = self.builder.ins().iconst(types::I8, 1); // True for write
-
-        // Use predefined context offsets
-        let ops_count_offset = OPS_COUNT_OFFSET;
-        let ops_offset = OPS_OFFSET;
-        let op_size = OP_SIZE;
-
-        // Load current memory_ops_count
-        let ops_count_addr = self.builder.ins().iadd_imm(context_param, ops_count_offset);
-        let current_count = self
-            .builder
-            .ins()
-            .load(types::I32, MemFlags::new(), ops_count_addr, 0);
-
-        // Check if we have space for recording (count < MAX_OPS)
-        let max_ops = self.builder.ins().iconst(types::I32, MAX_OPS as i64);
-        let has_space = self
-            .builder
-            .ins()
-            .icmp(IntCC::UnsignedLessThan, current_count, max_ops);
-
-        // Record operation for post-execution processing (trap handling in apply_memory_operations)
-        let can_write = has_space;
-
-        // Create blocks for conditional recording
-        let record_block = self.builder.create_block();
-        let done_block = self.builder.create_block();
-
-        self.builder
-            .ins()
-            .brif(can_write, record_block, &[], done_block, &[]);
-
-        // Record memory operation when we have space
-        self.builder.switch_to_block(record_block);
-
-        // Calculate address of current memory operation
-        let count_64 = self.builder.ins().uextend(types::I64, current_count);
-        let op_size_val = self.builder.ins().iconst(types::I64, op_size);
-        let offset_from_ops = self.builder.ins().imul(count_64, op_size_val);
-        let ops_base_addr = self.builder.ins().iadd_imm(context_param, ops_offset);
-        let current_op_addr = self.builder.ins().iadd(ops_base_addr, offset_from_ops);
-
-        // Store the memory operation fields
-        self.builder
-            .ins()
-            .store(MemFlags::new(), addr_32, current_op_addr, 0); // address
-        self.builder
-            .ins()
-            .store(MemFlags::new(), value_64, current_op_addr, 8); // value
-        self.builder
-            .ins()
-            .store(MemFlags::new(), size_val, current_op_addr, 16); // size
-        self.builder
-            .ins()
-            .store(MemFlags::new(), is_write_val, current_op_addr, 17); // is_write
-
-        // Increment memory_ops_count
-        let new_count = self.builder.ins().iadd_imm(current_count, 1);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), new_count, ops_count_addr, 0);
-
-        self.builder.ins().jump(done_block, &[]);
-
-        // Continue execution
-        self.builder.switch_to_block(done_block);
-        self.builder.seal_block(record_block);
-        self.builder.seal_block(done_block);
-    }
-}
+use parser::{format, Visitor};
 
 impl Visitor for Translator<'_, '_> {
     type Error = anyhow::Error;
@@ -2324,30 +1223,169 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_jump_ind(&mut self, _format: format::RI) -> Result<(), Self::Error> {
+    fn visit_jump_ind(&mut self, format: format::RI) -> Result<(), Self::Error> {
+        // Indirect jump: PC = reg0 + immediate (following interpreter logic)
+        let reg0_var = self.registers[&format.reg0];
+        let reg0_val = self.builder.use_var(reg0_var);
+        let offset = self.builder.ins().iconst(types::I64, format.imm0 as i64);
+        let target_addr = self.builder.ins().iadd(reg0_val, offset);
+
+        // Set PC to the computed target address
+        self.builder.def_var(self.pc, target_addr);
+
+        // For indirect jumps, we need to save state and return to runtime
+        // Get the context pointer parameter from entry block
+        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
+        let context_ptr = self.builder.block_params(entry_block)[0];
+
+        // Store all 13 register values back to context.registers
+        for i in 0..13 {
+            let reg_var = self.registers[&(i as u8)];
+            let reg_value = self.builder.use_var(reg_var);
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), reg_value, addr, 0);
+        }
+
+        // Store PC back to context.pc (offset 104)
+        let pc_value = self.builder.use_var(self.pc);
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_value, pc_addr, 0);
+
         self.builder.ins().return_(&[]);
         Ok(())
     }
 
     // Conditional move operations
-    fn visit_cmov_iz(&mut self, _format: format::RRR) -> Result<(), Self::Error> {
+    fn visit_cmov_iz(&mut self, format: format::RRR) -> Result<(), Self::Error> {
+        // Conditional move if zero: if reg1 == 0, reg2 = reg0 (following interpreter logic)
+        let reg0_var = self.registers[&format.reg0];
+        let reg1_var = self.registers[&format.reg1];
+        let reg2_var = self.registers[&format.reg2];
+
+        let reg0_val = self.builder.use_var(reg0_var); // source value
+        let reg1_val = self.builder.use_var(reg1_var); // condition value
+        let reg2_val = self.builder.use_var(reg2_var); // destination current value
+
+        // Check if reg1 is zero (condition register)
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let is_zero = self.builder.ins().icmp(IntCC::Equal, reg1_val, zero);
+
+        // Select between reg0 (if condition met) or current reg2 value (if condition not met)
+        let new_val = self.builder.ins().select(is_zero, reg0_val, reg2_val);
+        self.builder.def_var(reg2_var, new_val);
+
         Ok(())
     }
 
-    fn visit_cmov_iz_imm(&mut self, _format: format::RRI) -> Result<(), Self::Error> {
+    fn visit_cmov_iz_imm(&mut self, format: format::RRI) -> Result<(), Self::Error> {
+        // Conditional move immediate if zero: if reg1 == 0, reg0 = imm
+        let reg0_var = self.registers[&format.reg0];
+        let reg1_var = self.registers[&format.reg1];
+
+        let reg1_val = self.builder.use_var(reg1_var);
+        let reg0_val = self.builder.use_var(reg0_var);
+        let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
+
+        // Check if reg1 is zero
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let is_zero = self.builder.ins().icmp(IntCC::Equal, reg1_val, zero);
+
+        // Select between immediate (if zero) or current reg0 value (if not zero)
+        let new_val = self.builder.ins().select(is_zero, imm_val, reg0_val);
+        self.builder.def_var(reg0_var, new_val);
+
         Ok(())
     }
 
-    fn visit_cmov_nz(&mut self, _format: format::RRR) -> Result<(), Self::Error> {
+    fn visit_cmov_nz(&mut self, format: format::RRR) -> Result<(), Self::Error> {
+        // Conditional move if not zero: if reg1 != 0, reg2 = reg0 (following interpreter logic)
+        let reg0_var = self.registers[&format.reg0];
+        let reg1_var = self.registers[&format.reg1];
+        let reg2_var = self.registers[&format.reg2];
+
+        let reg0_val = self.builder.use_var(reg0_var); // source value
+        let reg1_val = self.builder.use_var(reg1_var); // condition value
+        let reg2_val = self.builder.use_var(reg2_var); // destination current value
+
+        // Check if reg1 is not zero (condition register)
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let not_zero = self.builder.ins().icmp(IntCC::NotEqual, reg1_val, zero);
+
+        // Select between reg0 (if condition met) or current reg2 value (if condition not met)
+        let new_val = self.builder.ins().select(not_zero, reg0_val, reg2_val);
+        self.builder.def_var(reg2_var, new_val);
+
         Ok(())
     }
 
-    fn visit_cmov_nz_imm(&mut self, _format: format::RRI) -> Result<(), Self::Error> {
+    fn visit_cmov_nz_imm(&mut self, format: format::RRI) -> Result<(), Self::Error> {
+        // Conditional move immediate if not zero: if reg1 != 0, reg0 = imm
+        let reg0_var = self.registers[&format.reg0];
+        let reg1_var = self.registers[&format.reg1];
+
+        let reg1_val = self.builder.use_var(reg1_var);
+        let reg0_val = self.builder.use_var(reg0_var);
+        let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
+
+        // Check if reg1 is not zero
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let not_zero = self.builder.ins().icmp(IntCC::NotEqual, reg1_val, zero);
+
+        // Select between immediate (if not zero) or current reg0 value (if zero)
+        let new_val = self.builder.ins().select(not_zero, imm_val, reg0_val);
+        self.builder.def_var(reg0_var, new_val);
+
         Ok(())
     }
 
     // Load immediate and jump indirect operations
-    fn visit_load_imm_jump_ind(&mut self, _format: format::RRII) -> Result<(), Self::Error> {
+    fn visit_load_imm_jump_ind(&mut self, format: format::RRII) -> Result<(), Self::Error> {
+        // Load immediate into first register and jump indirect to second register + immediate
+        // Following interpreter logic: rset(reg0, imm0); djump(rget(reg1) + imm1)
+        let reg0_var = self.registers[&format.reg0];
+        let imm0_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
+        self.builder.def_var(reg0_var, imm0_val);
+
+        // Then compute jump target: reg1 + imm1
+        let reg1_var = self.registers[&format.reg1];
+        let reg1_val = self.builder.use_var(reg1_var);
+        let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
+        let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
+
+        // Set PC to the computed target address
+        self.builder.def_var(self.pc, target_addr);
+
+        // For indirect jumps, we need to save state and return to runtime
+        // Get the context pointer parameter from entry block
+        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
+        let context_ptr = self.builder.block_params(entry_block)[0];
+
+        // Store all 13 register values back to context.registers
+        for i in 0..13 {
+            let reg_var = self.registers[&(i as u8)];
+            let reg_value = self.builder.use_var(reg_var);
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), reg_value, addr, 0);
+        }
+
+        // Store PC back to context.pc (offset 104)
+        let pc_value = self.builder.use_var(self.pc);
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_value, pc_addr, 0);
+
+        self.builder.ins().return_(&[]);
         Ok(())
     }
 
