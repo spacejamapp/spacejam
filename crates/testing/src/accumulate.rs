@@ -150,7 +150,7 @@ mod types {
         pub fn accounts(&self) -> BTreeMap<u32, ServiceAccount> {
             self.haccounts()
                 .iter()
-                .map(|item| (item.id, item.data.clone().into()))
+                .map(|item| (item.id, item.clone().into()))
                 .collect()
         }
 

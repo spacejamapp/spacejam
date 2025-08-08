@@ -75,16 +75,14 @@ impl<R: Accounts> General<R> {
     }
 
     /// Get service account
-    pub fn get(&mut self, r7: u64) -> Option<(ServiceId, impl Account + '_)> {
+    pub fn get(&mut self, r7: u64) -> Option<impl Account + '_> {
         let service = self.index as u64;
         let mut index = r7 as ServiceId;
         if r7 == u64::MAX || r7 == service {
             index = self.index;
         }
 
-        self.accounts
-            .get(index)
-            .map(|account| (index, account.clone()))
+        self.accounts.get(index).cloned()
     }
 
     /// Get the account

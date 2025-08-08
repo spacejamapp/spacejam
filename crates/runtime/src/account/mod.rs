@@ -75,6 +75,10 @@ impl<S: Storage> Account<S> {
 }
 
 impl<S: Storage> score::Account for Account<S> {
+    fn index(&self) -> u32 {
+        self.index
+    }
+
     fn account(&self) -> ServiceAccount {
         self.account.clone()
     }
@@ -120,7 +124,11 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn total(&self) -> u64 {
-        self.account.total()
+        self.account.total
+    }
+
+    fn set_total(&mut self, total: u64) {
+        self.account.set_total(total);
     }
 
     fn items(&self) -> u32 {
@@ -132,7 +140,7 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn set_creation(&mut self, creation: u32) {
-        self.account.set_creation(creation);
+        self.account.creation = creation;
     }
 
     fn update(&self) -> u32 {
@@ -140,7 +148,7 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn set_update(&mut self, update: u32) {
-        self.account.set_update(update);
+        self.account.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
@@ -161,12 +169,6 @@ impl<S: Storage> score::Account for Account<S> {
         let key = self.drop_lookup(hash, len);
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
-        tracing::debug!(
-            "write lookup 0x{} with value 0x{}({:?})",
-            hex::encode(key),
-            hex::encode(codec::encode(&lookup).expect("lookup is valid")),
-            lookup,
-        );
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
     }
@@ -174,7 +176,6 @@ impl<S: Storage> score::Account for Account<S> {
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = self.drop_lookup(hash, len);
         self.account.lookup.remove(&(hash, len));
-        tracing::debug!("remove lookup 0x{}", hex::encode(key));
         self.ops.remove(key)
     }
 
@@ -234,6 +235,7 @@ impl<S: Storage> score::Account for Account<S> {
             creation: self.account.creation,
             update: self.account.update,
             parent: self.account.parent,
+            offset: self.account.offset,
         }
     }
 

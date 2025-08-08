@@ -8,6 +8,9 @@ use std::collections::BTreeMap;
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct ServiceAccount {
+    /// The index of the service account (i)
+    pub index: u32,
+
     /// storage of the service account (s)
     pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
 
@@ -38,12 +41,19 @@ pub struct ServiceAccount {
 
     /// The parent of the service account (p)
     pub parent: u32,
+
+    /// The deposit offset of the service account (f)
+    pub offset: u64,
+
+    /// The total number of octets used in storage (o)
+    pub total: u64,
 }
 
 impl ServiceAccount {
     /// Create a new service account
     pub const fn new(gas: GasLimit) -> Self {
         Self {
+            index: 0,
             storage: BTreeMap::new(),
             preimage: BTreeMap::new(),
             lookup: BTreeMap::new(),
@@ -54,6 +64,8 @@ impl ServiceAccount {
             creation: 0,
             update: 0,
             parent: 0,
+            offset: 0,
+            total: 0,
         }
     }
 
@@ -61,7 +73,7 @@ impl ServiceAccount {
     pub fn threshold(&self) -> u64 {
         crate::BALANCE_PER_SERVICE
             + crate::BALANCE_PER_ITEM * self.items() as u64
-            + crate::BALANCE_PER_OCTET * self.total()
+            + crate::BALANCE_PER_OCTET * self.total
     }
 
     /// Get the present code of the service account
@@ -74,29 +86,16 @@ impl ServiceAccount {
         2 * self.lookup.len() as u32 + self.storage.len() as u32
     }
 
-    /// total number of octets used in storage
-    pub fn total(&self) -> u64 {
-        self.lookup
-            .iter()
-            .map(|((_, z), _)| 81 + *z as u64)
-            .chain(
-                self.storage
-                    .iter()
-                    .map(|(x, y)| 34 + x.len() as u64 + y.len() as u64),
-            )
-            .sum::<u64>()
-    }
-
     /// The state of the service account
     pub fn state(&self) -> ServiceInfo {
         let items = self.items();
-        let total = self.total();
         ServiceInfo {
             code: self.code,
             balance: self.balance,
             accumulate: self.accumulate_gas,
             transfer: self.transfer_gas,
-            total,
+            offset: self.offset,
+            total: self.total,
             items,
             creation: self.creation,
             update: self.update,
@@ -109,7 +108,7 @@ impl ServiceAccount {
         ServiceData {
             accumulate: self.accumulate_gas,
             transfer: self.transfer_gas,
-            total: self.total(),
+            total: self.total,
             items: self.items(),
             code: self.code,
             balance: self.balance,
@@ -144,6 +143,11 @@ pub struct ServiceInfo {
     #[serde(alias = "bytes")]
     #[serde(with = "codec::compact")]
     pub total: u64,
+
+    /// The deposit offset of the service account (f)
+    #[serde(alias = "deposit_offset")]
+    #[serde(with = "codec::compact")]
+    pub offset: u64,
 
     /// The number of items in storage (i)
     #[serde(with = "codec::compact")]

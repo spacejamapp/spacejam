@@ -219,8 +219,9 @@ mod types {
         }
     }
 
-    impl From<ServiceAccountData> for ServiceAccount {
-        fn from(data: ServiceAccountData) -> Self {
+    impl From<ServiceItem> for ServiceAccount {
+        fn from(item: ServiceItem) -> Self {
+            let data = item.data;
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
                 lookup.insert(
@@ -230,6 +231,7 @@ mod types {
             }
 
             ServiceAccount {
+                index: item.id,
                 storage: data.storage.into_iter().map(|s| (s.key, s.value)).collect(),
                 preimage: data
                     .preimages
@@ -244,6 +246,8 @@ mod types {
                 creation: data.service.creation,
                 update: data.service.update,
                 parent: data.service.parent,
+                offset: data.service.offset,
+                total: data.service.total,
             }
         }
     }

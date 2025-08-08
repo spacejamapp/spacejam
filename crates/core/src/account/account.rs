@@ -2,12 +2,16 @@
 
 use crate::{
     service::{ServiceAccount, ServiceInfo},
+    state::account,
     Gas, OpaqueHash, TrieKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
 /// JAM account abstraction
 pub trait Account: Clone {
+    /// Get the index of the account
+    fn index(&self) -> u32;
+
     /// Get the account
     fn account(&self) -> ServiceAccount;
 
@@ -25,6 +29,9 @@ pub trait Account: Clone {
 
     /// Get the total of the account
     fn total(&self) -> u64;
+
+    /// Set the total of the account
+    fn set_total(&mut self, total: u64);
 
     /// Get the items of the account
     fn items(&self) -> u32;
@@ -120,6 +127,10 @@ pub trait Account: Clone {
 }
 
 impl Account for ServiceAccount {
+    fn index(&self) -> u32 {
+        self.index
+    }
+
     fn account(&self) -> ServiceAccount {
         self.clone()
     }
@@ -141,7 +152,11 @@ impl Account for ServiceAccount {
     }
 
     fn total(&self) -> u64 {
-        self.total()
+        self.total
+    }
+
+    fn set_total(&mut self, total: u64) {
+        self.total = total;
     }
 
     fn items(&self) -> u32 {
@@ -193,10 +208,12 @@ impl Account for ServiceAccount {
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {
+        self.set_total(self.total() + 81 + len as u64);
         self.lookup.insert((hash, len), slots);
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
+        self.set_total(self.total() - 81 - len as u64);
         self.lookup.remove(&(hash, len));
     }
 
@@ -213,15 +230,26 @@ impl Account for ServiceAccount {
     }
 
     fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        self.storage.get(key)
+        let skey = account::storage(self.index(), &key);
+        self.storage.get(skey.as_slice())
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        self.storage.remove(key)
+        let skey = account::storage(self.index(), &key);
+        let value = self.storage.remove(&skey.to_vec())?;
+        self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
+        Some(value)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        self.storage.insert(key.to_vec(), value);
+        let skey = account::storage(self.index(), &key);
+        if let Some(old) = self.storage.get(&skey.to_vec()).map(|v| v.len() as u64) {
+            self.set_total(self.total() + value.len() as u64 - old);
+        } else {
+            self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+        }
+
+        self.storage.insert(skey.to_vec(), value);
     }
 
     fn info(&self) -> ServiceInfo {

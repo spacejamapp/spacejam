@@ -5,7 +5,7 @@ use crate::{
     invocation::{General, IsAuthorized, State},
     Result,
 };
-use score::{state::account, Account, Accounts, Parameters, ServiceId};
+use score::{Account, Accounts, Parameters, ServiceId};
 
 /// (ΩG) Get the gas to register
 pub fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
@@ -63,7 +63,7 @@ impl<R: Accounts> General<R> {
 
     /// (ΩL) account lookup
     fn lookup<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<u64> {
-        let Some((_, mut account)) = self.get(state.registers[7]) else {
+        let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -97,7 +97,7 @@ impl<R: Accounts> General<R> {
     /// (ΩR) storage lookup
     fn read<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         // get the account
-        let Some((index, mut account)) = self.get(state.registers[7]) else {
+        let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -109,8 +109,7 @@ impl<R: Accounts> General<R> {
             .expect("should not fail");
 
         // get the storage value
-        let skey = account::storage(index, &key);
-        let Some(value) = account.read(&skey) else {
+        let Some(value) = account.read(&key) else {
             return Ok(Exit::None as u64);
         };
 
@@ -144,7 +143,6 @@ impl<R: Accounts> General<R> {
             }
         };
 
-        let index = self.index;
         let Some(account) = self.account() else {
             tracing::debug!("no account found");
             return Ok(Exit::None as u64);
@@ -156,15 +154,14 @@ impl<R: Accounts> General<R> {
         }
 
         // update storage
-        let skey = account::storage(index, &key);
-        let result = if let Some(prev) = account.read(&skey) {
+        let result = if let Some(prev) = account.read(&key) {
             prev.len() as u64
         } else {
             Exit::None as u64
         };
 
         if vz == 0 {
-            let Some(_value) = account.remove(&skey) else {
+            let Some(_value) = account.remove(&key) else {
                 return Ok(Exit::None as u64);
             };
 
@@ -178,8 +175,9 @@ impl<R: Accounts> General<R> {
                 }
             };
 
+            // TODO: we actually can update the key here for avoiding hashing for twice
             tracing::debug!("writing to storage key: {key:?}, value: {value:?}");
-            account.write(&skey, value);
+            account.write(&key, value);
             self.updated = true;
         }
 
