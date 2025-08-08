@@ -17,18 +17,22 @@ impl<R: Accounts> Accumulate<R> {
     /// Call an accumulate host function
     pub fn call<M: crate::Memory>(&mut self, call: u32, state: &mut State<M>) -> Result<ExitCode> {
         match call {
-            5 => self.bless(state),
-            6 => self.assign(state),
-            7 => self.designate(state),
-            8 => self.checkpoint(state),
-            9 => self.new_(state),
-            10 => self.upgrade(state),
-            11 => self.transfer(state),
-            12 => self.eject(state),
-            13 => self.query(state),
-            14 => self.solicit(state),
-            15 => self.forget(state),
-            16 => self.yield_(state),
+            14 => self.bless(state),
+            15 => self.assign(state),
+            16 => self.designate(state),
+            17 => self.checkpoint(state),
+            18 => self.new_(state),
+            19 => self.upgrade(state),
+            20 => self.transfer(state),
+            21 => self.eject(state),
+            22 => self.query(state),
+            23 => self.solicit(state),
+            24 => self.forget(state),
+            25 => self.yield_(state),
+            26 => {
+                // TODO: PROVIDE
+                Ok(Exit::What as u64)
+            }
             _ => Ok(Exit::What as u64),
         }
     }

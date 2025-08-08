@@ -18,7 +18,7 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
     data: X,
 ) -> Stepped<Memory, X> {
     let mut data = data;
-    tracing::trace!("calling host call {call}");
+    tracing::debug!("calling host call {call}");
     let reason = match call {
         0 | 18 => {
             // For is_authorized context, only gas and fetch are allowed
@@ -43,7 +43,7 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
                 ret
             }
         }
-        1..5 => {
+        1..6 => {
             let mut general = match data.as_general() {
                 Ok(g) => g,
                 Err(e) => return Stepped::new(e, state).with(data),
@@ -57,7 +57,7 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
 
             ret
         }
-        5..17 => {
+        14..17 => {
             let accumulate = match data.as_accumulate_mut() {
                 Ok(a) => a,
                 Err(e) => return Stepped::new(e, state).with(data),

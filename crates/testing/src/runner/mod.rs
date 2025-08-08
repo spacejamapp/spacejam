@@ -67,6 +67,12 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
+                for (idx, account) in accounts.iter().enumerate() {
+                    assert_eq!(
+                        account.data.service.total,
+                        output.post_state.accounts[idx].data.service.total
+                    );
+                }
                 assert_eq!(accounts, output.post_state.haccounts());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }

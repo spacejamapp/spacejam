@@ -52,12 +52,11 @@ impl<R: Accounts> General<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         match call {
-            0 => gas(state),
-            1 => self.lookup(state),
-            2 => self.read(state),
-            3 => self.write(state),
-            4 => self.info(state),
-            18 => self.fetch(state),
+            1 => self.fetch(state),
+            2 => self.lookup(state),
+            3 => self.read(state),
+            4 => self.write(state),
+            5 => self.info(state),
             _ => Ok(Exit::What as u64),
         }
     }
