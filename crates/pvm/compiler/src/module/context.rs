@@ -132,9 +132,10 @@ impl Context {
                         _ => Ok(()), // Invalid size, ignore
                     };
 
-                    // If memory write fails, this indicates a trap condition
+                    // If memory write fails, this indicates a memory access trap condition
                     if result.is_err() {
-                        // Set PC to 0 to indicate trap occurred
+                        // Memory access traps should set PC=0 per Graypaper specification
+                        // This is different from branch validation failures which preserve PC
                         self.pc = 0;
                         // Don't return error - let execution continue with PC=0
                         return Ok(());

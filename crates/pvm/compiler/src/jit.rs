@@ -62,7 +62,7 @@ impl JitCompiler {
         let mut translator = Translator::new(&mut builder);
         translator.load_initial_context(context_ptr)?;
 
-        let (registers, pc) = translator.translate(program)?;
+        let (registers, pc, has_explicit_trap) = translator.translate(program)?;
 
         // Only add return handling for linear programs (no control flow)
         if !registers.is_empty() {
@@ -101,7 +101,7 @@ impl JitCompiler {
             std::ptr::copy_nonoverlapping(code_bytes.as_ptr(), executable_ptr, code_size);
         }
 
-        Ok(Module::new(executable_ptr, code_size, program.len()))
+        Ok(Module::new(executable_ptr, code_size, program.len(), has_explicit_trap))
     }
 
     /// Allocate executable memory using mmap

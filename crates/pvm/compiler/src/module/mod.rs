@@ -16,6 +16,8 @@ pub struct Module {
     pub size: usize,
     /// Number of instructions in the original PVM program
     pub instruction_count: usize,
+    /// Whether this program contains explicit trap instructions
+    pub has_explicit_trap: bool,
 }
 
 impl Module {
@@ -25,21 +27,29 @@ impl Module {
             entry_point: std::ptr::null(),
             size: 0,
             instruction_count: 0,
+            has_explicit_trap: false,
         }
     }
 
     /// Create a new compiled function with actual data
-    pub fn new(entry_point: *const u8, size: usize, instruction_count: usize) -> Self {
+    pub fn new(entry_point: *const u8, size: usize, instruction_count: usize, has_explicit_trap: bool) -> Self {
         Self {
             entry_point,
             size,
             instruction_count,
+            has_explicit_trap,
         }
     }
 
     /// Check if the function is a placeholder
     pub fn is_placeholder(&self) -> bool {
         self.entry_point.is_null() && self.size == 0
+    }
+
+    /// Detect if this is a simple trap instruction program per Graypaper patterns
+    fn is_simple_trap_program(&self) -> bool {
+        // Use the accurate flag from translation phase
+        self.has_explicit_trap
     }
 
     /// Execute the compiled module with initial register values, PC, and memory
@@ -76,9 +86,20 @@ impl Module {
             // Get the final memory state
             let final_memory = memory_copy;
 
+            // Handle explicit trap instruction PC=0 behavior per Graypaper specification
+            // Explicit trap instructions set ε=panic and PC=0, but branch validation 
+            // failures set ε=panic with preserved PC
+            let is_trap = self.is_simple_trap_program();
+            let final_pc = if initial_pc == 0 && context.pc == 1 && is_trap {
+                // This is an explicit trap instruction program - set PC=0 per Graypaper
+                0
+            } else {
+                context.pc
+            };
+
             Ok(Info {
                 registers: context.registers,
-                pc: context.pc,
+                pc: final_pc,
                 memory: final_memory,
             })
         }

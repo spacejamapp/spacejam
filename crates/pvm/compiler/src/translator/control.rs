@@ -626,8 +626,8 @@ impl<'a, 'b> Translator<'a, 'b> {
                 .store(MemFlags::new(), reg_value, addr, 0);
         }
         
-        // Store PC back to context.pc (offset 104) - set to termination value
-        let pc_value = self.builder.ins().iconst(types::I64, i64::MAX);
+        // Store PC back to context.pc (offset 104) - set to 0 for halt per graypaper
+        let pc_value = self.builder.ins().iconst(types::I64, 0);
         let pc_offset = self.builder.ins().iconst(types::I64, 104);
         let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
         self.builder

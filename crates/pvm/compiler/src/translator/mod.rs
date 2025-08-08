@@ -21,6 +21,9 @@ pub struct Translator<'a, 'b> {
     basic_blocks: BTreeMap<usize, Block>, // PC offset -> Cranelift block
     branch_targets: BTreeSet<usize>,      // Set of all branch target offsets
     jump_table_map: BTreeMap<u32, usize>, // Jump table address -> PC target mapping
+    
+    // Trap detection
+    has_explicit_trap: bool, // Track if program contains explicit trap instructions
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
@@ -64,6 +67,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             basic_blocks: BTreeMap::new(),
             branch_targets: BTreeSet::new(),
             jump_table_map: BTreeMap::new(),
+            has_explicit_trap: false,
         }
     }
 
@@ -109,7 +113,7 @@ impl<'a, 'b> Translator<'a, 'b> {
     }
 
     /// Translate a PVM program to Cranelift IR and return final context values
-    pub fn translate(&mut self, program: &[u8]) -> Result<(Vec<Value>, Value), anyhow::Error> {
+    pub fn translate(&mut self, program: &[u8]) -> Result<(Vec<Value>, Value, bool), anyhow::Error> {
         let blob = parser::program::deblob(program)?;
         let mut reader = blob.reader();
 
@@ -125,7 +129,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             self.generate_code(&blob)?;
 
             // Control flow handled everything including return - return dummy values
-            Ok((vec![], dummy_val))
+            Ok((vec![], dummy_val, self.has_explicit_trap))
         } else {
             // Linear execution - no branches
             while !reader.eof() {
@@ -153,7 +157,7 @@ impl<'a, 'b> Translator<'a, 'b> {
 
             let pc_value = self.builder.use_var(self.pc);
 
-            Ok((register_values, pc_value))
+            Ok((register_values, pc_value, self.has_explicit_trap))
         }
     }
 

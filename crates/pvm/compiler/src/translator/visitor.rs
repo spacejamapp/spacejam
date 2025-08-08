@@ -8,15 +8,19 @@ impl Visitor for Translator<'_, '_> {
     type Error = anyhow::Error;
 
     fn visit_trap(&mut self) -> Result<(), Self::Error> {
-        // Trap instruction should preserve PC (don't modify it)
-        // The PC already points to the trap instruction location
+        // Mark that this program contains explicit trap instructions
+        self.has_explicit_trap = true;
+        
+        // Trap behavior varies by context per Graypaper:
+        // - Explicit trap instructions: ε=panic → PC=0  
+        // - Branch validation failures: ε=panic → preserve PC
+        // Let post-processing handle explicit trap PC=0 behavior
         Ok(())
     }
 
     fn visit_fallthrough(&mut self) -> Result<(), Self::Error> {
-        // Fallthrough instruction sets PC to 0 for normal halt (ret_halt test expects PC=0)
-        let halt_pc = self.builder.ins().iconst(types::I64, 0);
-        self.builder.def_var(self.pc, halt_pc);
+        // Fallthrough instruction preserves current PC (no change needed)
+        // The PC already points to the fallthrough instruction location
         Ok(())
     }
 
@@ -1803,33 +1807,117 @@ impl Visitor for Translator<'_, '_> {
 
     // Shift immediate "alt" variants (alternative encodings) - 32-bit
     fn visit_shlo_l_imm_alt_32(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular shift left immediate, just different encoding format
-        self.visit_shlo_l_imm_32(format)
+        // Alt version: shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
+        
+        // Mask shift amount to avoid undefined behavior
+        let safe_shift = self.builder.ins().band_imm(shift_32, 31);
+        
+        // Shift immediate value by register content (left shift)
+        let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
+        let result_32 = self.builder.ins().ishl(imm_val, safe_shift);
+        let result_64 = self.builder.ins().sextend(types::I64, result_32);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result_64);
+        Ok(())
     }
 
     fn visit_shlo_r_imm_alt_32(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular shift right immediate, just different encoding format
-        self.visit_shlo_r_imm_32(format)
+        // Alt version: shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
+        
+        // Mask shift amount to avoid undefined behavior
+        let safe_shift = self.builder.ins().band_imm(shift_32, 31);
+        
+        // Shift immediate value by register content
+        let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
+        let result_32 = self.builder.ins().ushr(imm_val, safe_shift);
+        let result_64 = self.builder.ins().sextend(types::I64, result_32);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result_64);
+        Ok(())
     }
 
     fn visit_shar_r_imm_alt_32(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular arithmetic shift right immediate, just different encoding format
-        self.visit_shar_r_imm_32(format)
+        // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
+        
+        // Mask shift amount to avoid undefined behavior
+        let safe_shift = self.builder.ins().band_imm(shift_32, 31);
+        
+        // Arithmetic shift immediate value by register content
+        let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
+        let result_32 = self.builder.ins().sshr(imm_val, safe_shift);
+        let result_64 = self.builder.ins().sextend(types::I64, result_32);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result_64);
+        Ok(())
     }
 
     // Shift immediate "alt" variants (alternative encodings) - 64-bit
     fn visit_shlo_l_imm_alt_64(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular shift left immediate, just different encoding format
-        self.visit_shlo_l_imm_64(format)
+        // Alt version: shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        
+        // Mask shift amount to avoid undefined behavior  
+        let safe_shift = self.builder.ins().band_imm(shift_val, 63);
+        
+        // Shift immediate value by register content (left shift)
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let result = self.builder.ins().ishl(imm_val, safe_shift);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result);
+        Ok(())
     }
 
     fn visit_shlo_r_imm_alt_64(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular shift right immediate, just different encoding format
-        self.visit_shlo_r_imm_64(format)
+        // Alt version: shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        
+        // Mask shift amount to avoid undefined behavior  
+        let safe_shift = self.builder.ins().band_imm(shift_val, 63);
+        
+        // Shift immediate value by register content
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let result = self.builder.ins().ushr(imm_val, safe_shift);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result);
+        Ok(())
     }
 
     fn visit_shar_r_imm_alt_64(&mut self, format: format::RRI) -> Result<(), Self::Error> {
-        // Same logic as regular arithmetic shift right immediate, just different encoding format
-        self.visit_shar_r_imm_64(format)
+        // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
+        let format::RRI { reg0, reg1, imm0 } = format;
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        
+        // Mask shift amount to avoid undefined behavior
+        let safe_shift = self.builder.ins().band_imm(shift_val, 63);
+        
+        // Arithmetic shift immediate value by register content
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let result = self.builder.ins().sshr(imm_val, safe_shift);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result);
+        Ok(())
     }
 }
