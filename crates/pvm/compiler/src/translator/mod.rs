@@ -20,6 +20,7 @@ pub struct Translator<'a, 'b> {
     // Control flow analysis
     basic_blocks: BTreeMap<usize, Block>, // PC offset -> Cranelift block
     branch_targets: BTreeSet<usize>,      // Set of all branch target offsets
+    jump_table_map: BTreeMap<u32, usize>, // Jump table address -> PC target mapping
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
@@ -62,6 +63,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             builder,
             basic_blocks: BTreeMap::new(),
             branch_targets: BTreeSet::new(),
+            jump_table_map: BTreeMap::new(),
         }
     }
 
@@ -162,6 +164,18 @@ impl<'a, 'b> Translator<'a, 'b> {
             let block = self.builder.create_block();
             self.basic_blocks.insert(target_offset, block);
         }
+        
+        // Build jump table mapping: map addresses to PC targets 
+        // The jump table contains PC values (indices into instruction data)
+        // When a jump_indirect is executed, it computes an address and looks it up
+        // The address protocol is: index = (address / 2) - 1, so address = (index + 1) * 2
+        for (index, &pc_target) in blob.jump_table.iter().enumerate() {
+            // Convert jump table index to the address that would be used to access it
+            let address = ((index + 1) * 2) as u32;
+            
+            // Map the address to the PC target
+            self.jump_table_map.insert(address, pc_target as usize);
+        }
 
         // Create exit block for function termination
         let exit_block = self.builder.create_block();
@@ -259,6 +273,7 @@ impl<'a, 'b> Translator<'a, 'b> {
         if needs_fallthrough {
             self.builder.ins().jump(exit_block, &[]);
         }
+
 
         // Switch to exit block and save state to context before returning
         self.builder.switch_to_block(exit_block);

@@ -154,7 +154,7 @@ impl<'a, 'b> Translator<'a, 'b> {
                 let target_addr = self.builder.ins().iadd(reg0_val, offset);
 
                 // Implement dynamic jump using Cranelift switch instruction
-                self.emit_dynamic_jump(target_addr)?;
+                self.emit_dynamic_jump(target_addr, current_pc, next_pc)?;
                 Ok(false) // Block is terminated
             }
             Instruction::LoadImmJump(format) => {
@@ -177,45 +177,22 @@ impl<'a, 'b> Translator<'a, 'b> {
             }
             Instruction::LoadImmJumpInd(format) => {
                 // Load immediate into first register and jump indirect to second register + immediate
-                // First load the immediate into reg0
+                
+                // Handle same-register case: need to read reg1 value BEFORE storing to reg0
+                let reg1_var = self.registers[&format.reg1];
+                let reg1_val = self.builder.use_var(reg1_var);
+                
+                // Load the immediate into reg0
                 let reg0_var = self.registers[&format.reg0];
                 let imm0_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
                 self.builder.def_var(reg0_var, imm0_val);
 
-                // Then compute jump target: reg1 + imm1
-                let reg1_var = self.registers[&format.reg1];
-                let reg1_val = self.builder.use_var(reg1_var);
+                // Compute jump target: reg1 + imm1 (using the value read before modifying reg0)
                 let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
                 let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
 
-                // Set PC to the computed target address
-                self.builder.def_var(self.pc, target_addr);
-
-                // For indirect jumps, we need to save state and return to runtime
-                // Get the context pointer parameter from entry block
-                let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-                let context_ptr = self.builder.block_params(entry_block)[0];
-
-                // Store all 13 register values back to context.registers
-                for i in 0..13 {
-                    let reg_var = self.registers[&(i as u8)];
-                    let reg_value = self.builder.use_var(reg_var);
-                    let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-                    let addr = self.builder.ins().iadd(context_ptr, offset);
-                    self.builder
-                        .ins()
-                        .store(MemFlags::new(), reg_value, addr, 0);
-                }
-
-                // Store PC back to context.pc (offset 104)
-                let pc_value = self.builder.use_var(self.pc);
-                let pc_offset = self.builder.ins().iconst(types::I64, 104);
-                let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-                self.builder
-                    .ins()
-                    .store(MemFlags::new(), pc_value, pc_addr, 0);
-
-                self.builder.ins().return_(&[]);
+                // Use the hybrid dynamic jump dispatch
+                self.emit_dynamic_jump(target_addr, current_pc, next_pc)?;
                 Ok(false) // Block is terminated
             }
             Instruction::BranchEq(format) => {
@@ -606,7 +583,7 @@ impl<'a, 'b> Translator<'a, 'b> {
 
 impl<'a, 'b> Translator<'a, 'b> {
     /// Emit a dynamic jump using Cranelift switch table for jump_indirect
-    pub fn emit_dynamic_jump(&mut self, target_addr: Value) -> Result<(), anyhow::Error> {
+    pub fn emit_dynamic_jump(&mut self, target_addr: Value, current_pc: usize, next_pc: usize) -> Result<(), anyhow::Error> {
         // Convert target address to u32 for PVM dynamic jump protocol
         let addr_32 = self.builder.ins().ireduce(types::I32, target_addr);
 
@@ -631,8 +608,31 @@ impl<'a, 'b> Translator<'a, 'b> {
 
         // === TRAP BLOCK (termination) ===
         self.builder.switch_to_block(trap_block);
-        // TODO: implement proper termination - for now just return
-        // This should save state and return to indicate termination
+        // Save state and return for termination
+        // Get the context pointer parameter from entry block
+        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
+        let context_ptr = self.builder.block_params(entry_block)[0];
+        
+        // Store all 13 register values back to context.registers
+        for i in 0..13 {
+            let reg_var = self.registers[&(i as u8)];
+            let reg_value = self.builder.use_var(reg_var);
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), reg_value, addr, 0);
+        }
+        
+        // Store PC back to context.pc (offset 104) - set to termination value
+        let pc_value = self.builder.ins().iconst(types::I64, i64::MAX);
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_value, pc_addr, 0);
+        
+        self.builder.ins().return_(&[]);
         self.builder.seal_block(trap_block);
 
         // === JUMP LOGIC BLOCK ===
@@ -659,38 +659,139 @@ impl<'a, 'b> Translator<'a, 'b> {
             .ins()
             .brif(addr_valid, valid_jump_block, &[], invalid_jump_block, &[]);
 
+        // Seal jump_logic_block since it's complete
+        self.builder.seal_block(jump_logic_block);
+
         // === INVALID JUMP BLOCK ===
         self.builder.switch_to_block(invalid_jump_block);
-        // TODO: implement proper invalid jump handling
+        // Invalid jump - trap and return
+        // Get the context pointer parameter from entry block
+        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
+        let context_ptr = self.builder.block_params(entry_block)[0];
+        
+        // Store all 13 register values back to context.registers
+        for i in 0..13 {
+            let reg_var = self.registers[&(i as u8)];
+            let reg_value = self.builder.use_var(reg_var);
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), reg_value, addr, 0);
+        }
+        
+        // Store PC back to context.pc - set to the current instruction PC for error handling
+        let pc_value = self.builder.ins().iconst(types::I64, current_pc as i64);
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_value, pc_addr, 0);
+        
+        self.builder.ins().return_(&[]);
         self.builder.seal_block(invalid_jump_block);
 
         // === VALID JUMP BLOCK ===
         self.builder.switch_to_block(valid_jump_block);
 
-        // Convert address to jump table index: index = (addr / 2) - 1
+        // Create fallback block for unknown/dynamic targets
+        let fallback_block = self.builder.create_block();
+        
+        // Create dispatch chain for known jump targets
+        // Use a series of conditional branches to check each known address
+        let jump_targets: Vec<_> = self.jump_table_map.iter().collect();
+        
+        if jump_targets.is_empty() {
+            // No known targets, go to fallback
+            self.builder.ins().jump(fallback_block, &[]);
+            // Seal valid_jump_block since it just has a jump
+            self.builder.seal_block(valid_jump_block);
+        } else {
+            // Create conditional chain for each known target
+            let mut current_block = valid_jump_block;
+            
+            for (i, (&address, &pc_target)) in jump_targets.iter().enumerate() {
+                // Check if we have a basic block for this PC target
+                if let Some(&target_block) = self.basic_blocks.get(&pc_target) {
+                    // Check if the computed address matches this known address
+                    let expected_addr = self.builder.ins().iconst(types::I32, address as i64);
+                    let addr_matches = self.builder.ins().icmp(IntCC::Equal, addr_32, expected_addr);
+                    
+                    // Determine the next block in the chain
+                    let next_check_block = if i == jump_targets.len() - 1 {
+                        fallback_block // Last check, use fallback for unmatched
+                    } else {
+                        // Create a new block for the next check
+                        let next_block = self.builder.create_block();
+                        next_block
+                    };
+                    
+                    // Branch: if address matches, jump to target block; otherwise continue checking
+                    self.builder.ins().brif(addr_matches, target_block, &[], next_check_block, &[]);
+                    
+                    // Seal the current block and move to the next
+                    self.builder.seal_block(current_block);
+                    
+                    // Switch to the next check block for subsequent iterations
+                    if i < jump_targets.len() - 1 {
+                        current_block = next_check_block;
+                        self.builder.switch_to_block(current_block);
+                    } else {
+                        // Last iteration, seal the final block if it's not fallback_block
+                        if next_check_block != fallback_block {
+                            self.builder.seal_block(next_check_block);
+                        }
+                    }
+                } else {
+                    // Target block doesn't exist, go to fallback
+                    self.builder.ins().jump(fallback_block, &[]);
+                    self.builder.seal_block(current_block);
+                    break;
+                }
+            }
+        }
+        
+        // Note: valid_jump_block is sealed in the dispatch logic above
+        
+        // === FALLBACK BLOCK (unknown jump target) ===
+        self.builder.switch_to_block(fallback_block);
+        
+        // For truly dynamic jumps that aren't in our static jump table,
+        // we need to save state and return to the runtime
+        // Get the context pointer parameter from entry block
+        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
+        let context_ptr = self.builder.block_params(entry_block)[0];
+        
+        // Convert address back to PC for storage
+        // PC = (addr / 2) - 1, then look up in jump table
         let two = self.builder.ins().iconst(types::I32, 2);
         let addr_div_2 = self.builder.ins().udiv(addr_32, two);
         let index = self.builder.ins().isub(addr_div_2, one);
-
-        // TODO: Build proper jump table mapping from addresses to basic blocks
-        // For now, just trap on any dynamic jump since we don't have the mapping
-        let trap_block = self.builder.create_block();
-        self.builder.ins().jump(trap_block, &[]);
-
-        // === TRAP BLOCK ===
-        self.builder.switch_to_block(trap_block);
-        // TODO: implement proper jump table dispatch
-        self.builder.seal_block(trap_block);
-
-        // TODO: Use the computed target_addr to look up the correct basic block
-        // For now, this is a placeholder that doesn't use hard-coded destinations
-        // The real implementation needs to:
-        // 1. Use target_addr to compute jump table index
-        // 2. Map that index to the correct basic block from self.basic_blocks
-        // 3. Jump to that dynamically determined block
-
-        // PLACEHOLDER: Just continue execution without hard-coding destination
-        // This allows the current block to continue normally
+        
+        // For now, just store the computed address as the PC
+        // The runtime will need to resolve this
+        let pc_value = self.builder.ins().uextend(types::I64, addr_32);
+        
+        // Store all 13 register values back to context.registers
+        for i in 0..13 {
+            let reg_var = self.registers[&(i as u8)];
+            let reg_value = self.builder.use_var(reg_var);
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(context_ptr, offset);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), reg_value, addr, 0);
+        }
+        
+        // Store PC back to context.pc (offset 104)
+        let pc_offset = self.builder.ins().iconst(types::I64, 104);
+        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_value, pc_addr, 0);
+        
+        self.builder.ins().return_(&[]);
+        self.builder.seal_block(fallback_block);
 
         Ok(())
     }
