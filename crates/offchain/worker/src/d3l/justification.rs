@@ -1,18 +1,21 @@
-//! Justification types and utilities for segment verification
+//! Basic justification types and Merkle path verification
 
 use anyhow::Result;
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
 
-/// Justification for segment/bundle shard correctness per network protocol
-/// Discriminators match CE 137/139/140 protocol specification
+/// The number of segments per page for page-proofs
+pub const PROOF_PAGE_SIZE: usize = 64;
+
+/// Justification for segment/bundle shard correctness
+/// Three discriminator variants for different proof types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Justification {
     /// Discriminator 0: Single hash (leaf node in co-path)
     Hash(OpaqueHash),
-    /// Discriminator 1: Hash pair (internal node in co-path)
+    /// Discriminator 1: Hash pair (internal node in co-path)  
     HashPair(OpaqueHash, OpaqueHash),
-    /// Discriminator 2: Segment shard data (for CE 140 protocol)
+    /// Discriminator 2: Segment shard data
     SegmentShard(Vec<u8>),
 }
 
@@ -111,72 +114,5 @@ impl JustificationPath {
             .collect();
 
         Self::new(erasure_root, shard_index, path)
-    }
-}
-
-/// Justification for a specific segment shard (CE 139/140 protocols)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SegmentShardJustification {
-    /// The segment index within the bundle
-    pub segment_index: u16,
-    /// The shard index within the segment
-    pub shard_index: u16,
-    /// The justification path
-    pub path: JustificationPath,
-}
-
-/// Justification for a work-package bundle shard (CE 137/138 protocols)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BundleShardJustification {
-    /// The shard index within the bundle
-    pub shard_index: u16,
-    /// The justification path
-    pub path: JustificationPath,
-}
-
-impl BundleShardJustification {
-    /// Create new bundle shard justification from shards
-    pub fn new(
-        shards: &[Vec<u8>],
-        erasure_root: &OpaqueHash,
-        shard_index: u16,
-    ) -> Result<Option<Self>> {
-        let Some(path) = JustificationPath::compute(erasure_root, shard_index, shards)? else {
-            return Ok(None);
-        };
-
-        Ok(Some(Self { shard_index, path }))
-    }
-
-    /// Verify bundle shard against justification
-    pub fn verify_bundle_shard(&self, shard: &[u8]) -> Result<bool> {
-        let shard_hash = crypto::blake2b(shard);
-        self.path.verify_shard(&shard_hash)
-    }
-}
-
-impl SegmentShardJustification {
-    /// Create new segment shard justification from shards
-    pub fn new(
-        shards: &[Vec<u8>],
-        erasure_root: &OpaqueHash,
-        segment_index: u16,
-        shard_index: u16,
-    ) -> Result<Option<Self>> {
-        let Some(path) = JustificationPath::compute(erasure_root, shard_index, shards)? else {
-            return Ok(None);
-        };
-
-        Ok(Some(Self {
-            segment_index,
-            shard_index,
-            path,
-        }))
-    }
-
-    /// Verify segment shard against justification
-    pub fn verify_segment_shard(&self, shard: &[u8]) -> Result<bool> {
-        let shard_hash = crypto::blake2b(shard);
-        self.path.verify_shard(&shard_hash)
     }
 }

@@ -129,7 +129,7 @@ impl<K: Eq + PartialEq + Ord + PartialOrd, V> VecMap<K, V> {
         self.0.is_empty()
     }
     /// Return an iterator over the key/value pairs in this mapping in order.
-    pub fn iter(&self) -> core::slice::Iter<(K, V)> {
+    pub fn iter(&self) -> core::slice::Iter<'_, (K, V)> {
         self.0.iter()
     }
     /// Return an iterator over the keys in this mapping in order.

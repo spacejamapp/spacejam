@@ -95,10 +95,10 @@ impl<T, N: Get<u32>> FixedVec<T, N> {
     pub fn is_empty(&self) -> bool {
         N::get() == 0
     }
-    pub fn iter(&self) -> core::slice::Iter<T> {
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.0.iter()
     }
-    pub fn iter_mut(&mut self) -> core::slice::IterMut<T> {
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, T> {
         self.0.iter_mut()
     }
     pub fn map<U>(self, f: impl FnMut(T) -> U) -> FixedVec<U, N> {

@@ -2,11 +2,13 @@
 //! Work package computation
 
 pub use {
-    bundle::WorkPackageBundle,
-    segment::{InMemorySegmentProvider, SegmentBundle, SegmentProvider},
-    worker::Worker,
+    assurer::Assurer,
+    auditor::Auditor,
+    d3l::{bundle::WorkPackageBundle, DataLake, InMemoryDataLake},
+    guarantor::Guarantor,
 };
 
-mod bundle;
-pub mod segment;
-mod worker;
+mod assurer;
+mod auditor;
+pub mod d3l;
+mod guarantor;

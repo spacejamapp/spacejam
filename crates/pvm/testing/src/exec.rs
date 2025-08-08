@@ -12,7 +12,7 @@ use score::{
     ServiceId,
 };
 use std::collections::BTreeMap;
-use worker::{InMemorySegmentProvider, Worker};
+use worker::{Guarantor, InMemoryDataLake};
 
 /// The result of an execution
 #[derive(Debug, Default)]
@@ -74,9 +74,9 @@ impl Jam {
     ///
     /// NOTE: run refine for all work items
     pub fn refine(&mut self, work: &WorkPackage) -> Result<WorkReport> {
-        let worker = Worker::new(InMemorySegmentProvider::default());
-        let report =
-            worker.compute_sync::<_, Interpreter>(work.clone(), 0, self.chain.accounts.clone())?;
+        let guarantor = InMemoryDataLake::default();
+        let (report, _) =
+            guarantor.compute_sync::<_, Interpreter>(0, vec![], work, &mut self.chain.accounts)?;
 
         // verify the work results
         for (index, result) in report.results.iter().enumerate() {

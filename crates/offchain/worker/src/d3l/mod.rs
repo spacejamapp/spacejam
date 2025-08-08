@@ -6,13 +6,16 @@
 //! - Segment provider abstraction
 //! - Bundle creation and erasure root computation
 
-mod bundle;
+// pub mod erasure;
+pub mod bundle;
 pub mod justification;
-mod provider;
+mod lake;
+pub mod proof;
 pub mod shard;
 
 pub use {
-    bundle::SegmentBundle,
-    justification::{BundleShardJustification, Justification, SegmentShardJustification},
-    provider::{InMemorySegmentProvider, SegmentProvider},
+    justification::{Justification, JustificationPath},
+    lake::{DataLake, InMemoryDataLake},
+    proof::{BundleShardJustification, PageProof, SegmentShardJustification},
+    shard::Shard,
 };

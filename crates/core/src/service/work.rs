@@ -15,7 +15,7 @@ pub struct WorkPackageSpec {
     #[json(hex)]
     pub hash: WorkPackageHash,
 
-    /// The length
+    /// The length of the erasure bundle
     pub length: u32,
 
     /// The erasure root
