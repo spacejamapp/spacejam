@@ -29,6 +29,15 @@ pub struct ServiceAccount {
 
     /// The transfer gas of the service account (m)
     pub transfer_gas: Gas,
+
+    /// The creation time of the service account (t)
+    pub creation: u32,
+
+    /// The last update time of the service account (u)
+    pub update: u32,
+
+    /// The parent of the service account (p)
+    pub parent: u32,
 }
 
 impl ServiceAccount {
@@ -42,6 +51,9 @@ impl ServiceAccount {
             balance: crate::BALANCE_PER_SERVICE,
             accumulate_gas: gas.accumulate,
             transfer_gas: gas.transfer,
+            creation: 0,
+            update: 0,
+            parent: 0,
         }
     }
 
@@ -82,9 +94,9 @@ impl ServiceAccount {
             transfer: self.transfer_gas,
             total,
             items,
-            creation: 0,
-            update: 0,
-            parent: 0,
+            creation: self.creation,
+            update: self.update,
+            parent: self.parent,
         }
     }
 

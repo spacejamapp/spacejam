@@ -47,6 +47,20 @@ pub trait Account: Clone {
     /// Set the transfer gas of the account
     fn set_transfer_gas(&mut self, gas: Gas);
 
+    /// Get the creation time of the account
+    fn creation(&self) -> u32;
+
+    /// Set the creation time of the account
+    fn set_creation(&mut self, creation: u32);
+
+    /// Get the last update time of the account
+    fn update(&self) -> u32;
+
+    /// Set the last update time of the account
+    fn set_update(&mut self, update: u32);
+
+    /// Get the parent of the account
+
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
 
@@ -156,6 +170,22 @@ impl Account for ServiceAccount {
 
     fn set_transfer_gas(&mut self, gas: Gas) {
         self.transfer_gas = gas;
+    }
+
+    fn creation(&self) -> u32 {
+        self.creation
+    }
+
+    fn set_creation(&mut self, creation: u32) {
+        self.creation = creation;
+    }
+
+    fn update(&self) -> u32 {
+        self.update
+    }
+
+    fn set_update(&mut self, update: u32) {
+        self.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {

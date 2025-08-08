@@ -61,9 +61,10 @@ impl<R: Accounts> Accumulate<R> {
             return Ok(Exit::Who as u64);
         }
 
+        // TODO: fix the assign array
         self.x.context.privileges = Privileges {
             bless: m as u32,
-            assign: a as u32,
+            assign: [a as u32; score::CORES_COUNT],
             designate: v as u32,
             always_acc: map,
         };
@@ -165,6 +166,11 @@ impl<R: Accounts> Accumulate<R> {
         account.balance = score::BALANCE_PER_SERVICE;
         account.code = hash;
         account.lookup.insert((hash, l as u32), vec![]);
+
+        // Set metadata fields for new service account
+        account.creation = self.timeslot;
+        account.update = self.timeslot;
+        account.parent = self.x.service;
 
         // insert the new account to the map
         //

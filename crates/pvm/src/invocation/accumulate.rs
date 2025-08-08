@@ -54,7 +54,10 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
             crate::bail!("Account {} not found in context", general.index);
         };
 
-        self.x.context.accounts.upsert(index, account.clone());
+        // Update the account metadata - set the update field to current timeslot
+        let mut updated_account = account.clone();
+        updated_account.set_update(self.timeslot);
+        self.x.context.accounts.upsert(index, updated_account);
         Ok(())
     }
 

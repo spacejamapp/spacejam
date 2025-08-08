@@ -210,7 +210,7 @@ mod types {
             Privileges {
                 bless: value.bless,
                 designate: value.designate,
-                assign: value.assign[0],
+                assign: value.assign,
                 always_acc: value
                     .always_acc
                     .into_iter()
@@ -225,7 +225,7 @@ mod types {
             PrivilegesWrap {
                 bless: value.bless,
                 designate: value.designate,
-                assign: [value.assign; score::CORES_COUNT],
+                assign: value.assign,
                 always_acc: value
                     .always_acc
                     .into_iter()

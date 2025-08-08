@@ -127,6 +127,22 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.items()
     }
 
+    fn creation(&self) -> u32 {
+        self.account.creation
+    }
+
+    fn set_creation(&mut self, creation: u32) {
+        self.account.set_creation(creation);
+    }
+
+    fn update(&self) -> u32 {
+        self.account.update
+    }
+
+    fn set_update(&mut self, update: u32) {
+        self.account.set_update(update);
+    }
+
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
         if let Some(lookup) = self.account.lookup.get(&(hash, len)) {
             return Some(lookup.clone());
@@ -215,9 +231,9 @@ impl<S: Storage> score::Account for Account<S> {
             accumulate: self.account.accumulate_gas,
             total: self.account.total(),
             items: self.account.items(),
-            creation: 0,
-            update: 0,
-            parent: 0,
+            creation: self.account.creation,
+            update: self.account.update,
+            parent: self.account.parent,
         }
     }
 

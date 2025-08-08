@@ -241,6 +241,9 @@ mod types {
                 balance: data.service.balance,
                 accumulate_gas: data.service.accumulate,
                 transfer_gas: data.service.transfer,
+                creation: data.service.creation,
+                update: data.service.update,
+                parent: data.service.parent,
             }
         }
     }

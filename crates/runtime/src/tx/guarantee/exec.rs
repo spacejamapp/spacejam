@@ -139,9 +139,13 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.validators = result.context.validators.clone();
     };
 
-    if let Some(result) = results.get(&context.privileges.assign) {
-        context.authorization = result.context.authorization.clone();
-    };
+    // Handle the assign array - each core has its own assign service
+    for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
+        if let Some(result) = results.get(assign_service) {
+            // Update the authorization queue for this specific core
+            context.authorization[core_index] = result.context.authorization[core_index].clone();
+        }
+    }
 
     Accumulated {
         accumulated: reports.len(),
