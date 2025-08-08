@@ -171,12 +171,14 @@ impl<S: Storage> score::Account for Account<S> {
         self.ops.removal.remove(&key);
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
+        self.set_total(self.total() + 81 + len as u64);
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = self.drop_lookup(hash, len);
         self.account.lookup.remove(&(hash, len));
-        self.ops.remove(key)
+        self.ops.remove(key);
+        self.set_total(self.total() - 81 - len as u64);
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
@@ -200,11 +202,12 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        self.account.storage.get(key)
+        let vkey = account::storage(self.index, key).to_vec();
+        self.account.storage.get(&vkey)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let vkey = key.to_vec();
+        let vkey = account::storage(self.index, key).to_vec();
         {
             if self.storage.1.contains(&vkey) {
                 self.storage.1.remove(&vkey);
@@ -215,13 +218,30 @@ impl<S: Storage> score::Account for Account<S> {
             self.ops.removal.remove(&fkey);
         }
 
-        self.storage.0.insert(key.to_vec());
-        self.account.storage.insert(key.to_vec(), value);
+        // update total
+        if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
+            self.set_total(self.total() + value.len() as u64 - old);
+        } else {
+            self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+        }
+
+        // update storage
+        self.storage.0.insert(vkey.clone());
+        self.account.storage.insert(vkey, value);
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        self.storage.1.insert(key.to_vec());
-        self.account.storage.remove(key)
+        let vkey = account::storage(self.index, key).to_vec();
+        if !self.storage.1.contains(&vkey) {
+            self.storage.1.insert(vkey.clone());
+        }
+
+        // update total
+        if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
+            self.set_total(self.total() - 34 - key.len() as u64 - old);
+        }
+
+        self.account.storage.remove(&vkey)
     }
 
     fn info(&self) -> ServiceInfo {

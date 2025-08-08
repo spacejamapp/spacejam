@@ -66,8 +66,6 @@ pub trait Account: Clone {
     /// Set the last update time of the account
     fn set_update(&mut self, update: u32);
 
-    /// Get the parent of the account
-
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
 
@@ -230,20 +228,20 @@ impl Account for ServiceAccount {
     }
 
     fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        let skey = account::storage(self.index(), &key);
+        let skey = account::storage(self.index(), key);
         self.storage.get(skey.as_slice())
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let skey = account::storage(self.index(), &key);
-        let value = self.storage.remove(&skey.to_vec())?;
+        let skey = account::storage(self.index(), key);
+        let value = self.storage.remove(skey.as_slice())?;
         self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
         Some(value)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let skey = account::storage(self.index(), &key);
-        if let Some(old) = self.storage.get(&skey.to_vec()).map(|v| v.len() as u64) {
+        let skey = account::storage(self.index(), key);
+        if let Some(old) = self.storage.get(skey.as_slice()).map(|v| v.len() as u64) {
             self.set_total(self.total() + value.len() as u64 - old);
         } else {
             self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
