@@ -203,8 +203,10 @@ impl<'a, 'b> Translator<'a, 'b> {
                 let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
 
                 let target_offset = (current_pc as i64 + format.off0 as i64) as usize;
-                let target_block = self.basic_blocks[&target_offset];
-                let fallthrough_block = self.basic_blocks[&next_pc];
+                let target_block = self.basic_blocks.get(&target_offset)
+                    .ok_or_else(|| anyhow::anyhow!("Branch target block not found at offset {}", target_offset))?;
+                let fallthrough_block = self.basic_blocks.get(&next_pc)
+                    .ok_or_else(|| anyhow::anyhow!("Fallthrough block not found at offset {}", next_pc))?;
 
                 // Create PC values for both paths
                 let target_pc = self.builder.ins().iconst(types::I64, target_offset as i64);
@@ -219,7 +221,7 @@ impl<'a, 'b> Translator<'a, 'b> {
 
                 self.builder
                     .ins()
-                    .brif(condition, target_block, &[], fallthrough_block, &[]);
+                    .brif(condition, *target_block, &[], *fallthrough_block, &[]);
                 Ok(false) // Block is terminated with conditional branch
             }
             Instruction::BranchNe(format) => {
@@ -583,7 +585,7 @@ impl<'a, 'b> Translator<'a, 'b> {
 
 impl<'a, 'b> Translator<'a, 'b> {
     /// Emit a dynamic jump using Cranelift switch table for jump_indirect
-    pub fn emit_dynamic_jump(&mut self, target_addr: Value, current_pc: usize, next_pc: usize) -> Result<(), anyhow::Error> {
+    pub fn emit_dynamic_jump(&mut self, target_addr: Value, current_pc: usize, _next_pc: usize) -> Result<(), anyhow::Error> {
         // Convert target address to u32 for PVM dynamic jump protocol
         let addr_32 = self.builder.ins().ireduce(types::I32, target_addr);
 
@@ -766,7 +768,7 @@ impl<'a, 'b> Translator<'a, 'b> {
         // PC = (addr / 2) - 1, then look up in jump table
         let two = self.builder.ins().iconst(types::I32, 2);
         let addr_div_2 = self.builder.ins().udiv(addr_32, two);
-        let index = self.builder.ins().isub(addr_div_2, one);
+        let _index = self.builder.ins().isub(addr_div_2, one);
         
         // For now, just store the computed address as the PC
         // The runtime will need to resolve this
