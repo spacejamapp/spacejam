@@ -136,13 +136,13 @@ mod types {
         #[json(nested)]
         pub privileges: PrivilegesWrap,
 
-        /// The accounts
-        #[json(nested)]
-        pub accounts: Vec<ServiceItem>,
-
         /// The statistics
         #[json(nested)]
         pub statistics: Vec<RecordWrap>,
+
+        /// The accounts
+        #[json(nested)]
+        pub accounts: Vec<ServiceItem>,
     }
 
     impl State {
@@ -197,7 +197,8 @@ mod types {
         pub designate: ServiceId,
 
         /// The assign service id
-        pub assign: ServiceId,
+        #[json(Vec<ServiceId>)]
+        pub assign: [ServiceId; score::CORES_COUNT],
 
         /// The always accumulate service ids
         #[json(nested)]
@@ -209,7 +210,7 @@ mod types {
             Privileges {
                 bless: value.bless,
                 designate: value.designate,
-                assign: value.assign,
+                assign: value.assign[0],
                 always_acc: value
                     .always_acc
                     .into_iter()
@@ -224,7 +225,7 @@ mod types {
             PrivilegesWrap {
                 bless: value.bless,
                 designate: value.designate,
-                assign: value.assign,
+                assign: [value.assign; score::CORES_COUNT],
                 always_acc: value
                     .always_acc
                     .into_iter()

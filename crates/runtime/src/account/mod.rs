@@ -211,11 +211,13 @@ impl<S: Storage> score::Account for Account<S> {
         ServiceInfo {
             code: self.account.code,
             balance: self.account.balance,
-            threshold: self.account.threshold(),
             transfer: self.account.transfer_gas,
             accumulate: self.account.accumulate_gas,
             total: self.account.total(),
             items: self.account.items(),
+            creation: 0,
+            update: 0,
+            parent: 0,
         }
     }
 

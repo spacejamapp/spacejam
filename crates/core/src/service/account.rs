@@ -78,11 +78,13 @@ impl ServiceAccount {
         ServiceInfo {
             code: self.code,
             balance: self.balance,
-            threshold: self.threshold(),
             accumulate: self.accumulate_gas,
             transfer: self.transfer_gas,
             total,
             items,
+            creation: 0,
+            update: 0,
+            parent: 0,
         }
     }
 
@@ -111,10 +113,6 @@ pub struct ServiceInfo {
     #[serde(with = "codec::compact")]
     pub balance: u64,
 
-    /// The threshold of the service account (t)
-    #[serde(with = "codec::compact", default)]
-    pub threshold: u64,
-
     /// The minimum required for the on transfer entry-point (m)
     #[serde(alias = "min_item_gas")]
     #[serde(with = "codec::compact")]
@@ -134,6 +132,21 @@ pub struct ServiceInfo {
     /// The number of items in storage (i)
     #[serde(with = "codec::compact")]
     pub items: u32,
+
+    /// The creation time of the service account (t)
+    #[serde(alias = "creation_slot")]
+    #[serde(with = "codec::compact")]
+    pub creation: u32,
+
+    /// The last update time of the service account (u)
+    #[serde(alias = "last_accumulation_slot")]
+    #[serde(with = "codec::compact")]
+    pub update: u32,
+
+    /// The parent of the service account (p)
+    #[serde(alias = "parent_service")]
+    #[serde(with = "codec::compact")]
+    pub parent: u32,
 }
 
 /// Service data for state storage codec
