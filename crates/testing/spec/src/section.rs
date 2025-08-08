@@ -58,8 +58,10 @@ impl FromStr for Section {
             "reports" | "stf/reports" => Ok(Section::Reports),
             "fallback" | "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
-            "reports-l0" | "traces/reports-l0" => Ok(Section::Trace(Trace::ReportsL0)),
-            "reports-l1" | "traces/reports-l1" => Ok(Section::Trace(Trace::ReportsL1)),
+            "traces/preimages" => Ok(Section::Trace(Trace::Preimages)),
+            "traces/preimages_light" => Ok(Section::Trace(Trace::PreimagesLight)),
+            "traces/storage" => Ok(Section::Trace(Trace::Storage)),
+            "traces/storage_light" => Ok(Section::Trace(Trace::StorageLight)),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -84,9 +86,11 @@ impl AsRef<str> for Section {
             Section::Reports => "stf/reports",
             Section::Trace(trace) => match trace {
                 Trace::Fallback => "traces/fallback",
+                Trace::Preimages => "traces/preimages",
+                Trace::PreimagesLight => "traces/preimages_light",
                 Trace::Safrole => "traces/safrole",
-                Trace::ReportsL0 => "traces/reports-l0",
-                Trace::ReportsL1 => "traces/reports-l1",
+                Trace::Storage => "traces/storage",
+                Trace::StorageLight => "traces/storage_light",
                 Trace::Any => ".",
             },
         }
@@ -104,12 +108,16 @@ impl Display for Section {
 pub enum Trace {
     /// The fallback traces
     Fallback,
+    /// The preimages traces
+    Preimages,
+    /// The preimages traces light
+    PreimagesLight,
     /// The safrole traces
     Safrole,
-    /// The reports traces
-    ReportsL0,
-    /// The reports traces
-    ReportsL1,
+    /// The storage traces
+    Storage,
+    /// The storage traces light
+    StorageLight,
     /// Any trace
     Any,
 }

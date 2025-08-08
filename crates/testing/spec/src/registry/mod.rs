@@ -44,11 +44,7 @@ impl Registry {
             Section::Reports => self.reports(Scale::Tiny),
             Section::Safrole => self.safrole(Scale::Tiny),
             Section::Statistics => self.statistics(Scale::Tiny),
-            Section::Trace(Trace::Fallback) => self.trace(Trace::Fallback),
-            Section::Trace(Trace::Safrole) => self.trace(Trace::Safrole),
-            Section::Trace(Trace::ReportsL0) => self.trace(Trace::ReportsL0),
-            Section::Trace(Trace::ReportsL1) => self.trace(Trace::ReportsL1),
-            Section::Trace(Trace::Any) => self.trace(Trace::Any),
+            Section::Trace(trace) => self.trace(trace),
         }
     }
 
