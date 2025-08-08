@@ -178,6 +178,7 @@ impl<R: Accounts> General<R> {
                 }
             };
 
+            tracing::debug!("writing to storage key: {key:?}, value: {value:?}");
             account.write(&skey, value);
             self.updated = true;
         }

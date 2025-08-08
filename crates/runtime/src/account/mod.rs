@@ -120,7 +120,7 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn total(&self) -> u64 {
-        self.account.balance
+        self.account.total()
     }
 
     fn items(&self) -> u32 {

@@ -79,7 +79,11 @@ impl ServiceAccount {
         self.lookup
             .iter()
             .map(|((_, z), _)| 81 + *z as u64)
-            .chain(self.storage.values().map(|x| 32 + x.len() as u64))
+            .chain(
+                self.storage
+                    .iter()
+                    .map(|(x, y)| 34 + x.len() as u64 + y.len() as u64),
+            )
             .sum::<u64>()
     }
 
