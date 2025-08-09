@@ -163,7 +163,6 @@ pub fn simulate<Vm: Pvm>(
 
     // Round 4 computation
     {
-        tracing::debug!("accumulation root: {:?}", root);
         // (β') Update the block history
         state.recent_blocks.import(
             block.header.hash()?,
@@ -181,13 +180,7 @@ pub fn simulate<Vm: Pvm>(
             last.reported = reported;
         };
 
-        diff.set(
-            key::RECENT_BLOCKS,
-            codec::encode(&state.recent_blocks.history)?,
-        );
-        // TODO: MMB is not set in polkajam
-        //
-        // diff.set(key::MMB, codec::encode(&state.recent_blocks.mmr)?);
+        diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
 
         // (δ') Update the accounts
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;

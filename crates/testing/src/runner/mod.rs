@@ -2,7 +2,7 @@
 
 use crate::traces::KeyValue;
 use ::pvm::Invocation;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use pvmi::Interpreter;
 use runtime::{
     storage::{MemoryDb, StateStorage},
@@ -435,9 +435,12 @@ impl Runner {
                     }
 
                     if key == key::RECENT_BLOCKS && value != result {
-                        let polkajam: Vec<BlockInfo> = codec::decode(&value)?;
-                        let recent: Vec<BlockInfo> = codec::decode(&result)?;
+                        let polkajam: History =
+                            codec::decode(&value).context("failed to decode polkajam")?;
                         tracing::debug!("polkajam: {:?}", polkajam);
+
+                        let recent: History =
+                            codec::decode(&result).context("failed to decode spacejam")?;
                         tracing::debug!("spacejam: {:?}", recent);
                     }
 
