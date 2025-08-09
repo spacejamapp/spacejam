@@ -18,6 +18,7 @@ pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
+pub mod util;
 pub mod vm;
 
 /// (B_I) The balance per item
@@ -183,6 +184,9 @@ pub const PVM_ZONE_SIZE: usize = 1 << 16;
 
 /// The maximum size of the authorization pool
 pub const AUTH_POOL_MAX_SIZE: usize = 8;
+
+/// The number of guarantors per core
+pub const GUARANTORS_PER_CORE: usize = VALIDATORS_COUNT as usize / CORES_COUNT;
 
 // Singing Contexts
 
