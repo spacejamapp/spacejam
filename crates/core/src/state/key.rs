@@ -57,8 +57,8 @@ pub const ACCUMULATION_QUEUE: TrieKey = to_key!(14);
 /// C(15) - The accumulation history (ξ)
 pub const ACCUMULATION_HISTORY: TrieKey = to_key!(15);
 
-/// C(16) - The Merkle Mountain Range (MMR)
-pub const MMR: TrieKey = to_key!(16);
+/// C(16) - The Merkle Mountain Belt (MMB)
+pub const MMB: TrieKey = to_key!(16);
 
 /// The prefix of account storage (u32::MAX - 1)
 pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [255, 255, 255, 255];

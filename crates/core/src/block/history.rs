@@ -59,9 +59,10 @@ mod crypto_impl {
 
             // Update the state root of the parent block if it exists
             last.state_root = parent_state_root;
+            let beefy_root = self.mmr.root().unwrap_or_default();
             let new_block = BlockInfo {
                 header_hash,
-                beefy_root: self.mmr.root().unwrap_or_default(),
+                beefy_root,
                 state_root: OpaqueHash::default(),
                 reported,
             };

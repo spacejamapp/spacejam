@@ -119,9 +119,10 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
         gas.insert(*service_id, result.gas);
         transfers.extend(result.transfers.clone());
-        if let Some(hash) = result.hash {
-            pairings.insert(*service_id, hash);
-        }
+        pairings.insert(*service_id, result.hash.unwrap_or_default());
+        // if let Some(hash) = result.hash {
+        //     pairings.insert(*service_id, hash);
+        // }
     }
 
     // Remove accounts that were removed by any service

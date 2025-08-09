@@ -109,6 +109,16 @@ impl<R: Accounts> Accumulated<R> {
 
         records
     }
+
+    /// Get the accumulation root
+    pub fn root(&self) -> OpaqueHash {
+        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
+        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
+
+        // Encode and hash the sorted pairs
+        let encoded = codec::encode(&sorted_pairs).expect("failed to encode pairings");
+        crypto::blake2b(&encoded)
+    }
 }
 
 /// The accumulation result used in the runtime

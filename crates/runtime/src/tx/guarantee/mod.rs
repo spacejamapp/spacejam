@@ -84,7 +84,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     );
 
     Ok(Accumulation {
-        root: Default::default(),
+        root: accumulated.root(),
         ready_queue: next_ready_queue,
         accumulated_queue: next_accumulated_queue,
         accounts: accumulated.context.accounts,

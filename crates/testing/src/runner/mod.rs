@@ -9,7 +9,8 @@ use runtime::{
     tx,
 };
 use score::{
-    block::{Block, History},
+    block::{Block, BlockInfo, History},
+    service::{AccumulatedQueue, ReadyQueue},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts,
@@ -43,7 +44,7 @@ impl Runner {
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let accumulation = tx::guarantee::accumulate::<Interpreter, _>(
+                let mut accumulation = tx::guarantee::accumulate::<Interpreter, _>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
@@ -52,6 +53,7 @@ impl Runner {
                     &input.pre_state.privileges.into(),
                     accounts.clone(),
                 )?;
+                accumulation.root = Default::default();
 
                 // convert the accounts to the service items
                 let accounts = accumulate::to_accounts(&accumulation);
@@ -430,6 +432,18 @@ impl Runner {
                         let statistics: Statistics = codec::decode(&result)?;
                         tracing::debug!("polkajam: {:?}", polkajam);
                         tracing::debug!("spacejam: {:?}", statistics);
+                    }
+
+                    if key == key::RECENT_BLOCKS && value != result {
+                        let polkajam: Vec<BlockInfo> = codec::decode(&value)?;
+                        let recent: Vec<BlockInfo> = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", recent);
+                    }
+
+                    if key == key::MMB && value != result {
+                        tracing::debug!("polkajam: {:?}", value);
+                        tracing::debug!("spacejam: {:?}", result);
                     }
 
                     if value != result {

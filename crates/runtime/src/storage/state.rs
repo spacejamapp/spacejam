@@ -78,7 +78,7 @@ pub trait StateStorage: KVStorage {
                     key::STATISTICS,
                     key::ACCUMULATION_QUEUE,
                     key::ACCUMULATION_HISTORY,
-                    key::MMR,
+                    key::MMB,
                 ]
                 .into_iter()
                 .map(|k| k.to_vec())
