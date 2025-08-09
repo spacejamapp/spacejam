@@ -143,9 +143,9 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::BadStateRoot);
         }
 
-        /*  if block.mmr.root() != Some(guarantee.report.context.beefy_root) {
+        if block.beefy_root != guarantee.report.context.beefy_root {
             return Err(Error::BadBeefyMmrRoot);
-        } */
+        }
 
         Ok(())
     }
@@ -205,6 +205,11 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 return Err(Error::BadValidatorIndex);
             }
 
+            // Check if validator is banned before verifying signature
+            if self.is_validator_banned(sig.validator_index) {
+                return Err(Error::BannedValidator);
+            }
+
             crypto::ed25519::verify(
                 &message,
                 sig.signature,
@@ -226,6 +231,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .iter()
             .map(|sig| sig.validator_index)
             .collect::<Vec<_>>();
+
+        // Check if any guarantor is banned (in the offenders list)
+        for sig in guarantee.signatures.iter() {
+            if self.is_validator_banned(sig.validator_index) {
+                return Err(Error::BannedValidator);
+            }
+        }
 
         let guaranteed = self.guarantors.values().flatten().collect::<Vec<_>>();
         if guarantors.iter().any(|g| guaranteed.contains(&g)) {
@@ -343,5 +355,18 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .any(|(_, a)| a.code() == *dep)
             || self.reported.contains(dep)
             || self.recent.iter().any(|r| r.hash == *dep)
+    }
+
+    /// Check if a validator is banned (in the offenders list)
+    fn is_validator_banned(&self, validator_index: u16) -> bool {
+        if validator_index as usize >= VALIDATORS_COUNT as usize {
+            return true; // Invalid index is considered banned
+        }
+
+        let validator_public_key = self.validators[validator_index as usize].ed25519;
+        self.state
+            .disputes
+            .offenders
+            .contains(&validator_public_key)
     }
 }
