@@ -55,11 +55,6 @@ impl Runner {
 
                 // convert the accounts to the service items
                 let accounts = accumulate::to_accounts(&accumulation);
-                /* for account in accounts.iter_mut() {
-                    // the current test vector doesn't support threshold
-                    // account.data.service.threshold = 0;
-                } */
-
                 assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(

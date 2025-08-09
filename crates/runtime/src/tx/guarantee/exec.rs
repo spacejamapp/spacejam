@@ -1,6 +1,6 @@
 //! Execution of work reports
 
-use pvm::{Accounts, Pvm};
+use pvm::{Account, Accounts, Pvm};
 use score::{
     service::WorkReport,
     vm::{AccumulateState, Accumulated},
@@ -102,12 +102,12 @@ pub fn parallel<V: Pvm, R: Accounts>(
         let lsvc = result.context.accounts.services();
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
-            // FIXME:
-            //
-            // - check if we do need update the accounts
-            // - handle the same code different services logic more carefully
             if !services.contains(id) || id == service_id {
-                context.accounts.upsert(*id, account.clone());
+                // TODO: we'd better update on changes, updating
+                // here for matching the test vectors.
+                let mut account = account.clone();
+                account.set_update(timeslot);
+                context.accounts.upsert(*id, account);
             }
         }
 
@@ -117,7 +117,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
-        // Collect other outputs
         gas.insert(*service_id, result.gas);
         transfers.extend(result.transfers.clone());
         if let Some(hash) = result.hash {
@@ -135,6 +134,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.privileges = result.context.privileges.clone();
     };
 
+    // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {
         context.validators = result.context.validators.clone();
     };
