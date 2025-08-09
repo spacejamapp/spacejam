@@ -4,7 +4,7 @@ use crate::tx::guarantee::error::{Error, Result};
 use crypto::shuffle;
 use score::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    safrole::ValidatorData,
+    safrole::ValidatorIter,
     service::{ReportedWorkPackage, WorkExecResult},
     Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
@@ -17,8 +17,6 @@ pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub state: &'s State,
     /// account registry
     pub accounts: &'s R,
-    /// validators data
-    pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
     /// core assignments for each validator
     pub core_assignments: Vec<Vec<u16>>,
     /// guarantors for each core
@@ -27,6 +25,8 @@ pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub recent: Vec<ReportedWorkPackage>,
     /// reported work packages
     pub reported: Vec<OpaqueHash>,
+    /// The timeslot of the current validation
+    pub timeslot: TimeSlot,
 }
 
 impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
@@ -35,11 +35,11 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Self {
             state,
             accounts,
-            validators: state.validators.current,
             core_assignments: vec![],
             guarantors: BTreeMap::new(),
             recent: vec![],
             reported: vec![],
+            timeslot: 0,
         }
     }
 
@@ -50,6 +50,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         guarantees: &GuaranteesExtrinsic,
     ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
         self.init_deps(guarantees);
+        self.timeslot = slot;
 
         // Prepare for reporting
         let mut reported = Vec::new();
@@ -57,12 +58,19 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
+            let validators = if self.timeslot / EPOCH_LENGTH == guarantee.slot / EPOCH_LENGTH {
+                self.state.validators.current
+            } else {
+                self.state.validators.previous
+            }
+            .ed25519();
+
             self.validate_core(guarantee)?;
-            self.validate_rotation(slot, guarantee)?;
+            self.validate_rotation(guarantee)?;
             self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
-            self.validate_guarantees(guarantee)?;
+            self.validate_guarantees(guarantee, &validators)?;
             self.validate_guarantors(guarantee)?;
 
             // Record reported package
@@ -76,7 +84,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 guarantee
                     .signatures
                     .iter()
-                    .map(|sig| self.validators[sig.validator_index as usize].ed25519),
+                    .map(|sig| validators[sig.validator_index as usize]),
             );
         }
 
@@ -89,13 +97,15 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     /// Assign cores to validators based on the timeslot
     fn assign_cores(&mut self, timeslot: u32, eta: [u8; 32]) {
-        let initial_sequence: Vec<u32> = (0..VALIDATORS_COUNT as u32)
-            .map(|i| (i * CORES_COUNT as u32) / VALIDATORS_COUNT as u32)
-            .collect();
+        let shuffled = shuffle::eq331(
+            &(0..VALIDATORS_COUNT as u32)
+                .map(|i| (i * CORES_COUNT as u32) / VALIDATORS_COUNT as u32)
+                .collect::<Vec<_>>(),
+            eta,
+        );
 
-        // Calculate rotation offset based on timeslot
+        // Calculate rotation offset based on timeslot (P function)
         let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD as u32;
-        let shuffled = shuffle::eq331(&initial_sequence, eta);
         let rotated: Vec<u32> = shuffled
             .iter()
             .map(|&core_idx| (core_idx + rotation) % CORES_COUNT as u32)
@@ -188,7 +198,11 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_guarantees(&self, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_guarantees(
+        &self,
+        guarantee: &ReportGuarantee,
+        validators: &[Ed25519Public],
+    ) -> Result<()> {
         let min_guarantees = (VALIDATORS_COUNT as usize / CORES_COUNT) * 2 / 3;
         if guarantee.signatures.len() < min_guarantees {
             return Err(Error::InsufficientGuarantees);
@@ -206,19 +220,21 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             }
 
             // Check if validator is banned before verifying signature
-            if self.is_validator_banned(sig.validator_index) {
+            if self
+                .state
+                .disputes
+                .offenders
+                .contains(&validators[validator_index])
+            {
                 return Err(Error::BannedValidator);
             }
 
-            crypto::ed25519::verify(
-                &message,
-                sig.signature,
-                self.validators[validator_index].ed25519,
-            )
-            .map_err(|e| {
-                tracing::error!("Error verifying ed25519 signature: {e:?}");
-                Error::BadSignature
-            })?
+            crypto::ed25519::verify(&message, sig.signature, validators[validator_index]).map_err(
+                |e| {
+                    tracing::error!("Error verifying ed25519 signature: {e:?}");
+                    Error::BadSignature
+                },
+            )?
         }
 
         Ok(())
@@ -231,13 +247,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .iter()
             .map(|sig| sig.validator_index)
             .collect::<Vec<_>>();
-
-        // Check if any guarantor is banned (in the offenders list)
-        for sig in guarantee.signatures.iter() {
-            if self.is_validator_banned(sig.validator_index) {
-                return Err(Error::BannedValidator);
-            }
-        }
+        tracing::debug!("guarantors: {guarantors:?}");
 
         let guaranteed = self.guarantors.values().flatten().collect::<Vec<_>>();
         if guarantors.iter().any(|g| guaranteed.contains(&g)) {
@@ -253,10 +263,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         let Some(assignments) = self.core_assignments.get(core_index) else {
+            tracing::error!("core assignment not found");
             return Err(Error::WrongAssignment);
         };
 
         if guarantors.iter().any(|g| !assignments.contains(g)) {
+            tracing::error!("guarantors {guarantors:?} not in assignment {assignments:?}");
+            tracing::error!("core assignment: {:?}", self.core_assignments);
             return Err(Error::WrongAssignment);
         }
 
@@ -296,29 +309,31 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_rotation(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+        let slot = self.timeslot;
         let gslot = guarantee.slot;
         if gslot > slot {
             return Err(Error::FutureReportSlot);
+        }
+
+        if gslot / ROTATION_PERIOD as u32 + 1 < slot / ROTATION_PERIOD as u32 {
+            return Err(Error::ReportEpochBeforeLast);
         }
 
         // TODO: reference GP 11.23
         //
         // The test case or the GP is not correct.
         if gslot / ROTATION_PERIOD as u32 == slot / ROTATION_PERIOD as u32 {
-            self.validators = self.state.validators.current;
+            // if (gslot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == gslot / EPOCH_LENGTH {
+            tracing::debug!("core_rotation: current");
             self.assign_cores(slot, self.state.entropy[2]);
             return Ok(());
         } else {
-            self.validators = self.state.validators.previous;
+            tracing::debug!("core_rotation: previous");
             self.assign_cores(
                 slot.saturating_sub(ROTATION_PERIOD as u32),
                 self.state.entropy[3],
             );
-        }
-
-        if gslot / ROTATION_PERIOD as u32 + 1 < slot / ROTATION_PERIOD as u32 {
-            return Err(Error::ReportEpochBeforeLast);
         }
 
         Ok(())
@@ -355,18 +370,5 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .any(|(_, a)| a.code() == *dep)
             || self.reported.contains(dep)
             || self.recent.iter().any(|r| r.hash == *dep)
-    }
-
-    /// Check if a validator is banned (in the offenders list)
-    fn is_validator_banned(&self, validator_index: u16) -> bool {
-        if validator_index as usize >= VALIDATORS_COUNT as usize {
-            return true; // Invalid index is considered banned
-        }
-
-        let validator_public_key = self.validators[validator_index as usize].ed25519;
-        self.state
-            .disputes
-            .offenders
-            .contains(&validator_public_key)
     }
 }
