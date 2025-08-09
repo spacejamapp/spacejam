@@ -4,7 +4,7 @@ use crate::storage::{Column, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
-    block::BlockInfo,
+    block::{BlockInfo, History},
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, WorkReport},
@@ -78,6 +78,7 @@ pub trait StateStorage: KVStorage {
                     key::STATISTICS,
                     key::ACCUMULATION_QUEUE,
                     key::ACCUMULATION_HISTORY,
+                    key::MMR,
                 ]
                 .into_iter()
                 .map(|k| k.to_vec())
@@ -89,7 +90,11 @@ pub trait StateStorage: KVStorage {
 
         state.pools = codec::decode(&data[0]).unwrap_or_default();
         state.authorization = codec::decode(&data[1]).unwrap_or_default();
-        state.recent_blocks = codec::decode(&data[2]).unwrap_or_default();
+
+        state.recent_blocks = History {
+            history: codec::decode(&data[2]).unwrap_or_default(),
+            mmr: codec::decode(&data[15]).unwrap_or_default(),
+        };
         state.safrole = codec::decode(&data[3]).unwrap_or_default();
         state.disputes = codec::decode(&data[4]).unwrap_or_default();
         state.entropy = codec::decode(&data[5]).unwrap_or_default();

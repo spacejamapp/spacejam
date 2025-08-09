@@ -180,7 +180,11 @@ pub fn simulate<Vm: Pvm>(
             last.reported = reported;
         };
 
-        diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+        diff.set(
+            key::RECENT_BLOCKS,
+            codec::encode(&state.recent_blocks.history)?,
+        );
+        diff.set(key::MMR, codec::encode(&state.recent_blocks.mmr)?);
 
         // (δ') Update the accounts
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
