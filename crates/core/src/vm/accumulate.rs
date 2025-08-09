@@ -111,13 +111,23 @@ impl<R: Accounts> Accumulated<R> {
     }
 
     /// Get the accumulation root
+    ///
+    /// see also (7.7) in the graypaper
     pub fn root(&self) -> OpaqueHash {
         let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
         sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
 
-        // Encode and hash the sorted pairs
-        let encoded = codec::encode(&sorted_pairs).expect("failed to encode pairings");
-        crypto::blake2b(&encoded)
+        let leaves = sorted_pairs
+            .into_iter()
+            .map(|(service, commit)| {
+                let mut leaf = Vec::new();
+                leaf.extend_from_slice(&service.to_le_bytes());
+                leaf.extend_from_slice(commit);
+                leaf
+            })
+            .collect::<Vec<_>>();
+
+        crypto::merkle::kroot(&leaves)
     }
 }
 
