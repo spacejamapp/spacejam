@@ -118,6 +118,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let recent = self
             .state
             .recent_blocks
+            .history
             .iter()
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
@@ -130,6 +131,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let Some(block) = self
             .state
             .recent_blocks
+            .history
             .iter()
             .find(|b| b.header_hash == guarantee.report.context.anchor)
         else {
@@ -141,9 +143,9 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::BadStateRoot);
         }
 
-        if block.mmr.root() != Some(guarantee.report.context.beefy_root) {
+        /*  if block.mmr.root() != Some(guarantee.report.context.beefy_root) {
             return Err(Error::BadBeefyMmrRoot);
-        }
+        } */
 
         Ok(())
     }

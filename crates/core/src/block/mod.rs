@@ -12,11 +12,8 @@ use std::time::{Duration, UNIX_EPOCH};
 pub use {
     builder::Builder,
     header::{Head, Header, HeaderJson},
-    history::{Mmr, MmrJson},
+    history::{History, HistoryJson, Mmr, MmrJson},
 };
-
-#[cfg(feature = "crypto")]
-pub use crypto_impl::*;
 
 mod builder;
 pub mod header;
@@ -84,19 +81,22 @@ fn now() -> u128 {
 /// Represents information about a block.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct BlockInfo {
+    /// The header hash
     #[json(hex)]
     pub header_hash: OpaqueHash,
-    #[json(nested)]
-    pub mmr: Mmr,
+    /// The beefy root
+    #[json(hex)]
+    pub beefy_root: OpaqueHash,
+    /// The state root
     #[json(hex)]
     pub state_root: OpaqueHash,
+    /// The reported work packages
     #[json(nested)]
     pub reported: Vec<ReportedWorkPackage>,
 }
 
 #[cfg(feature = "crypto")]
 mod crypto_impl {
-    pub use super::history::History;
     use super::*;
 
     impl Block {
@@ -111,7 +111,7 @@ mod crypto_impl {
         fn from(header: Header) -> Self {
             Self {
                 header_hash: header.hash().unwrap(),
-                mmr: Mmr::default(),
+                beefy_root: OpaqueHash::default(),
                 state_root: header.parent_state_root,
                 reported: vec![],
             }

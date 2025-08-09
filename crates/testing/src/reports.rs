@@ -1,5 +1,8 @@
+//! Report testing types
+
 use runtime::tx::guarantee::error::{Error, Result};
 use score::{
+    block::{History, HistoryJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
     Block, Ed25519Public, OpaqueHash, TimeSlot,
@@ -57,10 +60,8 @@ pub struct Output {
 include!(concat!(env!("OUT_DIR"), "/reports.rs"));
 
 mod types {
-    use std::collections::BTreeMap;
-
     use score::{
-        block::{BlockInfo, BlockInfoJson},
+        block::{History, HistoryJson},
         safrole::{ValidatorDataJson, ValidatorsData},
         service::{
             AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
@@ -70,6 +71,7 @@ mod types {
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
+    use std::collections::BTreeMap;
 
     #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct State {
@@ -96,8 +98,8 @@ mod types {
         pub offenders: Vec<Ed25519Public>,
 
         /// (β) Recent blocks.
-        #[json(Vec<BlockInfoJson>)]
-        pub recent_blocks: Vec<BlockInfo>,
+        #[json(nested)]
+        pub recent_blocks: History,
 
         /// (α') Authorization pools.
         #[json(Vec<Vec<String>>)]

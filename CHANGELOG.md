@@ -7,5 +7,7 @@
 - State Merkilization
   - update storage encoding
   - update account info encoding
+- Split MMR from block history
+  - introduce new storage for MMR
 
 Test vector CHANGELOG [0.6.7](https://github.com/davxy/jam-test-vectors/blob/v0.6.7/CHANGELOG.md#067---07-08-2025)

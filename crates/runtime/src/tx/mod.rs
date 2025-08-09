@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{block::History, state::key, Accounts as _, Block, TrieKey};
+use score::{state::key, Accounts as _, Block, TrieKey};
 use std::sync::Arc;
 
 pub mod assurance;
@@ -176,7 +176,7 @@ pub fn simulate<Vm: Pvm>(
             &accounts,
             &block.extrinsic.guarantees,
         )?;
-        if let Some(last) = state.recent_blocks.last_mut() {
+        if let Some(last) = state.recent_blocks.history.last_mut() {
             last.reported = reported;
         };
 

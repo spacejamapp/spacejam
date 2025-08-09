@@ -1,22 +1,26 @@
 //! Block history
 
-use crate::{service::ReportedWorkPackage, OpaqueHash};
+use crate::{
+    block::{BlockInfo, BlockInfoJson},
+    service::ReportedWorkPackage,
+    OpaqueHash,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents a peak in the Merkle Mountain Range (MMR).
 pub type MmrPeak = Option<OpaqueHash>;
 
-/// Block history extension trait
-pub trait History {
-    /// Import a new block into the chain according to graypaper section 7.1-7.4.
-    fn import(
-        &mut self,
-        header_hash: OpaqueHash,
-        state_root: OpaqueHash,
-        accumulated_root: OpaqueHash,
-        reported: Vec<ReportedWorkPackage>,
-    );
+/// Block history
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+pub struct History {
+    /// The history
+    #[json(Vec<BlockInfoJson>)]
+    pub history: Vec<BlockInfo>,
+
+    /// The Merkle Mountain Range
+    #[json(nested)]
+    pub mmr: Mmr,
 }
 
 /// Represents the Merkle Mountain Range (MMR).
@@ -32,44 +36,40 @@ mod crypto_impl {
     use crate::{block::BlockInfo, MAX_BLOCKS_HISTORY};
     use crypto::merkle::mmr;
 
-    impl History for Vec<BlockInfo> {
-        fn import(
+    impl History {
+        /// Import a new block into the history
+        pub fn import(
             &mut self,
             header_hash: OpaqueHash,
-            state_root: OpaqueHash,
-            accumulated_root: OpaqueHash,
+            parent_state_root: OpaqueHash,
+            accumulate_root: OpaqueHash,
             reported: Vec<ReportedWorkPackage>,
         ) {
-            let Some(last) = self.last_mut() else {
+            self.mmr.append(accumulate_root);
+            let Some(last) = self.history.last_mut() else {
                 let new_block = BlockInfo {
                     header_hash,
-                    mmr: Mmr {
-                        peaks: vec![Some(accumulated_root)],
-                    },
+                    beefy_root: accumulate_root,
                     state_root: OpaqueHash::default(),
                     reported,
                 };
-                self.push(new_block.clone());
+                self.history.push(new_block.clone());
                 return;
             };
 
             // Update the state root of the parent block if it exists
-            last.state_root = state_root;
-            let mut mmr = last.mmr.clone();
-            mmr.append(accumulated_root);
-
-            // Append the new block to history
+            last.state_root = parent_state_root;
             let new_block = BlockInfo {
                 header_hash,
+                beefy_root: self.mmr.root().unwrap_or_default(),
                 state_root: OpaqueHash::default(),
-                mmr,
                 reported,
             };
-            self.push(new_block);
+            self.history.push(new_block);
 
             // Truncate to maintain history size limit
-            if self.len() > MAX_BLOCKS_HISTORY as usize {
-                self.remove(0);
+            if self.history.len() > MAX_BLOCKS_HISTORY as usize {
+                self.history.remove(0);
             }
         }
     }
