@@ -58,16 +58,17 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
 
             ret
         }
-        14..17 => {
+        6..14 => {
+            tracing::error!("refine host call: {}", call);
+            // refine::call(call, &mut state, &mut data)
+            Ok(Exit::What as u64)
+        }
+        14..27 => {
             let accumulate = match data.as_accumulate_mut() {
                 Ok(a) => a,
                 Err(e) => return Stepped::new(e, state).with(data),
             };
             accumulate.call(call, &mut state)
-        }
-        17..27 => {
-            // refine::call(call, &mut state, &mut data)
-            Ok(Exit::What as u64)
         }
         100 => jip::log(&mut state),
         _ => {

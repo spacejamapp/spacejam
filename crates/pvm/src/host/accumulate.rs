@@ -327,25 +327,32 @@ impl<R: Accounts> Accumulate<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         let [o, z] = [state.registers[7], state.registers[8]];
+        tracing::debug!("solicit: o: {}, z: {}", o, z);
         let hash = state.memory.read_hash(o as u32)?;
 
         // check if the account has enough balance
         let timeslot = self.timeslot;
+        tracing::debug!("solicit: timeslot: {}", timeslot);
         let account = self.account()?;
+        tracing::debug!("solicit: balance: {}", account.balance());
         if account.balance() < account.threshold() {
+            tracing::debug!("solicit: full");
             return Ok(Exit::Full as u64);
         }
 
         // get the lookup
         let Some(mut lookup) = account.lookup(hash, z as u32) else {
+            tracing::debug!("solicit: empty");
             account.insert_lookup(hash, z as u32, vec![]);
             return Ok(Exit::Ok as u64);
         };
 
         if lookup.len() == 2 {
+            tracing::debug!("solicit: double");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
         } else {
+            tracing::debug!("solicit: huh");
             return Ok(Exit::Huh as u64);
         }
 

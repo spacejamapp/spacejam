@@ -62,15 +62,6 @@ impl<S: Storage> Account<S> {
             ops: account.ops().into(),
         }
     }
-
-    /// Drop a lookup if it exists
-    pub fn drop_lookup(&mut self, hash: [u8; 32], len: u32) -> TrieKey {
-        let key = account::lookup(self.index, len, hash);
-        let mut mhash = [0; 32];
-        mhash[..31].copy_from_slice(&key);
-        self.account.lookup.remove(&(mhash, len));
-        key
-    }
 }
 
 impl<S: Storage> score::Account for Account<S> {
@@ -159,47 +150,64 @@ impl<S: Storage> score::Account for Account<S> {
             return Some(lookup.clone());
         }
 
-        if let Ok(lookup) = self.state.account_lookup(self.index, len, hash) {
-            self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+        if let Some(lookup) = self.state.state_get(&key).ok().flatten() {
+            let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
             self.account.lookup.insert((hash, len), lookup.clone());
-            Some(lookup.clone())
+            Some(lookup)
         } else {
             None
         }
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
-        let key = self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+        let exists = self.state.state_get(&key).ok().flatten().is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
-        self.set_total(self.total() + 81 + len as u64);
-        self.set_items(self.items() + 2);
+
+        // Only update footprint if this is a new lookup entry
+        // Gray Paper: a_i = 2 * |a_l| + |a_s| (items)
+        // Gray Paper: a_o includes Σ(81 + z) for each lookup (total octets)
+        if !exists {
+            self.set_total(self.total() + 81 + len as u64);
+            self.set_items(self.items() + 2);
+        }
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
-        let key = self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+        if self.state.state_get(&key).ok().flatten().is_some() {
+            self.ops.remove(key);
+            self.set_total(self.total() - 81 - len as u64);
+            self.set_items(self.items() - 2);
+        }
+
         self.account.lookup.remove(&(hash, len));
-        self.ops.remove(key);
-        self.set_total(self.total() - 81 - len as u64);
-        self.set_items(self.items() - 2);
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
-        self.account.preimage.get(&hash).cloned()
+        let key = account::preimage(self.index, hash);
+        self.account
+            .preimage
+            .get(&hash)
+            .cloned()
+            .or_else(|| self.state.state_get(&key).ok().flatten())
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
-        self.account.preimage.insert(hash, preimage.clone());
-        self.ops.set(account::preimage(self.index, hash), preimage);
+        let key = account::preimage(self.index, hash);
+        self.ops.set(key, preimage.clone());
+        self.account.preimage.insert(hash, preimage);
     }
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
-        self.account.preimage.remove(&hash);
         let key = account::preimage(self.index, hash);
         self.ops.update.remove(&key);
         self.ops.removal.insert(key);
+        self.account.preimage.remove(&hash);
     }
 
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
