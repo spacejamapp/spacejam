@@ -37,7 +37,6 @@ pub fn append(
 /// Calculate the root of the MMR from the peaks.
 pub fn root(peaks: &[Option<[u8; 32]>]) -> Option<[u8; 32]> {
     let non_empty_peaks: Vec<[u8; 32]> = peaks.iter().filter_map(|p| *p).collect();
-
     if non_empty_peaks.is_empty() {
         return None;
     }

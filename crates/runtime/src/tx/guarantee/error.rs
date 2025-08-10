@@ -13,6 +13,7 @@ use spacejson::Json;
 #[serde(rename_all = "snake_case")]
 pub enum Error {
     BadCoreIndex,
+    BannedValidator,
     FutureReportSlot,
     ReportEpochBeforeLast,
     InsufficientGuarantees,

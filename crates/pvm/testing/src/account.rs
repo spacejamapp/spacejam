@@ -39,7 +39,7 @@ impl Jam {
     /// Mint balance to a service account
     pub fn mint(&mut self, service: ServiceId, amount: u64) {
         let account = self.chain.accounts.entry(service).or_default();
-        account.balance += amount;
+        account.info.balance += amount;
     }
 
     /// Add a service account

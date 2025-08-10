@@ -9,7 +9,6 @@ use tracing_subscriber::EnvFilter;
 
 pub mod fuzz;
 pub mod key;
-pub mod state;
 
 /// The command line interface for SpaceJam
 #[derive(Parser)]

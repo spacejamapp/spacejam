@@ -32,28 +32,22 @@ pub fn accounts(
         let hash = crypto::blake2b(&preimage.blob);
         let exist = account.preimage(hash).is_some();
         let blob_len = preimage.blob.len() as u32;
-        let mut slots = account.lookup(hash, blob_len).unwrap_or_default();
+        let slots = account.lookup(hash, blob_len).unwrap_or_default();
 
         // The data must have been solicited by a service but
         // not yet provided in the prior state.
-        //
-        // FIXME: The formula in graypaper seems mismatched with
-        // the preimage tests and the trace tests.
-        if exist || !slots.is_empty() {
-            anyhow::bail!("Preimage not needed");
+        if exist {
+            anyhow::bail!("Preimage already exists");
         }
 
-        if slots.len() >= 3 {
-            slots.resize(3, 0);
-            slots[2] = slots[1];
-            slots[1] = slots[0];
-            slots[0] = slot;
-        } else {
-            slots.push(slot);
+        if !slots.is_empty() {
+            anyhow::bail!("Preimage already has lookup slots");
         }
 
+        // Set lookup slots to [τ'] (current time slot)
+        let updated_slots = vec![slot];
         account.insert_preimage(hash, preimage.blob);
-        account.insert_lookup(hash, blob_len, slots);
+        account.insert_lookup(hash, blob_len, updated_slots);
     }
 
     Ok(accounts)

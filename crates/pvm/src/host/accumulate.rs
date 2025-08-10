@@ -17,18 +17,22 @@ impl<R: Accounts> Accumulate<R> {
     /// Call an accumulate host function
     pub fn call<M: crate::Memory>(&mut self, call: u32, state: &mut State<M>) -> Result<ExitCode> {
         match call {
-            5 => self.bless(state),
-            6 => self.assign(state),
-            7 => self.designate(state),
-            8 => self.checkpoint(state),
-            9 => self.new_(state),
-            10 => self.upgrade(state),
-            11 => self.transfer(state),
-            12 => self.eject(state),
-            13 => self.query(state),
-            14 => self.solicit(state),
-            15 => self.forget(state),
-            16 => self.yield_(state),
+            14 => self.bless(state),
+            15 => self.assign(state),
+            16 => self.designate(state),
+            17 => self.checkpoint(state),
+            18 => self.new_(state),
+            19 => self.upgrade(state),
+            20 => self.transfer(state),
+            21 => self.eject(state),
+            22 => self.query(state),
+            23 => self.solicit(state),
+            24 => self.forget(state),
+            25 => self.yield_(state),
+            26 => {
+                // TODO: PROVIDE
+                Ok(Exit::What as u64)
+            }
             _ => Ok(Exit::What as u64),
         }
     }
@@ -61,9 +65,10 @@ impl<R: Accounts> Accumulate<R> {
             return Ok(Exit::Who as u64);
         }
 
+        // TODO: fix the assign array
         self.x.context.privileges = Privileges {
             bless: m as u32,
-            assign: a as u32,
+            assign: [a as u32; score::CORES_COUNT],
             designate: v as u32,
             always_acc: map,
         };
@@ -162,9 +167,14 @@ impl<R: Accounts> Accumulate<R> {
             accumulate: g,
             transfer: m,
         });
-        account.balance = score::BALANCE_PER_SERVICE;
-        account.code = hash;
+        account.info.balance = score::BALANCE_PER_SERVICE;
+        account.info.code = hash;
         account.lookup.insert((hash, l as u32), vec![]);
+
+        // Set metadata fields for new service account
+        account.info.creation = self.timeslot;
+        account.info.update = self.timeslot;
+        account.info.parent = self.x.service;
 
         // insert the new account to the map
         //
@@ -321,21 +331,27 @@ impl<R: Accounts> Accumulate<R> {
 
         // check if the account has enough balance
         let timeslot = self.timeslot;
+        tracing::debug!("solicit: timeslot: {}", timeslot);
         let account = self.account()?;
+        tracing::debug!("solicit: balance: {}", account.balance());
         if account.balance() < account.threshold() {
+            tracing::debug!("solicit: full");
             return Ok(Exit::Full as u64);
         }
 
         // get the lookup
         let Some(mut lookup) = account.lookup(hash, z as u32) else {
+            tracing::debug!("solicit: empty");
             account.insert_lookup(hash, z as u32, vec![]);
             return Ok(Exit::Ok as u64);
         };
 
         if lookup.len() == 2 {
+            tracing::debug!("solicit: double");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
         } else {
+            tracing::debug!("solicit: huh");
             return Ok(Exit::Huh as u64);
         }
 
@@ -354,7 +370,8 @@ impl<R: Accounts> Accumulate<R> {
             return Ok(Exit::Huh as u64);
         };
 
-        let expunged = timeslot - score::EXPUNGED_TIME;
+        let expunged = timeslot.saturating_sub(score::EXPUNGED_TIME);
+        tracing::debug!("forget: timeslot={timeslot}, lookup={lookup:?}, expunged={expunged}",);
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
             tracing::debug!("forget: empty or expired");
             account.remove_lookup(hash, z as u32);
@@ -363,11 +380,9 @@ impl<R: Accounts> Accumulate<R> {
             tracing::debug!("forget: single");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
-        } else if lookup.len() == 3 && lookup[2] < expunged {
+        } else if lookup.len() == 3 && lookup[1] < expunged {
             tracing::debug!("forget: triple");
-            lookup.resize(2, lookup[2]);
-            lookup[1] = timeslot;
-            account.insert_lookup(hash, z as u32, lookup);
+            account.insert_lookup(hash, z as u32, vec![lookup[2], timeslot]);
         } else {
             return Ok(Exit::Huh as u64);
         }

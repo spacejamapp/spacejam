@@ -1,32 +1,29 @@
 //! Reporting validator
 
 use crate::tx::guarantee::error::{Error, Result};
-use crypto::shuffle;
 use score::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    safrole::ValidatorData,
+    safrole::ValidatorIter,
     service::{ReportedWorkPackage, WorkExecResult},
-    Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
+    util, Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
     VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.
 pub(super) struct GuaranteeValidator<'s, R: Accounts> {
     pub state: &'s State,
     /// account registry
     pub accounts: &'s R,
-    /// validators data
-    pub validators: [ValidatorData; score::VALIDATORS_COUNT as usize],
-    /// core assignments for each validator
-    pub core_assignments: Vec<Vec<u16>>,
     /// guarantors for each core
-    pub guarantors: BTreeMap<usize, Vec<u16>>,
+    pub processed: BTreeSet<u16>,
     /// recent work packages
     pub recent: Vec<ReportedWorkPackage>,
     /// reported work packages
     pub reported: Vec<OpaqueHash>,
+    /// The timeslot of the current validation
+    pub timeslot: TimeSlot,
 }
 
 impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
@@ -35,11 +32,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Self {
             state,
             accounts,
-            validators: state.validators.current,
-            core_assignments: vec![],
-            guarantors: BTreeMap::new(),
+            processed: BTreeSet::new(),
             recent: vec![],
             reported: vec![],
+            timeslot: 0,
         }
     }
 
@@ -50,20 +46,25 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         guarantees: &GuaranteesExtrinsic,
     ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
         self.init_deps(guarantees);
+        self.timeslot = slot;
 
         // Prepare for reporting
         let mut reported = Vec::new();
-        let mut reporters = Vec::new();
+        let mut reporters = BTreeSet::new();
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
-            self.validate_core(guarantee)?;
-            self.validate_rotation(slot, guarantee)?;
+            let validators = if self.timeslot / EPOCH_LENGTH == guarantee.slot / EPOCH_LENGTH {
+                self.state.validators.current
+            } else {
+                self.state.validators.previous
+            }
+            .ed25519();
+
             self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
-            self.validate_guarantees(guarantee)?;
-            self.validate_guarantors(guarantee)?;
+            self.validate_guarantee(guarantee)?;
 
             // Record reported package
             reported.push(ReportedWorkPackage {
@@ -76,38 +77,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 guarantee
                     .signatures
                     .iter()
-                    .map(|sig| self.validators[sig.validator_index as usize].ed25519),
+                    .map(|sig| validators[sig.validator_index as usize]),
             );
         }
 
-        // FIXME: not sure if we need to sort the reporters here since it's not related to
-        // storage directly, there was a similar problem in the `dispute` module.
-        reporters.sort();
+        // Sort the reported work packages and reporters
         reported.sort_by(|a, b| a.hash.cmp(&b.hash));
-        Ok((reported, reporters))
-    }
-
-    /// Assign cores to validators based on the timeslot
-    fn assign_cores(&mut self, timeslot: u32, eta: [u8; 32]) {
-        let initial_sequence: Vec<u32> = (0..VALIDATORS_COUNT as u32)
-            .map(|i| (i * CORES_COUNT as u32) / VALIDATORS_COUNT as u32)
-            .collect();
-
-        // Calculate rotation offset based on timeslot
-        let rotation = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD as u32;
-        let shuffled = shuffle::eq331(&initial_sequence, eta);
-        let rotated: Vec<u32> = shuffled
-            .iter()
-            .map(|&core_idx| (core_idx + rotation) % CORES_COUNT as u32)
-            .collect();
-
-        // Group validators by their assigned cores
-        let mut assignments: Vec<Vec<u16>> = vec![Vec::new(); CORES_COUNT];
-        for (validator_idx, &core_idx) in rotated.iter().enumerate() {
-            assignments[core_idx as usize].push(validator_idx as u16);
-        }
-
-        self.core_assignments = assignments;
+        Ok((reported, reporters.into_iter().collect()))
     }
 
     fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
@@ -118,6 +94,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let recent = self
             .state
             .recent_blocks
+            .history
             .iter()
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
@@ -130,6 +107,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let Some(block) = self
             .state
             .recent_blocks
+            .history
             .iter()
             .find(|b| b.header_hash == guarantee.report.context.anchor)
         else {
@@ -141,23 +119,8 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::BadStateRoot);
         }
 
-        if block.mmr.root() != Some(guarantee.report.context.beefy_root) {
+        if block.beefy_root != guarantee.report.context.beefy_root {
             return Err(Error::BadBeefyMmrRoot);
-        }
-
-        Ok(())
-    }
-
-    fn validate_core(&self, guarantee: &ReportGuarantee) -> Result<()> {
-        // NOTE: This has already been checked in the [reports] function.
-        //
-        // if guarantee.report.core_index >= CORES_COUNT as u16 {
-        //     return Err(Error::BadCoreIndex);
-        // }
-
-        let core_index = guarantee.report.core_index as usize;
-        if !self.state.pools[core_index].contains(&guarantee.report.authorizer_hash) {
-            return Err(Error::CoreUnauthorized);
         }
 
         Ok(())
@@ -165,8 +128,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     /// Validate work package
     fn validate_deps(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        if !self.state.pools[guarantee.report.core_index as usize]
+            .contains(&guarantee.report.authorizer_hash)
+        {
+            return Err(Error::CoreUnauthorized);
+        }
+
         for dep in guarantee.report.context.prerequisites.iter() {
-            tracing::debug!("validate_deps: 0x{}", hex::encode(dep));
             if !self.contains_dep(dep) {
                 return Err(Error::DependencyMissing);
             }
@@ -186,67 +154,52 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_guarantees(&self, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_guarantee(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+        // 1. validate the rotation
+        let guarantors = self.validate_rotation(guarantee)?;
+
+        // 2. Check if the core has been processed
+        if self.processed.contains(&guarantee.report.core_index) {
+            return Err(Error::OutOfOrderGuarantee);
+        }
+
+        // 3. validate the number of guarantees
         let min_guarantees = (VALIDATORS_COUNT as usize / CORES_COUNT) * 2 / 3;
         if guarantee.signatures.len() < min_guarantees {
             return Err(Error::InsufficientGuarantees);
         }
 
-        let message = guarantee.signing_message().map_err(|e| {
-            tracing::error!("Error constructing guarantee signing message: {e:?}");
-            Error::BadSignature
-        })?;
-
+        // 4. validate the signatures
+        let message = guarantee
+            .signing_message()
+            .map_err(|_| Error::BadSignature)?;
+        let mut guarantor = 0;
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
                 return Err(Error::BadValidatorIndex);
             }
 
-            crypto::ed25519::verify(
-                &message,
-                sig.signature,
-                self.validators[validator_index].ed25519,
-            )
-            .map_err(|e| {
-                tracing::error!("Error verifying ed25519 signature: {e:?}");
-                Error::BadSignature
-            })?
+            if validator_index < guarantor {
+                return Err(Error::NotSortedOrUniqueGuarantors);
+            }
+
+            let Some(key) = guarantors.get(&validator_index) else {
+                return Err(Error::WrongAssignment);
+            };
+
+            // Check if validator is banned before verifying signature
+            if self.state.disputes.offenders.contains(key) {
+                return Err(Error::BannedValidator);
+            }
+
+            crypto::ed25519::verify(&message, sig.signature, *key)
+                .map_err(|_| Error::BadSignature)?;
+
+            guarantor = validator_index;
         }
 
-        Ok(())
-    }
-
-    fn validate_guarantors(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
-        let core_index = guarantee.report.core_index as usize;
-        let guarantors = guarantee
-            .signatures
-            .iter()
-            .map(|sig| sig.validator_index)
-            .collect::<Vec<_>>();
-
-        let guaranteed = self.guarantors.values().flatten().collect::<Vec<_>>();
-        if guarantors.iter().any(|g| guaranteed.contains(&g)) {
-            return Err(Error::OutOfOrderGuarantee);
-        }
-
-        if guarantee
-            .signatures
-            .windows(2)
-            .any(|w| w[0].validator_index > w[1].validator_index)
-        {
-            return Err(Error::NotSortedOrUniqueGuarantors);
-        }
-
-        let Some(assignments) = self.core_assignments.get(core_index) else {
-            return Err(Error::WrongAssignment);
-        };
-
-        if guarantors.iter().any(|g| !assignments.contains(g)) {
-            return Err(Error::WrongAssignment);
-        }
-
-        self.guarantors.insert(core_index, guarantors);
+        self.processed.insert(guarantee.report.core_index);
         Ok(())
     }
 
@@ -282,32 +235,42 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_rotation(&mut self, slot: TimeSlot, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_rotation(
+        &mut self,
+        guarantee: &ReportGuarantee,
+    ) -> Result<BTreeMap<usize, Ed25519Public>> {
+        let slot = self.timeslot;
         let gslot = guarantee.slot;
         if gslot > slot {
             return Err(Error::FutureReportSlot);
-        }
-
-        // TODO: reference GP 11.23
-        //
-        // The test case or the GP is not correct.
-        if gslot / ROTATION_PERIOD as u32 == slot / ROTATION_PERIOD as u32 {
-            self.validators = self.state.validators.current;
-            self.assign_cores(slot, self.state.entropy[2]);
-            return Ok(());
-        } else {
-            self.validators = self.state.validators.previous;
-            self.assign_cores(
-                slot.saturating_sub(ROTATION_PERIOD as u32),
-                self.state.entropy[3],
-            );
         }
 
         if gslot / ROTATION_PERIOD as u32 + 1 < slot / ROTATION_PERIOD as u32 {
             return Err(Error::ReportEpochBeforeLast);
         }
 
-        Ok(())
+        // GP reference: (11.26)
+        let (validators, assignments) =
+            if gslot / ROTATION_PERIOD as u32 == slot / ROTATION_PERIOD as u32 {
+                let assignments = util::assignments(slot, self.state.entropy[2]);
+                (self.state.validators.current, assignments)
+            } else {
+                let (entropy, validators) =
+                    if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
+                        (self.state.entropy[2], self.state.validators.current)
+                    } else {
+                        (self.state.entropy[3], self.state.validators.previous)
+                    };
+                let assignments =
+                    util::assignments(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
+                (validators, assignments)
+            };
+
+        // Get the guarantors for the core
+        Ok(assignments[guarantee.report.core_index as usize]
+            .iter()
+            .map(|v| (*v as usize, validators[*v as usize].ed25519))
+            .collect())
     }
 
     /// Validate segment lookup

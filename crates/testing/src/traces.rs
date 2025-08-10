@@ -56,10 +56,18 @@ mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }
 
-mod reports_l0 {
-    include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
+mod preimages {
+    include!(concat!(env!("OUT_DIR"), "/traces_preimages.rs"));
 }
 
-mod reports_l1 {
-    include!(concat!(env!("OUT_DIR"), "/traces_reports_l1.rs"));
+mod preimages_light {
+    include!(concat!(env!("OUT_DIR"), "/traces_preimages_light.rs"));
+}
+
+mod storage {
+    include!(concat!(env!("OUT_DIR"), "/traces_storage.rs"));
+}
+
+mod storage_light {
+    include!(concat!(env!("OUT_DIR"), "/traces_storage_light.rs"));
 }

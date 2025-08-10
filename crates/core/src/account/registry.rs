@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 /// Account registry
 pub trait Accounts: Clone {
     /// Get the code of an account
-    fn code(&mut self, index: u32) -> Option<Vec<u8>>;
+    fn blob(&mut self, index: u32) -> Option<Vec<u8>>;
 
     /// Get the code hash of an account
     fn code_hash(&self, index: u32) -> Option<OpaqueHash>;
@@ -31,12 +31,12 @@ pub trait Accounts: Clone {
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
-    fn code(&mut self, index: u32) -> Option<Vec<u8>> {
+    fn blob(&mut self, index: u32) -> Option<Vec<u8>> {
         self.get(index)?.blob()
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
-        Some(self.get(&index)?.code)
+        Some(self.get(&index)?.info.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {

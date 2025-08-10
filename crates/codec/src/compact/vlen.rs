@@ -27,14 +27,14 @@ pub fn encode(value: u64) -> Vec<u8> {
     }
 
     // It's okay to use for loops here because it has the same performance as a match.
-    for (_, base, _, bits, threshold) in THRESHOLDS.into_iter() {
+    for (length, base, _, bits, threshold) in THRESHOLDS.into_iter() {
         if value < threshold {
             let mut encoded = vec![base + (value / bits) as u8];
             let remainder = (value % bits).encode();
-            if remainder.is_empty() {
+            // Always pad to the expected length for this threshold level
+            encoded.extend_from_slice(&remainder);
+            while encoded.len() < length + 1 {
                 encoded.push(0);
-            } else {
-                encoded.extend_from_slice(&remainder);
             }
 
             return encoded;

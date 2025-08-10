@@ -8,6 +8,9 @@ use std::collections::BTreeMap;
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct ServiceAccount {
+    /// The index of the service account (i)
+    pub index: u32,
+
     /// storage of the service account (s)
     pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
 
@@ -17,90 +20,42 @@ pub struct ServiceAccount {
     /// Preimage lookup dictionary (l)
     pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
 
-    /// The code hash of the service account (c)
-    #[json(hex)]
-    pub code: OpaqueHash,
-
-    /// The balance of the service account (b)
-    pub balance: u64,
-
-    /// The accumulate gas of the service account (g)
-    pub accumulate_gas: Gas,
-
-    /// The transfer gas of the service account (m)
-    pub transfer_gas: Gas,
+    /// The info of the service account
+    #[json(nested)]
+    pub info: ServiceInfo,
 }
 
 impl ServiceAccount {
     /// Create a new service account
-    pub const fn new(gas: GasLimit) -> Self {
+    pub fn new(gas: GasLimit) -> Self {
         Self {
+            index: 0,
             storage: BTreeMap::new(),
             preimage: BTreeMap::new(),
             lookup: BTreeMap::new(),
-            code: [0u8; 32],
-            balance: crate::BALANCE_PER_SERVICE,
-            accumulate_gas: gas.accumulate,
-            transfer_gas: gas.transfer,
+            info: ServiceInfo {
+                transfer: gas.transfer,
+                accumulate: gas.accumulate,
+                ..Default::default()
+            },
         }
     }
 
     /// The threshold of the service account
     pub fn threshold(&self) -> u64 {
         crate::BALANCE_PER_SERVICE
-            + crate::BALANCE_PER_ITEM * self.items() as u64
-            + crate::BALANCE_PER_OCTET * self.total()
-    }
-
-    /// Get the present code of the service account
-    pub fn code(&self) -> Option<&Vec<u8>> {
-        self.preimage.get(&self.code)
-    }
-
-    /// The number of items in storage
-    pub fn items(&self) -> u32 {
-        2 * self.lookup.len() as u32 + self.storage.len() as u32
-    }
-
-    /// total number of octets used in storage
-    pub fn total(&self) -> u64 {
-        self.lookup
-            .iter()
-            .map(|((_, z), _)| 81 + *z as u64)
-            .chain(self.storage.values().map(|x| 32 + x.len() as u64))
-            .sum::<u64>()
+            + crate::BALANCE_PER_ITEM * self.info.items as u64
+            + crate::BALANCE_PER_OCTET * self.info.total
     }
 
     /// The state of the service account
     pub fn state(&self) -> ServiceInfo {
-        let items = self.items();
-        let total = self.total();
-        ServiceInfo {
-            code: self.code,
-            balance: self.balance,
-            threshold: self.threshold(),
-            accumulate: self.accumulate_gas,
-            transfer: self.transfer_gas,
-            total,
-            items,
-        }
-    }
-
-    /// Get the data of the service account
-    pub fn data(&self) -> ServiceData {
-        ServiceData {
-            accumulate: self.accumulate_gas,
-            transfer: self.transfer_gas,
-            total: self.total(),
-            items: self.items(),
-            code: self.code,
-            balance: self.balance,
-        }
+        self.info.clone()
     }
 }
 
 /// Service info for pvm execution
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json, Default)]
 pub struct ServiceInfo {
     /// The code hash of the service account (c)
     #[json(hex)]
@@ -108,67 +63,39 @@ pub struct ServiceInfo {
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
-    #[serde(with = "codec::compact")]
     pub balance: u64,
-
-    /// The threshold of the service account (t)
-    #[serde(with = "codec::compact", default)]
-    pub threshold: u64,
 
     /// The minimum required for the on transfer entry-point (m)
     #[serde(alias = "min_item_gas")]
-    #[serde(with = "codec::compact")]
     pub transfer: Gas,
 
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
     #[serde(alias = "min_memo_gas")]
-    #[serde(with = "codec::compact")]
     pub accumulate: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
-    #[serde(with = "codec::compact")]
     pub total: u64,
 
-    /// The number of items in storage (i)
-    #[serde(with = "codec::compact")]
-    pub items: u32,
-}
-
-/// Service data for state storage codec
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ServiceData {
-    /// The code hash of the service account (c)
-    pub code: OpaqueHash,
-
-    /// The balance of the service account (b)
-    pub balance: u64,
-
-    /// The accumulate gas of the service account (g)
-    pub accumulate: u64,
-
-    /// The minimum required for the on transfer entry-point (m)
-    pub transfer: Gas,
-
-    /// The total number of octets used in storage (o)
-    pub total: u64,
+    /// The deposit offset of the service account (f)
+    #[serde(alias = "deposit_offset")]
+    pub offset: u64,
 
     /// The number of items in storage (i)
     pub items: u32,
-}
 
-impl From<ServiceInfo> for ServiceData {
-    fn from(state: ServiceInfo) -> Self {
-        ServiceData {
-            code: state.code,
-            balance: state.balance,
-            accumulate: state.accumulate,
-            transfer: state.transfer,
-            total: state.total,
-            items: state.items,
-        }
-    }
+    /// The creation time of the service account (t)
+    #[serde(alias = "creation_slot")]
+    pub creation: u32,
+
+    /// The last update time of the service account (u)
+    #[serde(alias = "last_accumulation_slot")]
+    pub update: u32,
+
+    /// The parent of the service account (p)
+    #[serde(alias = "parent_service")]
+    pub parent: u32,
 }
 
 #[cfg(feature = "crypto")]

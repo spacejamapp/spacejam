@@ -34,19 +34,18 @@ pub struct AccumulateState<R: Accounts> {
 impl<R: Accounts> AccumulateState<R> {
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
-        self.accounts.code(service)
-
-        // TODO: the logic below is correct, however
-        // we need to match the test vectors atm.
-        //
-        /* let hash = self.accounts.get(&service)?.code;
-        for account in self.accounts.values() {
-            if account.code != hash {
+        self.accounts.blob(service)
+        // self.accounts.get(service)?.account().code().cloned()
+        // TODO: The logic below is correct, but we need to match
+        // the test vectors atm.
+        /* let hash = self.accounts.get(service)?.code();
+        for account in self.accounts.accounts().values() {
+            if account.code() != hash {
                 continue;
             }
 
-            if let Some(code) = account.code() {
-                return Some(code);
+            if let Some(code) = account.account().code() {
+                return Some(code.clone());
             }
         }
 
@@ -109,6 +108,27 @@ impl<R: Accounts> Accumulated<R> {
         }
 
         records
+    }
+
+    /// Get the accumulation root
+    ///
+    /// see also (7.7) in the graypaper
+    #[cfg(feature = "crypto")]
+    pub fn root(&self) -> OpaqueHash {
+        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
+        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
+
+        let leaves = sorted_pairs
+            .into_iter()
+            .map(|(service, commit)| {
+                let mut leaf = Vec::new();
+                leaf.extend_from_slice(&service.to_le_bytes());
+                leaf.extend_from_slice(commit);
+                leaf
+            })
+            .collect::<Vec<_>>();
+
+        crypto::merkle::kroot(&leaves)
     }
 }
 

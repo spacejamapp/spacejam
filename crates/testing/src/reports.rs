@@ -1,5 +1,8 @@
+//! Report testing types
+
 use runtime::tx::guarantee::error::{Error, Result};
 use score::{
+    block::{History, HistoryJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
     Block, Ed25519Public, OpaqueHash, TimeSlot,
@@ -57,10 +60,8 @@ pub struct Output {
 include!(concat!(env!("OUT_DIR"), "/reports.rs"));
 
 mod types {
-    use std::collections::BTreeMap;
-
     use score::{
-        block::{BlockInfo, BlockInfoJson},
+        block::{History, HistoryJson},
         safrole::{ValidatorDataJson, ValidatorsData},
         service::{
             AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
@@ -70,6 +71,7 @@ mod types {
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
+    use std::collections::BTreeMap;
 
     #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
     pub struct State {
@@ -96,8 +98,8 @@ mod types {
         pub offenders: Vec<Ed25519Public>,
 
         /// (β) Recent blocks.
-        #[json(Vec<BlockInfoJson>)]
-        pub recent_blocks: Vec<BlockInfo>,
+        #[json(nested)]
+        pub recent_blocks: History,
 
         /// (α') Authorization pools.
         #[json(Vec<Vec<String>>)]
@@ -121,12 +123,7 @@ mod types {
             state.pools = self.auth_pools;
 
             for ServiceItem { id, data } in self.services.into_iter() {
-                state.accounts.entry(id).or_default().code = data.service.code;
-                state.accounts.entry(id).and_modify(|account| {
-                    account.balance = data.service.balance;
-                    account.accumulate_gas = data.service.accumulate;
-                    account.transfer_gas = data.service.transfer;
-                });
+                state.accounts.entry(id).or_default().info = data.service;
             }
         }
     }
@@ -219,8 +216,9 @@ mod types {
         }
     }
 
-    impl From<ServiceAccountData> for ServiceAccount {
-        fn from(data: ServiceAccountData) -> Self {
+    impl From<ServiceItem> for ServiceAccount {
+        fn from(item: ServiceItem) -> Self {
+            let data = item.data;
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
                 lookup.insert(
@@ -230,6 +228,7 @@ mod types {
             }
 
             ServiceAccount {
+                index: item.id,
                 storage: data.storage.into_iter().map(|s| (s.key, s.value)).collect(),
                 preimage: data
                     .preimages
@@ -237,10 +236,7 @@ mod types {
                     .map(|p| (p.hash, p.blob))
                     .collect(),
                 lookup,
-                code: data.service.code,
-                balance: data.service.balance,
-                accumulate_gas: data.service.accumulate,
-                transfer_gas: data.service.transfer,
+                info: data.service,
             }
         }
     }

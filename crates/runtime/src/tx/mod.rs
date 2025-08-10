@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{block::History, state::key, Accounts as _, Block, TrieKey};
+use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
 use std::sync::Arc;
 
 pub mod assurance;
@@ -109,7 +109,7 @@ pub fn simulate<Vm: Pvm>(
     };
 
     // Round 3 computation
-    let (root, accounts) = {
+    let (_root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
         state.safrole = ticket::safrole(
             state.timeslot,
@@ -155,9 +155,7 @@ pub fn simulate<Vm: Pvm>(
         state.history = accumulation.accumulated_queue;
         diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
-        // write statistics and return root and accounts
         state.statistics.merge_services(accumulation.records);
-        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
 
@@ -167,20 +165,24 @@ pub fn simulate<Vm: Pvm>(
         state.recent_blocks.import(
             block.header.hash()?,
             block.header.parent_state_root,
-            root,
+            Default::default(),
             Default::default(),
         );
-        let (reported, _) = guarantee::report(
+        let (reported, reporters) = guarantee::report(
             &state,
             block.header.slot,
             &accounts,
             &block.extrinsic.guarantees,
         )?;
-        if let Some(last) = state.recent_blocks.last_mut() {
+        if let Some(last) = state.recent_blocks.history.last_mut() {
             last.reported = reported;
         };
 
+        state
+            .statistics
+            .merge_reporters(&reporters, &state.validators.current.ed25519());
         diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (δ') Update the accounts
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;

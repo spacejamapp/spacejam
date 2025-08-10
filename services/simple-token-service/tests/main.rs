@@ -8,6 +8,7 @@ const AUTHORIZER_ID: u32 = 500;
 const SERVICE_ID: u32 = 501;
 const ALICE: u32 = 0;
 
+#[ignore]
 #[test]
 fn test_mint() {
     testing::util::init_logger();

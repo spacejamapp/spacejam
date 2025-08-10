@@ -59,14 +59,21 @@ fn main() -> Result<()> {
         &out_dir.join("traces_safrole.rs"),
     )?;
     build_tests(
-        registry.trace(Trace::ReportsL0)?,
-        &out_dir.join("traces_reports_l0.rs"),
+        registry.trace(Trace::Preimages)?,
+        &out_dir.join("traces_preimages.rs"),
     )?;
     build_tests(
-        registry.trace(Trace::ReportsL1)?,
-        &out_dir.join("traces_reports_l1.rs"),
+        registry.trace(Trace::PreimagesLight)?,
+        &out_dir.join("traces_preimages_light.rs"),
     )?;
-
+    build_tests(
+        registry.trace(Trace::Storage)?,
+        &out_dir.join("traces_storage.rs"),
+    )?;
+    build_tests(
+        registry.trace(Trace::StorageLight)?,
+        &out_dir.join("traces_storage_light.rs"),
+    )?;
     Ok(())
 }
 

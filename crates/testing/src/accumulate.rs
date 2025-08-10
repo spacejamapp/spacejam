@@ -76,7 +76,7 @@ mod types {
         let accounts = accumulation.accounts.accounts();
         for (id, account) in accounts.iter() {
             let account = account.account();
-            if account.preimage.contains_key(&account.code) {
+            if account.preimage.contains_key(&account.info.code) {
                 items.push(ServiceItem {
                     id: *id,
                     data: (&account).into(),
@@ -87,27 +87,29 @@ mod types {
 
             for other in accounts.values() {
                 let other = other.account();
-                if other.code != account.code || !other.preimage.contains_key(&account.code) {
+                if other.info.code != account.info.code
+                    || !other.preimage.contains_key(&account.info.code)
+                {
                     continue;
                 }
 
                 let mut account = account.clone();
                 let blob = other
                     .preimage
-                    .get(&account.code)
+                    .get(&account.info.code)
                     .cloned()
                     .unwrap_or_default();
                 account
                     .lookup
-                    .insert((account.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.code, blob);
+                    .insert((account.info.code, blob.len() as u32), Default::default());
+                account.preimage.insert(account.info.code, blob);
 
                 let mut item: ServiceItem = ServiceItem {
                     id: *id,
                     data: (&account).into(),
                 };
 
-                item.data.preimages.retain(|k| k.hash != account.code);
+                item.data.preimages.retain(|k| k.hash != account.info.code);
                 items.push(item);
             }
         }
@@ -136,13 +138,13 @@ mod types {
         #[json(nested)]
         pub privileges: PrivilegesWrap,
 
-        /// The accounts
-        #[json(nested)]
-        pub accounts: Vec<ServiceItem>,
-
         /// The statistics
         #[json(nested)]
         pub statistics: Vec<RecordWrap>,
+
+        /// The accounts
+        #[json(nested)]
+        pub accounts: Vec<ServiceItem>,
     }
 
     impl State {
@@ -150,7 +152,7 @@ mod types {
         pub fn accounts(&self) -> BTreeMap<u32, ServiceAccount> {
             self.haccounts()
                 .iter()
-                .map(|item| (item.id, item.data.clone().into()))
+                .map(|item| (item.id, item.clone().into()))
                 .collect()
         }
 
@@ -197,7 +199,8 @@ mod types {
         pub designate: ServiceId,
 
         /// The assign service id
-        pub assign: ServiceId,
+        #[json(Vec<ServiceId>)]
+        pub assign: [ServiceId; score::CORES_COUNT],
 
         /// The always accumulate service ids
         #[json(nested)]
