@@ -40,6 +40,7 @@ pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
                         return Stepped::new(e, state).with(data);
                     }
                 }
+
                 ret
             }
         }

@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{state::key, Accounts as _, Block, TrieKey};
+use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
 use std::sync::Arc;
 
 pub mod assurance;
@@ -156,7 +156,6 @@ pub fn simulate<Vm: Pvm>(
         diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
         state.statistics.merge_services(accumulation.records);
-        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
 
@@ -169,7 +168,7 @@ pub fn simulate<Vm: Pvm>(
             Default::default(),
             Default::default(),
         );
-        let (reported, _) = guarantee::report(
+        let (reported, reporters) = guarantee::report(
             &state,
             block.header.slot,
             &accounts,
@@ -179,16 +178,15 @@ pub fn simulate<Vm: Pvm>(
             last.reported = reported;
         };
 
+        state
+            .statistics
+            .merge_reporters(&reporters, &state.validators.current.ed25519());
         diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (δ') Update the accounts
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
-        tracing::debug!(
-            "updates: {:?}, removals: {:?}",
-            updates.len(),
-            removals.len()
-        );
         diff.extend_iter(updates, removals);
 
         // FIXME: looks like polkajam currently doesn't update the authorization

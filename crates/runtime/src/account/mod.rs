@@ -252,13 +252,9 @@ impl<S: Storage> score::Account for Account<S> {
             account::info(self.index),
             codec::encode(&self.account.state()).expect("data is valid"),
         );
-
         let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
         let updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
-
-        tracing::debug!("removals: {:?}", removals.len());
-
         (updates, removals)
     }
 }

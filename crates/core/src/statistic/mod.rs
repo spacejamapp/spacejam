@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Extrinsic, TimeSlot};
+use crate::{Ed25519Public, Extrinsic, TimeSlot};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -49,7 +49,7 @@ impl Statistics {
         self.update_blocks(slot, index, extrinsic);
         self.update_preimages(index, extrinsic);
         self.update_assurances(extrinsic);
-        self.update_guarantees(extrinsic);
+        self.update_guarantees(slot, extrinsic);
     }
 
     /// Merge the service statistics from accumulation
@@ -82,6 +82,19 @@ impl Statistics {
         if !available.is_empty() {
             self.update_available_reports(available);
             self.update_popularity(available, assurances);
+        }
+    }
+
+    /// Merge the reporter statistics
+    pub fn merge_reporters(&mut self, reporters: &[Ed25519Public], validators: &[Ed25519Public]) {
+        for reporter in reporters.iter().map(|r| {
+            let index = validators
+                .iter()
+                .position(|v| v == r)
+                .expect("reporter is invalid");
+            index as u16
+        }) {
+            self.vals_current[reporter as usize].guarantees += 1;
         }
     }
 
@@ -123,12 +136,8 @@ impl Statistics {
     }
 
     // Update validator / service statistics for guarantees
-    fn update_guarantees(&mut self, extrinsic: &Extrinsic) {
+    fn update_guarantees(&mut self, _slot: TimeSlot, extrinsic: &Extrinsic) {
         for report in &extrinsic.guarantees {
-            for signature in &report.signatures {
-                self.vals_current[signature.validator_index as usize].guarantees += 1;
-            }
-
             let core = &mut self.cores[report.report.core_index as usize];
             core.bundle_size += report.report.spec.length;
             for result in &report.report.results {
