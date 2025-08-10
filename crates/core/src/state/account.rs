@@ -12,7 +12,7 @@ pub fn info(service: u32) -> TrieKey {
 /// compose general service data
 pub fn data(service: u32, prefix: [u8; 4], key: &[u8]) -> TrieKey {
     let mut hashed = prefix.to_vec();
-    hashed.extend_from_slice(&key);
+    hashed.extend_from_slice(key);
     let hash = crypto::blake2b(&hashed);
     (service, hash).key()
 }

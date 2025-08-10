@@ -49,7 +49,7 @@ impl<S: Storage> Account<S> {
         if self.account.storage.contains_key(key.as_slice()) {
             self.account.storage.get(key.as_slice()).cloned()
         } else {
-            self.state.state_get(&key).ok().flatten()
+            self.state.state_get(key).ok().flatten()
         }
     }
 
@@ -151,7 +151,13 @@ impl<S: Storage> score::Account for Account<S> {
         }
 
         let key = account::lookup(self.index, len, hash);
-        if let Some(lookup) = self.state.state_get(&key).ok().flatten() {
+
+        // Check if this key is marked for removal in the current transaction
+        if self.ops.removal.contains(&key) {
+            return None;
+        }
+
+        if let Some(lookup) = self.state.state_get(key).ok().flatten() {
             let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
             self.account.lookup.insert((hash, len), lookup.clone());
             Some(lookup)
@@ -162,15 +168,16 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let key = account::lookup(self.index, len, hash);
-        let exists = self.state.state_get(&key).ok().flatten().is_some();
+        let exists = self.state.state_get(key).ok().flatten().is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
 
-        // Only update footprint if this is a new lookup entry
-        // Gray Paper: a_i = 2 * |a_l| + |a_s| (items)
-        // Gray Paper: a_o includes Σ(81 + z) for each lookup (total octets)
+        // Only update footprint if this is a new lookup entry:
+        //
+        //  a_i = 2 * |a_l| + |a_s| (items)
+        //  a_o includes Σ(81 + z) for each lookup (total octets)
         if !exists {
             self.set_total(self.total() + 81 + len as u64);
             self.set_items(self.items() + 2);
@@ -179,8 +186,7 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = account::lookup(self.index, len, hash);
-        if self.state.state_get(&key).ok().flatten().is_some() {
-            tracing::debug!("remove lookup: 0x{}", hex::encode(&key));
+        if self.state.state_get(key).ok().flatten().is_some() {
             self.ops.remove(key);
             self.set_total(self.total() - 81 - len as u64);
             self.set_items(self.items() - 2);
@@ -195,7 +201,7 @@ impl<S: Storage> score::Account for Account<S> {
             .preimage
             .get(&hash)
             .cloned()
-            .or_else(|| self.state.state_get(&key).ok().flatten())
+            .or_else(|| self.state.state_get(key).ok().flatten())
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
@@ -206,7 +212,6 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
         let key = account::preimage(self.index, hash);
-        tracing::debug!("remove preimage: 0x{}", hex::encode(&key));
         self.ops.update.remove(&key);
         self.ops.removal.insert(key);
         self.account.preimage.remove(&hash);

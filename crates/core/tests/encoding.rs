@@ -20,4 +20,3 @@ fn test_service_statistics() {
     let encoded = codec::encode(&stats).unwrap();
     assert_eq!(encoded, data);
 }
-
