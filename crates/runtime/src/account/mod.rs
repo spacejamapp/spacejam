@@ -180,6 +180,7 @@ impl<S: Storage> score::Account for Account<S> {
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = account::lookup(self.index, len, hash);
         if self.state.state_get(&key).ok().flatten().is_some() {
+            tracing::debug!("remove lookup: 0x{}", hex::encode(&key));
             self.ops.remove(key);
             self.set_total(self.total() - 81 - len as u64);
             self.set_items(self.items() - 2);
@@ -205,6 +206,7 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
         let key = account::preimage(self.index, hash);
+        tracing::debug!("remove preimage: 0x{}", hex::encode(&key));
         self.ops.update.remove(&key);
         self.ops.removal.insert(key);
         self.account.preimage.remove(&hash);

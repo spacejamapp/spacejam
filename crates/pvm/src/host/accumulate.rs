@@ -327,7 +327,6 @@ impl<R: Accounts> Accumulate<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         let [o, z] = [state.registers[7], state.registers[8]];
-        tracing::debug!("solicit: o: {}, z: {}", o, z);
         let hash = state.memory.read_hash(o as u32)?;
 
         // check if the account has enough balance
@@ -371,7 +370,8 @@ impl<R: Accounts> Accumulate<R> {
             return Ok(Exit::Huh as u64);
         };
 
-        let expunged = timeslot - score::EXPUNGED_TIME;
+        let expunged = timeslot.saturating_sub(score::EXPUNGED_TIME);
+        tracing::debug!("forget: timeslot={timeslot}, lookup={lookup:?}, expunged={expunged}",);
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
             tracing::debug!("forget: empty or expired");
             account.remove_lookup(hash, z as u32);
@@ -380,11 +380,9 @@ impl<R: Accounts> Accumulate<R> {
             tracing::debug!("forget: single");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
-        } else if lookup.len() == 3 && lookup[2] < expunged {
+        } else if lookup.len() == 3 && lookup[1] < expunged {
             tracing::debug!("forget: triple");
-            lookup.resize(2, lookup[2]);
-            lookup[1] = timeslot;
-            account.insert_lookup(hash, z as u32, lookup);
+            account.insert_lookup(hash, z as u32, vec![lookup[2], timeslot]);
         } else {
             return Ok(Exit::Huh as u64);
         }
