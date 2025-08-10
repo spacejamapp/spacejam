@@ -204,15 +204,25 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
         let key = account::storage(self.index, key);
+        if self.ops.removal.contains(&key) {
+            return None;
+        }
+
         self.hread(key)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
         let vkey = account::storage(self.index, key);
-
-        // update total
+        let mut previous = None;
         if let Some(old) = self.hread(vkey) {
-            self.set_total(self.total() + value.len() as u64 - old.len() as u64);
+            if self.ops.removal.contains(&vkey) {
+                self.set_items(self.items() + 1);
+                self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+            } else {
+                self.set_total(self.total() + value.len() as u64 - old.len() as u64);
+            }
+
+            previous = Some(old);
         } else {
             self.set_items(self.items() + 1);
             self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
@@ -221,7 +231,10 @@ impl<S: Storage> score::Account for Account<S> {
         // update storage
         self.ops.removal.remove(&vkey);
         self.ops.set(vkey, value.clone());
-        self.account.storage.insert(vkey.to_vec(), value);
+        self.account
+            .storage
+            .insert(vkey.to_vec(), value)
+            .or(previous);
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {

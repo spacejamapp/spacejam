@@ -2,7 +2,6 @@
 
 use crate::{
     block::{BlockInfo, BlockInfoJson},
-    service::ReportedWorkPackage,
     OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
@@ -33,7 +32,7 @@ pub struct Mmr {
 #[cfg(feature = "crypto")]
 mod crypto_impl {
     use super::*;
-    use crate::{block::BlockInfo, MAX_BLOCKS_HISTORY};
+    use crate::{block::BlockInfo, service::ReportedWorkPackage, MAX_BLOCKS_HISTORY};
     use crypto::merkle::mmr;
 
     impl History {

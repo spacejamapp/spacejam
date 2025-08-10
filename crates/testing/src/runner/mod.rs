@@ -427,10 +427,21 @@ impl Runner {
                     };
 
                     pkeys.push(key.clone());
+                    if value != result {
+                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+                    } else {
+                        tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
+                    }
+
                     if key == key::STATISTICS && value != result {
+                        tracing::debug!("value: 0x{}", hex::encode(&value));
+                        tracing::debug!("resul: 0x{}", hex::encode(&result));
                         let polkajam: Statistics = codec::decode(&value)?;
-                        let statistics: Statistics = codec::decode(&result)?;
+
                         tracing::debug!("polkajam: {:?}", polkajam);
+                        let encoded = codec::encode(&polkajam.services)?;
+                        tracing::debug!("encoded: 0x{}", hex::encode(&encoded));
+                        let statistics: Statistics = codec::decode(&result)?;
                         tracing::debug!("spacejam: {:?}", statistics);
                     }
 
@@ -451,12 +462,6 @@ impl Runner {
                         tracing::debug!("polkajam: {:?}", polkajam);
                         let recent: ServiceInfo = codec::decode(&result)?;
                         tracing::debug!("spacejam: {:?}", recent);
-                    }
-
-                    if value != result {
-                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
-                    } else {
-                        tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
                     }
                 }
 

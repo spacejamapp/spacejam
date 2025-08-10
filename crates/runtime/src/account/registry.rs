@@ -87,11 +87,6 @@ impl<S: Storage> score::Accounts for Accounts<S> {
         let mut removals = Vec::new();
         for (_, account) in self.accounts {
             let (lupdates, lremovals) = account.ops();
-            tracing::debug!(
-                "accounts diff, updates: {:?}, removals: {:?}",
-                lupdates.len(),
-                lremovals.len()
-            );
             updates.extend(lupdates);
             removals.extend(lremovals);
         }

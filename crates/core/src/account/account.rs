@@ -2,7 +2,6 @@
 
 use crate::{
     service::{ServiceAccount, ServiceInfo},
-    state::account,
     Gas, OpaqueHash, TrieKey,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -237,12 +236,12 @@ impl Account for ServiceAccount {
     }
 
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let skey = account::storage(self.index(), key);
+        let skey = crate::state::account::storage(self.index(), key);
         self.storage.get(skey.as_slice()).cloned()
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let skey = account::storage(self.index(), key);
+        let skey = crate::state::account::storage(self.index(), key);
         let value = self.storage.remove(skey.as_slice())?;
         self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
         self.set_items(self.items() - 1);
@@ -250,7 +249,7 @@ impl Account for ServiceAccount {
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let skey = account::storage(self.index(), key);
+        let skey = crate::state::account::storage(self.index(), key);
         if let Some(old) = self.storage.get(skey.as_slice()).map(|v| v.len() as u64) {
             self.set_total(self.total() + value.len() as u64 - old);
         } else {

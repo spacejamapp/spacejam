@@ -113,6 +113,7 @@ impl<R: Accounts> Accumulated<R> {
     /// Get the accumulation root
     ///
     /// see also (7.7) in the graypaper
+    #[cfg(feature = "crypto")]
     pub fn root(&self) -> OpaqueHash {
         let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
         sorted_pairs.sort_by_key(|(service_id, _)| *service_id);

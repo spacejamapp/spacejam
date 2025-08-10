@@ -36,7 +36,11 @@ macro_rules! impl_numeric {
                 fn encode(&self) -> Vec<u8> {
                     let bytes = self.to_le_bytes().to_vec();
                     let end = $len - self.leading_zeros() as usize / 8;
-                    bytes[..end].to_vec()
+                    if end == 0 {
+                        vec![0] // Return [0] for zero values instead of empty
+                    } else {
+                        bytes[..end].to_vec()
+                    }
                 }
 
                 fn decode(source: &[u8]) -> Self {
