@@ -1,6 +1,6 @@
 //! Visitor implementation for PVM instructions
 
-use crate::{translator::memory::MemorySize, Translator};
+use crate::{translator::MemorySize, Translator};
 use cranelift::prelude::*;
 use parser::{format, Visitor};
 
@@ -11,10 +11,14 @@ impl Visitor for Translator<'_, '_> {
         // Mark that this program contains explicit trap instructions
         self.has_explicit_trap = true;
         
-        // Trap behavior varies by context per Graypaper:
-        // - Explicit trap instructions: ε=panic → PC=0  
-        // - Branch validation failures: ε=panic → preserve PC
-        // Let post-processing handle explicit trap PC=0 behavior
+        // For trap, the PC should remain at the trap instruction, not advance
+        // Restore PC to the trap instruction's PC
+        let trap_pc = self.builder.use_var(self.instruction_pc);
+        self.builder.def_var(self.pc, trap_pc);
+        
+        // In block-based compilation, set trap result
+        self.set_trap_result()?;
+        
         Ok(())
     }
 
@@ -42,16 +46,19 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_load_imm_jump(&mut self, format: format::RIO) -> Result<(), Self::Error> {
         let format::RIO { reg0, off0, imm0 } = format;
-        // Load immediate value
+        // Load immediate value first
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
 
-        // Jump by adding offset to current PC
+        // Calculate jump target PC based on current PC + offset
         let current_pc = self.builder.use_var(self.pc);
         let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
         let target_pc = self.builder.ins().iadd(current_pc, offset_val);
-        self.builder.def_var(self.pc, target_pc);
+        
+        // Set jump result for block execution
+        self.set_jump_result(target_pc)?;
+        
         Ok(())
     }
 
@@ -1141,94 +1148,157 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    // Branch operations - for linear execution, they're no-ops that terminate blocks
-    fn visit_branch_eq(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        // Branch instructions should be handled by visit_with_control_flow
-        // If we reach here, it means we're in linear execution mode (no branches detected)
-        // This shouldn't happen for programs with branches, so this is likely an error
-        eprintln!("ERROR: visit_branch_eq called in linear mode - this indicates control flow detection failed");
+    // Branch operations - implement conditional jumps for block-based JIT
+    fn visit_branch_eq(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        // For block-based JIT, implement conditional branch using select
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
+        
+        // Calculate target PC for taken branch
+        // Branch offset is calculated from the branch instruction's PC
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc (already incremented)
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_eq_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+    fn visit_branch_eq_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // Use select to choose between target PC and next PC based on condition
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ne(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+    fn visit_branch_ne(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
+        
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ne_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+    fn visit_branch_ne_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg_val, imm_val);
+        
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
     fn visit_branch_lt_u(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned less-than branch
         Ok(())
     }
 
     fn visit_branch_lt_s(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed less-than branch
         Ok(())
     }
 
     fn visit_branch_ge_u(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned greater-equal branch
         Ok(())
     }
 
     fn visit_branch_ge_s(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed greater-equal branch
         Ok(())
     }
 
     fn visit_branch_lt_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned less-than immediate branch
         Ok(())
     }
 
     fn visit_branch_lt_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed less-than immediate branch
         Ok(())
     }
 
     fn visit_branch_ge_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned greater-equal immediate branch
         Ok(())
     }
 
     fn visit_branch_ge_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed greater-equal immediate branch
         Ok(())
     }
 
     // Additional branch operations
     fn visit_branch_gt_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned greater-than immediate branch
         Ok(())
     }
 
     fn visit_branch_gt_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed greater-than immediate branch
         Ok(())
     }
 
     fn visit_branch_le_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement unsigned less-equal immediate branch
         Ok(())
     }
 
     fn visit_branch_le_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement signed less-equal immediate branch
         Ok(())
     }
 
     // Jump operations
     fn visit_jump(&mut self, _format: format::O) -> Result<(), Self::Error> {
-        self.builder.ins().return_(&[]);
+        // TODO: Implement direct jump
         Ok(())
     }
 
@@ -1239,34 +1309,9 @@ impl Visitor for Translator<'_, '_> {
         let offset = self.builder.ins().iconst(types::I64, format.imm0 as i64);
         let target_addr = self.builder.ins().iadd(reg0_val, offset);
 
-        // Set PC to the computed target address
-        self.builder.def_var(self.pc, target_addr);
-
-        // For indirect jumps, we need to save state and return to runtime
-        // Get the context pointer parameter from entry block
-        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-        let context_ptr = self.builder.block_params(entry_block)[0];
-
-        // Store all 13 register values back to context.registers
-        for i in 0..13 {
-            let reg_var = self.registers[&(i as u8)];
-            let reg_value = self.builder.use_var(reg_var);
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(context_ptr, offset);
-            self.builder
-                .ins()
-                .store(MemFlags::new(), reg_value, addr, 0);
-        }
-
-        // Store PC back to context.pc (offset 104)
-        let pc_value = self.builder.use_var(self.pc);
-        let pc_offset = self.builder.ins().iconst(types::I64, 104);
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), pc_value, pc_addr, 0);
-
-        self.builder.ins().return_(&[]);
+        // In block-based compilation, set jump result
+        self.set_jump_result(target_addr)?;
+        
         Ok(())
     }
 
@@ -1367,34 +1412,9 @@ impl Visitor for Translator<'_, '_> {
         let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
         let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
 
-        // Set PC to the computed target address
-        self.builder.def_var(self.pc, target_addr);
-
-        // For indirect jumps, we need to save state and return to runtime
-        // Get the context pointer parameter from entry block
-        let entry_block = self.builder.func.layout.blocks().nth(0).unwrap();
-        let context_ptr = self.builder.block_params(entry_block)[0];
-
-        // Store all 13 register values back to context.registers
-        for i in 0..13 {
-            let reg_var = self.registers[&(i as u8)];
-            let reg_value = self.builder.use_var(reg_var);
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(context_ptr, offset);
-            self.builder
-                .ins()
-                .store(MemFlags::new(), reg_value, addr, 0);
-        }
-
-        // Store PC back to context.pc (offset 104)
-        let pc_value = self.builder.use_var(self.pc);
-        let pc_offset = self.builder.ins().iconst(types::I64, 104);
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), pc_value, pc_addr, 0);
-
-        self.builder.ins().return_(&[]);
+        // In block-based compilation, set jump result
+        self.set_jump_result(target_addr)?;
+        
         Ok(())
     }
 

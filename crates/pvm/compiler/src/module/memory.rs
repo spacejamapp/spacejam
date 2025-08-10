@@ -133,6 +133,63 @@ impl Memory {
         let bytes = value.to_le_bytes();
         self.write_bytes(address, &bytes)
     }
+
+    /// Read bytes from memory
+    pub fn read_bytes(&self, address: u32, len: u32) -> Result<Vec<u8>> {
+        let mut result = vec![0u8; len as usize];
+        let mut read_offset = 0u32;
+        
+        while read_offset < len {
+            let page_num = (address + read_offset) / PAGE_SIZE;
+            let page_offset = (address + read_offset) % PAGE_SIZE;
+            let to_read = (len - read_offset).min(PAGE_SIZE - page_offset);
+            
+            if let Some(page) = self.pages.get(&page_num) {
+                // Check if page is accessible for reading
+                if page.access == 2 {
+                    // Inaccessible page - return zeros for these bytes
+                    // This matches PVM behavior for inaccessible memory
+                } else {
+                    let start = page_offset as usize;
+                    let end = (page_offset + to_read) as usize;
+                    result[read_offset as usize..(read_offset + to_read) as usize]
+                        .copy_from_slice(&page.data[start..end]);
+                }
+            }
+            // If page doesn't exist, bytes remain as zeros
+            
+            read_offset += to_read;
+        }
+        
+        Ok(result)
+    }
+    
+    /// Read a single byte from memory
+    pub fn read_u8(&self, address: u32) -> Result<u8> {
+        let bytes = self.read_bytes(address, 1)?;
+        Ok(bytes[0])
+    }
+    
+    /// Read a 16-bit value from memory (little endian)
+    pub fn read_u16(&self, address: u32) -> Result<u16> {
+        let bytes = self.read_bytes(address, 2)?;
+        Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+    }
+    
+    /// Read a 32-bit value from memory (little endian)
+    pub fn read_u32(&self, address: u32) -> Result<u32> {
+        let bytes = self.read_bytes(address, 4)?;
+        Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+    
+    /// Read a 64-bit value from memory (little endian)
+    pub fn read_u64(&self, address: u32) -> Result<u64> {
+        let bytes = self.read_bytes(address, 8)?;
+        Ok(u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7]
+        ]))
+    }
 }
 
 impl Default for Memory {

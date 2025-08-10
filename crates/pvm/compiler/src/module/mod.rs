@@ -1,49 +1,68 @@
 //! Compiled function metadata
 
 use anyhow::Result;
-pub use {context::Context, info::Info, memory::Memory};
+pub use {info::Info, memory::Memory};
+use crate::jit::{JitCompiler, BlockContext};
 
-mod context;
 mod info;
 pub mod memory;
 
 /// Compiled function metadata
+/// Now uses block-based JIT compilation internally
 #[derive(Debug, Clone)]
 pub struct Module {
-    /// Entry point address of the compiled function
-    pub entry_point: *const u8,
-    /// Size of the compiled function in bytes
-    pub size: usize,
+    /// The original program bytes (for block JIT)
+    pub program_bytes: Vec<u8>,
     /// Number of instructions in the original PVM program
     pub instruction_count: usize,
     /// Whether this program contains explicit trap instructions
     pub has_explicit_trap: bool,
+    /// Legacy fields kept for compatibility (no longer used)
+    pub entry_point: *const u8,
+    pub size: usize,
 }
 
 impl Module {
     /// Create a new placeholder compiled function
     pub fn new_placeholder() -> Self {
         Self {
-            entry_point: std::ptr::null(),
-            size: 0,
+            program_bytes: Vec::new(),
             instruction_count: 0,
             has_explicit_trap: false,
+            entry_point: std::ptr::null(),
+            size: 0,
         }
     }
 
-    /// Create a new compiled function with actual data
-    pub fn new(entry_point: *const u8, size: usize, instruction_count: usize, has_explicit_trap: bool) -> Self {
+    /// Create a new module with program bytes for block-based JIT
+    pub fn new(_entry_point: *const u8, _size: usize, instruction_count: usize, has_explicit_trap: bool) -> Self {
+        // Note: entry_point and size are ignored - kept for compatibility
+        // The actual program will be provided via with_program()
         Self {
-            entry_point,
-            size,
+            program_bytes: Vec::new(),
             instruction_count,
             has_explicit_trap,
+            entry_point: std::ptr::null(),
+            size: 0,
         }
+    }
+    
+    /// Set the program bytes for block JIT execution
+    pub fn with_program(mut self, program: Vec<u8>) -> Self {
+        self.instruction_count = program.len(); // Approximate
+        self.program_bytes = program;
+        self
+    }
+    
+    /// Mark that this module should use block JIT
+    pub fn with_block_jit(self, _use_block_jit: bool) -> Self {
+        // Currently always uses block JIT since we removed the old compiler
+        self
     }
 
     /// Check if the function is a placeholder
     pub fn is_placeholder(&self) -> bool {
-        self.entry_point.is_null() && self.size == 0
+        self.program_bytes.is_empty()
     }
 
     /// Detect if this is a simple trap instruction program per Graypaper patterns
@@ -52,7 +71,7 @@ impl Module {
         self.has_explicit_trap
     }
 
-    /// Execute the compiled module with initial register values, PC, and memory
+    /// Execute the module using block-based JIT compilation
     pub fn execute(
         &self,
         initial_registers: &[u64; 13],
@@ -63,45 +82,33 @@ impl Module {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
-        unsafe {
-            // Create execution context with direct memory reference
-            let mut memory_copy = initial_memory.clone();
-            let mut context = Context::new(&mut memory_copy);
-            context.registers = *initial_registers;
-            context.pc = initial_pc;
-
-            let func_ptr = std::mem::transmute::<*const u8, fn(*mut Context)>(self.entry_point);
-            func_ptr(&mut context);
-
-            // Apply any recorded memory operations to the memory state
-            context
-                .apply_memory_operations()
-                .map_err(|e| anyhow::anyhow!("Failed to apply memory operations: {}", e))?;
-
-            // Sync linear memory changes back to PVM pages
-            context
-                .sync_linear_to_pages()
-                .map_err(|e| anyhow::anyhow!("Failed to sync linear memory: {}", e))?;
-
-            // Get the final memory state
-            let final_memory = memory_copy;
-
-            // Handle explicit trap instruction PC=0 behavior per Graypaper specification
-            // Explicit trap instructions set ε=panic and PC=0, but branch validation 
-            // failures set ε=panic with preserved PC
-            let is_trap = self.is_simple_trap_program();
-            let final_pc = if initial_pc == 0 && context.pc == 1 && is_trap {
-                // This is an explicit trap instruction program - set PC=0 per Graypaper
-                0
-            } else {
-                context.pc
-            };
-
-            Ok(Info {
-                registers: context.registers,
-                pc: final_pc,
-                memory: final_memory,
-            })
-        }
+        // Create a block JIT compiler
+        let mut compiler = JitCompiler::new()?;
+        
+        // Analyze the program to discover basic blocks
+        compiler.analyze_program(&self.program_bytes)?;
+        
+        // Create initial execution context
+        let context = BlockContext::new(*initial_registers, initial_pc, initial_memory);
+        
+        // Execute using block-based JIT
+        let result = compiler.execute(context)?;
+        
+        // Handle explicit trap instruction PC=0 behavior per Graypaper specification
+        // Explicit trap instructions set ε=panic and PC=0, but branch validation 
+        // failures set ε=panic with preserved PC
+        let is_trap = self.is_simple_trap_program();
+        let final_pc = if initial_pc == 0 && result.pc == 1 && is_trap {
+            // This is an explicit trap instruction program - set PC=0 per Graypaper
+            0
+        } else {
+            result.pc
+        };
+        
+        Ok(Info {
+            registers: result.registers,
+            pc: final_pc,
+            memory: result.memory,
+        })
     }
 }
