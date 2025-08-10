@@ -30,7 +30,7 @@ impl Chain {
         tracing::info!("service: {:?}", service);
         self.accounts
             .get(&service)
-            .map(|account| account.code)
+            .map(|account| account.info.code)
             .ok_or_else(|| anyhow!("Service not found"))
     }
 

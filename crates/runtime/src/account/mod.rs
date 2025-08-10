@@ -84,11 +84,11 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn balance(&self) -> u64 {
-        self.account.balance
+        self.account.info.balance
     }
 
     fn balance_mut(&mut self) -> &mut u64 {
-        &mut self.account.balance
+        &mut self.account.info.balance
     }
 
     fn blob(&self) -> Option<Vec<u8>> {
@@ -96,27 +96,27 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn code(&self) -> [u8; 32] {
-        self.account.code
+        self.account.info.code
     }
 
     fn set_code(&mut self, code: [u8; 32]) {
-        self.account.code = code;
+        self.account.info.code = code;
     }
 
     fn accumulate_gas(&self) -> Gas {
-        self.account.accumulate_gas
+        self.account.info.accumulate
     }
 
     fn set_accumulate_gas(&mut self, gas: Gas) {
-        self.account.accumulate_gas = gas;
+        self.account.info.accumulate = gas;
     }
 
     fn transfer_gas(&self) -> Gas {
-        self.account.transfer_gas
+        self.account.info.transfer
     }
 
     fn set_transfer_gas(&mut self, gas: Gas) {
-        self.account.transfer_gas = gas;
+        self.account.info.transfer = gas;
     }
 
     fn threshold(&self) -> u64 {
@@ -124,7 +124,7 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn total(&self) -> u64 {
-        self.account.total
+        self.account.info.total
     }
 
     fn set_total(&mut self, total: u64) {
@@ -136,19 +136,19 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn creation(&self) -> u32 {
-        self.account.creation
+        self.account.info.creation
     }
 
     fn set_creation(&mut self, creation: u32) {
-        self.account.creation = creation;
+        self.account.info.creation = creation;
     }
 
     fn update(&self) -> u32 {
-        self.account.update
+        self.account.info.update
     }
 
     fn set_update(&mut self, update: u32) {
-        self.account.update = update;
+        self.account.info.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
@@ -245,24 +245,13 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn info(&self) -> ServiceInfo {
-        ServiceInfo {
-            code: self.account.code,
-            balance: self.account.balance,
-            transfer: self.account.transfer_gas,
-            accumulate: self.account.accumulate_gas,
-            total: self.account.total(),
-            items: self.account.items(),
-            creation: self.account.creation,
-            update: self.account.update,
-            parent: self.account.parent,
-            offset: self.account.offset,
-        }
+        self.account.info.clone()
     }
 
     fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
         self.ops.set(
             account::info(self.index),
-            codec::encode(&self.account.data()).expect("data is valid"),
+            codec::encode(&self.account.state()).expect("data is valid"),
         );
 
         // collect removals

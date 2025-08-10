@@ -123,12 +123,7 @@ mod types {
             state.pools = self.auth_pools;
 
             for ServiceItem { id, data } in self.services.into_iter() {
-                state.accounts.entry(id).or_default().code = data.service.code;
-                state.accounts.entry(id).and_modify(|account| {
-                    account.balance = data.service.balance;
-                    account.accumulate_gas = data.service.accumulate;
-                    account.transfer_gas = data.service.transfer;
-                });
+                state.accounts.entry(id).or_default().info = data.service;
             }
         }
     }
@@ -241,15 +236,7 @@ mod types {
                     .map(|p| (p.hash, p.blob))
                     .collect(),
                 lookup,
-                code: data.service.code,
-                balance: data.service.balance,
-                accumulate_gas: data.service.accumulate,
-                transfer_gas: data.service.transfer,
-                creation: data.service.creation,
-                update: data.service.update,
-                parent: data.service.parent,
-                offset: data.service.offset,
-                total: data.service.total,
+                info: data.service,
             }
         }
     }

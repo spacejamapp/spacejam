@@ -7,9 +7,7 @@ use score::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
-    service::{
-        AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, ServiceInfo, WorkReport,
-    },
+    service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceInfo, WorkReport},
     state::{account, key, State, StateKeyLike},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
@@ -274,20 +272,12 @@ pub trait StateStorage: KVStorage {
         )?;
 
         account.index = index;
-        account.code = info.code;
-        account.balance = info.balance;
-        account.accumulate_gas = info.accumulate;
-        account.transfer_gas = info.transfer;
-        account.creation = info.creation;
-        account.update = info.update;
-        account.parent = info.parent;
-        account.offset = info.offset;
-        account.total = info.total;
+        account.info = info;
         Ok(account)
     }
 
     /// Fetch the account state
-    fn account_data(&self, service: u32) -> Result<ServiceData> {
+    fn account_info(&self, service: u32) -> Result<ServiceInfo> {
         self.state_get(account::info(service))?
             .map(|value| codec::decode(&value))
             .ok_or(anyhow::anyhow!("account state not found"))?

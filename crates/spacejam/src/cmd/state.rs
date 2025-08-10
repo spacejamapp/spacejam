@@ -4,7 +4,7 @@ use crate::chain;
 use clap::Parser;
 use runtime::storage::{Column, Commit, KVStorage, MemoryDb, StateStorage};
 use score::{
-    service::{ServiceAccount, ServiceData},
+    service::{ServiceAccount, ServiceInfo},
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
 };
 use spacejson::Json;
@@ -45,14 +45,11 @@ impl State {
                     service,
                     field: ServiceField::Data,
                 } => {
-                    let account: ServiceData = codec::decode(&value)?;
+                    let account: ServiceInfo = codec::decode(&value)?;
                     let entry = accounts
                         .entry(service)
                         .or_insert_with(ServiceAccount::default);
-                    entry.balance = account.balance;
-                    entry.code = account.code;
-                    entry.transfer_gas = account.transfer;
-                    entry.accumulate_gas = account.accumulate;
+                    entry.info = account;
                 }
                 _ => {}
             }

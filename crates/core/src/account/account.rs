@@ -134,15 +134,15 @@ impl Account for ServiceAccount {
     }
 
     fn balance(&self) -> u64 {
-        self.balance
+        self.info.balance
     }
 
     fn balance_mut(&mut self) -> &mut u64 {
-        &mut self.balance
+        &mut self.info.balance
     }
 
     fn blob(&self) -> Option<Vec<u8>> {
-        self.preimage.get(&self.code).cloned()
+        self.preimage.get(&self.info.code).cloned()
     }
 
     fn threshold(&self) -> u64 {
@@ -150,11 +150,11 @@ impl Account for ServiceAccount {
     }
 
     fn total(&self) -> u64 {
-        self.total
+        self.info.total
     }
 
     fn set_total(&mut self, total: u64) {
-        self.total = total;
+        self.info.total = total;
     }
 
     fn items(&self) -> u32 {
@@ -162,43 +162,43 @@ impl Account for ServiceAccount {
     }
 
     fn code(&self) -> OpaqueHash {
-        self.code
+        self.info.code
     }
 
     fn set_code(&mut self, code: OpaqueHash) {
-        self.code = code;
+        self.info.code = code;
     }
 
     fn accumulate_gas(&self) -> Gas {
-        self.accumulate_gas
+        self.info.accumulate
     }
 
     fn set_accumulate_gas(&mut self, gas: Gas) {
-        self.accumulate_gas = gas;
+        self.info.accumulate = gas;
     }
 
     fn transfer_gas(&self) -> Gas {
-        self.transfer_gas
+        self.info.transfer
     }
 
     fn set_transfer_gas(&mut self, gas: Gas) {
-        self.transfer_gas = gas;
+        self.info.transfer = gas;
     }
 
     fn creation(&self) -> u32 {
-        self.creation
+        self.info.creation
     }
 
     fn set_creation(&mut self, creation: u32) {
-        self.creation = creation;
+        self.info.creation = creation;
     }
 
     fn update(&self) -> u32 {
-        self.update
+        self.info.update
     }
 
     fn set_update(&mut self, update: u32) {
-        self.update = update;
+        self.info.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {

@@ -10,7 +10,7 @@ use runtime::{
 };
 use score::{
     block::{Block, BlockInfo, History, Mmr},
-    service::{AccumulatedQueue, ReadyQueue},
+    service::{AccumulatedQueue, ReadyQueue, ServiceInfo},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts,
@@ -445,6 +445,13 @@ impl Runner {
                         tracing::debug!("polkajam: {:?}", value);
                         tracing::debug!("spacejam: {:?}", result);
                     } */
+
+                    if key.starts_with(&[255]) && value != result {
+                        let polkajam: ServiceInfo = codec::decode(&value)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        let recent: ServiceInfo = codec::decode(&result)?;
+                        tracing::debug!("spacejam: {:?}", recent);
+                    }
 
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");

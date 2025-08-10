@@ -36,7 +36,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
-        Some(self.get(&index)?.code)
+        Some(self.get(&index)?.info.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {

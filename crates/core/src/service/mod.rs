@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
-    account::{ServiceAccount, ServiceData, ServiceInfo, ServiceInfoJson},
+    account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{
         ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,

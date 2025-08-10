@@ -167,14 +167,14 @@ impl<R: Accounts> Accumulate<R> {
             accumulate: g,
             transfer: m,
         });
-        account.balance = score::BALANCE_PER_SERVICE;
-        account.code = hash;
+        account.info.balance = score::BALANCE_PER_SERVICE;
+        account.info.code = hash;
         account.lookup.insert((hash, l as u32), vec![]);
 
         // Set metadata fields for new service account
-        account.creation = self.timeslot;
-        account.update = self.timeslot;
-        account.parent = self.x.service;
+        account.info.creation = self.timeslot;
+        account.info.update = self.timeslot;
+        account.info.parent = self.x.service;
 
         // insert the new account to the map
         //
