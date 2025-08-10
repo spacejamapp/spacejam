@@ -1,7 +1,7 @@
 //! Primitives for the accumulate invocation
 
 use crate::{
-    account::{Account, Accounts},
+    account::Accounts,
     safrole::ValidatorData,
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
@@ -34,8 +34,8 @@ pub struct AccumulateState<R: Accounts> {
 impl<R: Accounts> AccumulateState<R> {
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
-        self.accounts.get(service)?.account().code().cloned()
-
+        self.accounts.blob(service)
+        // self.accounts.get(service)?.account().code().cloned()
         // TODO: The logic below is correct, but we need to match
         // the test vectors atm.
         /* let hash = self.accounts.get(service)?.code();

@@ -214,7 +214,7 @@ impl<S: Storage> score::Account for Account<S> {
             }
 
             let mut fkey = [0; 31];
-            fkey.copy_from_slice(key);
+            fkey.copy_from_slice(&vkey);
             self.ops.removal.remove(&fkey);
         }
 

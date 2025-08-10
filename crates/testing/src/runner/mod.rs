@@ -427,27 +427,24 @@ impl Runner {
                     };
 
                     pkeys.push(key.clone());
-                    if key == key::STATISTICS && value != result {
+                    /*  if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
                         tracing::debug!("polkajam: {:?}", polkajam);
                         tracing::debug!("spacejam: {:?}", statistics);
-                    }
+                    } */
 
-                    if key == key::RECENT_BLOCKS && value != result {
-                        let polkajam: History =
-                            codec::decode(&value).context("failed to decode polkajam")?;
+                    /* if key == key::RECENT_BLOCKS && value != result {
+                        let polkajam: History = codec::decode(&value)?;
+                        let recent: History = codec::decode(&result)?;
                         tracing::debug!("polkajam: {:?}", polkajam);
-
-                        let recent: History =
-                            codec::decode(&result).context("failed to decode spacejam")?;
                         tracing::debug!("spacejam: {:?}", recent);
-                    }
+                    } */
 
-                    if key == key::MMB && value != result {
+                    /* if key == key::MMB && value != result {
                         tracing::debug!("polkajam: {:?}", value);
                         tracing::debug!("spacejam: {:?}", result);
-                    }
+                    } */
 
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
@@ -479,15 +476,4 @@ impl Runner {
 
         Ok(())
     }
-}
-
-#[test]
-fn beefy_root() {
-    let mut mmr = Mmr::default();
-    mmr.append([0; 32]);
-    mmr.append([
-        3, 23, 10, 46, 117, 151, 183, 183, 227, 216, 76, 5, 57, 29, 19, 154, 98, 177, 87, 231, 135,
-        134, 216, 192, 130, 242, 157, 207, 76, 17, 19, 20,
-    ]);
-    println!("mmr: {:?}", mmr.root());
 }

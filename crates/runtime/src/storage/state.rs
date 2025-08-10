@@ -7,8 +7,10 @@ use score::{
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
-    service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, WorkReport},
-    state::{account, key, ServiceField, State, StateKey, StateKeyInfo, StateKeyLike},
+    service::{
+        AvailabilityAssignments, Privileges, ServiceAccount, ServiceData, ServiceInfo, WorkReport,
+    },
+    state::{account, key, State, StateKeyLike},
     statistic::Statistics,
     EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
 };
@@ -265,61 +267,22 @@ pub trait StateStorage: KVStorage {
     /// FIXME: this is not efficient, we should fetch a set of accounts in one batch.
     fn account(&self, index: u32) -> Result<ServiceAccount> {
         let mut account = ServiceAccount::default();
-        for item in self.state_iter()? {
-            let (key, value) = item?;
-            match key.as_state_key().info() {
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Data,
-                } => {
-                    if service != index {
-                        continue;
-                    }
+        let info: ServiceInfo = codec::decode(
+            &self
+                .state_get(account::info(index))?
+                .ok_or(anyhow::anyhow!("account info not found"))?,
+        )?;
 
-                    account.code = value[..32].try_into()?;
-                    account.balance = u64::from_le_bytes(value[32..40].try_into()?);
-                    account.accumulate_gas = u64::from_le_bytes(value[40..48].try_into()?);
-                    account.transfer_gas = u64::from_le_bytes(value[48..56].try_into()?);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Storage,
-                } => {
-                    if service != index {
-                        continue;
-                    }
-
-                    account.storage.insert(key.to_vec(), value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Preimage,
-                } => {
-                    if service != index {
-                        continue;
-                    }
-
-                    // TODO: verify the hash of the key
-                    account.preimage.insert(crypto::blake2b(&value), value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Lookup { length },
-                } => {
-                    if service != index {
-                        continue;
-                    }
-
-                    let mut skey = [0; 32];
-                    skey[..31].copy_from_slice(&key);
-                    account
-                        .lookup
-                        .insert((skey, length), codec::decode(&value)?);
-                }
-                _ => continue,
-            }
-        }
-
+        account.index = index;
+        account.code = info.code;
+        account.balance = info.balance;
+        account.accumulate_gas = info.accumulate;
+        account.transfer_gas = info.transfer;
+        account.creation = info.creation;
+        account.update = info.update;
+        account.parent = info.parent;
+        account.offset = info.offset;
+        account.total = info.total;
         Ok(account)
     }
 

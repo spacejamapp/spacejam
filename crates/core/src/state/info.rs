@@ -79,13 +79,9 @@ pub enum StateKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceField {
     /// The service account data
+    Info,
+    /// The service account data, storage, preimage or lookup
     Data,
-    /// The service account storage
-    Storage,
-    /// The service account preimage
-    Preimage,
-    /// The service account lookup table
-    Lookup { length: u32 },
 }
 
 /// The kind of validator
@@ -128,30 +124,15 @@ impl StateKeyInfo for TrieKey {
                 let buf = [key[1], key[3], key[5], key[7]];
                 StateKey::Account {
                     service: u32::from_le_bytes(buf),
-                    field: ServiceField::Data,
-                }
-            }
-            key if [key[1], key[3], key[5], key[7]] == key::ACCOUNT_STORAGE_PREFIX => {
-                let buf = [key[0], key[2], key[4], key[6]];
-                StateKey::Account {
-                    service: u32::from_le_bytes(buf),
-                    field: ServiceField::Storage,
-                }
-            }
-            key if [key[1], key[3], key[5], key[7]] == key::ACCOUNT_PREIMAGE_PREFIX => {
-                let buf = [key[0], key[2], key[4], key[6]];
-                StateKey::Account {
-                    service: u32::from_le_bytes(buf),
-                    field: ServiceField::Preimage,
+                    field: ServiceField::Info,
                 }
             }
             key => {
                 let buf = [key[0], key[2], key[4], key[6]];
                 let service = u32::from_le_bytes(buf);
-                let length = u32::from_le_bytes([key[1], key[3], key[5], key[7]]);
                 StateKey::Account {
                     service,
-                    field: ServiceField::Lookup { length },
+                    field: ServiceField::Data,
                 }
             }
         }

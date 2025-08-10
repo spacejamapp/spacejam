@@ -125,47 +125,47 @@ pub struct ServiceInfo {
     pub code: OpaqueHash,
 
     /// The balance of the service account (b)
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub balance: u64,
 
     /// The minimum required for the on transfer entry-point (m)
     #[serde(alias = "min_item_gas")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub transfer: Gas,
 
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
     #[serde(alias = "min_memo_gas")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub accumulate: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub total: u64,
 
     /// The deposit offset of the service account (f)
     #[serde(alias = "deposit_offset")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub offset: u64,
 
     /// The number of items in storage (i)
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub items: u32,
 
     /// The creation time of the service account (t)
     #[serde(alias = "creation_slot")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub creation: u32,
 
     /// The last update time of the service account (u)
     #[serde(alias = "last_accumulation_slot")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub update: u32,
 
     /// The parent of the service account (p)
     #[serde(alias = "parent_service")]
-    #[serde(with = "codec::compact")]
+    // #[serde(with = "codec::compact")]
     pub parent: u32,
 }
 

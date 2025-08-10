@@ -6,7 +6,6 @@ use runtime::storage::{Column, Commit, KVStorage, MemoryDb, StateStorage};
 use score::{
     service::{ServiceAccount, ServiceData},
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
-    Account,
 };
 use spacejson::Json;
 use std::{collections::BTreeMap, path::PathBuf};
@@ -55,39 +54,6 @@ impl State {
                     entry.transfer_gas = account.transfer;
                     entry.accumulate_gas = account.accumulate;
                 }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Preimage,
-                } => {
-                    accounts
-                        .entry(service)
-                        .or_insert_with(ServiceAccount::default)
-                        .insert_preimage(crypto::blake2b(&value), value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Storage,
-                } => {
-                    accounts
-                        .entry(service)
-                        .or_insert_with(ServiceAccount::default)
-                        .storage
-                        .insert(key, value);
-                }
-                StateKey::Account {
-                    service,
-                    field: ServiceField::Lookup { length },
-                } => {
-                    let value = codec::decode(&value)?;
-                    let mut skey = [0; 32];
-                    skey[9..].copy_from_slice(&key[8..31]);
-                    accounts
-                        .entry(service)
-                        .or_insert_with(ServiceAccount::default)
-                        .lookup
-                        .insert((skey, length), value);
-                }
-
                 _ => {}
             }
         }
