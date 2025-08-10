@@ -1235,64 +1235,316 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_branch_lt_u(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned less-than branch
+    fn visit_branch_lt_u(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        // For block-based JIT, implement conditional branch using select
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_lt_s(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        // TODO: Implement signed less-than branch
+    fn visit_branch_lt_s(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        // For block-based JIT, implement conditional branch using select
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ge_u(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned greater-equal branch
+    fn visit_branch_ge_u(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        // For block-based JIT, implement conditional branch using select
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ge_s(&mut self, _format: format::RRO) -> Result<(), Self::Error> {
-        // TODO: Implement signed greater-equal branch
+    fn visit_branch_ge_s(&mut self, format: format::RRO) -> Result<(), Self::Error> {
+        let format::RRO { reg0, reg1, off0 } = format;
+        
+        // For block-based JIT, implement conditional branch using select
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_lt_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned less-than immediate branch
+    fn visit_branch_lt_u_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_lt_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement signed less-than immediate branch
+    fn visit_branch_lt_s_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::SignedLessThan, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ge_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned greater-equal immediate branch
+    fn visit_branch_ge_u_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_ge_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement signed greater-equal immediate branch
+    fn visit_branch_ge_s_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
     // Additional branch operations
-    fn visit_branch_gt_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned greater-than immediate branch
+    fn visit_branch_gt_u_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_gt_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement signed greater-than immediate branch
+    fn visit_branch_gt_s_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_le_u_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement unsigned less-equal immediate branch
+    fn visit_branch_le_u_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
-    fn visit_branch_le_s_imm(&mut self, _format: format::RIO) -> Result<(), Self::Error> {
-        // TODO: Implement signed less-equal immediate branch
+    fn visit_branch_le_s_imm(&mut self, format: format::RIO) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
+        
+        // Compare register with immediate value
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
+        
+        // Calculate target PC for taken branch
+        let instruction_pc = self.builder.use_var(self.instruction_pc);
+        let next_instruction_pc = self.builder.use_var(self.pc);
+        let offset_val = self.builder.ins().iconst(types::I64, off0 as i64);
+        
+        // Branch target = instruction_pc + offset
+        let target_pc = self.builder.ins().iadd(instruction_pc, offset_val);
+        
+        // For condition true: jump to target_pc
+        // For condition false: continue with next_instruction_pc
+        let result_pc = self.builder.ins().select(condition, target_pc, next_instruction_pc);
+        
+        // Set jump result with the selected PC
+        self.set_jump_result(result_pc)?;
+        
         Ok(())
     }
 
