@@ -7,7 +7,7 @@ pub use registry::Accounts;
 use score::{
     service::{ServiceAccount, ServiceInfo},
     state::account,
-    OpaqueHash, TrieKey,
+    TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,12 +27,6 @@ pub struct Account<S: Storage> {
     /// The account state
     account: ServiceAccount,
 
-    /// The ops of preimages
-    preimages: (BTreeSet<OpaqueHash>, BTreeSet<OpaqueHash>),
-
-    /// The ops of preimages
-    storage: (BTreeSet<Vec<u8>>, BTreeSet<Vec<u8>>),
-
     /// The operations of the account
     ops: Commit<TrieKey, Vec<u8>>,
 }
@@ -46,10 +40,17 @@ impl<S: Storage> Account<S> {
             state: storage,
             index,
             account,
-            preimages: (BTreeSet::new(), BTreeSet::new()),
-            storage: (BTreeSet::new(), BTreeSet::new()),
             ops: Commit::default(),
         })
+    }
+
+    /// Read storage via storage key
+    pub fn hread(&self, key: TrieKey) -> Option<Vec<u8>> {
+        if self.account.storage.contains_key(key.as_slice()) {
+            self.account.storage.get(key.as_slice()).cloned()
+        } else {
+            self.state.state_get(&key).ok().flatten()
+        }
     }
 
     /// Inherit from another account
@@ -58,8 +59,6 @@ impl<S: Storage> Account<S> {
             state: storage,
             index,
             account: account.account(),
-            preimages: (BTreeSet::new(), BTreeSet::new()),
-            storage: (BTreeSet::new(), BTreeSet::new()),
             ops: account.ops().into(),
         }
     }
@@ -192,64 +191,56 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
-        {
-            self.preimages.1.remove(&hash);
-            let fhash = account::preimage(self.index, hash);
-            self.ops.removal.remove(&fhash);
-        }
-
         self.account.preimage.insert(hash, preimage.clone());
-        self.preimages.0.insert(hash);
+        self.ops.set(account::preimage(self.index, hash), preimage);
     }
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
         self.account.preimage.remove(&hash);
-        self.preimages.1.insert(hash);
+        let key = account::preimage(self.index, hash);
+        self.ops.update.remove(&key);
+        self.ops.removal.insert(key);
     }
 
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        let vkey = account::storage(self.index, key).to_vec();
-        self.account.storage.get(&vkey)
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
+        let key = account::storage(self.index, key);
+        self.hread(key)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let vkey = account::storage(self.index, key).to_vec();
-        {
-            if self.storage.1.contains(&vkey) {
-                self.storage.1.remove(&vkey);
-            }
-
-            let mut fkey = [0; 31];
-            fkey.copy_from_slice(&vkey);
-            self.ops.removal.remove(&fkey);
-        }
+        let vkey = account::storage(self.index, key);
 
         // update total
-        if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
-            self.set_total(self.total() + value.len() as u64 - old);
+        if let Some(old) = self.hread(vkey) {
+            self.set_total(self.total() + value.len() as u64 - old.len() as u64);
         } else {
             self.set_items(self.items() + 1);
             self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
         }
 
         // update storage
-        self.storage.0.insert(vkey.clone());
-        self.account.storage.insert(vkey, value);
+        self.ops.removal.remove(&vkey);
+        self.ops.set(vkey, value.clone());
+        self.account.storage.insert(vkey.to_vec(), value);
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let vkey = account::storage(self.index, key).to_vec();
-        if !self.storage.1.contains(&vkey) {
-            self.storage.1.insert(vkey.clone());
+        let vkey = account::storage(self.index, key);
+        if self.ops.removal.contains(&vkey) {
+            return None;
         }
 
         // update total
-        if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
-            self.set_total(self.total() - 34 - key.len() as u64 - old);
+        let mut removed = None;
+        if let Some(old) = self.hread(vkey) {
+            self.set_total(self.total() - 34 - key.len() as u64 - old.len() as u64);
             self.set_items(self.items() - 1);
+            self.ops.removal.insert(vkey);
+            removed = Some(old);
         }
 
-        self.account.storage.remove(&vkey)
+        self.account.storage.remove(vkey.as_slice());
+        removed
     }
 
     fn info(&self) -> ServiceInfo {
@@ -262,47 +253,11 @@ impl<S: Storage> score::Account for Account<S> {
             codec::encode(&self.account.state()).expect("data is valid"),
         );
 
-        // collect removals
-        let mut removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
-        removals.extend(self.storage.1.iter().map(|k| {
-            let mut mkey = [0; 31];
-            mkey.copy_from_slice(k);
-            mkey
-        }));
-        removals.extend(
-            self.preimages
-                .1
-                .iter()
-                .map(|k| account::preimage(self.index, *k)),
-        );
-
-        // collect updates
-        let mut updates: BTreeMap<TrieKey, Vec<u8>> =
+        let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
+        let updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
-        updates.extend(self.storage.0.iter().map(|k| {
-            let mut key = [0; 31];
-            key.copy_from_slice(k);
-            (
-                key,
-                self.account
-                    .storage
-                    .get(k)
-                    .expect("storage is valid")
-                    .clone(),
-            )
-        }));
-        updates.extend(self.preimages.0.iter().map(|k| {
-            let mut key = [0; 31];
-            key.copy_from_slice(&account::preimage(self.index, *k));
-            (
-                key,
-                self.account
-                    .preimage
-                    .get(k)
-                    .expect("preimage is valid")
-                    .clone(),
-            )
-        }));
+
+        tracing::debug!("removals: {:?}", removals.len());
 
         (updates, removals)
     }
@@ -314,8 +269,6 @@ impl<S: Storage> Clone for Account<S> {
             state: self.state.clone(),
             index: self.index,
             account: self.account.clone(),
-            preimages: self.preimages.clone(),
-            storage: self.storage.clone(),
             ops: self.ops.clone(),
         }
     }

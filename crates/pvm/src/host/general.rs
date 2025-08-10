@@ -162,10 +162,9 @@ impl<R: Accounts> General<R> {
 
         if vz == 0 {
             let Some(_value) = account.remove(&key) else {
+                self.updated = true;
                 return Ok(Exit::None as u64);
             };
-
-            self.updated = true;
         } else {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
                 Ok(bytes) => bytes,

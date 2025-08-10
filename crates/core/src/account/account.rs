@@ -112,7 +112,7 @@ pub trait Account: Clone {
     fn remove_preimage(&mut self, hash: [u8; 32]);
 
     /// Get a storage from the account
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>>;
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
     /// Remove a storage from the account
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>>;
@@ -236,9 +236,9 @@ impl Account for ServiceAccount {
         self.preimage.remove(&hash);
     }
 
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
         let skey = account::storage(self.index(), key);
-        self.storage.get(skey.as_slice())
+        self.storage.get(skey.as_slice()).cloned()
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {

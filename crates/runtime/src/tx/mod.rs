@@ -155,7 +155,6 @@ pub fn simulate<Vm: Pvm>(
         state.history = accumulation.accumulated_queue;
         diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
-        // write statistics and return root and accounts
         state.statistics.merge_services(accumulation.records);
         diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
@@ -185,6 +184,11 @@ pub fn simulate<Vm: Pvm>(
         // (δ') Update the accounts
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
+        tracing::debug!(
+            "updates: {:?}, removals: {:?}",
+            updates.len(),
+            removals.len()
+        );
         diff.extend_iter(updates, removals);
 
         // FIXME: looks like polkajam currently doesn't update the authorization

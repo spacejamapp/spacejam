@@ -51,6 +51,10 @@ pub struct MemoryDb {
 
 impl KVStorage for MemoryDb {
     fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        tracing::debug!(
+            "committing storage, removals: {:?}",
+            commit.iremoval().count()
+        );
         let mut data = self
             .data
             .write()
@@ -61,6 +65,7 @@ impl KVStorage for MemoryDb {
         }
 
         for key in commit.iremoval() {
+            tracing::debug!("removing storage: 0x{}", hex::encode(key.as_ref()));
             data.remove(key.as_ref());
         }
 
