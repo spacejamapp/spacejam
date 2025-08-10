@@ -434,12 +434,12 @@ impl Runner {
                         tracing::debug!("spacejam: {:?}", statistics);
                     } */
 
-                    /* if key == key::RECENT_BLOCKS && value != result {
+                    if key == key::RECENT_BLOCKS && value != result {
                         let polkajam: History = codec::decode(&value)?;
                         let recent: History = codec::decode(&result)?;
                         tracing::debug!("polkajam: {:?}", polkajam);
                         tracing::debug!("spacejam: {:?}", recent);
-                    } */
+                    }
 
                     /* if key == key::MMB && value != result {
                         tracing::debug!("polkajam: {:?}", value);

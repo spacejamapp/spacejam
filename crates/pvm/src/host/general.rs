@@ -176,7 +176,6 @@ impl<R: Accounts> General<R> {
             };
 
             // TODO: we actually can update the key here for avoiding hashing for twice
-            tracing::debug!("writing to storage key: {key:?}, value: {value:?}");
             account.write(&key, value);
             self.updated = true;
         }

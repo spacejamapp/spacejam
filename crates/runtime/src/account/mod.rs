@@ -135,6 +135,10 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.items()
     }
 
+    fn set_items(&mut self, items: u32) {
+        self.account.set_items(items);
+    }
+
     fn creation(&self) -> u32 {
         self.account.info.creation
     }
@@ -172,6 +176,7 @@ impl<S: Storage> score::Account for Account<S> {
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
         self.set_total(self.total() + 81 + len as u64);
+        self.set_items(self.items() + 2);
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
@@ -179,6 +184,7 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.lookup.remove(&(hash, len));
         self.ops.remove(key);
         self.set_total(self.total() - 81 - len as u64);
+        self.set_items(self.items() - 2);
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
@@ -222,6 +228,7 @@ impl<S: Storage> score::Account for Account<S> {
         if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
             self.set_total(self.total() + value.len() as u64 - old);
         } else {
+            self.set_items(self.items() + 1);
             self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
         }
 
@@ -239,6 +246,7 @@ impl<S: Storage> score::Account for Account<S> {
         // update total
         if let Some(old) = self.account.storage.get(&vkey).map(|v| v.len() as u64) {
             self.set_total(self.total() - 34 - key.len() as u64 - old);
+            self.set_items(self.items() - 1);
         }
 
         self.account.storage.remove(&vkey)

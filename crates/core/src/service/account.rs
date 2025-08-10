@@ -44,13 +44,8 @@ impl ServiceAccount {
     /// The threshold of the service account
     pub fn threshold(&self) -> u64 {
         crate::BALANCE_PER_SERVICE
-            + crate::BALANCE_PER_ITEM * self.items() as u64
+            + crate::BALANCE_PER_ITEM * self.info.items as u64
             + crate::BALANCE_PER_OCTET * self.info.total
-    }
-
-    /// The number of items in storage
-    pub fn items(&self) -> u32 {
-        2 * self.lookup.len() as u32 + self.storage.len() as u32
     }
 
     /// The state of the service account

@@ -36,6 +36,9 @@ pub trait Account: Clone {
     /// Get the items of the account
     fn items(&self) -> u32;
 
+    /// Set the items of the account
+    fn set_items(&mut self, items: u32);
+
     /// Get the code of the account
     fn code(&self) -> OpaqueHash;
 
@@ -158,7 +161,11 @@ impl Account for ServiceAccount {
     }
 
     fn items(&self) -> u32 {
-        self.items()
+        self.info.items
+    }
+
+    fn set_items(&mut self, items: u32) {
+        self.info.items = items;
     }
 
     fn code(&self) -> OpaqueHash {
@@ -207,11 +214,13 @@ impl Account for ServiceAccount {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {
         self.set_total(self.total() + 81 + len as u64);
+        self.set_items(self.items() + 2);
         self.lookup.insert((hash, len), slots);
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         self.set_total(self.total() - 81 - len as u64);
+        self.set_items(self.items() - 2);
         self.lookup.remove(&(hash, len));
     }
 
@@ -236,6 +245,7 @@ impl Account for ServiceAccount {
         let skey = account::storage(self.index(), key);
         let value = self.storage.remove(skey.as_slice())?;
         self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
+        self.set_items(self.items() - 1);
         Some(value)
     }
 
@@ -245,6 +255,7 @@ impl Account for ServiceAccount {
             self.set_total(self.total() + value.len() as u64 - old);
         } else {
             self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+            self.set_items(self.items() + 1);
         }
 
         self.storage.insert(skey.to_vec(), value);

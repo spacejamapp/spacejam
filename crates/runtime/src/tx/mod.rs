@@ -109,7 +109,7 @@ pub fn simulate<Vm: Pvm>(
     };
 
     // Round 3 computation
-    let (root, accounts) = {
+    let (_root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
         state.safrole = ticket::safrole(
             state.timeslot,
@@ -167,7 +167,7 @@ pub fn simulate<Vm: Pvm>(
         state.recent_blocks.import(
             block.header.hash()?,
             block.header.parent_state_root,
-            root,
+            Default::default(),
             Default::default(),
         );
         let (reported, _) = guarantee::report(
