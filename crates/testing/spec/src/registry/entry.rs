@@ -9,6 +9,7 @@ use std::{
 };
 
 /// A test vector registry entry
+#[derive(Clone)]
 pub struct Entry {
     /// The section of the test vector
     pub section: Section,

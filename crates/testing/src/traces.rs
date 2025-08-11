@@ -37,7 +37,7 @@ pub struct State {
 }
 
 /// State transition trace key-value
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, Clone)]
 pub struct KeyValue {
     /// The key
     #[json(hex)]

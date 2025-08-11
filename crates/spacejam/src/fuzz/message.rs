@@ -1,3 +1,5 @@
+//! Fuzz messages
+
 use score::{block::Header, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 

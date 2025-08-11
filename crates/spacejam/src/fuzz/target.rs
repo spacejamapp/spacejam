@@ -4,27 +4,28 @@ use crate::{
     fuzz::{
         self,
         message::{KeyValue, Message, PeerInfo, SetState},
+        StreamExt,
     },
     storage::Parity,
 };
+use anyhow::Context;
 use pvmi::Interpreter;
 use runtime::{
-    storage::{ArchiveStorage, Commit, StateStorage},
+    storage::{ArchiveStorage, Column, Commit, KVStorage, StateStorage},
     tx,
 };
 use score::{Block, OpaqueHash};
 use std::{
-    io::Write,
+    ops::{Deref, DerefMut},
     os::unix::net::UnixStream,
-    path::PathBuf,
-    rc::Rc,
-    sync::{Arc, Mutex},
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 /// A fuzz target
 pub struct Target {
     /// The connected unix stream
-    stream: Rc<Mutex<UnixStream>>,
+    stream: UnixStream,
 
     /// The database used in fuzzing
     data: Arc<Parity>,
@@ -32,11 +33,25 @@ pub struct Target {
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: Rc<Mutex<UnixStream>>, data: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(stream: UnixStream, data: PathBuf) -> anyhow::Result<Self> {
         Ok(Self {
             stream,
             data: Arc::new(Parity::try_from(data)?),
         })
+    }
+
+    /// Run the target
+    pub fn run(socket: &Path, data: &Path) -> anyhow::Result<()> {
+        let fuzz = data.join("fuzz");
+        let stream = UnixStream::connect(socket)
+            .context(format!("Failed to connect to the socket at {socket:?}"))?;
+        let mut target = Target::new(stream, fuzz.clone())
+            .context(format!("Failed to create target with data at {fuzz:?}"))?;
+
+        loop {
+            let message = target.read_message()?;
+            target.handle(message)?;
+        }
     }
 
     /// Handle a incoming message
@@ -52,6 +67,7 @@ impl Target {
     }
 
     /// Received info request
+    #[tracing::instrument(skip_all)]
     pub fn info(&mut self, info: PeerInfo) -> anyhow::Result<()> {
         let this = PeerInfo {
             name: "spacejam".into(),
@@ -67,10 +83,7 @@ impl Target {
             );
         }
 
-        let resp = codec::encode(&Message::Info(this))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
+        self.write_message(Message::Info(this))?;
         Ok(())
     }
 
@@ -78,11 +91,8 @@ impl Target {
     pub fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let hash = block.header.hash()?;
         tx::transit::<Interpreter>(block, self.data.clone())?;
-        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-
+        let message = Message::StateRoot(self.data.root()?);
+        self.write_message(message)?;
         self.data.archive(&hash)?;
         Ok(())
     }
@@ -92,16 +102,21 @@ impl Target {
         let mut commit = Commit::default();
         let hash = state.header.hash()?;
         for KeyValue { key, value } in state.state.into_iter() {
-            let key = hex::decode(key.trim_start_matches("0x"))?;
+            let buf = hex::decode(key.trim_start_matches("0x"))?;
+            if buf.len() != 31 {
+                anyhow::bail!("Invalid state key length: {}", buf.len());
+            }
+            let mut key = [0; 31];
+            key.copy_from_slice(&buf);
+            key[31] = 0;
+
             let value = hex::decode(value.trim_start_matches("0x"))?;
             commit.set(key, value);
         }
 
-        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-
+        self.data.commit(Column::State, commit)?;
+        let message = Message::StateRoot(self.data.root()?);
+        self.write_message(message)?;
         self.data.archive(&hash)?;
         Ok(())
     }
@@ -118,11 +133,7 @@ impl Target {
             });
         }
 
-        let resp = codec::encode(&Message::State(state))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-        Ok(())
+        self.write_message(Message::State(state))
     }
 
     /// Handle the state request
@@ -133,5 +144,19 @@ impl Target {
     /// Handle the state root request
     pub fn state_root(&mut self, _root: OpaqueHash) -> anyhow::Result<()> {
         anyhow::bail!("Received message state root which is not supported");
+    }
+}
+
+impl Deref for Target {
+    type Target = UnixStream;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
+
+impl DerefMut for Target {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stream
     }
 }
