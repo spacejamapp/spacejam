@@ -37,6 +37,10 @@ impl Fuzzer {
     /// Run the fuzzer
     pub fn run(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
         tracing::info!("Listening on {socket:?}");
+        if socket.exists() {
+            fs::remove_file(socket)?;
+        }
+
         let listener =
             UnixListener::bind(socket).context(format!("Failed to bind to {socket:?}"))?;
         let entry = Entry::new(Section::Trace(Trace::Any), None, entry).context(format!(

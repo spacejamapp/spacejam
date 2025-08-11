@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 pub enum Fuzz {
     /// Fuzz with local unix socket
-    Local {
+    Target {
         /// The path to the unix socket
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
@@ -40,7 +40,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Local { socket } => Target::run(socket),
+            Self::Target { socket } => Target::run(socket),
             Self::Fuzzer {
                 socket,
                 traces,

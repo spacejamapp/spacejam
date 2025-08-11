@@ -26,6 +26,10 @@ pub struct App {
     /// The verbosity level (repeat for more verbosity)
     #[arg(short, action = ArgAction::Count, global = true)]
     verbose: u8,
+
+    /// Disable ANSI colors
+    #[arg(short, long, global = true)]
+    noansi: bool,
 }
 
 impl App {
@@ -52,10 +56,10 @@ impl App {
             .with_env_filter(env)
             .with_timer(fmt::Time)
             .with_target(false)
-            .with_ansi(false);
+            .with_ansi(!app.noansi);
 
         if app.verbose > 0 {
-            subscriber = subscriber.with_target(true).with_ansi(true);
+            subscriber = subscriber.with_target(true).with_ansi(!app.noansi);
         }
 
         subscriber.init();
@@ -64,7 +68,7 @@ impl App {
         };
 
         if let Err(e) = cmd.run::<Development>().await {
-            eprintln!("Failed to run spacejam: {e}");
+            eprintln!("{e}");
         }
     }
 }
@@ -91,7 +95,6 @@ impl Command {
             Command::Run(run) => run.build::<C>().await?.start().await,
             Command::Key(key) => key.run(),
             Command::Fuzz(fuzz) => fuzz.run(),
-            // Command::State(state) => state.run(),
         }
     }
 }

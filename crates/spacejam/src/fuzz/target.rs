@@ -103,7 +103,6 @@ impl Target {
             }
             let mut key = [0; 31];
             key.copy_from_slice(&buf);
-            key[31] = 0;
 
             let value = hex::decode(value.trim_start_matches("0x"))?;
             commit.set(key, value);

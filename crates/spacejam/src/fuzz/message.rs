@@ -4,7 +4,7 @@ use score::{block::Header, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 
 /// Messages used in the unix socket communication
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Message {
     /// The peer information
     #[serde(rename = "peer-info")]
@@ -23,6 +23,7 @@ pub enum Message {
     GetState(OpaqueHash),
 
     /// The state of the peer
+    #[serde(rename = "state")]
     State(Vec<KeyValue>),
 
     /// The root of the state
@@ -57,7 +58,7 @@ pub struct Version {
 }
 
 /// A key-value pair
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyValue {
     /// The key of the key-value pair
     pub key: String,
@@ -67,7 +68,7 @@ pub struct KeyValue {
 }
 
 /// Set the state of the peer
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SetState {
     /// The header of the block
     pub header: Header,
