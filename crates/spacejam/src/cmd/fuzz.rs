@@ -29,10 +29,10 @@ pub enum Fuzz {
         report: PathBuf,
     },
 
-    /// Run trace tests via the given trace folder
-    Trace {
-        /// The path to the trace folder
-        traces: PathBuf,
+    /// Run trace test via the given trace file
+    Tx {
+        /// The path to the trace file
+        test: PathBuf,
     },
 }
 
@@ -46,7 +46,7 @@ impl Fuzz {
                 traces,
                 report,
             } => Fuzzer::run(socket, traces, report),
-            Self::Trace { traces } => fuzz::trace::test(traces),
+            Self::Tx { test } => fuzz::trace::test(test),
         }
     }
 }

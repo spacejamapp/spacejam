@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 
 pub use runner::Runner;
-pub use specjam::{Entry, Section, Test, Trace};
+pub use specjam::{Entry, Scale, Section, Test, Trace};
 use tracing_subscriber::EnvFilter;
 
 /// Initialize tracing subscriber
