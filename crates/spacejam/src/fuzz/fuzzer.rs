@@ -9,7 +9,7 @@ use score::OpaqueHash;
 use serde_json::json;
 use std::{
     fs,
-    os::unix::net::{UnixListener, UnixStream},
+    os::unix::net::UnixStream,
     path::{Path, PathBuf},
 };
 use testing::{traces, Entry, Section, Test, Trace};
@@ -29,31 +29,21 @@ pub struct Fuzzer {
 impl Fuzzer {
     /// Run the fuzzer
     pub fn run(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
-        tracing::info!("Listening on {socket:?}");
-        if socket.exists() {
-            fs::remove_file(socket)?;
-        }
-
-        let listener =
-            UnixListener::bind(socket).context(format!("Failed to bind to {socket:?}"))?;
         let entry = Entry::new(Section::Trace(Trace::Any), None, entry).context(format!(
             "Failed to parse traces folder, {entry:?}, should be the folder of traces, \n
             for example jam-test-vectors/traces/storage"
         ))?;
 
         // handle incoming connections
-        for stream in listener.incoming() {
-            let mut stream = stream.context("Failed to accept connection")?;
-            let mut fuzzer = Self {
-                info: Self::peer_info(&mut stream)?,
-                report: report.to_path_buf(),
-                stream,
-            };
+        let mut stream =
+            UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;
+        let mut fuzzer = Self {
+            info: Self::peer_info(&mut stream)?,
+            report: report.to_path_buf(),
+            stream,
+        };
 
-            fuzzer.handle(&entry)?;
-        }
-
-        Ok(())
+        fuzzer.handle(&entry)
     }
 
     /// Handle a new connection
@@ -184,9 +174,13 @@ impl Fuzzer {
     pub fn to_keyvals(keyvals: Vec<traces::KeyValue>) -> Vec<KeyValue> {
         keyvals
             .iter()
-            .map(|kv| KeyValue {
-                key: format!("0x{}", hex::encode(&kv.key)),
-                value: format!("0x{}", hex::encode(&kv.value)),
+            .map(|kv| {
+                let mut key = [0; 31];
+                key.copy_from_slice(&kv.key);
+                KeyValue {
+                    key,
+                    value: kv.value.clone(),
+                }
             })
             .collect::<Vec<_>>()
     }

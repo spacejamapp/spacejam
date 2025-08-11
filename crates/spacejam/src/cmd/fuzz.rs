@@ -40,7 +40,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target { socket } => Target::run(socket),
+            Self::Target { socket } => Target::serve(socket),
             Self::Fuzzer {
                 socket,
                 traces,

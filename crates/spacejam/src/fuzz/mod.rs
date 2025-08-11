@@ -23,7 +23,7 @@ pub const VERSION: Version = Version {
 pub const PROTOCOL_VERSION: Version = Version {
     major: 0,
     minor: 6,
-    patch: 6,
+    patch: 7,
 };
 
 /// Extension methods for streams

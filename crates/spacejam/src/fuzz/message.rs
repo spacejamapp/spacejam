@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use score::{block::Header, Block, OpaqueHash};
+use score::{block::Header, Block, OpaqueHash, TrieKey};
 use serde::{Deserialize, Serialize};
 
 /// Messages used in the unix socket communication
@@ -83,10 +83,10 @@ pub struct Version {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyValue {
     /// The key of the key-value pair
-    pub key: String,
+    pub key: TrieKey,
 
     /// The value of the key-value pair
-    pub value: String,
+    pub value: Vec<u8>,
 }
 
 /// Set the state of the peer

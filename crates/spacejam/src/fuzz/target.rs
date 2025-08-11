@@ -13,8 +13,9 @@ use runtime::{
 };
 use score::{Block, OpaqueHash};
 use std::{
+    fs,
     ops::{Deref, DerefMut},
-    os::unix::net::UnixStream,
+    os::unix::net::{UnixListener, UnixStream},
     path::Path,
     sync::Arc,
     time::Instant,
@@ -42,11 +43,23 @@ impl Target {
     }
 
     /// Run the target
-    pub fn run(socket: &Path) -> anyhow::Result<()> {
-        let stream = UnixStream::connect(socket)
-            .context(format!("Failed to connect to the socket at {socket:?}"))?;
-        let mut target = Target::new(stream);
+    pub fn serve(socket: &Path) -> anyhow::Result<()> {
+        fs::remove_file(socket).ok();
+        let listener = UnixListener::bind(socket)
+            .context(format!("Failed to bind to the socket at {socket:?}"))?;
 
+        tracing::info!("Listening on {socket:?}");
+        for stream in listener.incoming() {
+            let stream = stream.context("Failed to accept connection")?;
+            Self::run(stream)?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle a new connection
+    pub fn run(stream: UnixStream) -> anyhow::Result<()> {
+        let mut target = Target::new(stream);
         loop {
             let Ok(message) = target.read_message().inspect_err(|e| {
                 let blocks = target.imports.len();
@@ -109,14 +122,6 @@ impl Target {
     pub fn set_state(&mut self, state: SetState) -> anyhow::Result<()> {
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
-            let buf = hex::decode(key.trim_start_matches("0x"))?;
-            if buf.len() != 31 {
-                anyhow::bail!("Invalid state key length: {}", buf.len());
-            }
-            let mut key = [0; 31];
-            key.copy_from_slice(&buf);
-
-            let value = hex::decode(value.trim_start_matches("0x"))?;
             commit.set(key, value);
         }
 
@@ -130,11 +135,10 @@ impl Target {
     pub fn get_state(&mut self, _hash: OpaqueHash) -> anyhow::Result<()> {
         let mut state = Vec::new();
         for pair in self.data.iter(Column::State)? {
-            let (key, value) = pair?;
-            state.push(KeyValue {
-                key: hex::encode(key),
-                value: hex::encode(value),
-            });
+            let (vkey, value) = pair?;
+            let mut key = [0; 31];
+            key.copy_from_slice(&vkey);
+            state.push(KeyValue { key, value });
         }
 
         self.write_message(Message::State(state))
