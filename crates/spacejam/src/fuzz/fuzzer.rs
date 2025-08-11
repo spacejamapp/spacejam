@@ -5,9 +5,8 @@ use crate::fuzz::{
     StreamExt, PROTOCOL_VERSION, VERSION,
 };
 use anyhow::{Context, Result};
-use score::{block::Header, OpaqueHash};
+use score::OpaqueHash;
 use serde_json::json;
-use spacejson::Json;
 use std::{
     fs,
     os::unix::net::{UnixListener, UnixStream},
@@ -25,12 +24,6 @@ pub struct Fuzzer {
 
     /// The stream of the target
     stream: UnixStream,
-
-    /// The current block
-    block: Header,
-
-    /// The keyvals of the state
-    state: Vec<KeyValue>,
 }
 
 impl Fuzzer {
@@ -55,8 +48,6 @@ impl Fuzzer {
                 info: Self::peer_info(&mut stream)?,
                 report: report.to_path_buf(),
                 stream,
-                block: Header::default(),
-                state: vec![],
             };
 
             fuzzer.handle(&entry)?;
@@ -93,13 +84,23 @@ impl Fuzzer {
         let header = input.block.header.clone();
         self.stream
             .write_message(Message::ImportBlock(input.block))?;
-        self.verify_root(output.post_state.state_root, &test.name)?;
-        self.block = header;
+        self.verify_root(
+            output.post_state.state_root,
+            &test.name,
+            header.hash()?,
+            Self::to_keyvals(output.post_state.keyvals.clone()),
+        )?;
         Ok(())
     }
 
     /// Verify the state root
-    pub fn verify_root(&mut self, root: OpaqueHash, name: &str) -> Result<()> {
+    pub fn verify_root(
+        &mut self,
+        root: OpaqueHash,
+        name: &str,
+        block: OpaqueHash,
+        state: Vec<KeyValue>,
+    ) -> Result<()> {
         let received = self.stream.read_message()?;
         let Message::StateRoot(remote) = received else {
             anyhow::bail!("Expected StateRoot message, got {:?}", received);
@@ -110,8 +111,7 @@ impl Fuzzer {
         }
 
         // get the state from the remote peer and generate a report
-        self.stream
-            .write_message(Message::GetState(self.block.hash()?))?;
+        self.stream.write_message(Message::GetState(block))?;
         let received = self.stream.read_message()?;
         let Message::State(received) = received else {
             anyhow::bail!("Expected State message, got {:?}", received);
@@ -122,8 +122,7 @@ impl Fuzzer {
         fs::write(
             &output,
             serde_json::to_string_pretty(&json!({
-                "header": self.block.clone().to_json(),
-                "expected": self.state.clone(),
+                "expected": state,
                 "received": received,
             }))?,
         )?;
@@ -165,28 +164,30 @@ impl Fuzzer {
 
     /// initialize state
     pub fn init_state(&mut self, input: &traces::TestInput, name: &str) -> Result<()> {
-        self.set_keyvals(input.pre_state.keyvals.clone())?;
+        let state = Self::to_keyvals(input.pre_state.keyvals.clone());
         let set_state = SetState {
             header: input.block.header.clone(),
-            state: self.state.clone(),
+            state: state.clone(),
         };
 
         // verify the state root
         self.stream.write_message(Message::SetState(set_state))?;
-        self.verify_root(input.pre_state.state_root, name)
+        self.verify_root(
+            input.pre_state.state_root,
+            name,
+            input.block.header.hash()?,
+            state,
+        )
     }
 
     /// Get the keyvals of the state
-    pub fn set_keyvals(&mut self, keyvals: Vec<traces::KeyValue>) -> Result<()> {
-        let keyvals = keyvals
+    pub fn to_keyvals(keyvals: Vec<traces::KeyValue>) -> Vec<KeyValue> {
+        keyvals
             .iter()
             .map(|kv| KeyValue {
                 key: format!("0x{}", hex::encode(&kv.key)),
                 value: format!("0x{}", hex::encode(&kv.value)),
             })
-            .collect::<Vec<_>>();
-
-        self.state = keyvals;
-        Ok(())
+            .collect::<Vec<_>>()
     }
 }
