@@ -1,24 +1,21 @@
 //! The unix stream for fuzzing
 
-use crate::{
-    fuzz::{
-        self,
-        message::{KeyValue, Message, PeerInfo, SetState},
-        StreamExt,
-    },
-    storage::Parity,
+use crate::fuzz::{
+    self,
+    message::{KeyValue, Message, PeerInfo, SetState},
+    StreamExt,
 };
 use anyhow::Context;
 use pvmi::Interpreter;
 use runtime::{
-    storage::{ArchiveStorage, Column, Commit, KVStorage, StateStorage},
+    storage::{ArchiveStorage, Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
 use score::{Block, OpaqueHash};
 use std::{
     ops::{Deref, DerefMut},
     os::unix::net::UnixStream,
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
@@ -28,25 +25,23 @@ pub struct Target {
     stream: UnixStream,
 
     /// The database used in fuzzing
-    data: Arc<Parity>,
+    data: Arc<MemoryDb>,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: UnixStream, data: PathBuf) -> anyhow::Result<Self> {
-        Ok(Self {
+    pub fn new(stream: UnixStream) -> Self {
+        Self {
             stream,
-            data: Arc::new(Parity::try_from(data)?),
-        })
+            data: Arc::new(MemoryDb::default()),
+        }
     }
 
     /// Run the target
-    pub fn run(socket: &Path, data: &Path) -> anyhow::Result<()> {
-        let fuzz = data.join("fuzz");
+    pub fn run(socket: &Path) -> anyhow::Result<()> {
         let stream = UnixStream::connect(socket)
             .context(format!("Failed to connect to the socket at {socket:?}"))?;
-        let mut target = Target::new(stream, fuzz.clone())
-            .context(format!("Failed to create target with data at {fuzz:?}"))?;
+        let mut target = Target::new(stream);
 
         loop {
             let message = target.read_message()?;

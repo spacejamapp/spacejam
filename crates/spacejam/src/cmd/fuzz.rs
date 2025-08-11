@@ -12,10 +12,6 @@ pub enum Fuzz {
         /// The path to the unix socket
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
-
-        /// The path to the data folder
-        #[clap(default_value = "spacejam_data", short, long)]
-        data: PathBuf,
     },
 
     /// Fuzz with a fuzzer
@@ -44,7 +40,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Local { socket, data } => Target::run(socket, data),
+            Self::Local { socket } => Target::run(socket),
             Self::Fuzzer {
                 socket,
                 traces,
