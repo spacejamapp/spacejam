@@ -1,5 +1,7 @@
 //! Fuzz messages
 
+use std::fmt::Display;
+
 use score::{block::Header, Block, OpaqueHash};
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +31,26 @@ pub enum Message {
     /// The root of the state
     #[serde(rename = "state-root")]
     StateRoot(OpaqueHash),
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Info(_info) => write!(f, "Info"),
+            Self::ImportBlock(block) => {
+                write!(
+                    f,
+                    "ImportBlock(slot={}, hash=0x{})",
+                    block.header.slot,
+                    hex::encode(block.header.hash().unwrap())
+                )
+            }
+            Self::SetState(state) => write!(f, "SetState(len={})", state.state.len()),
+            Self::GetState(hash) => write!(f, "GetState(hash=0x{})", hex::encode(hash)),
+            Self::State(state) => write!(f, "State(len={})", state.len()),
+            Self::StateRoot(root) => write!(f, "StateRoot(0x{})", hex::encode(root)),
+        }
+    }
 }
 
 /// The peer information

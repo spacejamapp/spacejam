@@ -181,7 +181,11 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let len = self.next_byte()? as usize;
+        // Read compact-encoded length
+        let len = self
+            .read_var()
+            .ok_or_else(|| anyhow::anyhow!("EOF while reading string length"))?
+            as usize;
         let bytes = self.next_bytes(len)?;
         let s = std::str::from_utf8(bytes).map_err(|_| anyhow::anyhow!("invalid utf-8"))?;
         visitor.visit_borrowed_str(s)

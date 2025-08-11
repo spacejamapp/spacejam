@@ -117,6 +117,7 @@ impl Fuzzer {
             anyhow::bail!("Expected State message, got {:?}", received);
         };
 
+        fs::create_dir_all(&self.report)?;
         let output = self.report.join(format!("{}-{name}.json", self.info.name));
         fs::write(
             &output,
@@ -126,9 +127,9 @@ impl Fuzzer {
                 "received": received,
             }))?,
         )?;
+
         anyhow::bail!(
-            "Expected state root: 0x{}, got 0x{}\n\n
-            write the report to {output:?}",
+            "Expected state root: 0x{}, got 0x{}, write the report to {output:?}",
             hex::encode(root),
             hex::encode(remote)
         );

@@ -58,8 +58,8 @@ impl App {
             .with_target(false)
             .with_ansi(!app.noansi);
 
-        if app.verbose > 0 {
-            subscriber = subscriber.with_target(true).with_ansi(!app.noansi);
+        if app.verbose > 1 {
+            subscriber = subscriber.with_target(true)
         }
 
         subscriber.init();
@@ -68,7 +68,7 @@ impl App {
         };
 
         if let Err(e) = cmd.run::<Development>().await {
-            eprintln!("{e}");
+            tracing::error!("{e}");
         }
     }
 }

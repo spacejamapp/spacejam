@@ -1,7 +1,7 @@
 //! Fuzz related implementations
 
 use crate::fuzz::message::{Message, Version};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
@@ -36,24 +36,28 @@ pub trait StreamExt {
 }
 
 impl StreamExt for UnixStream {
+    #[tracing::instrument(skip_all, name = " read", parent = None)]
     fn read_message(&mut self) -> Result<Message> {
         let mut length = [0; 4];
         self.read_exact(&mut length)?;
         let length = u32::from_le_bytes(length) as usize;
-        tracing::debug!("Reading message with length: {length:?}");
 
         // decode the message from the stream
         let mut bytes = vec![0; length];
         self.read_exact(&mut bytes)?;
-        let message = codec::decode(&bytes)?;
-        tracing::debug!("Decoded message: {:#?}", message);
+        let message =
+            codec::decode(&bytes).context(format!("failed to decode message: length={length}"))?;
+        tracing::debug!("message(length): {message}");
         Ok(message)
     }
 
+    #[tracing::instrument(skip_all, name = "write", parent = None)]
     fn write_message(&mut self, message: Message) -> Result<()> {
         let bytes = codec::encode(&message)?;
-        let length = bytes.len().to_le_bytes().to_vec();
-        self.write_all(&[length, bytes].concat())?;
+        let length = bytes.len() as u32;
+
+        tracing::debug!("message({length}): {message}");
+        self.write_all(&[length.to_le_bytes().to_vec(), bytes].concat())?;
         self.flush()?;
         Ok(())
     }

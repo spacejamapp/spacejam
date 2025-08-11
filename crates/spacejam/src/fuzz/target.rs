@@ -8,7 +8,7 @@ use crate::fuzz::{
 use anyhow::Context;
 use pvmi::Interpreter;
 use runtime::{
-    storage::{ArchiveStorage, Column, Commit, KVStorage, MemoryDb, StateStorage},
+    storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
 use score::{Block, OpaqueHash};
@@ -17,6 +17,7 @@ use std::{
     os::unix::net::UnixStream,
     path::Path,
     sync::Arc,
+    time::Instant,
 };
 
 /// A fuzz target
@@ -26,6 +27,8 @@ pub struct Target {
 
     /// The database used in fuzzing
     data: Arc<MemoryDb>,
+
+    imports: Vec<u32>,
 }
 
 impl Target {
@@ -34,6 +37,7 @@ impl Target {
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
+            imports: Vec::new(),
         }
     }
 
@@ -44,7 +48,15 @@ impl Target {
         let mut target = Target::new(stream);
 
         loop {
-            let message = target.read_message()?;
+            let Ok(message) = target.read_message().inspect_err(|e| {
+                let blocks = target.imports.len();
+                tracing::info!(
+                    "No more bytes from the stream({e})! average transit time for {blocks} blocks: {}ms",
+                    target.imports.iter().sum::<u32>() / blocks as u32
+                );
+            }) else {
+                return Ok(());
+            };
             target.handle(message)?;
         }
     }
@@ -62,7 +74,6 @@ impl Target {
     }
 
     /// Received info request
-    #[tracing::instrument(skip_all)]
     pub fn info(&mut self, info: PeerInfo) -> anyhow::Result<()> {
         let this = PeerInfo {
             name: "spacejam".into(),
@@ -71,7 +82,7 @@ impl Target {
         };
 
         if info.protocol != fuzz::PROTOCOL_VERSION {
-            tracing::warn!(
+            anyhow::bail!(
                 "protocol version mismatched, remote: {:?}, local: {:?}",
                 info.protocol,
                 this.protocol
@@ -83,19 +94,20 @@ impl Target {
     }
 
     /// Received import block request
+    #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        let hash = block.header.hash()?;
+        let timer = Instant::now();
         tx::transit::<Interpreter>(block, self.data.clone())?;
+        self.imports.push(timer.elapsed().as_millis() as u32);
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
-        self.data.archive(&hash)?;
         Ok(())
     }
 
     /// Received set state request
+    #[tracing::instrument(skip_all, name = "set_state")]
     pub fn set_state(&mut self, state: SetState) -> anyhow::Result<()> {
         let mut commit = Commit::default();
-        let hash = state.header.hash()?;
         for KeyValue { key, value } in state.state.into_iter() {
             let buf = hex::decode(key.trim_start_matches("0x"))?;
             if buf.len() != 31 {
@@ -111,15 +123,13 @@ impl Target {
         self.data.commit(Column::State, commit)?;
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
-        self.data.archive(&hash)?;
         Ok(())
     }
 
     /// Received get state request
-    pub fn get_state(&mut self, hash: OpaqueHash) -> anyhow::Result<()> {
+    pub fn get_state(&mut self, _hash: OpaqueHash) -> anyhow::Result<()> {
         let mut state = Vec::new();
-        let iter = self.data.state_prefix_iter(&hash)?;
-        for pair in iter {
+        for pair in self.data.iter(Column::State)? {
             let (key, value) = pair?;
             state.push(KeyValue {
                 key: hex::encode(key),
