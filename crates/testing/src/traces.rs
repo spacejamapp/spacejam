@@ -71,3 +71,7 @@ mod storage {
 mod storage_light {
     include!(concat!(env!("OUT_DIR"), "/traces_storage_light.rs"));
 }
+
+mod fuzz {
+    include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
+}

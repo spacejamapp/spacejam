@@ -58,7 +58,7 @@ impl App {
             .with_target(false)
             .with_ansi(!app.noansi);
 
-        if app.verbose > 1 {
+        if app.verbose > 2 {
             subscriber = subscriber.with_target(true)
         }
 

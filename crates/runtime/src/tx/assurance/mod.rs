@@ -69,7 +69,7 @@ pub fn available(
             // TODO: check the maximum number of assurances per core
             if reports[core_idx].is_some() {
                 core_assurance_counts[core_idx] += 1;
-            } else if !stale_reports.contains(&core_idx) {
+            } else {
                 return Err(error::Error::CoreNotEngaged);
             }
         }
