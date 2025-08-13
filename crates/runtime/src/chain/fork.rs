@@ -160,7 +160,7 @@ impl<S: Storage> Fork<S> {
         let epoch = block.header.slot / score::EPOCH_LENGTH;
         let prev_epoch = parent.slot / score::EPOCH_LENGTH;
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
-            let validators = self.state.next_validators()?.bandersnatch();
+            let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
             let series = TicketsOrKeys::fallback(validators, entropy[1]);
             self.series.insert(epoch, series);
@@ -191,7 +191,7 @@ impl<S: Storage> Fork<S> {
         if let Some(series) = self.series.get(&epoch) {
             Ok(series.clone())
         } else {
-            let validators = self.state.next_validators()?.bandersnatch();
+            let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
             let series = TicketsOrKeys::fallback(validators, entropy[1]);
             Ok(series)
@@ -235,7 +235,7 @@ impl<S: Storage> Fork<S> {
 
         // indicate the keys to be used
         let keys = if new_epoch {
-            self.state.next_validators()?
+            self.state.safrole()?.validators
         } else {
             self.state.current_validators()?
         }

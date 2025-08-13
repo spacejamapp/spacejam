@@ -1,5 +1,6 @@
 ## 0.6.7
 
+- Correct the usage of next validators
 - Fix the sorting check of assurances
 - Fix host call `bless`
 - Accounts storage deposit offset and additional metadata

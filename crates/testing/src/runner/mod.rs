@@ -457,7 +457,7 @@ impl Runner {
                         tracing::debug!("spacejam: {:?}", spacejam);
                     }
 
-                    if key == key::NEXT_VALIDATORS && value != result {
+                    if key == key::DRAWN_VALIDATORS && value != result {
                         let polkajam: ValidatorsData = codec::decode(&value)?;
                         let spacejam: ValidatorsData = codec::decode(&result)?;
                         tracing::debug!(

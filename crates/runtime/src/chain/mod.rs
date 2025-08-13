@@ -63,7 +63,7 @@ impl<C: Config> Chain<C> {
     pub async fn initialize(&mut self) -> anyhow::Result<()> {
         let curr = self.state.current_validators()?;
         let prev = self.state.previous_validators()?;
-        let next = self.state.next_validators()?;
+        let next = self.state.safrole()?.validators;
         let finalized = self.state.finalized()?;
         let epoch = finalized.slot / score::EPOCH_LENGTH;
         for epoch in epoch..=epoch + 1 {
