@@ -14,10 +14,10 @@
 # build all targets
 bundle: macos-arm64 macos-amd64 linux-arm64 linux-amd64
 	mkdir -p target/bundle
-	tar -cf target/bundle/spacejam-0.6.7-macos-arm64.tar -C target/aarch64-apple-darwin/release spacejam
-	tar -cf target/bundle/spacejam-0.6.7-macos-amd64.tar -C target/x86_64-apple-darwin/release spacejam
-	tar -cf target/bundle/spacejam-0.6.7-linux-arm64.tar -C target/aarch64-unknown-linux-gnu/release spacejam
-	tar -cf target/bundle/spacejam-0.6.7-linux-amd64.tar -C target/x86_64-unknown-linux-gnu/release spacejam
+	tar -czf target/bundle/spacejam-0.6.7-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release spacejam
+	tar -czf target/bundle/spacejam-0.6.7-macos-amd64.tar.gz -C target/x86_64-apple-darwin/release spacejam
+	tar -czf target/bundle/spacejam-0.6.7-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release spacejam
+	tar -czf target/bundle/spacejam-0.6.7-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/release spacejam
 
 # build macos-arm64
 macos-arm64:
