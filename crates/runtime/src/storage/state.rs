@@ -94,7 +94,7 @@ pub trait StateStorage: KVStorage {
         state.safrole = codec::decode(&data[3]).unwrap_or_default();
         state.disputes = codec::decode(&data[4]).unwrap_or_default();
         state.entropy = codec::decode(&data[5]).unwrap_or_default();
-        state.validators.next = codec::decode(&data[6]).unwrap_or_default();
+        state.validators.drawn = codec::decode(&data[6]).unwrap_or_default();
         state.validators.current = codec::decode(&data[7]).unwrap_or_default();
         state.validators.previous = codec::decode(&data[8]).unwrap_or_default();
         state.reports = codec::decode(&data[9]).unwrap_or_default();

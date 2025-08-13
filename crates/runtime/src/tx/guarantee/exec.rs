@@ -137,7 +137,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
     // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {
-        context.validators = result.context.validators.clone();
+        context.validators = result.context.validators;
     };
 
     // Handle the assign array - each core has its own assign service

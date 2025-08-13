@@ -6,6 +6,7 @@ use crate::{
     Result,
 };
 use score::{
+    safrole::ValidatorData,
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
     Account, Accounts,
@@ -126,6 +127,8 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩD) designate
+    ///
+    /// select the validators to be drawn for the next epoch
     pub fn designate<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -136,13 +139,23 @@ impl<R: Accounts> Accumulate<R> {
             .memory
             .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
 
-        // decode validators
-        let Some(validators) = source
-            .chunks(336)
-            .map(|chunk| codec::decode(chunk).ok())
-            .collect::<Option<Vec<_>>>()
-        else {
-            crate::bail!("Could not parse validators");
+        let validators = {
+            if source.len() != 336 * score::VALIDATORS_COUNT as usize {
+                crate::bail!(
+                    "Invalid encoded validators, expected length: {}, got: {}",
+                    336 * score::VALIDATORS_COUNT as usize,
+                    source.len()
+                );
+            }
+
+            let mut validators = [ValidatorData::default(); score::VALIDATORS_COUNT as usize];
+            for (i, chunk) in source.chunks(336).enumerate() {
+                let Ok(validator) = codec::decode(chunk) else {
+                    crate::bail!("Could not parse validators");
+                };
+                validators[i] = validator;
+            }
+            validators
         };
 
         // set the validators

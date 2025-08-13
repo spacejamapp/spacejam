@@ -102,7 +102,7 @@ impl Jam {
         let accounts = self.chain.accounts.clone();
         let mut state = AccumulateState {
             accounts,
-            validators: vec![],
+            validators: Default::default(),
             authorization: Default::default(),
             privileges: Privileges::default(),
         };

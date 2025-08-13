@@ -105,7 +105,7 @@ impl State {
 
         let mut validators = Validators {
             current: self.kappa,
-            next: self.iota,
+            drawn: self.iota,
             previous: self.lambda,
         };
 

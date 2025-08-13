@@ -4,6 +4,7 @@ use error::{Error, Result};
 use pvm::Pvm;
 use score::{
     extrinsic::GuaranteesExtrinsic,
+    safrole::ValidatorsData,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
@@ -20,6 +21,7 @@ mod validator;
 
 /// (b) Accumulate the available work reports
 #[tracing::instrument(skip_all)]
+#[allow(clippy::too_many_arguments)]
 pub fn accumulate<V: Pvm, R: Accounts>(
     // The next timeslot (τ')
     slot: TimeSlot,
@@ -33,6 +35,8 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     accumulated_queue: &AccumulatedQueue,
     // The privileges (χ)
     privileges: &Privileges,
+    // The validators to be drawn (ι)
+    validators: &ValidatorsData,
     // The account storage (δ)
     accounts: R,
 ) -> anyhow::Result<Accumulation<R>> {
@@ -48,9 +52,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         AccumulateState {
             accounts,
             privileges: privileges.clone(),
-            // Initialize validators and authorization to defaults for now
-            // TODO: these should come from the full state in a real implementation
-            validators: Vec::new(),
+            validators: *validators,
             authorization: Default::default(),
         },
         &privileges.always_acc,
@@ -89,6 +91,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         accumulated_queue: next_accumulated_queue,
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
+        validators: accumulated.context.validators,
         records,
         transfers,
     })

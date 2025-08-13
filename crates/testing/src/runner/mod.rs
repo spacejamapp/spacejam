@@ -53,6 +53,7 @@ impl Runner {
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
+                    &Default::default(),
                     accounts.clone(),
                 )?;
                 accumulation.root = Default::default();

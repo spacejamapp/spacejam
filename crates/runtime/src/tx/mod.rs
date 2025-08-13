@@ -152,6 +152,7 @@ pub fn simulate<Vm: Pvm>(
             &state.queue,
             &state.history,
             &state.privileges,
+            &state.validators.drawn,
             accounts,
         )?;
 
@@ -163,6 +164,12 @@ pub fn simulate<Vm: Pvm>(
 
         state.history = accumulation.accumulated_queue;
         diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
+
+        state.validators.drawn = accumulation.validators;
+        diff.set(
+            key::DRAWN_VALIDATORS,
+            codec::encode(&state.validators.drawn)?,
+        );
 
         state.statistics.merge_services(accumulation.records);
         (accumulation.root, accumulation.accounts)

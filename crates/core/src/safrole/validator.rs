@@ -13,7 +13,7 @@ pub type ValidatorsData = [ValidatorData; crate::VALIDATORS_COUNT as usize];
 pub struct Validators {
     /// The validator keys and metadata to be drawn from next (ι)
     #[json(Vec<ValidatorDataJson>)]
-    pub next: ValidatorsData,
+    pub drawn: ValidatorsData,
 
     /// The validator keys and metadata currently active (κ)
     #[json(Vec<ValidatorDataJson>)]
