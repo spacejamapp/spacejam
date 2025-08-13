@@ -460,8 +460,20 @@ impl Runner {
                     if key == key::NEXT_VALIDATORS && value != result {
                         let polkajam: ValidatorsData = codec::decode(&value)?;
                         let spacejam: ValidatorsData = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam.to_json());
-                        tracing::debug!("spacejam: {:?}", spacejam.to_json());
+                        tracing::debug!(
+                            "polkajam-ed25519: {:?}",
+                            polkajam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
+                        tracing::debug!(
+                            "spacejam-ed25519: {:?}",
+                            spacejam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
                     }
 
                     if key.starts_with(&[255]) && value != result {

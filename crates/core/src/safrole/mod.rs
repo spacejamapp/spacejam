@@ -46,14 +46,16 @@ impl Safrole {
             return self.validators;
         }
 
+        // Apply blacklist filter Φ(ι)
         let mut next = [ValidatorData::default(); crate::VALIDATORS_COUNT as usize];
         for (i, validator) in drawn.iter().enumerate() {
             next[i] = if offenders.contains(&validator.ed25519) {
-                Default::default()
+                ValidatorData::default()
             } else {
                 *validator
             };
         }
+
         next
     }
 
