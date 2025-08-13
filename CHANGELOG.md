@@ -1,5 +1,7 @@
 ## 0.6.7
 
+- Fix the sorting check of assurances
+- Fix host call `bless`
 - Accounts storage deposit offset and additional metadata
   - Add `creation_slot`, `last_accumulation_slot` and `parent_service` to service account
 - Use sequence for core assignment privileges
