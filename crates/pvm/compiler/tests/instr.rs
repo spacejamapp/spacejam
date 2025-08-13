@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use pvmc::module::memory::Page as CompilerPage;
-use pvmc::{JitCompiler, Memory as CompilerMemory};
+use pvmc::{Compiler, Memory as CompilerMemory};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 
@@ -17,7 +17,7 @@ impl Runner {
         let input: TestInput = serde_json::from_str(&test.input)?;
         let output: TestOutput = serde_json::from_str(&test.output)?;
 
-        let mut compiler = JitCompiler::new()?;
+        let mut compiler = Compiler::new()?;
         let mut initial_registers = [0u64; 13];
         initial_registers.copy_from_slice(&input.initial_regs);
 
@@ -27,9 +27,7 @@ impl Runner {
         // First, allocate pages as mutable (to allow initial data writes)
         for page_info in &input.initial_page_map {
             let page_num = page_info.address / 4096; // PAGE_SIZE
-            initial_memory
-                .pages
-                .insert(page_num, CompilerPage::new(0)); // 0=Mutable for initial setup
+            initial_memory.pages.insert(page_num, CompilerPage::new(0)); // 0=Mutable for initial setup
         }
 
         // Then write initial memory data

@@ -2,7 +2,7 @@
 
 pub use {
     compiler::Compiler,
-    jit::{JitCompiler, BlockContext, BasicBlock, CompiledBlock},
+    jit::{Jit, Context, Block, Code, ExecResult, ExtendedContext},
     module::{Info, Memory, Module},
     translator::Translator,
 };

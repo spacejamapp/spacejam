@@ -1,579 +1,396 @@
-//! Block-based JIT compiler for PVM programs
-//!
-//! This module implements a block-based JIT compilation strategy where PVM programs
-//! are broken down into basic blocks and compiled incrementally on-demand.
+//! Clean block-based JIT compiler for PVM programs
 
 use crate::{Memory, Info, Module, translator::Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{Function, UserFuncName};
-use parser::Instruction;
 use std::collections::HashMap;
 
-/// A basic block represents a sequence of instructions with a single entry and exit point
+/// Basic block - single entry/exit instruction sequence
 #[derive(Debug, Clone)]
-pub struct BasicBlock {
-    /// Starting PC offset of the block
-    pub start_pc: usize,
-    /// Ending PC offset of the block (exclusive)  
-    pub end_pc: usize,
-    /// Whether this block ends with a terminating instruction (jump, branch, trap)
-    pub is_terminating: bool,
-    /// Compiled native code for this block (None if not yet compiled)
-    pub compiled_code: Option<CompiledBlock>,
+pub struct Block {
+    pub start: usize,
+    pub end: usize,
+    pub terminates: bool,
 }
 
-/// Compiled native code for a basic block
+/// Compiled native code
 #[derive(Debug, Clone)]
-pub struct CompiledBlock {
-    /// Entry point address of the compiled block
-    pub entry_point: *const u8,
-    /// Size of the compiled block in bytes
+pub struct Code {
+    pub ptr: *const u8,
     pub size: usize,
 }
 
-/// Result of executing a basic block
+/// Block execution result
 #[derive(Debug, Clone)]
-pub enum BlockExecutionResult {
-    /// Continue execution to the next sequential block
+pub enum ExecResult {
     Continue,
-    /// Jump to a specific PC address
     Jump(u64),
-    /// Halt execution (normal termination)
     Halt,
-    /// Trap execution (error/panic termination) 
     Trap,
 }
 
-/// Execution context shared between blocks
+/// Runtime context for block execution
 #[derive(Debug, Clone)]
-pub struct BlockContext {
-    /// PVM registers (13 registers)
+pub struct Context {
     pub registers: [u64; 13],
-    /// Program counter
     pub pc: u64,
-    /// Memory state
     pub memory: Memory,
-    /// Linear memory buffer for JIT access (1MB)
-    /// This is synced with Memory pages before/after block execution
-    pub linear_memory: Vec<u8>,
+    pub linear_mem: Vec<u8>,
 }
 
-impl BlockContext {
-    /// Create a new block context with initial state
-    pub fn new(registers: [u64; 13], pc: u64, memory: Memory) -> Self {
-        // Initialize linear memory buffer
-        let mut linear_memory = vec![0u8; 0x100000]; // 1MB
+impl Context {
+    /// Create new context
+    pub fn new(regs: [u64; 13], pc: u64, mem: Memory) -> Self {
+        let mut linear_mem = vec![0u8; 0x100000]; // 1MB
         
         // Copy memory pages to linear buffer
-        for (&page_num, page) in &memory.pages {
-            let start_addr = (page_num as usize) * (crate::module::memory::PAGE_SIZE as usize);
-            let end_addr = start_addr + page.data.len();
-            if end_addr <= linear_memory.len() {
-                linear_memory[start_addr..end_addr].copy_from_slice(&page.data);
+        for (&page_num, page) in &mem.pages {
+            let start = (page_num as usize) * (crate::module::memory::PAGE_SIZE as usize);
+            let end = start + page.data.len();
+            if end <= linear_mem.len() {
+                linear_mem[start..end].copy_from_slice(&page.data);
             }
         }
         
-        Self {
-            registers,
-            pc,
-            memory,
-            linear_memory,
-        }
+        Self { registers: regs, pc, memory: mem, linear_mem }
     }
     
-    /// Sync linear memory back to Memory pages
-    pub fn sync_memory_from_linear(&mut self) {
-        for (&page_num, page) in &mut self.memory.pages {
-            let start_addr = (page_num as usize) * (crate::module::memory::PAGE_SIZE as usize);
-            let end_addr = start_addr + page.data.len();
-            if end_addr <= self.linear_memory.len() {
-                page.data.copy_from_slice(&self.linear_memory[start_addr..end_addr]);
-            }
-        }
-    }
-    
-    /// Sync linear memory back to Memory pages with validation
-    /// Returns error if memory access violations are detected
-    pub fn sync_memory_from_linear_with_validation(&mut self) -> Result<()> {
-        // First, detect if any changes were made to unallocated memory regions
-        // For efficient validation, we'll check if non-zero data exists in unallocated pages
-        
+    /// Sync linear memory back to pages
+    pub fn sync(&mut self) -> Result<()> {
         let page_size = crate::module::memory::PAGE_SIZE as usize;
         
-        // Check each 4KB page in linear memory
-        for page_addr in (0..self.linear_memory.len()).step_by(page_size) {
+        for page_addr in (0..self.linear_mem.len()).step_by(page_size) {
             let page_num = (page_addr / page_size) as u32;
-            let page_end = (page_addr + page_size).min(self.linear_memory.len());
+            let page_end = (page_addr + page_size).min(self.linear_mem.len());
             
-            // Check if this page is allocated
             if !self.memory.pages.contains_key(&page_num) {
-                // Page is not allocated - check if any writes occurred to it
-                let page_data = &self.linear_memory[page_addr..page_end];
+                let page_data = &self.linear_mem[page_addr..page_end];
                 if page_data.iter().any(|&b| b != 0) {
                     anyhow::bail!("Page fault: write to unallocated page {}", page_num);
                 }
             } else {
-                // Page is allocated - check access permissions
                 let page = &self.memory.pages[&page_num];
                 if page.access != 0 {
-                    // Page is not writable - check if any changes were made
-                    let original_data = &page.data[..];
-                    let new_data = &self.linear_memory[page_addr..page_end];
-                    if original_data != new_data {
+                    let orig = &page.data[..];
+                    let new = &self.linear_mem[page_addr..page_end];
+                    if orig != new {
                         anyhow::bail!("Page fault: write to read-only page {}", page_num);
                     }
                 }
             }
         }
         
-        // If validation passed, perform the actual sync
-        self.sync_memory_from_linear();
+        for (&page_num, page) in &mut self.memory.pages {
+            let start = (page_num as usize) * page_size;
+            let end = start + page.data.len();
+            if end <= self.linear_mem.len() {
+                page.data.copy_from_slice(&self.linear_mem[start..end]);
+            }
+        }
         Ok(())
     }
 }
 
-/// Extended context passed to compiled blocks that includes execution result
+/// Extended context for compiled blocks
 #[repr(C)]
-pub struct ExtendedBlockContext {
-    /// PVM registers (13 registers)
+pub struct ExtendedContext {
     pub registers: [u64; 13],
-    /// Program counter  
     pub pc: u64,
-    /// Pointer to linear memory buffer (for JIT access)
     pub memory_ptr: *mut u8,
-    /// The execution result to be set by the block
-    pub result: BlockExecutionResult,
+    pub result: ExecResult,
+    pub pc_managed: bool,  // Flag indicating instruction handled PC directly
 }
 
-/// Block-based JIT compiler for PVM programs
-pub struct JitCompiler {
-    /// Cache of compiled blocks indexed by starting PC
-    block_cache: HashMap<u64, CompiledBlock>,
-    /// Map of basic blocks discovered in the program
-    basic_blocks: HashMap<u64, BasicBlock>,
-    /// Jump table from the program (for dynamic jumps)
+/// JIT compiler
+pub struct Jit {
+    code_cache: HashMap<u64, Code>,
+    blocks: HashMap<u64, Block>,
     jump_table: Vec<u64>,
-    /// Original program bytes
-    program_bytes: Vec<u8>,
-    /// Cranelift compiler context
-    compiler_context: cranelift_codegen::Context,
-    /// Target ISA
+    program: Vec<u8>,
+    ctx: cranelift_codegen::Context,
     isa: cranelift_codegen::isa::OwnedTargetIsa,
 }
 
-impl JitCompiler {
-    /// Create a new block-based JIT compiler
+impl Jit {
+    /// Create new JIT compiler
+    /// EXISTS: Entry point for JIT compilation
     pub fn new() -> Result<Self> {
-        // Create target ISA for the current platform
         let mut flag_builder = settings::builder();
-        flag_builder
-            .set("use_colocated_libcalls", "false")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        flag_builder
-            .set("is_pic", "false")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        flag_builder.set("use_colocated_libcalls", "false").map_err(|e| anyhow::anyhow!("{}", e))?;
+        flag_builder.set("is_pic", "false").map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa_builder = cranelift_native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(flag_builder))?;
 
         Ok(Self {
-            block_cache: HashMap::new(),
-            basic_blocks: HashMap::new(),
+            code_cache: HashMap::new(),
+            blocks: HashMap::new(),
             jump_table: Vec::new(),
-            program_bytes: Vec::new(),
-            compiler_context: cranelift_codegen::Context::new(),
+            program: Vec::new(),
+            ctx: cranelift_codegen::Context::new(),
             isa,
         })
     }
 
-    /// Compile PVM program using block-based JIT
+    /// Compile program - creates Module for compatibility
+    /// EXISTS: Required by Module interface
     pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
-        let has_explicit_trap = self.check_for_explicit_trap(program)?;
-        Ok(Module::new(std::ptr::null(), 0, program.len(), has_explicit_trap)
-            .with_program(program.to_vec()))
+        let has_trap = self.has_trap(program)?;
+        Ok(Module::new(std::ptr::null(), 0, program.len(), has_trap).with_program(program.to_vec()))
     }
 
-    /// Analyze program and discover basic block boundaries
-    pub fn analyze_program(&mut self, program: &[u8]) -> Result<()> {
-        self.program_bytes = program.to_vec();
+    /// Analyze program - discovers all basic blocks using Graypaper formula
+    /// EXISTS: Core function - implements π ≡ ({0} ∪ {n + 1 + skip(n) | ...}) formula
+    pub fn analyze(&mut self, program: &[u8]) -> Result<()> {
+        self.program = program.to_vec();
         
-        // Parse program blob and extract jump table
         let blob = parser::program::deblob(program)?;
         self.jump_table = blob.jump_table.clone();
         
-        // Discover basic block boundaries
-        self.discover_basic_blocks(&blob)?;
+        let mut starts = std::collections::BTreeSet::new();
+        starts.insert(0); // Graypaper: {0}
         
-        Ok(())
+        let mut pc = 0;
+        while pc < blob.instructions.len() {
+            if !self.valid_pos(pc, &blob.bitmask) {
+                pc += 1;
+                continue;
+            }
+            
+            let opcode = blob.instructions[pc];
+            if self.terminates(opcode) {
+                let skip_dist = parser::util::skip(pc, &blob.bitmask);
+                let next_start = pc + 1 + skip_dist;
+                
+                if next_start < blob.instructions.len() {
+                    starts.insert(next_start);
+                }
+                
+                // Add jump targets for indirect jumps
+                if matches!(opcode, 0x0a | 0x0c) { // JumpInd | LoadImmJumpInd
+                    for &target in &self.jump_table {
+                        if (target as usize) < blob.instructions.len() {
+                            starts.insert(target as usize);
+                        }
+                    }
+                }
+            }
+            
+            let skip_dist = parser::util::skip(pc, &blob.bitmask);
+            pc += 1 + skip_dist;
+        }
+        
+        self.create_blocks(starts)
     }
     
-    /// Execute program using block-based JIT compilation
-    pub fn execute(&mut self, mut context: BlockContext) -> Result<Info> {
+    /// Execute program using JIT compilation
+    /// EXISTS: Main execution loop - compiles blocks on demand and handles control flow
+    pub fn execute(&mut self, mut ctx: Context) -> Result<Info> {
         loop {
-            // Get or compile the block for current PC
-            let block = self.get_or_compile_block(context.pc)?;
+            let code = self.get_code(ctx.pc)?;
+            let (result, _pc_managed) = self.run_block(&code, &mut ctx)?;
             
-            // Execute the compiled block and get result
-            let result = self.execute_block(&block, &mut context)?;
-            
-            // Handle control flow based on block execution result
             match result {
-                BlockExecutionResult::Continue => {
-                    // Find the next sequential block
-                    if let Some(next_block_pc) = self.find_next_block_pc(context.pc) {
-                        context.pc = next_block_pc;
+                ExecResult::Continue => {
+                    if let Some(next_pc) = self.next_block(ctx.pc) {
+                        ctx.pc = next_pc;
                     } else {
-                        // No next block - program ends
                         break;
                     }
                 }
-                BlockExecutionResult::Jump(target_pc) => {
-                    // Jump to the specified PC
-                    context.pc = target_pc;
-                }
-                BlockExecutionResult::Halt => {
-                    // Normal program termination
-                    break;
-                }
-                BlockExecutionResult::Trap => {
-                    // Trap/panic - could set error state or break
-                    break;
-                }
+                ExecResult::Jump(target) => ctx.pc = target,
+                ExecResult::Halt => break,
+                ExecResult::Trap => break,
             }
         }
         
         Ok(Info {
-            registers: context.registers,
-            pc: context.pc,
-            memory: context.memory,
+            registers: ctx.registers,
+            pc: ctx.pc,
+            memory: ctx.memory,
         })
     }
 
-    /// Discover basic block boundaries using the official PVM library algorithm
-    /// This implements the Graypaper formula: π ≡ ({0} ∪ {n + 1 + skip(n) | n ∈ N_{|c|} ∧ k_n = 1 ∧ c_n ∈ T}) ∩ {n | k_n = 1 ∧ c_n ∈ U}
-    fn discover_basic_blocks(&mut self, blob: &parser::program::ProgramBlob) -> Result<()> {
-        use std::collections::BTreeSet;
+    /// Check if position has valid instruction (k_n = 1)
+    /// EXISTS: Required for Graypaper bitmask validation
+    fn valid_pos(&self, pc: usize, bitmask: &[u8]) -> bool {
+        let byte_idx = pc / 8;
+        let bit_idx = pc % 8;
+        if byte_idx >= bitmask.len() { return false; }
+        (bitmask[byte_idx] >> bit_idx) & 1 == 1
+    }
+    
+    /// Check if opcode is terminating (c_n ∈ T)
+    /// EXISTS: Core Graypaper requirement - determines set T (terminating instructions)
+    fn terminates(&self, opcode: u8) -> bool {
+        matches!(opcode, 
+            0x00 | // Trap
+            0x08 | // Fallthrough  
+            0x09 | // Jump
+            0x0a | // JumpInd
+            0x0b | // LoadImmJump
+            0x0c | // LoadImmJumpInd
+            0x0d | // BranchEq
+            0x0e | // BranchNe
+            0x0f | // BranchLtU
+            0x10 | // BranchLtS
+            0x11 | // BranchGeU
+            0x12 | // BranchGeS
+            0x13 | // BranchEqImm
+            0x14 | // BranchNeImm
+            0x15 | // BranchLtUImm
+            0x16 | // BranchLtSImm
+            0x17 | // BranchGeUImm
+            0x18 | // BranchGeSImm
+            0x19 | // BranchLeUImm
+            0x1a | // BranchLeSImm
+            0x1b | // BranchGtUImm
+            0x1c   // BranchGtSImm
+        )
+    }
+    
+    /// Create blocks from boundary set
+    /// EXISTS: Converts Graypaper formula result to Block structures
+    fn create_blocks(&mut self, starts: std::collections::BTreeSet<usize>) -> Result<()> {
+        let vec: Vec<_> = starts.into_iter().collect();
         
-        let mut block_boundaries = BTreeSet::new();
-        let mut reader = blob.reader();
-        
-        // Program always starts at offset 0 (part of the formula: {0} ∪ ...)
-        block_boundaries.insert(0);
-        
-        // Use the PVM library's block reading logic to discover all block boundaries
-        // This implements the official Graypaper basic-block sequence formula
-        while !reader.eof() {
-            let start_pc = reader.position;
+        for i in 0..vec.len() {
+            let start = vec[i];
+            let end = if i + 1 < vec.len() { vec[i + 1] } else { self.program.len() };
             
-            // Read a complete block using the official PVM library algorithm
-            let block_instructions = reader.read_block()?;
+            if start >= end { continue; }
             
-            if !block_instructions.is_empty() {
-                let last_instruction = &block_instructions[block_instructions.len() - 1];
-                let block_end_pc = last_instruction.range.end;
-                
-                // Add the start of this block
-                block_boundaries.insert(start_pc);
-                
-                // For branches and jumps, add their targets based on offsets
-                match &last_instruction.value {
-                    // Direct jumps and branches - add branch targets
-                    Instruction::Jump(format) => {
-                        let target = (last_instruction.range.start as i64 + format.off0 as i64) as usize;
-                        if target < self.program_bytes.len() {
-                            block_boundaries.insert(target);
-                        }
-                    }
-                    Instruction::LoadImmJump(format) => {
-                        let target = (last_instruction.range.start as i64 + format.off0 as i64) as usize;
-                        if target < self.program_bytes.len() {
-                            block_boundaries.insert(target);
-                        }
-                    }
-                    Instruction::BranchEq(format) | Instruction::BranchNe(format) 
-                    | Instruction::BranchLtU(format) | Instruction::BranchLtS(format)
-                    | Instruction::BranchGeU(format) | Instruction::BranchGeS(format) => {
-                        let target = (last_instruction.range.start as i64 + format.off0 as i64) as usize;
-                        if target < self.program_bytes.len() {
-                            block_boundaries.insert(target);
-                        }
-                    }
-                    Instruction::BranchEqImm(format) | Instruction::BranchNeImm(format)
-                    | Instruction::BranchLtUImm(format) | Instruction::BranchLtSImm(format)
-                    | Instruction::BranchGeUImm(format) | Instruction::BranchGeSImm(format)
-                    | Instruction::BranchLeUImm(format) | Instruction::BranchLeSImm(format)
-                    | Instruction::BranchGtUImm(format) | Instruction::BranchGtSImm(format) => {
-                        let target = (last_instruction.range.start as i64 + format.off0 as i64) as usize;
-                        if target < self.program_bytes.len() {
-                            block_boundaries.insert(target);
-                        }
-                    }
-                    // Indirect jumps - add all jump table targets
-                    Instruction::JumpInd(_) | Instruction::LoadImmJumpInd(_) => {
-                        for &target in &self.jump_table {
-                            if (target as usize) < self.program_bytes.len() {
-                                block_boundaries.insert(target as usize);
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                
-                // If there's a next instruction after this block, add it as a boundary
-                if block_end_pc < self.program_bytes.len() {
-                    block_boundaries.insert(block_end_pc);
-                }
-            }
-        }
-        
-        // Convert boundaries to basic blocks
-        let boundaries: Vec<_> = block_boundaries.into_iter().collect();
-        for i in 0..boundaries.len() {
-            let start_pc = boundaries[i];
-            let end_pc = if i + 1 < boundaries.len() {
-                boundaries[i + 1]
-            } else {
-                // Last block extends to end of program
-                self.program_bytes.len()
-            };
+            // Block terminates if there's a next block (Graypaper formula guarantees this)
+            let terminates = i + 1 < vec.len() || self.last_terminates(start, end)?;
             
-            // Skip empty blocks
-            if start_pc >= end_pc {
-                continue;
-            }
-            
-            // Use the official PVM library logic to determine if block is terminating
-            let is_terminating = self.is_block_terminating_official(start_pc, end_pc)?;
-            
-            self.basic_blocks.insert(start_pc as u64, BasicBlock {
-                start_pc,
-                end_pc,
-                is_terminating,
-                compiled_code: None,
-            });
+            tracing::debug!("Block {}: start={}, end={}, terminates={}", i, start, end, terminates);
+            self.blocks.insert(start as u64, Block { start, end, terminates });
         }
         
         Ok(())
     }
     
-    /// Dynamically discover a new basic block starting at the given PC
-    fn discover_dynamic_block(&mut self, start_pc: u64) -> Result<BasicBlock> {
-        let start_pc_usize = start_pc as usize;
+    /// Check if last block terminates
+    /// EXISTS: Only needed for final block in program (edge case)
+    fn last_terminates(&self, start: usize, end: usize) -> Result<bool> {
+        if start >= end { return Ok(false); }
         
-        // Check if the PC is within program bounds
-        if start_pc_usize >= self.program_bytes.len() {
-            anyhow::bail!("Dynamic block discovery: PC {} is outside program bounds", start_pc);
+        let blob = parser::program::deblob(&self.program)?;
+        let mut pc = start;
+        let mut last_opcode = None;
+        
+        while pc < end && self.valid_pos(pc, &blob.bitmask) {
+            if pc < blob.instructions.len() {
+                last_opcode = Some(blob.instructions[pc]);
+            }
+            let skip_dist = parser::util::skip(pc, &blob.bitmask);
+            pc += 1 + skip_dist;
         }
         
-        // Use the official PVM library to discover this block
-        let blob = parser::program::deblob(&self.program_bytes)?;
-        let mut reader = blob.reader();
-        reader.set_position(start_pc_usize);
-        
-        if reader.eof() {
-            anyhow::bail!("Dynamic block discovery: PC {} is at end of program", start_pc);
-        }
-        
-        // Read a complete block using the official algorithm
-        let block_instructions = reader.read_block()?;
-        
-        if block_instructions.is_empty() {
-            anyhow::bail!("Dynamic block discovery: No instructions found at PC {}", start_pc);
-        }
-        
-        // Calculate block end PC
-        let last_instruction = &block_instructions[block_instructions.len() - 1];
-        let end_pc = last_instruction.range.end;
-        
-        // Check if block is terminating
-        let is_terminating = self.is_block_terminating_official(start_pc_usize, end_pc)?;
-        
-        // Create the new basic block
-        let basic_block = BasicBlock {
-            start_pc: start_pc_usize,
-            end_pc,
-            is_terminating,
-            compiled_code: None,
-        };
-        
-        // Cache it for future use
-        self.basic_blocks.insert(start_pc, basic_block.clone());
-        
-        tracing::debug!("Dynamically discovered block PC {}..{}", start_pc_usize, end_pc);
-        Ok(basic_block)
-    }
-
-    /// Check if a block is terminating using the official PVM library logic
-    /// This matches the terminating instruction list from the Graypaper and reader.rs
-    fn is_block_terminating_official(&self, start_pc: usize, end_pc: usize) -> Result<bool> {
-        if start_pc >= end_pc {
-            return Ok(false);
-        }
-        
-        let blob = parser::program::deblob(&self.program_bytes)?;
-        let mut reader = blob.reader();
-        reader.set_position(start_pc);
-        
-        // Read the block using the official PVM library block reading logic
-        let block_instructions = reader.read_block()?;
-        
-        if block_instructions.is_empty() {
-            return Ok(false);
-        }
-        
-        // The block is terminating if the last instruction is a terminating instruction
-        // This matches the official list from parser/reader.rs lines 79-100
-        let last_instruction = &block_instructions[block_instructions.len() - 1];
-        match &last_instruction.value {
-            Instruction::Trap
-            | Instruction::Fallthrough
-            | Instruction::Jump(_)
-            | Instruction::JumpInd(_)
-            | Instruction::LoadImmJump(_)
-            | Instruction::LoadImmJumpInd(_)
-            | Instruction::BranchEq(_)
-            | Instruction::BranchNe(_)
-            | Instruction::BranchGeU(_)
-            | Instruction::BranchGeS(_)
-            | Instruction::BranchLtU(_)
-            | Instruction::BranchLtS(_)
-            | Instruction::BranchEqImm(_)
-            | Instruction::BranchNeImm(_)
-            | Instruction::BranchGeUImm(_)
-            | Instruction::BranchGeSImm(_)
-            | Instruction::BranchLtUImm(_)
-            | Instruction::BranchLtSImm(_)
-            | Instruction::BranchLeUImm(_)
-            | Instruction::BranchLeSImm(_)
-            | Instruction::BranchGtUImm(_)
-            | Instruction::BranchGtSImm(_) => Ok(true),
-            _ => Ok(false),
-        }
-    }
-
-    /// Get or compile a basic block for the given PC
-    fn get_or_compile_block(&mut self, pc: u64) -> Result<CompiledBlock> {
-        if let Some(compiled) = self.block_cache.get(&pc).cloned() {
-            return Ok(compiled);
-        }
-        
-        // Compile the block
-        let compiled = self.compile_block(pc)?;
-        self.block_cache.insert(pc, compiled.clone());
-        Ok(compiled)
+        Ok(last_opcode.map_or(false, |op| self.terminates(op)))
     }
     
-    /// Compile a single basic block
-    pub fn compile_block(&mut self, start_pc: u64) -> Result<CompiledBlock> {
-        // Check if we have a pre-discovered basic block
-        let basic_block = if let Some(block) = self.basic_blocks.get(&start_pc) {
-            block.clone()
-        } else {
-            // Dynamic block discovery: create a new block on-demand
-            self.discover_dynamic_block(start_pc)?
-        };
+    /// Get or compile code for PC
+    /// EXISTS: Performance optimization - cache compiled blocks
+    fn get_code(&mut self, pc: u64) -> Result<Code> {
+        if let Some(code) = self.code_cache.get(&pc).cloned() {
+            return Ok(code);
+        }
+        
+        let code = self.compile_block(pc)?;
+        self.code_cache.insert(pc, code.clone());
+        Ok(code)
+    }
+    
+    /// Compile single basic block
+    /// EXISTS: Core JIT functionality - translates PVM to native code
+    fn compile_block(&mut self, pc: u64) -> Result<Code> {
+        let block = self.blocks.get(&pc)
+            .ok_or_else(|| anyhow::anyhow!("No block at PC {}", pc))?
+            .clone();
             
-        // Create function signature for block execution
-        // Block function signature: fn(*mut ExtendedBlockContext)
         let mut sig = Signature::new(self.isa.default_call_conv());
-        sig.params.push(AbiParam::new(types::I64)); // pointer to ExtendedBlockContext
+        sig.params.push(AbiParam::new(types::I64));
         
-        // Create function and builder
-        let mut func = Function::with_name_signature(UserFuncName::user(0, start_pc as u32), sig);
-        let mut builder_context = FunctionBuilderContext::new();
-        let mut builder = FunctionBuilder::new(&mut func, &mut builder_context);
+        let mut func = Function::with_name_signature(UserFuncName::user(0, pc as u32), sig);
+        let mut builder_ctx = FunctionBuilderContext::new();
+        let mut builder = FunctionBuilder::new(&mut func, &mut builder_ctx);
         
-        // Create entry block
-        let entry_block = builder.create_block();
-        builder.append_block_params_for_function_params(entry_block);
-        builder.switch_to_block(entry_block);
-        builder.seal_block(entry_block);
+        let entry = builder.create_block();
+        builder.append_block_params_for_function_params(entry);
+        builder.switch_to_block(entry);
+        builder.seal_block(entry);
         
-        // Get the BlockContext pointer parameter
-        let context_ptr = builder.block_params(entry_block)[0];
+        let ctx_ptr = builder.block_params(entry)[0];
         
-        // Use the translator to compile the block
-        let result = self.compile_block_with_translator(&mut builder, context_ptr, &basic_block);
-        
-        match result {
+        match self.translate(&mut builder, ctx_ptr, &block) {
             Ok(_) => {
-                // Finalize the function
                 builder.ins().return_(&[]);
                 builder.finalize();
                 
-                // Compile the function
-                self.compiler_context.clear();
-                self.compiler_context.func = func;
-                let mut ctrl_plane = cranelift_codegen::control::ControlPlane::default();
-                self.compiler_context
-                    .compile(&*self.isa, &mut ctrl_plane)
-                    .map_err(|e| anyhow::anyhow!("Cranelift compilation failed: {:?}", e))?;
+                self.ctx.clear();
+                self.ctx.func = func;
+                let mut ctrl = cranelift_codegen::control::ControlPlane::default();
+                self.ctx.compile(&*self.isa, &mut ctrl)
+                    .map_err(|e| anyhow::anyhow!("Cranelift failed: {:?}", e))?;
                 
-                // Get the compiled machine code
-                let code = self.compiler_context.compiled_code().unwrap();
-                let code_bytes = code.buffer.data();
-                let code_size = code_bytes.len();
+                let code = self.ctx.compiled_code().unwrap();
+                let bytes = code.buffer.data();
+                let size = bytes.len();
                 
-                // Allocate executable memory and copy code
-                let executable_ptr = self.allocate_executable_memory(code_size)?;
-                unsafe {
-                    std::ptr::copy_nonoverlapping(code_bytes.as_ptr(), executable_ptr, code_size);
-                }
+                let ptr = self.alloc_exec(size)?;
+                unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, size); }
                 
-                Ok(CompiledBlock {
-                    entry_point: executable_ptr,
-                    size: code_size,
-                })
+                Ok(Code { ptr, size })
             }
             Err(e) => {
-                // For now, if compilation fails, return a placeholder that does nothing
-                tracing::warn!("Block compilation failed for PC {}: {}", start_pc, e);
-                Ok(CompiledBlock {
-                    entry_point: std::ptr::null(),
-                    size: 0,
-                })
+                tracing::warn!("Block compilation failed for PC {}: {}", pc, e);
+                Ok(Code { ptr: std::ptr::null(), size: 0 })
             }
         }
     }
     
-    /// Compile instructions for a single basic block using the Translator
-    fn compile_block_with_translator(
-        &self, 
-        builder: &mut FunctionBuilder, 
-        context_ptr: Value,
-        basic_block: &BasicBlock
-    ) -> Result<()> {
-        // Create a translator that will handle all instruction compilation
+    /// Translate block using Translator
+    /// EXISTS: Delegates to shared translator between compiler/interpreter
+    fn translate(&self, builder: &mut FunctionBuilder, ctx_ptr: Value, block: &Block) -> Result<()> {
         let mut translator = Translator::new(builder);
         
-        // Load initial context (registers, PC, memory) from the context pointer
-        translator.load_initial_context(context_ptr)?;
-        
-        // Use the translator's new translate_block method
-        translator.translate_block(&self.program_bytes, basic_block.start_pc, basic_block.end_pc)?;
-        
-        // Save all state back to context before returning
-        // Store all 13 register values back to context.registers
+        // Load initial register values from context into Cranelift variables
         for i in 0..13 {
             let reg_var = translator.registers[&(i as u8)];
-            let reg_value = translator.builder.use_var(reg_var);
             let offset = translator.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = translator.builder.ins().iadd(context_ptr, offset);
-            translator.builder.ins().store(MemFlags::new(), reg_value, addr, 0);
+            let addr = translator.builder.ins().iadd(ctx_ptr, offset);
+            let reg_val = translator.builder.ins().load(types::I64, MemFlags::new(), addr, 0);
+            translator.builder.def_var(reg_var, reg_val);
         }
         
-        // Store PC back to context.pc (offset 104)
-        let pc_value = translator.builder.use_var(translator.pc);
-        let pc_offset = translator.builder.ins().iconst(types::I64, 104);
-        let pc_addr = translator.builder.ins().iadd(context_ptr, pc_offset);
-        translator.builder.ins().store(MemFlags::new(), pc_value, pc_addr, 0);
+        translator.translate_block(&self.program, block.start, block.end)?;
         
-        tracing::debug!("Compiled block PC {}..{} using translator", basic_block.start_pc, basic_block.end_pc);
+        // Only do block-level PC advancement for non-terminating blocks
+        // Terminating instructions (branches/jumps) handle their own PC advancement
+        if !block.terminates {
+            let final_pc = translator.get_final_pc();
+            let pc_offset = translator.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
+            let pc_addr = translator.builder.ins().iadd(ctx_ptr, pc_offset);
+            let new_pc = translator.builder.ins().iconst(types::I64, final_pc as i64);
+            translator.builder.ins().store(MemFlags::new(), new_pc, pc_addr, 0);
+        }
+        
+        // Save registers back to context
+        for i in 0..13 {
+            let reg_var = translator.registers[&(i as u8)];
+            let reg_val = translator.builder.use_var(reg_var);
+            let offset = translator.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = translator.builder.ins().iadd(ctx_ptr, offset);
+            translator.builder.ins().store(MemFlags::new(), reg_val, addr, 0);
+        }
+        
         Ok(())
     }
     
-    /// Allocate executable memory using mmap
-    fn allocate_executable_memory(&self, size: usize) -> Result<*mut u8> {
+    /// Allocate executable memory
+    /// EXISTS: Required for JIT - need executable pages for generated code
+    fn alloc_exec(&self, size: usize) -> Result<*mut u8> {
         unsafe {
             let ptr = libc::mmap(
                 std::ptr::null_mut(),
@@ -592,104 +409,93 @@ impl JitCompiler {
         }
     }
     
-    /// Find the next sequential block PC after the current PC
-    fn find_next_block_pc(&self, current_pc: u64) -> Option<u64> {
-        // Find the current block
-        let current_block = self.basic_blocks.get(&current_pc)?;
-        
-        // Look for a block that starts at the end of the current block
-        self.basic_blocks.keys()
-            .find(|&&pc| pc == current_block.end_pc as u64)
-            .copied()
+    /// Find next sequential block
+    /// EXISTS: Handles Continue result - finds next block in sequence
+    fn next_block(&self, pc: u64) -> Option<u64> {
+        let block = self.blocks.get(&pc)?;
+        self.blocks.keys().find(|&&p| p == block.end as u64).copied()
     }
 
-    /// Execute a compiled block and return the execution result
-    fn execute_block(&self, block: &CompiledBlock, context: &mut BlockContext) -> Result<BlockExecutionResult> {
-        if block.entry_point.is_null() {
-            // Block compilation failed or placeholder - continue to next block
-            return Ok(BlockExecutionResult::Continue);
+    /// Execute compiled block
+    /// EXISTS: Core execution - calls native code and handles results
+    fn run_block(&self, code: &Code, ctx: &mut Context) -> Result<(ExecResult, bool)> {
+        if code.ptr.is_null() {
+            return Ok((ExecResult::Continue, false));
         }
         
-        // Create an extended context with linear memory pointer
-        let mut extended_context = ExtendedBlockContext {
-            registers: context.registers,
-            pc: context.pc,
-            memory_ptr: context.linear_memory.as_mut_ptr(),
-            result: BlockExecutionResult::Continue,
+        let mut ext_ctx = ExtendedContext {
+            registers: ctx.registers,
+            pc: ctx.pc,
+            memory_ptr: ctx.linear_mem.as_mut_ptr(),
+            result: ExecResult::Continue,
+            pc_managed: false,
         };
         
         unsafe {
-            // Call the compiled block function
-            // Block function signature: fn(*mut ExtendedBlockContext)
-            let func_ptr = std::mem::transmute::<*const u8, fn(*mut ExtendedBlockContext)>(block.entry_point);
-            func_ptr(&mut extended_context);
+            let func = std::mem::transmute::<*const u8, fn(*mut ExtendedContext)>(code.ptr);
+            func(&mut ext_ctx);
         }
         
-        // Copy back the register and PC changes
-        context.registers = extended_context.registers;
-        context.pc = extended_context.pc;
+        ctx.registers = ext_ctx.registers;
+        ctx.pc = ext_ctx.pc;
         
-        // Read back the execution result from the context memory
-        let execution_result = self.decode_execution_result(&extended_context)?;
+        let result = self.decode_result(&ext_ctx)?;
         
-        // Sync linear memory changes back to Memory structure and check for access violations
-        let sync_result = context.sync_memory_from_linear_with_validation();
-        match sync_result {
-            Ok(_) => Ok(execution_result),
+        match ctx.sync() {
+            Ok(_) => Ok((result, ext_ctx.pc_managed)),
             Err(_) => {
-                // Memory access violation detected - return trap result and set PC=0
-                context.pc = 0;
-                Ok(BlockExecutionResult::Trap)
+                ctx.pc = 0;
+                Ok((ExecResult::Trap, false))
             }
         }
     }
     
-    /// Decode the execution result from the extended context memory
-    fn decode_execution_result(&self, extended_context: &ExtendedBlockContext) -> Result<BlockExecutionResult> {
-        // The result is stored at offset 120 in the ExtendedBlockContext
-        // Layout: discriminant (8 bytes) + data (8 bytes)
+    /// Decode execution result from context
+    /// EXISTS: Required to extract result from compiled block
+    fn decode_result(&self, ext_ctx: &ExtendedContext) -> Result<ExecResult> {
+        let offset = std::mem::size_of::<[u64; 13]>() + std::mem::size_of::<u64>() + std::mem::size_of::<*mut u8>();
+        
         unsafe {
-            let context_ptr = extended_context as *const ExtendedBlockContext as *const u8;
-            let result_ptr = context_ptr.add(120); // offset 120 for result field
-            
-            // Read discriminant
+            let ctx_ptr = ext_ctx as *const ExtendedContext as *const u8;
+            let result_ptr = ctx_ptr.add(offset);
             let discriminant = *(result_ptr as *const u64);
             
             match discriminant {
-                0 => Ok(BlockExecutionResult::Continue),
+                0 => {
+                    tracing::trace!("Branch result: Continue");
+                    Ok(ExecResult::Continue)
+                },
                 1 => {
-                    // Jump variant - read target PC from offset +8
-                    let target_pc = *(result_ptr.add(8) as *const u64);
-                    Ok(BlockExecutionResult::Jump(target_pc))
+                    let target = *(result_ptr.add(8) as *const u64);
+                    tracing::trace!("Branch result: Jump to {}", target);
+                    Ok(ExecResult::Jump(target))
                 }
-                2 => Ok(BlockExecutionResult::Halt),
-                3 => Ok(BlockExecutionResult::Trap),
-                _ => {
-                    tracing::warn!("Unknown execution result discriminant: {}", discriminant);
-                    Ok(BlockExecutionResult::Continue)
-                }
+                2 => Ok(ExecResult::Halt),
+                3 => Ok(ExecResult::Trap),
+                _ => Ok(ExecResult::Continue),
             }
         }
     }
 
-    /// Get discovered basic blocks (for testing)
-    pub fn get_basic_blocks(&self) -> &HashMap<u64, BasicBlock> {
-        &self.basic_blocks
-    }
-
-    /// Check if program contains explicit trap instructions
-    fn check_for_explicit_trap(&self, program: &[u8]) -> Result<bool> {
-        // Quick check for trap instruction
+    /// Check if program has trap instructions
+    /// EXISTS: Required by Module interface
+    fn has_trap(&self, program: &[u8]) -> Result<bool> {
         let blob = parser::program::deblob(program)?;
         let mut reader = blob.reader();
         
         while !reader.eof() {
-            let instruction_offset = reader.read()?;
-            if matches!(instruction_offset.value, parser::Instruction::Trap) {
+            let instr = reader.read()?;
+            if matches!(instr.value, parser::Instruction::Trap) {
                 return Ok(true);
             }
         }
         
         Ok(false)
+    }
+
+    /// Get discovered blocks (testing)
+    /// EXISTS: Required by test interface
+    pub fn get_basic_blocks(&self) -> &HashMap<u64, Block> {
+        &self.blocks
     }
 }

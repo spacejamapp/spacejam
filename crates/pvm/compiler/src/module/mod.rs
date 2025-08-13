@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 pub use {info::Info, memory::Memory};
-use crate::jit::{JitCompiler, BlockContext};
+use crate::jit::{Jit, Context};
 
 mod info;
 pub mod memory;
@@ -83,13 +83,13 @@ impl Module {
         }
 
         // Create a block JIT compiler
-        let mut compiler = JitCompiler::new()?;
+        let mut compiler = Jit::new()?;
         
         // Analyze the program to discover basic blocks
-        compiler.analyze_program(&self.program_bytes)?;
+        compiler.analyze(&self.program_bytes)?;
         
         // Create initial execution context
-        let context = BlockContext::new(*initial_registers, initial_pc, initial_memory);
+        let context = Context::new(*initial_registers, initial_pc, initial_memory);
         
         // Execute using block-based JIT
         let result = compiler.execute(context)?;

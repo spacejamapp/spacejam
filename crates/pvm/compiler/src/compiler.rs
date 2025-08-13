@@ -1,19 +1,19 @@
 //! Compiler module that manages the compilation process
 
-use crate::{jit::JitCompiler, Module};
+use crate::{jit::Jit, Module};
 use anyhow::Result;
 
 /// Main compiler struct that manages compilation state
 pub struct Compiler {
     /// JIT compiler for code generation
-    jit: JitCompiler,
+    jit: Jit,
 }
 
 impl Compiler {
     /// Create a new compiler instance
     pub fn new() -> Result<Self> {
         Ok(Self {
-            jit: JitCompiler::new()?,
+            jit: Jit::new()?,
         })
     }
 

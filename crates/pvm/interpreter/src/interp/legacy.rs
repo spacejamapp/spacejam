@@ -52,7 +52,7 @@ impl Interpreter {
         }
 
         self.gas -= 1;
-        if let Err(e) = self.visit(instr) {
+        if let Err(e) = self.visit(instr, self.pc) {
             self.gas -= e.extra_gas();
             return Err(e);
         }
