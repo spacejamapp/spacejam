@@ -3386,6 +3386,7 @@ dependencies = [
  "serde_json",
  "spacejam-crypto",
  "spacejson",
+ "tracing",
 ]
 
 [[package]]

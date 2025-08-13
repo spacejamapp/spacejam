@@ -57,6 +57,12 @@ pub fn simulate<Vm: Pvm>(
             );
         }
 
+        // (ι') Update next validators for new epoch
+        if new_epoch {
+            tracing::debug!("handle next validators");
+            diff.set(key::NEXT_VALIDATORS, codec::encode(&state.validators.next)?);
+        }
+
         // (ψ') Update disputes and get marks
         tracing::debug!("handle disputes");
         let (disputes, marks) = self::dispute::disputes(
