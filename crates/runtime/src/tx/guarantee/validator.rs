@@ -172,6 +172,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         // 4. validate the signatures
         let message = guarantee
             .signing_message()
+            .inspect_err(|e| tracing::warn!("failed to get signing message: {:?}", e))
             .map_err(|_| Error::BadSignature)?;
         let mut guarantor = 0;
         for sig in guarantee.signatures.iter() {
@@ -194,6 +195,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             }
 
             crypto::ed25519::verify(&message, sig.signature, *key)
+                .inspect_err(|e| tracing::warn!("failed to verify guarantee signature: {:?}", e))
                 .map_err(|_| Error::BadSignature)?;
 
             guarantor = validator_index;

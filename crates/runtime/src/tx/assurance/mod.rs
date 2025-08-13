@@ -111,6 +111,7 @@ pub fn verify_assurance(
         .verify_assurance(assurance)
         .is_err()
     {
+        tracing::error!("bad signature for assurance: {:?}", assurance);
         return Err(Error::BadSignature);
     }
 
