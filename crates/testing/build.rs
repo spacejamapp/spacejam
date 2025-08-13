@@ -77,6 +77,8 @@ fn main() -> Result<()> {
 
     if let Ok(entry) = registry.trace(Trace::Fuzz) {
         build_tests(entry, &out_dir.join("traces_fuzz.rs"))?;
+    } else {
+        fs::write(out_dir.join("traces_fuzz.rs"), "")?;
     }
 
     Ok(())
