@@ -14,23 +14,23 @@
 # build all targets
 bundle: macos-arm64 macos-amd64 linux-arm64 linux-amd64
 	mkdir -p target/bundle
-	tar -czf target/bundle/spacejam-0.6.7-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release spacejam
-	tar -czf target/bundle/spacejam-0.6.7-macos-amd64.tar.gz -C target/x86_64-apple-darwin/release spacejam
-	tar -czf target/bundle/spacejam-0.6.7-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release spacejam
-	tar -czf target/bundle/spacejam-0.6.7-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/release spacejam
+	tar -czf target/bundle/spacejam-0.6.7-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release spacejam testnet
+	tar -czf target/bundle/spacejam-0.6.7-macos-amd64.tar.gz -C target/x86_64-apple-darwin/release spacejam testnet
+	tar -czf target/bundle/spacejam-0.6.7-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release spacejam testnet
+	tar -czf target/bundle/spacejam-0.6.7-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/release spacejam testnet
 
 # build macos-arm64
 macos-arm64:
-	cargo b --release -p spacejam --target aarch64-apple-darwin
+	cargo b --release --target aarch64-apple-darwin
 
 # build macos-amd64
 macos-amd64:
-	cargo b --release -p spacejam --target x86_64-apple-darwin
+	cargo b --release --target x86_64-apple-darwin
 
 # build linux-arm64
 linux-arm64:
-	cargo b --release -p spacejam --target aarch64-unknown-linux-gnu
+	cargo b --release --target aarch64-unknown-linux-gnu
 
 # build linux-amd64
 linux-amd64:
-	cargo b --release -p spacejam --target x86_64-unknown-linux-gnu
+	cargo b --release --target x86_64-unknown-linux-gnu

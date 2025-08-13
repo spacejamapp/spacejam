@@ -37,7 +37,7 @@ impl App {
     pub async fn run() {
         let app = App::parse();
         if app.graypaper {
-            println!("{}", crate::GRAYPAPER);
+            println!("graypaper: {}", crate::GRAYPAPER);
             return;
         }
 
