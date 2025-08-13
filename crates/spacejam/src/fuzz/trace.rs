@@ -1,28 +1,30 @@
 //! Tester for traces
 
-use std::path::Path;
-use testing::{Entry, Runner, Section, Trace};
+use serde_json::Value;
+use std::{fs, path::Path};
+use testing::{Runner, Scale, Section, Test, Trace};
 
 /// Test traces
-pub fn test(dir: &Path) -> anyhow::Result<()> {
-    let entry = Entry::new(Section::Trace(Trace::Any), None, dir)?;
-    let mut passed = 0;
-    let mut failed = Vec::new();
-    for test in entry {
-        tracing::info!("Testing {}", test.name);
-        if let Err(e) = Runner::step(&test) {
-            failed.push((test.name, e));
-        } else {
-            passed += 1;
-        }
-    }
+pub fn test(test: &Path) -> anyhow::Result<()> {
+    let json: Value = serde_json::from_slice(&fs::read(test)?)?;
+    let input = serde_json::json!({
+        "block": json["block"],
+        "pre_state": json["pre_state"],
+    })
+    .to_string();
 
-    tracing::info!("Passed {passed} tests");
-    if !failed.is_empty() {
-        tracing::error!("Failed {} tests", failed.len());
-        for (name, e) in failed {
-            tracing::error!("Test {name} failed: {e}");
-        }
-    }
-    Ok(())
+    let output = serde_json::json!({
+        "post_state": json["post_state"],
+    })
+    .to_string();
+
+    let test = Test {
+        input,
+        output,
+        scale: Some(Scale::Tiny),
+        section: Section::Trace(Trace::Any),
+        name: test.file_name().unwrap().to_string_lossy().to_string(),
+    };
+
+    Runner::step(&test)
 }

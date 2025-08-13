@@ -71,8 +71,8 @@ pub enum StateKey {
     Queue,
     /// The accumulation history (ξ)
     History,
-    /// The merkle mountain belt (MMB)
-    MMB,
+    /// The accumulation logs?
+    AccumulationLogs,
 }
 
 /// A key in the service account
@@ -119,7 +119,7 @@ impl StateKeyInfo for TrieKey {
             key::STATISTICS => StateKey::Statistics,
             key::ACCUMULATION_QUEUE => StateKey::Queue,
             key::ACCUMULATION_HISTORY => StateKey::History,
-            key::MMB => StateKey::MMB,
+            key::ACCUMULATION_LOGS => StateKey::AccumulationLogs,
             key if key.starts_with(&[255]) => {
                 let buf = [key[1], key[3], key[5], key[7]];
                 StateKey::Account {
