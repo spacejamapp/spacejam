@@ -156,7 +156,9 @@ pub fn simulate<Vm: Pvm>(
         )?;
 
         state.privileges = accumulation.privileges;
-        diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
+        // FIXME: polkajam doesn't update the privileges
+        //
+        // diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
 
         state.queue = accumulation.ready_queue;
         diff.set(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
