@@ -39,6 +39,7 @@ pub fn available(
     parent: OpaqueHash,
     assurances: &[AvailAssurance],
 ) -> Result<(Vec<WorkReport>, [u32; CORES_COUNT])> {
+    tracing::debug!("pending reports: {:?}", reports);
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
     let mut stale_reports = HashSet::new();
