@@ -92,13 +92,26 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     fn validate_block(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        let recent_blocks = self
+            .state
+            .recent_blocks
+            .history
+            .iter()
+            .map(|b| hex::encode(b.header_hash))
+            .collect::<Vec<_>>();
+
         let Some(block) = self
             .state
             .recent_blocks
             .history
             .iter()
-            .find(|b| b.header_hash == guarantee.report.context.anchor)
+            .find(|b| b.header_hash == guarantee.report.context.lookup_anchor)
         else {
+            tracing::warn!(
+                "could not find lookup anchor: 0x{} in recent blocks {:?}",
+                hex::encode(guarantee.report.context.lookup_anchor),
+                recent_blocks
+            );
             return Err(Error::AnchorNotRecent);
         };
 

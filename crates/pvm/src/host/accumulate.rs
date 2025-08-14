@@ -228,6 +228,12 @@ impl<R: Accounts> Accumulate<R> {
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
 
+        tracing::debug!(
+            "upgrade account {:?}, code=0x{}, previous=0x{}",
+            account.index(),
+            hex::encode(code),
+            hex::encode(account.code())
+        );
         account.set_code(code);
         account.set_transfer_gas(m);
         account.set_accumulate_gas(g);
