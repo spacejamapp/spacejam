@@ -154,6 +154,7 @@ pub fn simulate<Vm: Pvm>(
             &state.privileges,
             &state.validators.drawn,
             accounts,
+            state.entropy,
         )?;
 
         state.privileges = accumulation.privileges;

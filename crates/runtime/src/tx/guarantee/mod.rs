@@ -10,7 +10,7 @@ use score::{
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
     vm::{AccumulateState, Accumulation, DeferredTransfer},
-    Accounts, Ed25519Public, Gas, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT,
+    Accounts, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT,
 };
 use std::collections::BTreeMap;
 
@@ -39,6 +39,8 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     validators: &ValidatorsData,
     // The account storage (δ)
     accounts: R,
+    // The entropy (η)
+    entropy: EntropyBuffer,
 ) -> anyhow::Result<Accumulation<R>> {
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
@@ -54,6 +56,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
             privileges: privileges.clone(),
             validators: *validators,
             authorization: Default::default(),
+            entropy,
         },
         &privileges.always_acc,
         slot,

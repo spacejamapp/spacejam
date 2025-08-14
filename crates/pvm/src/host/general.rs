@@ -195,6 +195,7 @@ impl<R: Accounts> General<R> {
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         let value: Vec<u8> = match state.registers[10] {
             0 => codec::encode(&Parameters::default()).expect("should not fail"),
+            1 => codec::encode(&self.entropy).expect("should not fail"),
             14 => codec::encode(&self.operands).expect("should not fail"),
             kind => {
                 tracing::warn!("kind {kind} not supported");

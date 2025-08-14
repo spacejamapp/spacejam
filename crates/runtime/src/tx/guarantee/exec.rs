@@ -177,5 +177,5 @@ pub fn once<V: Pvm, R: Accounts>(
         .iter()
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
-    V::accumulate(context, timeslot, service, gas, operands, [0; 32])
+    V::accumulate(context, timeslot, service, gas, operands)
 }

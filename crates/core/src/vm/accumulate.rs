@@ -6,7 +6,7 @@ use crate::{
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
-    OpaqueHash,
+    EntropyBuffer, OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,9 @@ pub struct AccumulateState<R: Accounts> {
 
     /// χ (χ) The privileged service indices
     pub privileges: Privileges,
+
+    /// (η) The entropy
+    pub entropy: EntropyBuffer,
 }
 
 impl<R: Accounts> AccumulateState<R> {

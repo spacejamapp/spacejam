@@ -44,6 +44,7 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
             self.x.service,
             self.x.context.accounts.clone(),
             self.operands.clone(),
+            self.entropy,
         ))
     }
 
@@ -105,12 +106,8 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(
-        self,
-        timeslot: TimeSlot,
-        entropy: [u8; 32],
-        operands: Vec<Operand>,
-    ) -> Accumulate<R> {
+    pub fn accumulate(self, timeslot: TimeSlot, operands: Vec<Operand>) -> Accumulate<R> {
+        let entropy = self.context.entropy[0];
         Accumulate {
             y: self.clone(),
             x: self,

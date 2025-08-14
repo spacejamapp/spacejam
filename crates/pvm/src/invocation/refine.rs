@@ -33,6 +33,7 @@ impl<R: Accounts> Argument<R> for Refine<R> {
             self.service,
             self.accounts.clone(),
             Vec::new(),
+            Default::default(),
         ))
     }
 

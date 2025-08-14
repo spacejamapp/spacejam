@@ -105,6 +105,7 @@ impl Jam {
             validators: Default::default(),
             authorization: Default::default(),
             privileges: Privileges::default(),
+            entropy: Default::default(),
         };
 
         let mut batch = BTreeMap::new();
@@ -121,7 +122,6 @@ impl Jam {
                 *service_id,
                 *gas,
                 report.operands(*service_id),
-                self.chain.entropy[1],
             );
 
             if accumulated.reason.is_err() && accumulated.reason != Reason::Halt {
