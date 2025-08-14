@@ -20,6 +20,39 @@ impl<'a, 'b> Translator<'a, 'b> {
         let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
         self.builder.ins().load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
     }
+
+    /// Generic helper function for all branch instructions - optimizes Cranelift IR generation
+    /// Eliminates code duplication and ensures consistent branch handling patterns
+    fn generate_branch_instruction(&mut self, condition: Value, pc: usize, off0: i64) -> Result<(), anyhow::Error> {
+        // Calculate branch target PC using offset
+        let target_pc = (pc as i64 + off0) as u64;
+        // Calculate continue target PC (current PC + instruction length)
+        let instr_len = self.get_instruction_length(pc)?;
+        let continue_pc = (pc + instr_len) as u64;
+        
+        // Get context pointer to store result
+        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
+        
+        // Store conditional result: Jump if condition is true, Continue if false
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);  // Jump variant
+        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);  // Continue variant
+        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
+        
+        // Store the discriminant
+        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
+        
+        // Store conditional target PC: jump_target if taken, continue_target if not taken
+        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
+        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
+        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
+        let data_offset = self.builder.ins().iconst(types::I64, 8);
+        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
+        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
+        
+        Ok(())
+    }
 }
 
 impl Visitor for Translator<'_, '_> {
@@ -59,15 +92,33 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_imm_jump(&mut self, format: format::RIO, _pc: usize) -> Result<(), Self::Error> {
-        let format::RIO { reg0, off0: _, imm0 } = format;
+    fn visit_load_imm_jump(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+        let format::RIO { reg0, off0, imm0 } = format;
+        
         // Load immediate value first
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
 
-        // Block-based: jump instruction just returns from block
-        // Runtime calculates target PC and handles the jump
+        // Calculate target PC: instruction_pc + offset (same as visit_jump)
+        let target_pc = (pc as i64 + off0 as i64) as u64;
+        
+        // Store Jump result in ExtendedContext.result field
+        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
+        
+        // Store Jump discriminant (1) and target PC
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Direct Jump variant
+        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
+        
+        // Store discriminant at result_addr
+        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
+        
+        // Store target PC at result_addr + 8
+        let data_offset = self.builder.ins().iconst(types::I64, 8);
+        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
+        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
         
         Ok(())
     }
@@ -1240,7 +1291,12 @@ impl Visitor for Translator<'_, '_> {
         let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
         
         // Calculate branch target PC using offset
+        eprintln!("visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc", pc, off0);
+        eprintln!("visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}", reg0, reg1, off0, pc, off0, (pc as i64 + off0 as i64));
         let target_pc = (pc as i64 + off0 as i64) as u64;
+        // Calculate continue target PC (current PC + instruction length)
+        let instr_len = self.get_instruction_length(pc)?;
+        let continue_pc = (pc + instr_len) as u64;
         
         // Get context pointer to store result
         let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
@@ -1257,22 +1313,14 @@ impl Visitor for Translator<'_, '_> {
         self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
         
         // Store target PC for Jump case (runtime will read this when discriminant = 1) 
+        // Store conditional target PC: jump_target if taken, continue_target if not taken
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
+        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
+        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
+        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
         
-        // Branch instructions always handle their own PC advancement
-        let pc_offset = self.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        
-        // Calculate next instruction PC (current PC + instruction length)
-        let instr_len = self.get_instruction_length(pc)?;
-        let next_pc_val = self.builder.ins().iconst(types::I64, (pc + instr_len) as i64);
-        
-        // Always store the correct PC: target_pc if branching, next_pc if not branching
-        let selected_pc = self.builder.ins().select(condition, target_pc_val, next_pc_val);
-        self.builder.ins().store(MemFlags::new(), selected_pc, pc_addr, 0);
         
         Ok(())
     }
@@ -1286,6 +1334,9 @@ impl Visitor for Translator<'_, '_> {
         let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
         
         // Calculate branch target PC using offset
+        // Calculate continue target PC (current PC + instruction length)
+        let instr_len = self.get_instruction_length(pc)?;
+        let continue_pc = (pc + instr_len) as u64;
         let target_pc = (pc as i64 + off0 as i64) as u64;
         
         // Get context pointer to store result
@@ -1302,24 +1353,13 @@ impl Visitor for Translator<'_, '_> {
         // Store the discriminant
         self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
         
-        // Store target PC for Jump case (runtime will read this when discriminant = 1) 
+        // Store conditional target PC: jump_target if taken, continue_target if not taken
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
+        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
+        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
-        // Branch instructions always handle their own PC advancement
-        let pc_offset = self.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
-        let pc_addr = self.builder.ins().iadd(context_ptr, pc_offset);
-        
-        // Calculate next instruction PC (current PC + instruction length)
-        let instr_len = self.get_instruction_length(pc)?;
-        let next_pc_val = self.builder.ins().iconst(types::I64, (pc + instr_len) as i64);
-        
-        // Always store the correct PC: target_pc if branching, next_pc if not branching
-        let selected_pc = self.builder.ins().select(condition, target_pc_val, next_pc_val);
-        self.builder.ins().store(MemFlags::new(), selected_pc, pc_addr, 0);
-        
+        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
         Ok(())
     }
 
@@ -1676,16 +1716,14 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_branch_gt_s_imm(&mut self, format: format::RIO, _pc: usize) -> Result<(), Self::Error> {
-        let format::RIO { reg0, imm0, off0: _ } = format;
+    fn visit_branch_gt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
         
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let _condition = self.builder.ins().icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
+        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
         
-        // Block ends here - runtime will handle branch logic
-        
-        Ok(())
+        self.generate_branch_instruction(condition, pc, off0 as i64)
     }
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
@@ -1806,9 +1844,9 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
         
-        // Store Jump variant with the calculated address
+        // Store JumpIndirect variant with the calculated address  
         // The runtime will resolve this address to an actual PC using the jump table
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant (4)
         self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
         
         // Store the target address (will be resolved by runtime)
@@ -1928,62 +1966,19 @@ impl Visitor for Translator<'_, '_> {
         let imm0_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
         self.builder.def_var(reg0_var, imm0_val);
 
-        // Inline jump table lookup and validation
-        if self.jump_table.is_empty() {
-            // No jump table - trap with PC=0
-            let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-            let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
-            let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-            
-            // Store Trap variant
-            let trap_discriminant = self.builder.ins().iconst(types::I64, 3);
-            self.builder.ins().store(MemFlags::new(), trap_discriminant, result_addr, 0);
-        } else {
-            // Validate the jump address
-            let zero = self.builder.ins().iconst(types::I64, 0);
-            let is_zero = self.builder.ins().icmp(IntCC::Equal, target_addr, zero);
-            
-            let max_addr = self.builder.ins().iconst(types::I64, (self.jump_table.len() * 2) as i64);
-            let is_too_large = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, target_addr, max_addr);
-            
-            let two = self.builder.ins().iconst(types::I64, 2);
-            let addr_mod_2 = self.builder.ins().urem(target_addr, two);
-            let is_odd = self.builder.ins().icmp(IntCC::NotEqual, addr_mod_2, zero);
-            
-            // Combine invalid conditions
-            let invalid_1 = self.builder.ins().bor(is_zero, is_too_large);
-            let is_invalid = self.builder.ins().bor(invalid_1, is_odd);
-            
-            // Calculate index = (address / 2) - 1
-            let addr_div_2 = self.builder.ins().udiv_imm(target_addr, 2);
-            let index = self.builder.ins().iadd_imm(addr_div_2, -1);
-            
-            // Perform lookup
-            let mut lookup_result = self.builder.ins().iconst(types::I64, 0);
-            for (i, &table_entry) in self.jump_table.iter().enumerate() {
-                let table_index = self.builder.ins().iconst(types::I64, i as i64);
-                let is_match = self.builder.ins().icmp(IntCC::Equal, index, table_index);
-                let entry_pc = self.builder.ins().iconst(types::I64, table_entry as i64);
-                lookup_result = self.builder.ins().select(is_match, entry_pc, lookup_result);
-            }
-            
-            // Set PC based on validity (invalid jumps go to PC=0)
-            let final_pc = self.builder.ins().select(is_invalid, zero, lookup_result);
-            
-            // Store the jump result to ExtendedBlockContext
-            let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-            let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
-            let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-            
-            // Store Jump variant
-            let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-            self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
-            
-            // Store the resolved PC
-            let data_offset = self.builder.ins().iconst(types::I64, 8);
-            let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-            self.builder.ins().store(MemFlags::new(), final_pc, data_addr, 0);
-        }
+        // Store JumpIndirect result - let runtime handle jump table validation
+        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
+        
+        // Store JumpIndirect discriminant (4) - runtime will resolve address via jump table
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant
+        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
+        
+        // Store the target address (will be resolved by runtime)
+        let data_offset = self.builder.ins().iconst(types::I64, 8);
+        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
+        self.builder.ins().store(MemFlags::new(), target_addr, data_addr, 0);
         
         Ok(())
     }
