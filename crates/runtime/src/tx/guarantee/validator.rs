@@ -174,15 +174,17 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .signing_message()
             .inspect_err(|e| tracing::warn!("failed to get signing message: {:?}", e))
             .map_err(|_| Error::BadSignature)?;
-        let mut guarantor = 0;
+        let mut guarantor = None;
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
                 return Err(Error::BadValidatorIndex);
             }
 
-            if validator_index < guarantor {
-                return Err(Error::NotSortedOrUniqueGuarantors);
+            if let Some(last) = guarantor {
+                if validator_index <= last {
+                    return Err(Error::NotSortedOrUniqueGuarantors);
+                }
             }
 
             let Some(key) = guarantors.get(&validator_index) else {
@@ -198,7 +200,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 .inspect_err(|e| tracing::warn!("failed to verify guarantee signature: {:?}", e))
                 .map_err(|_| Error::BadSignature)?;
 
-            guarantor = validator_index;
+            guarantor = Some(validator_index);
         }
 
         self.processed.insert(guarantee.report.core_index);

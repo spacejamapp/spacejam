@@ -182,10 +182,9 @@ impl<R: Accounts> General<R> {
         let from = state.registers[9].min(total_len) as usize;
         let length = state.registers[10].min(total_len - from as u64) as usize;
         if length > 0 {
-            state.memory.write_bytes(
-                output as u32,
-                &info[from as usize..(from + length) as usize],
-            )?;
+            state
+                .memory
+                .write_bytes(output, &info[from..(from + length)])?;
         }
 
         // Return total length of encoded data

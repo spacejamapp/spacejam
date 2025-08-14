@@ -54,13 +54,15 @@ pub fn available(
     }
 
     // Check for engaged reports
-    let mut last = 0;
+    let mut assuror = None;
     for assurance in assurances.iter() {
         self::verify_assurance(validators, assurance, parent)?;
-        if assurance.validator_index < last {
-            return Err(Error::NotSortedOrUniqueAssurers);
+        if let Some(last) = assuror {
+            if assurance.validator_index <= last {
+                return Err(Error::NotSortedOrUniqueAssurers);
+            }
         }
-        last = assurance.validator_index;
+        assuror = Some(assurance.validator_index);
 
         // Count assurances per core
         let bitsmap = assurance.bitsmap();
