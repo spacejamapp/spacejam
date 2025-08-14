@@ -246,7 +246,8 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
             if code_hash != result.code_hash {
                 tracing::warn!(
-                    "bad code hash: 0x{} != 0x{}",
+                    "bad code hash for service {}: 0x{} != 0x{}",
+                    result.service_id,
                     hex::encode(code_hash),
                     hex::encode(result.code_hash)
                 );
