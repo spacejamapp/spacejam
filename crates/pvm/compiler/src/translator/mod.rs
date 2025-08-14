@@ -96,7 +96,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             }
 
             // Log instruction compilation similar to interpreter
-            eprintln!(
+            tracing::trace!(
                 "COMPILE PC={} opcode={}({:02x}) instruction={:?}",
                 instruction_offset.range.start,
                 if instruction_offset.range.start < program.len() {

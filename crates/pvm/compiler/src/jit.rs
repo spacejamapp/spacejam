@@ -242,7 +242,7 @@ impl Jit {
                         if block.terminates {
                             // Branch instruction chose Continue - advance to next instruction and halt
                             let next_pc = self.next_instruction_pc(ctx.pc)?;
-                            eprintln!("Continue: advancing from PC {} to next_instruction_pc {} and stopping", ctx.pc, next_pc);
+                            tracing::trace!("Continue: advancing from PC {} to next_instruction_pc {} and stopping", ctx.pc, next_pc);
                             ctx.pc = next_pc;
                             break; // Stop execution after branch Continue
                         } else {
@@ -258,11 +258,11 @@ impl Jit {
                     }
                 }
                 ExecResult::Jump(target) => {
-                    eprintln!("Jump: PC {} -> target {}", ctx.pc, target);
+                    tracing::trace!("Jump: PC {} -> target {}", ctx.pc, target);
                     if self.blocks.contains_key(&target) {
                         ctx.pc = target;
                     } else {
-                        eprintln!("No block at target PC {}, treating as halt", target);
+                        tracing::trace!("No block at target PC {}, treating as halt", target);
                         ctx.pc = target;
                         break;
                     }
@@ -273,7 +273,7 @@ impl Jit {
                     if let Some(block) = block {
                         if block.terminates {
                             let terminating_pc = self.terminating_instruction_pc(ctx.pc)?;
-                            eprintln!(
+                            tracing::trace!(
                                 "Trap: advancing to terminating instruction PC {}",
                                 terminating_pc
                             );
@@ -342,7 +342,7 @@ impl Jit {
             // Block terminates if there's a next block (Graypaper formula guarantees this)
             let terminates = i + 1 < vec.len() || self.last_terminates(start, end)?;
 
-            eprintln!(
+            tracing::trace!(
                 "Block {}: start={}, end={}, terminates={}",
                 i, start, end, terminates
             );
@@ -641,11 +641,11 @@ impl Jit {
 
         match ctx.sync() {
             Ok(_) => {
-                eprintln!("No page fault detected, PC remains {}", ctx.pc);
+                tracing::trace!("No page fault detected, PC remains {}", ctx.pc);
                 Ok((result, ext_ctx.pc_managed))
             }
             Err(e) => {
-                eprintln!("Page fault detected: {}, setting PC to 0", e);
+                tracing::trace!("Page fault detected: {}, setting PC to 0", e);
                 ctx.pc = 0;
                 Ok((ExecResult::Trap, false))
             }
@@ -664,7 +664,7 @@ impl Jit {
             let result_ptr = ctx_ptr.add(offset);
             let discriminant = *(result_ptr as *const u64);
 
-            eprintln!("decode_result: discriminant={}", discriminant);
+            tracing::trace!("decode_result: discriminant={}", discriminant);
             match discriminant {
                 0 => {
                     tracing::trace!("Branch result: Continue (don't take branch)");
@@ -696,7 +696,7 @@ impl Jit {
                         || address > self.jump_table.len() as u32 * JUMP_ALIGNMENT_FACTOR
                         || address % 2 != 0
                     {
-                        eprintln!(
+                        tracing::trace!(
                             "Invalid dynamic jump: address={}, table_len={}",
                             address,
                             self.jump_table.len()
@@ -714,7 +714,7 @@ impl Jit {
                         );
                         Ok(ExecResult::Jump(target_pc))
                     } else {
-                        eprintln!(
+                        tracing::trace!(
                             "Jump table index {} out of bounds (table_len={})",
                             index,
                             self.jump_table.len()

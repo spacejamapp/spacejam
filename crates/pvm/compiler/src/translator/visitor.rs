@@ -1380,11 +1380,11 @@ impl Visitor for Translator<'_, '_> {
         let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
 
         // Calculate branch target PC using offset
-        eprintln!(
+        tracing::trace!(
             "visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc",
             pc, off0
         );
-        eprintln!(
+        tracing::trace!(
             "visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}",
             reg0,
             reg1,
