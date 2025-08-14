@@ -105,11 +105,11 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .recent_blocks
             .history
             .iter()
-            .find(|b| b.header_hash == guarantee.report.context.lookup_anchor)
+            .find(|b| b.header_hash == guarantee.report.context.anchor)
         else {
             tracing::warn!(
-                "could not find lookup anchor: 0x{} in recent blocks {:?}",
-                hex::encode(guarantee.report.context.lookup_anchor),
+                "could not find anchor: 0x{} in recent blocks {:?}",
+                hex::encode(guarantee.report.context.anchor),
                 recent_blocks
             );
             return Err(Error::AnchorNotRecent);
