@@ -9,48 +9,70 @@ use parser::{format, Visitor};
 fn get_context_result_offset() -> i64 {
     // Use std::mem::offset_of when available, or calculate manually for now
     // ExtendedBlockContext layout: registers (13*8) + pc (8) + memory_ptr (8) = 120
-    std::mem::size_of::<[u64; 13]>() as i64 + std::mem::size_of::<u64>() as i64 + std::mem::size_of::<*mut u8>() as i64
+    std::mem::size_of::<[u64; 13]>() as i64
+        + std::mem::size_of::<u64>() as i64
+        + std::mem::size_of::<*mut u8>() as i64
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
     /// Helper function to get the linear memory base address from ExtendedContext
     fn get_memory_base(&mut self) -> Value {
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
         let memory_ptr_offset = self.builder.ins().iconst(types::I64, (13 * 8 + 8) as i64);
         let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
-        self.builder.ins().load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
+        self.builder
+            .ins()
+            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
     }
 
     /// Generic helper function for all branch instructions - optimizes Cranelift IR generation
     /// Eliminates code duplication and ensures consistent branch handling patterns
-    fn generate_branch_instruction(&mut self, condition: Value, pc: usize, off0: i64) -> Result<(), anyhow::Error> {
+    fn generate_branch_instruction(
+        &mut self,
+        condition: Value,
+        pc: usize,
+        off0: i64,
+    ) -> Result<(), anyhow::Error> {
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0) as u64;
         // Calculate continue target PC (current PC + instruction length)
         let instr_len = self.get_instruction_length(pc)?;
         let continue_pc = (pc + instr_len) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);  // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);  // Continue variant
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
+        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
         // Store the discriminant
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store conditional target PC: jump_target if taken, continue_target if not taken
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
-        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
+        let selected_pc = self
+            .builder
+            .ins()
+            .select(condition, target_pc_val, continue_pc_val);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_pc, data_addr, 0);
+
         Ok(())
     }
 }
@@ -61,10 +83,10 @@ impl Visitor for Translator<'_, '_> {
     fn visit_trap(&mut self, _pc: usize) -> Result<(), Self::Error> {
         // Mark that this program contains explicit trap instructions
         self.has_explicit_trap = true;
-        
+
         // Block-based: trap instruction just returns from block
         // Runtime will detect trap condition by checking block end state
-        
+
         Ok(())
     }
 
@@ -94,7 +116,7 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_load_imm_jump(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, off0, imm0 } = format;
-        
+
         // Load immediate value first
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let dst_var = self.registers[&reg0];
@@ -102,24 +124,33 @@ impl Visitor for Translator<'_, '_> {
 
         // Calculate target PC: instruction_pc + offset (same as visit_jump)
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Store Jump result in ExtendedContext.result field
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self
+            .builder
+            .block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store Jump discriminant (1) and target PC
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Direct Jump variant
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        
+
         // Store discriminant at result_addr
-        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
+
         // Store target PC at result_addr + 8
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
@@ -826,7 +857,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Bit counting operations
-    fn visit_leading_zero_bits_64(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_leading_zero_bits_64(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -838,7 +873,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_leading_zero_bits_32(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_leading_zero_bits_32(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -852,7 +891,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_trailing_zero_bits_64(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_trailing_zero_bits_64(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -864,7 +907,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_trailing_zero_bits_32(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_trailing_zero_bits_32(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -995,9 +1042,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I8, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I8, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1014,9 +1064,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I16, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I16, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1033,9 +1086,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I32, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I32, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1052,9 +1108,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I64, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I64, MemFlags::new(), final_addr, 0);
 
         self.builder.def_var(dst_var, value);
         Ok(())
@@ -1071,9 +1130,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I8, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I8, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1091,9 +1153,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I16, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I16, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1111,9 +1176,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I32, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I32, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1135,9 +1203,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I8, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I8, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1158,9 +1229,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I16, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I16, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1181,9 +1255,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I32, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I32, MemFlags::new(), final_addr, 0);
         let extended = self.builder.ins().uextend(types::I64, value);
 
         self.builder.def_var(dst_var, extended);
@@ -1204,9 +1281,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory
-        let value = self.builder.ins().load(types::I64, MemFlags::new(), final_addr, 0);
+        let value = self
+            .builder
+            .ins()
+            .load(types::I64, MemFlags::new(), final_addr, 0);
 
         self.builder.def_var(dst_var, value);
         Ok(())
@@ -1226,9 +1306,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I8, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I8, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1249,9 +1332,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I16, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I16, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1272,9 +1358,12 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Load from linear memory with sign extension
-        let unsigned_value = self.builder.ins().load(types::I32, MemFlags::new(), final_addr, 0);
+        let unsigned_value = self
+            .builder
+            .ins()
+            .load(types::I32, MemFlags::new(), final_addr, 0);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
 
         self.builder.def_var(dst_var, value);
@@ -1284,545 +1373,761 @@ impl Visitor for Translator<'_, '_> {
     // Branch operations - implement conditional jumps for block-based JIT
     fn visit_branch_eq(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
         let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
-        
+
         // Calculate branch target PC using offset
-        eprintln!("visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc", pc, off0);
-        eprintln!("visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}", reg0, reg1, off0, pc, off0, (pc as i64 + off0 as i64));
+        eprintln!(
+            "visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc",
+            pc, off0
+        );
+        eprintln!(
+            "visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}",
+            reg0,
+            reg1,
+            off0,
+            pc,
+            off0,
+            (pc as i64 + off0 as i64)
+        );
         let target_pc = (pc as i64 + off0 as i64) as u64;
         // Calculate continue target PC (current PC + instruction length)
         let instr_len = self.get_instruction_length(pc)?;
         let continue_pc = (pc + instr_len) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);  // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);  // Continue variant
-        // Correct: select(condition, jump_when_true, continue_when_false)
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
+        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
+                                                                              // Correct: select(condition, jump_when_true, continue_when_false)
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
         // Store the discriminant
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
-        // Store target PC for Jump case (runtime will read this when discriminant = 1) 
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
+        // Store target PC for Jump case (runtime will read this when discriminant = 1)
         // Store conditional target PC: jump_target if taken, continue_target if not taken
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
-        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
+        let selected_pc = self
+            .builder
+            .ins()
+            .select(condition, target_pc_val, continue_pc_val);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
-        
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_pc, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_eq_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
-        
+
         // Calculate branch target PC using offset
         // Calculate continue target PC (current PC + instruction length)
         let instr_len = self.get_instruction_length(pc)?;
         let continue_pc = (pc + instr_len) as u64;
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);  // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);  // Continue variant
-        // Correct: select(condition, jump_when_true, continue_when_false)
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
+        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
+                                                                              // Correct: select(condition, jump_when_true, continue_when_false)
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
         // Store the discriminant
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store conditional target PC: jump_target if taken, continue_target if not taken
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
-        let selected_pc = self.builder.ins().select(condition, target_pc_val, continue_pc_val);
+        let selected_pc = self
+            .builder
+            .ins()
+            .select(condition, target_pc_val, continue_pc_val);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), selected_pc, data_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_pc, data_addr, 0);
         Ok(())
     }
 
     fn visit_branch_ne(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
         let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
-        
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_ne_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let condition = self.builder.ins().icmp(IntCC::NotEqual, reg_val, imm_val);
-        
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_lt_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_lt_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_ge_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
-        
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_ge_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
-        
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_lt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_lt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedLessThan, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_ge_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
-        
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_ge_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     // Additional branch operations
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
+
         self.generate_branch_instruction(condition, pc, off0 as i64)
     }
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     fn visit_branch_le_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        
+
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
-        
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
+
         // Calculate branch target PC using offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store conditional result
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
-        let selected_discriminant = self.builder.ins().select(condition, jump_discriminant, continue_discriminant);
-        
-        self.builder.ins().store(MemFlags::new(), selected_discriminant, result_addr, 0);
-        
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
         // Store target PC
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
         Ok(())
     }
 
     // Jump operations
     fn visit_jump(&mut self, format: format::O, pc: usize) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
-        
+
         // Calculate target PC: instruction_pc + offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
-        
+
         // Generate Cranelift IR to store jump result in ExtendedBlockContext.result field
         // The context pointer is the first parameter to the compiled function
         // ExtendedBlockContext layout: [registers: [u64; 13], pc: u64, memory_ptr: *mut u8, result: BlockExecutionResult]
         // Result offset = 13*8 + 8 + 8 = 120 bytes
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self
+            .builder
+            .block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // BlockExecutionResult::Jump(target_pc) is represented as:
         // - discriminant (u64): 1 for Jump variant
         // - data (u64): target_pc value
         let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        
+
         // Store discriminant at result_addr
-        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
+
         // Store target_pc at result_addr + 8
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_pc_val, data_addr, 0);
-        
-        tracing::debug!("Jump: PC {} + offset {} = target PC {}", pc, off0, target_pc);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_pc_val, data_addr, 0);
+
+        tracing::debug!(
+            "Jump: PC {} + offset {} = target PC {}",
+            pc,
+            off0,
+            target_pc
+        );
+
         // Jump instruction terminates the block - result stored for runtime control flow handling
-        
+
         Ok(())
     }
 
@@ -1830,32 +2135,39 @@ impl Visitor for Translator<'_, '_> {
         // Indirect jump: PC = reg0 + immediate (following interpreter logic: djump(reg0 + imm0))
         let format::RI { reg0, imm0 } = format;
         tracing::debug!("JumpInd: reg0={}, imm0={}", reg0, imm0);
-        
+
         // Calculate the target address: reg0 + imm0
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target_addr = self.builder.ins().iadd(reg_val, imm_val);
-        
+
         // For indirect jumps, we need to look up the address in the jump table at runtime
         // The runtime will validate and find the actual PC from the jump table
-        
+
         // Get context pointer to store result
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
-        // Store JumpIndirect variant with the calculated address  
+
+        // Store JumpIndirect variant with the calculated address
         // The runtime will resolve this address to an actual PC using the jump table
         let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant (4)
-        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
+
         // Store the target address (will be resolved by runtime)
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_addr, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_addr, data_addr, 0);
+
         // Indirect jump terminates the block - result stored for runtime control flow handling
-        
+
         Ok(())
     }
 
@@ -1943,21 +2255,31 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Load immediate and jump indirect operations
-    fn visit_load_imm_jump_ind(&mut self, format: format::RRII, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_imm_jump_ind(
+        &mut self,
+        format: format::RRII,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Load immediate into first register and jump indirect to second register + immediate
         // Following interpreter logic: rset(reg0, imm0); djump(rget(reg1) + imm1)
-        tracing::debug!("LoadImmJumpInd: reg0={}, reg1={}, imm0={}, imm1={}, jump_table_len={}", 
-                       format.reg0, format.reg1, format.imm0, format.imm1, self.jump_table.len());
-        
+        tracing::debug!(
+            "LoadImmJumpInd: reg0={}, reg1={}, imm0={}, imm1={}, jump_table_len={}",
+            format.reg0,
+            format.reg1,
+            format.imm0,
+            format.imm1,
+            self.jump_table.len()
+        );
+
         // IMPORTANT: Calculate jump target FIRST, before modifying any registers
         // This matches interpreter order: jump_address = rget(reg1) + imm1; rset(reg0, imm0); djump(jump_address)
         let reg1_var = self.registers[&format.reg1];
         let reg1_val = self.builder.use_var(reg1_var); // Read OLD value from register
-        
+
         // Debug the actual parsed values
         tracing::debug!("LoadImmJumpInd parsed: imm0={}, imm1={}, should compute address = reg[{}] + {} = ? + {}", 
                        format.imm0, format.imm1, format.reg1, format.imm1, format.imm1);
-        
+
         let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
         let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
 
@@ -1967,19 +2289,28 @@ impl Visitor for Translator<'_, '_> {
         self.builder.def_var(reg0_var, imm0_val);
 
         // Store JumpIndirect result - let runtime handle jump table validation
-        let context_ptr = self.builder.block_params(self.builder.current_block().unwrap())[0];
-        let result_offset = self.builder.ins().iconst(types::I64, get_context_result_offset());
+        let context_ptr = self
+            .builder
+            .block_params(self.builder.current_block().unwrap())[0];
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store JumpIndirect discriminant (4) - runtime will resolve address via jump table
         let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant
-        self.builder.ins().store(MemFlags::new(), jump_discriminant, result_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
+
         // Store the target address (will be resolved by runtime)
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder.ins().store(MemFlags::new(), target_addr, data_addr, 0);
-        
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target_addr, data_addr, 0);
+
         Ok(())
     }
 
@@ -1998,9 +2329,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2019,9 +2352,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2040,9 +2375,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2059,9 +2396,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), src_val, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), src_val, final_addr, 0);
 
         Ok(())
     }
@@ -2077,17 +2416,19 @@ impl Visitor for Translator<'_, '_> {
         let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
             self.builder.ins().ireduce(types::I8, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
@@ -2102,17 +2443,19 @@ impl Visitor for Translator<'_, '_> {
         let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
             self.builder.ins().ireduce(types::I16, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
@@ -2127,17 +2470,19 @@ impl Visitor for Translator<'_, '_> {
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
@@ -2155,9 +2500,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), value, final_addr, 0);
 
         Ok(())
     }
@@ -2181,9 +2528,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2206,9 +2555,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2231,9 +2582,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), truncated, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), truncated, final_addr, 0);
 
         Ok(())
     }
@@ -2253,15 +2606,21 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), src_val, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), src_val, final_addr, 0);
 
         Ok(())
     }
 
     // Store immediate indirect operations
-    fn visit_store_imm_ind_u8(&mut self, format: format::RII, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_ind_u8(
+        &mut self,
+        format: format::RII,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
         let addr_val = self.builder.use_var(addr_var);
@@ -2274,22 +2633,28 @@ impl Visitor for Translator<'_, '_> {
         let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
             self.builder.ins().ireduce(types::I8, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
 
-    fn visit_store_imm_ind_u16(&mut self, format: format::RII, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_ind_u16(
+        &mut self,
+        format: format::RII,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
         let addr_val = self.builder.use_var(addr_var);
@@ -2302,22 +2667,28 @@ impl Visitor for Translator<'_, '_> {
         let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
             self.builder.ins().ireduce(types::I16, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
 
-    fn visit_store_imm_ind_u32(&mut self, format: format::RII, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_ind_u32(
+        &mut self,
+        format: format::RII,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
         let addr_val = self.builder.use_var(addr_var);
@@ -2326,26 +2697,35 @@ impl Visitor for Translator<'_, '_> {
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
 
+        // Check store boundaries to detect cross-page writes (4 bytes for u32)
+        self.check_store_boundaries(effective_addr, 4)?;
+
         // Create immediate value
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
 
         // Emit memory write
-        // Get linear memory base and calculate final address  
+        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory with type checking
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
         } else {
             value
         };
-        self.builder.ins().store(MemFlags::new(), write_value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), write_value, final_addr, 0);
 
         Ok(())
     }
 
-    fn visit_store_imm_ind_u64(&mut self, format: format::RII, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_ind_u64(
+        &mut self,
+        format: format::RII,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
         let addr_val = self.builder.use_var(addr_var);
@@ -2353,6 +2733,9 @@ impl Visitor for Translator<'_, '_> {
         // Calculate effective address with offset
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
+
+        // Check store boundaries to detect cross-page writes (8 bytes for u64)
+        self.check_store_boundaries(effective_addr, 8)?;
 
         // Create immediate value
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
@@ -2361,9 +2744,11 @@ impl Visitor for Translator<'_, '_> {
         // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        
+
         // Store to linear memory
-        self.builder.ins().store(MemFlags::new(), value, final_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), value, final_addr, 0);
 
         Ok(())
     }
@@ -2376,13 +2761,13 @@ impl Visitor for Translator<'_, '_> {
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let src_32 = self.builder.ins().ireduce(types::I32, src_val);
-        
+
         // Negate the source and add immediate: -src + imm
         let negated = self.builder.ins().ineg(src_32);
         let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
         let result_32 = self.builder.ins().iadd(negated, imm_val);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result_64);
         Ok(())
@@ -2392,12 +2777,12 @@ impl Visitor for Translator<'_, '_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
-        
-        // Negate the source and add immediate: -src + imm  
+
+        // Negate the source and add immediate: -src + imm
         let negated = self.builder.ins().ineg(src_val);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let result = self.builder.ins().iadd(negated, imm_val);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2410,11 +2795,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Compare: reg0 < reg1 (unsigned)
-        let is_less = self.builder.ins().icmp(IntCC::UnsignedLessThan, src0_val, src1_val);
+        let is_less = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, src0_val, src1_val);
         let result = self.builder.ins().uextend(types::I64, is_less);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2426,11 +2814,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Compare: reg0 < reg1 (signed)
-        let is_less = self.builder.ins().icmp(IntCC::SignedLessThan, src0_val, src1_val);
+        let is_less = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, src0_val, src1_val);
         let result = self.builder.ins().uextend(types::I64, is_less);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2442,11 +2833,14 @@ impl Visitor for Translator<'_, '_> {
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        
+
         // Compare: reg1 < imm (unsigned)
-        let is_less = self.builder.ins().icmp(IntCC::UnsignedLessThan, src_val, imm_val);
+        let is_less = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, src_val, imm_val);
         let result = self.builder.ins().uextend(types::I64, is_less);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2457,11 +2851,14 @@ impl Visitor for Translator<'_, '_> {
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        
+
         // Compare: reg1 < imm (signed)
-        let is_less = self.builder.ins().icmp(IntCC::SignedLessThan, src_val, imm_val);
+        let is_less = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, src_val, imm_val);
         let result = self.builder.ins().uextend(types::I64, is_less);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2472,11 +2869,14 @@ impl Visitor for Translator<'_, '_> {
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        
+
         // Compare: reg1 > imm (unsigned)
-        let is_greater = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, src_val, imm_val);
+        let is_greater = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedGreaterThan, src_val, imm_val);
         let result = self.builder.ins().uextend(types::I64, is_greater);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2487,127 +2887,154 @@ impl Visitor for Translator<'_, '_> {
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        
+
         // Compare: reg1 > imm (signed)
-        let is_greater = self.builder.ins().icmp(IntCC::SignedGreaterThan, src_val, imm_val);
+        let is_greater = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThan, src_val, imm_val);
         let result = self.builder.ins().uextend(types::I64, is_greater);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
     // Shift immediate "alt" variants (alternative encodings) - 32-bit
-    fn visit_shlo_l_imm_alt_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_imm_alt_32(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
         let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
-        
+
         // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_32, 31);
-        
+
         // Shift immediate value by register content (left shift)
         let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
         let result_32 = self.builder.ins().ishl(imm_val, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result_64);
         Ok(())
     }
 
-    fn visit_shlo_r_imm_alt_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_imm_alt_32(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
         let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
-        
+
         // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_32, 31);
-        
+
         // Shift immediate value by register content
         let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
         let result_32 = self.builder.ins().ushr(imm_val, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result_64);
         Ok(())
     }
 
-    fn visit_shar_r_imm_alt_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_imm_alt_32(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
         let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
-        
+
         // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_32, 31);
-        
+
         // Arithmetic shift immediate value by register content
         let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
         let result_32 = self.builder.ins().sshr(imm_val, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result_64);
         Ok(())
     }
 
     // Shift immediate "alt" variants (alternative encodings) - 64-bit
-    fn visit_shlo_l_imm_alt_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_imm_alt_64(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
-        
-        // Mask shift amount to avoid undefined behavior  
+
+        // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_val, 63);
-        
+
         // Shift immediate value by register content (left shift)
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let result = self.builder.ins().ishl(imm_val, safe_shift);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
-    fn visit_shlo_r_imm_alt_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_imm_alt_64(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
-        
-        // Mask shift amount to avoid undefined behavior  
+
+        // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_val, 63);
-        
+
         // Shift immediate value by register content
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let result = self.builder.ins().ushr(imm_val, safe_shift);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
-    fn visit_shar_r_imm_alt_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_imm_alt_64(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
-        
+
         // Mask shift amount to avoid undefined behavior
         let safe_shift = self.builder.ins().band_imm(shift_val, 63);
-        
+
         // Arithmetic shift immediate value by register content
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let result = self.builder.ins().sshr(imm_val, safe_shift);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2621,11 +3048,11 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // For upper bits of signed*signed multiplication
         // We need to handle this as 64-bit * 64-bit = 128-bit and get upper 64 bits
         let result = self.builder.ins().smulhi(src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2637,10 +3064,10 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // For upper bits of unsigned*unsigned multiplication
         let result = self.builder.ins().umulhi(src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2652,39 +3079,47 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // For upper bits of signed*unsigned multiplication
         // This is more complex - we can emulate with signed high multiply
         let result = self.builder.ins().smulhi(src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
-    fn visit_count_set_bits_64(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_count_set_bits_64(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Count set bits (population count)
         let result = self.builder.ins().popcnt(src_val);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
-    fn visit_count_set_bits_32(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_count_set_bits_32(
+        &mut self,
+        format: format::RR,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Truncate to 32-bit, count set bits, then extend back
         let src32 = self.builder.ins().ireduce(types::I32, src_val);
         let count32 = self.builder.ins().popcnt(src32);
         let result = self.builder.ins().uextend(types::I64, count32);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2696,11 +3131,11 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // AND with inverted: result = src0 & (~src1)
         let inv_src1 = self.builder.ins().bnot(src1_val);
         let result = self.builder.ins().band(src0_val, inv_src1);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2712,11 +3147,11 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // OR with inverted: result = src0 | (~src1)
         let inv_src1 = self.builder.ins().bnot(src1_val);
         let result = self.builder.ins().bor(src0_val, inv_src1);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2728,11 +3163,11 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
-        // XNOR: result = ~(src0 ^ src1) = src0 ^ ~src1 
+
+        // XNOR: result = ~(src0 ^ src1) = src0 ^ ~src1
         let xor_result = self.builder.ins().bxor(src0_val, src1_val);
         let result = self.builder.ins().bnot(xor_result);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2744,11 +3179,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Signed maximum
-        let cmp = self.builder.ins().icmp(IntCC::SignedGreaterThan, src0_val, src1_val);
+        let cmp = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThan, src0_val, src1_val);
         let result = self.builder.ins().select(cmp, src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2760,11 +3198,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Unsigned maximum
-        let cmp = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, src0_val, src1_val);
+        let cmp = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedGreaterThan, src0_val, src1_val);
         let result = self.builder.ins().select(cmp, src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2776,11 +3217,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Signed minimum
-        let cmp = self.builder.ins().icmp(IntCC::SignedLessThan, src0_val, src1_val);
+        let cmp = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, src0_val, src1_val);
         let result = self.builder.ins().select(cmp, src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2792,11 +3236,14 @@ impl Visitor for Translator<'_, '_> {
         let src1_var = self.registers[&reg1];
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
-        
+
         // Unsigned minimum
-        let cmp = self.builder.ins().icmp(IntCC::UnsignedLessThan, src0_val, src1_val);
+        let cmp = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, src0_val, src1_val);
         let result = self.builder.ins().select(cmp, src0_val, src1_val);
-        
+
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2806,10 +3253,10 @@ impl Visitor for Translator<'_, '_> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Byte reversal (endianness swap)
         let result = self.builder.ins().bswap(src_val);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2819,11 +3266,11 @@ impl Visitor for Translator<'_, '_> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Sign extend from 8 bits
         let src8 = self.builder.ins().ireduce(types::I8, src_val);
         let result = self.builder.ins().sextend(types::I64, src8);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2833,11 +3280,11 @@ impl Visitor for Translator<'_, '_> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Sign extend from 16 bits
         let src16 = self.builder.ins().ireduce(types::I16, src_val);
         let result = self.builder.ins().sextend(types::I64, src16);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -2847,10 +3294,10 @@ impl Visitor for Translator<'_, '_> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-        
+
         // Zero extend from 16 bits (mask to 16 bits)
         let result = self.builder.ins().band_imm(src_val, 0xFFFF);
-        
+
         let dst_var = self.registers[&reg1];
         self.builder.def_var(dst_var, result);
         Ok(())

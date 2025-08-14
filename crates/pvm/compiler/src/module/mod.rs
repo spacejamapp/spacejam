@@ -1,8 +1,8 @@
 //! Compiled function metadata
 
+use crate::jit::{Context, Jit};
 use anyhow::Result;
 pub use {info::Info, memory::Memory};
-use crate::jit::{Jit, Context};
 
 mod info;
 pub mod memory;
@@ -35,7 +35,12 @@ impl Module {
     }
 
     /// Create a new module with program bytes for block-based JIT
-    pub fn new(_entry_point: *const u8, _size: usize, instruction_count: usize, has_explicit_trap: bool) -> Self {
+    pub fn new(
+        _entry_point: *const u8,
+        _size: usize,
+        instruction_count: usize,
+        has_explicit_trap: bool,
+    ) -> Self {
         // Note: entry_point and size are ignored - kept for compatibility
         // The actual program will be provided via with_program()
         Self {
@@ -46,14 +51,14 @@ impl Module {
             size: 0,
         }
     }
-    
+
     /// Set the program bytes for block JIT execution
     pub fn with_program(mut self, program: Vec<u8>) -> Self {
         self.instruction_count = program.len(); // Approximate
         self.program_bytes = program;
         self
     }
-    
+
     /// Mark that this module should use block JIT
     pub fn with_block_jit(self, _use_block_jit: bool) -> Self {
         // Currently always uses block JIT since we removed the old compiler
@@ -84,18 +89,18 @@ impl Module {
 
         // Create a block JIT compiler
         let mut compiler = Jit::new()?;
-        
+
         // Analyze the program to discover basic blocks
         compiler.analyze(&self.program_bytes)?;
-        
+
         // Create initial execution context
         let context = Context::new(*initial_registers, initial_pc, initial_memory);
-        
+
         // Execute using block-based JIT
         let result = compiler.execute(context)?;
-        
+
         // Handle explicit trap instruction PC=0 behavior per Graypaper specification
-        // Explicit trap instructions set ε=panic and PC=0, but branch validation 
+        // Explicit trap instructions set ε=panic and PC=0, but branch validation
         // failures set ε=panic with preserved PC
         let is_trap = self.is_simple_trap_program();
         let final_pc = if initial_pc == 0 && result.pc == 1 && is_trap {
@@ -104,7 +109,7 @@ impl Module {
         } else {
             result.pc
         };
-        
+
         Ok(Info {
             registers: result.registers,
             pc: final_pc,

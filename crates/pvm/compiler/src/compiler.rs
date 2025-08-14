@@ -12,9 +12,7 @@ pub struct Compiler {
 impl Compiler {
     /// Create a new compiler instance
     pub fn new() -> Result<Self> {
-        Ok(Self {
-            jit: Jit::new()?,
-        })
+        Ok(Self { jit: Jit::new()? })
     }
 
     /// Compile a PVM program blob to native code
