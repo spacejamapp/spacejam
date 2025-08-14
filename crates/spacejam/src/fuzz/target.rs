@@ -70,7 +70,10 @@ impl Target {
             }) else {
                 return Ok(());
             };
-            target.handle(message)?;
+
+            if let Err(e) = target.handle(message) {
+                tracing::warn!("failed to process message: {e}, waiting for the next message ...");
+            }
         }
     }
 

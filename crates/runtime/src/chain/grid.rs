@@ -22,7 +22,7 @@ impl Grid {
     pub fn new(storage: &impl Storage) -> anyhow::Result<Self> {
         let prev = storage.previous_validators().unwrap_or_default();
         let curr = storage.current_validators().unwrap_or_default();
-        let next = storage.next_validators().unwrap_or_default();
+        let next = storage.safrole().unwrap_or_default().validators;
 
         Ok(Self { prev, curr, next })
     }

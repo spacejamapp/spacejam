@@ -10,6 +10,7 @@ use std::{
 use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
 

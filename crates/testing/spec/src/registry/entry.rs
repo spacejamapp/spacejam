@@ -42,7 +42,15 @@ impl Entry {
         let mut files = Vec::new();
         for entry in fs::read_dir(dir)? {
             let path = entry?.path();
-            if path.is_file() && path.extension().unwrap_or_default() == "json" {
+            if path.is_file()
+                && path.extension().unwrap_or_default() == "json"
+                && !path
+                    .with_extension("")
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .starts_with("_")
+            {
                 files.push(path);
             }
         }

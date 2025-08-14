@@ -5,8 +5,8 @@ use crate::{
     invocation::{Accumulate, State},
     Result,
 };
-use codec::Numeric;
 use score::{
+    safrole::ValidatorData,
     service::{GasLimit, Privileges, ServiceAccount},
     vm::DeferredTransfer,
     Account, Accounts,
@@ -39,38 +39,59 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩB) bless
     pub fn bless<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let [m, a, v, o, n] = [
-            state.registers[7],
-            state.registers[8],
-            state.registers[9],
-            state.registers[10],
-            state.registers[11],
+        // Gray Paper: using [m, a, v, o, n] = registers_{7 ÷÷ 5}
+        let [bless, assign, designate, acc, entries] = [
+            state.registers[7],  // m: bless service id
+            state.registers[8],  // a: memory address of assign array
+            state.registers[9],  // v: designate service id
+            state.registers[10], // o: memory address of always_acc map
+            state.registers[11], // n: count of always_acc entries
         ];
 
-        // get the data source
-        let source = state.memory.read_bytes(o as u32, (12 * n) as u32)?;
-
-        // parse always accumulate service ids
-        let mut map = BTreeMap::new();
-        for chunk in source.chunks(12) {
-            let index = u64::decode(&chunk[..4]);
-            let value = u64::decode(&chunk[4..]);
-            map.insert(index as u32, value);
+        // Check if current service is the blessed service
+        if self.x.service != self.x.context.privileges.bless {
+            return Ok(Exit::Huh as u64);
         }
 
-        // return if unknown index
-        let u32max = u32::MAX as u64;
-        if m > u32max || a > u32max || v > u32max {
+        // Check if bless and designate are valid service IDs
+        if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
             return Ok(Exit::Who as u64);
         }
 
-        // TODO: fix the assign array
+        // Read assign array from memory
+        let assign = {
+            let size = 4 * score::CORES_COUNT as u32;
+            let data = state.memory.read_bytes(assign as u32, size)?;
+            let mut assign = [0u32; score::CORES_COUNT];
+            for (i, chunk) in data.chunks(4).enumerate() {
+                if i < score::CORES_COUNT {
+                    assign[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                }
+            }
+
+            assign
+        };
+
+        // Read always accumulate map from memory
+        let mut always_acc = BTreeMap::new();
+        if entries > 0 {
+            let source = state.memory.read_bytes(acc as u32, (12 * entries) as u32)?;
+            for chunk in source.chunks(12) {
+                let service_id = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                let gas_allowance = u64::from_le_bytes([
+                    chunk[4], chunk[5], chunk[6], chunk[7], chunk[8], chunk[9], chunk[10],
+                    chunk[11],
+                ]);
+                always_acc.insert(service_id, gas_allowance);
+            }
+        }
+
+        // Update privileges: tuple{m, 𝐚, v, 𝐳}
         self.x.context.privileges = Privileges {
-            bless: m as u32,
-            assign: [a as u32; score::CORES_COUNT],
-            designate: v as u32,
-            always_acc: map,
+            bless: bless as u32,
+            assign,
+            designate: designate as u32,
+            always_acc,
         };
 
         Ok(Exit::Ok as u64)
@@ -106,6 +127,8 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩD) designate
+    ///
+    /// select the validators to be drawn for the next epoch
     pub fn designate<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -116,13 +139,23 @@ impl<R: Accounts> Accumulate<R> {
             .memory
             .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
 
-        // decode validators
-        let Some(validators) = source
-            .chunks(336)
-            .map(|chunk| codec::decode(chunk).ok())
-            .collect::<Option<Vec<_>>>()
-        else {
-            crate::bail!("Could not parse validators");
+        let validators = {
+            if source.len() != 336 * score::VALIDATORS_COUNT as usize {
+                crate::bail!(
+                    "Invalid encoded validators, expected length: {}, got: {}",
+                    336 * score::VALIDATORS_COUNT as usize,
+                    source.len()
+                );
+            }
+
+            let mut validators = [ValidatorData::default(); score::VALIDATORS_COUNT as usize];
+            for (i, chunk) in source.chunks(336).enumerate() {
+                let Ok(validator) = codec::decode(chunk) else {
+                    crate::bail!("Could not parse validators");
+                };
+                validators[i] = validator;
+            }
+            validators
         };
 
         // set the validators
@@ -195,6 +228,12 @@ impl<R: Accounts> Accumulate<R> {
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
 
+        tracing::debug!(
+            "upgrade account {:?}, code=0x{}, previous=0x{}",
+            account.index(),
+            hex::encode(code),
+            hex::encode(account.code())
+        );
         account.set_code(code);
         account.set_transfer_gas(m);
         account.set_accumulate_gas(g);

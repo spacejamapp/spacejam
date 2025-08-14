@@ -69,7 +69,7 @@ pub trait StateStorage: KVStorage {
                     key::SAFROLE,
                     key::DISPUTES,
                     key::ENTROPY,
-                    key::NEXT_VALIDATORS,
+                    key::DRAWN_VALIDATORS,
                     key::CURRENT_VALIDATORS,
                     key::PREVIOUS_VALIDATORS,
                     key::PENDING_REPORTS,
@@ -94,7 +94,7 @@ pub trait StateStorage: KVStorage {
         state.safrole = codec::decode(&data[3]).unwrap_or_default();
         state.disputes = codec::decode(&data[4]).unwrap_or_default();
         state.entropy = codec::decode(&data[5]).unwrap_or_default();
-        state.validators.next = codec::decode(&data[6]).unwrap_or_default();
+        state.validators.drawn = codec::decode(&data[6]).unwrap_or_default();
         state.validators.current = codec::decode(&data[7]).unwrap_or_default();
         state.validators.previous = codec::decode(&data[8]).unwrap_or_default();
         state.reports = codec::decode(&data[9]).unwrap_or_default();
@@ -177,11 +177,11 @@ pub trait StateStorage: KVStorage {
         .context("failed to decode entropy")
     }
 
-    /// Fetch the next validators
-    fn next_validators(&self) -> Result<ValidatorsData> {
+    /// Fetch the next validators to be drawn
+    fn drawn_validators(&self) -> Result<ValidatorsData> {
         codec::decode(
             &self
-                .state_get(key::NEXT_VALIDATORS)?
+                .state_get(key::DRAWN_VALIDATORS)?
                 .ok_or(anyhow::anyhow!("next validators not found"))?,
         )
         .context("failed to decode next validators")

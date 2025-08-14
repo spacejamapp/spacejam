@@ -10,11 +10,13 @@ use runtime::{
 };
 use score::{
     block::{Block, BlockInfo, History, Mmr},
-    service::{AccumulatedQueue, ReadyQueue, ServiceInfo},
+    safrole::ValidatorsData,
+    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts,
 };
+use spacejson::Json;
 use specjam::{Section, Test};
 use std::{collections::BTreeMap, sync::Arc};
 use tracing_subscriber::EnvFilter;
@@ -28,7 +30,7 @@ impl Runner {
         let _ = tracing_subscriber::fmt::Subscriber::builder()
             .with_env_filter(EnvFilter::from_default_env())
             .without_time()
-            // .with_ansi(false)
+            .with_ansi(false)
             .with_thread_names(false)
             .with_file(false)
             // .with_level(false)
@@ -51,7 +53,9 @@ impl Runner {
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
+                    &Default::default(),
                     accounts.clone(),
+                    Default::default(),
                 )?;
                 accumulation.root = Default::default();
 
@@ -448,16 +452,37 @@ impl Runner {
                         tracing::debug!("spacejam: {:?}", recent);
                     }
 
-                    /* if key == key::MMB && value != result {
-                        tracing::debug!("polkajam: {:?}", value);
-                        tracing::debug!("spacejam: {:?}", result);
-                    } */
+                    if key == key::PRIVILEGED_SERVICE && value != result {
+                        let polkajam: Privileges = codec::decode(&value)?;
+                        let spacejam: Privileges = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", spacejam);
+                    }
+
+                    if key == key::DRAWN_VALIDATORS && value != result {
+                        let polkajam: ValidatorsData = codec::decode(&value)?;
+                        let spacejam: ValidatorsData = codec::decode(&result)?;
+                        tracing::debug!(
+                            "polkajam-ed25519: {:?}",
+                            polkajam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
+                        tracing::debug!(
+                            "spacejam-ed25519: {:?}",
+                            spacejam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
+                    }
 
                     if key.starts_with(&[255]) && value != result {
                         let polkajam: ServiceInfo = codec::decode(&value)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        let recent: ServiceInfo = codec::decode(&result)?;
-                        tracing::debug!("spacejam: {:?}", recent);
+                        let spacejam: ServiceInfo = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:#?}", polkajam);
+                        tracing::debug!("spacejam: {:#?}", spacejam);
                     }
                 }
 

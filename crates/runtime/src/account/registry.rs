@@ -57,10 +57,12 @@ impl<S: Storage> score::Accounts for Accounts<S> {
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
-        if let Some(account) = self.accounts.get(&index) {
-            return Some(account.code());
-        }
-        Some(self.storage.account_info(index).ok()?.code)
+        // WORKAROUND:
+        //
+        // always return the code hash from storage since this
+        // might be updated during the execution, we can optimize
+        // this later then.
+        self.storage.account_info(index).ok().map(|info| info.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl score::Account) {

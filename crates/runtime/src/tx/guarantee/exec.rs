@@ -137,7 +137,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
     // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {
-        context.validators = result.context.validators.clone();
+        context.validators = result.context.validators;
     };
 
     // Handle the assign array - each core has its own assign service
@@ -177,5 +177,5 @@ pub fn once<V: Pvm, R: Accounts>(
         .iter()
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
-    V::accumulate(context, timeslot, service, gas, operands, [0; 32])
+    V::accumulate(context, timeslot, service, gas, operands)
 }

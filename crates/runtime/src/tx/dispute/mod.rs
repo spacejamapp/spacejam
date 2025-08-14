@@ -178,7 +178,7 @@ fn culprits(
         }
 
         if let Err(e) = culprit.verify() {
-            tracing::error!("Invalid signature in culprit: {e}");
+            tracing::warn!("Invalid signature in culprit: {e}");
             return Err(Error::BadSignature);
         }
 
@@ -246,7 +246,7 @@ fn faults(
         }
 
         if let Err(e) = fault.verify() {
-            tracing::error!("Invalid signature in fault: {e}");
+            tracing::warn!("Invalid signature in fault: {e}");
             return Err(Error::BadSignature);
         }
 

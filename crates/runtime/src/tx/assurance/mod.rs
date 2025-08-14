@@ -54,8 +54,15 @@ pub fn available(
     }
 
     // Check for engaged reports
-    for (index, assurance) in assurances.iter().enumerate() {
-        self::verify_assurance(validators, index as u16, assurance, parent)?;
+    let mut assuror = None;
+    for assurance in assurances.iter() {
+        self::verify_assurance(validators, assurance, parent)?;
+        if let Some(last) = assuror {
+            if assurance.validator_index <= last {
+                return Err(Error::NotSortedOrUniqueAssurers);
+            }
+        }
+        assuror = Some(assurance.validator_index);
 
         // Count assurances per core
         let bitsmap = assurance.bitsmap();
@@ -91,7 +98,6 @@ pub fn available(
 /// Verifies the assurance
 pub fn verify_assurance(
     validators: &[ValidatorData],
-    index: u16,
     assurance: &AvailAssurance,
     parent: OpaqueHash,
 ) -> Result<()> {
@@ -99,18 +105,15 @@ pub fn verify_assurance(
         return Err(Error::BadValidatorIndex);
     }
 
-    if assurance.validator_index != index {
-        return Err(Error::NotSortedOrUniqueAssurers);
-    }
-
     if assurance.anchor != parent {
         return Err(Error::BadAttestationParent);
     }
 
-    if validators[index as usize]
+    if validators[assurance.validator_index as usize]
         .verify_assurance(assurance)
         .is_err()
     {
+        tracing::error!("bad signature for assurance: {:?}", assurance);
         return Err(Error::BadSignature);
     }
 

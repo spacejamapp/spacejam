@@ -46,8 +46,7 @@ impl App {
         let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
             0 => format!("{name}=info"),
             1 => format!("{name}=debug"),
-            2 => format!("{name}=trace"),
-            3 => "debug".into(),
+            2 => format!("{name}=trace,debug"),
             _ => "trace".into(),
         }));
 

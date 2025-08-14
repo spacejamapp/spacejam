@@ -87,12 +87,12 @@ pub enum ServiceField {
 /// The kind of validator
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidatorKind {
-    /// The current validator (ι)
-    Current,
+    /// The next validators to be drawn (ι)
+    Drawn,
     /// The previous validator (κ)
-    Previous,
+    Current,
     /// The next validator (λ)
-    Next,
+    Previous,
 }
 
 impl StateKeyInfo for TrieKey {
@@ -104,8 +104,8 @@ impl StateKeyInfo for TrieKey {
             key::SAFROLE => StateKey::Safrole,
             key::DISPUTES => StateKey::Disputes,
             key::ENTROPY => StateKey::Entropy,
-            key::NEXT_VALIDATORS => StateKey::Validators {
-                kind: ValidatorKind::Next,
+            key::DRAWN_VALIDATORS => StateKey::Validators {
+                kind: ValidatorKind::Drawn,
             },
             key::CURRENT_VALIDATORS => StateKey::Validators {
                 kind: ValidatorKind::Current,
