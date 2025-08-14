@@ -198,7 +198,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         self.processed.insert(guarantee.report.core_index);
-        Ok(guarantors.values().cloned().collect())
+
+        // Return only the validators who actually provided signatures (reporters)
+        Ok(guarantee
+            .signatures
+            .iter()
+            .map(|sig| guarantors[&(sig.validator_index as usize)])
+            .collect())
     }
 
     fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
