@@ -3,7 +3,6 @@
 use crate::tx::guarantee::error::{Error, Result};
 use score::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    safrole::ValidatorIter,
     service::{ReportedWorkPackage, WorkExecResult},
     util, Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
@@ -40,6 +39,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     /// Validate work reports according to the guarantees extrinsic
+    #[tracing::instrument(skip_all, name = "guarantee")]
     pub fn validate(
         &mut self,
         slot: TimeSlot,
@@ -54,17 +54,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
-            let validators = if self.timeslot / EPOCH_LENGTH == guarantee.slot / EPOCH_LENGTH {
-                self.state.validators.current
-            } else {
-                self.state.validators.previous
-            }
-            .ed25519();
-
             self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
-            self.validate_guarantee(guarantee)?;
+            let guarantors = self.validate_guarantee(guarantee)?;
 
             // Record reported package
             reported.push(ReportedWorkPackage {
@@ -73,12 +66,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             });
 
             // Record reporters (guarantors)
-            reporters.extend(
-                guarantee
-                    .signatures
-                    .iter()
-                    .map(|sig| validators[sig.validator_index as usize]),
-            );
+            reporters.extend(guarantors);
         }
 
         // Sort the reported work packages and reporters
@@ -154,7 +142,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_guarantee(&mut self, guarantee: &ReportGuarantee) -> Result<()> {
+    fn validate_guarantee(&mut self, guarantee: &ReportGuarantee) -> Result<Vec<Ed25519Public>> {
         // 1. validate the rotation
         let guarantors = self.validate_rotation(guarantee)?;
 
@@ -197,14 +185,20 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             }
 
             crypto::ed25519::verify(&message, sig.signature, *key)
-                .inspect_err(|e| tracing::warn!("failed to verify guarantee signature: {:?}", e))
+                .inspect_err(|_| {
+                    tracing::warn!(
+                        "failed to verify guarantee signature by {} - 0x{}",
+                        sig.validator_index,
+                        hex::encode(key),
+                    )
+                })
                 .map_err(|_| Error::BadSignature)?;
 
             guarantor = Some(validator_index);
         }
 
         self.processed.insert(guarantee.report.core_index);
-        Ok(())
+        Ok(guarantors.values().cloned().collect())
     }
 
     fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
@@ -253,22 +247,26 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::ReportEpochBeforeLast);
         }
 
-        // GP reference: (11.26)
-        let (validators, assignments) =
-            if gslot / ROTATION_PERIOD as u32 == slot / ROTATION_PERIOD as u32 {
-                let assignments = util::assignments(slot, self.state.entropy[2]);
-                (self.state.validators.current, assignments)
+        let (validators, assignments) = if gslot / ROTATION_PERIOD as u32
+            == slot / ROTATION_PERIOD as u32
+        {
+            tracing::trace!("report in the same rotation, using current validators");
+            let assignments = util::assignments(slot, self.state.entropy[2]);
+            (self.state.validators.current, assignments)
+        } else {
+            let (entropy, validators) = if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH
+                == slot / EPOCH_LENGTH
+            {
+                tracing::trace!("last rotation in the same epoch, using current validators");
+                (self.state.entropy[2], self.state.validators.current)
             } else {
-                let (entropy, validators) =
-                    if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
-                        (self.state.entropy[2], self.state.validators.current)
-                    } else {
-                        (self.state.entropy[3], self.state.validators.previous)
-                    };
-                let assignments =
-                    util::assignments(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
-                (validators, assignments)
+                tracing::trace!("last rotation in the previous epoch, using previous validators");
+                (self.state.entropy[3], self.state.validators.previous)
             };
+            let assignments =
+                util::assignments(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
+            (validators, assignments)
+        };
 
         // Get the guarantors for the core
         Ok(assignments[guarantee.report.core_index as usize]

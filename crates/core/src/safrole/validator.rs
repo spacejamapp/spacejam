@@ -111,7 +111,6 @@ mod crypto_impl {
     use super::ValidatorData;
 
     impl ValidatorData {
-        #[cfg(feature = "crypto")]
         /// Verify the input assurance.
         pub fn verify_assurance(
             &self,
