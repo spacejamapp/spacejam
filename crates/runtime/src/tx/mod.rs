@@ -141,6 +141,8 @@ pub fn simulate<Vm: Pvm>(
             &block.extrinsic,
         );
         state.statistics.merge_reports(&available, &assurances);
+        tracing::debug!("assurances: {:?}", assurances);
+        tracing::debug!("core activity: {:?}", state.statistics.cores);
 
         // (..., C) Accumulate the available work reports
         tracing::debug!("handle accumulation");
