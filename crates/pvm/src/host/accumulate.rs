@@ -5,7 +5,11 @@ use crate::{
     invocation::{Accumulate, State},
     Result,
 };
-use score::{safrole::ValidatorData, service::Privileges, Account, Accounts};
+use score::{
+    safrole::ValidatorData,
+    service::{Privileges, ServiceAccount, ServiceInfo},
+    Account, Accounts,
+};
 use std::collections::BTreeMap;
 
 impl<R: Accounts> Accumulate<R> {
@@ -164,8 +168,58 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩN) new
-    pub fn new_<Memory: crate::Memory>(&mut self, _state: &mut State<Memory>) -> Result<ExitCode> {
-        crate::bail!("to be refactored");
+    pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        let [o, length, accumulate_gas, transfer_gas, f] = [
+            state.registers[7],
+            state.registers[8],
+            state.registers[9],
+            state.registers[10],
+            state.registers[11],
+        ];
+
+        // check if the service is blessed
+        if f != 0 && self.x.context.privileges.bless != self.x.service {
+            return Ok(Exit::Huh as u64);
+        }
+
+        // get the account code
+        let code = state.memory.read_hash(o as u32)?;
+        if length > u32::MAX as u64 {
+            crate::bail!("Invalid length");
+        }
+
+        // check if the service has enough balance
+        let service = self.account()?;
+        if service.balance() < service.threshold() {
+            return Ok(Exit::Cash as u64);
+        }
+        *service.balance_mut() -= score::BALANCE_PER_SERVICE;
+
+        // create a new account
+        let index = self.x.index;
+        let created = ServiceAccount {
+            index,
+            lookup: vec![((code, length as u32), vec![])].into_iter().collect(),
+            info: ServiceInfo {
+                code,
+                balance: score::BALANCE_PER_SERVICE,
+                accumulate: accumulate_gas,
+                transfer: transfer_gas,
+                creation: self.timeslot,
+                update: 0,
+                parent: self.x.service,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        self.x.context.accounts.upsert(index, created);
+        self.x.index = self
+            .x
+            .context
+            .accounts
+            .check(1 << 8 + (index - 1 << 8 + 42) % 1 << 32 - 1 << 9);
+        Ok(index as u64)
     }
 
     /// (ΩU) upgrade service code
