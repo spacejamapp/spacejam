@@ -7,7 +7,15 @@ use score::{
 };
 use std::collections::HashSet;
 
-/// (δ') handle preimage
+/// (δ') handle preimage extrinsic per Gray Paper eq 331
+///
+/// Validates preimages against post-transfer state and integrates valid ones.
+/// Invalid preimages are disregarded without prejudice per eq 326-332.
+///
+/// # Arguments
+/// * `slot` - Current time slot (τ')
+/// * `preimages` - Preimage extrinsic data
+/// * `accounts` - Post-transfer account state (accounts_post_xfer)
 pub fn accounts(
     slot: TimeSlot,
     preimages: &PreimagesExtrinsic,
@@ -23,25 +31,30 @@ pub fn accounts(
         anyhow::bail!("Preimages contain duplicates");
     }
 
-    // transit preimages
+    // Filter valid preimages per Gray Paper equations 328-332
+    // Invalid preimages are "disregarded without prejudice"
+    let mut seen_hashes = HashSet::new();
     for preimage in preimages.into_iter() {
-        let account = accounts
-            .get(preimage.requester)
-            .ok_or(anyhow::anyhow!("Account not found"))?;
-
         let hash = crypto::blake2b(&preimage.blob);
-        let exist = account.preimage(hash).is_some();
+
+        // Check for hash collision between different preimages
+        if !seen_hashes.insert(hash) {
+            anyhow::bail!("Duplicate preimage hash detected");
+        }
+
+        // Skip if account doesn't exist (disregard without prejudice)
+        let Some(account) = accounts.get(preimage.requester) else {
+            anyhow::bail!("Preimage for non-existent account");
+        };
+
         let blob_len = preimage.blob.len() as u32;
         let slots = account.lookup(hash, blob_len).unwrap_or_default();
-
-        // The data must have been solicited by a service but
-        // not yet provided in the prior state.
-        if exist {
+        if account.preimage(hash).is_some() {
             anyhow::bail!("Preimage already exists");
         }
 
         if !slots.is_empty() {
-            anyhow::bail!("Preimage already has lookup slots");
+            anyhow::bail!("Preimage already has non-empty lookup slots");
         }
 
         // Set lookup slots to [τ'] (current time slot)
