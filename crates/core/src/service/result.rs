@@ -43,14 +43,17 @@ pub enum WorkExecResult {
     OutOfGas,
     /// ☇ denoting an unexpected program termination
     Panic,
-    /// ⊥ denoting an invalid exports error
-    ///
-    /// FIXME: put this here is not correct, but it's a workaround for the old tests
+    /// ⊥ the number of exports made was invalidly reported
     InvalidExports,
-    /// ⊥ denoting an code oversize error
-    CodeOversize,
-    /// ⊥ denoting an invalid code error
+    /// the size of the digest (refinement output) would
+    /// cross the acceptable limit
+    InvalidDigest,
+    /// (BAD) the third indicates that the service’s code
+    /// was not available for lookup in state at the posterior state
+    /// of the lookup-anchor block
     BadCode,
+    /// (BIG) the code was available but was beyond the maximum size
+    CodeOversize,
 }
 
 // TODO: support enum in Json macro
@@ -64,9 +67,11 @@ pub struct WorkExecResultJson {
     #[serde(default = "default_some_unit")]
     pub invalid_exports: Option<()>,
     #[serde(default = "default_some_unit")]
-    pub code_oversize: Option<()>,
+    pub invalid_digest: Option<()>,
     #[serde(default = "default_some_unit")]
     pub bad_code: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub code_oversize: Option<()>,
 }
 
 fn default_some_unit() -> Option<()> {
@@ -90,6 +95,10 @@ impl Json<WorkExecResultJson> for WorkExecResult {
             },
             WorkExecResult::InvalidExports => WorkExecResultJson {
                 invalid_exports: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::InvalidDigest => WorkExecResultJson {
+                invalid_digest: Some(()),
                 ..Default::default()
             },
             WorkExecResult::CodeOversize => WorkExecResultJson {

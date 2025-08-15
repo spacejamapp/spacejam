@@ -14,7 +14,7 @@ use score::{
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
-    Account, Accounts,
+    Account, Accounts, EntropyBuffer,
 };
 use spacejson::Json;
 use specjam::{Section, Test};
@@ -419,7 +419,10 @@ impl Runner {
 
                 // 2. verify the state transition
                 let mut pkeys = Vec::new();
-                let _ = tx::transit::<Interpreter>(block, memdb.clone())?;
+                if let Err(e) = tx::transit::<Interpreter>(block, memdb.clone()) {
+                    tracing::warn!("failed to transit block with error: {e:?}");
+                }
+
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
@@ -441,15 +444,15 @@ impl Runner {
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:#?}", polkajam);
-                        tracing::debug!("spacejam: {:#?}", statistics);
+                        tracing::debug!("polkajam: {:#?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:#?}", statistics.to_json());
                     }
 
                     if key == key::RECENT_BLOCKS && value != result {
                         let polkajam: History = codec::decode(&value)?;
                         let recent: History = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        tracing::debug!("spacejam: {:?}", recent);
+                        tracing::debug!("polkajam: {:?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:?}", recent.to_json());
                     }
 
                     if key == key::PRIVILEGED_SERVICE && value != result {
@@ -481,8 +484,8 @@ impl Runner {
                     if key.starts_with(&[255]) && value != result {
                         let polkajam: ServiceInfo = codec::decode(&value)?;
                         let spacejam: ServiceInfo = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:#?}", polkajam);
-                        tracing::debug!("spacejam: {:#?}", spacejam);
+                        tracing::debug!("polkajam: {:#?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:#?}", spacejam.to_json());
                     }
                 }
 
@@ -495,9 +498,9 @@ impl Runner {
 
                     let info = key.as_state_key().info();
                     tracing::error!(
-                        "extra keyval: {info:?} key=0x{} value=0x{}",
+                        "extra keyval: {info:?} key=0x{} value=0x{}...",
                         hex::encode(&key),
-                        hex::encode(&value)
+                        hex::encode(&value[..std::cmp::min(32, value.len())])
                     );
                 }
 
