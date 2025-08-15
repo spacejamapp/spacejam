@@ -1,46 +1,32 @@
 //! Preimage handler
 
 use anyhow::Result;
-use score::{
-    extrinsic::{Preimage, PreimagesExtrinsic},
-    Account, Accounts, TimeSlot,
-};
-use std::collections::HashSet;
+use score::{extrinsic::PreimagesExtrinsic, Account, Accounts, TimeSlot};
 
-/// (δ') handle preimage extrinsic per Gray Paper eq 331
+/// (δ') handle preimage extrinsic
 ///
 /// Validates preimages against post-transfer state and integrates valid ones.
-/// Invalid preimages are disregarded without prejudice per eq 326-332.
+/// Invalid preimages are disregarded without prejudice
 ///
 /// # Arguments
 /// * `slot` - Current time slot (τ')
 /// * `preimages` - Preimage extrinsic data
-/// * `accounts` - Post-transfer account state (accounts_post_xfer)
+/// * `accounts` - Post-transfer account state
 pub fn accounts(
     slot: TimeSlot,
     preimages: &PreimagesExtrinsic,
     mut accounts: impl Accounts,
 ) -> Result<impl Accounts> {
-    if preimages.windows(2).any(|window| window[0] > window[1]) {
-        anyhow::bail!("Preimages are not ordered");
-    }
-
-    let length = preimages.len();
-    let preimages = preimages.iter().cloned().collect::<HashSet<Preimage>>();
-    if preimages.len() != length {
-        anyhow::bail!("Preimages contain duplicates");
-    }
-
-    // Filter valid preimages per Gray Paper equations 328-332
-    // Invalid preimages are "disregarded without prejudice"
-    let mut seen_hashes = HashSet::new();
+    let mut requester = None;
     for preimage in preimages.into_iter() {
-        let hash = crypto::blake2b(&preimage.blob);
-
-        // Check for hash collision between different preimages
-        if !seen_hashes.insert(hash) {
-            anyhow::bail!("Duplicate preimage hash detected");
+        if let Some(exist) = requester {
+            if preimage.requester < exist {
+                anyhow::bail!("Preimages are not ordered");
+            }
         }
+
+        requester = Some(preimage.requester);
+        let hash = crypto::blake2b(&preimage.blob);
 
         // Skip if account doesn't exist (disregard without prejudice)
         let Some(account) = accounts.get(preimage.requester) else {
@@ -59,7 +45,7 @@ pub fn accounts(
 
         // Set lookup slots to [τ'] (current time slot)
         let updated_slots = vec![slot];
-        account.insert_preimage(hash, preimage.blob);
+        account.insert_preimage(hash, preimage.blob.clone());
         account.insert_lookup(hash, blob_len, updated_slots);
     }
 
