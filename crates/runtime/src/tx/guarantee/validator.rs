@@ -200,13 +200,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             crypto::ed25519::verify(&message, sig.signature, *key)
                 .inspect_err(|_| {
                     tracing::warn!(
-                        "failed to verify guarantee signature by {} - 0x{}",
+                        "failed to verify guarantee signature 0x{} by {} - 0x{}",
+                        hex::encode(sig.signature),
                         sig.validator_index,
                         hex::encode(key),
                     )
                 })
                 .map_err(|_| Error::BadSignature)?;
-
             guarantor = Some(validator_index);
         }
 

@@ -47,10 +47,10 @@ pub enum WorkExecResult {
     ///
     /// FIXME: put this here is not correct, but it's a workaround for the old tests
     InvalidExports,
-    /// ⊥ denoting an invalid code error
-    BadCode,
     /// ⊥ denoting an code oversize error
     CodeOversize,
+    /// ⊥ denoting an invalid code error
+    BadCode,
 }
 
 // TODO: support enum in Json macro
@@ -64,9 +64,9 @@ pub struct WorkExecResultJson {
     #[serde(default = "default_some_unit")]
     pub invalid_exports: Option<()>,
     #[serde(default = "default_some_unit")]
-    pub bad_code: Option<()>,
-    #[serde(default = "default_some_unit")]
     pub code_oversize: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub bad_code: Option<()>,
 }
 
 fn default_some_unit() -> Option<()> {
@@ -92,12 +92,12 @@ impl Json<WorkExecResultJson> for WorkExecResult {
                 invalid_exports: Some(()),
                 ..Default::default()
             },
-            WorkExecResult::BadCode => WorkExecResultJson {
-                bad_code: Some(()),
-                ..Default::default()
-            },
             WorkExecResult::CodeOversize => WorkExecResultJson {
                 code_oversize: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::BadCode => WorkExecResultJson {
+                bad_code: Some(()),
                 ..Default::default()
             },
         }
