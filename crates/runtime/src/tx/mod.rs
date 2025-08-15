@@ -177,23 +177,19 @@ pub fn simulate<Vm: Pvm>(
 
     // Round 4 computation
     {
-        // (β') Update the block history
         tracing::trace!("handle block history");
-        state.recent_blocks.import(
-            block.header.hash()?,
-            block.header.parent_state_root,
-            Default::default(),
-            Default::default(),
-        );
+        state.recent_blocks.complete_state_root(&block.header)?;
         let (reported, reporters) = guarantee::report(
             &state,
             block.header.slot,
             &accounts,
             &block.extrinsic.guarantees,
         )?;
-        if let Some(last) = state.recent_blocks.history.last_mut() {
-            last.reported = reported;
-        };
+
+        // (β') Update the block history
+        state
+            .recent_blocks
+            .import(block.header.hash()?, Default::default(), reported);
 
         state
             .statistics

@@ -1,9 +1,10 @@
 //! Block history
 
 use crate::{
-    block::{BlockInfo, BlockInfoJson},
+    block::{BlockInfo, BlockInfoJson, Header},
     OpaqueHash,
 };
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -20,6 +21,22 @@ pub struct History {
     /// The Merkle Mountain Range
     #[json(nested)]
     pub mmr: Mmr,
+}
+
+impl History {
+    /// Complete the state root of the last block in the history
+    pub fn complete_state_root(&mut self, header: &Header) -> Result<()> {
+        let Some(last) = self.history.last_mut() else {
+            return Ok(());
+        };
+
+        if header.parent != last.header_hash {
+            anyhow::bail!("Parent hash mismatch");
+        }
+
+        last.state_root = header.parent_state_root;
+        Ok(())
+    }
 }
 
 /// Represents the Merkle Mountain Range (MMR).
@@ -40,12 +57,11 @@ mod crypto_impl {
         pub fn import(
             &mut self,
             header_hash: OpaqueHash,
-            parent_state_root: OpaqueHash,
             accumulate_root: OpaqueHash,
             reported: Vec<ReportedWorkPackage>,
         ) {
             self.mmr.append(accumulate_root);
-            let Some(last) = self.history.last_mut() else {
+            if self.history.is_empty() {
                 let new_block = BlockInfo {
                     header_hash,
                     beefy_root: accumulate_root,
@@ -56,8 +72,7 @@ mod crypto_impl {
                 return;
             };
 
-            // Update the state root of the parent block if it exists
-            last.state_root = parent_state_root;
+            // compose block info
             let beefy_root = self.mmr.root().unwrap_or_default();
             let new_block = BlockInfo {
                 header_hash,

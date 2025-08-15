@@ -9,7 +9,7 @@ use runtime::{
     tx,
 };
 use score::{
-    block::{Block, BlockInfo, History, Mmr},
+    block::{Block, BlockInfo, Header, History, Mmr},
     safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{key, StateKeyInfo, StateKeyLike},
@@ -198,9 +198,13 @@ impl Runner {
                 let input = history::TestInput::from_json(&test.input)?;
                 let output = history::TestOutput::from_json(&test.output)?;
                 let mut history = input.pre_state.beta.clone();
+                history.complete_state_root(&Header {
+                    parent: input.input.header_hash,
+                    parent_state_root: input.input.parent_state_root,
+                    ..Default::default()
+                })?;
                 history.import(
                     input.input.header_hash,
-                    input.input.parent_state_root,
                     input.input.accumulate_root,
                     input.input.work_packages.clone(),
                 );
