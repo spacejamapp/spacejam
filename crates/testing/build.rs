@@ -77,6 +77,11 @@ fn main() -> Result<()> {
         registry.trace(Trace::StorageLight)?,
         &out_dir.join("traces_storage_light.rs"),
     )?;
+
+    build_tests(
+        registry.trace(Trace::Fuzz)?,
+        &out_dir.join("traces_local_fuzz.rs"),
+    )?;
     build_fuzz_tests(
         Entry::fuzz("../../res/jam-conformance")?,
         &out_dir.join("traces_fuzz.rs"),

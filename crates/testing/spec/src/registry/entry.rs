@@ -15,13 +15,13 @@ pub struct Entry {
     pub section: Section,
 
     /// The scale of the test vector
-    scale: Option<Scale>,
+    pub scale: Option<Scale>,
 
     /// The directory of the test vector
-    files: Vec<PathBuf>,
+    pub files: Vec<PathBuf>,
 
     /// The current index of the test vector
-    current: usize,
+    pub current: usize,
 }
 
 impl Entry {

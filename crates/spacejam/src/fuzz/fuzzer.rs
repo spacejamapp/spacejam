@@ -46,6 +46,27 @@ impl Fuzzer {
         fuzzer.handle(&entry)
     }
 
+    /// Execute a single test
+    pub fn execute(socket: &Path, test: &Path, report: &Path) -> Result<()> {
+        let mut stream =
+            UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;
+
+        let entry = Entry {
+            section: Section::Trace(Trace::Any),
+            scale: None,
+            files: vec![test.to_path_buf()],
+            current: 0,
+        };
+
+        let mut fuzzer = Self {
+            info: Self::peer_info(&mut stream)?,
+            report: report.to_path_buf(),
+            stream,
+        };
+
+        fuzzer.handle_single(&entry)
+    }
+
     /// Handle a new connection
     pub fn handle(&mut self, source: &Entry) -> Result<()> {
         // run the tests
@@ -60,6 +81,15 @@ impl Fuzzer {
             self.import_block(test)?;
             block += 1;
         }
+    }
+
+    /// Handle a new connection
+    pub fn handle_single(&mut self, source: &Entry) -> Result<()> {
+        // run the tests
+        let test = source.get(0).context("No test found")?;
+        let input = traces::TestInput::from_json(&test.input)?;
+        self.init_state(&input, &test.name)?;
+        self.import_block(test)
     }
 
     /// Import a block
