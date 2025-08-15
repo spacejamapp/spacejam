@@ -172,7 +172,7 @@ impl<R: Accounts> General<R> {
             return Ok(Exit::None as u64);
         };
 
-        let Ok(info) = codec::encode(&account.info()) else {
+        let Ok(info) = account.info().host() else {
             crate::bail!("failed to encode account info");
         };
 

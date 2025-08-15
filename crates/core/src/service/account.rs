@@ -1,6 +1,7 @@
 //! Service account types
 
 use crate::{service::GasLimit, Gas, OpaqueHash, TimeSlot};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
@@ -65,14 +66,14 @@ pub struct ServiceInfo {
     /// The balance of the service account (b)
     pub balance: u64,
 
-    /// The minimum required for the on transfer entry-point (m)
-    #[serde(alias = "min_item_gas")]
-    pub transfer: Gas,
-
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
     #[serde(alias = "min_memo_gas")]
     pub accumulate: Gas,
+
+    /// The minimum required for the on transfer entry-point (m)
+    #[serde(alias = "min_item_gas")]
+    pub transfer: Gas,
 
     /// The total number of octets used in storage (o)
     #[serde(alias = "bytes")]
@@ -85,17 +86,45 @@ pub struct ServiceInfo {
     /// The number of items in storage (i)
     pub items: u32,
 
-    /// The creation time of the service account (t)
+    /// The creation time of the service account (r)
     #[serde(alias = "creation_slot")]
     pub creation: u32,
 
-    /// The last update time of the service account (u)
+    /// The last update time of the service account (a)
     #[serde(alias = "last_accumulation_slot")]
     pub update: u32,
 
     /// The parent of the service account (p)
     #[serde(alias = "parent_service")]
     pub parent: u32,
+}
+
+impl ServiceInfo {
+    /// encode self into the info that host call required
+    pub fn host(&self) -> Result<Vec<u8>> {
+        codec::encode(&(
+            self.code,
+            self.balance,
+            self.threshold(),
+            self.accumulate,
+            self.transfer,
+            self.total,
+            self.items,
+            self.offset,
+            self.creation,
+            self.update,
+            self.parent,
+        ))
+        .map_err(Into::into)
+    }
+
+    /// The threshold of the service account
+    pub fn threshold(&self) -> u64 {
+        crate::BALANCE_PER_SERVICE
+            + crate::BALANCE_PER_ITEM * self.items as u64
+            + crate::BALANCE_PER_OCTET * self.total
+            - self.offset
+    }
 }
 
 #[cfg(feature = "crypto")]
