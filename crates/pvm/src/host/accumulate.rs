@@ -225,7 +225,7 @@ impl<R: Accounts> Accumulate<R> {
             .x
             .context
             .accounts
-            .check((1 << 8) + (index - (1 << 8) + 42) % ((1 << 32) - (1 << 9)));
+            .check((1 << 8) + (index - (1 << 8) + 42) % score::CHECK_SALT);
         Ok(index as u64)
     }
 
