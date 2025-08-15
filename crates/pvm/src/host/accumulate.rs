@@ -8,6 +8,7 @@ use crate::{
 use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount, ServiceInfo},
+    vm::DeferredTransfer,
     Account, Accounts,
 };
 use std::collections::BTreeMap;
@@ -218,7 +219,7 @@ impl<R: Accounts> Accumulate<R> {
             .x
             .context
             .accounts
-            .check(1 << 8 + (index - 1 << 8 + 42) % 1 << 32 - 1 << 9);
+            .check(1 << 8 + (index - (1 << 8) + 42) % 1 << 32 - 1 << 9);
         Ok(index as u64)
     }
 
@@ -237,11 +238,55 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩT) transfer
+    ///
+    /// transfer funds from the sender to the destination
     pub fn transfer<Memory: crate::Memory>(
         &mut self,
-        _state: &mut State<Memory>,
+        state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        crate::bail!("to be refactored")
+        let [dest, amount, limit, memo] = [
+            state.registers[7],
+            state.registers[8],
+            state.registers[9],
+            state.registers[10],
+        ];
+
+        // check if the defer transfer is valid
+        let memo = state
+            .memory
+            .read_bytes(memo as u32, score::TRANSFER_MEMO_SIZE as u32)?;
+        let transfer = DeferredTransfer {
+            sender: self.x.service,
+            recipient: dest as u32,
+            amount,
+            memo,
+            gas_limit: limit,
+        };
+
+        // check if the sender has enough balance
+        let sender = self.account()?;
+        let balance = sender.balance();
+        if balance.saturating_sub(amount) < sender.threshold() {
+            return Ok(Exit::Cash as u64);
+        }
+
+        // drop the sender account to handle the dest account
+        let _ = sender;
+
+        // get the destination account
+        let Some(dest) = self.x.context.accounts.get(dest as u32) else {
+            crate::bail!("destination service not found");
+        };
+
+        // check if the destination has enough transfer gas
+        if dest.transfer_gas() > limit {
+            return Ok(Exit::Low as u64);
+        }
+
+        // add the transfer to the deferred transfers
+        self.x.transfer.push(transfer);
+        *self.account()?.balance_mut() -= amount;
+        Ok(Exit::Ok as u64)
     }
 
     /// (ΩE) eject

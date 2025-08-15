@@ -73,7 +73,7 @@ pub struct AccumulateContext<R: Accounts> {
     /// (s) The service id
     pub service: ServiceId,
 
-    /// (u) The upcoming validators
+    /// (e) the accumulate state
     pub context: AccumulateState<R>,
 
     /// (i) empty index for a new account
