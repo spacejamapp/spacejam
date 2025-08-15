@@ -237,9 +237,7 @@ impl<R: Accounts> Accumulate<R> {
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩT) transfer
-    ///
-    /// transfer funds from the sender to the destination
+    /// (ΩT) transfer funds from the sender to the destination
     pub fn transfer<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -289,9 +287,45 @@ impl<R: Accounts> Accumulate<R> {
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩE) eject
-    pub fn eject<Memory: crate::Memory>(&mut self, _state: &mut State<Memory>) -> Result<ExitCode> {
-        crate::bail!("to be refactored")
+    /// (ΩE) eject a sub account
+    pub fn eject<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+        let [dest, o] = [state.registers[7], state.registers[8]];
+        let hash = state.memory.read_hash(o as u32)?;
+        if dest == self.x.service as u64 {
+            crate::bail!("cannot eject to self");
+        }
+
+        let Some(dest) = self.x.context.accounts.get(dest as u32) else {
+            return Ok(Exit::Who as u64);
+        };
+
+        // check if the code is valid
+        let mut code = [0; 32];
+        code[..4].copy_from_slice(&self.x.service.to_le_bytes());
+        if dest.code() != code {
+            return Ok(Exit::Who as u64);
+        }
+
+        // check if the look up is valid
+        if dest.items() != 2 {
+            return Ok(Exit::Huh as u64);
+        }
+        let length = dest.total().saturating_sub(81);
+        let Some(lookup) = dest.lookup(hash, length as u32) else {
+            return Ok(Exit::Huh as u64);
+        };
+
+        // remove account and add the balance to the parent account
+        if lookup.len() == 2 && lookup[1] < self.timeslot.saturating_sub(score::EXPUNGED_TIME) {
+            let balance = dest.balance();
+            let to_remote = dest.index();
+            let _ = dest;
+            *self.account()?.balance_mut() += balance;
+            self.x.context.accounts.remove(to_remote);
+            return Ok(Exit::Ok as u64);
+        }
+
+        Ok(Exit::Huh as u64)
     }
 
     /// (ΩQ) query
