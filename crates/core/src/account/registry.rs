@@ -12,7 +12,7 @@ pub trait Accounts: Clone {
                 return index;
             }
 
-            index = (index - (1 << 8) + 1) % (u32::MAX - (1 << 9)) + (1 << 8);
+            index = (index - (1 << 8) + 1) % ((1 << 32) - (1 << 9)) + (1 << 8);
         }
     }
 

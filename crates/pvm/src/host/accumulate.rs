@@ -93,18 +93,21 @@ impl<R: Accounts> Accumulate<R> {
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩA) assign
+    /// (ΩA) assign authorization queue
     pub fn assign<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the data source
-        let o = state.registers[8];
+        let [core, o, assign] = [state.registers[7], state.registers[8], state.registers[9]];
         let source = state
             .memory
             .read_bytes(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
 
         // return if invalid core index
-        let core_index = state.registers[7];
-        if core_index > score::CORES_COUNT as u64 {
+        if core > score::CORES_COUNT as u64 {
             return Ok(Exit::Core as u64);
+        }
+
+        // check if the service is a core
+        if self.x.service != self.x.context.privileges.assign[core as usize] {
+            return Ok(Exit::Huh as u64);
         }
 
         // parse the authorization queue
@@ -118,13 +121,12 @@ impl<R: Accounts> Accumulate<R> {
             .collect();
 
         // set the authorization queue
-        self.x.context.authorization[core_index as usize] = queue;
+        self.x.context.authorization[core as usize] = queue;
+        self.x.context.privileges.assign[core as usize] = assign as u32;
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩD) designate
-    ///
-    /// select the validators to be drawn for the next epoch
+    /// (ΩD) designate the validators to be drawn for the next epoch
     pub fn designate<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -134,6 +136,10 @@ impl<R: Accounts> Accumulate<R> {
         let source = state
             .memory
             .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
+
+        if self.x.service != self.x.context.privileges.designate {
+            return Ok(Exit::Huh as u64);
+        }
 
         let validators = {
             if source.len() != 336 * score::VALIDATORS_COUNT as usize {
@@ -219,7 +225,7 @@ impl<R: Accounts> Accumulate<R> {
             .x
             .context
             .accounts
-            .check(1 << 8 + (index - (1 << 8) + 42) % 1 << 32 - 1 << 9);
+            .check((1 << 8) + (index - (1 << 8) + 42) % ((1 << 32) - (1 << 9)));
         Ok(index as u64)
     }
 
@@ -252,7 +258,7 @@ impl<R: Accounts> Accumulate<R> {
         // check if the defer transfer is valid
         let memo = state
             .memory
-            .read_bytes(memo as u32, score::TRANSFER_MEMO_SIZE as u32)?;
+            .read_bytes(memo as u32, score::TRANSFER_MEMO_SIZE)?;
         let transfer = DeferredTransfer {
             sender: self.x.service,
             recipient: dest as u32,
@@ -270,8 +276,6 @@ impl<R: Accounts> Accumulate<R> {
 
         // drop the sender account to handle the dest account
         let _ = sender;
-
-        // get the destination account
         let Some(dest) = self.x.context.accounts.get(dest as u32) else {
             crate::bail!("destination service not found");
         };
@@ -328,7 +332,7 @@ impl<R: Accounts> Accumulate<R> {
         Ok(Exit::Huh as u64)
     }
 
-    /// (ΩQ) query
+    /// (ΩQ) query an lookup entry
     pub fn query<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
         let hash = state.memory.read_hash(o)?;
@@ -356,7 +360,7 @@ impl<R: Accounts> Accumulate<R> {
         Ok(exit)
     }
 
-    /// (ΩS) solicit
+    /// (ΩS) solicit new lookup
     pub fn solicit<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -423,7 +427,7 @@ impl<R: Accounts> Accumulate<R> {
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩP) provide
+    /// (ΩP) provide new preimage
     pub fn provide<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,

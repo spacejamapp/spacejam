@@ -25,10 +25,10 @@ pub struct AccumulateState<R: Accounts> {
     /// i (ι) The upcoming validators
     pub validators: ValidatorsData,
 
-    /// q (φ) The authorization queue
+    /// p (φ) The authorization queue
     pub authorization: [Vec<OpaqueHash>; crate::CORES_COUNT],
 
-    /// χ (χ) The privileged service indices
+    /// a (χ) The privileged service indices
     pub privileges: Privileges,
 
     /// (η) The entropy

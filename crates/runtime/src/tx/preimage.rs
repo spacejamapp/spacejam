@@ -18,7 +18,7 @@ pub fn accounts(
     mut accounts: impl Accounts,
 ) -> Result<impl Accounts> {
     let mut requester = None;
-    for preimage in preimages.into_iter() {
+    for preimage in preimages {
         if let Some(exist) = requester {
             if preimage.requester < exist {
                 anyhow::bail!("Preimages are not ordered");
