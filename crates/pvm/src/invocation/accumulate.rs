@@ -87,22 +87,20 @@ pub struct AccumulateContext<R: Accounts> {
 }
 
 impl<R: Accounts> AccumulateContext<R> {
+    /// Create a new accumulate context
+    pub fn new(mut context: AccumulateState<R>, service: ServiceId, timeslot: TimeSlot) -> Self {
+        Self {
+            service,
+            index: context.index(service, timeslot),
+            context,
+            transfer: Vec::new(),
+            output: None,
+        }
+    }
+
     /// Get the account for the accumulation
     pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
         self.context.accounts.get(self.service)
-    }
-
-    /// Check update an empty account index
-    ///
-    /// TODO: use a loop instead of recursion
-    pub fn check(&mut self, index: ServiceId) {
-        let services = self.context.accounts.services();
-        if !services.contains(&index) {
-            self.index = index;
-        } else {
-            let next = ((index - (1 << 8)) + 1) % (u32::MAX - (1 << 9)) + (1 << 8);
-            self.check(next);
-        }
     }
 
     /// Convert the accumulate context to an accumulate

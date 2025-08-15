@@ -31,7 +31,6 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩB) bless
     pub fn bless<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // Gray Paper: using [m, a, v, o, n] = registers_{7 ÷÷ 5}
         let [bless, assign, designate, acc, entries] = [
             state.registers[7],  // m: bless service id
             state.registers[8],  // a: memory address of assign array
@@ -174,7 +173,6 @@ impl<R: Accounts> Accumulate<R> {
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // get the arguments
         let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;

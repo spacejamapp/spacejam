@@ -6,9 +6,10 @@ use crate::{
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
-    EntropyBuffer, OpaqueHash,
+    EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
+use codec::Numeric;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -35,6 +36,20 @@ pub struct AccumulateState<R: Accounts> {
 }
 
 impl<R: Accounts> AccumulateState<R> {
+    /// (I) Generate a new index from provided environment
+    pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
+        let encoded = codec::encode(&(
+            service.compact_encode(),
+            self.entropy[0],
+            timeslot.compact_encode(),
+        ))
+        .expect("failed to encode");
+
+        let hash = crypto::blake2b(&encoded);
+        let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
+        self.accounts.check(base)
+    }
+
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
         self.accounts.blob(service)

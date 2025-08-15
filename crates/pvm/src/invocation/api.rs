@@ -12,7 +12,7 @@ use parser::{
 use score::{
     service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
-    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
+    Account, Accounts, Gas, ServiceId, TimeSlot,
 };
 
 /// The invocation Interface of PVM
@@ -374,15 +374,7 @@ pub trait Invocation {
         };
 
         // create the accumulate context
-        let entropy = context.entropy[0];
-        let context = AccumulateContext {
-            context,
-            service,
-            index: Self::index(service, timeslot, entropy),
-            transfer: Vec::new(),
-            output: None,
-        };
-
+        let context = AccumulateContext::new(context, service, timeslot);
         let params = AccumulateParams {
             slot: timeslot,
             id: service,
@@ -448,17 +440,6 @@ pub trait Invocation {
             account,
             gas: received.gas,
         }
-    }
-
-    /// (I) Generate a new index from provided environment
-    fn index(service: ServiceId, timeslot: TimeSlot, entropy: OpaqueHash) -> ServiceId {
-        let encoded = codec::encode(&(service, entropy, timeslot)).expect("failed to encode");
-        let hash = crypto::blake2b(&encoded);
-        let mut lebytes = [0; 4];
-        lebytes[0..4].copy_from_slice(&hash[0..4]);
-
-        let base = u32::from_le_bytes(lebytes);
-        base % (u32::MAX - (1 << 9)) + (1 << 8)
     }
 }
 
