@@ -426,8 +426,31 @@ impl<R: Accounts> Accumulate<R> {
     /// (ΩP) provide
     pub fn provide<Memory: crate::Memory>(
         &mut self,
-        _state: &mut State<Memory>,
+        state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        crate::bail!("to be refactored")
+        let [mut service, from, size] =
+            [state.registers[7], state.registers[8], state.registers[9]];
+        if service == u64::MAX {
+            service = self.x.service as u64;
+        }
+
+        let image = state.memory.read_bytes(from as u32, size as u32)?;
+        let Some(account) = self.x.context.accounts.get(service as u32) else {
+            return Ok(Exit::Who as u64);
+        };
+
+        // check if the preimage is already in the account
+        let hash = crypto::blake2b(&image);
+        if account.lookup(hash, size as u32) != Some(vec![]) {
+            return Ok(Exit::Huh as u64);
+        }
+
+        // check if the preimage is already in the account
+        if account.preimage(hash).is_some() {
+            return Ok(Exit::Huh as u64);
+        }
+
+        account.insert_preimage(hash, image);
+        Ok(Exit::Ok as u64)
     }
 }
