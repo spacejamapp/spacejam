@@ -178,7 +178,9 @@ pub fn simulate<Vm: Pvm>(
     // Round 4 computation
     {
         tracing::trace!("handle block history");
-        state.recent_blocks.complete_state_root(&block.header)?;
+        state
+            .recent_blocks
+            .complete_state_root(block.header.parent_state_root)?;
         let (reported, reporters) = guarantee::report(
             &state,
             block.header.slot,

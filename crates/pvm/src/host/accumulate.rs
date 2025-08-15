@@ -5,12 +5,7 @@ use crate::{
     invocation::{Accumulate, State},
     Result,
 };
-use score::{
-    safrole::ValidatorData,
-    service::{GasLimit, Privileges, ServiceAccount},
-    vm::DeferredTransfer,
-    Account, Accounts,
-};
+use score::{safrole::ValidatorData, service::Privileges, Account, Accounts};
 use std::collections::BTreeMap;
 
 impl<R: Accounts> Accumulate<R> {
@@ -29,10 +24,7 @@ impl<R: Accounts> Accumulate<R> {
             23 => self.solicit(state),
             24 => self.forget(state),
             25 => self.yield_(state),
-            26 => {
-                // TODO: PROVIDE
-                Ok(Exit::What as u64)
-            }
+            26 => self.provide(state),
             _ => Ok(Exit::What as u64),
         }
     }
@@ -168,54 +160,13 @@ impl<R: Accounts> Accumulate<R> {
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // set the checkpoint
         self.y = self.x.clone();
         Ok(state.gas as u64)
     }
 
     /// (ΩN) new
-    pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let [o, l, g, m] = [
-            state.registers[7],
-            state.registers[8],
-            state.registers[9],
-            state.registers[10],
-        ];
-
-        // get the hash
-        let code = state.memory.read_bytes(o as u32, 32)?;
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&code);
-
-        // update the creator's account
-        let creator = self.account()?;
-        if creator.balance() < score::BALANCE_PER_SERVICE {
-            return Ok(Exit::Cash as u64);
-        }
-
-        // create the new accumulated
-        *creator.balance_mut() -= score::BALANCE_PER_SERVICE;
-        let mut account = ServiceAccount::new(GasLimit {
-            accumulate: g,
-            transfer: m,
-        });
-        account.info.balance = score::BALANCE_PER_SERVICE;
-        account.info.code = hash;
-        account.lookup.insert((hash, l as u32), vec![]);
-
-        // Set metadata fields for new service account
-        account.info.creation = self.timeslot;
-        account.info.update = self.timeslot;
-        account.info.parent = self.x.service;
-
-        // insert the new account to the map
-        //
-        // FIXME: this upsert doesn't consider operations.
-        let index = self.x.index;
-        self.x.context.accounts.upsert(index, account);
-        self.x.check(index);
-        Ok(index as u64)
+    pub fn new_<Memory: crate::Memory>(&mut self, _state: &mut State<Memory>) -> Result<ExitCode> {
+        crate::bail!("to be refactored");
     }
 
     /// (ΩU) upgrade service code
@@ -227,13 +178,6 @@ impl<R: Accounts> Accumulate<R> {
         let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
-
-        tracing::debug!(
-            "upgrade account {:?}, code=0x{}, previous=0x{}",
-            account.index(),
-            hex::encode(code),
-            hex::encode(account.code())
-        );
         account.set_code(code);
         account.set_transfer_gas(m);
         account.set_accumulate_gas(g);
@@ -243,93 +187,14 @@ impl<R: Accounts> Accumulate<R> {
     /// (ΩT) transfer
     pub fn transfer<Memory: crate::Memory>(
         &mut self,
-        state: &mut State<Memory>,
+        _state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // get the arguments
-        let [d, a, limit, o] = [
-            state.registers[7],
-            state.registers[8],
-            state.registers[9],
-            state.registers[10],
-        ];
-
-        // check if the recipient exists
-        let Some(dest) = self.x.context.accounts.get(d as u32) else {
-            return Ok(Exit::Who as u64);
-        };
-
-        // check if the transfer limit is enough
-        if limit < dest.transfer_gas() {
-            return Ok(Exit::Low as u64);
-        }
-
-        // update the sender's account
-        let account = self.account()?;
-
-        // check if the sender has enough balance
-        if account.balance() < a + account.threshold() {
-            return Ok(Exit::Cash as u64);
-        }
-
-        // update the sender's balance
-        *account.balance_mut() -= a;
-        let memo = state
-            .memory
-            .read_bytes(o as u32, score::TRANSFER_MEMO_SIZE)?;
-
-        // create the deferred transfer
-        self.x.transfer.push(DeferredTransfer {
-            sender: self.x.service,
-            recipient: d as u32,
-            amount: a,
-            memo,
-            gas_limit: limit,
-        });
-        Ok(Exit::Ok as u64)
+        crate::bail!("to be refactored")
     }
 
     /// (ΩE) eject
-    pub fn eject<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let (d, o) = (state.registers[7] as u32, state.registers[8] as u32);
-        let hash = state.memory.read_hash(o)?;
-
-        // check if the service exists
-        let Some(dest) = self.x.context.accounts.get(d) else {
-            return Ok(Exit::Who as u64);
-        };
-
-        // check the creation code
-        let ibytes = self.x.service.to_le_bytes();
-        let mut code = [0u8; 32];
-        code[..4].copy_from_slice(&ibytes);
-        if dest.code() != code {
-            return Ok(Exit::Who as u64);
-        }
-
-        // check items
-        let total = (dest.total().max(81) - 81) as u32;
-        if dest.items() != 2 {
-            return Ok(Exit::Huh as u64);
-        }
-
-        // check the lookup data
-        let Some(lookup) = dest.lookup(hash, total) else {
-            return Ok(Exit::Huh as u64);
-        };
-
-        // check if the preimage is expunged
-        if *lookup.get(1).unwrap_or(&0) >= self.timeslot - score::EXPUNGED_TIME {
-            return Ok(Exit::Huh as u64);
-        }
-
-        // update the account
-        let balance = dest.balance();
-        let _ = dest;
-        self.x.context.accounts.remove(d);
-        let account = self.account()?;
-        *account.balance_mut() += balance;
-        Ok(Exit::Ok as u64)
+    pub fn eject<Memory: crate::Memory>(&mut self, _state: &mut State<Memory>) -> Result<ExitCode> {
+        crate::bail!("to be refactored")
     }
 
     /// (ΩQ) query
@@ -370,27 +235,21 @@ impl<R: Accounts> Accumulate<R> {
 
         // check if the account has enough balance
         let timeslot = self.timeslot;
-        tracing::debug!("solicit: timeslot: {}", timeslot);
         let account = self.account()?;
-        tracing::debug!("solicit: balance: {}", account.balance());
         if account.balance() < account.threshold() {
-            tracing::debug!("solicit: full");
             return Ok(Exit::Full as u64);
         }
 
         // get the lookup
         let Some(mut lookup) = account.lookup(hash, z as u32) else {
-            tracing::debug!("solicit: empty");
             account.insert_lookup(hash, z as u32, vec![]);
             return Ok(Exit::Ok as u64);
         };
 
         if lookup.len() == 2 {
-            tracing::debug!("solicit: double");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
         } else {
-            tracing::debug!("solicit: huh");
             return Ok(Exit::Huh as u64);
         }
 
@@ -410,17 +269,13 @@ impl<R: Accounts> Accumulate<R> {
         };
 
         let expunged = timeslot.saturating_sub(score::EXPUNGED_TIME);
-        tracing::debug!("forget: timeslot={timeslot}, lookup={lookup:?}, expunged={expunged}",);
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
-            tracing::debug!("forget: empty or expired");
             account.remove_lookup(hash, z as u32);
             account.remove_preimage(hash);
         } else if lookup.len() == 1 {
-            tracing::debug!("forget: single");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
         } else if lookup.len() == 3 && lookup[1] < expunged {
-            tracing::debug!("forget: triple");
             account.insert_lookup(hash, z as u32, vec![lookup[2], timeslot]);
         } else {
             return Ok(Exit::Huh as u64);
@@ -431,13 +286,17 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩY) yield
     pub fn yield_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
         let o = state.registers[7];
-
-        // get the hash
         let hash = state.memory.read_hash(o as u32)?;
-
         self.x.output = Some(hash);
         Ok(Exit::Ok as u64)
+    }
+
+    /// (ΩP) provide
+    pub fn provide<Memory: crate::Memory>(
+        &mut self,
+        _state: &mut State<Memory>,
+    ) -> Result<ExitCode> {
+        crate::bail!("to be refactored")
     }
 }

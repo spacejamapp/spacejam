@@ -98,19 +98,19 @@ pub trait Invocation {
     /// Defined per graypaper (A.6)
     fn step(
         // (c) The instruction data
-        _instructions: &[u8],
+        instructions: &[u8],
         // (k) The bitmap of the instruction data
-        _bitmask: &[u8],
+        bitmask: &[u8],
         // (j) The jump table
-        _jump: &[u64],
+        jump: &[u64],
         // (ı) The current program counter
-        _pc: u64,
+        pc: u64,
         // (ϱ) The gas
-        _gas: Gas,
+        gas: Gas,
         // (ω) The registers
-        _registers: [u64; 13],
+        registers: [u64; 13],
         // (µ) The memory
-        _memory: Self::Memory,
+        memory: Self::Memory,
     ) -> Stepped<Self::Memory, ()>;
 
     /// (ΨH): host call invocation

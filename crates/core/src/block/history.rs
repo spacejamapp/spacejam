@@ -1,7 +1,7 @@
 //! Block history
 
 use crate::{
-    block::{BlockInfo, BlockInfoJson, Header},
+    block::{BlockInfo, BlockInfoJson},
     OpaqueHash,
 };
 use anyhow::Result;
@@ -25,16 +25,12 @@ pub struct History {
 
 impl History {
     /// Complete the state root of the last block in the history
-    pub fn complete_state_root(&mut self, header: &Header) -> Result<()> {
+    pub fn complete_state_root(&mut self, state_root: OpaqueHash) -> Result<()> {
         let Some(last) = self.history.last_mut() else {
             return Ok(());
         };
 
-        if header.parent != last.header_hash {
-            anyhow::bail!("Parent hash mismatch");
-        }
-
-        last.state_root = header.parent_state_root;
+        last.state_root = state_root;
         Ok(())
     }
 }
