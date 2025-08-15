@@ -441,8 +441,8 @@ impl Runner {
                     if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        tracing::debug!("spacejam: {:?}", statistics);
+                        tracing::debug!("polkajam: {:#?}", polkajam);
+                        tracing::debug!("spacejam: {:#?}", statistics);
                     }
 
                     if key == key::RECENT_BLOCKS && value != result {

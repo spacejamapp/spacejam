@@ -38,6 +38,7 @@ pub fn simulate<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+    tracing::debug!("new epoch: {}", new_epoch);
 
     // The first round computation
     let mut reports = {
@@ -135,11 +136,9 @@ pub fn simulate<Vm: Pvm>(
 
         // (π') Update the statistic
         tracing::trace!("handle statistic");
-        state.statistics.update(
-            block.header.slot,
-            block.header.author_index,
-            &block.extrinsic,
-        );
+        state
+            .statistics
+            .update(new_epoch, block.header.author_index, &block.extrinsic);
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
