@@ -87,6 +87,7 @@ impl Module {
             anyhow::bail!("Cannot execute placeholder function");
         }
 
+
         // Create a block JIT compiler
         let mut compiler = Jit::new()?;
 

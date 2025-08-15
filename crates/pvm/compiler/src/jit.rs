@@ -192,6 +192,7 @@ impl Jit {
 
         let blob = parser::program::deblob(program)?;
         self.jump_table = blob.jump_table.clone();
+        tracing::debug!("Jump table: {:?}", self.jump_table);
 
         let mut starts = std::collections::BTreeSet::new();
         starts.insert(0); // Graypaper: {0}
@@ -230,28 +231,23 @@ impl Jit {
     /// Execute program using JIT compilation
     /// EXISTS: Main execution loop - compiles blocks on demand and handles control flow
     pub fn execute(&mut self, mut ctx: Context) -> Result<Info> {
+        tracing::debug!("Starting execution with initial PC: {}", ctx.pc);
         loop {
+            tracing::debug!("Executing block at PC: {}", ctx.pc);
             let code = self.get_code(ctx.pc)?;
             let block = self.blocks.get(&ctx.pc).cloned();
             let (result, _pc_managed) = self.run_block(&code, &mut ctx, block.clone())?;
 
+            tracing::debug!("Block execution result: {:?}, new PC: {}", result, ctx.pc);
             match result {
                 ExecResult::Continue => {
-                    // For terminating blocks (like branch instructions), advance to next instruction and STOP
-                    if let Some(block) = block {
-                        if block.terminates {
-                            // Branch instruction chose Continue - advance to next instruction and halt
-                            let next_pc = self.next_instruction_pc(ctx.pc)?;
-                            tracing::trace!("Continue: advancing from PC {} to next_instruction_pc {} and stopping", ctx.pc, next_pc);
+                    // Continue to the next block (both terminating and non-terminating blocks)
+                    if let Some(_block) = block {
+                        // Find next sequential block
+                        if let Some(next_pc) = self.next_block(ctx.pc) {
                             ctx.pc = next_pc;
-                            break; // Stop execution after branch Continue
                         } else {
-                            // Non-terminating block - find next block
-                            if let Some(next_pc) = self.next_block(ctx.pc) {
-                                ctx.pc = next_pc;
-                            } else {
-                                break;
-                            }
+                            break;
                         }
                     } else {
                         break;
@@ -267,7 +263,21 @@ impl Jit {
                         break;
                     }
                 }
-                ExecResult::Halt => break,
+                ExecResult::Halt => {
+                    // For terminating blocks, set PC to the terminating instruction before halting
+                    // This ensures the PC points to the instruction that caused the halt
+                    if let Some(block) = block {
+                        if block.terminates {
+                            let terminating_pc = self.terminating_instruction_pc(ctx.pc)?;
+                            tracing::trace!(
+                                "Halt: setting PC to terminating instruction PC {}",
+                                terminating_pc
+                            );
+                            ctx.pc = terminating_pc;
+                        }
+                    }
+                    break;
+                }
                 ExecResult::Trap => {
                     // For terminating blocks, advance PC to the terminating instruction before trapping
                     if let Some(block) = block {
@@ -344,7 +354,10 @@ impl Jit {
 
             tracing::trace!(
                 "Block {}: start={}, end={}, terminates={}",
-                i, start, end, terminates
+                i,
+                start,
+                end,
+                terminates
             );
             self.blocks.insert(
                 start as u64,
@@ -567,35 +580,7 @@ impl Jit {
         }
     }
 
-    /// Calculate next instruction PC for Continue results
-    /// This finds the PC of the instruction immediately after the current one
-    fn next_instruction_pc(&self, pc: u64) -> Result<u64> {
-        // Find the last (terminating) instruction in the block and advance past it
-        if let Some(block) = self.blocks.get(&pc) {
-            let blob = parser::program::deblob(&self.program)?;
-            let mut reader = blob.reader();
-            reader.set_position(block.start);
-
-            let mut last_instruction_end = block.start;
-
-            // Find the last instruction in this block
-            while !reader.eof() && reader.position < block.end {
-                let instruction_offset = reader.read()?;
-                if instruction_offset.range.start >= block.end {
-                    break;
-                }
-                // Update to the end of this instruction
-                last_instruction_end = reader.position;
-            }
-
-            Ok(last_instruction_end as u64)
-        } else {
-            anyhow::bail!("No block found at PC {}", pc)
-        }
-    }
-
     /// Execute compiled block
-    /// EXISTS: Core execution - calls native code and handles results
     fn run_block(
         &self,
         code: &Code,

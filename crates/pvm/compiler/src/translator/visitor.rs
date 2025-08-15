@@ -310,7 +310,7 @@ impl Visitor for Translator<'_, '_> {
         let one_32 = self.builder.ins().iconst(types::I32, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
         let result_32 = self.builder.ins().udiv(dividend_32, safe_divisor);
-        let result_32_ext = self.builder.ins().uextend(types::I64, result_32);
+        let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
         let result = self.builder.ins().select(is_zero, max_val, result_32_ext);
 
         let dst_var = self.registers[&reg2];
@@ -3080,9 +3080,20 @@ impl Visitor for Translator<'_, '_> {
         let src0_val = self.builder.use_var(src0_var);
         let src1_val = self.builder.use_var(src1_var);
 
-        // For upper bits of signed*unsigned multiplication
-        // This is more complex - we can emulate with signed high multiply
-        let result = self.builder.ins().smulhi(src0_val, src1_val);
+        // For upper bits of signed*unsigned multiplication (mulhsu)
+        // First operand is signed, second operand is unsigned
+        // We can emulate this using: mulhu(a,b) - (a < 0 ? b : 0)
+        // This is the standard way to convert unsigned high multiply to signed×unsigned
+        
+        let unsigned_high = self.builder.ins().umulhi(src0_val, src1_val);
+        
+        // Check if first operand is negative (signed)
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let src0_negative = self.builder.ins().icmp(IntCC::SignedLessThan, src0_val, zero);
+        
+        // If src0 is negative, subtract src1 from the unsigned high result
+        let correction = self.builder.ins().select(src0_negative, src1_val, zero);
+        let result = self.builder.ins().isub(unsigned_high, correction);
 
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
@@ -3095,13 +3106,13 @@ impl Visitor for Translator<'_, '_> {
         _pc: usize,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Count set bits (population count)
         let result = self.builder.ins().popcnt(src_val);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
@@ -3112,7 +3123,7 @@ impl Visitor for Translator<'_, '_> {
         _pc: usize,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Truncate to 32-bit, count set bits, then extend back
@@ -3120,7 +3131,7 @@ impl Visitor for Translator<'_, '_> {
         let count32 = self.builder.ins().popcnt(src32);
         let result = self.builder.ins().uextend(types::I64, count32);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
@@ -3251,54 +3262,131 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_reverse_bytes(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Byte reversal (endianness swap)
         let result = self.builder.ins().bswap(src_val);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
     fn visit_sign_extend_8(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Sign extend from 8 bits
         let src8 = self.builder.ins().ireduce(types::I8, src_val);
         let result = self.builder.ins().sextend(types::I64, src8);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
     fn visit_sign_extend_16(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Sign extend from 16 bits
         let src16 = self.builder.ins().ireduce(types::I16, src_val);
         let result = self.builder.ins().sextend(types::I64, src16);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }
 
     fn visit_zero_extend_16(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let src_var = self.registers[&reg0];
+        let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
 
         // Zero extend from 16 bits (mask to 16 bits)
         let result = self.builder.ins().band_imm(src_val, 0xFFFF);
 
-        let dst_var = self.registers[&reg1];
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result);
+        Ok(())
+    }
+
+    fn visit_ecalli(&mut self, format: format::I, _pc: usize) -> Result<(), Self::Error> {
+        let format::I { imm0 } = format;
+        // ecalli triggers a host call - we need to return an error that will be caught
+        // by the runtime to handle the host call
+        // For now, we'll just return an error to indicate host call needed
+        Err(anyhow::anyhow!("Host call requested: {}", imm0))
+    }
+
+    fn visit_sbrk(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+        let format::RR { reg0, reg1 } = format;
+        
+        // sbrk adjusts the heap pointer and returns the old value
+        // We need to get the current heap pointer from memory context
+        // For now, we'll implement a basic version that returns 0
+        // This will need to be updated to interact with the memory management system
+        
+        // Get the increment value from reg1
+        let _increment_var = self.registers[&reg1];
+        let _increment_val = self.builder.use_var(_increment_var);
+        
+        // TODO: Implement proper heap pointer management
+        // For now, return 0 in reg0 to indicate heap start
+        let zero = self.builder.ins().iconst(types::I64, 0);
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, zero);
+        
+        Ok(())
+    }
+
+    fn visit_rot_r_32_imm_alt(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        
+        // Get rotation amount from reg1
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        
+        // Convert immediate to 32-bit and create value
+        let imm_val = self.builder.ins().iconst(types::I32, (imm0 as u32) as i64);
+        
+        // Mask rotation amount to 0-31
+        let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
+        let mask = self.builder.ins().iconst(types::I32, 31);
+        let safe_shift = self.builder.ins().band(shift_32, mask);
+        
+        // Perform rotation
+        let result_32 = self.builder.ins().rotr(imm_val, safe_shift);
+        
+        // Sign extend to 64 bits
+        let result_64 = self.builder.ins().sextend(types::I64, result_32);
+        
+        let dst_var = self.registers[&reg0];
+        self.builder.def_var(dst_var, result_64);
+        Ok(())
+    }
+
+    fn visit_rot_r_64_imm_alt(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+        let format::RRI { reg0, reg1, imm0 } = format;
+        
+        // Get rotation amount from reg1
+        let shift_var = self.registers[&reg1];
+        let shift_val = self.builder.use_var(shift_var);
+        
+        // Create immediate value
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        
+        // Mask rotation amount to 0-63
+        let mask = self.builder.ins().iconst(types::I64, 63);
+        let safe_shift = self.builder.ins().band(shift_val, mask);
+        
+        // Perform rotation
+        let result = self.builder.ins().rotr(imm_val, safe_shift);
+        
+        let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())
     }

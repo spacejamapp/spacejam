@@ -156,6 +156,10 @@ impl<'a, 'b> Translator<'a, 'b> {
         self.current_pc
     }
 
+    pub fn get_current_pc(&self) -> usize {
+        self.current_pc
+    }
+
     /// Generate Cranelift IR to check page boundaries before store operations
     /// Uses stored context pointer and simple boundary logic matching interpreter
     pub fn check_store_boundaries(
