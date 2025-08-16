@@ -81,7 +81,15 @@ impl Target {
     pub fn handle(&mut self, message: Message) -> anyhow::Result<()> {
         match message {
             Message::Info(info) => self.info(info),
-            Message::ImportBlock(block) => self.import_block(block),
+            Message::ImportBlock(block) => {
+                if let Err(e) = self.import_block(block) {
+                    tracing::warn!("failed to import block: {e}");
+                    let root = self.data.root()?;
+                    self.write_message(Message::StateRoot(root))
+                } else {
+                    Ok(())
+                }
+            }
             Message::SetState(state) => self.set_state(state),
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),

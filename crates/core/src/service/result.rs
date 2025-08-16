@@ -43,13 +43,16 @@ pub enum WorkExecResult {
     OutOfGas,
     /// ☇ denoting an unexpected program termination
     Panic,
-    /// ⊥ denoting an invalid exports error
-    ///
-    /// FIXME: put this here is not correct, but it's a workaround for the old tests
+    /// ⊥ the number of exports made was invalidly reported
     InvalidExports,
-    /// ⊥ denoting an invalid code error
+    /// the size of the digest (refinement output) would
+    /// cross the acceptable limit
+    InvalidDigest,
+    /// (BAD) the third indicates that the service’s code
+    /// was not available for lookup in state at the posterior state
+    /// of the lookup-anchor block
     BadCode,
-    /// ⊥ denoting an code oversize error
+    /// (BIG) the code was available but was beyond the maximum size
     CodeOversize,
 }
 
@@ -63,6 +66,8 @@ pub struct WorkExecResultJson {
     pub panic: Option<()>,
     #[serde(default = "default_some_unit")]
     pub invalid_exports: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub invalid_digest: Option<()>,
     #[serde(default = "default_some_unit")]
     pub bad_code: Option<()>,
     #[serde(default = "default_some_unit")]
@@ -92,12 +97,16 @@ impl Json<WorkExecResultJson> for WorkExecResult {
                 invalid_exports: Some(()),
                 ..Default::default()
             },
-            WorkExecResult::BadCode => WorkExecResultJson {
-                bad_code: Some(()),
+            WorkExecResult::InvalidDigest => WorkExecResultJson {
+                invalid_digest: Some(()),
                 ..Default::default()
             },
             WorkExecResult::CodeOversize => WorkExecResultJson {
                 code_oversize: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::BadCode => WorkExecResultJson {
+                bad_code: Some(()),
                 ..Default::default()
             },
         }

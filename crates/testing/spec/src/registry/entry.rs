@@ -1,6 +1,6 @@
 //! Test vector registry entry
 
-use crate::{Scale, Section, Test};
+use crate::{Scale, Section, Test, Trace};
 use anyhow::Result;
 use serde_json::Value;
 use std::{
@@ -15,13 +15,13 @@ pub struct Entry {
     pub section: Section,
 
     /// The scale of the test vector
-    scale: Option<Scale>,
+    pub scale: Option<Scale>,
 
     /// The directory of the test vector
-    files: Vec<PathBuf>,
+    pub files: Vec<PathBuf>,
 
     /// The current index of the test vector
-    current: usize,
+    pub current: usize,
 }
 
 impl Entry {
@@ -42,15 +42,7 @@ impl Entry {
         let mut files = Vec::new();
         for entry in fs::read_dir(dir)? {
             let path = entry?.path();
-            if path.is_file()
-                && path.extension().unwrap_or_default() == "json"
-                && !path
-                    .with_extension("")
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .starts_with("_")
-            {
+            if path.is_file() && path.extension().unwrap_or_default() == "json" {
                 files.push(path);
             }
         }
@@ -58,6 +50,32 @@ impl Entry {
         Ok(Self {
             section,
             scale,
+            files,
+            current: 0,
+        })
+    }
+
+    /// Build entry from the jam-conformance repo
+    pub fn fuzz(repo: &str) -> Result<Self> {
+        let archive = Path::new(repo).join("fuzz-reports/archive/0.6.7");
+        let mut files = Vec::new();
+        for entry in fs::read_dir(archive)? {
+            let path = entry?.path();
+            if path.is_file() {
+                continue;
+            }
+
+            for entry in fs::read_dir(path)? {
+                let path = entry?.path();
+                if path.is_file() && path.extension().unwrap_or_default() == "json" {
+                    files.push(path);
+                }
+            }
+        }
+
+        Ok(Self {
+            section: Section::Trace(Trace::Fuzz),
+            scale: None,
             files,
             current: 0,
         })
@@ -105,7 +123,18 @@ impl Entry {
             Section::Pvm => self.parse_pvm(path),
             Section::Shuffle => self.parse_shuffle(path),
             Section::Trie => self.parse_trie(path),
-            Section::Trace(_) => self.parse_trace(path),
+            Section::Trace(trace) => {
+                let mut parsed = self.parse_trace(path)?;
+                if trace == Trace::Fuzz {
+                    let prev_name = Self::file_name(path)?;
+                    let parent = Self::file_name(
+                        path.parent()
+                            .ok_or_else(|| anyhow::anyhow!("invalid path"))?,
+                    )?;
+                    parsed.name = format!("{parent}_{prev_name}");
+                }
+                Ok(parsed)
+            }
             Section::Reports => self.parse_general(path),
             Section::Statistics => self.parse_general(path),
             Section::Safrole => self.parse_general(path),

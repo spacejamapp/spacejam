@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Ed25519Public, Extrinsic, TimeSlot};
+use crate::{Ed25519Public, Extrinsic};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -20,35 +20,32 @@ mod val;
 /// Represents statistics.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default, Json)]
 pub struct Statistics {
-    /// Current epoch statistics
+    /// Current epoch statistics (πV)
     #[serde(rename = "vals_curr_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
-    /// Last epoch statistics
+    /// Last epoch statistics (πL)
     #[serde(rename = "vals_last_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
-    /// Current core activity records
+    /// Current core activity records (πC)
     #[json(Vec<CoreActivityRecordJson>)]
     pub cores: [CoreActivityRecord; crate::CORES_COUNT],
 
-    /// Current service activity records
+    /// Current service activity records (πS)
     pub services: BTreeMap<u32, ServiceActivityRecord>,
 }
 
 impl Statistics {
     /// Update the statistics
-    pub fn update(&mut self, slot: TimeSlot, index: u16, extrinsic: &Extrinsic) {
-        // Clear services for fresh calculation per block
+    pub fn update(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
         self.services.clear();
-
-        // Update all statistics components
-        self.update_blocks(slot, index, extrinsic);
+        self.update_blocks(new_epoch, index, extrinsic);
         self.update_preimages(index, extrinsic);
         self.update_assurances(extrinsic);
-        self.update_guarantees(slot, extrinsic);
+        self.update_guarantees(extrinsic);
     }
 
     /// Merge the service statistics from accumulation
@@ -111,9 +108,9 @@ impl Statistics {
         }
     }
 
-    // TODO: handle jumped blocks
-    fn update_blocks(&mut self, slot: TimeSlot, index: u16, extrinsic: &Extrinsic) {
-        if slot % crate::EPOCH_LENGTH == 0 {
+    // Update validator statistics for blocks
+    fn update_blocks(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
+        if new_epoch {
             self.vals_last = self.vals_current;
             self.vals_current =
                 [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
@@ -149,9 +146,7 @@ impl Statistics {
     }
 
     // Update validator / service statistics for guarantees
-    // Per Gray Paper equation 98-114: Core statistics updated from incoming work-reports (w)
-    fn update_guarantees(&mut self, _slot: TimeSlot, extrinsic: &Extrinsic) {
-        // Reset core statistics for this block per Gray Paper
+    fn update_guarantees(&mut self, extrinsic: &Extrinsic) {
         for core in &mut self.cores {
             *core = CoreActivityRecord::default();
         }
@@ -160,21 +155,14 @@ impl Statistics {
         for report in &extrinsic.guarantees {
             let core_index = report.report.core_index as usize;
             let core = &mut self.cores[core_index];
-
-            // (b) Bundle size - size of data being placed into Audits DA
             core.bundle_size += report.report.spec.length;
 
             // Aggregate statistics from all work results for this core
             for result in &report.report.results {
-                // (i) Imports - segments imported from DA
                 core.imports += result.refine_load.imports;
-                // (x) Exports - segments exported into DA
                 core.exports += result.refine_load.exports;
-                // (z) Extrinsic size - total size of extrinsics
                 core.extrinsic_size += result.refine_load.extrinsic_size;
-                // (e) Extrinsic count - total number of extrinsics
                 core.extrinsic_count += result.refine_load.extrinsic_count;
-                // (u) Gas used - total gas consumed for refinement and authorization
                 core.gas_used += result.refine_load.gas_used;
 
                 // Update service statistics

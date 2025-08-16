@@ -52,12 +52,12 @@ pub struct Privileges {
     /// The bless service id (χm)
     pub bless: ServiceId,
 
-    /// The designate service id (χv)
-    pub designate: ServiceId,
-
     /// The assign service id (χa)
     #[json(Vec<ServiceId>)]
     pub assign: [ServiceId; crate::CORES_COUNT],
+
+    /// The designate service id (χv)
+    pub designate: ServiceId,
 
     /// The always accumulate service ids (χg)
     pub always_acc: BTreeMap<ServiceId, Gas>,

@@ -27,6 +27,10 @@ pub enum Fuzz {
         /// The path to the report folder
         #[clap(default_value = "reports", short, long)]
         report: PathBuf,
+
+        /// The path to the exact input file
+        #[clap(short, long)]
+        exact: Option<PathBuf>,
     },
 
     /// Run trace test via the given trace file
@@ -45,7 +49,14 @@ impl Fuzz {
                 socket,
                 traces,
                 report,
-            } => Fuzzer::run(socket, traces, report),
+                exact,
+            } => {
+                if let Some(exact) = exact {
+                    Fuzzer::execute(socket, exact, report)
+                } else {
+                    Fuzzer::run(socket, traces, report)
+                }
+            }
             Self::Tx { test } => fuzz::trace::test(test),
         }
     }

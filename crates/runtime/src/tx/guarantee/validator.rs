@@ -8,6 +8,7 @@ use score::{
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
     VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
 };
+use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.
@@ -87,6 +88,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
 
+        tracing::debug!("{:?}", self.state.recent_blocks.history.clone().to_json());
         self.recent = recent;
         self.reported = reported;
     }
@@ -100,6 +102,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .map(|b| hex::encode(b.header_hash))
             .collect::<Vec<_>>();
 
+        // GP (11.33)
         let Some(block) = self
             .state
             .recent_blocks
@@ -114,6 +117,17 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             );
             return Err(Error::AnchorNotRecent);
         };
+
+        // GP (11.34)
+        if self.timeslot
+            < guarantee
+                .report
+                .context
+                .lookup_anchor_slot
+                .saturating_sub(score::MAX_AGE_LOOKUP_ANCHOR)
+        {
+            return Err(Error::FutureReportSlot);
+        }
 
         // Validate state root
         if block.state_root != guarantee.report.context.state_root {
@@ -200,13 +214,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             crypto::ed25519::verify(&message, sig.signature, *key)
                 .inspect_err(|_| {
                     tracing::warn!(
-                        "failed to verify guarantee signature by {} - 0x{}",
+                        "failed to verify guarantee signature 0x{} by {} - 0x{}",
+                        hex::encode(sig.signature),
                         sig.validator_index,
                         hex::encode(key),
                     )
                 })
                 .map_err(|_| Error::BadSignature)?;
-
             guarantor = Some(validator_index);
         }
 
@@ -325,6 +339,14 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     fn contains_dep(&self, dep: &OpaqueHash) -> bool {
+        tracing::debug!("contains_dep: {}", hex::encode(dep));
+        tracing::debug!(
+            "recent: {:?}",
+            self.recent
+                .iter()
+                .map(|r| hex::encode(r.hash))
+                .collect::<Vec<_>>()
+        );
         self.accounts
             .accounts()
             .iter()
