@@ -1,5 +1,9 @@
 //! Translator module that converts PVM instructions to Cranelift IR
 
+use crate::constants::{
+    access, context_offsets, exec_result, BITS_PER_WORD, BITS_PER_WORD_SHIFT, BYTES_PER_U64_SHIFT,
+    PAGE_SHIFT, PVM_REGISTER_COUNT,
+};
 use cranelift::prelude::*;
 use parser::Visitor;
 use std::collections::HashMap;
@@ -8,7 +12,7 @@ mod visitor;
 
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'a, 'b> {
-    pub registers: HashMap<u8, Variable>, // Only 13 PVM registers (0-12)
+    pub registers: HashMap<u8, Variable>, // PVM registers (0 to MAX_REGISTER_INDEX)
     pub builder: &'a mut FunctionBuilder<'b>,
 
     // Block-based compilation state
@@ -35,15 +39,15 @@ impl<'a, 'b> Translator<'a, 'b> {
     pub fn with_jump_table(builder: &'a mut FunctionBuilder<'b>, jump_table: Vec<u64>) -> Self {
         let mut registers = HashMap::new();
 
-        // Declare all 13 PVM registers as Cranelift variables
-        // PVM has 13 registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
-        for i in 0..13 {
+        // Declare all PVM registers as Cranelift variables
+        // PVM has registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
+        for i in 0..PVM_REGISTER_COUNT {
             let var = Variable::new(i);
             builder.declare_var(var, types::I64);
             registers.insert(i as u8, var);
         }
 
-        // PVM has ONLY 13 registers - no additional variables allowed!
+        // PVM has only a fixed number of registers - no additional variables allowed!
 
         Self {
             registers,
@@ -91,7 +95,7 @@ impl<'a, 'b> Translator<'a, 'b> {
         // Read the block of instructions using read_block method from parser
         // This reads until a terminating instruction or end of block
         let block_instructions = reader.read_block()?;
-        
+
         // Process each instruction in the block
         for instruction_offset in block_instructions {
             // Skip instructions that are beyond our block boundary
@@ -156,7 +160,11 @@ impl<'a, 'b> Translator<'a, 'b> {
 
             // For terminating instructions, store their PC in the context
             if is_terminating {
-                tracing::trace!("Terminating instruction {} at PC {}", instruction_offset.value, instruction_offset.range.start);
+                tracing::trace!(
+                    "Terminating instruction {} at PC {}",
+                    instruction_offset.value,
+                    instruction_offset.range.start
+                );
                 if let Some(ctx_ptr) = self.ctx_ptr {
                     self.store_instruction_pc(ctx_ptr, instruction_offset.range.start)?;
                 }
@@ -213,69 +221,44 @@ impl<'a, 'b> Translator<'a, 'b> {
     ) -> Result<(), anyhow::Error> {
         let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
-        // Cache page size constant for better performance
-        const PAGE_SIZE_CONST: i64 = 4096;
-        let page_size = self.builder.ins().iconst(types::I64, PAGE_SIZE_CONST);
-        
-        // Check if store crosses page boundary (4KB pages)
-        let page_offset = self.builder.ins().urem(address, page_size);
-        let size_val = self.builder.ins().iconst(types::I64, size_bytes as i64);
-        let end_offset = self.builder.ins().iadd(page_offset, size_val);
+        // Page size constant is already defined and available
 
-        // Check if end_offset > page_size (crosses boundary into next page)
-        let crosses_boundary =
-            self.builder
-                .ins()
-                .icmp(IntCC::UnsignedGreaterThan, end_offset, page_size);
+        // Always check page allocation for stores, regardless of boundary crossing
+        // Calculate page numbers for first and last byte of the store operation
+        let start_page = self.get_page_number(address);
+        let size_minus_one = self
+            .builder
+            .ins()
+            .iconst(types::I64, (size_bytes - 1) as i64);
+        let last_byte_addr = self.builder.ins().iadd(address, size_minus_one);
+        let end_page = self.get_page_number(last_byte_addr);
+
+        tracing::debug!("Boundary check: will verify page allocation for store operation");
 
         // Create blocks for control flow
-        let check_block = self.builder.create_block();
+        let check_start_page_block = self.builder.create_block();
+        let check_end_page_block = self.builder.create_block();
         let continue_block = self.builder.create_block();
-
-        // Branch: if crosses boundary, need to check; otherwise continue
-        self.builder
-            .ins()
-            .brif(crosses_boundary, check_block, &[], continue_block, &[]);
-
-        // Check block: verify the next page exists and is writable
-        self.builder.switch_to_block(check_block);
-
-        // Calculate page number of the last byte that will be written
-        // Add overflow protection as recommended by expert
-        let size_minus_one = self.builder.ins().iconst(types::I64, (size_bytes - 1) as i64);
-        let max_address = self.builder.ins().iconst(types::I64, u32::MAX as i64);
-        
-        // Check for address overflow before addition
-        let remaining_space = self.builder.ins().isub(max_address, address);
-        let will_overflow = self.builder.ins().icmp(IntCC::UnsignedLessThan, remaining_space, size_minus_one);
-        
-        let overflow_trap_block = self.builder.create_block();
-        let safe_calc_block = self.builder.create_block();
-        
-        // Branch: if overflow would occur, trap; otherwise continue with calculation
-        self.builder
-            .ins()
-            .brif(will_overflow, overflow_trap_block, &[], safe_calc_block, &[]);
-
-        // Overflow trap block
-        self.builder.switch_to_block(overflow_trap_block);
-        self.set_trap_result(ctx_ptr)?;
-        self.builder.ins().return_(&[]);
-
-        // Safe calculation block
-        self.builder.switch_to_block(safe_calc_block);
-        let last_byte_addr = self.builder.ins().iadd(address, size_minus_one);
-        let last_byte_page = self.get_page_number(last_byte_addr);
-
-        // Check if the last byte's page is allocated and writable
-        let page_valid = self.check_page_allocated_and_writable(ctx_ptr, last_byte_page)?;
-
         let trap_block = self.builder.create_block();
 
-        // Branch: if page is valid, continue; otherwise trap
+        // Always check the start page first
+        self.builder.ins().jump(check_start_page_block, &[]);
+
+        // Check start page allocation and writability
+        self.builder.switch_to_block(check_start_page_block);
+
+        // Check if start page is allocated and writable
+        let start_page_valid = self.check_page_allocated_and_writable(ctx_ptr, start_page)?;
         self.builder
             .ins()
-            .brif(page_valid, continue_block, &[], trap_block, &[]);
+            .brif(start_page_valid, check_end_page_block, &[], trap_block, &[]);
+
+        // Check end page allocation and writability
+        self.builder.switch_to_block(check_end_page_block);
+        let end_page_valid = self.check_page_allocated_and_writable(ctx_ptr, end_page)?;
+        self.builder
+            .ins()
+            .brif(end_page_valid, continue_block, &[], trap_block, &[]);
 
         // Trap block: set page fault result and return
         self.builder.switch_to_block(trap_block);
@@ -286,9 +269,8 @@ impl<'a, 'b> Translator<'a, 'b> {
         self.builder.switch_to_block(continue_block);
 
         // Seal all created blocks
-        self.builder.seal_block(check_block);
-        self.builder.seal_block(safe_calc_block);
-        self.builder.seal_block(overflow_trap_block);
+        self.builder.seal_block(check_start_page_block);
+        self.builder.seal_block(check_end_page_block);
         self.builder.seal_block(continue_block);
         self.builder.seal_block(trap_block);
 
@@ -296,12 +278,9 @@ impl<'a, 'b> Translator<'a, 'b> {
     }
 
     /// Calculate page number from address using efficient bit shift
-    /// PAGE_SIZE = 4096 = 2^12, so division by PAGE_SIZE == right shift by 12 bits
     fn get_page_number(&mut self, address: Value) -> Value {
         // Use bit shift for much faster page number calculation
-        // 4096 = 2^12, so divide by 4096 == right shift by 12
-        const PAGE_SHIFT: i64 = 12;
-        let shift_amount = self.builder.ins().iconst(types::I64, PAGE_SHIFT);
+        let shift_amount = self.builder.ins().iconst(types::I64, PAGE_SHIFT as i64);
         self.builder.ins().ushr(address, shift_amount)
     }
 
@@ -312,19 +291,22 @@ impl<'a, 'b> Translator<'a, 'b> {
         page_num: Value,
     ) -> Result<Value, anyhow::Error> {
         // Use safer offset calculations based on ExtendedContext layout
-        // ExtendedContext: registers[13*8] + pc[8] + memory_ptr[8] + page_bitmap[8] + page_access[8] + result + pc_managed
-        const BITMAP_OFFSET: i64 = (13 * 8 + 8 + 8) as i64; // After registers, pc, memory_ptr
-        const ACCESS_OFFSET: i64 = (13 * 8 + 8 + 8 + 8) as i64; // After registers, pc, memory_ptr, page_bitmap
-        
+
         // Get page bitmap and access pointers from context
-        let bitmap_offset = self.builder.ins().iconst(types::I64, BITMAP_OFFSET);
+        let bitmap_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::PAGE_BITMAP_OFFSET as i64);
         let bitmap_ptr_addr = self.builder.ins().iadd(ctx_ptr, bitmap_offset);
         let bitmap_ptr = self
             .builder
             .ins()
             .load(types::I64, MemFlags::new(), bitmap_ptr_addr, 0);
 
-        let access_offset = self.builder.ins().iconst(types::I64, ACCESS_OFFSET);
+        let access_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::PAGE_ACCESS_OFFSET as i64);
         let access_ptr_addr = self.builder.ins().iadd(ctx_ptr, access_offset);
         let access_ptr = self
             .builder
@@ -332,16 +314,25 @@ impl<'a, 'b> Translator<'a, 'b> {
             .load(types::I64, MemFlags::new(), access_ptr_addr, 0);
 
         // Check if page is allocated (bit set in bitmap)
-        // Use bit shifts for faster bitmap indexing: 64 = 2^6
-        let six = self.builder.ins().iconst(types::I64, 6); // 2^6 = 64
-        let word_idx = self.builder.ins().ushr(page_num, six); // page_num / 64
-        let sixty_three = self.builder.ins().iconst(types::I64, 63); // 64 - 1 = 63 (mask)
-        let bit_idx = self.builder.ins().band(page_num, sixty_three); // page_num % 64
+        // Use bit shifts for faster bitmap indexing
+        let shift_bits = self
+            .builder
+            .ins()
+            .iconst(types::I64, BITS_PER_WORD_SHIFT as i64);
+        let word_idx = self.builder.ins().ushr(page_num, shift_bits); // page_num / BITS_PER_WORD
+        let mask = self
+            .builder
+            .ins()
+            .iconst(types::I64, (BITS_PER_WORD - 1) as i64);
+        let bit_idx = self.builder.ins().band(page_num, mask); // page_num % BITS_PER_WORD
 
         // Load the bitmap word
-        // Use bit shift for word offset: 8 bytes = 2^3, so * 8 == left shift by 3
-        let three = self.builder.ins().iconst(types::I64, 3); // 2^3 = 8 bytes per u64
-        let word_offset = self.builder.ins().ishl(word_idx, three); // word_idx * 8
+        // Use bit shift for word offset: 8 bytes per u64
+        let byte_shift = self
+            .builder
+            .ins()
+            .iconst(types::I64, BYTES_PER_U64_SHIFT as i64);
+        let word_offset = self.builder.ins().ishl(word_idx, byte_shift); // word_idx * 8
         let word_addr = self.builder.ins().iadd(bitmap_ptr, word_offset);
         let bitmap_word = self
             .builder
@@ -358,17 +349,17 @@ impl<'a, 'b> Translator<'a, 'b> {
             .ins()
             .icmp(IntCC::NotEqual, bit_value, zero_val);
 
-        // Check if page is writable (access == 0)
+        // Check if page is writable (access == MUTABLE)
         let access_addr = self.builder.ins().iadd(access_ptr, page_num);
         let access_byte = self
             .builder
             .ins()
             .load(types::I8, MemFlags::new(), access_addr, 0);
-        let zero_byte = self.builder.ins().iconst(types::I8, 0);
+        let mutable_byte = self.builder.ins().iconst(types::I8, access::MUTABLE as i64);
         let page_writable = self
             .builder
             .ins()
-            .icmp(IntCC::Equal, access_byte, zero_byte);
+            .icmp(IntCC::Equal, access_byte, mutable_byte);
 
         // Page is valid if both allocated and writable
         let page_valid = self.builder.ins().band(page_allocated, page_writable);
@@ -378,27 +369,37 @@ impl<'a, 'b> Translator<'a, 'b> {
 
     /// Set trap result in the context
     fn set_trap_result(&mut self, ctx_ptr: Value) -> Result<(), anyhow::Error> {
-        let result_offset = self.builder.ins().iconst(
-            types::I64,
-            (std::mem::size_of::<[u64; 13]>()
-                + std::mem::size_of::<u64>()
-                + std::mem::size_of::<*mut u8>()
-                + std::mem::size_of::<*const u64>()
-                + std::mem::size_of::<*const u8>()) as i64,
-        );
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
 
-        let trap_discriminant = self.builder.ins().iconst(types::I64, 3); // ExecResult::Trap
+        let trap_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
+
+        // For page faults specifically, set PC to block start
+        // But for other traps, PC is already set correctly by the instruction visitor
+        // TODO: Only set PC for page fault traps, not all traps
 
         Ok(())
     }
 
     /// Store the current instruction PC in the context for terminating instructions
-    pub fn store_instruction_pc(&mut self, ctx_ptr: Value, instruction_pc: usize) -> Result<(), anyhow::Error> {
-        let pc_offset = self.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
+    pub fn store_instruction_pc(
+        &mut self,
+        ctx_ptr: Value,
+        instruction_pc: usize,
+    ) -> Result<(), anyhow::Error> {
+        let pc_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::PC_OFFSET as i64);
         let pc_addr = self.builder.ins().iadd(ctx_ptr, pc_offset);
         let pc_val = self.builder.ins().iconst(types::I64, instruction_pc as i64);
         self.builder

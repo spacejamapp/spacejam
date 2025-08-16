@@ -10,7 +10,7 @@ const ADD_IMM_32_PROGRAM: &[u8] = &[0, 0, 3, 131, 121, 2, 1];
 fn test_load_imm() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
     let module = compiler.compile(LOAD_IMM_PROGRAM)?;
-    let result = module.execute(&[0; 13], 0, Memory::new())?;
+    let result = module.execute(&[0; pvmc::constants::PVM_REGISTER_COUNT], 0, Memory::new())?;
 
     // Expected registers from test vector
     let expected = [0, 0, 0, 0, 0, 0, 0, 3735928559, 0, 0, 0, 0, 0];
@@ -22,7 +22,7 @@ fn test_load_imm() -> anyhow::Result<()> {
 fn test_add_imm_32() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
     let module = compiler.compile(ADD_IMM_32_PROGRAM)?;
-    let result = module.execute(&[0; 13], 0, Memory::new())?;
+    let result = module.execute(&[0; pvmc::constants::PVM_REGISTER_COUNT], 0, Memory::new())?;
 
     // With zero initialization, register 9 should contain 0 + 2 = 2 (from add_imm_32 instruction)
     let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0];

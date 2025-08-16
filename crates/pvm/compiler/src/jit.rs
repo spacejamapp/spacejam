@@ -1,6 +1,13 @@
 //! Clean block-based JIT compiler for PVM programs
 
-use crate::{translator::Translator, Info, Memory, Module};
+use crate::{
+    constants::{
+        access, context_offsets, exec_result, BITS_PER_WORD, EXTRA_PAGES_MARGIN,
+        JUMP_ALIGNMENT_FACTOR, LINEAR_MEMORY_SIZE, PAGE_SIZE, PVM_REGISTER_COUNT,
+    },
+    translator::Translator,
+    Info, Memory, Module,
+};
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{Function, UserFuncName};
@@ -33,7 +40,7 @@ pub enum ExecResult {
 /// Runtime context for block execution
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub registers: [u64; 13],
+    pub registers: [u64; PVM_REGISTER_COUNT],
     pub pc: u64,
     pub memory: Memory,
     pub linear_mem: Vec<u8>,
@@ -41,12 +48,12 @@ pub struct Context {
 
 impl Context {
     /// Create new context
-    pub fn new(regs: [u64; 13], pc: u64, mem: Memory) -> Self {
-        let mut linear_mem = vec![0u8; 0x100000]; // 1MB
+    pub fn new(regs: [u64; PVM_REGISTER_COUNT], pc: u64, mem: Memory) -> Self {
+        let mut linear_mem = vec![0u8; LINEAR_MEMORY_SIZE];
 
         // Copy memory pages to linear buffer
         for (&page_num, page) in &mem.pages {
-            let start = (page_num as usize) * (crate::module::memory::PAGE_SIZE as usize);
+            let start = (page_num as usize) * (PAGE_SIZE as usize);
             let end = start + page.data.len();
             if end <= linear_mem.len() {
                 linear_mem[start..end].copy_from_slice(&page.data);
@@ -64,13 +71,35 @@ impl Context {
     /// Generate page allocation bitmap for runtime boundary checking
     pub fn generate_page_bitmap(&self) -> (Vec<u64>, Vec<u8>) {
         let max_page = self.memory.pages.keys().max().copied().unwrap_or(0);
-        let bitmap_size = ((max_page + 64) / 64) as usize; // Round up to u64 chunks
+        let bitmap_size = ((max_page + BITS_PER_WORD as u32) / BITS_PER_WORD as u32) as usize;
         let mut bitmap = vec![0u64; bitmap_size];
-        let mut access = vec![2u8; (max_page + 1) as usize]; // Default: inaccessible (non-zero)
+
+        // Ensure access array is large enough to handle boundary checking beyond max_page
+        // We need to account for multi-byte stores that may access pages beyond max_page
+        let access_size = (max_page + EXTRA_PAGES_MARGIN + 1) as usize;
+        let mut access = vec![access::INACCESSIBLE; access_size]; // Default: inaccessible
+
+        tracing::debug!(
+            "Page bitmap generation: max_page={}, bitmap_size={}, access_size={}",
+            max_page,
+            bitmap_size,
+            access_size
+        );
+        tracing::debug!(
+            "Allocated pages: {:?}",
+            self.memory.pages.keys().collect::<Vec<_>>()
+        );
 
         for (&page_num, page) in &self.memory.pages {
-            let word_idx = page_num / 64;
-            let bit_idx = page_num % 64;
+            let word_idx = page_num / BITS_PER_WORD as u32;
+            let bit_idx = page_num % BITS_PER_WORD as u32;
+            tracing::debug!(
+                "Page {}: word_idx={}, bit_idx={}, access={}",
+                page_num,
+                word_idx,
+                bit_idx,
+                page.access
+            );
             if (word_idx as usize) < bitmap.len() {
                 bitmap[word_idx as usize] |= 1u64 << bit_idx;
                 if (page_num as usize) < access.len() {
@@ -78,6 +107,13 @@ impl Context {
                 }
             }
         }
+
+        tracing::debug!("Final bitmap: {:?}", bitmap);
+        tracing::debug!(
+            "Access array length: {}, sample: {:?}",
+            access.len(),
+            &access[..access.len().min(10)]
+        );
 
         (bitmap, access)
     }
@@ -89,7 +125,7 @@ impl Context {
     /// but was truncated due to page boundaries. For proper page fault detection,
     /// boundary checking should be implemented in the store visitor functions.
     pub fn sync(&mut self) -> Result<()> {
-        let page_size = crate::module::memory::PAGE_SIZE as usize;
+        let page_size = PAGE_SIZE as usize;
 
         // Check for any writes to unallocated pages
         for page_addr in (0..self.linear_mem.len()).step_by(page_size) {
@@ -115,7 +151,7 @@ impl Context {
 
                 if orig != new {
                     // Check for read-only page violations
-                    if page.access != 0 {
+                    if page.access != access::MUTABLE {
                         anyhow::bail!("Page fault: write to read-only page {}", page_num);
                     }
 
@@ -132,7 +168,7 @@ impl Context {
 /// Extended context for compiled blocks
 #[repr(C)]
 pub struct ExtendedContext {
-    pub registers: [u64; 13],
+    pub registers: [u64; PVM_REGISTER_COUNT],
     pub pc: u64,
     pub memory_ptr: *mut u8,
     pub page_bitmap: *const u64, // Bitmap of allocated pages
@@ -219,31 +255,33 @@ impl Jit {
             }
 
             // Block terminates if it contains a terminating instruction OR if we reached EOF
-            let terminates = !block_instructions.is_empty() && 
-                            (reader.eof() || 
-                             matches!(block_instructions.last().unwrap().value,
-                                parser::Instruction::Trap
-                                | parser::Instruction::Fallthrough
-                                | parser::Instruction::Jump(_)
-                                | parser::Instruction::JumpInd(_)
-                                | parser::Instruction::LoadImmJump(_)
-                                | parser::Instruction::LoadImmJumpInd(_)
-                                | parser::Instruction::BranchEq(_)
-                                | parser::Instruction::BranchNe(_)
-                                | parser::Instruction::BranchGeU(_)
-                                | parser::Instruction::BranchGeS(_)
-                                | parser::Instruction::BranchLtU(_)
-                                | parser::Instruction::BranchLtS(_)
-                                | parser::Instruction::BranchEqImm(_)
-                                | parser::Instruction::BranchNeImm(_)
-                                | parser::Instruction::BranchGeUImm(_)
-                                | parser::Instruction::BranchGeSImm(_)
-                                | parser::Instruction::BranchLtUImm(_)
-                                | parser::Instruction::BranchLtSImm(_)
-                                | parser::Instruction::BranchLeUImm(_)
-                                | parser::Instruction::BranchLeSImm(_)
-                                | parser::Instruction::BranchGtUImm(_)
-                                | parser::Instruction::BranchGtSImm(_)));
+            let terminates = !block_instructions.is_empty()
+                && (reader.eof()
+                    || matches!(
+                        block_instructions.last().unwrap().value,
+                        parser::Instruction::Trap
+                            | parser::Instruction::Fallthrough
+                            | parser::Instruction::Jump(_)
+                            | parser::Instruction::JumpInd(_)
+                            | parser::Instruction::LoadImmJump(_)
+                            | parser::Instruction::LoadImmJumpInd(_)
+                            | parser::Instruction::BranchEq(_)
+                            | parser::Instruction::BranchNe(_)
+                            | parser::Instruction::BranchGeU(_)
+                            | parser::Instruction::BranchGeS(_)
+                            | parser::Instruction::BranchLtU(_)
+                            | parser::Instruction::BranchLtS(_)
+                            | parser::Instruction::BranchEqImm(_)
+                            | parser::Instruction::BranchNeImm(_)
+                            | parser::Instruction::BranchGeUImm(_)
+                            | parser::Instruction::BranchGeSImm(_)
+                            | parser::Instruction::BranchLtUImm(_)
+                            | parser::Instruction::BranchLtSImm(_)
+                            | parser::Instruction::BranchLeUImm(_)
+                            | parser::Instruction::BranchLeSImm(_)
+                            | parser::Instruction::BranchGtUImm(_)
+                            | parser::Instruction::BranchGtSImm(_)
+                    ));
 
             self.create_block(block_start, reader.position, terminates);
 
@@ -321,20 +359,31 @@ impl Jit {
             let (result, _pc_managed) = self.run_block(&code, &mut ctx, block.clone())?;
 
             tracing::debug!("Block execution result: {:?}, new PC: {}", result, ctx.pc);
-            tracing::trace!("Block info: start={}, end={}, terminates={}", 
-                           block.as_ref().map(|b| b.start).unwrap_or(0),
-                           block.as_ref().map(|b| b.end).unwrap_or(0),
-                           block.as_ref().map(|b| b.terminates).unwrap_or(false));
+            tracing::trace!(
+                "Block info: start={}, end={}, terminates={}",
+                block.as_ref().map(|b| b.start).unwrap_or(0),
+                block.as_ref().map(|b| b.end).unwrap_or(0),
+                block.as_ref().map(|b| b.terminates).unwrap_or(false)
+            );
             match result {
                 ExecResult::Continue => {
                     // Continue to the next block
                     if let Some(current_block) = block {
                         // Find next sequential block using the current block's end
-                        if let Some(next_pc) = self.blocks.keys().find(|&&p| p == current_block.end as u64).copied() {
+                        if let Some(next_pc) = self
+                            .blocks
+                            .keys()
+                            .find(|&&p| p == current_block.end as u64)
+                            .copied()
+                        {
                             ctx.pc = next_pc;
                         } else {
                             // EOF case - no more blocks, use program end PC
-                            tracing::debug!("EOF case: setting PC from {} to program_end_pc {}", ctx.pc, self.program_end_pc);
+                            tracing::debug!(
+                                "EOF case: setting PC from {} to program_end_pc {}",
+                                ctx.pc,
+                                self.program_end_pc
+                            );
                             ctx.pc = self.program_end_pc;
                             break;
                         }
@@ -451,7 +500,7 @@ impl Jit {
         translator.init_with_context(ctx_ptr)?;
 
         // Load initial register values from context into Cranelift variables
-        for i in 0..13 {
+        for i in 0..PVM_REGISTER_COUNT {
             let reg_var = translator.registers[&(i as u8)];
             let offset = translator.builder.ins().iconst(types::I64, (i * 8) as i64);
             let addr = translator.builder.ins().iadd(ctx_ptr, offset);
@@ -468,7 +517,10 @@ impl Jit {
         // Terminating instructions handle their own PC advancement
         if !block.terminates {
             let final_pc = translator.get_final_pc();
-            let pc_offset = translator.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
+            let pc_offset = translator
+                .builder
+                .ins()
+                .iconst(types::I64, context_offsets::PC_OFFSET as i64);
             let pc_addr = translator.builder.ins().iadd(ctx_ptr, pc_offset);
             let new_pc = translator.builder.ins().iconst(types::I64, final_pc as i64);
             translator
@@ -478,7 +530,7 @@ impl Jit {
         }
 
         // Save registers back to context
-        for i in 0..13 {
+        for i in 0..PVM_REGISTER_COUNT {
             let reg_var = translator.registers[&(i as u8)];
             let reg_val = translator.builder.use_var(reg_var);
             let offset = translator.builder.ins().iconst(types::I64, (i * 8) as i64);
@@ -511,8 +563,6 @@ impl Jit {
             Ok(ptr as *mut u8)
         }
     }
-
-
 
     /// Execute compiled block
     fn run_block(
@@ -565,9 +615,7 @@ impl Jit {
 
     /// Decode execution result from context
     fn decode_result(&self, ext_ctx: &ExtendedContext) -> Result<ExecResult> {
-        let offset = std::mem::size_of::<[u64; 13]>()
-            + std::mem::size_of::<u64>()
-            + std::mem::size_of::<*mut u8>();
+        let offset = context_offsets::RESULT_OFFSET;
 
         unsafe {
             let ctx_ptr = ext_ctx as *const ExtendedContext as *const u8;
@@ -576,18 +624,18 @@ impl Jit {
 
             tracing::trace!("decode_result: discriminant={}", discriminant);
             match discriminant {
-                0 => {
+                exec_result::CONTINUE => {
                     tracing::trace!("Branch result: Continue (don't take branch)");
                     Ok(ExecResult::Continue)
                 }
-                1 => {
+                exec_result::JUMP => {
                     let target = *(result_ptr.add(8) as *const u64);
                     tracing::trace!("Direct jump result: target PC {}", target);
                     Ok(ExecResult::Jump(target))
                 }
-                2 => Ok(ExecResult::Halt),
-                3 => Ok(ExecResult::Trap),
-                4 => {
+                exec_result::HALT => Ok(ExecResult::Halt),
+                exec_result::TRAP => Ok(ExecResult::Trap),
+                exec_result::JUMP_INDIRECT => {
                     // JumpIndirect - resolve address through jump table
                     let address = *(result_ptr.add(8) as *const u64) as u32;
                     tracing::trace!(
@@ -606,8 +654,6 @@ impl Jit {
                         return Ok(ExecResult::Halt);
                     }
 
-                    // Jump alignment factor from interpreter implementation
-                    const JUMP_ALIGNMENT_FACTOR: u32 = 2;
                     if address > self.jump_table.len() as u32 * JUMP_ALIGNMENT_FACTOR
                         || address % 2 != 0
                     {

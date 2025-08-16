@@ -79,14 +79,13 @@ impl Module {
     /// Execute the module using block-based JIT compilation
     pub fn execute(
         &self,
-        initial_registers: &[u64; 13],
+        initial_registers: &[u64; crate::constants::PVM_REGISTER_COUNT],
         initial_pc: u64,
         initial_memory: Memory,
     ) -> Result<Info> {
         if self.is_placeholder() {
             anyhow::bail!("Cannot execute placeholder function");
         }
-
 
         // Create a block JIT compiler
         let mut compiler = Jit::new()?;

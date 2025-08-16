@@ -1,11 +1,9 @@
 //! Memory implementation for compiled functions
 
+use crate::constants::{access, PAGE_SIZE};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-
-/// Page size constant (4KB)
-pub const PAGE_SIZE: u32 = 4096;
 
 /// Memory page with access control
 #[repr(C)]
@@ -31,9 +29,9 @@ impl Page {
         Self {
             data: interp_page.data.to_vec(),
             access: match interp_page.access {
-                pvmi::Access::Mutable => 0,
-                pvmi::Access::Immutable => 1,
-                pvmi::Access::Inaccessible => 2,
+                pvmi::Access::Mutable => access::MUTABLE,
+                pvmi::Access::Immutable => access::IMMUTABLE,
+                pvmi::Access::Inaccessible => access::INACCESSIBLE,
             },
         }
     }
@@ -80,7 +78,7 @@ impl Memory {
 
             // Check if page exists and is writable
             if let Some(page) = self.pages.get(&page_num) {
-                if page.access != 0 {
+                if page.access != access::MUTABLE {
                     anyhow::bail!("Page {} is not writable", page_num);
                 }
             } else {
@@ -146,7 +144,7 @@ impl Memory {
 
             if let Some(page) = self.pages.get(&page_num) {
                 // Check if page is accessible for reading
-                if page.access == 2 {
+                if page.access == access::INACCESSIBLE {
                     // Inaccessible page - return zeros for these bytes
                     // This matches PVM behavior for inaccessible memory
                 } else {

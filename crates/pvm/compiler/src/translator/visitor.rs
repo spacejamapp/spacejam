@@ -1,24 +1,20 @@
 //! Visitor implementation for PVM instructions
 
-use crate::Translator;
+use crate::{
+    constants::{context_offsets, exec_result, MAX_REGISTER_INDEX},
+    Translator,
+};
 use cranelift::prelude::*;
 use parser::{format, Visitor};
 
-/// Get the offset to the result field in ExtendedBlockContext using compile-time calculation
-/// This avoids hardcoded offsets and prevents layout bugs
-fn get_context_result_offset() -> i64 {
-    // Use std::mem::offset_of when available, or calculate manually for now
-    // ExtendedBlockContext layout: registers (13*8) + pc (8) + memory_ptr (8) = 120
-    std::mem::size_of::<[u64; 13]>() as i64
-        + std::mem::size_of::<u64>() as i64
-        + std::mem::size_of::<*mut u8>() as i64
-}
-
-impl<'a, 'b> Translator<'a, 'b> {
+impl Translator<'_, '_> {
     /// Helper function to get the linear memory base address from ExtendedContext
     fn get_memory_base(&mut self) -> Value {
         let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let memory_ptr_offset = self.builder.ins().iconst(types::I64, (13 * 8 + 8) as i64);
+        let memory_ptr_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::MEMORY_PTR_OFFSET as i64);
         let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
         self.builder
             .ins()
@@ -44,12 +40,18 @@ impl<'a, 'b> Translator<'a, 'b> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
         let selected_discriminant =
             self.builder
                 .ins()
@@ -89,11 +91,14 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-        
+
         // Store Trap discriminant (3)
-        let trap_discriminant = self.builder.ins().iconst(types::I64, 3); // ExecResult::Trap
+        let trap_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
@@ -143,11 +148,14 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store Jump discriminant (1) and target PC
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Direct Jump variant
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64); // Direct Jump variant
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
 
         // Store discriminant at result_addr
@@ -167,7 +175,7 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_add_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if reg0 >= 13 || reg1 >= 13 {
+        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
         }
 
@@ -185,7 +193,7 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_add_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if reg0 >= 13 || reg1 >= 13 {
+        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
         }
 
@@ -331,7 +339,7 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_div_u_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if reg0 >= 13 || reg1 >= 13 || reg2 >= 13 {
+        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX || reg2 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: {}, {}, {}, ", reg0, reg1, reg2);
         }
 
@@ -1393,7 +1401,8 @@ impl Visitor for Translator<'_, '_> {
         // Calculate branch target PC using offset
         tracing::trace!(
             "visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc",
-            pc, off0
+            pc,
+            off0
         );
         tracing::trace!(
             "visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}",
@@ -1414,13 +1423,19 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
-                                                                              // Correct: select(condition, jump_when_true, continue_when_false)
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
+                                                               // Correct: select(condition, jump_when_true, continue_when_false)
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1467,13 +1482,19 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1); // Jump variant
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0); // Continue variant
-                                                                              // Correct: select(condition, jump_when_true, continue_when_false)
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
+                                                               // Correct: select(condition, jump_when_true, continue_when_false)
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1515,12 +1536,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1557,12 +1584,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1602,12 +1635,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1647,12 +1686,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1692,12 +1737,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1737,12 +1788,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1782,12 +1839,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1827,12 +1890,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1872,12 +1941,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1917,12 +1992,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -1963,12 +2044,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -2021,12 +2108,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -2066,12 +2159,18 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store conditional result
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
-        let continue_discriminant = self.builder.ins().iconst(types::I64, 0);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64);
         let selected_discriminant =
             self.builder
                 .ins()
@@ -2109,13 +2208,16 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // BlockExecutionResult::Jump(target_pc) is represented as:
         // - discriminant (u64): 1 for Jump variant
         // - data (u64): target_pc value
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 1);
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64);
         let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
 
         // Store discriminant at result_addr
@@ -2160,7 +2262,7 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store JumpIndirect variant with the calculated address
@@ -2306,7 +2408,7 @@ impl Visitor for Translator<'_, '_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, get_context_result_offset());
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store JumpIndirect discriminant (4) - runtime will resolve address via jump table
@@ -3095,13 +3197,16 @@ impl Visitor for Translator<'_, '_> {
         // First operand is signed, second operand is unsigned
         // We can emulate this using: mulhu(a,b) - (a < 0 ? b : 0)
         // This is the standard way to convert unsigned high multiply to signed×unsigned
-        
+
         let unsigned_high = self.builder.ins().umulhi(src0_val, src1_val);
-        
+
         // Check if first operand is negative (signed)
         let zero = self.builder.ins().iconst(types::I64, 0);
-        let src0_negative = self.builder.ins().icmp(IntCC::SignedLessThan, src0_val, zero);
-        
+        let src0_negative = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, src0_val, zero);
+
         // If src0 is negative, subtract src1 from the unsigned high result
         let correction = self.builder.ins().select(src0_negative, src1_val, zero);
         let result = self.builder.ins().isub(unsigned_high, correction);
@@ -3335,68 +3440,76 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        
+
         // sbrk adjusts the heap pointer and returns the old value
         // We need to get the current heap pointer from memory context
         // For now, we'll implement a basic version that returns 0
         // This will need to be updated to interact with the memory management system
-        
+
         // Get the increment value from reg1
         let _increment_var = self.registers[&reg1];
         let _increment_val = self.builder.use_var(_increment_var);
-        
+
         // TODO: Implement proper heap pointer management
         // For now, return 0 in reg0 to indicate heap start
         let zero = self.builder.ins().iconst(types::I64, 0);
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, zero);
-        
+
         Ok(())
     }
 
-    fn visit_rot_r_32_imm_alt(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_32_imm_alt(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        
+
         // Get rotation amount from reg1
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
-        
+
         // Convert immediate to 32-bit and create value
         let imm_val = self.builder.ins().iconst(types::I32, (imm0 as u32) as i64);
-        
+
         // Mask rotation amount to 0-31
         let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
         let mask = self.builder.ins().iconst(types::I32, 31);
         let safe_shift = self.builder.ins().band(shift_32, mask);
-        
+
         // Perform rotation
         let result_32 = self.builder.ins().rotr(imm_val, safe_shift);
-        
+
         // Sign extend to 64 bits
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result_64);
         Ok(())
     }
 
-    fn visit_rot_r_64_imm_alt(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_64_imm_alt(
+        &mut self,
+        format: format::RRI,
+        _pc: usize,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        
+
         // Get rotation amount from reg1
         let shift_var = self.registers[&reg1];
         let shift_val = self.builder.use_var(shift_var);
-        
+
         // Create immediate value
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        
+
         // Mask rotation amount to 0-63
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(shift_val, mask);
-        
+
         // Perform rotation
         let result = self.builder.ins().rotr(imm_val, safe_shift);
-        
+
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, result);
         Ok(())

@@ -8,6 +8,7 @@ pub use {
 };
 
 mod compiler;
+pub mod constants;
 mod jit;
 pub mod module;
 pub mod translator;
