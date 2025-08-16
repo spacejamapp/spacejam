@@ -2797,7 +2797,6 @@ dependencies = [
  "proc-macro2",
  "pvm",
  "pvm-parser",
- "pvmi",
  "quote",
  "serde",
  "serde_json",

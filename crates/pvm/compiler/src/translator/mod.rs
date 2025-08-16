@@ -12,12 +12,17 @@ mod visitor;
 
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'a, 'b> {
-    pub registers: HashMap<u8, Variable>, // PVM registers (0 to MAX_REGISTER_INDEX)
+    /// PVM registers (0 to MAX_REGISTER_INDEX)
+    pub registers: HashMap<u8, Variable>,
+
+    /// Cranelift function builder
     pub builder: &'a mut FunctionBuilder<'b>,
 
     // Block-based compilation state
-    has_explicit_trap: bool, // Track if program contains explicit trap instructions
-    current_pc: usize,       // Track current PC position during translation
+    has_explicit_trap: bool,
+
+    // Track current PC position during translation
+    current_pc: usize,
 
     // Jump table for dynamic jumps (djump)
     jump_table: Vec<u64>,
@@ -47,8 +52,6 @@ impl<'a, 'b> Translator<'a, 'b> {
             registers.insert(i as u8, var);
         }
 
-        // PVM has only a fixed number of registers - no additional variables allowed!
-
         Self {
             registers,
             builder,
@@ -71,38 +74,27 @@ impl<'a, 'b> Translator<'a, 'b> {
     }
 
     /// Translate a block of PVM instructions to Cranelift IR for block-based JIT
-    /// This method is only used for block compilation, not whole-program compilation
-    pub fn translate_block(
+    /// This method accepts a pre-analyzed block from the JIT module to avoid duplicate parsing and analysis
+    pub fn translate_block_with_instructions(
         &mut self,
         program: &[u8],
-        start_pc: usize,
-        end_pc: usize,
+        block: &crate::jit::Block,
     ) -> Result<(), anyhow::Error> {
         // Store program data for instruction length calculations
         self.program = program.to_vec();
 
-        tracing::debug!(
-            "Translating block: start_pc={}, end_pc={}",
-            start_pc,
-            end_pc
-        );
+        if let Some(first_instr) = block.instructions.first() {
+            self.current_pc = first_instr.range.start;
+            tracing::debug!(
+                "Translating block with {} pre-parsed instructions, starting at PC {}, terminates={}",
+                block.instructions.len(),
+                self.current_pc,
+                block.terminates
+            );
+        }
 
-        let blob = parser::program::deblob(program)?;
-        let mut reader = blob.reader();
-        reader.set_position(start_pc);
-        self.current_pc = start_pc;
-
-        // Read the block of instructions using read_block method from parser
-        // This reads until a terminating instruction or end of block
-        let block_instructions = reader.read_block()?;
-
-        // Process each instruction in the block
-        for instruction_offset in block_instructions {
-            // Skip instructions that are beyond our block boundary
-            if instruction_offset.range.start >= end_pc {
-                break;
-            }
-
+        // Process each pre-parsed instruction in the block
+        for (i, instruction_offset) in block.instructions.iter().enumerate() {
             // Log instruction compilation similar to interpreter
             tracing::trace!(
                 "COMPILE PC={} opcode={}({:02x}) instruction={:?}",
@@ -128,40 +120,14 @@ impl<'a, 'b> Translator<'a, 'b> {
             // Update current PC to track position - use the end of this instruction
             self.current_pc = instruction_offset.range.end;
 
-            // Check if this is a terminating instruction and store its PC
-            let is_terminating = matches!(
-                instruction_offset.value,
-                parser::Instruction::Trap
-                    | parser::Instruction::Fallthrough
-                    | parser::Instruction::Jump(_)
-                    | parser::Instruction::JumpInd(_)
-                    | parser::Instruction::LoadImmJump(_)
-                    | parser::Instruction::LoadImmJumpInd(_)
-                    | parser::Instruction::BranchEq(_)
-                    | parser::Instruction::BranchNe(_)
-                    | parser::Instruction::BranchGeU(_)
-                    | parser::Instruction::BranchGeS(_)
-                    | parser::Instruction::BranchLtU(_)
-                    | parser::Instruction::BranchLtS(_)
-                    | parser::Instruction::BranchEqImm(_)
-                    | parser::Instruction::BranchNeImm(_)
-                    | parser::Instruction::BranchGeUImm(_)
-                    | parser::Instruction::BranchGeSImm(_)
-                    | parser::Instruction::BranchLtUImm(_)
-                    | parser::Instruction::BranchLtSImm(_)
-                    | parser::Instruction::BranchLeUImm(_)
-                    | parser::Instruction::BranchLeSImm(_)
-                    | parser::Instruction::BranchGtUImm(_)
-                    | parser::Instruction::BranchGtSImm(_)
-            );
-
             // Use the visitor to compile the instruction
             self.visit(instruction_offset.value, instruction_offset.range.start)?;
 
-            // For terminating instructions, store their PC in the context
-            if is_terminating {
+            // For the last instruction in a terminating block, store its PC in the context
+            let is_last_instruction = i == block.instructions.len() - 1;
+            if block.terminates && is_last_instruction {
                 tracing::trace!(
-                    "Terminating instruction {} at PC {}",
+                    "Last instruction {} in terminating block at PC {}",
                     instruction_offset.value,
                     instruction_offset.range.start
                 );
@@ -176,6 +142,9 @@ impl<'a, 'b> Translator<'a, 'b> {
 
     /// Calculate the length of a PVM instruction at the given PC
     /// This is crucial for correct PC advancement when branches are not taken
+    /// Note: This method still needs parsing for individual instruction length calculations
+    /// when called during branch instruction processing. This is unavoidable as instruction
+    /// lengths are needed during compilation, not just during initial analysis.
     pub fn get_instruction_length(&self, pc: usize) -> Result<usize, anyhow::Error> {
         if self.program.is_empty() {
             return Err(anyhow::anyhow!(
@@ -282,6 +251,76 @@ impl<'a, 'b> Translator<'a, 'b> {
         // Use bit shift for much faster page number calculation
         let shift_amount = self.builder.ins().iconst(types::I64, PAGE_SHIFT as i64);
         self.builder.ins().ushr(address, shift_amount)
+    }
+
+    /// Helper function to get the linear memory base address from ExtendedContext
+    pub fn get_memory_base(&mut self) -> Value {
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let memory_ptr_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::MEMORY_PTR_OFFSET as i64);
+        let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
+        self.builder
+            .ins()
+            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
+    }
+
+    /// Generic helper function for all branch instructions - optimizes Cranelift IR generation
+    /// Eliminates code duplication and ensures consistent branch handling patterns
+    pub fn generate_branch_instruction(
+        &mut self,
+        condition: Value,
+        pc: usize,
+        off0: i64,
+    ) -> Result<(), anyhow::Error> {
+        // Calculate branch target PC using offset
+        let target_pc = (pc as i64 + off0) as u64;
+        // Calculate continue target PC (current PC + instruction length)
+        let instr_len = self.get_instruction_length(pc)?;
+        let continue_pc = (pc + instr_len) as u64;
+
+        // Get context pointer to store result
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
+        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
+
+        // Store conditional result: Jump if condition is true, Continue if false
+        let jump_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
+        let continue_discriminant = self
+            .builder
+            .ins()
+            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
+        let selected_discriminant =
+            self.builder
+                .ins()
+                .select(condition, jump_discriminant, continue_discriminant);
+
+        // Store the discriminant
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
+
+        // Store conditional target PC: jump_target if taken, continue_target if not taken
+        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
+        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
+        let selected_pc = self
+            .builder
+            .ins()
+            .select(condition, target_pc_val, continue_pc_val);
+        let data_offset = self.builder.ins().iconst(types::I64, 8);
+        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), selected_pc, data_addr, 0);
+
+        Ok(())
     }
 
     /// Check if a page is allocated and writable by consulting the page bitmap and access array

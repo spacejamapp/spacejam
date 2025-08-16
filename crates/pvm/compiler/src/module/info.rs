@@ -1,6 +1,6 @@
 //! Module execution info
 
-use super::memory::Memory;
+use crate::module::Memory;
 
 /// Result of executing a compiled module
 #[derive(Debug, Clone)]

@@ -23,18 +23,6 @@ impl Page {
             access,
         }
     }
-
-    /// Create page from interpreter page
-    pub fn from_interpreter(interp_page: &pvmi::Page) -> Self {
-        Self {
-            data: interp_page.data.to_vec(),
-            access: match interp_page.access {
-                pvmi::Access::Mutable => access::MUTABLE,
-                pvmi::Access::Immutable => access::IMMUTABLE,
-                pvmi::Access::Inaccessible => access::INACCESSIBLE,
-            },
-        }
-    }
 }
 
 /// Memory representation for compiled functions
@@ -49,19 +37,6 @@ impl Memory {
     pub fn new() -> Self {
         Self {
             pages: BTreeMap::new(),
-        }
-    }
-
-    /// Initialize memory from interpreter memory format
-    pub fn from_interpreter(pages: &BTreeMap<u32, pvmi::Page>) -> Self {
-        let mut memory_pages = BTreeMap::new();
-
-        for (&page_num, interp_page) in pages {
-            memory_pages.insert(page_num, Page::from_interpreter(interp_page));
-        }
-
-        Self {
-            pages: memory_pages,
         }
     }
 
