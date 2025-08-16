@@ -2804,6 +2804,7 @@ dependencies = [
  "specjam",
  "syn 2.0.100",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -84,8 +84,19 @@ impl Visitor for Translator<'_, '_> {
         // Mark that this program contains explicit trap instructions
         self.has_explicit_trap = true;
 
-        // Block-based: trap instruction just returns from block
-        // Runtime will detect trap condition by checking block end state
+        // Set trap result in context for runtime handling
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let result_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, get_context_result_offset());
+        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
+        
+        // Store Trap discriminant (3)
+        let trap_discriminant = self.builder.ins().iconst(types::I64, 3); // ExecResult::Trap
+        self.builder
+            .ins()
+            .store(MemFlags::new(), trap_discriminant, result_addr, 0);
 
         Ok(())
     }

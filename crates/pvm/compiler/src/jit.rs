@@ -147,13 +147,13 @@ pub struct Jit {
     blocks: HashMap<u64, Block>,
     jump_table: Vec<u64>,
     program: Vec<u8>,
+    program_end_pc: u64, // PC at the end of the entire program
     ctx: cranelift_codegen::Context,
     isa: cranelift_codegen::isa::OwnedTargetIsa,
 }
 
 impl Jit {
     /// Create new JIT compiler
-    /// EXISTS: Entry point for JIT compilation
     pub fn new() -> Result<Self> {
         let mut flag_builder = settings::builder();
         flag_builder
@@ -170,13 +170,13 @@ impl Jit {
             blocks: HashMap::new(),
             jump_table: Vec::new(),
             program: Vec::new(),
+            program_end_pc: 0,
             ctx: cranelift_codegen::Context::new(),
             isa,
         })
     }
 
     /// Compile program - creates Module for compatibility
-    /// EXISTS: Required by Module interface
     pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
         let has_trap = self.has_trap(program)?;
         Ok(
@@ -185,51 +185,133 @@ impl Jit {
         )
     }
 
-    /// Analyze program - discovers all basic blocks using Graypaper formula
-    /// EXISTS: Core function - implements π ≡ ({0} ∪ {n + 1 + skip(n) | ...}) formula
+    /// Analyze program - discovers all basic blocks using read_block()
+    /// Uses parser's natural block discovery for clean, efficient block creation
     pub fn analyze(&mut self, program: &[u8]) -> Result<()> {
         self.program = program.to_vec();
-
         let blob = parser::program::deblob(program)?;
         self.jump_table = blob.jump_table.clone();
-        tracing::debug!("Jump table: {:?}", self.jump_table);
-
-        let mut starts = std::collections::BTreeSet::new();
-        starts.insert(0); // Graypaper: {0}
+        self.blocks.clear();
 
         let mut reader = blob.reader();
+        let mut last_instruction_pc = 0;
+
+        // Use read_block() to naturally discover block boundaries
         while !reader.eof() {
-            let instruction_offset = match reader.read() {
-                Ok(instr) => instr,
-                Err(_) => break,
-            };
+            let block_start = reader.position;
+            let block_instructions = reader.read_block()?;
 
-            if self.instruction_terminates(&instruction_offset.value) {
-                // Add next instruction start (after this terminating instruction)
-                let next_start = reader.position;
-                if next_start < blob.instructions.len() {
-                    starts.insert(next_start);
-                }
+            if block_instructions.is_empty() {
+                break;
+            }
 
-                // Add jump targets for indirect jumps using parsed instructions
-                match instruction_offset.value {
-                    parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_) => {
-                        for &target in &self.jump_table {
-                            if (target as usize) < blob.instructions.len() {
-                                starts.insert(target as usize);
-                            }
+            // Track the end PC of the last instruction in the program
+            if let Some(last_instr) = block_instructions.last() {
+                last_instruction_pc = last_instr.range.end as u64;
+                tracing::trace!(
+                    "BLOCK {}-{}: last instruction at PC {} ({}), terminates={}",
+                    block_start,
+                    reader.position,
+                    last_instr.range.start,
+                    last_instr.value,
+                    reader.eof()
+                );
+            }
+
+            // Block terminates if it contains a terminating instruction OR if we reached EOF
+            let terminates = !block_instructions.is_empty() && 
+                            (reader.eof() || 
+                             matches!(block_instructions.last().unwrap().value,
+                                parser::Instruction::Trap
+                                | parser::Instruction::Fallthrough
+                                | parser::Instruction::Jump(_)
+                                | parser::Instruction::JumpInd(_)
+                                | parser::Instruction::LoadImmJump(_)
+                                | parser::Instruction::LoadImmJumpInd(_)
+                                | parser::Instruction::BranchEq(_)
+                                | parser::Instruction::BranchNe(_)
+                                | parser::Instruction::BranchGeU(_)
+                                | parser::Instruction::BranchGeS(_)
+                                | parser::Instruction::BranchLtU(_)
+                                | parser::Instruction::BranchLtS(_)
+                                | parser::Instruction::BranchEqImm(_)
+                                | parser::Instruction::BranchNeImm(_)
+                                | parser::Instruction::BranchGeUImm(_)
+                                | parser::Instruction::BranchGeSImm(_)
+                                | parser::Instruction::BranchLtUImm(_)
+                                | parser::Instruction::BranchLtSImm(_)
+                                | parser::Instruction::BranchLeUImm(_)
+                                | parser::Instruction::BranchLeSImm(_)
+                                | parser::Instruction::BranchGtUImm(_)
+                                | parser::Instruction::BranchGtSImm(_)));
+
+            self.create_block(block_start, reader.position, terminates);
+
+            // Handle indirect jump table targets
+            self.process_jump_targets(&block_instructions, &blob)?;
+        }
+
+        // Store the end PC of the last instruction in the entire program
+        self.program_end_pc = last_instruction_pc;
+        tracing::trace!("PROGRAM END PC set to: {}", self.program_end_pc);
+
+        Ok(())
+    }
+
+    /// Create a block and insert it into the blocks map
+    fn create_block(&mut self, start: usize, end: usize, terminates: bool) {
+        tracing::trace!(
+            "Block: start={}, end={}, terminates={}",
+            start,
+            end,
+            terminates
+        );
+
+        self.blocks.insert(
+            start as u64,
+            Block {
+                start,
+                end,
+                terminates,
+            },
+        );
+    }
+
+    /// Process jump targets from indirect jump instructions
+    fn process_jump_targets(
+        &mut self,
+        block_instructions: &[parser::reader::Offset<parser::Instruction>],
+        blob: &parser::program::ProgramBlob,
+    ) -> Result<()> {
+        if let Some(last_instruction) = block_instructions.last() {
+            if matches!(
+                last_instruction.value,
+                parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_)
+            ) {
+                // Clone jump_table to avoid borrow checker issues
+                let jump_table = self.jump_table.clone();
+                for &target in &jump_table {
+                    if (target as usize) < blob.instructions.len()
+                        && !self.blocks.contains_key(&target)
+                    {
+                        let mut target_reader = blob.reader();
+                        target_reader.set_position(target as usize);
+
+                        if !target_reader.eof() {
+                            let target_start = target_reader.position;
+                            let _target_instructions = target_reader.read_block()?;
+                            let target_end = target_reader.position;
+
+                            self.create_block(target_start, target_end, true);
                         }
                     }
-                    _ => {}
                 }
             }
         }
-
-        self.create_blocks(starts)
+        Ok(())
     }
 
     /// Execute program using JIT compilation
-    /// EXISTS: Main execution loop - compiles blocks on demand and handles control flow
     pub fn execute(&mut self, mut ctx: Context) -> Result<Info> {
         tracing::debug!("Starting execution with initial PC: {}", ctx.pc);
         loop {
@@ -239,14 +321,21 @@ impl Jit {
             let (result, _pc_managed) = self.run_block(&code, &mut ctx, block.clone())?;
 
             tracing::debug!("Block execution result: {:?}, new PC: {}", result, ctx.pc);
+            tracing::trace!("Block info: start={}, end={}, terminates={}", 
+                           block.as_ref().map(|b| b.start).unwrap_or(0),
+                           block.as_ref().map(|b| b.end).unwrap_or(0),
+                           block.as_ref().map(|b| b.terminates).unwrap_or(false));
             match result {
                 ExecResult::Continue => {
-                    // Continue to the next block (both terminating and non-terminating blocks)
-                    if let Some(_block) = block {
-                        // Find next sequential block
-                        if let Some(next_pc) = self.next_block(ctx.pc) {
+                    // Continue to the next block
+                    if let Some(current_block) = block {
+                        // Find next sequential block using the current block's end
+                        if let Some(next_pc) = self.blocks.keys().find(|&&p| p == current_block.end as u64).copied() {
                             ctx.pc = next_pc;
                         } else {
+                            // EOF case - no more blocks, use program end PC
+                            tracing::debug!("EOF case: setting PC from {} to program_end_pc {}", ctx.pc, self.program_end_pc);
+                            ctx.pc = self.program_end_pc;
                             break;
                         }
                     } else {
@@ -264,32 +353,13 @@ impl Jit {
                     }
                 }
                 ExecResult::Halt => {
-                    // For terminating blocks, set PC to the terminating instruction before halting
-                    // This ensures the PC points to the instruction that caused the halt
-                    if let Some(block) = block {
-                        if block.terminates {
-                            let terminating_pc = self.terminating_instruction_pc(ctx.pc)?;
-                            tracing::trace!(
-                                "Halt: setting PC to terminating instruction PC {}",
-                                terminating_pc
-                            );
-                            ctx.pc = terminating_pc;
-                        }
-                    }
+                    // PC should be at the halt instruction (e.g., jump_ind to zero)
+                    // PC is already set correctly by the instruction visitor
                     break;
                 }
                 ExecResult::Trap => {
-                    // For terminating blocks, advance PC to the terminating instruction before trapping
-                    if let Some(block) = block {
-                        if block.terminates {
-                            let terminating_pc = self.terminating_instruction_pc(ctx.pc)?;
-                            tracing::trace!(
-                                "Trap: advancing to terminating instruction PC {}",
-                                terminating_pc
-                            );
-                            ctx.pc = terminating_pc;
-                        }
-                    }
+                    // PC should already be set correctly by the instruction visitor
+                    // Don't override it
                     break;
                 }
             }
@@ -302,107 +372,7 @@ impl Jit {
         })
     }
 
-    /// Check if instruction is terminating (c_n ∈ T) using parsed instruction
-    /// EXISTS: Core Graypaper requirement - determines set T (terminating instructions)  
-    fn instruction_terminates(&self, instruction: &parser::Instruction) -> bool {
-        matches!(
-            instruction,
-            parser::Instruction::Trap
-                | parser::Instruction::Fallthrough
-                | parser::Instruction::Jump(_)
-                | parser::Instruction::JumpInd(_)
-                | parser::Instruction::LoadImmJump(_)
-                | parser::Instruction::LoadImmJumpInd(_)
-                | parser::Instruction::BranchEq(_)
-                | parser::Instruction::BranchNe(_)
-                | parser::Instruction::BranchLtU(_)
-                | parser::Instruction::BranchLtS(_)
-                | parser::Instruction::BranchGeU(_)
-                | parser::Instruction::BranchGeS(_)
-                | parser::Instruction::BranchEqImm(_)
-                | parser::Instruction::BranchNeImm(_)
-                | parser::Instruction::BranchLtUImm(_)
-                | parser::Instruction::BranchLtSImm(_)
-                | parser::Instruction::BranchGeUImm(_)
-                | parser::Instruction::BranchGeSImm(_)
-                | parser::Instruction::BranchLeUImm(_)
-                | parser::Instruction::BranchLeSImm(_)
-                | parser::Instruction::BranchGtUImm(_)
-                | parser::Instruction::BranchGtSImm(_)
-        )
-    }
-
-    /// Create blocks from boundary set
-    /// EXISTS: Converts Graypaper formula result to Block structures
-    fn create_blocks(&mut self, starts: std::collections::BTreeSet<usize>) -> Result<()> {
-        let vec: Vec<_> = starts.into_iter().collect();
-
-        for i in 0..vec.len() {
-            let start = vec[i];
-            let end = if i + 1 < vec.len() {
-                vec[i + 1]
-            } else {
-                self.program.len()
-            };
-
-            if start >= end {
-                continue;
-            }
-
-            // Block terminates if there's a next block (Graypaper formula guarantees this)
-            let terminates = i + 1 < vec.len() || self.last_terminates(start, end)?;
-
-            tracing::trace!(
-                "Block {}: start={}, end={}, terminates={}",
-                i,
-                start,
-                end,
-                terminates
-            );
-            self.blocks.insert(
-                start as u64,
-                Block {
-                    start,
-                    end,
-                    terminates,
-                },
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Check if last block terminates
-    /// EXISTS: Only needed for final block in program (edge case)
-    fn last_terminates(&self, start: usize, end: usize) -> Result<bool> {
-        if start >= end {
-            return Ok(false);
-        }
-
-        let blob = parser::program::deblob(&self.program)?;
-        let mut reader = blob.reader();
-        reader.set_position(start);
-
-        let mut last_instruction = None;
-
-        while !reader.eof() && reader.position < end {
-            let instruction_offset = match reader.read() {
-                Ok(instr) => instr,
-                Err(_) => break,
-            };
-
-            if instruction_offset.range.start >= end {
-                break;
-            }
-
-            last_instruction = Some(instruction_offset.value);
-        }
-
-        Ok(last_instruction.map_or(false, |instr| self.instruction_terminates(&instr)))
-    }
-
     /// Get or compile code for PC
-    /// EXISTS: Performance optimization - cache compiled blocks
     fn get_code(&mut self, pc: u64) -> Result<Code> {
         if let Some(code) = self.code_cache.get(&pc).cloned() {
             return Ok(code);
@@ -414,7 +384,6 @@ impl Jit {
     }
 
     /// Compile single basic block
-    /// EXISTS: Core JIT functionality - translates PVM to native code
     fn compile_block(&mut self, pc: u64) -> Result<Code> {
         let block = self
             .blocks
@@ -470,7 +439,6 @@ impl Jit {
     }
 
     /// Translate block using Translator
-    /// EXISTS: Delegates to shared translator between compiler/interpreter
     fn translate(
         &self,
         builder: &mut FunctionBuilder,
@@ -496,8 +464,8 @@ impl Jit {
 
         translator.translate_block(&self.program, block.start, block.end)?;
 
-        // Only do block-level PC advancement for non-terminating blocks
-        // Terminating instructions (branches/jumps) handle their own PC advancement
+        // For non-terminating blocks, advance PC to end of block
+        // Terminating instructions handle their own PC advancement
         if !block.terminates {
             let final_pc = translator.get_final_pc();
             let pc_offset = translator.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
@@ -525,7 +493,6 @@ impl Jit {
     }
 
     /// Allocate executable memory
-    /// EXISTS: Required for JIT - need executable pages for generated code
     fn alloc_exec(&self, size: usize) -> Result<*mut u8> {
         unsafe {
             let ptr = libc::mmap(
@@ -545,47 +512,14 @@ impl Jit {
         }
     }
 
-    /// Find next sequential block
-    /// EXISTS: Handles Continue result - finds next block in sequence
-    fn next_block(&self, pc: u64) -> Option<u64> {
-        let block = self.blocks.get(&pc)?;
-        self.blocks
-            .keys()
-            .find(|&&p| p == block.end as u64)
-            .copied()
-    }
-    /// Calculate PC of the terminating instruction in a block
-    /// This finds the PC where the terminating instruction starts
-    fn terminating_instruction_pc(&self, pc: u64) -> Result<u64> {
-        if let Some(block) = self.blocks.get(&pc) {
-            let blob = parser::program::deblob(&self.program)?;
-            let mut reader = blob.reader();
-            reader.set_position(block.start);
 
-            let mut last_instruction_start = block.start;
-
-            // Find the last (terminating) instruction in this block
-            while !reader.eof() && reader.position < block.end {
-                let instruction_offset = reader.read()?;
-                if instruction_offset.range.start >= block.end {
-                    break;
-                }
-                // Update to the start of this instruction (the terminating one will be the last)
-                last_instruction_start = instruction_offset.range.start;
-            }
-
-            Ok(last_instruction_start as u64)
-        } else {
-            anyhow::bail!("No block found at PC {}", pc)
-        }
-    }
 
     /// Execute compiled block
     fn run_block(
         &self,
         code: &Code,
         ctx: &mut Context,
-        block: Option<Block>,
+        _block: Option<Block>,
     ) -> Result<(ExecResult, bool)> {
         if code.ptr.is_null() {
             return Ok((ExecResult::Continue, false));
@@ -612,17 +546,9 @@ impl Jit {
         ctx.registers = ext_ctx.registers;
         ctx.pc = ext_ctx.pc;
 
-        let result = if let Some(ref block) = block {
-            if block.terminates
-                && (self.block_contains_branch(block)? || self.block_contains_jump(block)?)
-            {
-                self.decode_result(&ext_ctx)?
-            } else {
-                ExecResult::Continue
-            }
-        } else {
-            ExecResult::Continue
-        };
+        // Always decode the result - terminating instructions set their own results
+        // Non-terminating instructions leave the default result (Continue)
+        let result = self.decode_result(&ext_ctx)?;
 
         match ctx.sync() {
             Ok(_) => {
@@ -638,7 +564,6 @@ impl Jit {
     }
 
     /// Decode execution result from context
-    /// EXISTS: Required to extract result from compiled block
     fn decode_result(&self, ext_ctx: &ExtendedContext) -> Result<ExecResult> {
         let offset = std::mem::size_of::<[u64; 13]>()
             + std::mem::size_of::<u64>()
@@ -675,10 +600,15 @@ impl Jit {
                         return Ok(ExecResult::Halt);
                     }
 
+                    // Jump to zero means halt
+                    if address == 0 {
+                        tracing::trace!("JumpInd to zero: returning Halt");
+                        return Ok(ExecResult::Halt);
+                    }
+
                     // Jump alignment factor from interpreter implementation
                     const JUMP_ALIGNMENT_FACTOR: u32 = 2;
-                    if address == 0
-                        || address > self.jump_table.len() as u32 * JUMP_ALIGNMENT_FACTOR
+                    if address > self.jump_table.len() as u32 * JUMP_ALIGNMENT_FACTOR
                         || address % 2 != 0
                     {
                         tracing::trace!(
@@ -713,87 +643,18 @@ impl Jit {
     }
 
     /// Check if program has trap instructions
-    /// EXISTS: Required by Module interface
     fn has_trap(&self, program: &[u8]) -> Result<bool> {
         let blob = parser::program::deblob(program)?;
         let mut reader = blob.reader();
 
         while !reader.eof() {
-            let instr = reader.read()?;
-            if matches!(instr.value, parser::Instruction::Trap) {
-                return Ok(true);
-            }
-        }
+            let block_instructions = reader.read_block()?;
 
-        Ok(false)
-    }
-
-    /// Get discovered blocks (testing)
-    /// EXISTS: Required by test interface
-    pub fn get_basic_blocks(&self) -> &HashMap<u64, Block> {
-        &self.blocks
-    }
-
-    /// Check if block contains branch instructions
-    fn block_contains_branch(&self, block: &Block) -> Result<bool> {
-        let blob = parser::program::deblob(&self.program)?;
-        let mut reader = blob.reader();
-        reader.set_position(block.start);
-
-        while !reader.eof() && reader.position < block.end {
-            let instruction_offset = reader.read()?;
-            if instruction_offset.range.start >= block.end {
-                break;
-            }
-
-            // Check if this is a branch instruction using the parsed instruction
-            match instruction_offset.value {
-                parser::Instruction::BranchEq(_)
-                | parser::Instruction::BranchNe(_)
-                | parser::Instruction::BranchLtU(_)
-                | parser::Instruction::BranchLtS(_)
-                | parser::Instruction::BranchGeU(_)
-                | parser::Instruction::BranchGeS(_)
-                | parser::Instruction::BranchEqImm(_)
-                | parser::Instruction::BranchNeImm(_)
-                | parser::Instruction::BranchLtUImm(_)
-                | parser::Instruction::BranchLtSImm(_)
-                | parser::Instruction::BranchGeUImm(_)
-                | parser::Instruction::BranchGeSImm(_)
-                | parser::Instruction::BranchLeUImm(_)
-                | parser::Instruction::BranchLeSImm(_)
-                | parser::Instruction::BranchGtUImm(_)
-                | parser::Instruction::BranchGtSImm(_) => {
+            // Check all instructions in the block for trap instructions
+            for instr in block_instructions {
+                if matches!(instr.value, parser::Instruction::Trap) {
                     return Ok(true);
                 }
-                _ => {}
-            }
-        }
-
-        Ok(false)
-    }
-
-    /// Check if block contains jump instructions  
-    fn block_contains_jump(&self, block: &Block) -> Result<bool> {
-        let blob = parser::program::deblob(&self.program)?;
-        let mut reader = blob.reader();
-        reader.set_position(block.start);
-
-        while !reader.eof() && reader.position < block.end {
-            let instruction_offset = reader.read()?;
-            if instruction_offset.range.start >= block.end {
-                break;
-            }
-
-            // Check if this is a jump instruction using the parsed instruction
-            match instruction_offset.value {
-                parser::Instruction::Jump(_)
-                | parser::Instruction::JumpInd(_)
-                | parser::Instruction::LoadImmJump(_)
-                | parser::Instruction::LoadImmJumpInd(_) => {
-                    return Ok(true);
-                }
-                _ => {}
             }
         }
 

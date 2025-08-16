@@ -7,6 +7,7 @@ use pvmc::module::memory::Page as CompilerPage;
 use pvmc::{Compiler, Memory as CompilerMemory};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
+use tracing_subscriber::EnvFilter;
 
 /// Test runner for PVM compiler tests
 pub struct Runner;
@@ -14,6 +15,16 @@ pub struct Runner;
 impl Runner {
     /// Step a compiler test against the test vector
     pub fn step(test: &Test) -> Result<()> {
+        let _ = tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(EnvFilter::from_default_env())
+            .without_time()
+            .with_ansi(false)
+            .with_thread_names(false)
+            .with_file(false)
+            // .with_level(false)
+            .with_target(false)
+            .try_init();
+
         let input: TestInput = serde_json::from_str(&test.input)?;
         let output: TestOutput = serde_json::from_str(&test.output)?;
 

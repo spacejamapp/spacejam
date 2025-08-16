@@ -88,9 +88,13 @@ impl<'a, 'b> Translator<'a, 'b> {
         reader.set_position(start_pc);
         self.current_pc = start_pc;
 
-        // Process instructions in this block linearly
-        while !reader.eof() && reader.position < end_pc {
-            let instruction_offset = reader.read()?;
+        // Read the block of instructions using read_block method from parser
+        // This reads until a terminating instruction or end of block
+        let block_instructions = reader.read_block()?;
+        
+        // Process each instruction in the block
+        for instruction_offset in block_instructions {
+            // Skip instructions that are beyond our block boundary
             if instruction_offset.range.start >= end_pc {
                 break;
             }
@@ -117,11 +121,46 @@ impl<'a, 'b> Translator<'a, 'b> {
                 instruction_offset.value
             );
 
-            // Update current PC to track position
-            self.current_pc = reader.position;
+            // Update current PC to track position - use the end of this instruction
+            self.current_pc = instruction_offset.range.end;
+
+            // Check if this is a terminating instruction and store its PC
+            let is_terminating = matches!(
+                instruction_offset.value,
+                parser::Instruction::Trap
+                    | parser::Instruction::Fallthrough
+                    | parser::Instruction::Jump(_)
+                    | parser::Instruction::JumpInd(_)
+                    | parser::Instruction::LoadImmJump(_)
+                    | parser::Instruction::LoadImmJumpInd(_)
+                    | parser::Instruction::BranchEq(_)
+                    | parser::Instruction::BranchNe(_)
+                    | parser::Instruction::BranchGeU(_)
+                    | parser::Instruction::BranchGeS(_)
+                    | parser::Instruction::BranchLtU(_)
+                    | parser::Instruction::BranchLtS(_)
+                    | parser::Instruction::BranchEqImm(_)
+                    | parser::Instruction::BranchNeImm(_)
+                    | parser::Instruction::BranchGeUImm(_)
+                    | parser::Instruction::BranchGeSImm(_)
+                    | parser::Instruction::BranchLtUImm(_)
+                    | parser::Instruction::BranchLtSImm(_)
+                    | parser::Instruction::BranchLeUImm(_)
+                    | parser::Instruction::BranchLeSImm(_)
+                    | parser::Instruction::BranchGtUImm(_)
+                    | parser::Instruction::BranchGtSImm(_)
+            );
 
             // Use the visitor to compile the instruction
             self.visit(instruction_offset.value, instruction_offset.range.start)?;
+
+            // For terminating instructions, store their PC in the context
+            if is_terminating {
+                tracing::trace!("Terminating instruction {} at PC {}", instruction_offset.value, instruction_offset.range.start);
+                if let Some(ctx_ptr) = self.ctx_ptr {
+                    self.store_instruction_pc(ctx_ptr, instruction_offset.range.start)?;
+                }
+            }
         }
 
         Ok(())
@@ -145,8 +184,13 @@ impl<'a, 'b> Translator<'a, 'b> {
         }
 
         let start_pos = reader.position;
-        let _instruction = reader.read()?; // Read the instruction to calculate length
-        let end_pos = reader.position;
+        // Use read_block and take the first instruction to calculate length
+        let block_instructions = reader.read_block()?;
+        if block_instructions.is_empty() {
+            return Err(anyhow::anyhow!("No instruction found at PC {}", pc));
+        }
+        let instruction = &block_instructions[0];
+        let end_pos = instruction.range.end;
 
         Ok(end_pos - start_pos)
     }
@@ -349,6 +393,17 @@ impl<'a, 'b> Translator<'a, 'b> {
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
 
+        Ok(())
+    }
+
+    /// Store the current instruction PC in the context for terminating instructions
+    pub fn store_instruction_pc(&mut self, ctx_ptr: Value, instruction_pc: usize) -> Result<(), anyhow::Error> {
+        let pc_offset = self.builder.ins().iconst(types::I64, (13 * 8) as i64); // PC is after 13 registers
+        let pc_addr = self.builder.ins().iadd(ctx_ptr, pc_offset);
+        let pc_val = self.builder.ins().iconst(types::I64, instruction_pc as i64);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_val, pc_addr, 0);
         Ok(())
     }
 }
