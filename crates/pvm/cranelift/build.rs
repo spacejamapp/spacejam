@@ -11,7 +11,7 @@ use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../../");
+    let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../../..");
 
     // set up the registry
     try_download(&workspace)?;

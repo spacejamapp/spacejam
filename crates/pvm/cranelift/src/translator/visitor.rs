@@ -61,18 +61,23 @@ impl Visitor for Translator<'_, '_> {
     fn visit_load_imm_jump(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, off0, imm0 } = format;
 
-        // Load immediate value first
+        // Load immediate value first (MUST happen in both modes!)
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
 
-        // Calculate target PC: instruction_pc + offset (same as visit_jump)
+        // In unified mode, control flow is handled by unified termination handler
+        // Skip execution result generation (unified handler will generate native control flow)
+        if self.unified_mode {
+            return Ok(());
+        }
+
+        // Block-based mode: store execution results for runtime control flow
+        // Calculate target PC: instruction_pc + offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
 
         // Store Jump result in ExtendedContext.result field
-        let context_ptr = self
-            .builder
-            .block_params(self.builder.current_block().unwrap())[0];
+        let context_ptr = self.get_context_ptr_for_visitor();
         let result_offset = self
             .builder
             .ins()
@@ -1321,6 +1326,12 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_eq(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        // The visitor should not generate execution results
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
@@ -1394,6 +1405,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_eq_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -1451,6 +1467,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_ne(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
@@ -1499,6 +1520,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_ne_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -1546,6 +1572,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_lt_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
@@ -1598,6 +1629,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_lt_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
@@ -1648,6 +1684,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_ge_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
@@ -1700,6 +1741,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_ge_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare registers
         let reg0_val = self.builder.use_var(self.registers[&reg0]);
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
@@ -1750,6 +1796,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_lt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
@@ -1802,6 +1853,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_lt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -1853,6 +1909,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_ge_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -1903,6 +1964,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_ge_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
@@ -1956,6 +2022,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_gt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Compare register with immediate
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -2007,6 +2078,11 @@ impl Visitor for Translator<'_, '_> {
     fn visit_branch_gt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
 
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let condition = self
@@ -2019,6 +2095,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_le_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
@@ -2070,6 +2151,11 @@ impl Visitor for Translator<'_, '_> {
 
     fn visit_branch_le_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
+
+        // In unified mode, branch control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
 
         // Compare register with immediate value
         let reg_val = self.builder.use_var(self.registers[&reg0]);
@@ -2123,16 +2209,19 @@ impl Visitor for Translator<'_, '_> {
     fn visit_jump(&mut self, format: format::O, pc: usize) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
 
+        // In unified mode, jump control flow is handled by unified termination handler
+        if self.unified_mode {
+            return Ok(());
+        }
+
         // Calculate target PC: instruction_pc + offset
         let target_pc = (pc as i64 + off0 as i64) as u64;
 
         // Generate Cranelift IR to store jump result in ExtendedBlockContext.result field
-        // The context pointer is the first parameter to the compiled function
+        // The context pointer is available through get_context_ptr_for_visitor()
         // ExtendedBlockContext layout: [registers: [u64; 13], pc: u64, memory_ptr: *mut u8, result: BlockExecutionResult]
         // Result offset = 13*8 + 8 + 8 = 120 bytes
-        let context_ptr = self
-            .builder
-            .block_params(self.builder.current_block().unwrap())[0];
+        let context_ptr = self.get_context_ptr_for_visitor();
         let result_offset = self
             .builder
             .ins()
@@ -2177,7 +2266,7 @@ impl Visitor for Translator<'_, '_> {
         let format::RI { reg0, imm0 } = format;
         tracing::debug!("JumpInd: reg0={}, imm0={}", reg0, imm0);
 
-        // Calculate the target address: reg0 + imm0
+        // Calculate the target address: reg0 + imm0 (MUST happen in both modes!)
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target_addr = self.builder.ins().iadd(reg_val, imm_val);
@@ -2185,27 +2274,32 @@ impl Visitor for Translator<'_, '_> {
         // For indirect jumps, we need to look up the address in the jump table at runtime
         // The runtime will validate and find the actual PC from the jump table
 
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        // Get context pointer to store the target address (needed in both modes!)
+        let context_ptr = self.get_context_ptr_for_visitor();
         let result_offset = self
             .builder
             .ins()
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
-        // Store JumpIndirect variant with the calculated address
-        // The runtime will resolve this address to an actual PC using the jump table
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant (4)
-        self.builder
-            .ins()
-            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
-
-        // Store the target address (will be resolved by runtime)
+        // Store the target address (will be resolved by runtime) - MUST happen in both modes!
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
         self.builder
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
+
+        // In unified mode, control flow is handled by unified termination handler
+        // Skip the discriminant storage (unified handler will set it)
+        if self.unified_mode {
+            return Ok(());
+        }
+
+        // Block-based mode: Store JumpIndirect discriminant for runtime dispatch
+        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant (4)
+        self.builder
+            .ins()
+            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
 
         // Indirect jump terminates the block - result stored for runtime control flow handling
 
@@ -2330,9 +2424,7 @@ impl Visitor for Translator<'_, '_> {
         self.builder.def_var(reg0_var, imm0_val);
 
         // Store JumpIndirect result - let runtime handle jump table validation
-        let context_ptr = self
-            .builder
-            .block_params(self.builder.current_block().unwrap())[0];
+        let context_ptr = self.get_context_ptr_for_visitor();
         let result_offset = self
             .builder
             .ins()

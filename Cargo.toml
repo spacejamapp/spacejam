@@ -8,6 +8,7 @@ members = [
     "crates/offchain/rpc",
     "crates/pvm/cli",
     "crates/pvm/compiler",
+    "crates/pvm/cranelift",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
     "crates/pvm/testing",

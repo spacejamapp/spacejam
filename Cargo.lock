@@ -102,9 +102,9 @@ checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
 name = "arbitrary"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dde20b3d026af13f561bdd0f15edf01fc734f0dafcedbaf42bba506a9517f223"
+checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
 name = "ark-bls12-377"
@@ -976,6 +976,29 @@ dependencies = [
  "cranelift-codegen",
  "libc",
  "target-lexicon",
+]
+
+[[package]]
+name = "cranelift-pvm"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "cranelift",
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-native",
+ "jamcodec",
+ "libc",
+ "proc-macro2",
+ "pvm",
+ "pvm-parser",
+ "quote",
+ "serde",
+ "serde_json",
+ "specjam",
+ "syn 2.0.100",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2786,25 +2809,6 @@ dependencies = [
 [[package]]
 name = "pvmc"
 version = "0.0.0"
-dependencies = [
- "anyhow",
- "cranelift",
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-native",
- "jamcodec",
- "libc",
- "proc-macro2",
- "pvm",
- "pvm-parser",
- "quote",
- "serde",
- "serde_json",
- "specjam",
- "syn 2.0.100",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "pvmi"

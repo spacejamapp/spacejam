@@ -32,6 +32,9 @@ pub struct Translator<'a, 'b> {
 
     // Context pointer for boundary checking and runtime operations
     ctx_ptr: Option<Value>,
+
+    // Unified compilation mode - suppresses terminator generation in visitor
+    unified_mode: bool,
 }
 
 impl<'a, 'b> Translator<'a, 'b> {
@@ -60,6 +63,7 @@ impl<'a, 'b> Translator<'a, 'b> {
             jump_table,
             program: Vec::new(),
             ctx_ptr: None,
+            unified_mode: false,
         }
     }
 
@@ -445,5 +449,33 @@ impl<'a, 'b> Translator<'a, 'b> {
             .ins()
             .store(MemFlags::new(), pc_val, pc_addr, 0);
         Ok(())
+    }
+
+    /// Get the context pointer for unified compilation
+    pub fn get_context_ptr(&self) -> Option<Value> {
+        self.ctx_ptr
+    }
+
+    /// Enable unified compilation mode (suppresses terminator generation in visitor)
+    pub fn set_unified_mode(&mut self, enabled: bool) {
+        self.unified_mode = enabled;
+    }
+
+    /// Check if translator is in unified compilation mode
+    pub fn is_unified_mode(&self) -> bool {
+        self.unified_mode
+    }
+
+    /// Get context pointer for visitor operations - handles both unified and block-based modes
+    pub fn get_context_ptr_for_visitor(&self) -> Value {
+        if self.unified_mode {
+            // In unified mode, use the stored context pointer
+            self.ctx_ptr
+                .expect("Context pointer not initialized in unified mode")
+        } else {
+            // In block-based mode, get from current block parameters
+            self.builder
+                .block_params(self.builder.current_block().unwrap())[0]
+        }
     }
 }
