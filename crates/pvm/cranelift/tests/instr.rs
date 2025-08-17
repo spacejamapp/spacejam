@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use cranelift_pvm::module::memory::Page as CompilerPage;
-use cranelift_pvm::{Compiler, Memory as CompilerMemory};
+use cranelift_pvm::{Memory as CompilerMemory, Module};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 use tracing_subscriber::EnvFilter;
@@ -27,8 +27,6 @@ impl Runner {
 
         let input: TestInput = serde_json::from_str(&test.input)?;
         let output: TestOutput = serde_json::from_str(&test.output)?;
-
-        let mut compiler = Compiler::new()?;
         let mut initial_registers = [0u64; cranelift_pvm::constants::PVM_REGISTER_COUNT];
         initial_registers.copy_from_slice(&input.initial_regs);
 
@@ -55,7 +53,7 @@ impl Runner {
             }
         }
 
-        let module = compiler.compile(&input.program)?;
+        let module = Module::new(input.program.clone());
         let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
 
         assert_eq!(

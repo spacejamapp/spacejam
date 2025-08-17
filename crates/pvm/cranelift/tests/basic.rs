@@ -1,4 +1,4 @@
-use cranelift_pvm::{Compiler, Memory};
+use cranelift_pvm::{Memory, Module};
 
 /// Test program from jam-test-vectors/pvm/programs/inst_load_imm.json
 const LOAD_IMM_PROGRAM: &[u8] = &[0, 0, 10, 20, 7, 239, 190, 173, 222, 0, 0, 0, 0, 1, 0];
@@ -8,8 +8,7 @@ const ADD_IMM_32_PROGRAM: &[u8] = &[0, 0, 3, 131, 121, 2, 1];
 
 #[test]
 fn test_load_imm() -> anyhow::Result<()> {
-    let mut compiler = Compiler::new()?;
-    let module = compiler.compile(LOAD_IMM_PROGRAM)?;
+    let module = Module::new(LOAD_IMM_PROGRAM.to_vec());
     let result = module.execute(
         &[0; cranelift_pvm::constants::PVM_REGISTER_COUNT],
         0,
@@ -24,8 +23,7 @@ fn test_load_imm() -> anyhow::Result<()> {
 
 #[test]
 fn test_add_imm_32() -> anyhow::Result<()> {
-    let mut compiler = Compiler::new()?;
-    let module = compiler.compile(ADD_IMM_32_PROGRAM)?;
+    let module = Module::new(ADD_IMM_32_PROGRAM.to_vec());
     let result = module.execute(
         &[0; cranelift_pvm::constants::PVM_REGISTER_COUNT],
         0,

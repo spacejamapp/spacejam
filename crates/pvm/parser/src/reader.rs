@@ -114,6 +114,7 @@ impl<'r> Reader<'r> {
 }
 
 /// A wrapped value with an offset range.
+#[derive(Debug, Clone)]
 pub struct Offset<T> {
     /// The range.
     pub range: Range<usize>,

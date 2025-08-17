@@ -125,7 +125,7 @@ impl Interpreter {
         }
 
         // step the instruction
-        let stepped = self.visit(instr.value, self.pc);
+        let stepped = self.visit(instr.value, &instr.range);
         if let Err(e) = stepped {
             if self.burn(e.extra_gas()).is_err() {
                 return Reason::OOG;

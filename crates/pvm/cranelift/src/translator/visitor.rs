@@ -1,16 +1,19 @@
 //! Visitor implementation for PVM instructions
 
+#![allow(unused)]
+
 use crate::{
     constants::{context_offsets, exec_result, MAX_REGISTER_INDEX},
     Translator,
 };
+use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
 
-impl Visitor for Translator<'_, '_> {
+impl<'b> Visitor for Translator<'b> {
     type Error = anyhow::Error;
 
-    fn visit_trap(&mut self, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_trap(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
         // Mark that this program contains explicit trap instructions
         self.has_explicit_trap = true;
 
@@ -34,13 +37,17 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_fallthrough(&mut self, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_fallthrough(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
         // Fallthrough instruction preserves current PC (no change needed)
         // The PC already points to the fallthrough instruction location
         Ok(())
     }
 
-    fn visit_load_imm(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_imm(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         // Generate immediate value directly
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -50,7 +57,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_imm_64(&mut self, format: format::REI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_imm_64(
+        &mut self,
+        format: format::REI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::REI { reg0, eimm0 } = format;
         let imm_val = self.builder.ins().iconst(types::I64, eimm0 as i64);
         let dst_var = self.registers[&reg0];
@@ -58,7 +69,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_imm_jump(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_imm_jump(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, off0, imm0 } = format;
 
         // Load immediate value first (MUST happen in both modes!)
@@ -66,47 +81,15 @@ impl Visitor for Translator<'_, '_> {
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
 
-        // In unified mode, control flow is handled by unified termination handler
-        // Skip execution result generation (unified handler will generate native control flow)
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Block-based mode: store execution results for runtime control flow
-        // Calculate target PC: instruction_pc + offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Store Jump result in ExtendedContext.result field
-        let context_ptr = self.get_context_ptr_for_visitor();
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store Jump discriminant (1) and target PC
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64); // Direct Jump variant
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-
-        // Store discriminant at result_addr
-        self.builder
-            .ins()
-            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
-
-        // Store target PC at result_addr + 8
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
+        // TODO: the following
         Ok(())
     }
 
-    fn visit_add_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_add_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
@@ -124,7 +107,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_add_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_add_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
@@ -139,7 +126,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_add_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_add_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -154,7 +145,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_add_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_add_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -166,7 +161,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_sub_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_sub_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -181,7 +180,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_sub_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_sub_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -193,7 +196,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -208,7 +215,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -220,7 +231,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -233,7 +248,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -244,7 +263,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_div_u_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_div_u_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -270,7 +293,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_div_u_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_div_u_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX || reg2 > MAX_REGISTER_INDEX {
             anyhow::bail!("Invalid register numbers: {}, {}, {}, ", reg0, reg1, reg2);
@@ -297,7 +324,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_div_s_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_div_s_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -345,7 +376,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_div_s_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_div_s_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -389,7 +424,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_move_reg(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_move_reg(
+        &mut self,
+        format: format::RR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -398,7 +437,7 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_and(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_and(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -410,7 +449,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_and_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_and_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -421,7 +464,7 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_or(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_or(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -433,7 +476,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_or_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_or_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -444,7 +491,7 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_xor(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_xor(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -456,7 +503,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_xor_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_xor_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -467,7 +518,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rem_u_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rem_u_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -497,7 +552,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rem_u_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rem_u_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -520,7 +579,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rem_s_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rem_s_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -567,7 +630,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rem_s_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rem_s_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_var = self.registers[&reg0];
         let divisor_var = self.registers[&reg1];
@@ -607,7 +674,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_l_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -627,7 +698,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_l_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -644,7 +719,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_l_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -660,7 +739,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_l_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_l_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -674,7 +757,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_r_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -694,7 +781,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_r_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -711,7 +802,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_r_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -727,7 +822,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shlo_r_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shlo_r_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -741,7 +840,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shar_r_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -761,7 +864,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shar_r_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -778,7 +885,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shar_r_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -794,7 +905,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_shar_r_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_shar_r_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -812,7 +927,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_leading_zero_bits_64(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -828,7 +943,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_leading_zero_bits_32(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -846,7 +961,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_trailing_zero_bits_64(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -862,7 +977,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_trailing_zero_bits_32(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -878,7 +993,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Rotation operations - register variants
-    fn visit_rot_l_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_l_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src_var = self.registers[&reg0];
         let shift_var = self.registers[&reg1];
@@ -895,7 +1014,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rot_l_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_l_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src_var = self.registers[&reg0];
         let shift_var = self.registers[&reg1];
@@ -915,7 +1038,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rot_r_64(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_64(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src_var = self.registers[&reg0];
         let shift_var = self.registers[&reg1];
@@ -932,7 +1059,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rot_r_32(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_32(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src_var = self.registers[&reg0];
         let shift_var = self.registers[&reg1];
@@ -953,7 +1084,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Rotation operations - immediate variants
-    fn visit_rot_r_64_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_64_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -967,7 +1102,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_rot_r_32_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_rot_r_32_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -984,7 +1123,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Memory load operations
-    fn visit_load_u8(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_u8(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1006,7 +1149,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_u16(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_u16(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1028,7 +1175,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_u32(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_u32(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1050,7 +1201,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_u64(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_u64(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1071,7 +1226,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_i8(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_i8(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1094,7 +1253,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_i16(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_i16(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1117,7 +1280,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_i32(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_i32(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let dst_var = self.registers[&reg0];
 
@@ -1141,7 +1308,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Indirect load operations
-    fn visit_load_ind_u8(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_u8(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1167,7 +1338,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_u16(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_u16(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1193,7 +1368,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_u32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_u32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1219,7 +1398,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_u64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_u64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1244,7 +1427,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_i8(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_i8(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1270,7 +1457,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_i16(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_i16(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1296,7 +1487,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_load_ind_i32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_load_ind_i32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let dst_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -1323,945 +1518,174 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Branch operations - implement conditional jumps for block-based JIT
-    fn visit_branch_eq(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_eq(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
-        // In unified mode, branch control flow is handled by unified termination handler
-        // The visitor should not generate execution results
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        tracing::trace!(
-            "visit_branch_eq called with pc={}, off0={}, calculating target_pc and continue_pc",
-            pc,
-            off0
-        );
-        tracing::trace!(
-            "visit_branch_eq: reg0={}, reg1={}, off0={}, target_pc calculation: {} + {} = {}",
-            reg0,
-            reg1,
-            off0,
-            pc,
-            off0,
-            (pc as i64 + off0 as i64)
-        );
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-        // Calculate continue target PC (current PC + instruction length)
-        let instr_len = self.get_instruction_length(pc)?;
-        let continue_pc = (pc + instr_len) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
-                                                               // Correct: select(condition, jump_when_true, continue_when_false)
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        // Store the discriminant
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC for Jump case (runtime will read this when discriminant = 1)
-        // Store conditional target PC: jump_target if taken, continue_target if not taken
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
-        let selected_pc = self
-            .builder
-            .ins()
-            .select(condition, target_pc_val, continue_pc_val);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_pc, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_eq_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_eq_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate value
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        // Calculate continue target PC (current PC + instruction length)
-        let instr_len = self.get_instruction_length(pc)?;
-        let continue_pc = (pc + instr_len) as u64;
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result: Jump if condition is true, Continue if false
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64); // Jump variant
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64); // Continue variant
-                                                               // Correct: select(condition, jump_when_true, continue_when_false)
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        // Store the discriminant
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store conditional target PC: jump_target if taken, continue_target if not taken
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let continue_pc_val = self.builder.ins().iconst(types::I64, continue_pc as i64);
-        let selected_pc = self
-            .builder
-            .ins()
-            .select(condition, target_pc_val, continue_pc_val);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_pc, data_addr, 0);
         Ok(())
     }
 
-    fn visit_branch_ne(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ne(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_ne_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ne_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_lt_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_lt_u(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_lt_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_lt_s(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_ge_u(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ge_u(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition =
-            self.builder
-                .ins()
-                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_ge_s(&mut self, format: format::RRO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ge_s(
+        &mut self,
+        format: format::RRO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare registers
-        let reg0_val = self.builder.use_var(self.registers[&reg0]);
-        let reg1_val = self.builder.use_var(self.registers[&reg1]);
-        let condition =
-            self.builder
-                .ins()
-                .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_lt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_lt_u_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_lt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_lt_s_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::SignedLessThan, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_ge_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ge_u_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition =
-            self.builder
-                .ins()
-                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_ge_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_ge_s_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
 
         Ok(())
     }
 
     // Additional branch operations
-    fn visit_branch_gt_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_gt_u_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_gt_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_gt_s_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
-
-        self.generate_branch_instruction(condition, pc, off0 as i64)
-    }
-
-    fn visit_branch_le_u_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
-        let format::RIO { reg0, imm0, off0 } = format;
-
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate value
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
         Ok(())
     }
 
-    fn visit_branch_le_s_imm(&mut self, format: format::RIO, pc: usize) -> Result<(), Self::Error> {
+    fn visit_branch_le_u_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
+        Ok(())
+    }
 
-        // In unified mode, branch control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Compare register with immediate value
-        let reg_val = self.builder.use_var(self.registers[&reg0]);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self
-            .builder
-            .ins()
-            .icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
-
-        // Calculate branch target PC using offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Get context pointer to store result
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store conditional result
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
-        let selected_discriminant =
-            self.builder
-                .ins()
-                .select(condition, jump_discriminant, continue_discriminant);
-
-        self.builder
-            .ins()
-            .store(MemFlags::new(), selected_discriminant, result_addr, 0);
-
-        // Store target PC
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
+    fn visit_branch_le_s_imm(
+        &mut self,
+        format: format::RIO,
+        range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
+        let format::RIO { reg0, imm0, off0 } = format;
         Ok(())
     }
 
     // Jump operations
-    fn visit_jump(&mut self, format: format::O, pc: usize) -> Result<(), Self::Error> {
+    fn visit_jump(&mut self, format: format::O, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
-
-        // In unified mode, jump control flow is handled by unified termination handler
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Calculate target PC: instruction_pc + offset
-        let target_pc = (pc as i64 + off0 as i64) as u64;
-
-        // Generate Cranelift IR to store jump result in ExtendedBlockContext.result field
-        // The context pointer is available through get_context_ptr_for_visitor()
-        // ExtendedBlockContext layout: [registers: [u64; 13], pc: u64, memory_ptr: *mut u8, result: BlockExecutionResult]
-        // Result offset = 13*8 + 8 + 8 = 120 bytes
-        let context_ptr = self.get_context_ptr_for_visitor();
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // BlockExecutionResult::Jump(target_pc) is represented as:
-        // - discriminant (u64): 1 for Jump variant
-        // - data (u64): target_pc value
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
-        let target_pc_val = self.builder.ins().iconst(types::I64, target_pc as i64);
-
-        // Store discriminant at result_addr
-        self.builder
-            .ins()
-            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
-
-        // Store target_pc at result_addr + 8
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_pc_val, data_addr, 0);
-
-        tracing::debug!(
-            "Jump: PC {} + offset {} = target PC {}",
-            pc,
-            off0,
-            target_pc
-        );
-
-        // Jump instruction terminates the block - result stored for runtime control flow handling
-
+        /*  let target_pc = (range.start as i64 + format.off0 as i64) as u64;
+        if let Some(&target_block) = self.blocks.get(&target_pc) {
+            tracing::info!("Jumping to target block: {}", target_pc);
+            self.builder.ins().jump(target_block, &[]);
+        } else {
+            tracing::error!("Jump to unknown target: {}", target_pc);
+            // Jump to unknown target - return with jump result
+            self.return_with_jump_result(target_pc)?;
+        } */
         Ok(())
     }
 
-    fn visit_jump_ind(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_jump_ind(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         // Indirect jump: PC = reg0 + immediate (following interpreter logic: djump(reg0 + imm0))
         let format::RI { reg0, imm0 } = format;
         tracing::debug!("JumpInd: reg0={}, imm0={}", reg0, imm0);
@@ -2289,25 +1713,15 @@ impl Visitor for Translator<'_, '_> {
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
 
-        // In unified mode, control flow is handled by unified termination handler
-        // Skip the discriminant storage (unified handler will set it)
-        if self.unified_mode {
-            return Ok(());
-        }
-
-        // Block-based mode: Store JumpIndirect discriminant for runtime dispatch
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant (4)
-        self.builder
-            .ins()
-            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
-
-        // Indirect jump terminates the block - result stored for runtime control flow handling
-
         Ok(())
     }
 
     // Conditional move operations
-    fn visit_cmov_iz(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_cmov_iz(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         // Conditional move if zero: if reg1 == 0, reg2 = reg0 (following interpreter logic)
         let reg0_var = self.registers[&format.reg0];
         let reg1_var = self.registers[&format.reg1];
@@ -2328,7 +1742,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_cmov_iz_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_cmov_iz_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         // Conditional move immediate if zero: if reg1 == 0, reg0 = imm
         let reg0_var = self.registers[&format.reg0];
         let reg1_var = self.registers[&format.reg1];
@@ -2348,7 +1766,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_cmov_nz(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_cmov_nz(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         // Conditional move if not zero: if reg1 != 0, reg2 = reg0 (following interpreter logic)
         let reg0_var = self.registers[&format.reg0];
         let reg1_var = self.registers[&format.reg1];
@@ -2369,7 +1791,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_cmov_nz_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_cmov_nz_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         // Conditional move immediate if not zero: if reg1 != 0, reg0 = imm
         let reg0_var = self.registers[&format.reg0];
         let reg1_var = self.registers[&format.reg1];
@@ -2393,7 +1819,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_load_imm_jump_ind(
         &mut self,
         format: format::RRII,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Load immediate into first register and jump indirect to second register + immediate
         // Following interpreter logic: rset(reg0, imm0); djump(rget(reg1) + imm1)
@@ -2448,7 +1874,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Store operations
-    fn visit_store_u8(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_u8(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
@@ -2471,7 +1901,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_u16(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_u16(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
@@ -2494,7 +1928,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_u32(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_u32(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
@@ -2517,7 +1955,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_u64(&mut self, format: format::RI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_u64(
+        &mut self,
+        format: format::RI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
@@ -2539,7 +1981,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Store immediate operations
-    fn visit_store_imm_u8(&mut self, format: format::II, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_u8(
+        &mut self,
+        format: format::II,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
 
         // Create address from immediate
@@ -2566,7 +2012,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_imm_u16(&mut self, format: format::II, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_u16(
+        &mut self,
+        format: format::II,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
 
         // Create address from immediate
@@ -2593,7 +2043,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_imm_u32(&mut self, format: format::II, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_u32(
+        &mut self,
+        format: format::II,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
 
         // Create address from immediate
@@ -2620,7 +2074,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_imm_u64(&mut self, format: format::II, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_imm_u64(
+        &mut self,
+        format: format::II,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
 
         // Create address from immediate
@@ -2643,7 +2101,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Indirect store operations
-    fn visit_store_ind_u8(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_ind_u8(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -2670,7 +2132,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_ind_u16(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_ind_u16(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -2697,7 +2163,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_ind_u32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_ind_u32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -2724,7 +2194,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_store_ind_u64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_store_ind_u64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg0];
         let addr_var = self.registers[&reg1];
@@ -2752,7 +2226,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_store_imm_ind_u8(
         &mut self,
         format: format::RII,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
@@ -2786,7 +2260,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_store_imm_ind_u16(
         &mut self,
         format: format::RII,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
@@ -2820,7 +2294,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_store_imm_ind_u32(
         &mut self,
         format: format::RII,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
@@ -2857,7 +2331,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_store_imm_ind_u64(
         &mut self,
         format: format::RII,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr_var = self.registers[&reg0];
@@ -2889,7 +2363,11 @@ impl Visitor for Translator<'_, '_> {
     // === MISSING INSTRUCTION IMPLEMENTATIONS ===
 
     // Negate and add immediate instructions
-    fn visit_neg_add_imm_32(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_neg_add_imm_32(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -2906,7 +2384,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_neg_add_imm_64(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_neg_add_imm_64(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -2922,7 +2404,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Set comparison instructions (register variants)
-    fn visit_set_lt_u(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_lt_u(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -2941,7 +2427,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_set_lt_s(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_lt_s(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -2961,7 +2451,11 @@ impl Visitor for Translator<'_, '_> {
     }
 
     // Set comparison instructions (immediate variants)
-    fn visit_set_lt_u_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_lt_u_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -2979,7 +2473,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_set_lt_s_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_lt_s_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -2997,7 +2495,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_set_gt_u_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_gt_u_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3015,7 +2517,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_set_gt_s_imm(&mut self, format: format::RRI, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_set_gt_s_imm(
+        &mut self,
+        format: format::RRI,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3037,7 +2543,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shlo_l_imm_alt_32(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3061,7 +2567,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shlo_r_imm_alt_32(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3085,7 +2591,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shar_r_imm_alt_32(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3110,7 +2616,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shlo_l_imm_alt_64(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3132,7 +2638,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shlo_r_imm_alt_64(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3154,7 +2660,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_shar_r_imm_alt_64(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         // Alt version: arithmetic shift imm0 by src_reg (roles reversed from regular version)
         let format::RRI { reg0, reg1, imm0 } = format;
@@ -3175,7 +2681,11 @@ impl Visitor for Translator<'_, '_> {
 
     // Missing visitor methods for RISC-V tests
 
-    fn visit_mul_upper_s_s(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_upper_s_s(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3191,7 +2701,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_upper_u_u(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_upper_u_u(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3206,7 +2720,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_mul_upper_s_u(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_mul_upper_s_u(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3239,7 +2757,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_count_set_bits_64(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -3256,7 +2774,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_count_set_bits_32(
         &mut self,
         format: format::RR,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
@@ -3272,7 +2790,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_and_inv(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_and_inv(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3288,7 +2810,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_or_inv(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_or_inv(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3304,7 +2830,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_xnor(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_xnor(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3320,7 +2850,7 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_max(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_max(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3339,7 +2869,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_max_u(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_max_u(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3358,7 +2892,7 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_min(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_min(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3377,7 +2911,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_min_u(&mut self, format: format::RRR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_min_u(
+        &mut self,
+        format: format::RRR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_var = self.registers[&reg0];
         let src1_var = self.registers[&reg1];
@@ -3396,7 +2934,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_reverse_bytes(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_reverse_bytes(
+        &mut self,
+        format: format::RR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3409,7 +2951,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_sign_extend_8(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_sign_extend_8(
+        &mut self,
+        format: format::RR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3423,7 +2969,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_sign_extend_16(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_sign_extend_16(
+        &mut self,
+        format: format::RR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3437,7 +2987,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_zero_extend_16(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_zero_extend_16(
+        &mut self,
+        format: format::RR,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
@@ -3450,7 +3004,11 @@ impl Visitor for Translator<'_, '_> {
         Ok(())
     }
 
-    fn visit_ecalli(&mut self, format: format::I, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_ecalli(
+        &mut self,
+        format: format::I,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         // ecalli triggers a host call - we need to return an error that will be caught
         // by the runtime to handle the host call
@@ -3458,7 +3016,7 @@ impl Visitor for Translator<'_, '_> {
         Err(anyhow::anyhow!("Host call requested: {}", imm0))
     }
 
-    fn visit_sbrk(&mut self, format: format::RR, _pc: usize) -> Result<(), Self::Error> {
+    fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
 
         // sbrk adjusts the heap pointer and returns the old value
@@ -3482,7 +3040,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_rot_r_32_imm_alt(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
 
@@ -3512,7 +3070,7 @@ impl Visitor for Translator<'_, '_> {
     fn visit_rot_r_64_imm_alt(
         &mut self,
         format: format::RRI,
-        _pc: usize,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
 
