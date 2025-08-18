@@ -3,8 +3,10 @@
 //! Tests the PVM compiler (JIT) against the official JAM test vectors.
 
 use anyhow::Result;
-use cranelift_pvm::module::memory::Page as CompilerPage;
-use cranelift_pvm::{Memory as CompilerMemory, Module};
+use pvmc::{
+    module::{Memory as CompilerMemory, Page as CompilerPage},
+    Module,
+};
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 use tracing_subscriber::EnvFilter;
@@ -27,7 +29,7 @@ impl Runner {
 
         let input: TestInput = serde_json::from_str(&test.input)?;
         let output: TestOutput = serde_json::from_str(&test.output)?;
-        let mut initial_registers = [0u64; cranelift_pvm::constants::PVM_REGISTER_COUNT];
+        let mut initial_registers = [0u64; translator::constants::PVM_REGISTER_COUNT];
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
@@ -58,7 +60,7 @@ impl Runner {
 
         assert_eq!(
             result.registers.len(),
-            cranelift_pvm::constants::PVM_REGISTER_COUNT
+            translator::constants::PVM_REGISTER_COUNT
         );
         assert_eq!(result.registers.to_vec(), output.expected_regs);
         assert_eq!(result.pc, output.expected_pc as u64);

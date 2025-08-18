@@ -1,12 +1,10 @@
 //! Clean block-based JIT compiler for PVM programs
 
-use crate::{
-    translator::{Code, Translator},
-    Info,
-};
+use crate::module::Info;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{Function, UserFuncName};
+use translator::{Code, Translator};
 pub use {
     context::{Context, ExtendedContext},
     result::ExecResult,

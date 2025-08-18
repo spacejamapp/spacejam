@@ -2,7 +2,10 @@
 
 use crate::jit::{Context, Jit};
 use anyhow::Result;
-pub use {info::Info, memory::Memory};
+pub use {
+    info::Info,
+    memory::{Memory, Page},
+};
 
 mod info;
 pub mod memory;
@@ -26,7 +29,7 @@ impl Module {
     /// Execute the module using block-based JIT compilation
     pub fn execute(
         &self,
-        initial_registers: &[u64; crate::constants::PVM_REGISTER_COUNT],
+        initial_registers: &[u64; translator::constants::PVM_REGISTER_COUNT],
         initial_pc: u64,
         initial_memory: Memory,
     ) -> Result<Info> {

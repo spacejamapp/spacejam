@@ -1,8 +1,8 @@
 //! SpaceJam PVM compiler
 
 mod cache;
-mod compiler;
-mod module;
+mod jit;
+pub mod module;
 
-pub use compiler::Compiler;
+pub use jit::{Context, ExecResult, ExtendedContext, Jit};
 pub use module::Module;

@@ -1,13 +1,12 @@
 //! Memory implementation for compiled functions
 
-use crate::constants::{access, PAGE_SIZE};
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use translator::constants::{access, PAGE_SIZE};
 
 /// Memory page with access control
 #[repr(C)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Page {
     /// Page data (4KB) - stored as Vec<u8> for serde compatibility  
     pub data: Vec<u8>,
@@ -26,7 +25,7 @@ impl Page {
 }
 
 /// Memory representation for compiled functions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     /// Memory pages
     pub pages: BTreeMap<u32, Page>,

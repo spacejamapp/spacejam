@@ -1,14 +1,10 @@
 //! Runtime context for block execution
 
-use crate::ExecResult;
-use crate::{
-    constants::{
-        access, BITS_PER_WORD, EXTRA_PAGES_MARGIN, LINEAR_MEMORY_SIZE, PAGE_SIZE,
-        PVM_REGISTER_COUNT,
-    },
-    Memory,
-};
+use crate::{module::Memory, ExecResult};
 use anyhow::Result;
+use translator::constants::{
+    access, BITS_PER_WORD, EXTRA_PAGES_MARGIN, LINEAR_MEMORY_SIZE, PAGE_SIZE, PVM_REGISTER_COUNT,
+};
 
 /// Runtime context for block execution
 #[derive(Debug, Clone)]

@@ -6,7 +6,7 @@ use crate::module::Memory;
 #[derive(Debug, Clone)]
 pub struct Info {
     /// Final register values
-    pub registers: [u64; crate::constants::PVM_REGISTER_COUNT],
+    pub registers: [u64; translator::constants::PVM_REGISTER_COUNT],
     /// Final program counter
     pub pc: u64,
     /// Final memory state
