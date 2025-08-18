@@ -83,7 +83,7 @@ impl<'b> Translator<'b> {
         Ok(())
     }
 
-    /// Get the context pointer for unified compilation
+    /// Get the context pointer for compilation
     pub fn get_context_ptr(&self) -> Option<Value> {
         self.ctx_ptr
     }

@@ -10,10 +10,10 @@ use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
 
-impl<'b> Visitor for Translator<'b> {
+impl Visitor for Translator<'_> {
     type Error = anyhow::Error;
 
-    fn visit_trap(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
+    fn visit_trap(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         // Mark that this program contains explicit trap instructions
         self.has_explicit_trap = true;
 
@@ -34,12 +34,16 @@ impl<'b> Visitor for Translator<'b> {
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
 
-        Ok(())
+        self.return_trap_with_pc(range.start)
     }
 
-    fn visit_fallthrough(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
-        // Fallthrough instruction preserves current PC (no change needed)
-        // The PC already points to the fallthrough instruction location
+    fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
+        let next_pc = range.end as u64;
+        if let Some(&next_block) = self.blocks.get(&next_pc) {
+            self.builder.ins().jump(next_block, &[]);
+        } else {
+            self.return_continue_with_pc(next_pc)?;
+        }
         Ok(())
     }
 
@@ -75,13 +79,18 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, off0, imm0 } = format;
-
-        // Load immediate value first (MUST happen in both modes!)
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
 
-        // TODO: the following
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        if let Some(&target_block) = self.blocks.get(&target_pc) {
+            self.builder.ins().jump(target_block, &[]);
+        } else {
+            // Jump to unknown target - return with jump result
+            self.return_with_jump_result(target_pc)?;
+        }
+
         Ok(())
     }
 
@@ -1525,7 +1534,14 @@ impl<'b> Visitor for Translator<'b> {
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
 
-        Ok(())
+        // Compare registers
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::Equal, reg0_val, reg1_val);
+
+        // Calculate target addresses
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_eq_imm(
@@ -1534,7 +1550,11 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ne(
@@ -1543,8 +1563,11 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-
-        Ok(())
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ne_imm(
@@ -1553,7 +1576,11 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self.builder.ins().icmp(IntCC::NotEqual, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_u(
@@ -1562,7 +1589,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        Ok(())
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_s(
@@ -1571,7 +1605,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        Ok(())
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_u(
@@ -1580,7 +1621,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        Ok(())
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_s(
@@ -1589,7 +1637,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRO { reg0, reg1, off0 } = format;
-        Ok(())
+        let reg0_val = self.builder.use_var(self.registers[&reg0]);
+        let reg1_val = self.builder.use_var(self.registers[&reg1]);
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_u_imm(
@@ -1598,7 +1653,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_s_imm(
@@ -1607,7 +1669,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThan, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_u_imm(
@@ -1616,7 +1685,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition =
+            self.builder
+                .ins()
+                .icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_s_imm(
@@ -1625,8 +1701,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     // Additional branch operations
@@ -1636,7 +1718,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_gt_s_imm(
@@ -1645,7 +1734,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_le_u_imm(
@@ -1654,7 +1750,14 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_le_s_imm(
@@ -1663,42 +1766,42 @@ impl<'b> Visitor for Translator<'b> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
-        Ok(())
+        let reg_val = self.builder.use_var(self.registers[&reg0]);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
+        self.generate_branch(condition, target_pc, range.end as u64)
     }
 
     // Jump operations
     fn visit_jump(&mut self, format: format::O, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
-        /*  let target_pc = (range.start as i64 + format.off0 as i64) as u64;
+        let target_pc = (range.start as i64 + format.off0 as i64) as u64;
         if let Some(&target_block) = self.blocks.get(&target_pc) {
-            tracing::info!("Jumping to target block: {}", target_pc);
             self.builder.ins().jump(target_block, &[]);
         } else {
-            tracing::error!("Jump to unknown target: {}", target_pc);
-            // Jump to unknown target - return with jump result
             self.return_with_jump_result(target_pc)?;
-        } */
+        }
         Ok(())
     }
 
     fn visit_jump_ind(
         &mut self,
         format: format::RI,
-        _range: &Range<usize>,
+        range: &Range<usize>,
     ) -> Result<(), Self::Error> {
-        // Indirect jump: PC = reg0 + immediate (following interpreter logic: djump(reg0 + imm0))
         let format::RI { reg0, imm0 } = format;
-        tracing::debug!("JumpInd: reg0={}, imm0={}", reg0, imm0);
 
-        // Calculate the target address: reg0 + imm0 (MUST happen in both modes!)
+        // Calculate the target address: reg0 + imm0
         let reg_val = self.builder.use_var(self.registers[&reg0]);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target_addr = self.builder.ins().iadd(reg_val, imm_val);
 
         // For indirect jumps, we need to look up the address in the jump table at runtime
         // The runtime will validate and find the actual PC from the jump table
-
-        // Get context pointer to store the target address (needed in both modes!)
         let context_ptr = self.get_context_ptr_for_visitor();
         let result_offset = self
             .builder
@@ -1706,14 +1809,14 @@ impl<'b> Visitor for Translator<'b> {
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
-        // Store the target address (will be resolved by runtime) - MUST happen in both modes!
+        // Store the target address
         let data_offset = self.builder.ins().iconst(types::I64, 8);
         let data_addr = self.builder.ins().iadd(result_addr, data_offset);
         self.builder
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
 
-        Ok(())
+        self.handle_indirect_jump(range.start)
     }
 
     // Conditional move operations
@@ -1819,28 +1922,10 @@ impl<'b> Visitor for Translator<'b> {
     fn visit_load_imm_jump_ind(
         &mut self,
         format: format::RRII,
-        _range: &Range<usize>,
+        range: &Range<usize>,
     ) -> Result<(), Self::Error> {
-        // Load immediate into first register and jump indirect to second register + immediate
-        // Following interpreter logic: rset(reg0, imm0); djump(rget(reg1) + imm1)
-        tracing::debug!(
-            "LoadImmJumpInd: reg0={}, reg1={}, imm0={}, imm1={}, jump_table_len={}",
-            format.reg0,
-            format.reg1,
-            format.imm0,
-            format.imm1,
-            self.jump_table.len()
-        );
-
-        // IMPORTANT: Calculate jump target FIRST, before modifying any registers
-        // This matches interpreter order: jump_address = rget(reg1) + imm1; rset(reg0, imm0); djump(jump_address)
         let reg1_var = self.registers[&format.reg1];
-        let reg1_val = self.builder.use_var(reg1_var); // Read OLD value from register
-
-        // Debug the actual parsed values
-        tracing::debug!("LoadImmJumpInd parsed: imm0={}, imm1={}, should compute address = reg[{}] + {} = ? + {}", 
-                       format.imm0, format.imm1, format.reg1, format.imm1, format.imm1);
-
+        let reg1_val = self.builder.use_var(reg1_var);
         let imm1_val = self.builder.ins().iconst(types::I64, format.imm1 as i64);
         let target_addr = self.builder.ins().iadd(reg1_val, imm1_val);
 
@@ -1870,7 +1955,7 @@ impl<'b> Visitor for Translator<'b> {
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
 
-        Ok(())
+        self.handle_indirect_jump(range.start)
     }
 
     // Store operations

@@ -10,7 +10,7 @@ use crate::{
 use anyhow::Result;
 use cranelift::prelude::*;
 
-impl<'b> Translator<'b> {
+impl Translator<'_> {
     /// Check if a page is allocated and writable by consulting the page bitmap and access array
     pub fn check_page_allocated_and_writable(
         &mut self,

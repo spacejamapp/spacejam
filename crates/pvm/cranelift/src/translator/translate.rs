@@ -4,26 +4,28 @@ use crate::{translator::Block, Translator};
 use anyhow::Result;
 use parser::Visitor;
 
-impl<'b> Translator<'b> {
-    /// Translate block for unified function using shared translator instance
+impl Translator<'_> {
+    /// Translate block and check termination
     pub fn translate_block(&mut self, block: &Block) -> Result<()> {
         // Translate all instructions in this block
         for instruction in &block.instructions {
             let pc = instruction.range.start;
-            tracing::trace!(
-                "Unified: translating PC {} instruction {:?}",
-                pc,
-                instruction.value
-            );
+            tracing::trace!("translating PC {} instruction {:?}", pc, instruction.value);
 
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!("Instruction translation failed at PC {}: {}", pc, e);
-                // Continue with best effort
             }
         }
 
         // Handle block termination with native Cranelift control flow
-        self.handle_unified_block_termination(block)
+        //
+        // This is only for the tests that has incomplete blocks.
+        if let Some(last) = block.instructions.last() {
+            if !last.value.is_termination() {
+                self.return_continue_with_pc(block.end as u64)?;
+            }
+        }
+        Ok(())
     }
 
     /// Calculate the length of a PVM instruction at the given PC

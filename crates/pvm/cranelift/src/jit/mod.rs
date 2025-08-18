@@ -3,7 +3,7 @@
 use crate::{
     constants::PVM_REGISTER_COUNT,
     translator::{Block, Code, Translator},
-    utils, Info,
+    Info,
 };
 use anyhow::Result;
 use cranelift::prelude::*;
@@ -75,10 +75,7 @@ impl Jit {
 
             // Block terminates if it contains a terminating instruction OR if we reached EOF
             let terminates = !block_instructions.is_empty()
-                && (reader.eof()
-                    || utils::is_terminating_instruction(
-                        &block_instructions.last().unwrap().value,
-                    ));
+                && (reader.eof() || block_instructions.last().unwrap().value.is_termination());
 
             // Handle indirect jump table targets first
             self.process_jump_targets(&block_instructions, &blob)?;
@@ -152,9 +149,7 @@ impl Jit {
 
                             // Check if the block actually terminates (has a terminating instruction)
                             let terminates = !target_instructions.is_empty()
-                                && utils::is_terminating_instruction(
-                                    &target_instructions.last().unwrap().value,
-                                );
+                                && target_instructions.last().unwrap().value.is_termination();
 
                             self.create_block(
                                 target_start,
@@ -173,8 +168,8 @@ impl Jit {
     /// Execute program using JIT compilation
     pub fn execute(&mut self, mut ctx: Context) -> Result<Info> {
         tracing::debug!("Starting execution with initial PC: {}", ctx.pc);
-        let unified_code = self.compile_unified_program()?;
-        self.run(&unified_code, &mut ctx)?;
+        let code = self.compile_program()?;
+        self.run(&code, &mut ctx)?;
 
         Ok(Info {
             registers: ctx.registers,
@@ -183,9 +178,9 @@ impl Jit {
         })
     }
 
-    /// Compile entire program as unified Cranelift function (cranelift-wasm style)
-    fn compile_unified_program(&mut self) -> Result<Code> {
-        tracing::debug!("Compiling entire program as unified Cranelift function");
+    /// Compile entire program as Cranelift function (cranelift-wasm style)
+    fn compile_program(&mut self) -> Result<Code> {
+        tracing::debug!("Compiling entire program as Cranelift function");
         let mut flag_builder = settings::builder();
         flag_builder
             .set("use_colocated_libcalls", "false")
@@ -291,7 +286,7 @@ impl Jit {
         let mut ctrl = cranelift_codegen::control::ControlPlane::default();
         self.ctx
             .compile(&*self.isa, &mut ctrl)
-            .map_err(|e| anyhow::anyhow!("Unified compilation failed: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("compilation failed: {:?}", e))?;
 
         let code = self.ctx.compiled_code().unwrap();
         let bytes = code.buffer.data();
@@ -302,7 +297,7 @@ impl Jit {
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, size);
         }
 
-        tracing::debug!("Unified compilation completed, generated {} bytes", size);
+        tracing::debug!("compilation completed, generated {} bytes", size);
         Ok(Code { ptr, size })
     }
 
@@ -326,8 +321,7 @@ impl Jit {
         }
     }
 
-    /// Execute compiled block
-    /// Run the unified compiled function - executes entire program
+    /// Execute compiled function
     fn run(&self, code: &Code, ctx: &mut Context) -> Result<()> {
         // Generate page allocation information for boundary checking
         let (page_bitmap, page_access) = ctx.generate_page_bitmap();
@@ -342,7 +336,7 @@ impl Jit {
         };
 
         unsafe {
-            // Call the unified function with starting PC
+            // Call the function with starting PC
             // It will execute the entire program from that PC
             let func = std::mem::transmute::<*const u8, fn(*mut ExtendedContext, u64)>(code.ptr);
             func(&mut ext_ctx, ctx.pc);
@@ -355,11 +349,11 @@ impl Jit {
         // Check for page faults
         match ctx.sync() {
             Ok(_) => {
-                tracing::trace!("Unified execution completed, final PC: {}", ctx.pc);
+                tracing::trace!("execution completed, final PC: {}", ctx.pc);
                 Ok(())
             }
             Err(e) => {
-                tracing::trace!("Page fault detected during unified execution: {}", e);
+                tracing::trace!("Page fault detected during execution: {}", e);
                 ctx.pc = 0;
                 Ok(())
             }

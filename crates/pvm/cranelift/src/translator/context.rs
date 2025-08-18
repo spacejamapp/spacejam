@@ -4,12 +4,10 @@ use crate::{constants::PVM_REGISTER_COUNT, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
-impl<'b> Translator<'b> {
-    /// Get context pointer for visitor operations - handles both unified and block-based modes
+impl Translator<'_> {
+    /// Get context pointer for visitor operations
     pub fn get_context_ptr_for_visitor(&self) -> Value {
-        // In unified mode, use the stored context pointer
-        self.ctx_ptr
-            .expect("Context pointer not initialized in unified mode")
+        self.ctx_ptr.expect("Context pointer not initialized")
     }
 
     // Save registers to context
