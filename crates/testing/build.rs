@@ -158,7 +158,7 @@ fn try_download(workspace: &Path) -> Result<()> {
         Command::new("git")
             .args([
                 "clone",
-                "https://github.com/davxy/jam-conformance",
+                "https://github.com/spacejamapp/jam-conformance",
                 "res/jam-conformance",
                 "--depth",
                 "1",

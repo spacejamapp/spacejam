@@ -165,7 +165,7 @@ impl PageProof {
     }
 
     /// Get the number of segments in this page
-    pub const fn segment_count(&self) -> usize {
+    pub fn segment_count(&self) -> usize {
         self.segment_hashes.len()
     }
 }

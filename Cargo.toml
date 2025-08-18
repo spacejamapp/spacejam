@@ -7,6 +7,8 @@ members = [
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/pvm/cli",
+    "crates/pvm/compiler",
+    "crates/pvm/cranelift",
     "crates/pvm/interpreter",
     "crates/pvm/parser",
     "crates/pvm/testing",
@@ -42,6 +44,7 @@ pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
 pvm-parser = { path = "crates/pvm/parser" }
 pvm-testing = { path = "crates/pvm/testing" }
+translator = { path = "crates/pvm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
@@ -81,6 +84,10 @@ async-trait = "0.1.88"
 blake2 = "0.10.6"
 clap = "4.5.23"
 colored = "3.0.0"
+cranelift = "0.120.0"
+cranelift-codegen = "0.120.0"
+cranelift-frontend = "0.120.0"
+cranelift-native = "0.120.0"
 dirs = "6.0.0"
 ed25519-dalek = "2.1.1"
 etc = "0.1.20"
@@ -91,6 +98,7 @@ hyper = "1.6"
 hyper-util = "0.1.11"
 jobserver = "0.1.33"
 jsonrpsee = "0.24.9"
+libc = "0.2"
 log = "0.4.27"
 once_cell = "1.20.2"
 paste = "1.0.15"

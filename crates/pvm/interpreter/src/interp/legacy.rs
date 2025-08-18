@@ -2,7 +2,7 @@
 
 use crate::{Error, Interpreter};
 use anyhow::Result;
-use parser::{Instruction, ProgramBlob, Visitor};
+use parser::{reader::Offset, Instruction, ProgramBlob, Visitor};
 use pvm::Reason;
 
 impl Interpreter {
@@ -21,7 +21,7 @@ impl Interpreter {
 
             // stepping the instruction.
             tracing::trace!("0x{:06x} | {}", self.pc, instr.value);
-            if let Err(e) = self.step(instr.value) {
+            if let Err(e) = self.step(instr) {
                 self.reason = e.into();
                 return Ok(());
             }
@@ -46,13 +46,13 @@ impl Interpreter {
     /// Step the instruction.
     ///
     /// returns true if the instruction was stepped, false otherwise.
-    fn step(&mut self, instr: Instruction) -> crate::Result<()> {
+    fn step(&mut self, instr: Offset<Instruction>) -> crate::Result<()> {
         if self.gas == 0 {
             return Err(Error::OOG);
         }
 
         self.gas -= 1;
-        if let Err(e) = self.visit(instr) {
+        if let Err(e) = self.visit(instr.value, &instr.range) {
             self.gas -= e.extra_gas();
             return Err(e);
         }
