@@ -26,17 +26,15 @@ pub struct Translator<'b> {
     // Jump table for dynamic jumps (djump)
     jump_table: Vec<u64>,
 
+    pvm_blocks: HashMap<u64, Block>,
+
     // Context pointer for boundary checking and runtime operations
     ctx_ptr: Option<Value>,
 }
 
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
-    pub fn new(
-        func: &'b mut ir::Function,
-        ctx: &'b mut FunctionBuilderContext,
-        jump_table: Vec<u64>,
-    ) -> Result<Self> {
+    pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
         let mut builder = FunctionBuilder::new(func, ctx);
 
         // Create entry block
@@ -57,9 +55,10 @@ impl<'b> Translator<'b> {
         Ok(Self {
             registers,
             builder,
-            jump_table,
+            jump_table: Vec::new(),
             blocks: HashMap::new(),
             ctx_ptr: Some(ctx_ptr),
+            pvm_blocks: HashMap::new(),
         })
     }
 

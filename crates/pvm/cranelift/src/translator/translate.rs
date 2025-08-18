@@ -5,11 +5,66 @@ use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
 use parser::Visitor;
-use std::collections::HashMap;
 
 impl Translator<'_> {
+    /// Analyze program - discovers all basic blocks using read_block()
+    /// Uses parser's natural block discovery for clean, efficient block creation
+    pub fn analyze(&mut self, program: &[u8]) -> Result<bool> {
+        let blob = parser::program::deblob(program)?;
+        self.jump_table = blob.jump_table.clone();
+        self.blocks.clear();
+
+        let mut reader = blob.reader();
+        let mut has_trap = false;
+
+        // Use read_block() to naturally discover block boundaries
+        while !reader.eof() {
+            let block_start = reader.position;
+            let block_instructions = reader.read_block()?;
+
+            if block_instructions.is_empty() {
+                break;
+            }
+
+            // Block terminates if it contains a terminating instruction OR if we reached EOF
+            let terminates = !block_instructions.is_empty()
+                && (reader.eof() || block_instructions.last().unwrap().value.is_termination());
+
+            // Handle indirect jump table targets first
+            self.process_jump_targets(&block_instructions, &blob)?;
+
+            // Check all instructions in the block for trap instructions
+            for instr in &block_instructions {
+                if matches!(instr.value, parser::Instruction::Trap) {
+                    has_trap = true;
+                }
+            }
+
+            // Only create block if it doesn't already exist (might have been created by process_jump_targets)
+            if !self.blocks.contains_key(&(block_start as u64)) {
+                self.pvm_blocks.insert(
+                    block_start as u64,
+                    crate::Block {
+                        start: block_start,
+                        end: reader.position,
+                        terminates,
+                        instructions: block_instructions,
+                    },
+                );
+            }
+        }
+
+        for pc in self.pvm_blocks.keys() {
+            if !self.blocks.contains_key(pc) {
+                self.blocks.insert(*pc, self.builder.create_block());
+            }
+        }
+
+        Ok(has_trap)
+    }
+
     /// Translate entire program
-    pub fn translate(&mut self, entry: ir::Block, blocks: &HashMap<u64, Block>) -> Result<()> {
+    pub fn translate(&mut self, entry: ir::Block) -> Result<()> {
         let ctx_ptr = self.builder.block_params(entry)[0];
         let start_pc = self.builder.block_params(entry)[1];
         self.init_with_context(ctx_ptr)?;
@@ -47,7 +102,7 @@ impl Translator<'_> {
         // Step 2: Translate all PVM blocks to Cranelift basic blocks using shared translator
         //
         // TODO: remove the clone here.
-        for (pc, pvm_block) in blocks {
+        for (pc, pvm_block) in &self.pvm_blocks.clone() {
             let cranelift_block = self.blocks[&pc];
             self.builder.switch_to_block(cranelift_block);
 
@@ -90,6 +145,52 @@ impl Translator<'_> {
         if let Some(last) = block.instructions.last() {
             if !last.value.is_termination() {
                 self.return_continue_with_pc(block.end as u64)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Process jump targets from indirect jump instructions
+    fn process_jump_targets(
+        &mut self,
+        block_instructions: &[parser::reader::Offset<parser::Instruction>],
+        blob: &parser::program::ProgramBlob,
+    ) -> Result<()> {
+        if let Some(last_instruction) = block_instructions.last() {
+            if matches!(
+                last_instruction.value,
+                parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_)
+            ) {
+                // Clone jump_table to avoid borrow checker issues
+                let jump_table = self.jump_table.clone();
+                for &target in &jump_table {
+                    if (target as usize) < blob.instructions.len()
+                        && !self.blocks.contains_key(&target)
+                    {
+                        let mut target_reader = blob.reader();
+                        target_reader.set_position(target as usize);
+
+                        if !target_reader.eof() {
+                            let target_start = target_reader.position;
+                            let target_instructions = target_reader.read_block()?;
+                            let target_end = target_reader.position;
+
+                            // Check if the block actually terminates (has a terminating instruction)
+                            let terminates = !target_instructions.is_empty()
+                                && target_instructions.last().unwrap().value.is_termination();
+
+                            self.pvm_blocks.insert(
+                                target as u64,
+                                crate::translator::Block {
+                                    start: target_start,
+                                    end: target_end,
+                                    terminates,
+                                    instructions: target_instructions,
+                                },
+                            );
+                        }
+                    }
+                }
             }
         }
         Ok(())

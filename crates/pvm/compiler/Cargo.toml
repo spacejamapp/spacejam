@@ -4,3 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+translator.workspace = true
+cranelift.workspace = true
+cranelift-codegen.workspace = true
+cranelift-native.workspace = true
