@@ -1,10 +1,77 @@
 //! translation utils
 
-use crate::{translator::Block, Translator};
+use crate::{constants::PVM_REGISTER_COUNT, translator::Block, Translator};
 use anyhow::Result;
+use cranelift::prelude::*;
+use cranelift_codegen::ir;
 use parser::Visitor;
+use std::collections::HashMap;
 
 impl Translator<'_> {
+    /// Translate entire program
+    pub fn translate(&mut self, entry: ir::Block, blocks: &HashMap<u64, Block>) -> Result<()> {
+        let ctx_ptr = self.builder.block_params(entry)[0];
+        let start_pc = self.builder.block_params(entry)[1];
+        self.init_with_context(ctx_ptr)?;
+
+        // Load all registers from context ONCE at function entry
+        for i in 0..PVM_REGISTER_COUNT {
+            let reg_var = self.registers[&(i as u8)];
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(ctx_ptr, offset);
+            let reg_val = self
+                .builder
+                .ins()
+                .load(types::I64, MemFlags::new(), addr, 0);
+            self.builder.def_var(reg_var, reg_val);
+        }
+
+        // Dispatcher: jump to the requested starting PC
+        // Create a switch statement to jump to the correct block based on start_pc
+        let mut switch = cranelift::frontend::Switch::new();
+        for (&pc, &cranelift_block) in &self.blocks {
+            switch.set_entry(pc as u128, cranelift_block);
+        }
+
+        // Default case: if PC is not found, return with trap
+        let default_block = self.builder.create_block();
+        self.builder.switch_to_block(default_block);
+        self.return_trap()?;
+        self.builder.seal_block(default_block);
+
+        // Generate the switch on start_pc
+        self.builder.switch_to_block(entry);
+        switch.emit(&mut self.builder, start_pc, default_block);
+        self.builder.seal_block(entry);
+
+        // Step 2: Translate all PVM blocks to Cranelift basic blocks using shared translator
+        //
+        // TODO: remove the clone here.
+        for (pc, pvm_block) in blocks {
+            let cranelift_block = self.blocks[&pc];
+            self.builder.switch_to_block(cranelift_block);
+
+            // Translate instructions in this block using shared translator
+            match self.translate_block(&pvm_block) {
+                Ok(_) => {
+                    tracing::trace!("Successfully translated block at PC {}", pc);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to translate block at PC {}: {}", pc, e);
+                    // Generate trap for failed blocks
+                    self.return_trap()?;
+                }
+            }
+        }
+
+        // Step 3: Seal all blocks after translation
+        for &cranelift_block in self.blocks.values() {
+            self.builder.seal_block(cranelift_block);
+        }
+
+        Ok(())
+    }
+
     /// Translate block and check termination
     pub fn translate_block(&mut self, block: &Block) -> Result<()> {
         // Translate all instructions in this block
@@ -26,37 +93,5 @@ impl Translator<'_> {
             }
         }
         Ok(())
-    }
-
-    /// Calculate the length of a PVM instruction at the given PC
-    /// This is crucial for correct PC advancement when branches are not taken
-    /// Note: This method still needs parsing for individual instruction length calculations
-    /// when called during branch instruction processing. This is unavoidable as instruction
-    /// lengths are needed during compilation, not just during initial analysis.
-    pub fn get_instruction_length(&self, pc: usize) -> Result<usize> {
-        if self.program.is_empty() {
-            return Err(anyhow::anyhow!(
-                "Program data not available for instruction length calculation"
-            ));
-        }
-
-        let blob = parser::program::deblob(&self.program)?;
-        let mut reader = blob.reader();
-        reader.set_position(pc);
-
-        if reader.eof() {
-            return Err(anyhow::anyhow!("PC {} beyond program bounds", pc));
-        }
-
-        let start_pos = reader.position;
-        // Use read_block and take the first instruction to calculate length
-        let block_instructions = reader.read_block()?;
-        if block_instructions.is_empty() {
-            return Err(anyhow::anyhow!("No instruction found at PC {}", pc));
-        }
-        let instruction = &block_instructions[0];
-        let end_pos = instruction.range.end;
-
-        Ok(end_pos - start_pos)
     }
 }

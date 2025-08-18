@@ -14,9 +14,6 @@ impl Visitor for Translator<'_> {
     type Error = anyhow::Error;
 
     fn visit_trap(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
-        // Mark that this program contains explicit trap instructions
-        self.has_explicit_trap = true;
-
         // Set trap result in context for runtime handling
         let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
         let result_offset = self
@@ -53,9 +50,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        // Generate immediate value directly
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        // Store to register variable
         let dst_var = self.registers[&reg0];
         self.builder.def_var(dst_var, imm_val);
         Ok(())
@@ -100,9 +95,6 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
-            anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
-        }
 
         // Load source register, truncate to 32-bit, add immediate, sign extend to 64-bit
         let src_var = self.registers[&reg1];
@@ -122,10 +114,6 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX {
-            anyhow::bail!("Invalid register numbers: dst={}, src={}", reg0, reg1);
-        }
-
         let src_var = self.registers[&reg1];
         let src_val = self.builder.use_var(src_var);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
@@ -1541,7 +1529,7 @@ impl Visitor for Translator<'_> {
 
         // Calculate target addresses
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_eq_imm(
@@ -1554,7 +1542,7 @@ impl Visitor for Translator<'_> {
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let condition = self.builder.ins().icmp(IntCC::Equal, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ne(
@@ -1567,7 +1555,7 @@ impl Visitor for Translator<'_> {
         let reg1_val = self.builder.use_var(self.registers[&reg1]);
         let condition = self.builder.ins().icmp(IntCC::NotEqual, reg0_val, reg1_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ne_imm(
@@ -1580,7 +1568,7 @@ impl Visitor for Translator<'_> {
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         let condition = self.builder.ins().icmp(IntCC::NotEqual, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_u(
@@ -1596,7 +1584,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::UnsignedLessThan, reg0_val, reg1_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_s(
@@ -1612,7 +1600,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::SignedLessThan, reg0_val, reg1_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_u(
@@ -1628,7 +1616,7 @@ impl Visitor for Translator<'_> {
                 .ins()
                 .icmp(IntCC::UnsignedGreaterThanOrEqual, reg0_val, reg1_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_s(
@@ -1644,7 +1632,7 @@ impl Visitor for Translator<'_> {
                 .ins()
                 .icmp(IntCC::SignedGreaterThanOrEqual, reg0_val, reg1_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_u_imm(
@@ -1660,7 +1648,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::UnsignedLessThan, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_lt_s_imm(
@@ -1676,7 +1664,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::SignedLessThan, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_u_imm(
@@ -1692,7 +1680,7 @@ impl Visitor for Translator<'_> {
                 .ins()
                 .icmp(IntCC::UnsignedGreaterThanOrEqual, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_ge_s_imm(
@@ -1708,7 +1696,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::SignedGreaterThanOrEqual, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     // Additional branch operations
@@ -1725,7 +1713,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::UnsignedGreaterThan, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_gt_s_imm(
@@ -1741,7 +1729,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::SignedGreaterThan, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_le_u_imm(
@@ -1757,7 +1745,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::UnsignedLessThanOrEqual, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     fn visit_branch_le_s_imm(
@@ -1773,7 +1761,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .icmp(IntCC::SignedLessThanOrEqual, reg_val, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        self.generate_branch(condition, target_pc, range.end as u64)
+        self.branch(condition, target_pc, range.end as u64)
     }
 
     // Jump operations
@@ -1802,7 +1790,7 @@ impl Visitor for Translator<'_> {
 
         // For indirect jumps, we need to look up the address in the jump table at runtime
         // The runtime will validate and find the actual PC from the jump table
-        let context_ptr = self.get_context_ptr_for_visitor();
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
         let result_offset = self
             .builder
             .ins()
@@ -1816,7 +1804,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
 
-        self.handle_indirect_jump(range.start)
+        self.djump(range.start)
     }
 
     // Conditional move operations
@@ -1902,7 +1890,6 @@ impl Visitor for Translator<'_> {
         // Conditional move immediate if not zero: if reg1 != 0, reg0 = imm
         let reg0_var = self.registers[&format.reg0];
         let reg1_var = self.registers[&format.reg1];
-
         let reg1_val = self.builder.use_var(reg1_var);
         let reg0_val = self.builder.use_var(reg0_var);
         let imm_val = self.builder.ins().iconst(types::I64, format.imm0 as i64);
@@ -1935,7 +1922,7 @@ impl Visitor for Translator<'_> {
         self.builder.def_var(reg0_var, imm0_val);
 
         // Store JumpIndirect result - let runtime handle jump table validation
-        let context_ptr = self.get_context_ptr_for_visitor();
+        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
         let result_offset = self
             .builder
             .ins()
@@ -1955,7 +1942,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .store(MemFlags::new(), target_addr, data_addr, 0);
 
-        self.handle_indirect_jump(range.start)
+        self.djump(range.start)
     }
 
     // Store operations
@@ -1970,11 +1957,7 @@ impl Visitor for Translator<'_> {
 
         // Create address from immediate
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Truncate to 8 bits
         let truncated = self.builder.ins().ireduce(types::I8, src_val);
-
-        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
 
@@ -1997,11 +1980,7 @@ impl Visitor for Translator<'_> {
 
         // Create address from immediate
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Truncate to 16 bits
         let truncated = self.builder.ins().ireduce(types::I16, src_val);
-
-        // Get linear memory base and calculate final address
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
 
@@ -2021,11 +2000,7 @@ impl Visitor for Translator<'_> {
         let format::RI { reg0, imm0 } = format;
         let src_var = self.registers[&reg0];
         let src_val = self.builder.use_var(src_var);
-
-        // Create address from immediate
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Truncate to 32 bits
         let truncated = self.builder.ins().ireduce(types::I32, src_val);
 
         // Get linear memory base and calculate final address

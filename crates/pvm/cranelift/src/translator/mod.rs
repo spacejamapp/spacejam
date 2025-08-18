@@ -20,17 +20,11 @@ pub struct Translator<'b> {
     /// Cranelift function builder
     pub builder: FunctionBuilder<'b>,
 
-    // Block-based compilation state
-    has_explicit_trap: bool,
-
-    // Jump table for dynamic jumps (djump)
-    jump_table: Vec<u64>,
-
     // Map of blocks by start PC
     pub blocks: HashMap<u64, ir::Block>,
 
-    // Program data for instruction length calculations
-    program: Vec<u8>,
+    // Jump table for dynamic jumps (djump)
+    jump_table: Vec<u64>,
 
     // Context pointer for boundary checking and runtime operations
     ctx_ptr: Option<Value>,
@@ -41,7 +35,6 @@ impl<'b> Translator<'b> {
     pub fn new(
         func: &'b mut ir::Function,
         ctx: &'b mut FunctionBuilderContext,
-
         jump_table: Vec<u64>,
     ) -> Result<Self> {
         let mut builder = FunctionBuilder::new(func, ctx);
@@ -64,10 +57,8 @@ impl<'b> Translator<'b> {
         Ok(Self {
             registers,
             builder,
-            has_explicit_trap: false,
             jump_table,
             blocks: HashMap::new(),
-            program: Vec::new(),
             ctx_ptr: Some(ctx_ptr),
         })
     }
@@ -81,11 +72,6 @@ impl<'b> Translator<'b> {
     pub fn init_with_context(&mut self, context_ptr: Value) -> Result<()> {
         self.ctx_ptr = Some(context_ptr);
         Ok(())
-    }
-
-    /// Get the context pointer for compilation
-    pub fn get_context_ptr(&self) -> Option<Value> {
-        self.ctx_ptr
     }
 }
 

@@ -1,13 +1,13 @@
 //! Clean block-based JIT compiler for PVM programs
 
 use crate::{
-    constants::PVM_REGISTER_COUNT,
     translator::{Block, Code, Translator},
     Info,
 };
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{Function, UserFuncName};
+use parser::{reader::Offset, Instruction};
 use std::collections::HashMap;
 pub use {
     context::{Context, ExtendedContext},
@@ -102,7 +102,7 @@ impl Jit {
         start: usize,
         end: usize,
         terminates: bool,
-        instructions: Vec<parser::reader::Offset<parser::Instruction>>,
+        instructions: Vec<Offset<Instruction>>,
     ) {
         tracing::trace!(
             "Block: start={}, end={}, terminates={}",
@@ -214,69 +214,7 @@ impl Jit {
             .builder
             .append_block_params_for_function_params(entry);
         translator.builder.switch_to_block(entry);
-
-        let ctx_ptr = translator.builder.block_params(entry)[0];
-        let start_pc = translator.builder.block_params(entry)[1];
-
-        // Use scoped translator to avoid ownership issues
-        {
-            translator.init_with_context(ctx_ptr)?;
-
-            // Load all registers from context ONCE at function entry
-            for i in 0..PVM_REGISTER_COUNT {
-                let reg_var = translator.registers[&(i as u8)];
-                let offset = translator.builder.ins().iconst(types::I64, (i * 8) as i64);
-                let addr = translator.builder.ins().iadd(ctx_ptr, offset);
-                let reg_val = translator
-                    .builder
-                    .ins()
-                    .load(types::I64, MemFlags::new(), addr, 0);
-                translator.builder.def_var(reg_var, reg_val);
-            }
-
-            // Dispatcher: jump to the requested starting PC
-            // Create a switch statement to jump to the correct block based on start_pc
-            let mut switch = cranelift::frontend::Switch::new();
-            for (&pc, &cranelift_block) in &translator.blocks {
-                switch.set_entry(pc as u128, cranelift_block);
-            }
-
-            // Default case: if PC is not found, return with trap
-            let default_block = translator.builder.create_block();
-            translator.builder.switch_to_block(default_block);
-            translator.return_trap()?;
-            translator.builder.seal_block(default_block);
-
-            // Generate the switch on start_pc
-            translator.builder.switch_to_block(entry);
-            switch.emit(&mut translator.builder, start_pc, default_block);
-            translator.builder.seal_block(entry);
-
-            // Step 2: Translate all PVM blocks to Cranelift basic blocks using shared translator
-            for (&pc, pvm_block) in &self.blocks {
-                let cranelift_block = translator.blocks[&pc];
-                translator.builder.switch_to_block(cranelift_block);
-
-                tracing::trace!("Translating PVM block at PC {} to Cranelift block", pc);
-
-                // Translate instructions in this block using shared translator
-                match translator.translate_block(pvm_block) {
-                    Ok(_) => {
-                        tracing::trace!("Successfully translated block at PC {}", pc);
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to translate block at PC {}: {}", pc, e);
-                        // Generate trap for failed blocks
-                        translator.return_trap()?;
-                    }
-                }
-            }
-
-            // Step 3: Seal all blocks after translation
-            for &cranelift_block in translator.blocks.values() {
-                translator.builder.seal_block(cranelift_block);
-            }
-        } // translator goes out of scope here
+        translator.translate(entry, &self.blocks)?;
 
         // Finalize the function
         translator.builder.finalize();

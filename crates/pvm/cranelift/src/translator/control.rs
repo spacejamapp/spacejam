@@ -9,12 +9,7 @@ use cranelift::prelude::*;
 
 impl Translator<'_> {
     /// Generic helper for branch generation
-    pub fn generate_branch(
-        &mut self,
-        condition: Value,
-        target_pc: u64,
-        next_pc: u64,
-    ) -> Result<()> {
+    pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         if let (Some(&target_block), Some(&next_block)) =
             (self.blocks.get(&target_pc), self.blocks.get(&next_pc))
         {
@@ -36,18 +31,9 @@ impl Translator<'_> {
             self.builder.switch_to_block(jump_block);
             self.return_with_jump_result(target_pc)?;
         } else {
-            let jump_block = self.builder.create_block();
-            let cont_block = self.builder.create_block();
-            self.builder
-                .ins()
-                .brif(condition, jump_block, &[], cont_block, &[]);
-
-            self.builder.switch_to_block(jump_block);
-            self.return_with_jump_result(target_pc)?;
-
-            self.builder.switch_to_block(cont_block);
-            self.return_continue()?;
+            anyhow::bail!("Branch target or next block not found");
         }
+
         Ok(())
     }
 
@@ -59,9 +45,7 @@ impl Translator<'_> {
 
     /// Return with continue result and specific PC
     pub fn return_continue_with_pc(&mut self, pc: u64) -> Result<()> {
-        let ctx_ptr = self
-            .get_context_ptr()
-            .expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -95,9 +79,7 @@ impl Translator<'_> {
 
     /// Return with trap result
     pub fn return_trap(&mut self) -> Result<()> {
-        let ctx_ptr = self
-            .get_context_ptr()
-            .expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -120,9 +102,7 @@ impl Translator<'_> {
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_trap_with_pc(&mut self, trap_pc: usize) -> Result<()> {
-        let ctx_ptr = self
-            .get_context_ptr()
-            .expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -156,9 +136,7 @@ impl Translator<'_> {
 
     /// Return with jump result
     pub fn return_with_jump_result(&mut self, target_pc: u64) -> Result<()> {
-        let ctx_ptr = self
-            .get_context_ptr()
-            .expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -212,10 +190,8 @@ impl Translator<'_> {
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
-    pub fn handle_indirect_jump(&mut self, instruction_pc: usize) -> Result<()> {
-        let ctx_ptr = self
-            .get_context_ptr()
-            .expect("Context pointer not initialized");
+    pub fn djump(&mut self, instruction_pc: usize) -> Result<()> {
+        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
 
         // Read the target address that was computed and stored by the visitor
         let result_offset = self
@@ -235,7 +211,6 @@ impl Translator<'_> {
         // 2. address > table.len() * JUMP_ALIGNMENT_FACTOR (beyond table bounds)
         // 3. address % 2 != 0 (not aligned to 2-byte boundary)
 
-        let _current_block = self.builder.current_block().unwrap();
         let valid_jump_block = self.builder.create_block();
         let trap_block = self.builder.create_block();
 
