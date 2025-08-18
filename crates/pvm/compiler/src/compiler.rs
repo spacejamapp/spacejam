@@ -1,21 +1,19 @@
-//! SpaceJam PVM compiler
+//! Clean block-based JIT compiler for PVM programs
 
 use crate::Module;
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::settings;
+use cranelift_codegen::ir::{Function, UserFuncName};
+use translator::Translator;
 
-/// SpaceJam PVM compiler
+/// JIT compiler
 pub struct Compiler {
-    /// Cranelift context
-    _ctx: cranelift_codegen::Context,
-
     /// Cranelift ISA
-    _isa: cranelift_codegen::isa::OwnedTargetIsa,
+    isa: cranelift_codegen::isa::OwnedTargetIsa,
 }
 
 impl Compiler {
-    /// Create new compiler
+    /// Create new JIT compiler
     pub fn new() -> Result<Self> {
         let mut flag_builder = settings::builder();
         flag_builder
@@ -27,21 +25,37 @@ impl Compiler {
         let isa_builder = cranelift_native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(flag_builder))?;
 
-        Ok(Self {
-            _ctx: cranelift_codegen::Context::new(),
-            _isa: isa,
-        })
+        Ok(Self { isa })
     }
 
-    /// Compile a PVM program
-    ///
-    /// TODO: we need to split the program into refine and accumulate in the future
-    pub fn compile(&self, _program: &[u8]) -> Result<Module> {
-        todo!()
-    }
+    /// Compile entire program as Cranelift function (cranelift-wasm style)
+    pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
+        tracing::debug!("Compiling entire program as Cranelift function");
 
-    /// Compile a single function
-    pub fn compile_function(&self, _program: &[u8]) -> Result<Module> {
-        todo!()
+        let mut sig = Signature::new(self.isa.default_call_conv());
+        sig.params.push(AbiParam::new(types::I64)); // context pointer
+        sig.params.push(AbiParam::new(types::I64)); // starting PC
+        let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig);
+        let mut builder_ctx = FunctionBuilderContext::new();
+        let mut translator = Translator::new(&mut func, &mut builder_ctx)?;
+        let is_trap = translator.analyze(program)?;
+
+        // Create entry block
+        let entry = translator.builder.create_block();
+        translator
+            .builder
+            .append_block_params_for_function_params(entry);
+        translator.builder.switch_to_block(entry);
+        translator.translate(entry)?;
+        translator.builder.finalize();
+
+        let mut ctx = cranelift_codegen::Context::new();
+        ctx.func = func;
+        let mut ctrl = cranelift_codegen::control::ControlPlane::default();
+        ctx.compile(&*self.isa, &mut ctrl)
+            .map_err(|e| anyhow::anyhow!("compilation failed: {:?}", e))?;
+
+        let code = ctx.compiled_code().unwrap();
+        Ok(Module::new(code.clone(), is_trap))
     }
 }

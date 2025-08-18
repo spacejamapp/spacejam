@@ -12,3 +12,12 @@ pub struct Info {
     /// Final memory state
     pub memory: Memory,
 }
+
+/// Block execution result
+#[derive(Debug, Clone)]
+pub enum ExecResult {
+    Continue,
+    Jump(u64),
+    Halt,
+    Trap,
+}

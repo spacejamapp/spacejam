@@ -19,8 +19,6 @@ impl Context {
     /// Create new context
     pub fn new(regs: [u64; PVM_REGISTER_COUNT], pc: u64, mem: Memory) -> Self {
         let mut linear_mem = vec![0u8; LINEAR_MEMORY_SIZE];
-
-        // Copy memory pages to linear buffer
         for (&page_num, page) in &mem.pages {
             let start = (page_num as usize) * (PAGE_SIZE as usize);
             let end = start + page.data.len();
@@ -76,13 +74,6 @@ impl Context {
                 }
             }
         }
-
-        tracing::debug!("Final bitmap: {:?}", bitmap);
-        tracing::debug!(
-            "Access array length: {}, sample: {:?}",
-            access.len(),
-            &access[..access.len().min(10)]
-        );
 
         (bitmap, access)
     }

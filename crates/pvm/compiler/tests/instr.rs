@@ -5,7 +5,7 @@
 use anyhow::Result;
 use pvmc::{
     module::{Memory as CompilerMemory, Page as CompilerPage},
-    Module,
+    Compiler,
 };
 use serde::{Deserialize, Serialize};
 use specjam::Test;
@@ -33,7 +33,7 @@ impl Runner {
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
-        let mut initial_memory = CompilerMemory::new();
+        let mut initial_memory = CompilerMemory::default();
 
         // First, allocate pages as mutable (to allow initial data writes)
         for page_info in &input.initial_page_map {
@@ -55,7 +55,8 @@ impl Runner {
             }
         }
 
-        let module = Module::new(input.program.clone());
+        let mut compiler = Compiler::new()?;
+        let module = compiler.compile(&input.program)?;
         let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
 
         assert_eq!(

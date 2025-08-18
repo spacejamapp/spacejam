@@ -103,11 +103,11 @@ impl Translator<'_> {
         //
         // TODO: remove the clone here.
         for (pc, pvm_block) in &self.pvm_blocks.clone() {
-            let cranelift_block = self.blocks[&pc];
+            let cranelift_block = self.blocks[pc];
             self.builder.switch_to_block(cranelift_block);
 
             // Translate instructions in this block using shared translator
-            match self.translate_block(&pvm_block) {
+            match self.translate_block(pvm_block) {
                 Ok(_) => {
                     tracing::trace!("Successfully translated block at PC {}", pc);
                 }
@@ -156,43 +156,49 @@ impl Translator<'_> {
         block_instructions: &[parser::reader::Offset<parser::Instruction>],
         blob: &parser::program::ProgramBlob,
     ) -> Result<()> {
-        if let Some(last_instruction) = block_instructions.last() {
-            if matches!(
-                last_instruction.value,
-                parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_)
-            ) {
-                // Clone jump_table to avoid borrow checker issues
-                let jump_table = self.jump_table.clone();
-                for &target in &jump_table {
-                    if (target as usize) < blob.instructions.len()
-                        && !self.blocks.contains_key(&target)
-                    {
-                        let mut target_reader = blob.reader();
-                        target_reader.set_position(target as usize);
+        let Some(last_instruction) = block_instructions.last() else {
+            return Ok(());
+        };
 
-                        if !target_reader.eof() {
-                            let target_start = target_reader.position;
-                            let target_instructions = target_reader.read_block()?;
-                            let target_end = target_reader.position;
-
-                            // Check if the block actually terminates (has a terminating instruction)
-                            let terminates = !target_instructions.is_empty()
-                                && target_instructions.last().unwrap().value.is_termination();
-
-                            self.pvm_blocks.insert(
-                                target as u64,
-                                crate::translator::Block {
-                                    start: target_start,
-                                    end: target_end,
-                                    terminates,
-                                    instructions: target_instructions,
-                                },
-                            );
-                        }
-                    }
-                }
-            }
+        if !matches!(
+            last_instruction.value,
+            parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_)
+        ) {
+            return Ok(());
         }
+
+        // Clone jump_table to avoid borrow checker issues
+        let jump_table = self.jump_table.clone();
+        for &target in &jump_table {
+            if (target as usize) >= blob.instructions.len() || self.blocks.contains_key(&target) {
+                continue;
+            }
+
+            let mut target_reader = blob.reader();
+            target_reader.set_position(target as usize);
+            if target_reader.eof() {
+                continue;
+            }
+
+            let target_start = target_reader.position;
+            let target_instructions = target_reader.read_block()?;
+            let target_end = target_reader.position;
+
+            // Check if the block actually terminates (has a terminating instruction)
+            let terminates = !target_instructions.is_empty()
+                && target_instructions.last().unwrap().value.is_termination();
+
+            self.pvm_blocks.insert(
+                target,
+                crate::translator::Block {
+                    start: target_start,
+                    end: target_end,
+                    terminates,
+                    instructions: target_instructions,
+                },
+            );
+        }
+
         Ok(())
     }
 }

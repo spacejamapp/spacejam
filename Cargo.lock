@@ -989,16 +989,10 @@ dependencies = [
  "cranelift-native",
  "jamcodec",
  "libc",
- "proc-macro2",
  "pvm",
  "pvm-parser",
- "quote",
  "serde",
- "serde_json",
- "specjam",
- "syn 2.0.100",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -2815,6 +2809,15 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-native",
  "cranelift-pvm",
+ "libc",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "specjam",
+ "syn 2.0.100",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
