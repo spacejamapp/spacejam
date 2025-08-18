@@ -7,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{block::History, state::key, Accounts as _, Block, TrieKey};
+use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
 use std::sync::Arc;
 
 pub mod assurance;
@@ -38,15 +38,18 @@ pub fn simulate<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+    tracing::debug!("new epoch: {}", new_epoch);
 
     // The first round computation
     let mut reports = {
         // (η') Update entropy (6.22)
+        tracing::trace!("handle entropy");
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         diff.set(key::ENTROPY, codec::encode(&state.entropy)?);
 
         // (λ') Update validator state (6.13)
+        tracing::trace!("handle previous validators");
         state.validators.previous = state.validators.previous(new_epoch);
         if new_epoch {
             diff.set(
@@ -56,6 +59,7 @@ pub fn simulate<Vm: Pvm>(
         }
 
         // (ψ') Update disputes and get marks
+        tracing::trace!("handle disputes");
         let (disputes, marks) = self::dispute::disputes(
             state.timeslot,
             &state.validators.current,
@@ -70,12 +74,14 @@ pub fn simulate<Vm: Pvm>(
         }
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
+        tracing::trace!("handle availability assignments");
         dispute::reports(&marks, &state.reports)
     };
 
     // Round 2 computation
     let (available, assurances) = {
         // (κ') Update current validators (6.13)
+        tracing::trace!("handle current validators");
         state.validators.current = state
             .validators
             .current(new_epoch, &state.safrole.validators);
@@ -87,6 +93,7 @@ pub fn simulate<Vm: Pvm>(
         }
 
         // (W) the sequence of new available work reports (11.16)
+        tracing::trace!("handle available work reports");
         let (available, assurances) = self::assurance::available(
             &state.reports,
             &state.validators.current,
@@ -109,8 +116,9 @@ pub fn simulate<Vm: Pvm>(
     };
 
     // Round 3 computation
-    let (root, accounts) = {
+    let (_root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
+        tracing::trace!("handle sealing-key series");
         state.safrole = ticket::safrole(
             state.timeslot,
             block.header.slot,
@@ -127,14 +135,14 @@ pub fn simulate<Vm: Pvm>(
             .tickets_mark(state.timeslot, block.header.slot);
 
         // (π') Update the statistic
-        state.statistics.update(
-            block.header.slot,
-            block.header.author_index,
-            &block.extrinsic,
-        );
+        tracing::trace!("handle statistic");
+        state
+            .statistics
+            .update(new_epoch, block.header.author_index, &block.extrinsic);
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
+        tracing::trace!("handle accumulation");
         let accounts = Accounts::new(storage);
         let accumulation = guarantee::accumulate::<Vm, _>(
             block.header.slot,
@@ -143,7 +151,9 @@ pub fn simulate<Vm: Pvm>(
             &state.queue,
             &state.history,
             &state.privileges,
+            &state.validators.drawn,
             accounts,
+            state.entropy,
         )?;
 
         state.privileges = accumulation.privileges;
@@ -155,34 +165,42 @@ pub fn simulate<Vm: Pvm>(
         state.history = accumulation.accumulated_queue;
         diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
 
-        // write statistics and return root and accounts
+        state.validators.drawn = accumulation.validators;
+        diff.set(
+            key::DRAWN_VALIDATORS,
+            codec::encode(&state.validators.drawn)?,
+        );
+
         state.statistics.merge_services(accumulation.records);
-        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
         (accumulation.root, accumulation.accounts)
     };
 
     // Round 4 computation
     {
-        // (β') Update the block history
-        state.recent_blocks.import(
-            block.header.hash()?,
-            block.header.parent_state_root,
-            root,
-            Default::default(),
-        );
-        let (reported, _) = guarantee::report(
+        tracing::trace!("handle block history");
+        state
+            .recent_blocks
+            .complete_state_root(block.header.parent_state_root)?;
+        let (reported, reporters) = guarantee::report(
             &state,
             block.header.slot,
             &accounts,
             &block.extrinsic.guarantees,
         )?;
-        if let Some(last) = state.recent_blocks.last_mut() {
-            last.reported = reported;
-        };
 
+        // (β') Update the block history
+        state
+            .recent_blocks
+            .import(block.header.hash()?, Default::default(), reported);
+
+        state
+            .statistics
+            .merge_reporters(&reporters, &state.validators.current.ed25519());
         diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
+        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
 
         // (δ') Update the accounts
+        tracing::trace!("handle preimages");
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
@@ -203,6 +221,7 @@ pub fn simulate<Vm: Pvm>(
         // }
 
         // (τ') Update the timeslot
+        tracing::trace!("handle timeslot");
         state.timeslot = block.header.slot;
         diff.set(key::TIMESLOT, codec::encode(&state.timeslot)?);
     }

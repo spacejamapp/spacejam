@@ -1,7 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
-    block::{BlockInfo, BlockInfoJson},
+    block::{History, HistoryJson},
     extrinsic::{DisputesRecords, DisputesRecordsJson},
     safrole::{Safrole, SafroleJson, Validators, ValidatorsJson},
     service::{
@@ -31,7 +31,7 @@ pub struct State {
 
     /// The recent blocks (β)
     #[json(nested)]
-    pub recent_blocks: Vec<BlockInfo>,
+    pub recent_blocks: History,
 
     /// State concerning Safrole (γ)
     #[serde(flatten)]

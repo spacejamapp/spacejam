@@ -5,7 +5,7 @@ use core::num::ParseIntError;
 #[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
 
-pub fn hex(d: &[u8]) -> HexDisplay {
+pub fn hex(d: &[u8]) -> HexDisplay<'_> {
     HexDisplay(d)
 }
 

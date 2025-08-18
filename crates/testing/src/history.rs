@@ -1,5 +1,5 @@
 use score::{
-    block::{BlockInfo, BlockInfoJson},
+    block::{History, HistoryJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
     OpaqueHash,
 };
@@ -21,7 +21,7 @@ pub struct Input {
 #[derive(Serialize, Deserialize, Json, Debug, Clone)]
 pub struct State {
     #[json(nested)]
-    pub beta: Vec<BlockInfo>,
+    pub beta: History,
 }
 
 /// Test input for history

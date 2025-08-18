@@ -10,6 +10,9 @@ use std::{
 use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
+    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/archive");
+    println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
 
@@ -59,12 +62,29 @@ fn main() -> Result<()> {
         &out_dir.join("traces_safrole.rs"),
     )?;
     build_tests(
-        registry.trace(Trace::ReportsL0)?,
-        &out_dir.join("traces_reports_l0.rs"),
+        registry.trace(Trace::Preimages)?,
+        &out_dir.join("traces_preimages.rs"),
     )?;
     build_tests(
-        registry.trace(Trace::ReportsL1)?,
-        &out_dir.join("traces_reports_l1.rs"),
+        registry.trace(Trace::PreimagesLight)?,
+        &out_dir.join("traces_preimages_light.rs"),
+    )?;
+    build_tests(
+        registry.trace(Trace::Storage)?,
+        &out_dir.join("traces_storage.rs"),
+    )?;
+    build_tests(
+        registry.trace(Trace::StorageLight)?,
+        &out_dir.join("traces_storage_light.rs"),
+    )?;
+
+    build_tests(
+        registry.trace(Trace::Fuzz)?,
+        &out_dir.join("traces_local_fuzz.rs"),
+    )?;
+    build_fuzz_tests(
+        Entry::fuzz("../../res/jam-conformance")?,
+        &out_dir.join("traces_fuzz.rs"),
     )?;
 
     Ok(())
@@ -76,6 +96,8 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     let section = entry.section;
     let ss = section.as_ref();
 
+    // NOTE: currently iterates over directories on each of the tests,
+    // for speed up building time.
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
@@ -87,10 +109,33 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
                 crate::Runner::step(&test).expect("failed to run test");
             }
         });
-
-        fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
     }
 
+    fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
+
+    Ok(())
+}
+
+/// Builds the fuzz tests
+fn build_fuzz_tests(entry: Entry, out: &Path) -> Result<()> {
+    let mut tests: Vec<ItemFn> = Vec::new();
+    for (i, test) in entry.into_iter().enumerate() {
+        let name = &test.name;
+        if test.name.contains("report") || test.name.contains("1754982087_00000005") {
+            continue;
+        }
+        let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
+
+        tests.push(parse_quote! {
+            #[test]
+            fn #test_name() {
+                let test = specjam::Entry::fuzz("../../res/jam-conformance").unwrap().get(#i).unwrap();
+                crate::Runner::step(&test).expect("failed to run test");
+            }
+        });
+    }
+
+    fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
     Ok(())
 }
 
@@ -102,6 +147,19 @@ fn try_download(workspace: &Path) -> Result<()> {
                 "clone",
                 "https://github.com/spacejamapp/jam-test-vectors",
                 "res/jam-test-vectors",
+                "--depth",
+                "1",
+            ])
+            .current_dir(workspace)
+            .output()?;
+    }
+
+    if !workspace.join("res/jam-conformance").exists() {
+        Command::new("git")
+            .args([
+                "clone",
+                "https://github.com/davxy/jam-conformance",
+                "res/jam-conformance",
                 "--depth",
                 "1",
             ])

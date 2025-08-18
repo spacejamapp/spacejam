@@ -5,14 +5,14 @@ pub use runtime::{Config, Storage, Validator};
 
 pub mod chain;
 pub mod cmd;
-mod fuzz;
+pub mod fuzz;
 mod node;
 pub mod storage;
 mod utils;
 pub mod validator;
 
 /// The version of matched graypaper
-pub const GRAYPAPER: &str = "0.6.6";
+pub const GRAYPAPER: &str = "0.6.7";
 
 /// The config of development
 pub struct Development;

@@ -5,7 +5,7 @@ use rpc::{
     core::server::SubscriptionMessage,
     server::{ServicePreimageFilter, ServiceRequestFilter, ServiceValueFilter},
 };
-use runtime::storage::{StateStorage, SyncStorage};
+use runtime::storage::StateStorage;
 use score::{state::key, Block, OpaqueHash, ServiceId};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -64,12 +64,12 @@ impl<C: runtime::Config> RpcHook<C> {
             return Ok(());
         }
 
-        let Some(beefy_root) = block.mmr.root() else {
+        /*   let Some(beefy_root) = block.mmr.root() else {
             return Ok(());
-        };
+        }; */
 
-        let key = [hash.as_ref(), b"beefy_root"].concat();
-        best.state.sync_set(key, beefy_root)?;
+        // let key = [hash.as_ref(), b"beefy_root"].concat();
+        // best.state.sync_set(key, beefy_root)?;
         Ok(())
     }
 }

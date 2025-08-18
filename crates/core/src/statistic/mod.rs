@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Extrinsic, TimeSlot};
+use crate::{Ed25519Public, Extrinsic};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -20,33 +20,29 @@ mod val;
 /// Represents statistics.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default, Json)]
 pub struct Statistics {
-    /// Current epoch statistics
+    /// Current epoch statistics (πV)
     #[serde(rename = "vals_curr_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
-    /// Last epoch statistics
+    /// Last epoch statistics (πL)
     #[serde(rename = "vals_last_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
     pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
 
-    /// Current core activity records
+    /// Current core activity records (πC)
     #[json(Vec<CoreActivityRecordJson>)]
     pub cores: [CoreActivityRecord; crate::CORES_COUNT],
 
-    /// Current service activity records
+    /// Current service activity records (πS)
     pub services: BTreeMap<u32, ServiceActivityRecord>,
 }
 
 impl Statistics {
     /// Update the statistics
-    pub fn update(&mut self, slot: TimeSlot, index: u16, extrinsic: &Extrinsic) {
-        for core in &mut self.cores {
-            *core = CoreActivityRecord::default();
-        }
-
+    pub fn update(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
         self.services.clear();
-        self.update_blocks(slot, index, extrinsic);
+        self.update_blocks(new_epoch, index, extrinsic);
         self.update_preimages(index, extrinsic);
         self.update_assurances(extrinsic);
         self.update_guarantees(extrinsic);
@@ -79,15 +75,42 @@ impl Statistics {
         available: &[crate::service::WorkReport],
         assurances: &[u32; crate::CORES_COUNT],
     ) {
-        if !available.is_empty() {
-            self.update_available_reports(available);
-            self.update_popularity(available, assurances);
+        for report in available {
+            let core_index = report.core_index as usize;
+            let core = &mut self.cores[core_index];
+
+            // (d) DA load calculation: bundle size + segment overhead for exported segments
+            let bundle_size = report.spec.length;
+            let segment_overhead = (report.spec.exports_count as u64)
+                .saturating_mul(65)
+                .div_ceil(64)
+                .saturating_mul(crate::SEGMENT_SIZE as u64);
+
+            core.da_load += bundle_size + segment_overhead as u32;
+        }
+
+        for (core_index, &assurance_count) in assurances.iter().enumerate() {
+            // (p) Popularity - total assurance count for this core
+            self.cores[core_index].popularity = assurance_count as u16;
         }
     }
 
-    // TODO: handle jumped blocks
-    fn update_blocks(&mut self, slot: TimeSlot, index: u16, extrinsic: &Extrinsic) {
-        if slot % crate::EPOCH_LENGTH == 0 {
+    /// Merge the reporter statistics
+    pub fn merge_reporters(&mut self, reporters: &[Ed25519Public], validators: &[Ed25519Public]) {
+        for reporter in reporters.iter().map(|r| {
+            let index = validators
+                .iter()
+                .position(|v| v == r)
+                .expect("reporter is invalid");
+            index as u16
+        }) {
+            self.vals_current[reporter as usize].guarantees += 1;
+        }
+    }
+
+    // Update validator statistics for blocks
+    fn update_blocks(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
+        if new_epoch {
             self.vals_last = self.vals_current;
             self.vals_current =
                 [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
@@ -124,18 +147,22 @@ impl Statistics {
 
     // Update validator / service statistics for guarantees
     fn update_guarantees(&mut self, extrinsic: &Extrinsic) {
-        for report in &extrinsic.guarantees {
-            for signature in &report.signatures {
-                self.vals_current[signature.validator_index as usize].guarantees += 1;
-            }
+        for core in &mut self.cores {
+            *core = CoreActivityRecord::default();
+        }
 
-            let core = &mut self.cores[report.report.core_index as usize];
+        // Update core statistics from guaranteed work reports (incoming work-reports w)
+        for report in &extrinsic.guarantees {
+            let core_index = report.report.core_index as usize;
+            let core = &mut self.cores[core_index];
             core.bundle_size += report.report.spec.length;
+
+            // Aggregate statistics from all work results for this core
             for result in &report.report.results {
                 core.imports += result.refine_load.imports;
                 core.exports += result.refine_load.exports;
-                core.extrinsic_count += result.refine_load.extrinsic_count;
                 core.extrinsic_size += result.refine_load.extrinsic_size;
+                core.extrinsic_count += result.refine_load.extrinsic_count;
                 core.gas_used += result.refine_load.gas_used;
 
                 // Update service statistics
@@ -146,36 +173,6 @@ impl Statistics {
                 service.exports += result.refine_load.exports as u32;
                 service.extrinsic_count += result.refine_load.extrinsic_count as u32;
                 service.extrinsic_size += result.refine_load.extrinsic_size;
-            }
-        }
-    }
-
-    /// Update DA load and popularity statistics from newly available work reports
-    fn update_available_reports(&mut self, available_reports: &[crate::service::WorkReport]) {
-        for report in available_reports {
-            let core = &mut self.cores[report.core_index as usize];
-            let segment_overhead = (report.spec.exports_count as u64)
-                .saturating_mul(65)
-                .div_ceil(64)
-                .saturating_mul(crate::SEGMENT_SIZE as u64); // 𝐖_G = segment size
-            let da_load_delta = report.spec.length + segment_overhead as u32;
-            core.da_load += da_load_delta;
-        }
-    }
-
-    // Update popularity statistics based on assurance super-majority
-    fn update_popularity(
-        &mut self,
-        available: &[crate::service::WorkReport],
-        assurance_counts: &[u32; crate::CORES_COUNT],
-    ) {
-        for (core_index, &assurance_count) in assurance_counts.iter().enumerate() {
-            if assurance_count >= crate::VALIDATORS_SUPER_MAJORITY as u32
-                && available
-                    .iter()
-                    .any(|report| report.core_index as usize == core_index)
-            {
-                self.cores[core_index].popularity += assurance_count as u16;
             }
         }
     }

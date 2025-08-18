@@ -37,7 +37,7 @@ pub struct State {
 }
 
 /// State transition trace key-value
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize, Json, Clone)]
 pub struct KeyValue {
     /// The key
     #[json(hex)]
@@ -56,10 +56,23 @@ mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }
 
-mod reports_l0 {
-    include!(concat!(env!("OUT_DIR"), "/traces_reports_l0.rs"));
+mod preimages {
+    include!(concat!(env!("OUT_DIR"), "/traces_preimages.rs"));
 }
 
-mod reports_l1 {
-    include!(concat!(env!("OUT_DIR"), "/traces_reports_l1.rs"));
+mod preimages_light {
+    include!(concat!(env!("OUT_DIR"), "/traces_preimages_light.rs"));
+}
+
+mod storage {
+    include!(concat!(env!("OUT_DIR"), "/traces_storage.rs"));
+}
+
+mod storage_light {
+    include!(concat!(env!("OUT_DIR"), "/traces_storage_light.rs"));
+}
+
+mod fuzz {
+    include!(concat!(env!("OUT_DIR"), "/traces_local_fuzz.rs"));
+    include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
 }

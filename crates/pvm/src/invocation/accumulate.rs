@@ -44,6 +44,7 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
             self.x.service,
             self.x.context.accounts.clone(),
             self.operands.clone(),
+            self.entropy,
         ))
     }
 
@@ -54,7 +55,10 @@ impl<R: Accounts> Argument<R> for Accumulate<R> {
             crate::bail!("Account {} not found in context", general.index);
         };
 
-        self.x.context.accounts.upsert(index, account.clone());
+        // Update the account metadata - set the update field to current timeslot
+        let mut updated_account = account.clone();
+        updated_account.set_update(self.timeslot);
+        self.x.context.accounts.upsert(index, updated_account);
         Ok(())
     }
 
@@ -69,7 +73,7 @@ pub struct AccumulateContext<R: Accounts> {
     /// (s) The service id
     pub service: ServiceId,
 
-    /// (u) The upcoming validators
+    /// (e) the accumulate state
     pub context: AccumulateState<R>,
 
     /// (i) empty index for a new account
@@ -83,31 +87,25 @@ pub struct AccumulateContext<R: Accounts> {
 }
 
 impl<R: Accounts> AccumulateContext<R> {
+    /// Create a new accumulate context
+    pub fn new(mut context: AccumulateState<R>, service: ServiceId, timeslot: TimeSlot) -> Self {
+        Self {
+            service,
+            index: context.index(service, timeslot),
+            context,
+            transfer: Vec::new(),
+            output: None,
+        }
+    }
+
     /// Get the account for the accumulation
     pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
         self.context.accounts.get(self.service)
     }
 
-    /// Check update an empty account index
-    ///
-    /// TODO: use a loop instead of recursion
-    pub fn check(&mut self, index: ServiceId) {
-        let services = self.context.accounts.services();
-        if !services.contains(&index) {
-            self.index = index;
-        } else {
-            let next = ((index - (1 << 8)) + 1) % (u32::MAX - (1 << 9)) + (1 << 8);
-            self.check(next);
-        }
-    }
-
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(
-        self,
-        timeslot: TimeSlot,
-        entropy: [u8; 32],
-        operands: Vec<Operand>,
-    ) -> Accumulate<R> {
+    pub fn accumulate(self, timeslot: TimeSlot, operands: Vec<Operand>) -> Accumulate<R> {
+        let entropy = self.context.entropy[0];
         Accumulate {
             y: self.clone(),
             x: self,

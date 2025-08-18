@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use score::{vm::Operand, Account, Accounts, ServiceId};
+use score::{vm::Operand, Account, Accounts, Entropy, ServiceId};
 pub use {
     accumulate::Accumulate,
     api::Invocation,
@@ -61,30 +61,32 @@ pub struct General<R: Accounts> {
 
     /// (o) The operands
     pub operands: Vec<Operand>,
+
+    /// (η) The entropy
+    pub entropy: Entropy,
 }
 
 impl<R: Accounts> General<R> {
     /// Create a new general host
-    pub fn new(index: ServiceId, accounts: R, operands: Vec<Operand>) -> Self {
+    pub fn new(index: ServiceId, accounts: R, operands: Vec<Operand>, entropy: Entropy) -> Self {
         Self {
             index,
             accounts,
             updated: false,
             operands,
+            entropy,
         }
     }
 
     /// Get service account
-    pub fn get(&mut self, r7: u64) -> Option<(ServiceId, impl Account + '_)> {
+    pub fn get(&mut self, r7: u64) -> Option<impl Account + '_> {
         let service = self.index as u64;
         let mut index = r7 as ServiceId;
         if r7 == u64::MAX || r7 == service {
             index = self.index;
         }
 
-        self.accounts
-            .get(index)
-            .map(|account| (index, account.clone()))
+        self.accounts.get(index).cloned()
     }
 
     /// Get the account

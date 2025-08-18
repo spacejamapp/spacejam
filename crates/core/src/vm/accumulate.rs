@@ -2,13 +2,14 @@
 
 use crate::{
     account::Accounts,
-    safrole::ValidatorData,
+    safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
-    OpaqueHash,
+    EntropyBuffer, OpaqueHash, TimeSlot,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
+use codec::Numeric;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -22,31 +23,47 @@ pub struct AccumulateState<R: Accounts> {
     pub accounts: R,
 
     /// i (ι) The upcoming validators
-    pub validators: Vec<ValidatorData>,
+    pub validators: ValidatorsData,
 
-    /// q (φ) The authorization queue
+    /// p (φ) The authorization queue
     pub authorization: [Vec<OpaqueHash>; crate::CORES_COUNT],
 
-    /// χ (χ) The privileged service indices
+    /// a (χ) The privileged service indices
     pub privileges: Privileges,
+
+    /// (η) The entropy
+    pub entropy: EntropyBuffer,
 }
 
 impl<R: Accounts> AccumulateState<R> {
+    /// (I) Generate a new index from provided environment
+    pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
+        let encoded = codec::encode(&(
+            service.compact_encode(),
+            self.entropy[0],
+            timeslot.compact_encode(),
+        ))
+        .expect("failed to encode");
+
+        let hash = crypto::blake2b(&encoded);
+        let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
+        self.accounts.check(base)
+    }
+
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
-        self.accounts.code(service)
-
-        // TODO: the logic below is correct, however
-        // we need to match the test vectors atm.
-        //
-        /* let hash = self.accounts.get(&service)?.code;
-        for account in self.accounts.values() {
-            if account.code != hash {
+        self.accounts.blob(service)
+        // self.accounts.get(service)?.account().code().cloned()
+        // TODO: The logic below is correct, but we need to match
+        // the test vectors atm.
+        /* let hash = self.accounts.get(service)?.code();
+        for account in self.accounts.accounts().values() {
+            if account.code() != hash {
                 continue;
             }
 
-            if let Some(code) = account.code() {
-                return Some(code);
+            if let Some(code) = account.account().code() {
+                return Some(code.clone());
             }
         }
 
@@ -110,6 +127,27 @@ impl<R: Accounts> Accumulated<R> {
 
         records
     }
+
+    /// Get the accumulation root
+    ///
+    /// see also (7.7) in the graypaper
+    #[cfg(feature = "crypto")]
+    pub fn root(&self) -> OpaqueHash {
+        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
+        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
+
+        let leaves = sorted_pairs
+            .into_iter()
+            .map(|(service, commit)| {
+                let mut leaf = Vec::new();
+                leaf.extend_from_slice(&service.to_le_bytes());
+                leaf.extend_from_slice(commit);
+                leaf
+            })
+            .collect::<Vec<_>>();
+
+        crypto::merkle::kroot(&leaves)
+    }
 }
 
 /// The accumulation result used in the runtime
@@ -128,6 +166,9 @@ pub struct Accumulation<R: Accounts> {
 
     /// (χ') The privileges
     pub privileges: Privileges,
+
+    /// (ι') The validators to be drawn
+    pub validators: ValidatorsData,
 
     /// (πS') The service records
     pub records: BTreeMap<ServiceId, ServiceActivityRecord>,

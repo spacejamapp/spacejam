@@ -2,42 +2,14 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::{General, IsAuthorized, State},
+    invocation::{General, State},
     Result,
 };
-use score::{state::account, Account, Accounts, Parameters, ServiceId};
+use score::{Account, Accounts, Parameters, ServiceId};
 
 /// (ΩG) Get the gas to register
 pub fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     Ok(state.gas as u64)
-}
-
-/// (ΩY) Fetch for is_authorized context
-pub fn fetch_is_authorized<Memory: crate::Memory>(
-    state: &mut State<Memory>,
-    _context: &IsAuthorized,
-) -> Result<ExitCode> {
-    // According to Gray Paper, fetch in is_authorized context should return work package data
-    let value: Vec<u8> = match state.registers[10] {
-        0 => codec::encode(&Parameters::default()).expect("should not fail"),
-        // Add other fetch types as needed for is_authorized
-        kind => {
-            tracing::warn!("kind {kind} not supported in is_authorized");
-            return Ok(Exit::None as u64);
-        }
-    };
-
-    let vlen = value.len() as u64;
-    let out = state.registers[7];
-    let from = state.registers[8].min(vlen);
-    let length = state.registers[9].min(vlen - from);
-    if length > 0 {
-        state
-            .memory
-            .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
-    }
-
-    Ok(vlen)
 }
 
 impl<R: Accounts> General<R> {
@@ -52,19 +24,18 @@ impl<R: Accounts> General<R> {
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
         match call {
-            0 => gas(state),
-            1 => self.lookup(state),
-            2 => self.read(state),
-            3 => self.write(state),
-            4 => self.info(state),
-            18 => self.fetch(state),
+            1 => self.fetch(state),
+            2 => self.lookup(state),
+            3 => self.read(state),
+            4 => self.write(state),
+            5 => self.info(state),
             _ => Ok(Exit::What as u64),
         }
     }
 
     /// (ΩL) account lookup
     fn lookup<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<u64> {
-        let Some((_, mut account)) = self.get(state.registers[7]) else {
+        let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -98,7 +69,7 @@ impl<R: Accounts> General<R> {
     /// (ΩR) storage lookup
     fn read<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         // get the account
-        let Some((index, mut account)) = self.get(state.registers[7]) else {
+        let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
 
@@ -110,8 +81,7 @@ impl<R: Accounts> General<R> {
             .expect("should not fail");
 
         // get the storage value
-        let skey = account::storage(index, &key);
-        let Some(value) = account.read(&skey) else {
+        let Some(value) = account.read(&key) else {
             return Ok(Exit::None as u64);
         };
 
@@ -145,7 +115,6 @@ impl<R: Accounts> General<R> {
             }
         };
 
-        let index = self.index;
         let Some(account) = self.account() else {
             tracing::debug!("no account found");
             return Ok(Exit::None as u64);
@@ -157,15 +126,14 @@ impl<R: Accounts> General<R> {
         }
 
         // update storage
-        let skey = account::storage(index, &key);
-        let result = if let Some(prev) = account.read(&skey) {
+        let result = if let Some(prev) = account.read(&key) {
             prev.len() as u64
         } else {
             Exit::None as u64
         };
 
         if vz == 0 {
-            let Some(_value) = account.remove(&skey) else {
+            let Some(_value) = account.remove(&key) else {
                 return Ok(Exit::None as u64);
             };
 
@@ -179,7 +147,8 @@ impl<R: Accounts> General<R> {
                 }
             };
 
-            account.write(&skey, value);
+            // TODO: we actually can update the key here for avoiding hashing for twice
+            account.write(&key, value);
             self.updated = true;
         }
 
@@ -187,34 +156,46 @@ impl<R: Accounts> General<R> {
     }
 
     /// (ΩI) fetch info
+    ///
+    /// fetch state of the account per Gray Paper specification
     fn info<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get and encode the account state
+        // Get service ID from register 7 (u64::MAX means current service)
         let r7 = state.registers[7];
-        let Some(account) = if r7 == u64::MAX {
-            self.accounts.get(self.index)
+        let service_id = if r7 == u64::MAX {
+            self.index
         } else {
-            self.accounts.get(r7 as ServiceId)
-        }
-        .and_then(|account| {
-            let state = account.info();
-            codec::encode(&state).ok()
-        }) else {
+            r7 as ServiceId
+        };
+
+        // Get the account or return NONE if not found
+        let Some(account) = self.accounts.get(service_id) else {
             return Ok(Exit::None as u64);
         };
 
-        // write the account state to memory
-        let address = state.registers[8];
-        if let Err(reason) = state.memory.write_bytes(address as u32, &account) {
-            crate::bail!("failed to write account state {reason}");
+        let Ok(info) = account.info().host() else {
+            crate::bail!("failed to encode account info");
+        };
+
+        // Get memory write parameters from registers
+        let total_len = info.len() as u64;
+        let output = state.registers[8] as u32;
+        let from = state.registers[9].min(total_len) as usize;
+        let length = state.registers[10].min(total_len - from as u64) as usize;
+        if length > 0 {
+            state
+                .memory
+                .write_bytes(output, &info[from..(from + length)])?;
         }
 
-        Ok(Exit::Ok as u64)
+        // Return total length of encoded data
+        Ok(total_len)
     }
 
     // (ΩY) fetch the on chain parameters
     fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         let value: Vec<u8> = match state.registers[10] {
             0 => codec::encode(&Parameters::default()).expect("should not fail"),
+            1 => codec::encode(&self.entropy).expect("should not fail"),
             14 => codec::encode(&self.operands).expect("should not fail"),
             kind => {
                 tracing::warn!("kind {kind} not supported");

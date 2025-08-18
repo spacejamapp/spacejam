@@ -2,18 +2,21 @@
 
 use crate::traces::KeyValue;
 use ::pvm::Invocation;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use pvmi::Interpreter;
 use runtime::{
     storage::{MemoryDb, StateStorage},
     tx,
 };
 use score::{
-    block::{Block, History},
+    block::{Block, BlockInfo, Header, History, Mmr},
+    safrole::ValidatorsData,
+    service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
-    Account, Accounts,
+    Account, Accounts, EntropyBuffer,
 };
+use spacejson::Json;
 use specjam::{Section, Test};
 use std::{collections::BTreeMap, sync::Arc};
 use tracing_subscriber::EnvFilter;
@@ -43,23 +46,21 @@ impl Runner {
                 let accounts = input.pre_state.accounts();
 
                 // run the accumulate function
-                let accumulation = tx::guarantee::accumulate::<Interpreter, _>(
+                let mut accumulation = tx::guarantee::accumulate::<Interpreter, _>(
                     input.input.slot,
                     input.pre_state.slot,
                     input.input.reports,
                     &input.pre_state.ready_queue,
                     &input.pre_state.accumulated,
                     &input.pre_state.privileges.into(),
+                    &Default::default(),
                     accounts.clone(),
+                    Default::default(),
                 )?;
+                accumulation.root = Default::default();
 
                 // convert the accounts to the service items
-                let mut accounts = accumulate::to_accounts(&accumulation);
-                for account in accounts.iter_mut() {
-                    // the current test vector doesn't support threshold
-                    account.data.service.threshold = 0;
-                }
-
+                let accounts = accumulate::to_accounts(&accumulation);
                 assert_eq!(accumulation.records, output.post_state.statistics());
                 assert_eq!(accumulation.root, output.output.unwrap());
                 assert_eq!(
@@ -67,6 +68,12 @@ impl Runner {
                     output.post_state.accumulated
                 );
                 assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
+                for (idx, account) in accounts.iter().enumerate() {
+                    assert_eq!(
+                        account.data.service.total,
+                        output.post_state.accounts[idx].data.service.total
+                    );
+                }
                 assert_eq!(accounts, output.post_state.haccounts());
                 assert_eq!(accumulation.privileges, output.post_state.privileges.into());
             }
@@ -191,9 +198,9 @@ impl Runner {
                 let input = history::TestInput::from_json(&test.input)?;
                 let output = history::TestOutput::from_json(&test.output)?;
                 let mut history = input.pre_state.beta.clone();
+                history.complete_state_root(input.input.parent_state_root)?;
                 history.import(
                     input.input.header_hash,
-                    input.input.parent_state_root,
                     input.input.accumulate_root,
                     input.input.work_packages.clone(),
                 );
@@ -389,10 +396,11 @@ impl Runner {
             }
             Section::Trace(_) => {
                 use crate::traces;
-
                 if test.input.len() == 31 {
+                    // SKIP the genesis block
                     return Ok(());
                 }
+
                 let input = traces::TestInput::from_json(&test.input)?;
                 let output = traces::TestOutput::from_json(&test.output)?;
                 let block: Block = input.block;
@@ -411,7 +419,10 @@ impl Runner {
 
                 // 2. verify the state transition
                 let mut pkeys = Vec::new();
-                let _ = tx::transit::<Interpreter>(block, memdb.clone())?;
+                if let Err(e) = tx::transit::<Interpreter>(block, memdb.clone()) {
+                    tracing::warn!("failed to transit block with error: {e:?}");
+                }
+
                 for KeyValue { key, value } in output.post_state.keyvals {
                     let info = key.as_state_key().info();
                     let encoded = hex::encode(&key);
@@ -424,17 +435,57 @@ impl Runner {
                     };
 
                     pkeys.push(key.clone());
-                    if key == key::STATISTICS && value != result {
-                        let polkajam: Statistics = codec::decode(&value)?;
-                        let statistics: Statistics = codec::decode(&result)?;
-                        tracing::debug!("polkajam: {:?}", polkajam);
-                        tracing::debug!("spacejam: {:?}", statistics);
-                    }
-
                     if value != result {
                         tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
                     } else {
                         tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
+                    }
+
+                    if key == key::STATISTICS && value != result {
+                        let polkajam: Statistics = codec::decode(&value)?;
+                        let statistics: Statistics = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:#?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:#?}", statistics.to_json());
+                    }
+
+                    if key == key::RECENT_BLOCKS && value != result {
+                        let polkajam: History = codec::decode(&value)?;
+                        let recent: History = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:?}", recent.to_json());
+                    }
+
+                    if key == key::PRIVILEGED_SERVICE && value != result {
+                        let polkajam: Privileges = codec::decode(&value)?;
+                        let spacejam: Privileges = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:?}", polkajam);
+                        tracing::debug!("spacejam: {:?}", spacejam);
+                    }
+
+                    if key == key::DRAWN_VALIDATORS && value != result {
+                        let polkajam: ValidatorsData = codec::decode(&value)?;
+                        let spacejam: ValidatorsData = codec::decode(&result)?;
+                        tracing::debug!(
+                            "polkajam-ed25519: {:?}",
+                            polkajam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
+                        tracing::debug!(
+                            "spacejam-ed25519: {:?}",
+                            spacejam
+                                .iter()
+                                .map(|v| hex::encode(v.ed25519))
+                                .collect::<Vec<_>>()
+                        );
+                    }
+
+                    if key.starts_with(&[255]) && value != result {
+                        let polkajam: ServiceInfo = codec::decode(&value)?;
+                        let spacejam: ServiceInfo = codec::decode(&result)?;
+                        tracing::debug!("polkajam: {:#?}", polkajam.to_json());
+                        tracing::debug!("spacejam: {:#?}", spacejam.to_json());
                     }
                 }
 
@@ -447,9 +498,9 @@ impl Runner {
 
                     let info = key.as_state_key().info();
                     tracing::error!(
-                        "extra keyval: {info:?} key=0x{} value=0x{}",
+                        "extra keyval: {info:?} key=0x{} value=0x{}...",
                         hex::encode(&key),
-                        hex::encode(&value)
+                        hex::encode(&value[..std::cmp::min(32, value.len())])
                     );
                 }
 

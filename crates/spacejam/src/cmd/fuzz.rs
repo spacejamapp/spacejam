@@ -1,56 +1,63 @@
 //! Fuzz related commands
 
-use crate::fuzz::{self, target::Target};
+use crate::fuzz::{self, fuzzer::Fuzzer, target::Target};
 use clap::Parser;
-use std::{io::Read, os::unix::net::UnixStream, path::PathBuf, rc::Rc, sync::Mutex};
+use std::path::PathBuf;
 
 /// The fuzz command
 #[derive(Parser)]
 pub enum Fuzz {
     /// Fuzz with local unix socket
-    Local {
+    Target {
         /// The path to the unix socket
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
-
-        /// The path to the data folder
-        #[clap(default_value = "spacejam_data")]
-        data: PathBuf,
     },
 
-    /// Run trace tests via the given trace folder
-    Trace {
-        /// The path to the trace folder
+    /// Fuzz with a fuzzer
+    Fuzzer {
+        /// The path to the fuzzer
+        #[clap(default_value = "/tmp/jam_target.sock")]
+        socket: PathBuf,
+
+        /// The path to the traces folder
+        #[clap(default_value = "jam-test-vectors/traces/storage", short, long)]
         traces: PathBuf,
+
+        /// The path to the report folder
+        #[clap(default_value = "reports", short, long)]
+        report: PathBuf,
+
+        /// The path to the exact input file
+        #[clap(short, long)]
+        exact: Option<PathBuf>,
+    },
+
+    /// Run trace test via the given trace file
+    Tx {
+        /// The path to the trace file
+        test: PathBuf,
     },
 }
 
 impl Fuzz {
     /// Run the fuzz command
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Local { socket, data } => {
-                let stream = Rc::new(Mutex::new(UnixStream::connect(socket)?));
-                let mut target = Target::new(stream.clone(), data.join("fuzz"))?;
-
-                loop {
-                    let mut tx = stream.lock().unwrap();
-                    let mut length = [0; 4];
-                    tx.read_exact(&mut length)?;
-
-                    let length = u32::from_le_bytes(length) as usize;
-                    let mut message_bytes = vec![0; length];
-                    tx.read_exact(&mut message_bytes)?;
-                    let message = codec::decode(&message_bytes)?;
-                    drop(tx);
-
-                    target.handle(message)?;
+            Self::Target { socket } => Target::serve(socket),
+            Self::Fuzzer {
+                socket,
+                traces,
+                report,
+                exact,
+            } => {
+                if let Some(exact) = exact {
+                    Fuzzer::execute(socket, exact, report)
+                } else {
+                    Fuzzer::run(socket, traces, report)
                 }
             }
-            Self::Trace { traces } => {
-                fuzz::trace::test(traces)?;
-            }
+            Self::Tx { test } => fuzz::trace::test(test),
         }
-        Ok(())
     }
 }

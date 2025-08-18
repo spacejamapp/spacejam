@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
-    account::{ServiceAccount, ServiceData, ServiceInfo, ServiceInfoJson},
+    account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
     report::{
         ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
@@ -52,11 +52,12 @@ pub struct Privileges {
     /// The bless service id (χm)
     pub bless: ServiceId,
 
+    /// The assign service id (χa)
+    #[json(Vec<ServiceId>)]
+    pub assign: [ServiceId; crate::CORES_COUNT],
+
     /// The designate service id (χv)
     pub designate: ServiceId,
-
-    /// The assign service id (χa)
-    pub assign: ServiceId,
 
     /// The always accumulate service ids (χg)
     pub always_acc: BTreeMap<ServiceId, Gas>,

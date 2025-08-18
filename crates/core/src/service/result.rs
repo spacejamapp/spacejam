@@ -33,13 +33,26 @@ pub struct WorkResult {
     pub refine_load: RefineLoad,
 }
 
-/// Represents the result of a work execution.
+/// Represents the result of a work execution. (11.7)
+///
+/// TODO: need to fix the graypaper
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorkExecResult {
     Ok(Vec<u8>),
+    /// ∞ denoting an out-of-gas error
     OutOfGas,
+    /// ☇ denoting an unexpected program termination
     Panic,
+    /// ⊥ the number of exports made was invalidly reported
+    InvalidExports,
+    /// the size of the digest (refinement output) would
+    /// cross the acceptable limit
+    InvalidDigest,
+    /// (BAD) the third indicates that the service’s code
+    /// was not available for lookup in state at the posterior state
+    /// of the lookup-anchor block
     BadCode,
+    /// (BIG) the code was available but was beyond the maximum size
     CodeOversize,
 }
 
@@ -51,6 +64,10 @@ pub struct WorkExecResultJson {
     pub out_of_gas: Option<()>,
     #[serde(default = "default_some_unit")]
     pub panic: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub invalid_exports: Option<()>,
+    #[serde(default = "default_some_unit")]
+    pub invalid_digest: Option<()>,
     #[serde(default = "default_some_unit")]
     pub bad_code: Option<()>,
     #[serde(default = "default_some_unit")]
@@ -76,12 +93,20 @@ impl Json<WorkExecResultJson> for WorkExecResult {
                 panic: Some(()),
                 ..Default::default()
             },
-            WorkExecResult::BadCode => WorkExecResultJson {
-                bad_code: Some(()),
+            WorkExecResult::InvalidExports => WorkExecResultJson {
+                invalid_exports: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::InvalidDigest => WorkExecResultJson {
+                invalid_digest: Some(()),
                 ..Default::default()
             },
             WorkExecResult::CodeOversize => WorkExecResultJson {
                 code_oversize: Some(()),
+                ..Default::default()
+            },
+            WorkExecResult::BadCode => WorkExecResultJson {
+                bad_code: Some(()),
                 ..Default::default()
             },
         }

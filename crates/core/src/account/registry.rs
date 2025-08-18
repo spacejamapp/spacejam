@@ -1,12 +1,23 @@
 //! Account registry
 
-use crate::{account::Account, service::ServiceAccount, OpaqueHash, TrieKey};
+use crate::{account::Account, service::ServiceAccount, OpaqueHash, ServiceId, TrieKey};
 use std::collections::BTreeMap;
 
 /// Account registry
 pub trait Accounts: Clone {
+    /// Check and find a free account index
+    fn check(&mut self, mut index: ServiceId) -> ServiceId {
+        loop {
+            if self.get(index).is_none() {
+                return index;
+            }
+
+            index = (index - (1 << 8) + 1) % (crate::CHECK_SALT + (1 << 8));
+        }
+    }
+
     /// Get the code of an account
-    fn code(&mut self, index: u32) -> Option<Vec<u8>>;
+    fn blob(&mut self, index: u32) -> Option<Vec<u8>>;
 
     /// Get the code hash of an account
     fn code_hash(&self, index: u32) -> Option<OpaqueHash>;
@@ -31,12 +42,12 @@ pub trait Accounts: Clone {
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
-    fn code(&mut self, index: u32) -> Option<Vec<u8>> {
+    fn blob(&mut self, index: u32) -> Option<Vec<u8>> {
         self.get(index)?.blob()
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
-        Some(self.get(&index)?.code)
+        Some(self.get(&index)?.info.code)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {

@@ -8,6 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// JAM account abstraction
 pub trait Account: Clone {
+    /// Get the index of the account
+    fn index(&self) -> u32;
+
     /// Get the account
     fn account(&self) -> ServiceAccount;
 
@@ -26,8 +29,14 @@ pub trait Account: Clone {
     /// Get the total of the account
     fn total(&self) -> u64;
 
+    /// Set the total of the account
+    fn set_total(&mut self, total: u64);
+
     /// Get the items of the account
     fn items(&self) -> u32;
+
+    /// Set the items of the account
+    fn set_items(&mut self, items: u32);
 
     /// Get the code of the account
     fn code(&self) -> OpaqueHash;
@@ -46,6 +55,18 @@ pub trait Account: Clone {
 
     /// Set the transfer gas of the account
     fn set_transfer_gas(&mut self, gas: Gas);
+
+    /// Get the creation time of the account
+    fn creation(&self) -> u32;
+
+    /// Set the creation time of the account
+    fn set_creation(&mut self, creation: u32);
+
+    /// Get the last update time of the account
+    fn update(&self) -> u32;
+
+    /// Set the last update time of the account
+    fn set_update(&mut self, update: u32);
 
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
@@ -90,7 +111,7 @@ pub trait Account: Clone {
     fn remove_preimage(&mut self, hash: [u8; 32]);
 
     /// Get a storage from the account
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>>;
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
     /// Remove a storage from the account
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>>;
@@ -106,20 +127,24 @@ pub trait Account: Clone {
 }
 
 impl Account for ServiceAccount {
+    fn index(&self) -> u32 {
+        self.index
+    }
+
     fn account(&self) -> ServiceAccount {
         self.clone()
     }
 
     fn balance(&self) -> u64 {
-        self.balance
+        self.info.balance
     }
 
     fn balance_mut(&mut self) -> &mut u64 {
-        &mut self.balance
+        &mut self.info.balance
     }
 
     fn blob(&self) -> Option<Vec<u8>> {
-        self.preimage.get(&self.code).cloned()
+        self.preimage.get(&self.info.code).cloned()
     }
 
     fn threshold(&self) -> u64 {
@@ -127,35 +152,59 @@ impl Account for ServiceAccount {
     }
 
     fn total(&self) -> u64 {
-        self.total()
+        self.info.total
+    }
+
+    fn set_total(&mut self, total: u64) {
+        self.info.total = total;
     }
 
     fn items(&self) -> u32 {
-        self.items()
+        self.info.items
+    }
+
+    fn set_items(&mut self, items: u32) {
+        self.info.items = items;
     }
 
     fn code(&self) -> OpaqueHash {
-        self.code
+        self.info.code
     }
 
     fn set_code(&mut self, code: OpaqueHash) {
-        self.code = code;
+        self.info.code = code;
     }
 
     fn accumulate_gas(&self) -> Gas {
-        self.accumulate_gas
+        self.info.accumulate
     }
 
     fn set_accumulate_gas(&mut self, gas: Gas) {
-        self.accumulate_gas = gas;
+        self.info.accumulate = gas;
     }
 
     fn transfer_gas(&self) -> Gas {
-        self.transfer_gas
+        self.info.transfer
     }
 
     fn set_transfer_gas(&mut self, gas: Gas) {
-        self.transfer_gas = gas;
+        self.info.transfer = gas;
+    }
+
+    fn creation(&self) -> u32 {
+        self.info.creation
+    }
+
+    fn set_creation(&mut self, creation: u32) {
+        self.info.creation = creation;
+    }
+
+    fn update(&self) -> u32 {
+        self.info.update
+    }
+
+    fn set_update(&mut self, update: u32) {
+        self.info.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
@@ -163,10 +212,14 @@ impl Account for ServiceAccount {
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {
+        self.set_total(self.total() + 81 + len as u64);
+        self.set_items(self.items() + 2);
         self.lookup.insert((hash, len), slots);
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
+        self.set_total(self.total() - 81 - len as u64);
+        self.set_items(self.items() - 2);
         self.lookup.remove(&(hash, len));
     }
 
@@ -182,16 +235,29 @@ impl Account for ServiceAccount {
         self.preimage.remove(&hash);
     }
 
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        self.storage.get(key)
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
+        let skey = crate::state::account::storage(self.index(), key);
+        self.storage.get(skey.as_slice()).cloned()
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        self.storage.remove(key)
+        let skey = crate::state::account::storage(self.index(), key);
+        let value = self.storage.remove(skey.as_slice())?;
+        self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
+        self.set_items(self.items() - 1);
+        Some(value)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        self.storage.insert(key.to_vec(), value);
+        let skey = crate::state::account::storage(self.index(), key);
+        if let Some(old) = self.storage.get(skey.as_slice()).map(|v| v.len() as u64) {
+            self.set_total(self.total() + value.len() as u64 - old);
+        } else {
+            self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+            self.set_items(self.items() + 1);
+        }
+
+        self.storage.insert(skey.to_vec(), value);
     }
 
     fn info(&self) -> ServiceInfo {

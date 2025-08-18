@@ -5,9 +5,9 @@ use crate::{
     invocation::{Accumulate, State},
     Result,
 };
-use codec::Numeric;
 use score::{
-    service::{GasLimit, Privileges, ServiceAccount},
+    safrole::ValidatorData,
+    service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
     Account, Accounts,
 };
@@ -17,72 +17,97 @@ impl<R: Accounts> Accumulate<R> {
     /// Call an accumulate host function
     pub fn call<M: crate::Memory>(&mut self, call: u32, state: &mut State<M>) -> Result<ExitCode> {
         match call {
-            5 => self.bless(state),
-            6 => self.assign(state),
-            7 => self.designate(state),
-            8 => self.checkpoint(state),
-            9 => self.new_(state),
-            10 => self.upgrade(state),
-            11 => self.transfer(state),
-            12 => self.eject(state),
-            13 => self.query(state),
-            14 => self.solicit(state),
-            15 => self.forget(state),
-            16 => self.yield_(state),
+            14 => self.bless(state),
+            15 => self.assign(state),
+            16 => self.designate(state),
+            17 => self.checkpoint(state),
+            18 => self.new_(state),
+            19 => self.upgrade(state),
+            20 => self.transfer(state),
+            21 => self.eject(state),
+            22 => self.query(state),
+            23 => self.solicit(state),
+            24 => self.forget(state),
+            25 => self.yield_(state),
+            26 => self.provide(state),
             _ => Ok(Exit::What as u64),
         }
     }
 
     /// (ΩB) bless
     pub fn bless<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let [m, a, v, o, n] = [
-            state.registers[7],
-            state.registers[8],
-            state.registers[9],
-            state.registers[10],
-            state.registers[11],
+        let [bless, assign, designate, acc, entries] = [
+            state.registers[7],  // m: bless service id
+            state.registers[8],  // a: memory address of assign array
+            state.registers[9],  // v: designate service id
+            state.registers[10], // o: memory address of always_acc map
+            state.registers[11], // n: count of always_acc entries
         ];
 
-        // get the data source
-        let source = state.memory.read_bytes(o as u32, (12 * n) as u32)?;
-
-        // parse always accumulate service ids
-        let mut map = BTreeMap::new();
-        for chunk in source.chunks(12) {
-            let index = u64::decode(&chunk[..4]);
-            let value = u64::decode(&chunk[4..]);
-            map.insert(index as u32, value);
+        // Check if current service is the blessed service
+        if self.x.service != self.x.context.privileges.bless {
+            return Ok(Exit::Huh as u64);
         }
 
-        // return if unknown index
-        let u32max = u32::MAX as u64;
-        if m > u32max || a > u32max || v > u32max {
+        // Check if bless and designate are valid service IDs
+        if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
             return Ok(Exit::Who as u64);
         }
 
+        // Read assign array from memory
+        let assign = {
+            let size = 4 * score::CORES_COUNT as u32;
+            let data = state.memory.read_bytes(assign as u32, size)?;
+            let mut assign = [0u32; score::CORES_COUNT];
+            for (i, chunk) in data.chunks(4).enumerate() {
+                if i < score::CORES_COUNT {
+                    assign[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                }
+            }
+
+            assign
+        };
+
+        // Read always accumulate map from memory
+        let mut always_acc = BTreeMap::new();
+        if entries > 0 {
+            let source = state.memory.read_bytes(acc as u32, (12 * entries) as u32)?;
+            for chunk in source.chunks(12) {
+                let service_id = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                let gas_allowance = u64::from_le_bytes([
+                    chunk[4], chunk[5], chunk[6], chunk[7], chunk[8], chunk[9], chunk[10],
+                    chunk[11],
+                ]);
+                always_acc.insert(service_id, gas_allowance);
+            }
+        }
+
+        // Update privileges: tuple{m, 𝐚, v, 𝐳}
         self.x.context.privileges = Privileges {
-            bless: m as u32,
-            assign: a as u32,
-            designate: v as u32,
-            always_acc: map,
+            bless: bless as u32,
+            assign,
+            designate: designate as u32,
+            always_acc,
         };
 
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩA) assign
+    /// (ΩA) assign authorization queue
     pub fn assign<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the data source
-        let o = state.registers[8];
+        let [core, o, assign] = [state.registers[7], state.registers[8], state.registers[9]];
         let source = state
             .memory
             .read_bytes(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
 
         // return if invalid core index
-        let core_index = state.registers[7];
-        if core_index > score::CORES_COUNT as u64 {
+        if core > score::CORES_COUNT as u64 {
             return Ok(Exit::Core as u64);
+        }
+
+        // check if the service is a core
+        if self.x.service != self.x.context.privileges.assign[core as usize] {
+            return Ok(Exit::Huh as u64);
         }
 
         // parse the authorization queue
@@ -96,11 +121,12 @@ impl<R: Accounts> Accumulate<R> {
             .collect();
 
         // set the authorization queue
-        self.x.context.authorization[core_index as usize] = queue;
+        self.x.context.authorization[core as usize] = queue;
+        self.x.context.privileges.assign[core as usize] = assign as u32;
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩD) designate
+    /// (ΩD) designate the validators to be drawn for the next epoch
     pub fn designate<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -111,13 +137,27 @@ impl<R: Accounts> Accumulate<R> {
             .memory
             .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
 
-        // decode validators
-        let Some(validators) = source
-            .chunks(336)
-            .map(|chunk| codec::decode(chunk).ok())
-            .collect::<Option<Vec<_>>>()
-        else {
-            crate::bail!("Could not parse validators");
+        if self.x.service != self.x.context.privileges.designate {
+            return Ok(Exit::Huh as u64);
+        }
+
+        let validators = {
+            if source.len() != 336 * score::VALIDATORS_COUNT as usize {
+                crate::bail!(
+                    "Invalid encoded validators, expected length: {}, got: {}",
+                    336 * score::VALIDATORS_COUNT as usize,
+                    source.len()
+                );
+            }
+
+            let mut validators = [ValidatorData::default(); score::VALIDATORS_COUNT as usize];
+            for (i, chunk) in source.chunks(336).enumerate() {
+                let Ok(validator) = codec::decode(chunk) else {
+                    crate::bail!("Could not parse validators");
+                };
+                validators[i] = validator;
+            }
+            validators
         };
 
         // set the validators
@@ -130,48 +170,62 @@ impl<R: Accounts> Accumulate<R> {
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // set the checkpoint
         self.y = self.x.clone();
         Ok(state.gas as u64)
     }
 
     /// (ΩN) new
     pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let [o, l, g, m] = [
+        let [o, length, accumulate_gas, transfer_gas, f] = [
             state.registers[7],
             state.registers[8],
             state.registers[9],
             state.registers[10],
+            state.registers[11],
         ];
 
-        // get the hash
-        let code = state.memory.read_bytes(o as u32, 32)?;
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&code);
-
-        // update the creator's account
-        let creator = self.account()?;
-        if creator.balance() < score::BALANCE_PER_SERVICE {
-            return Ok(Exit::Cash as u64);
+        // check if the service is blessed
+        if f != 0 && self.x.context.privileges.bless != self.x.service {
+            return Ok(Exit::Huh as u64);
         }
 
-        // create the new accumulated
-        *creator.balance_mut() -= score::BALANCE_PER_SERVICE;
-        let mut account = ServiceAccount::new(GasLimit {
-            accumulate: g,
-            transfer: m,
-        });
-        account.balance = score::BALANCE_PER_SERVICE;
-        account.code = hash;
-        account.lookup.insert((hash, l as u32), vec![]);
+        // get the account code
+        let code = state.memory.read_hash(o as u32)?;
+        if length > u32::MAX as u64 {
+            crate::bail!("Invalid length");
+        }
 
-        // insert the new account to the map
-        //
-        // FIXME: this upsert doesn't consider operations.
+        // check if the service has enough balance
+        let service = self.account()?;
+        if service.balance() < service.threshold() {
+            return Ok(Exit::Cash as u64);
+        }
+        *service.balance_mut() -= score::BALANCE_PER_SERVICE;
+
+        // create a new account
         let index = self.x.index;
-        self.x.context.accounts.upsert(index, account);
-        self.x.check(index);
+        let created = ServiceAccount {
+            index,
+            lookup: vec![((code, length as u32), vec![])].into_iter().collect(),
+            info: ServiceInfo {
+                code,
+                balance: score::BALANCE_PER_SERVICE,
+                accumulate: accumulate_gas,
+                transfer: transfer_gas,
+                creation: self.timeslot,
+                update: 0,
+                parent: self.x.service,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        self.x.context.accounts.upsert(index, created);
+        self.x.index = self
+            .x
+            .context
+            .accounts
+            .check((1 << 8) + (index - (1 << 8) + 42) % score::CHECK_SALT);
         Ok(index as u64)
     }
 
@@ -180,110 +234,105 @@ impl<R: Accounts> Accumulate<R> {
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // get the arguments
         let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
-
         account.set_code(code);
         account.set_transfer_gas(m);
         account.set_accumulate_gas(g);
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩT) transfer
+    /// (ΩT) transfer funds from the sender to the destination
     pub fn transfer<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
     ) -> Result<ExitCode> {
-        // get the arguments
-        let [d, a, limit, o] = [
+        let [dest, amount, limit, memo] = [
             state.registers[7],
             state.registers[8],
             state.registers[9],
             state.registers[10],
         ];
 
-        // check if the recipient exists
-        let Some(dest) = self.x.context.accounts.get(d as u32) else {
-            return Ok(Exit::Who as u64);
+        // check if the defer transfer is valid
+        let memo = state
+            .memory
+            .read_bytes(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+        let transfer = DeferredTransfer {
+            sender: self.x.service,
+            recipient: dest as u32,
+            amount,
+            memo,
+            gas_limit: limit,
         };
 
-        // check if the transfer limit is enough
-        if limit < dest.transfer_gas() {
-            return Ok(Exit::Low as u64);
-        }
-
-        // update the sender's account
-        let account = self.account()?;
-
         // check if the sender has enough balance
-        if account.balance() < a + account.threshold() {
+        let sender = self.account()?;
+        let balance = sender.balance();
+        if balance.saturating_sub(amount) < sender.threshold() {
             return Ok(Exit::Cash as u64);
         }
 
-        // update the sender's balance
-        *account.balance_mut() -= a;
-        let memo = state
-            .memory
-            .read_bytes(o as u32, score::TRANSFER_MEMO_SIZE)?;
+        // drop the sender account to handle the dest account
+        let _ = sender;
+        let Some(dest) = self.x.context.accounts.get(dest as u32) else {
+            crate::bail!("destination service not found");
+        };
 
-        // create the deferred transfer
-        self.x.transfer.push(DeferredTransfer {
-            sender: self.x.service,
-            recipient: d as u32,
-            amount: a,
-            memo,
-            gas_limit: limit,
-        });
+        // check if the destination has enough transfer gas
+        if dest.transfer_gas() > limit {
+            return Ok(Exit::Low as u64);
+        }
+
+        // add the transfer to the deferred transfers
+        self.x.transfer.push(transfer);
+        *self.account()?.balance_mut() -= amount;
         Ok(Exit::Ok as u64)
     }
 
-    /// (ΩE) eject
+    /// (ΩE) eject a sub account
     pub fn eject<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
-        let (d, o) = (state.registers[7] as u32, state.registers[8] as u32);
-        let hash = state.memory.read_hash(o)?;
+        let [dest, o] = [state.registers[7], state.registers[8]];
+        let hash = state.memory.read_hash(o as u32)?;
+        if dest == self.x.service as u64 {
+            crate::bail!("cannot eject to self");
+        }
 
-        // check if the service exists
-        let Some(dest) = self.x.context.accounts.get(d) else {
+        let Some(dest) = self.x.context.accounts.get(dest as u32) else {
             return Ok(Exit::Who as u64);
         };
 
-        // check the creation code
-        let ibytes = self.x.service.to_le_bytes();
-        let mut code = [0u8; 32];
-        code[..4].copy_from_slice(&ibytes);
+        // check if the code is valid
+        let mut code = [0; 32];
+        code[..4].copy_from_slice(&self.x.service.to_le_bytes());
         if dest.code() != code {
             return Ok(Exit::Who as u64);
         }
 
-        // check items
-        let total = (dest.total().max(81) - 81) as u32;
+        // check if the look up is valid
         if dest.items() != 2 {
             return Ok(Exit::Huh as u64);
         }
-
-        // check the lookup data
-        let Some(lookup) = dest.lookup(hash, total) else {
+        let length = dest.total().saturating_sub(81);
+        let Some(lookup) = dest.lookup(hash, length as u32) else {
             return Ok(Exit::Huh as u64);
         };
 
-        // check if the preimage is expunged
-        if *lookup.get(1).unwrap_or(&0) >= self.timeslot - score::EXPUNGED_TIME {
-            return Ok(Exit::Huh as u64);
+        // remove account and add the balance to the parent account
+        if lookup.len() == 2 && lookup[1] < self.timeslot.saturating_sub(score::EXPUNGED_TIME) {
+            let balance = dest.balance();
+            let to_remote = dest.index();
+            let _ = dest;
+            *self.account()?.balance_mut() += balance;
+            self.x.context.accounts.remove(to_remote);
+            return Ok(Exit::Ok as u64);
         }
 
-        // update the account
-        let balance = dest.balance();
-        let _ = dest;
-        self.x.context.accounts.remove(d);
-        let account = self.account()?;
-        *account.balance_mut() += balance;
-        Ok(Exit::Ok as u64)
+        Ok(Exit::Huh as u64)
     }
 
-    /// (ΩQ) query
+    /// (ΩQ) query an lookup entry
     pub fn query<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
         let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
         let hash = state.memory.read_hash(o)?;
@@ -311,7 +360,7 @@ impl<R: Accounts> Accumulate<R> {
         Ok(exit)
     }
 
-    /// (ΩS) solicit
+    /// (ΩS) solicit new lookup
     pub fn solicit<Memory: crate::Memory>(
         &mut self,
         state: &mut State<Memory>,
@@ -354,20 +403,15 @@ impl<R: Accounts> Accumulate<R> {
             return Ok(Exit::Huh as u64);
         };
 
-        let expunged = timeslot - score::EXPUNGED_TIME;
+        let expunged = timeslot.saturating_sub(score::EXPUNGED_TIME);
         if lookup.is_empty() || (lookup.len() == 2 && lookup[1] < expunged) {
-            tracing::debug!("forget: empty or expired");
             account.remove_lookup(hash, z as u32);
             account.remove_preimage(hash);
         } else if lookup.len() == 1 {
-            tracing::debug!("forget: single");
             lookup.push(timeslot);
             account.insert_lookup(hash, z as u32, lookup);
-        } else if lookup.len() == 3 && lookup[2] < expunged {
-            tracing::debug!("forget: triple");
-            lookup.resize(2, lookup[2]);
-            lookup[1] = timeslot;
-            account.insert_lookup(hash, z as u32, lookup);
+        } else if lookup.len() == 3 && lookup[1] < expunged {
+            account.insert_lookup(hash, z as u32, vec![lookup[2], timeslot]);
         } else {
             return Ok(Exit::Huh as u64);
         }
@@ -377,13 +421,40 @@ impl<R: Accounts> Accumulate<R> {
 
     /// (ΩY) yield
     pub fn yield_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
-        // get the arguments
         let o = state.registers[7];
-
-        // get the hash
         let hash = state.memory.read_hash(o as u32)?;
-
         self.x.output = Some(hash);
+        Ok(Exit::Ok as u64)
+    }
+
+    /// (ΩP) provide new preimage
+    pub fn provide<Memory: crate::Memory>(
+        &mut self,
+        state: &mut State<Memory>,
+    ) -> Result<ExitCode> {
+        let [mut service, from, size] =
+            [state.registers[7], state.registers[8], state.registers[9]];
+        if service == u64::MAX {
+            service = self.x.service as u64;
+        }
+
+        let image = state.memory.read_bytes(from as u32, size as u32)?;
+        let Some(account) = self.x.context.accounts.get(service as u32) else {
+            return Ok(Exit::Who as u64);
+        };
+
+        // check if the preimage is already in the account
+        let hash = crypto::blake2b(&image);
+        if account.lookup(hash, size as u32) != Some(vec![]) {
+            return Ok(Exit::Huh as u64);
+        }
+
+        // check if the preimage is already in the account
+        if account.preimage(hash).is_some() {
+            return Ok(Exit::Huh as u64);
+        }
+
+        account.insert_preimage(hash, image);
         Ok(Exit::Ok as u64)
     }
 }

@@ -1,49 +1,95 @@
 //! The unix stream for fuzzing
 
-use crate::{
-    fuzz::{
-        self,
-        message::{KeyValue, Message, PeerInfo, SetState},
-    },
-    storage::Parity,
+use crate::fuzz::{
+    self,
+    message::{KeyValue, Message, PeerInfo, SetState},
+    StreamExt,
 };
+use anyhow::Context;
 use pvmi::Interpreter;
 use runtime::{
-    storage::{ArchiveStorage, Commit, StateStorage},
+    storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
 use score::{Block, OpaqueHash};
 use std::{
-    io::Write,
-    os::unix::net::UnixStream,
-    path::PathBuf,
-    rc::Rc,
-    sync::{Arc, Mutex},
+    fs,
+    ops::{Deref, DerefMut},
+    os::unix::net::{UnixListener, UnixStream},
+    path::Path,
+    sync::Arc,
+    time::Instant,
 };
 
 /// A fuzz target
 pub struct Target {
     /// The connected unix stream
-    stream: Rc<Mutex<UnixStream>>,
+    stream: UnixStream,
 
     /// The database used in fuzzing
-    data: Arc<Parity>,
+    data: Arc<MemoryDb>,
+
+    imports: Vec<u32>,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: Rc<Mutex<UnixStream>>, data: PathBuf) -> anyhow::Result<Self> {
-        Ok(Self {
+    pub fn new(stream: UnixStream) -> Self {
+        Self {
             stream,
-            data: Arc::new(Parity::try_from(data)?),
-        })
+            data: Arc::new(MemoryDb::default()),
+            imports: Vec::new(),
+        }
+    }
+
+    /// Run the target
+    pub fn serve(socket: &Path) -> anyhow::Result<()> {
+        fs::remove_file(socket).ok();
+        let listener = UnixListener::bind(socket)
+            .context(format!("Failed to bind to the socket at {socket:?}"))?;
+
+        tracing::info!("Listening on {socket:?}");
+        for stream in listener.incoming() {
+            let stream = stream.context("Failed to accept connection")?;
+            Self::run(stream)?;
+        }
+
+        Ok(())
+    }
+
+    /// Handle a new connection
+    pub fn run(stream: UnixStream) -> anyhow::Result<()> {
+        let mut target = Target::new(stream);
+        loop {
+            let Ok(message) = target.read_message().inspect_err(|e| {
+                let blocks = target.imports.len();
+                tracing::info!(
+                    "No more bytes from the stream({e})! average transit time for {blocks} blocks: {}ms",
+                    target.imports.iter().sum::<u32>() / blocks as u32
+                );
+            }) else {
+                return Ok(());
+            };
+
+            if let Err(e) = target.handle(message) {
+                tracing::warn!("failed to process message: {e}, waiting for the next message ...");
+            }
+        }
     }
 
     /// Handle a incoming message
     pub fn handle(&mut self, message: Message) -> anyhow::Result<()> {
         match message {
             Message::Info(info) => self.info(info),
-            Message::ImportBlock(block) => self.import_block(block),
+            Message::ImportBlock(block) => {
+                if let Err(e) = self.import_block(block) {
+                    tracing::warn!("failed to import block: {e}");
+                    let root = self.data.root()?;
+                    self.write_message(Message::StateRoot(root))
+                } else {
+                    Ok(())
+                }
+            }
             Message::SetState(state) => self.set_state(state),
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),
@@ -60,69 +106,53 @@ impl Target {
         };
 
         if info.protocol != fuzz::PROTOCOL_VERSION {
-            tracing::warn!(
+            anyhow::bail!(
                 "protocol version mismatched, remote: {:?}, local: {:?}",
                 info.protocol,
                 this.protocol
             );
         }
 
-        let resp = codec::encode(&Message::Info(this))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
+        self.write_message(Message::Info(this))?;
         Ok(())
     }
 
     /// Received import block request
+    #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        let hash = block.header.hash()?;
+        let timer = Instant::now();
         tx::transit::<Interpreter>(block, self.data.clone())?;
-        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-
-        self.data.archive(&hash)?;
+        self.imports.push(timer.elapsed().as_millis() as u32);
+        let message = Message::StateRoot(self.data.root()?);
+        self.write_message(message)?;
         Ok(())
     }
 
     /// Received set state request
+    #[tracing::instrument(skip_all, name = "set_state")]
     pub fn set_state(&mut self, state: SetState) -> anyhow::Result<()> {
         let mut commit = Commit::default();
-        let hash = state.header.hash()?;
         for KeyValue { key, value } in state.state.into_iter() {
-            let key = hex::decode(key.trim_start_matches("0x"))?;
-            let value = hex::decode(value.trim_start_matches("0x"))?;
             commit.set(key, value);
         }
 
-        let resp = codec::encode(&Message::StateRoot(self.data.root()?))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-
-        self.data.archive(&hash)?;
+        self.data.commit(Column::State, commit)?;
+        let message = Message::StateRoot(self.data.root()?);
+        self.write_message(message)?;
         Ok(())
     }
 
     /// Received get state request
-    pub fn get_state(&mut self, hash: OpaqueHash) -> anyhow::Result<()> {
+    pub fn get_state(&mut self, _hash: OpaqueHash) -> anyhow::Result<()> {
         let mut state = Vec::new();
-        let iter = self.data.state_prefix_iter(&hash)?;
-        for pair in iter {
-            let (key, value) = pair?;
-            state.push(KeyValue {
-                key: hex::encode(key),
-                value: hex::encode(value),
-            });
+        for pair in self.data.iter(Column::State)? {
+            let (vkey, value) = pair?;
+            let mut key = [0; 31];
+            key.copy_from_slice(&vkey);
+            state.push(KeyValue { key, value });
         }
 
-        let resp = codec::encode(&Message::State(state))?;
-        let mut stream = self.stream.lock().unwrap();
-        stream.write_all(&[resp.len().to_le_bytes().to_vec(), resp].concat())?;
-        stream.flush()?;
-        Ok(())
+        self.write_message(Message::State(state))
     }
 
     /// Handle the state request
@@ -133,5 +163,19 @@ impl Target {
     /// Handle the state root request
     pub fn state_root(&mut self, _root: OpaqueHash) -> anyhow::Result<()> {
         anyhow::bail!("Received message state root which is not supported");
+    }
+}
+
+impl Deref for Target {
+    type Target = UnixStream;
+
+    fn deref(&self) -> &Self::Target {
+        &self.stream
+    }
+}
+
+impl DerefMut for Target {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.stream
     }
 }

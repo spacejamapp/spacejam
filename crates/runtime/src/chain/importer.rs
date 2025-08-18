@@ -8,6 +8,7 @@ use crate::{
 use anyhow::{Context, Result};
 use score::{
     block::{Head, Header},
+    safrole::Safrole,
     state::key,
     Block,
 };
@@ -148,8 +149,9 @@ impl<C: Config> Chain<C> {
                 key::CURRENT_VALIDATORS => {
                     self.grid.curr = codec::decode(value)?;
                 }
-                key::NEXT_VALIDATORS => {
-                    self.grid.next = codec::decode(value)?;
+                key::SAFROLE => {
+                    let safrole: Safrole = codec::decode(value)?;
+                    self.grid.next = safrole.validators;
                 }
                 _ => {}
             }

@@ -82,6 +82,9 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
+        // Strings need compact length prefix for proper encoding
+        let length = vlen::encode(v.len() as u64);
+        self.output.extend_from_slice(&length);
         self.output.extend_from_slice(v.as_bytes());
         Ok(())
     }
@@ -173,11 +176,15 @@ impl ser::Serializer for &mut Serializer {
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
+        variant_index: u32,
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(anyhow::anyhow!("Tuple variant not supported").into())
+        if variant_index > 0xff {
+            return Err(anyhow::anyhow!("Variant index too large").into());
+        }
+        self.serialize_u8(variant_index as u8)?;
+        Ok(self)
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -195,11 +202,15 @@ impl ser::Serializer for &mut Serializer {
     fn serialize_struct_variant(
         self,
         _name: &'static str,
-        _variant_index: u32,
+        variant_index: u32,
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(anyhow::anyhow!("Struct variant not supported").into())
+        if variant_index > 0xff {
+            return Err(anyhow::anyhow!("Variant index too large").into());
+        }
+        self.serialize_u8(variant_index as u8)?;
+        Ok(self)
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
@@ -298,11 +309,11 @@ impl ser::SerializeTupleVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Tuple variant not supported").into())
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
@@ -354,11 +365,11 @@ impl ser::SerializeStructVariant for &mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + ser::Serialize,
     {
-        Err(anyhow::anyhow!("Struct variant not supported").into())
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {

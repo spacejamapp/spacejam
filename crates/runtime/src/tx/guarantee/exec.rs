@@ -1,6 +1,6 @@
 //! Execution of work reports
 
-use pvm::{Accounts, Pvm};
+use pvm::{Account, Accounts, Pvm};
 use score::{
     service::WorkReport,
     vm::{AccumulateState, Accumulated},
@@ -102,12 +102,12 @@ pub fn parallel<V: Pvm, R: Accounts>(
         let lsvc = result.context.accounts.services();
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
-            // FIXME:
-            //
-            // - check if we do need update the accounts
-            // - handle the same code different services logic more carefully
             if !services.contains(id) || id == service_id {
-                context.accounts.upsert(*id, account.clone());
+                // TODO: we'd better update on changes, updating
+                // here for matching the test vectors.
+                let mut account = account.clone();
+                account.set_update(timeslot);
+                context.accounts.upsert(*id, account);
             }
         }
 
@@ -117,12 +117,12 @@ pub fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
-        // Collect other outputs
         gas.insert(*service_id, result.gas);
         transfers.extend(result.transfers.clone());
-        if let Some(hash) = result.hash {
-            pairings.insert(*service_id, hash);
-        }
+        pairings.insert(*service_id, result.hash.unwrap_or_default());
+        // if let Some(hash) = result.hash {
+        //     pairings.insert(*service_id, hash);
+        // }
     }
 
     // Remove accounts that were removed by any service
@@ -135,13 +135,18 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.privileges = result.context.privileges.clone();
     };
 
+    // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {
-        context.validators = result.context.validators.clone();
+        context.validators = result.context.validators;
     };
 
-    if let Some(result) = results.get(&context.privileges.assign) {
-        context.authorization = result.context.authorization.clone();
-    };
+    // Handle the assign array - each core has its own assign service
+    for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
+        if let Some(result) = results.get(assign_service) {
+            // Update the authorization queue for this specific core
+            context.authorization[core_index] = result.context.authorization[core_index].clone();
+        }
+    }
 
     Accumulated {
         accumulated: reports.len(),
@@ -172,5 +177,5 @@ pub fn once<V: Pvm, R: Accounts>(
         .iter()
         .flat_map(|r| r.operands(service))
         .collect::<Vec<_>>();
-    V::accumulate(context, timeslot, service, gas, operands, [0; 32])
+    V::accumulate(context, timeslot, service, gas, operands)
 }

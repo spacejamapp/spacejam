@@ -7,7 +7,7 @@ pub use registry::Accounts;
 use score::{
     service::{ServiceAccount, ServiceInfo},
     state::account,
-    OpaqueHash, TrieKey,
+    TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,12 +27,6 @@ pub struct Account<S: Storage> {
     /// The account state
     account: ServiceAccount,
 
-    /// The ops of preimages
-    preimages: (BTreeSet<OpaqueHash>, BTreeSet<OpaqueHash>),
-
-    /// The ops of preimages
-    storage: (BTreeSet<Vec<u8>>, BTreeSet<Vec<u8>>),
-
     /// The operations of the account
     ops: Commit<TrieKey, Vec<u8>>,
 }
@@ -46,10 +40,17 @@ impl<S: Storage> Account<S> {
             state: storage,
             index,
             account,
-            preimages: (BTreeSet::new(), BTreeSet::new()),
-            storage: (BTreeSet::new(), BTreeSet::new()),
             ops: Commit::default(),
         })
+    }
+
+    /// Read storage via storage key
+    pub fn hread(&self, key: TrieKey) -> Option<Vec<u8>> {
+        if self.account.storage.contains_key(key.as_slice()) {
+            self.account.storage.get(key.as_slice()).cloned()
+        } else {
+            self.state.state_get(key).ok().flatten()
+        }
     }
 
     /// Inherit from another account
@@ -58,33 +59,26 @@ impl<S: Storage> Account<S> {
             state: storage,
             index,
             account: account.account(),
-            preimages: (BTreeSet::new(), BTreeSet::new()),
-            storage: (BTreeSet::new(), BTreeSet::new()),
             ops: account.ops().into(),
         }
-    }
-
-    /// Drop a lookup if it exists
-    pub fn drop_lookup(&mut self, hash: [u8; 32], len: u32) -> TrieKey {
-        let key = account::lookup(self.index, len, hash);
-        let mut mhash = [0; 32];
-        mhash[..31].copy_from_slice(&key);
-        self.account.lookup.remove(&(mhash, len));
-        key
     }
 }
 
 impl<S: Storage> score::Account for Account<S> {
+    fn index(&self) -> u32 {
+        self.index
+    }
+
     fn account(&self) -> ServiceAccount {
         self.account.clone()
     }
 
     fn balance(&self) -> u64 {
-        self.account.balance
+        self.account.info.balance
     }
 
     fn balance_mut(&mut self) -> &mut u64 {
-        &mut self.account.balance
+        &mut self.account.info.balance
     }
 
     fn blob(&self) -> Option<Vec<u8>> {
@@ -92,27 +86,27 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn code(&self) -> [u8; 32] {
-        self.account.code
+        self.account.info.code
     }
 
     fn set_code(&mut self, code: [u8; 32]) {
-        self.account.code = code;
+        self.account.info.code = code;
     }
 
     fn accumulate_gas(&self) -> Gas {
-        self.account.accumulate_gas
+        self.account.info.accumulate
     }
 
     fn set_accumulate_gas(&mut self, gas: Gas) {
-        self.account.accumulate_gas = gas;
+        self.account.info.accumulate = gas;
     }
 
     fn transfer_gas(&self) -> Gas {
-        self.account.transfer_gas
+        self.account.info.transfer
     }
 
     fn set_transfer_gas(&mut self, gas: Gas) {
-        self.account.transfer_gas = gas;
+        self.account.info.transfer = gas;
     }
 
     fn threshold(&self) -> u64 {
@@ -120,11 +114,35 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn total(&self) -> u64 {
-        self.account.balance
+        self.account.info.total
+    }
+
+    fn set_total(&mut self, total: u64) {
+        self.account.set_total(total);
     }
 
     fn items(&self) -> u32 {
         self.account.items()
+    }
+
+    fn set_items(&mut self, items: u32) {
+        self.account.set_items(items);
+    }
+
+    fn creation(&self) -> u32 {
+        self.account.info.creation
+    }
+
+    fn set_creation(&mut self, creation: u32) {
+        self.account.info.creation = creation;
+    }
+
+    fn update(&self) -> u32 {
+        self.account.info.update
+    }
+
+    fn set_update(&mut self, update: u32) {
+        self.account.info.update = update;
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
@@ -132,141 +150,139 @@ impl<S: Storage> score::Account for Account<S> {
             return Some(lookup.clone());
         }
 
-        if let Ok(lookup) = self.state.account_lookup(self.index, len, hash) {
-            self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+
+        // Check if this key is marked for removal in the current transaction
+        if self.ops.removal.contains(&key) {
+            return None;
+        }
+
+        if let Some(lookup) = self.state.state_get(key).ok().flatten() {
+            let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
             self.account.lookup.insert((hash, len), lookup.clone());
-            Some(lookup.clone())
+            Some(lookup)
         } else {
             None
         }
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
-        let key = self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+        let exists = self.state.state_get(key).ok().flatten().is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
-        tracing::debug!(
-            "write lookup 0x{} with value 0x{}({:?})",
-            hex::encode(key),
-            hex::encode(codec::encode(&lookup).expect("lookup is valid")),
-            lookup,
-        );
         self.ops
             .set(key, codec::encode(&lookup).expect("lookup is valid"));
+
+        // Only update footprint if this is a new lookup entry:
+        //
+        //  a_i = 2 * |a_l| + |a_s| (items)
+        //  a_o includes Σ(81 + z) for each lookup (total octets)
+        if !exists {
+            self.set_total(self.total() + 81 + len as u64);
+            self.set_items(self.items() + 2);
+        }
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
-        let key = self.drop_lookup(hash, len);
+        let key = account::lookup(self.index, len, hash);
+        if self.state.state_get(key).ok().flatten().is_some() {
+            self.ops.remove(key);
+            self.set_total(self.total() - 81 - len as u64);
+            self.set_items(self.items() - 2);
+        }
+
         self.account.lookup.remove(&(hash, len));
-        tracing::debug!("remove lookup 0x{}", hex::encode(key));
-        self.ops.remove(key)
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
-        self.account.preimage.get(&hash).cloned()
+        let key = account::preimage(self.index, hash);
+        self.account
+            .preimage
+            .get(&hash)
+            .cloned()
+            .or_else(|| self.state.state_get(key).ok().flatten())
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
-        {
-            self.preimages.1.remove(&hash);
-            let fhash = account::preimage(self.index, hash);
-            self.ops.removal.remove(&fhash);
-        }
-
-        self.account.preimage.insert(hash, preimage.clone());
-        self.preimages.0.insert(hash);
+        let key = account::preimage(self.index, hash);
+        self.ops.set(key, preimage.clone());
+        self.account.preimage.insert(hash, preimage);
     }
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
+        let key = account::preimage(self.index, hash);
+        self.ops.update.remove(&key);
+        self.ops.removal.insert(key);
         self.account.preimage.remove(&hash);
-        self.preimages.1.insert(hash);
     }
 
-    fn read(&mut self, key: &[u8]) -> Option<&Vec<u8>> {
-        self.account.storage.get(key)
+    fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
+        let key = account::storage(self.index, key);
+        if self.ops.removal.contains(&key) {
+            return None;
+        }
+
+        self.hread(key)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let vkey = key.to_vec();
-        {
-            if self.storage.1.contains(&vkey) {
-                self.storage.1.remove(&vkey);
+        let vkey = account::storage(self.index, key);
+        let mut previous = None;
+        if let Some(old) = self.hread(vkey) {
+            if self.ops.removal.contains(&vkey) {
+                self.set_items(self.items() + 1);
+                self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
+            } else {
+                self.set_total(self.total() + value.len() as u64 - old.len() as u64);
             }
 
-            let mut fkey = [0; 31];
-            fkey.copy_from_slice(key);
-            self.ops.removal.remove(&fkey);
+            previous = Some(old);
+        } else {
+            self.set_items(self.items() + 1);
+            self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
         }
 
-        self.storage.0.insert(key.to_vec());
-        self.account.storage.insert(key.to_vec(), value);
+        // update storage
+        self.ops.removal.remove(&vkey);
+        self.ops.set(vkey, value.clone());
+        self.account
+            .storage
+            .insert(vkey.to_vec(), value)
+            .or(previous);
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        self.storage.1.insert(key.to_vec());
-        self.account.storage.remove(key)
+        let vkey = account::storage(self.index, key);
+        if self.ops.removal.contains(&vkey) {
+            return None;
+        }
+
+        // update total
+        let mut removed = None;
+        if let Some(old) = self.hread(vkey) {
+            self.set_total(self.total() - 34 - key.len() as u64 - old.len() as u64);
+            self.set_items(self.items() - 1);
+            self.ops.removal.insert(vkey);
+            removed = Some(old);
+        }
+
+        self.account.storage.remove(vkey.as_slice());
+        removed
     }
 
     fn info(&self) -> ServiceInfo {
-        ServiceInfo {
-            code: self.account.code,
-            balance: self.account.balance,
-            threshold: self.account.threshold(),
-            transfer: self.account.transfer_gas,
-            accumulate: self.account.accumulate_gas,
-            total: self.account.total(),
-            items: self.account.items(),
-        }
+        self.account.info.clone()
     }
 
     fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
         self.ops.set(
             account::info(self.index),
-            codec::encode(&self.account.data()).expect("data is valid"),
+            codec::encode(&self.account.state()).expect("data is valid"),
         );
-
-        // collect removals
-        let mut removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
-        removals.extend(self.storage.1.iter().map(|k| {
-            let mut mkey = [0; 31];
-            mkey.copy_from_slice(k);
-            mkey
-        }));
-        removals.extend(
-            self.preimages
-                .1
-                .iter()
-                .map(|k| account::preimage(self.index, *k)),
-        );
-
-        // collect updates
-        let mut updates: BTreeMap<TrieKey, Vec<u8>> =
+        let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
+        let updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
-        updates.extend(self.storage.0.iter().map(|k| {
-            let mut key = [0; 31];
-            key.copy_from_slice(k);
-            (
-                key,
-                self.account
-                    .storage
-                    .get(k)
-                    .expect("storage is valid")
-                    .clone(),
-            )
-        }));
-        updates.extend(self.preimages.0.iter().map(|k| {
-            let mut key = [0; 31];
-            key.copy_from_slice(&account::preimage(self.index, *k));
-            (
-                key,
-                self.account
-                    .preimage
-                    .get(k)
-                    .expect("preimage is valid")
-                    .clone(),
-            )
-        }));
-
         (updates, removals)
     }
 }
@@ -277,8 +293,6 @@ impl<S: Storage> Clone for Account<S> {
             state: self.state.clone(),
             index: self.index,
             account: self.account.clone(),
-            preimages: self.preimages.clone(),
-            storage: self.storage.clone(),
             ops: self.ops.clone(),
         }
     }

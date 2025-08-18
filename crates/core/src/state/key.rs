@@ -29,13 +29,13 @@ pub const DISPUTES: TrieKey = to_key!(5);
 /// C(6) - The entropy accumulator and epochal randomness (η)
 pub const ENTROPY: TrieKey = to_key!(6);
 
-/// C(7) - The next validators (ι)
-pub const NEXT_VALIDATORS: TrieKey = to_key!(7);
+/// C(7) - The validator keys and metadata to be drawn from next (ι)
+pub const DRAWN_VALIDATORS: TrieKey = to_key!(7);
 
-/// C(8) - The current validators (κ)
+/// C(8) - The validator keys and metadata currently active (κ)
 pub const CURRENT_VALIDATORS: TrieKey = to_key!(8);
 
-/// C(9) - The previous validators (λ)
+/// C(9) - The validator keys and metadata were active in the prior epoch (λ)
 pub const PREVIOUS_VALIDATORS: TrieKey = to_key!(9);
 
 /// C(10) - The pending reports, per core, which are being made available prior to
@@ -57,6 +57,9 @@ pub const ACCUMULATION_QUEUE: TrieKey = to_key!(14);
 /// C(15) - The accumulation history (ξ)
 pub const ACCUMULATION_HISTORY: TrieKey = to_key!(15);
 
+/// C(16) - The accumulation logs?
+pub const ACCUMULATION_LOGS: TrieKey = to_key!(16);
+
 /// The prefix of account storage (u32::MAX - 1)
 pub const ACCOUNT_STORAGE_PREFIX: [u8; 4] = [255, 255, 255, 255];
 
@@ -71,7 +74,7 @@ pub const CONSTANT_KEYS: [TrieKey; 15] = [
     SAFROLE,
     DISPUTES,
     ENTROPY,
-    NEXT_VALIDATORS,
+    DRAWN_VALIDATORS,
     CURRENT_VALIDATORS,
     PREVIOUS_VALIDATORS,
     PENDING_REPORTS,

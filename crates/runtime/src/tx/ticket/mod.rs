@@ -73,7 +73,7 @@ pub fn safrole(
         &safrole.validators,
         tickets,
     )?;
-    safrole.validators = safrole.next(new_epoch, &validators.next, offenders);
+    safrole.validators = safrole.next(new_epoch, &validators.drawn, offenders);
     safrole.ring_commitment = self::ring_commitment(&safrole, new_epoch);
     Ok(safrole)
 }
