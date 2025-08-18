@@ -980,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-pvm"
-version = "0.0.0"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "cranelift",
@@ -2802,7 +2802,7 @@ dependencies = [
 
 [[package]]
 name = "pvmc"
-version = "0.0.0"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "cranelift",
