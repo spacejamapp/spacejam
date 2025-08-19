@@ -103,10 +103,10 @@ pub fn parallel<V: Pvm, R: Accounts>(
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
             if !services.contains(id) || id == service_id {
-                // TODO: we'd better update on changes, updating
-                // here for matching the test vectors.
                 let mut account = account.clone();
-                account.set_update(timeslot);
+                if account.creation() != timeslot {
+                    account.set_update(timeslot);
+                }
                 context.accounts.upsert(*id, account);
             }
         }

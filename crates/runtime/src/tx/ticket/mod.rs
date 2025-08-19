@@ -87,8 +87,6 @@ pub fn accumulator(
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator> {
     // NOTE: gamma_k has already been updated at this point
-    //
-    // TODO: double check the validator set used for the ring VRF
     let verifier = crypto::ring::verifier(next.iter().map(|v| v.bandersnatch).collect());
 
     // Process each ticket envelope

@@ -40,6 +40,18 @@ pub fn simulate<Vm: Pvm>(
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     tracing::debug!("new epoch: {}", new_epoch);
 
+    // handle marks in the block
+    {
+        // validate the tickets mark
+        if let Some(tickets_mark) = block.header.tickets_mark {
+            for ticket in tickets_mark {
+                if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+                    anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
+                }
+            }
+        }
+    }
+
     // The first round computation
     let mut reports = {
         // (η') Update entropy (6.22)
@@ -80,6 +92,16 @@ pub fn simulate<Vm: Pvm>(
 
     // Round 2 computation
     let (available, assurances) = {
+        // (W) the sequence of new available work reports (11.16)
+        tracing::trace!("handle available work reports");
+        let (available, assurances) = self::assurance::available(
+            &state.reports,
+            &state.validators.current,
+            block.header.slot,
+            block.header.parent,
+            &block.extrinsic.assurances,
+        )?;
+
         // (κ') Update current validators (6.13)
         tracing::trace!("handle current validators");
         state.validators.current = state
@@ -91,16 +113,6 @@ pub fn simulate<Vm: Pvm>(
                 codec::encode(&state.validators.current)?,
             );
         }
-
-        // (W) the sequence of new available work reports (11.16)
-        tracing::trace!("handle available work reports");
-        let (available, assurances) = self::assurance::available(
-            &state.reports,
-            &state.validators.current,
-            block.header.slot,
-            block.header.parent,
-            &block.extrinsic.assurances,
-        )?;
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());
@@ -172,6 +184,7 @@ pub fn simulate<Vm: Pvm>(
         );
 
         state.statistics.merge_services(accumulation.records);
+        state.statistics.merge_transfers(accumulation.transfers);
         (accumulation.root, accumulation.accounts)
     };
 

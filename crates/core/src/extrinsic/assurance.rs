@@ -41,7 +41,9 @@ impl AvailAssurance {
         let mut message = vec![];
         message.extend_from_slice(&crate::JAM_AVAILABLE);
 
-        let hashed = crypto::blake2b(&[self.anchor.to_vec(), self.bitfield.to_vec()].concat());
+        let hashed = crypto::blake2b(
+            &codec::encode(&(self.anchor, self.bitfield)).expect("should never failed"),
+        );
         message.extend_from_slice(&hashed);
         message
     }

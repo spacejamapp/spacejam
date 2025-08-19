@@ -171,8 +171,8 @@ impl<S: Storage> score::Account for Account<S> {
         let exists = self.state.state_get(key).ok().flatten().is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
-        self.ops
-            .set(key, codec::encode(&lookup).expect("lookup is valid"));
+        let encoded = codec::encode(&lookup).expect("lookup is valid");
+        self.ops.set(key, encoded);
 
         // Only update footprint if this is a new lookup entry:
         //
@@ -283,6 +283,7 @@ impl<S: Storage> score::Account for Account<S> {
         let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
         let updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
+
         (updates, removals)
     }
 }

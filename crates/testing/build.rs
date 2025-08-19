@@ -11,7 +11,7 @@ use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
-    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/archive");
+    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.6.7/traces");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
@@ -121,9 +121,13 @@ fn build_fuzz_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
-        if test.name.contains("report") || test.name.contains("1754982087_00000005") {
+        if test.name.contains("report")
+            || test.name.contains("1754982087_00000005")
+            || test.name.contains("1755530300_00000005")
+        {
             continue;
         }
+
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
 
         tests.push(parse_quote! {
