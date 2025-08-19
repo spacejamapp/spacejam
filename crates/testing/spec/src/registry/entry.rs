@@ -57,7 +57,7 @@ impl Entry {
 
     /// Build entry from the jam-conformance repo
     pub fn fuzz(repo: &str) -> Result<Self> {
-        let archive = Path::new(repo).join("fuzz-reports/archive/0.6.7");
+        let archive = Path::new(repo).join("fuzz-reports/0.6.7/traces");
         let mut files = Vec::new();
         for entry in fs::read_dir(archive)? {
             let path = entry?.path();
