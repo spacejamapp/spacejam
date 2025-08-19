@@ -1,9 +1,6 @@
 //! Control flow related interfaces
 
-use crate::{
-    constants::{context_offsets, exec_result, JUMP_ALIGNMENT_FACTOR},
-    Translator,
-};
+use crate::{context_offsets, result, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -69,7 +66,7 @@ impl Translator<'_> {
         let continue_discriminant = self
             .builder
             .ins()
-            .iconst(types::I64, exec_result::CONTINUE as i64);
+            .iconst(types::I64, result::CONTINUE as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), continue_discriminant, result_addr, 0);
@@ -89,10 +86,7 @@ impl Translator<'_> {
             .ins()
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let trap_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::TRAP as i64);
+        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
@@ -123,10 +117,7 @@ impl Translator<'_> {
             .ins()
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let trap_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::TRAP as i64);
+        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
@@ -147,10 +138,7 @@ impl Translator<'_> {
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
 
-        let jump_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::JUMP as i64);
+        let jump_discriminant = self.builder.ins().iconst(types::I64, result::JUMP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), jump_discriminant, result_addr, 0);
@@ -174,10 +162,7 @@ impl Translator<'_> {
             .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
 
-        let trap_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::TRAP as i64);
+        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);
@@ -220,8 +205,7 @@ impl Translator<'_> {
 
         // Check 2: address > table.len() * JUMP_ALIGNMENT_FACTOR
         let table_len = self.jump_table.len() as u32;
-        let jump_alignment_factor = JUMP_ALIGNMENT_FACTOR;
-        let max_address = table_len * jump_alignment_factor;
+        let max_address = table_len * pvm::JUMP_ALIGNMENT_FACTOR;
         let max_addr_val = self.builder.ins().iconst(types::I64, max_address as i64);
         let exceeds_bounds =
             self.builder

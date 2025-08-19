@@ -29,7 +29,7 @@ impl Runner {
 
         let input: TestInput = serde_json::from_str(&test.input)?;
         let output: TestOutput = serde_json::from_str(&test.output)?;
-        let mut initial_registers = [0u64; translator::constants::PVM_REGISTER_COUNT];
+        let mut initial_registers = [0u64; translator::PVM_REGISTER_COUNT];
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
@@ -59,10 +59,7 @@ impl Runner {
         let module = compiler.compile(&input.program)?;
         let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
 
-        assert_eq!(
-            result.registers.len(),
-            translator::constants::PVM_REGISTER_COUNT
-        );
+        assert_eq!(result.registers.len(), translator::PVM_REGISTER_COUNT);
         assert_eq!(result.registers.to_vec(), output.expected_regs);
         assert_eq!(result.pc, output.expected_pc as u64);
 

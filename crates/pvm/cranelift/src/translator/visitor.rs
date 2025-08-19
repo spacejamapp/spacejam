@@ -2,10 +2,7 @@
 
 #![allow(unused)]
 
-use crate::{
-    constants::{context_offsets, exec_result, MAX_REGISTER_INDEX},
-    Translator,
-};
+use crate::{context_offsets, result, Translator, MAX_REGISTER_INDEX};
 use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
@@ -23,10 +20,7 @@ impl Visitor for Translator<'_> {
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store Trap discriminant (3)
-        let trap_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, exec_result::TRAP as i64);
+        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
         self.builder
             .ins()
             .store(MemFlags::new(), trap_discriminant, result_addr, 0);

@@ -1,6 +1,6 @@
 //! Translator context
 
-use crate::{constants::PVM_REGISTER_COUNT, Translator};
+use crate::{Translator, PVM_REGISTER_COUNT};
 use anyhow::Result;
 use cranelift::prelude::*;
 

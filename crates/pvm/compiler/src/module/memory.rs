@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use std::collections::BTreeMap;
-use translator::constants::{access, PAGE_SIZE};
+use translator::{access, PAGE_SIZE};
 
 /// Memory page with access control
 #[repr(C)]

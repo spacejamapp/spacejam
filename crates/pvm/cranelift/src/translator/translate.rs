@@ -1,6 +1,6 @@
 //! translation utils
 
-use crate::{constants::PVM_REGISTER_COUNT, translator::Block, Translator};
+use crate::{translator::Block, Translator, PVM_REGISTER_COUNT};
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;

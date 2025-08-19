@@ -1,6 +1,6 @@
 //! Translator module that converts PVM instructions to Cranelift IR
 
-use crate::constants::PVM_REGISTER_COUNT;
+use crate::PVM_REGISTER_COUNT;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;

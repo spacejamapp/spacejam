@@ -27,6 +27,9 @@ mod memory;
 mod result;
 mod value;
 
+/// (Z_A) The alignment factor of the jump table.
+pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
+
 /// The PVM interface
 pub trait Pvm: Invocation {}
 

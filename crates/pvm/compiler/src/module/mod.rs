@@ -33,7 +33,7 @@ impl Module {
     /// Execute the compiled module
     pub fn execute(
         &self,
-        initial_registers: &[u64; translator::constants::PVM_REGISTER_COUNT],
+        initial_registers: &[u64; translator::PVM_REGISTER_COUNT],
         initial_pc: u64,
         initial_memory: Memory,
     ) -> Result<Info> {

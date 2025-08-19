@@ -14,9 +14,6 @@ mod legacy;
 mod register;
 mod visitor;
 
-/// (Z_A) The alignment factor of the jump table.
-pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
-
 /// The interpreter for the polkavm program.
 ///
 /// TODO: maybe use lifetime to save the cost for adpating the
@@ -76,7 +73,7 @@ impl Interpreter {
         }
 
         if address == 0
-            || address > self.table.len() as u32 * JUMP_ALIGNMENT_FACTOR
+            || address > self.table.len() as u32 * pvm::JUMP_ALIGNMENT_FACTOR
             || address % 2 != 0
         {
             tracing::error!(
