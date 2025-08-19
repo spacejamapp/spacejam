@@ -40,6 +40,18 @@ pub fn simulate<Vm: Pvm>(
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     tracing::debug!("new epoch: {}", new_epoch);
 
+    // handle marks in the block
+    {
+        // validate the tickets mark
+        if let Some(tickets_mark) = block.header.tickets_mark {
+            for ticket in tickets_mark {
+                if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+                    anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
+                }
+            }
+        }
+    }
+
     // The first round computation
     let mut reports = {
         // (η') Update entropy (6.22)
