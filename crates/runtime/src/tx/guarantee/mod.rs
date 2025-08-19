@@ -10,7 +10,8 @@ use score::{
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
     vm::{AccumulateState, Accumulation, DeferredTransfer},
-    Accounts, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT,
+    Account, Accounts, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
+    CORES_COUNT,
 };
 use std::collections::BTreeMap;
 
@@ -240,17 +241,23 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
     let services: Vec<ServiceId> = accounts.services();
     for dest_service in services {
         let selected_transfers = DeferredTransfer::select(transfers, dest_service);
-        if !selected_transfers.is_empty() {
-            let transfer_result =
-                V::transfer(accounts.clone(), slot, dest_service, &selected_transfers);
-
-            // FIXME: this upsert doesn't consider operations.
-            accounts.upsert(dest_service, transfer_result.account);
-            statistics.insert(
-                dest_service,
-                (selected_transfers.len(), transfer_result.gas),
-            );
+        if selected_transfers.is_empty() {
+            continue;
         }
+
+        let transfer_result =
+            V::transfer(accounts.clone(), slot, dest_service, &selected_transfers);
+        if let Some(existing_account) = accounts.get(dest_service) {
+            let amount: u64 = selected_transfers.iter().map(|t| t.amount).sum();
+            *existing_account.balance_mut() += amount;
+        } else {
+            accounts.upsert(dest_service, transfer_result.account);
+        }
+
+        statistics.insert(
+            dest_service,
+            (selected_transfers.len(), transfer_result.gas),
+        );
     }
 
     statistics

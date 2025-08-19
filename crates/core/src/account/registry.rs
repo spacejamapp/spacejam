@@ -12,7 +12,7 @@ pub trait Accounts: Clone {
                 return index;
             }
 
-            index = (index - (1 << 8) + 1) % (crate::CHECK_SALT + (1 << 8));
+            index = ((index - (1 << 8) + 1) % crate::CHECK_SALT) + (1 << 8);
         }
     }
 

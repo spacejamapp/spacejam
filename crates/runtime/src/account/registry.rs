@@ -66,10 +66,8 @@ impl<S: Storage> score::Accounts for Accounts<S> {
     }
 
     fn upsert(&mut self, index: u32, account: impl score::Account) {
-        self.accounts.insert(
-            index,
-            Account::inherit(self.storage.clone(), index, account),
-        );
+        let inherited = Account::inherit(self.storage.clone(), index, account);
+        self.accounts.insert(index, inherited);
     }
 
     fn remove(&mut self, index: u32) {

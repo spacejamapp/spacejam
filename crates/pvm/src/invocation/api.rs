@@ -425,19 +425,17 @@ pub trait Invocation {
 
         let code = code.clone();
         let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
-        let amount = transfers.iter().map(|t| t.amount).sum::<u64>();
+        let _amount = transfers.iter().map(|t| t.amount).sum::<u64>();
 
-        // TODO: update the account balance ???
-        //
-        // this seems not correct.
-        tracing::warn!("FIXME: update the account balance: {}", amount);
-        *account.balance_mut() += amount;
-        let account = account.account();
+        // Note: Balance update happens in defer_transfers, not here
+        // according to Gray Paper the transfer invocation executes the recipient's
+        // transfer handler but doesn't modify the balance directly
+        let updated_account = account.account();
         let general = General::new(service, accounts, Vec::new(), Default::default());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
         let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
-            account,
+            account: updated_account,
             gas: received.gas,
         }
     }

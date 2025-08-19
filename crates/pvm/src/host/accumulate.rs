@@ -197,16 +197,15 @@ impl<R: Accounts> Accumulate<R> {
 
         // check if the service has enough balance
         let service = self.account()?;
-        if service.balance() < service.threshold() {
+        if service.balance() < service.threshold() + score::BALANCE_PER_SERVICE {
             return Ok(Exit::Cash as u64);
         }
         *service.balance_mut() -= score::BALANCE_PER_SERVICE;
 
         // create a new account
         let index = self.x.index;
-        let created = ServiceAccount {
+        let mut created = ServiceAccount {
             index,
-            lookup: vec![((code, length as u32), vec![])].into_iter().collect(),
             info: ServiceInfo {
                 code,
                 balance: score::BALANCE_PER_SERVICE,
@@ -219,13 +218,14 @@ impl<R: Accounts> Accumulate<R> {
             },
             ..Default::default()
         };
+        created.insert_lookup(code, length as u32, vec![]);
 
         self.x.context.accounts.upsert(index, created);
         self.x.index = self
             .x
             .context
             .accounts
-            .check((1 << 8) + (index - (1 << 8) + 42) % score::CHECK_SALT);
+            .check(((index - (1 << 8) + 42) % score::CHECK_SALT) + (1 << 8));
         Ok(index as u64)
     }
 
@@ -269,6 +269,7 @@ impl<R: Accounts> Accumulate<R> {
 
         // check if the sender has enough balance
         let sender = self.account()?;
+        let sender_id = sender.index();
         let balance = sender.balance();
         if balance.saturating_sub(amount) < sender.threshold() {
             return Ok(Exit::Cash as u64);
@@ -281,11 +282,12 @@ impl<R: Accounts> Accumulate<R> {
         };
 
         // check if the destination has enough transfer gas
-        if dest.transfer_gas() > limit {
+        if dest.transfer_gas() < limit {
             return Ok(Exit::Low as u64);
         }
 
         // add the transfer to the deferred transfers
+        tracing::debug!("transfering {amount} from {sender_id} to {}", dest.index());
         self.x.transfer.push(transfer);
         *self.account()?.balance_mut() -= amount;
         Ok(Exit::Ok as u64)

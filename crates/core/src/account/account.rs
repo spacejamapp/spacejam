@@ -265,6 +265,14 @@ impl Account for ServiceAccount {
     }
 
     fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
-        (BTreeMap::new(), BTreeSet::new())
+        let mut updates = BTreeMap::new();
+        let removals = BTreeSet::new();
+
+        // Ensure the account info is written to storage
+        let info_key = crate::state::account::info(self.index);
+        let encoded_info = codec::encode(&self.info).expect("service info is valid");
+        updates.insert(info_key, encoded_info);
+
+        (updates, removals)
     }
 }
