@@ -15,6 +15,21 @@ use std::collections::BTreeMap;
 /// The commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
 
+/// The salt for the index function
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IndexSalt {
+    /// (N_s)  the service id of the caller
+    #[serde(with = "codec::compact")]
+    pub service: u32,
+
+    /// (η) The entropy
+    pub entropy: [u8; 32],
+
+    /// (N_t)  timeslot for the current accumulation
+    #[serde(with = "codec::compact")]
+    pub timeslot: u32,
+}
+
 /// The state context used in pvm accumulation
 #[derive(Clone)]
 pub struct AccumulateState<R: Accounts> {
@@ -37,8 +52,12 @@ pub struct AccumulateState<R: Accounts> {
 impl<R: Accounts> AccumulateState<R> {
     /// (I) Generate a new index from provided environment
     pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
-        let encoded =
-            codec::encode(&(service, self.entropy[0], timeslot)).expect("failed to encode");
+        let encoded = codec::encode(&IndexSalt {
+            service,
+            entropy: self.entropy[0],
+            timeslot,
+        })
+        .expect("failed to encode");
         let hash = crypto::blake2b(&encoded);
         let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let index = (base % crate::CHECK_SALT) + (1 << 8);
