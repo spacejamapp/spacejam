@@ -62,11 +62,7 @@ impl Target {
         let mut target = Target::new(stream);
         loop {
             let Ok(message) = target.read_message().inspect_err(|e| {
-                let blocks = target.imports.len();
-                tracing::info!(
-                    "No more bytes from the stream({e})! average transit time for {blocks} blocks: {}ms",
-                    target.imports.iter().sum::<u32>() / blocks as u32
-                );
+                tracing::warn!("No more bytes from the stream: {e}!",);
             }) else {
                 return Ok(());
             };
