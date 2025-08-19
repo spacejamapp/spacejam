@@ -195,14 +195,7 @@ impl<R: Accounts> Accumulate<R> {
             crate::bail!("Invalid length");
         }
 
-        // check if the service has enough balance
-        let service = self.account()?;
-        if service.balance() < service.threshold() + score::BALANCE_PER_SERVICE {
-            return Ok(Exit::Cash as u64);
-        }
-        *service.balance_mut() -= score::BALANCE_PER_SERVICE;
-
-        // create a new account
+        // create a new account with proper storage accounting
         let index = self.x.index;
         let mut created = ServiceAccount {
             index,
@@ -219,6 +212,17 @@ impl<R: Accounts> Accumulate<R> {
             ..Default::default()
         };
         created.insert_lookup(code, length as u32, vec![]);
+
+        // Calculate the full threshold cost
+        let new_account_threshold = created.threshold();
+        let service = self.account()?;
+        if service.balance() < service.threshold() + new_account_threshold {
+            return Ok(Exit::Cash as u64);
+        }
+
+        // Deduct full threshold from parent and give it to new account
+        *service.balance_mut() -= new_account_threshold;
+        created.info.balance = new_account_threshold;
 
         self.x.context.accounts.upsert(index, created);
         self.x.index = self

@@ -273,6 +273,13 @@ impl Account for ServiceAccount {
         let encoded_info = codec::encode(&self.info).expect("service info is valid");
         updates.insert(info_key, encoded_info);
 
+        // Ensure the lookup is written to storage
+        for ((hash, len), slots) in self.lookup.iter() {
+            let lookup_key = crate::state::account::lookup(self.index, *len, *hash);
+            let encoded_lookup = codec::encode(slots).expect("lookup is valid");
+            updates.insert(lookup_key, encoded_lookup);
+        }
+
         (updates, removals)
     }
 }

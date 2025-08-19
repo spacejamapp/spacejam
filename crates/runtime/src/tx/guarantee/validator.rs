@@ -8,7 +8,6 @@ use score::{
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
     VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
 };
-use spacejson::Json;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.
@@ -88,7 +87,6 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .flat_map(|b| b.reported.clone())
             .collect::<Vec<_>>();
 
-        tracing::debug!("{:?}", self.state.recent_blocks.history.clone().to_json());
         self.recent = recent;
         self.reported = reported;
     }
@@ -339,14 +337,6 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     fn contains_dep(&self, dep: &OpaqueHash) -> bool {
-        tracing::debug!("contains_dep: {}", hex::encode(dep));
-        tracing::debug!(
-            "recent: {:?}",
-            self.recent
-                .iter()
-                .map(|r| hex::encode(r.hash))
-                .collect::<Vec<_>>()
-        );
         self.accounts
             .accounts()
             .iter()
