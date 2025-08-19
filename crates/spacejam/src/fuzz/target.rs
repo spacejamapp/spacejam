@@ -29,6 +29,7 @@ pub struct Target {
     /// The database used in fuzzing
     data: Arc<MemoryDb>,
 
+    /// The import time for each block
     imports: Vec<u32>,
 }
 

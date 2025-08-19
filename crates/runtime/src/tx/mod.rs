@@ -80,6 +80,16 @@ pub fn simulate<Vm: Pvm>(
 
     // Round 2 computation
     let (available, assurances) = {
+        // (W) the sequence of new available work reports (11.16)
+        tracing::trace!("handle available work reports");
+        let (available, assurances) = self::assurance::available(
+            &state.reports,
+            &state.validators.current,
+            block.header.slot,
+            block.header.parent,
+            &block.extrinsic.assurances,
+        )?;
+
         // (κ') Update current validators (6.13)
         tracing::trace!("handle current validators");
         state.validators.current = state
@@ -91,16 +101,6 @@ pub fn simulate<Vm: Pvm>(
                 codec::encode(&state.validators.current)?,
             );
         }
-
-        // (W) the sequence of new available work reports (11.16)
-        tracing::trace!("handle available work reports");
-        let (available, assurances) = self::assurance::available(
-            &state.reports,
-            &state.validators.current,
-            block.header.slot,
-            block.header.parent,
-            &block.extrinsic.assurances,
-        )?;
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());
