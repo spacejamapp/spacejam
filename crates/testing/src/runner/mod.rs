@@ -441,12 +441,12 @@ impl Runner {
                         tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
                     }
 
-                    /* if key == key::STATISTICS && value != result {
+                    if key == key::STATISTICS && value != result {
                         let polkajam: Statistics = codec::decode(&value)?;
                         let statistics: Statistics = codec::decode(&result)?;
                         tracing::debug!("polkajam: {:#?}", polkajam.to_json());
                         tracing::debug!("spacejam: {:#?}", statistics.to_json());
-                    } */
+                    }
 
                     if key == key::RECENT_BLOCKS && value != result {
                         let polkajam: History = codec::decode(&value)?;

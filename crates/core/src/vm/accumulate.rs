@@ -106,18 +106,27 @@ impl<R: Accounts> Accumulated<R> {
     /// Get the service records
     pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
         let mut records = BTreeMap::new();
-        for (service, gas) in self.gas.iter() {
-            if gas == &0 {
-                continue;
-            }
 
-            records.insert(
-                *service,
-                ServiceActivityRecord {
-                    accumulate_gas_used: *gas,
-                    ..Default::default()
-                },
-            );
+        // Include all services that exist in accounts
+        for service_id in self.context.accounts.services() {
+            records.insert(service_id, ServiceActivityRecord::default());
+        }
+
+        // Update gas usage for services that actually executed
+        for (service, gas) in self.gas.iter() {
+            tracing::debug!("Service {} used {} gas during accumulation", service, gas);
+            if let Some(record) = records.get_mut(service) {
+                record.accumulate_gas_used = *gas;
+            } else {
+                // Service executed but doesn't exist in accounts (shouldn't happen)
+                records.insert(
+                    *service,
+                    ServiceActivityRecord {
+                        accumulate_gas_used: *gas,
+                        ..Default::default()
+                    },
+                );
+            }
         }
 
         records

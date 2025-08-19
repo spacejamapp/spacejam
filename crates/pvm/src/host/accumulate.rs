@@ -224,6 +224,7 @@ impl<R: Accounts> Accumulate<R> {
         *service.balance_mut() -= new_account_threshold;
         created.info.balance = new_account_threshold;
 
+        state.gas -= accumulate_gas as i64;
         self.x.context.accounts.upsert(index, created);
         self.x.index = self
             .x

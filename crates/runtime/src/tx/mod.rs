@@ -184,6 +184,7 @@ pub fn simulate<Vm: Pvm>(
         );
 
         state.statistics.merge_services(accumulation.records);
+        state.statistics.merge_transfers(accumulation.transfers);
         (accumulation.root, accumulation.accounts)
     };
 

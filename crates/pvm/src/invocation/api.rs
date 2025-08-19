@@ -425,7 +425,6 @@ pub trait Invocation {
 
         let code = code.clone();
         let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
-        let _amount = transfers.iter().map(|t| t.amount).sum::<u64>();
 
         // Note: Balance update happens in defer_transfers, not here
         // according to Gray Paper the transfer invocation executes the recipient's
