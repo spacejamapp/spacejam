@@ -292,7 +292,7 @@ impl<R: Accounts> Accumulate<R> {
         }
 
         // add the transfer to the deferred transfers
-        tracing::debug!("transfering {amount} from {sender_id} to {}", dest.index());
+        tracing::debug!("transferring {amount} from {sender_id} to {}", dest.index());
         self.x.transfer.push(transfer);
         *self.account()?.balance_mut() -= amount;
         Ok(Exit::Ok as u64)
