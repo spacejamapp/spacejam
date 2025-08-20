@@ -2,7 +2,7 @@
 
 use crate::{Error, Result};
 use pvm::{Reason, Value};
-use std::{collections::BTreeMap, ops::Range};
+use std::collections::BTreeMap;
 
 /// The memory of the interpreter.
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
@@ -12,18 +12,6 @@ pub struct Memory {
 
     /// Current heap pointer for sbrk implementation
     pub heap_ptr: u32,
-
-    /// The heap (read-write) range.
-    pub heap: Range<u32>,
-
-    /// The read-only range.
-    pub read: Range<u32>,
-
-    /// The stack range.
-    pub stack: Range<u32>,
-
-    /// The args range.
-    pub args: Range<u32>,
 }
 
 impl Memory {
@@ -43,7 +31,6 @@ impl Memory {
             );
         }
 
-        self.heap.end = (start + count) * parser::PAGE_SIZE as u32;
         Ok(())
     }
 
@@ -217,11 +204,7 @@ impl pvm::Memory for Memory {
 
         Self {
             pages,
-            heap_ptr: memory.heap.end,
-            heap: memory.heap,
-            read: memory.read,
-            stack: memory.stack,
-            args: memory.args,
+            heap_ptr: memory.heap_ptr,
         }
     }
 
