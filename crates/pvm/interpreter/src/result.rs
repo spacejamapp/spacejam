@@ -33,7 +33,7 @@ impl Error {
         match self {
             Error::MemoryInaccessible { page: _ } => 0,
             Error::MemoryImmutable { page: _ } => 0,
-            Error::Trap(true) => 1,
+            Error::Trap(true) => 0,
             Error::OOG => 0,
             _ => 0,
         }
