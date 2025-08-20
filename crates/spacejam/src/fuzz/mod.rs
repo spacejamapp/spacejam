@@ -16,7 +16,7 @@ pub mod trace;
 pub const VERSION: Version = Version {
     major: 0,
     minor: 0,
-    patch: 4,
+    patch: 5,
 };
 
 /// The protocol version of spacejam
