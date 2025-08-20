@@ -31,8 +31,8 @@ impl Error {
     /// Get the extra gas for the error.
     pub fn extra_gas(&self) -> u64 {
         match self {
-            Error::MemoryInaccessible { page: _ } => 1,
-            Error::MemoryImmutable { page: _ } => 1,
+            Error::MemoryInaccessible { page: _ } => 0,
+            Error::MemoryImmutable { page: _ } => 0,
             Error::Trap(true) => 1,
             Error::OOG => 0,
             _ => 0,
