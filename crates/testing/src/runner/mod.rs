@@ -436,7 +436,11 @@ impl Runner {
 
                     pkeys.push(key.clone());
                     if value != result {
-                        tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+                        tracing::error!(
+                            "keyval mismatch: {info:?}: 0x{encoded}, expected: 0x{}, got: 0x{}",
+                            hex::encode(&value),
+                            hex::encode(&result)
+                        );
                     } else {
                         tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
                     }

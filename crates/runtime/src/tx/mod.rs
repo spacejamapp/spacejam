@@ -128,7 +128,7 @@ pub fn simulate<Vm: Pvm>(
     };
 
     // Round 3 computation
-    let (_root, accounts) = {
+    let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
         tracing::trace!("handle sealing-key series");
         state.safrole = ticket::safrole(
@@ -183,6 +183,8 @@ pub fn simulate<Vm: Pvm>(
             codec::encode(&state.validators.drawn)?,
         );
 
+        diff.set(key::ACCUMULATION_LOGS, codec::encode(&accumulation.logs)?);
+
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
         (accumulation.root, accumulation.accounts)
@@ -204,7 +206,7 @@ pub fn simulate<Vm: Pvm>(
         // (β') Update the block history
         state
             .recent_blocks
-            .import(block.header.hash()?, Default::default(), reported);
+            .import(block.header.hash()?, root, reported);
 
         state
             .statistics
