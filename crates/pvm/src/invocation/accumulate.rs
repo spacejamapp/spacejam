@@ -1,10 +1,9 @@
 //! PolkaVM environment
 
-use crate::{
-    invocation::{Argument, General},
-    Reason, Result,
-};
+use crate::{invocation::Argument, Reason, Result};
 use score::{
+    safrole::ValidatorData,
+    service::Privileges,
     vm::{AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -38,32 +37,89 @@ impl<R: Accounts> Accumulate<R> {
     }
 }
 
-impl<R: Accounts> Argument<R> for Accumulate<R> {
-    fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(General::new(
-            self.x.service,
-            self.x.context.accounts.clone(),
-            self.operands.clone(),
-            self.entropy,
-        ))
+impl<R: Accounts> Argument for Accumulate<R> {
+    const SUPPORTED_CALLS: &[u32] = &[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+
+    fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
+        self.x
+            .context
+            .accounts
+            .get(id as u32)
+            .ok_or(anyhow::anyhow!("Could not find account {id}"))
     }
 
-    // FIXME: find a better way to update the account
-    fn update_general(&mut self, mut general: General<R>) -> crate::Result<()> {
-        let index = general.index;
-        let Some(account) = general.account() else {
-            crate::bail!("Account {} not found in context", general.index);
-        };
-
-        // Update the account metadata - set the update field to current timeslot
-        let mut updated_account = account.clone();
-        updated_account.set_update(self.timeslot);
-        self.x.context.accounts.upsert(index, updated_account);
-        Ok(())
+    fn check(&mut self, index: ServiceId) -> ServiceId {
+        self.x.context.accounts.check(index)
     }
 
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
-        Ok(self)
+    fn checkpoint(&mut self) {
+        self.y = self.x.clone();
+    }
+
+    fn entropy(&self) -> OpaqueHash {
+        self.entropy
+    }
+
+    fn index(&self) -> ServiceId {
+        self.x.index
+    }
+
+    fn operands(&self) -> &[Operand] {
+        &self.operands
+    }
+
+    fn output(&mut self, hash: OpaqueHash) {
+        self.x.output = Some(hash);
+    }
+
+    fn privileges(&self) -> Privileges {
+        self.x.context.privileges.clone()
+    }
+
+    fn remove(&mut self, service: ServiceId) {
+        self.x.context.accounts.remove(service);
+    }
+
+    fn service(&self) -> ServiceId {
+        self.x.service
+    }
+
+    fn set_index(&mut self, index: ServiceId) {
+        self.x.index = index;
+    }
+
+    fn set_privileges(&mut self, privileges: Privileges) {
+        self.x.context.privileges = privileges;
+    }
+
+    fn set_validators(&mut self, validators: [ValidatorData; score::VALIDATORS_COUNT as usize]) {
+        self.x.context.validators = validators;
+    }
+
+    fn this(&mut self) -> anyhow::Result<&mut impl Account> {
+        self.x
+            .context
+            .accounts
+            .get(self.x.service)
+            .ok_or(anyhow::anyhow!("Could not find account {}", self.x.service))
+    }
+
+    fn timeslot(&self) -> TimeSlot {
+        self.timeslot
+    }
+
+    fn transfer(&mut self, transfer: DeferredTransfer) {
+        self.x.transfer.push(transfer);
+    }
+
+    fn update(&mut self, account: ServiceId) {
+        if let Some(account) = self.x.context.accounts.get(account) {
+            account.set_update(self.timeslot);
+        }
+    }
+
+    fn upsert(&mut self, id: ServiceId, account: impl Account) {
+        self.x.context.accounts.upsert(id, account);
     }
 }
 

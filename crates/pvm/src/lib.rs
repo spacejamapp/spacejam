@@ -22,7 +22,7 @@ macro_rules! bail {
 }
 
 pub mod host;
-mod invocation;
+pub mod invocation;
 mod result;
 mod value;
 

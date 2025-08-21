@@ -228,6 +228,14 @@ impl<S: Storage> score::Account for Account<S> {
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
         let vkey = account::storage(self.index, key);
+
+        tracing::debug!(
+            "writing to account {}, key: 0x{}, value: 0x{}",
+            self.index,
+            hex::encode(&vkey),
+            hex::encode(&value)
+        );
+
         let mut previous = None;
         if let Some(old) = self.hread(vkey) {
             if self.ops.removal.contains(&vkey) {
@@ -245,11 +253,6 @@ impl<S: Storage> score::Account for Account<S> {
 
         // update storage
         self.ops.removal.remove(&vkey);
-        tracing::debug!(
-            "writing to account {}, key: 0x{}",
-            self.index,
-            hex::encode(vkey)
-        );
         self.ops.set(vkey, value.clone());
         self.account
             .storage
