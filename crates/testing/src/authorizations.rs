@@ -1,8 +1,33 @@
-//! aa
+//! authorizations test
 
+use runtime::tx;
 use score::{extrinsic::ReportGuarantee, CoreIndex, OpaqueHash, State};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+
+// FIXME: the ordering of the authorization pools could be wrong in the test cases,
+// note that we follow the result in the tests of traces.
+//
+// include!(concat!(env!("OUT_DIR"), "/authorizations.rs"));
+
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+    let state: score::State = input.pre_state.clone().into();
+    let post: score::State = output.post_state.clone().into();
+
+    // Validate post state
+    let result = tx::guarantee::pools(
+        input.input.slot,
+        &state.pools,
+        &state.authorization,
+        &input.input.auths.into_iter().map(|a| a.into()).collect(),
+    );
+
+    assert_eq!(result, post.pools);
+    assert_eq!(state.authorization, post.authorization);
+    Ok(())
+}
 
 /// Test state for authorizations
 #[derive(Serialize, Deserialize, Json, Debug, Clone)]
@@ -61,8 +86,3 @@ pub struct TestOutput {
     #[json(nested)]
     pub post_state: TestState,
 }
-
-// FIXME: the ordering of the authorization pools could be wrong in the test cases,
-// note that we follow the result in the tests of traces.
-//
-// include!(concat!(env!("OUT_DIR"), "/authorizations.rs"));
