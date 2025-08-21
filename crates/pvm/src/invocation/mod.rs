@@ -126,7 +126,7 @@ pub trait Invocation {
     /// (ΨH): host call invocation
     ///
     /// Defined per graypaper (A.34)
-    fn call<R: Accounts, X: Argument>(
+    fn call<X: Argument>(
         // (c) The instruction data
         code: &[u8],
         // (ı) The current program counter
@@ -153,13 +153,13 @@ pub trait Invocation {
         };
 
         // FIXME: refactor with loop
-        let stepped = host::call::<R, _>(call, state, input);
+        let stepped = host::call(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
                 .stepped(Reason::Fault { page })
                 .with(stepped.data),
-            Reason::Continue | Reason::HostCall(_) => Self::call::<R, _>(
+            Reason::Continue | Reason::HostCall(_) => Self::call(
                 code,
                 stepped.state.pc as u64,
                 stepped.state.gas as u64,
@@ -174,7 +174,7 @@ pub trait Invocation {
     /// (ΨM): argument invocation
     ///
     /// Defined per graypaper (A.43)
-    fn argument<R: Accounts, X: Argument>(
+    fn argument<X: Argument>(
         // (p) The standard program blob
         blob: &[u8],
         // (ı) The current program counter
@@ -200,7 +200,7 @@ pub trait Invocation {
             }
         };
 
-        let mut stepped = Self::call::<R, _>(&code, pc, gas, registers, memory, data);
+        let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
         let mut output = vec![];
@@ -266,7 +266,7 @@ pub trait Invocation {
         // Prepare arguments
         let args = codec::encode(&core_idx).unwrap_or_default();
         let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
-        let result = Self::argument::<R, _>(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
+        let result = Self::argument(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
 
         // construct the result
         let gas = result.gas;
@@ -350,7 +350,7 @@ pub trait Invocation {
             exports: Vec::new(),
         };
 
-        let result = Self::argument::<R, _>(
+        let result = Self::argument(
             &code,
             0,
             item.refine_gas_limit,
@@ -394,7 +394,7 @@ pub trait Invocation {
 
         let accumulate = context.accumulate(timeslot, operands);
         let args = codec::encode(&params).expect("failed to encode");
-        let result = Self::argument::<R, _>(&code, 5, gas, &args, accumulate);
+        let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
@@ -443,7 +443,7 @@ pub trait Invocation {
         let updated_account = account.account();
         let general = General::new(service, accounts, Vec::new(), Default::default());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
-        let received = Self::argument::<R, _>(&code, 10, gas, &input, general);
+        let received = Self::argument(&code, 10, gas, &input, general);
         Transferred {
             account: updated_account,
             gas: received.gas,

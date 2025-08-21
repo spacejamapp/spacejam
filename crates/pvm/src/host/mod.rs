@@ -4,7 +4,6 @@ use crate::{
     invocation::{Argument, State, Stepped},
     Reason,
 };
-use score::Accounts;
 
 mod accumulate;
 mod general;
@@ -12,7 +11,7 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<R: Accounts, X: Argument>(call: u32, mut state: State, data: X) -> Stepped<X> {
+pub fn call<X: Argument>(call: u32, mut state: State, data: X) -> Stepped<X> {
     let mut data = data;
     tracing::debug!("calling host call {call}");
     let reason = match call {
