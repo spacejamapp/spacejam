@@ -42,6 +42,7 @@ network = { path = "crates/network", package = "spacejam-network" }
 offchain = { path = "crates/offchain", package = "spacejam-offchain" }
 pvm = { path = "crates/pvm", package = "pvm" }
 pvmi = { path = "crates/pvm/interpreter" }
+pvmc = { path = "crates/pvm/compiler" }
 pvm-parser = { path = "crates/pvm/parser" }
 pvm-testing = { path = "crates/pvm/testing" }
 translator = { path = "crates/pvm/cranelift", package = "cranelift-pvm" }

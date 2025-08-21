@@ -3711,7 +3711,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "pvm",
- "pvm-parser",
+ "pvmc",
  "pvmi",
  "quote",
  "serde",

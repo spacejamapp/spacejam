@@ -1,71 +1,65 @@
-//! PVM Compiler instruction tests
-//!
-//! Tests the PVM compiler (JIT) against the official JAM test vectors.
+//! PVM test vectors
 
-use anyhow::Result;
-use pvmc::Compiler;
+use pvm::Invocation;
 use serde::{Deserialize, Serialize};
-use specjam::Test;
-use tracing_subscriber::EnvFilter;
 
-/// Test runner for PVM compiler tests
-pub struct Runner;
+include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
 
-impl Runner {
-    /// Step a compiler test against the test vector
-    pub fn step(test: &Test) -> Result<()> {
-        let _ = tracing_subscriber::fmt::Subscriber::builder()
-            .with_env_filter(EnvFilter::from_default_env())
-            .without_time()
-            .with_ansi(false)
-            .with_thread_names(false)
-            .with_file(false)
-            // .with_level(false)
-            .with_target(false)
-            .try_init();
+/// Run the PVM test
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let input: TestInput = serde_json::from_str(&test.input)?;
+    let output: TestOutput = serde_json::from_str(&test.output)?;
+    let mut registers = [0; 13];
+    registers.copy_from_slice(&input.initial_regs);
 
-        let input: TestInput = serde_json::from_str(&test.input)?;
-        let output: TestOutput = serde_json::from_str(&test.output)?;
-        let mut initial_registers = [0u64; translator::PVM_REGISTER_COUNT];
-        initial_registers.copy_from_slice(&input.initial_regs);
+    // Initialize memory using the new unified parser::Memory
+    let mut memory = pvmi::Memory::default();
 
-        // Initialize memory from test input
-        let mut initial_memory = pvm::Memory::default();
-
-        // First, allocate pages with proper permissions
-        for page_info in &input.initial_page_map {
-            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
-            let page_data = vec![0u8; pvm::PAGE_SIZE as usize];
-            // Initially set all pages as writable for data initialization
-            initial_memory.memory.insert(page_num, (page_data, true));
-        }
-
-        // Then write initial memory data
-        for mem in &input.initial_memory {
-            initial_memory.write_bytes(mem.address, &mem.contents)?;
-        }
-
-        // Finally, set correct page permissions
-        for page_info in &input.initial_page_map {
-            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
-            if let Some((_page_data, writable)) = initial_memory.memory.get_mut(&page_num) {
-                *writable = page_info.is_writable;
-            }
-        }
-
-        let mut compiler = Compiler::new()?;
-        let module = compiler.compile(&input.program)?;
-        let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
-
-        assert_eq!(result.registers.len(), translator::PVM_REGISTER_COUNT);
-        assert_eq!(result.registers.to_vec(), output.expected_regs);
-        assert_eq!(result.pc, output.expected_pc as u64);
-
-        // Validate memory state using helper function
-        let final_memory_test = to_test_memory(&result.memory);
-        assert_eq!(final_memory_test, output.expected_memory);
-        Ok(())
+    // First allocate pages with proper permissions
+    for page in &input.initial_page_map {
+        let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+        // Insert page with correct permission from test input
+        memory.memory.insert(
+            page_num,
+            (vec![0u8; ::pvmi::PAGE_SIZE as usize], page.is_writable),
+        );
     }
+
+    // write initial memory data
+    for mem in &input.initial_memory {
+        let page_num = mem.address / ::pvmi::PAGE_SIZE as u32;
+        if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
+            memory.memory.insert(page_num, (data, true));
+        }
+        memory.write_bytes(mem.address, &mem.contents)?;
+    }
+
+    // restore original page permissions
+    for page in &input.initial_page_map {
+        let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+        if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
+            memory.memory.insert(page_num, (data, page.is_writable));
+        }
+    }
+
+    // run the program
+    let result = <pvmi::Interpreter as Invocation>::invoke(
+        &input.program,
+        input.initial_pc as u64,
+        input.initial_gas,
+        registers,
+        memory.clone(),
+    );
+
+    assert_eq!(result.reason.to_string(), output.expected_status);
+    assert_eq!(result.state.pc, output.expected_pc);
+    assert_eq!(result.state.registers.to_vec(), output.expected_regs);
+    assert_eq!(result.state.gas as u64, output.expected_gas);
+    assert_eq!(
+        crate::pvmi::to_test_memory(&result.state.memory),
+        output.expected_memory
+    );
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -119,7 +113,7 @@ pub struct Page {
 }
 
 // Convert from compiler memory to test vector memory format
-fn to_test_memory(memory: &pvm::Memory) -> Vec<Memory> {
+pub fn to_test_memory(memory: &pvm::Memory) -> Vec<Memory> {
     let mut result = Vec::new();
 
     for (&page_num, (page_data, _)) in &memory.memory {
@@ -161,6 +155,3 @@ fn to_test_memory(memory: &pvm::Memory) -> Vec<Memory> {
 
     result
 }
-
-// Include the generated tests
-include!(concat!(env!("OUT_DIR"), "/pvm_compiler_tests.rs"));

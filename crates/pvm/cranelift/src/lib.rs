@@ -4,12 +4,6 @@ pub use translator::{Block, Code, Translator};
 
 pub mod translator;
 
-/// PVM register count - fixed by the JAM specification
-pub const PVM_REGISTER_COUNT: usize = 13;
-
-/// Memory page size (4KB) - fixed by the JAM specification  
-pub const PAGE_SIZE: u32 = 4096;
-
 /// Page size as a power of 2 (2^12 = 4096)
 pub const PAGE_SHIFT: u8 = 12;
 
@@ -29,7 +23,7 @@ pub const EXTRA_PAGES_MARGIN: u32 = 64;
 pub const LINEAR_MEMORY_SIZE: usize = 0x100000;
 
 /// Maximum register index (0-12, so 12 is the maximum valid index)
-pub const MAX_REGISTER_INDEX: u8 = PVM_REGISTER_COUNT as u8 - 1;
+pub const MAX_REGISTER_INDEX: u8 = pvm::REGISTER_COUNT as u8 - 1;
 
 /// Execution result discriminant values
 pub mod result {
@@ -49,10 +43,8 @@ pub mod access {
 
 /// ExtendedContext memory layout offsets
 pub mod context_offsets {
-    use crate::PVM_REGISTER_COUNT;
-
     /// Size of register array in bytes
-    pub const REGISTERS_SIZE: usize = PVM_REGISTER_COUNT * 8;
+    pub const REGISTERS_SIZE: usize = pvm::REGISTER_COUNT * 8;
 
     /// Offset to PC field (after registers)
     pub const PC_OFFSET: usize = REGISTERS_SIZE;

@@ -2,14 +2,12 @@
 
 use crate::ExecResult;
 use anyhow::Result;
-use translator::{
-    access, BITS_PER_WORD, EXTRA_PAGES_MARGIN, LINEAR_MEMORY_SIZE, PAGE_SIZE, PVM_REGISTER_COUNT,
-};
+use translator::{access, BITS_PER_WORD, EXTRA_PAGES_MARGIN, LINEAR_MEMORY_SIZE};
 
 /// Runtime context for block execution
 #[derive(Debug, Clone)]
 pub struct Context {
-    pub registers: [u64; PVM_REGISTER_COUNT],
+    pub registers: [u64; pvm::REGISTER_COUNT],
     pub pc: u64,
     pub memory: pvm::Memory,
     pub linear_mem: Vec<u8>,
@@ -17,10 +15,10 @@ pub struct Context {
 
 impl Context {
     /// Create new context
-    pub fn new(regs: [u64; PVM_REGISTER_COUNT], pc: u64, mem: pvm::Memory) -> Self {
+    pub fn new(regs: [u64; pvm::REGISTER_COUNT], pc: u64, mem: pvm::Memory) -> Self {
         let mut linear_mem = vec![0u8; LINEAR_MEMORY_SIZE];
         for (&page_num, (page_data, _)) in &mem.memory {
-            let start = (page_num as usize) * (PAGE_SIZE as usize);
+            let start = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             let end = start + page_data.len();
             if end <= linear_mem.len() {
                 linear_mem[start..end].copy_from_slice(page_data);
@@ -90,7 +88,7 @@ impl Context {
     /// but was truncated due to page boundaries. For proper page fault detection,
     /// boundary checking should be implemented in the store visitor functions.
     pub fn sync(&mut self) -> Result<()> {
-        let page_size = PAGE_SIZE as usize;
+        let page_size = pvm::PAGE_SIZE as usize;
 
         // Check for any writes to unallocated pages
         for page_addr in (0..self.linear_mem.len()).step_by(page_size) {
@@ -133,7 +131,7 @@ impl Context {
 /// Extended context for compiled blocks
 #[repr(C)]
 pub struct ExtendedContext {
-    pub registers: [u64; PVM_REGISTER_COUNT],
+    pub registers: [u64; pvm::REGISTER_COUNT],
     pub pc: u64,
     pub memory_ptr: *mut u8,
     pub page_bitmap: *const u64, // Bitmap of allocated pages
