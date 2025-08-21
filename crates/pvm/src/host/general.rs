@@ -110,14 +110,12 @@ impl<R: Accounts> General<R> {
         let key = match state.memory.read_bytes(ko as u32, kz as u32) {
             Ok(bytes) => bytes,
             Err(err) => {
-                tracing::error!("Failed to read key bytes: {:?}", err);
-                return Ok(Exit::OOB as u64);
+                crate::bail!("Failed to read key bytes: {:?}", err);
             }
         };
 
         let Some(account) = self.account() else {
-            tracing::debug!("no account found");
-            return Ok(Exit::None as u64);
+            crate::bail!("no service account found");
         };
 
         // check if the account has enough balance to cover the threshold
@@ -142,8 +140,7 @@ impl<R: Accounts> General<R> {
             let value = match state.memory.read_bytes(vo as u32, vz as u32) {
                 Ok(bytes) => bytes,
                 Err(err) => {
-                    tracing::warn!("Failed to read value bytes: {:?}", err);
-                    return Ok(Exit::OOB as u64);
+                    crate::bail!("Failed to read value bytes: {:?}", err);
                 }
             };
 

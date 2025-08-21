@@ -131,7 +131,6 @@ fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
         if test.name.contains("report")
             || test.name.contains("1754982087_00000005")
             || test.name.contains("1755621252_00000009")
-            || test.name.contains("1755530535_00000011")
         {
             continue;
         }

@@ -248,7 +248,7 @@ impl<S: Storage> score::Account for Account<S> {
         tracing::debug!(
             "writing to account {}, key: 0x{}",
             self.index,
-            hex::encode(&vkey)
+            hex::encode(vkey)
         );
         self.ops.set(vkey, value.clone());
         self.account
@@ -275,7 +275,7 @@ impl<S: Storage> score::Account for Account<S> {
         tracing::debug!(
             "removing from account {}, key: 0x{}",
             self.index,
-            hex::encode(&vkey)
+            hex::encode(vkey)
         );
         self.account.storage.remove(vkey.as_slice());
         removed
