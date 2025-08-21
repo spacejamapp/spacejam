@@ -38,6 +38,17 @@ pub trait Argument {
         &[]
     }
 
+    /// Get the account or this
+    fn or_this(&mut self, account: u64) -> Result<&mut impl Account> {
+        let service = self.service() as u64;
+        let mut index = account;
+        if account == u64::MAX || account == service {
+            index = service;
+        }
+
+        self.account(index)
+    }
+
     /// Set the output hash
     fn output(&mut self, hash: OpaqueHash) {
         let _ = hash;

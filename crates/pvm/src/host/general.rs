@@ -14,7 +14,7 @@ pub fn gas(state: &mut State) -> Result<u64> {
 
 /// (ΩL) account lookup
 pub fn lookup(ctx: &mut impl Argument, state: &mut State) -> Result<u64> {
-    let Ok(account) = ctx.account(state.registers[7]) else {
+    let Ok(account) = ctx.or_this(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
 
@@ -48,7 +48,7 @@ pub fn lookup(ctx: &mut impl Argument, state: &mut State) -> Result<u64> {
 /// (ΩR) storage lookup
 pub fn read(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     // get the account
-    let Ok(account) = ctx.account(state.registers[7]) else {
+    let Ok(account) = ctx.or_this(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
 
