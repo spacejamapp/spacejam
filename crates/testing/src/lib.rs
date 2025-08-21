@@ -37,18 +37,18 @@ impl Runner {
             .try_init();
 
         match test.section {
-            Section::Accumulate => crate::accumulate::run(&test)?,
-            Section::Assurances => crate::assurances::run(&test)?,
-            Section::Authorizations => crate::authorizations::run(&test)?,
-            Section::Disputes => crate::disputes::run(&test)?,
-            Section::Erasure => crate::erasure::run(&test)?,
-            Section::History => crate::history::run(&test)?,
-            Section::Preimages => crate::preimage::run(&test)?,
-            Section::Reports => crate::reports::run(&test)?,
-            Section::Safrole => crate::safrole::run(&test)?,
-            Section::Statistics => crate::statistics::run(&test)?,
-            Section::Pvm => crate::pvm::run(&test)?,
-            Section::Trace(_) => crate::traces::run(&test)?,
+            Section::Accumulate => crate::accumulate::run(test)?,
+            Section::Assurances => crate::assurances::run(test)?,
+            Section::Authorizations => crate::authorizations::run(test)?,
+            Section::Disputes => crate::disputes::run(test)?,
+            Section::Erasure => crate::erasure::run(test)?,
+            Section::History => crate::history::run(test)?,
+            Section::Preimages => crate::preimage::run(test)?,
+            Section::Reports => crate::reports::run(test)?,
+            Section::Safrole => crate::safrole::run(test)?,
+            Section::Statistics => crate::statistics::run(test)?,
+            Section::Pvm => crate::pvm::run(test)?,
+            Section::Trace(_) => crate::traces::run(test)?,
             Section::Codec | Section::Shuffle | Section::Trie => {}
         }
 
