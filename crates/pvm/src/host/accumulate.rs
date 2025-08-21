@@ -250,7 +250,7 @@ pub fn transfer(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> 
 
     // drop the sender account to handle the dest account
     let _ = sender;
-    let dest = ctx.account(dest as u64)?;
+    let dest = ctx.account(dest)?;
 
     // check if the destination has enough transfer gas
     if dest.transfer_gas() < limit {
