@@ -10,7 +10,7 @@ use std::{
 use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
-    println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
+    // println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.6.7/traces");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
@@ -77,14 +77,20 @@ fn main() -> Result<()> {
         registry.trace(Trace::StorageLight)?,
         &out_dir.join("traces_storage_light.rs"),
     )?;
-
     build_tests(
         registry.trace(Trace::Fuzz)?,
         &out_dir.join("traces_local_fuzz.rs"),
     )?;
+
+    // fuzz tests
     build_fuzz_tests(
-        Entry::fuzz("../../res/jam-conformance")?,
+        "../../res/jam-conformance/fuzz-reports/0.6.7/traces",
         &out_dir.join("traces_fuzz.rs"),
+    )?;
+
+    build_fuzz_tests(
+        "../../res/jam-conformance/fuzz-reports/0.6.7/traces/TESTING",
+        &out_dir.join("traces_fuzz_testing.rs"),
     )?;
 
     Ok(())
@@ -117,13 +123,14 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
 }
 
 /// Builds the fuzz tests
-fn build_fuzz_tests(entry: Entry, out: &Path) -> Result<()> {
+fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
+    let entry = Entry::fuzz(path)?;
     let mut tests: Vec<ItemFn> = Vec::new();
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
         if test.name.contains("report")
             || test.name.contains("1754982087_00000005")
-            || test.name.contains("1755530300_00000005")
+            || test.name.contains("1755621252_00000009")
         {
             continue;
         }
@@ -133,7 +140,7 @@ fn build_fuzz_tests(entry: Entry, out: &Path) -> Result<()> {
         tests.push(parse_quote! {
             #[test]
             fn #test_name() {
-                let test = specjam::Entry::fuzz("../../res/jam-conformance").unwrap().get(#i).unwrap();
+                let test = specjam::Entry::fuzz(#path).unwrap().get(#i).unwrap();
                 crate::Runner::step(&test).expect("failed to run test");
             }
         });

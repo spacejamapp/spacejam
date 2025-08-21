@@ -2,16 +2,7 @@
 
 #![allow(unused_imports)]
 
-pub use runner::Runner;
 pub use specjam::{Entry, Scale, Section, Test, Trace};
-use tracing_subscriber::EnvFilter;
-
-/// Initialize tracing subscriber
-pub fn init_tracing() {
-    tracing_subscriber::fmt::Subscriber::builder()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-}
 
 pub mod accumulate;
 pub mod assurances;
@@ -23,9 +14,44 @@ pub mod history;
 pub mod preimage;
 pub mod pvm;
 pub mod reports;
-pub mod runner;
 pub mod safrole;
 pub mod shuffle;
 pub mod statistics;
 pub mod traces;
 pub mod trie;
+
+/// The `Runner` struct which is used to run the tests.
+pub struct Runner;
+
+impl Runner {
+    /// Step a test.
+    pub fn step(test: &Test) -> anyhow::Result<()> {
+        let _ = tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .without_time()
+            .with_ansi(false)
+            .with_thread_names(false)
+            .with_file(false)
+            // .with_level(false)
+            .with_target(false)
+            .try_init();
+
+        match test.section {
+            Section::Accumulate => crate::accumulate::run(test)?,
+            Section::Assurances => crate::assurances::run(test)?,
+            Section::Authorizations => crate::authorizations::run(test)?,
+            Section::Disputes => crate::disputes::run(test)?,
+            Section::Erasure => crate::erasure::run(test)?,
+            Section::History => crate::history::run(test)?,
+            Section::Preimages => crate::preimage::run(test)?,
+            Section::Reports => crate::reports::run(test)?,
+            Section::Safrole => crate::safrole::run(test)?,
+            Section::Statistics => crate::statistics::run(test)?,
+            Section::Pvm => crate::pvm::run(test)?,
+            Section::Trace(_) => crate::traces::run(test)?,
+            Section::Codec | Section::Shuffle | Section::Trie => {}
+        }
+
+        Ok(())
+    }
+}

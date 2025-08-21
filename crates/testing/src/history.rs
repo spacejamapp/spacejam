@@ -1,3 +1,6 @@
+//! history test
+
+use anyhow::Result;
 use score::{
     block::{History, HistoryJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
@@ -5,6 +8,23 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
+
+include!(concat!(env!("OUT_DIR"), "/history.rs"));
+
+/// Run the history test
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+    let mut history = input.pre_state.beta.clone();
+    history.complete_state_root(input.input.parent_state_root)?;
+    history.import(
+        input.input.header_hash,
+        input.input.accumulate_root,
+        input.input.work_packages.clone(),
+    );
+    assert_eq!(output.post_state.beta, history);
+    Ok(())
+}
 
 #[derive(Serialize, Deserialize, Json, Debug)]
 pub struct Input {
@@ -41,5 +61,3 @@ pub struct TestOutput {
     #[json(nested)]
     pub post_state: State,
 }
-
-include!(concat!(env!("OUT_DIR"), "/history.rs"));

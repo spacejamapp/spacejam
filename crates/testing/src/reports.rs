@@ -1,6 +1,9 @@
 //! Report testing types
 
-use runtime::tx::guarantee::error::{Error, Result};
+use runtime::tx::{
+    self,
+    guarantee::error::{Error, Result},
+};
 use score::{
     block::{History, HistoryJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
@@ -10,6 +13,45 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 pub use types::*;
+
+include!(concat!(env!("OUT_DIR"), "/reports.rs"));
+
+/// Run the reports test
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let TestInput { input, pre_state } = TestInput::from_json(&test.input)?;
+    let TestOutput { output, post_state } = TestOutput::from_json(&test.output)?;
+
+    assert_eq!(pre_state.curr_validators, post_state.curr_validators);
+    assert_eq!(pre_state.prev_validators, post_state.prev_validators);
+    assert_eq!(pre_state.entropy, post_state.entropy);
+    assert_eq!(pre_state.offenders, post_state.offenders);
+    assert_eq!(pre_state.auth_pools, post_state.auth_pools);
+    assert_eq!(pre_state.services, post_state.services);
+
+    // Validate the output
+    let state: score::State = pre_state.clone().into();
+    let result =
+        tx::guarantee::reports(input.slot, &pre_state.avail_assignments, &input.guarantees)
+            .and_then(|assignments| {
+                tx::guarantee::report(&state, input.slot, &state.accounts, &input.guarantees)
+                    .map(|(reported, reporters)| (reported, reporters, assignments))
+            });
+
+    assert_eq!(
+        result.clone().map(|(reported, reporters, _)| Output {
+            reported,
+            reporters,
+        }),
+        output
+    );
+
+    if let Ok((_, _, assignments)) = result {
+        assert_eq!(assignments, post_state.avail_assignments);
+    } else {
+        assert_eq!(pre_state, post_state);
+    }
+    Ok(())
+}
 
 /// Test input.
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
@@ -56,8 +98,6 @@ pub struct Output {
     #[json(Vec<String>)]
     pub reporters: Vec<Ed25519Public>,
 }
-
-include!(concat!(env!("OUT_DIR"), "/reports.rs"));
 
 mod types {
     use score::{

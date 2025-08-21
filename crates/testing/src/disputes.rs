@@ -1,5 +1,7 @@
+//! disputes test
+
 use core::result::Result;
-use runtime::tx::dispute::error::Error;
+use runtime::tx::{self, dispute::error::Error};
 use score::{
     extrinsic::dispute::{
         DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
@@ -10,6 +12,35 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
+
+include!(concat!(env!("OUT_DIR"), "/disputes.rs"));
+
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let mut input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+    let result = tx::dispute::disputes(
+        input.pre_state.tau,
+        &input.pre_state.kappa,
+        &input.pre_state.lambda,
+        &input.pre_state.psi,
+        &input.input.disputes,
+    );
+
+    // check offenders mark
+    assert_eq!(
+        result.clone().map(|(_, mark)| mark.offenders),
+        output.output.map(|v| { v.offenders_mark })
+    );
+
+    if let Ok((psi, records)) = result {
+        input.pre_state.psi = psi;
+        input.pre_state.rho = tx::dispute::reports(&records, &input.pre_state.rho);
+    }
+
+    // check post state
+    assert_eq!(input.pre_state, output.post_state);
+    Ok(())
+}
 
 #[derive(Debug, Json, Serialize, Deserialize, Clone)]
 pub struct Disputes {
@@ -59,5 +90,3 @@ pub struct State {
     #[json(Vec<ValidatorDataJson>)]
     pub lambda: ValidatorsData,
 }
-
-include!(concat!(env!("OUT_DIR"), "/disputes.rs"));
