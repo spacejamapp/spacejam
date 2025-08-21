@@ -1,8 +1,7 @@
 //! General host functions
 
-use score::{vm::Operand, Account, Accounts, Entropy, ServiceId};
-
 use crate::Argument;
+use score::{vm::Operand, Account, Accounts, Entropy, ServiceId};
 
 /// Input data of general host functions
 #[derive(Debug, Clone)]
