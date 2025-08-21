@@ -28,7 +28,7 @@ pub struct Refine<R: Accounts> {
 }
 
 impl<R: Accounts> Argument for Refine<R> {
-    const SUPPORTED_CALLS: &[u32] = &[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+    const SUPPORTED_CALLS: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100];
 
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.accounts

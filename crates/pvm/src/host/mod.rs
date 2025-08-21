@@ -11,8 +11,13 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument>(call: u32, mut state: State, data: X) -> Stepped<X> {
-    let mut data = data;
+pub fn call<X: Argument>(call: u32, mut state: State, mut data: X) -> Stepped<X> {
+    if !X::SUPPORTED_CALLS.contains(&call) {
+        tracing::error!("unsupported host call: {}", call);
+        state.registers[7] = Exit::What as u64;
+        return Stepped::new(Reason::Continue, state).with(data);
+    }
+
     tracing::debug!("calling host call {call}");
     let reason = match call {
         0 => general::gas(&mut state),

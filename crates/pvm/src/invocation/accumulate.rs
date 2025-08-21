@@ -38,7 +38,9 @@ impl<R: Accounts> Accumulate<R> {
 }
 
 impl<R: Accounts> Argument for Accumulate<R> {
-    const SUPPORTED_CALLS: &[u32] = &[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+    const SUPPORTED_CALLS: &[u32] = &[
+        0, 1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 100,
+    ];
 
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.x
