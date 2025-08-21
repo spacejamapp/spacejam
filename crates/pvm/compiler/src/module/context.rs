@@ -23,7 +23,7 @@ impl Context {
             let start = (page_num as usize) * (PAGE_SIZE as usize);
             let end = start + page_data.len();
             if end <= linear_mem.len() {
-                linear_mem[start..end].copy_from_slice(&page_data);
+                linear_mem[start..end].copy_from_slice(page_data);
             }
         }
 

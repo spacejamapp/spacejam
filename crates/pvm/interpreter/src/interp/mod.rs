@@ -10,7 +10,6 @@ use crate::{Error, Memory, Register};
 use pvm::Reason;
 
 mod builder;
-mod legacy;
 mod register;
 mod visitor;
 

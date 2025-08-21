@@ -1,5 +1,5 @@
-use pvmc::Compiler;
 use parser::Memory;
+use pvmc::Compiler;
 
 /// Test program from jam-test-vectors/pvm/programs/inst_load_imm.json
 const LOAD_IMM_PROGRAM: &[u8] = &[0, 0, 10, 20, 7, 239, 190, 173, 222, 0, 0, 0, 0, 1, 0];

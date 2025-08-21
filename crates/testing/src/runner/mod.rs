@@ -346,26 +346,7 @@ impl Runner {
                     }
                 }
 
-                // Initialize interpreter
-                let mut interpreter = pvmi::Interpreter::default()
-                    .gas(input.initial_gas)
-                    .registers(registers)
-                    .memory(memory.clone())
-                    .pc(input.initial_pc as usize);
-
-                interpreter
-                    .interp(&input.program)
-                    .expect("failed to run program");
-
-                let expected_memory = crate::pvm::to_test_memory(&interpreter.memory);
-
-                assert_eq!(interpreter.pc, output.expected_pc);
-                assert_eq!(interpreter.reason.to_string(), output.expected_status);
-                assert_eq!(interpreter.registers.to_vec(), output.expected_regs);
-                assert_eq!(interpreter.gas, output.expected_gas);
-                assert_eq!(expected_memory, output.expected_memory);
-
-                // test with the new interface
+                // run the program
                 let result = <pvmi::Interpreter as Invocation>::invoke(
                     &input.program,
                     input.initial_pc as u64,
