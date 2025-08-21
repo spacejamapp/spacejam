@@ -1,9 +1,54 @@
 //! This module contains the tests for the assurance module.
 
-use runtime::tx::assurance::{Error, Result};
+use runtime::tx::{
+    self,
+    assurance::{Error, Result},
+};
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 use types::*;
+
+include!(concat!(env!("OUT_DIR"), "/assurances.rs"));
+
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let mut input = TestInput::from_json(&test.input)?;
+    let TestOutput { output, post_state } = TestOutput::from_json(&test.output)?;
+
+    assert_eq!(input.pre_state.curr_validators, post_state.curr_validators);
+
+    // validate output
+    let result = tx::assurance::available(
+        &input.pre_state.avail_assignments,
+        &input.pre_state.curr_validators,
+        input.input.slot,
+        input.input.parent,
+        &input.input.assurances,
+    );
+    assert_eq!(result.clone().map(|(a, _)| a), output.map(|s| s.reported));
+
+    // validate post state
+    if let Ok((available, _)) = result {
+        let mut assignments = tx::assurance::reports(
+            input.input.slot,
+            &available,
+            input.pre_state.avail_assignments,
+        );
+
+        // remove the available work reports from the assignments
+        // to get the mark for testing.
+        for work in available {
+            assignments[work.core_index as usize] = None;
+        }
+        input.pre_state.avail_assignments = assignments;
+    }
+
+    assert_eq!(
+        input.pre_state.avail_assignments,
+        post_state.avail_assignments,
+    );
+
+    Ok(())
+}
 
 /// Test input for assurances
 #[derive(Debug, Json, Serialize, Deserialize)]
@@ -26,8 +71,6 @@ pub struct TestOutput {
     #[json(nested)]
     pub post_state: State,
 }
-
-include!(concat!(env!("OUT_DIR"), "/assurances.rs"));
 
 mod types {
     use score::{

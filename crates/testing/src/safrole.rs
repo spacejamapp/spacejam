@@ -13,6 +13,23 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 
+include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
+
+/// Run the safrole test
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let mut input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+    let result = input.pre_state.enact(&input.input);
+
+    assert_eq!(result, output.output);
+    assert_eq!(output.post_state.gamma_a, input.pre_state.gamma_a);
+    assert_eq!(output.post_state.gamma_k, input.pre_state.gamma_k);
+    assert_eq!(output.post_state.gamma_s, input.pre_state.gamma_s);
+    assert_eq!(output.post_state.gamma_z, input.pre_state.gamma_z);
+    assert_eq!(output.post_state, input.pre_state);
+    Ok(())
+}
+
 /// Test input.
 #[derive(Deserialize, Serialize, Json, Debug)]
 pub struct Input {
@@ -40,8 +57,6 @@ pub struct TestOutput {
     #[json(nested)]
     pub post_state: State,
 }
-
-include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
 /// Represents the Output marks
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]

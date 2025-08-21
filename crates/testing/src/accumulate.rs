@@ -1,5 +1,8 @@
 //! Accumulate tests
 
+use anyhow::Result;
+use pvmi::Interpreter;
+use runtime::tx;
 use score::{
     service::{WorkReport, WorkReportJson},
     OpaqueHash, TimeSlot,
@@ -7,6 +10,48 @@ use score::{
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
 pub use types::*;
+
+include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
+
+/// Run the accumulate test
+pub fn run(test: &specjam::Test) -> Result<()> {
+    let input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+    let accounts = input.pre_state.accounts();
+
+    // run the accumulate function
+    let mut accumulation = tx::guarantee::accumulate::<Interpreter, _>(
+        input.input.slot,
+        input.pre_state.slot,
+        input.input.reports,
+        &input.pre_state.ready_queue,
+        &input.pre_state.accumulated,
+        &input.pre_state.privileges.into(),
+        &Default::default(),
+        accounts.clone(),
+        Default::default(),
+    )?;
+    accumulation.root = Default::default();
+
+    // convert the accounts to the service items
+    let accounts = self::to_accounts(&accumulation);
+    // assert_eq!(accumulation.records, output.post_state.statistics());
+    assert_eq!(accumulation.root, output.output.unwrap());
+    assert_eq!(
+        accumulation.accumulated_queue,
+        output.post_state.accumulated
+    );
+    assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
+    for (idx, account) in accounts.iter().enumerate() {
+        assert_eq!(
+            account.data.service.total,
+            output.post_state.accounts[idx].data.service.total
+        );
+    }
+    assert_eq!(accounts, output.post_state.haccounts());
+    assert_eq!(accumulation.privileges, output.post_state.privileges.into());
+    Ok(())
+}
 
 /// Accumulate test
 #[derive(Debug, Serialize, Deserialize, Json)]
@@ -54,8 +99,6 @@ pub struct TestOutput {
     #[json(ResultJson<String, ()>)]
     pub output: Result<OpaqueHash, ()>,
 }
-
-include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
 
 mod types {
     use crate::reports::{ServiceItem, ServiceItemJson};

@@ -98,6 +98,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         validators: accumulated.context.validators,
         records,
         transfers,
+        logs: accumulated.pairings,
     })
 }
 

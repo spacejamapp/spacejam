@@ -198,6 +198,9 @@ pub struct Accumulation<R: Accounts> {
 
     /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
     pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
+
+    /// (θ) The accumulation logs
+    pub logs: CommitmentMap,
 }
 
 /// The accumulate params for the accumulation

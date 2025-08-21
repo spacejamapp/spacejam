@@ -1,10 +1,38 @@
 //! Preimage tests
 
-use score::service::ServiceAccount;
+use runtime::tx;
+use score::{service::ServiceAccount, Account, Accounts};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 use types::*;
+
+// FIXME: skipping the preimage tests since it's currently outdated.
+//
+// include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
+
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let input = TestInput::from_json(&test.input)?;
+    let output = TestOutput::from_json(&test.output)?;
+
+    // Validate post state
+    let accounts = to_accounts(input.pre_state.accounts.clone());
+    let result = tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
+    if let Ok(accounts) = result {
+        assert_eq!(
+            accounts
+                .accounts()
+                .iter()
+                .map(|(id, account)| (*id, account.account()))
+                .collect::<BTreeMap<_, _>>(),
+            self::to_accounts(output.post_state.accounts)
+        );
+    } else {
+        assert_eq!(input.pre_state, output.post_state);
+    }
+
+    Ok(())
+}
 
 /// Test input.
 #[derive(Debug, Serialize, Deserialize, Json)]
@@ -40,10 +68,6 @@ pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
     }
     accounts
 }
-
-// FIXME: skipping the preimage tests since it's currently outdated.
-//
-// include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 // TODO: clean types later
 mod types {

@@ -1,6 +1,66 @@
 //! PVM test vectors
 
+use pvm::Invocation;
 use serde::{Deserialize, Serialize};
+
+include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
+
+/// Run the PVM test
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    let input: TestInput = serde_json::from_str(&test.input)?;
+    let output: TestOutput = serde_json::from_str(&test.output)?;
+    let mut registers = [0; 13];
+    registers.copy_from_slice(&input.initial_regs);
+
+    // Initialize memory using the new unified parser::Memory
+    let mut memory = pvmi::Memory::default();
+
+    // First allocate pages with proper permissions
+    for page in &input.initial_page_map {
+        let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+        // Insert page with correct permission from test input
+        memory.memory.insert(
+            page_num,
+            (vec![0u8; ::pvmi::PAGE_SIZE as usize], page.is_writable),
+        );
+    }
+
+    // write initial memory data
+    for mem in &input.initial_memory {
+        let page_num = mem.address / ::pvmi::PAGE_SIZE as u32;
+        if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
+            memory.memory.insert(page_num, (data, true));
+        }
+        memory.write_bytes(mem.address, &mem.contents)?;
+    }
+
+    // restore original page permissions
+    for page in &input.initial_page_map {
+        let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+        if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
+            memory.memory.insert(page_num, (data, page.is_writable));
+        }
+    }
+
+    // run the program
+    let result = <pvmi::Interpreter as Invocation>::invoke(
+        &input.program,
+        input.initial_pc as u64,
+        input.initial_gas,
+        registers,
+        memory.clone(),
+    );
+
+    assert_eq!(result.reason.to_string(), output.expected_status);
+    assert_eq!(result.state.pc, output.expected_pc);
+    assert_eq!(result.state.registers.to_vec(), output.expected_regs);
+    assert_eq!(result.state.gas as u64, output.expected_gas);
+    assert_eq!(
+        crate::pvm::to_test_memory(&result.state.memory),
+        output.expected_memory
+    );
+    Ok(())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Memory {
@@ -113,5 +173,3 @@ pub fn to_test_memory(memory: &pvmi::Memory) -> Vec<Memory> {
     result.sort_by_key(|m| m.address);
     result
 }
-
-include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
