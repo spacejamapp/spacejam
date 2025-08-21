@@ -1,6 +1,6 @@
 //! PolkaVM implementation
 
-pub use parser::Memory;
+pub use parser::{Memory, PAGE_SIZE};
 pub use score::{Account, Accounts, Gas};
 pub use {
     invocation::{

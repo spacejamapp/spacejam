@@ -30,12 +30,12 @@ impl Runner {
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
-        let mut initial_memory = parser::Memory::default();
+        let mut initial_memory = pvm::Memory::default();
 
         // First, allocate pages with proper permissions
         for page_info in &input.initial_page_map {
-            let page_num = page_info.address / parser::PAGE_SIZE as u32;
-            let page_data = vec![0u8; parser::PAGE_SIZE as usize];
+            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
+            let page_data = vec![0u8; pvm::PAGE_SIZE as usize];
             // Initially set all pages as writable for data initialization
             initial_memory.memory.insert(page_num, (page_data, true));
         }
@@ -47,7 +47,7 @@ impl Runner {
 
         // Finally, set correct page permissions
         for page_info in &input.initial_page_map {
-            let page_num = page_info.address / parser::PAGE_SIZE as u32;
+            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
             if let Some((_page_data, writable)) = initial_memory.memory.get_mut(&page_num) {
                 *writable = page_info.is_writable;
             }
@@ -119,11 +119,11 @@ pub struct Page {
 }
 
 // Convert from compiler memory to test vector memory format
-fn to_test_memory(memory: &parser::Memory) -> Vec<Memory> {
+fn to_test_memory(memory: &pvm::Memory) -> Vec<Memory> {
     let mut result = Vec::new();
 
     for (&page_num, (page_data, _)) in &memory.memory {
-        let base_address = page_num * parser::PAGE_SIZE as u32;
+        let base_address = page_num * pvm::PAGE_SIZE as u32;
         let mut current_addr = None;
         let mut data = Vec::new();
 

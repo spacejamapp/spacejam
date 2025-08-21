@@ -1,4 +1,4 @@
-use parser::Memory;
+use pvm::Memory;
 use pvmc::Compiler;
 
 /// Test program from jam-test-vectors/pvm/programs/inst_load_imm.json

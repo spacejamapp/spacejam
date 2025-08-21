@@ -56,14 +56,14 @@ pub struct General<R: Accounts> {
     /// (d) Account dictionary
     pub accounts: R,
 
-    // if the account got updated.
-    pub updated: bool,
-
     /// (o) The operands
     pub operands: Vec<Operand>,
 
     /// (η) The entropy
     pub entropy: Entropy,
+
+    // if the account got updated.
+    pub updated: bool,
 }
 
 impl<R: Accounts> General<R> {
@@ -72,9 +72,9 @@ impl<R: Accounts> General<R> {
         Self {
             index,
             accounts,
-            updated: false,
             operands,
             entropy,
+            updated: false,
         }
     }
 
