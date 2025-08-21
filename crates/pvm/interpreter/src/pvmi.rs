@@ -1,7 +1,7 @@
 //! PVM interface implementation
 
 use crate::Interpreter;
-use parser::{reader::Offset, Instruction, Reader, Visitor};
+use parser::Reader;
 use pvm::{Gas, Invocation, Reason, State, Stepped};
 
 impl Invocation for Interpreter {
@@ -24,17 +24,15 @@ impl Invocation for Interpreter {
         memory: parser::Memory,
     ) -> Stepped<()> {
         let pc = pc as usize;
-        let mut pvmi = Interpreter {
-            state: State {
+        let mut pvmi = Interpreter::new(
+            State {
                 pc,
                 gas: gas as i64,
                 registers,
                 memory,
             },
-            reason: Reason::Continue,
-            table: jump.to_vec(),
-            jump: None,
-        };
+            jump.to_vec(),
+        );
 
         // check if the program counter is out of bounds
         if pvmi.state.pc == instructions.len() {
@@ -44,7 +42,7 @@ impl Invocation for Interpreter {
                 Reason::Panic("end of program".to_string())
             };
 
-            return Stepped::new(reason, pvmi.into());
+            return Stepped::new(reason, pvmi.state);
         }
 
         // read the instruction
@@ -54,25 +52,18 @@ impl Invocation for Interpreter {
             Err(e) => {
                 tracing::error!("invalid instruction: {}", e);
                 if pvmi.burn(1).is_err() {
-                    return Stepped::new(Reason::OOG, pvmi.into());
+                    return Stepped::new(Reason::OOG, pvmi.state);
                 }
 
-                return Stepped::new(Reason::Panic(e.to_string()), pvmi.into());
+                return Stepped::new(Reason::Panic(e.to_string()), pvmi.state);
             }
         };
 
         // process the block sequence of instructions
-        /* tracing::trace!("Compiling block:");
-        tracing::trace!(
-            "charge_gas: {} ({} -> {})",
-            block.len(),
-            pvmi.gas,
-            pvmi.gas - block.len() as u64,
-        ); */
         let mut reason = Reason::Continue;
         for instr in block {
             let next = instr.range.end;
-            reason = pvmi.step_single(&instr);
+            reason = pvmi.step(&instr);
             tracing::trace!(
                 "pos={:<6} {:<20} gas={:<6} regs={:?}",
                 instr.range.start,
@@ -96,58 +87,6 @@ impl Invocation for Interpreter {
             }
         }
 
-        Stepped::new(reason, pvmi.into())
-    }
-}
-
-impl Interpreter {
-    /// Step a single instruction.
-    fn step_single(&mut self, instr: &Offset<Instruction>) -> Reason {
-        // check if the gas has been exhausted
-        if self.burn(1).is_err() {
-            return Reason::OOG;
-        }
-
-        // charge extra gas for host calls based on the specification
-        let extra_gas = match instr.value {
-            Instruction::Ecalli(call_format) => {
-                let call_number = call_format.imm0 as u32;
-                match call_number {
-                    // transfer: Gas cost is 10 + ω₉ (10 + register 9 value)
-                    11 => 10 + self.rget(9),
-                    // log: Gas cost is 0 as defined in JIP-1
-                    100 => 0,
-                    // All other host calls: Gas cost is 10
-                    _ => 10,
-                }
-            }
-            _ => 0,
-        };
-        if extra_gas > 0 && self.burn(extra_gas).is_err() {
-            return Reason::OOG;
-        }
-
-        // step the instruction
-        let stepped = self.visit(instr.value, &instr.range);
-        if let Err(e) = stepped {
-            if self.burn(e.extra_gas()).is_err() {
-                return Reason::OOG;
-            }
-
-            e.into()
-        } else {
-            Reason::Continue
-        }
-    }
-}
-
-impl From<Interpreter> for pvm::State {
-    fn from(interp: Interpreter) -> Self {
-        pvm::State {
-            memory: interp.state.memory,
-            registers: interp.state.registers,
-            gas: interp.state.gas,
-            pc: interp.state.pc,
-        }
+        Stepped::new(reason, pvmi.state)
     }
 }

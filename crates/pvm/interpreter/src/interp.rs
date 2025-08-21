@@ -1,6 +1,7 @@
 //! PolkaVM program interpreter
 
 use crate::Error;
+use parser::{reader::Offset, Instruction, Visitor};
 use pvm::{Reason, State};
 
 /// The interpreter for the polkavm program.
@@ -23,6 +24,54 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
+    /// Create a new interpreter.
+    pub fn new(state: State, table: Vec<u64>) -> Self {
+        Self {
+            state,
+            reason: Reason::Continue,
+            table,
+            jump: None,
+        }
+    }
+
+    /// Step a single instruction.
+    pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
+        if self.burn(1).is_err() {
+            return Reason::OOG;
+        }
+
+        // charge extra gas for host calls based on the specification
+        let extra_gas = match instr.value {
+            Instruction::Ecalli(call_format) => {
+                let call_number = call_format.imm0 as u32;
+                match call_number {
+                    // transfer: Gas cost is 10 + ω₉ (10 + register 9 value)
+                    11 => 10 + self.rget(9),
+                    // log: Gas cost is 0 as defined in JIP-1
+                    100 => 0,
+                    // All other host calls: Gas cost is 10
+                    _ => 10,
+                }
+            }
+            _ => 0,
+        };
+        if extra_gas > 0 && self.burn(extra_gas).is_err() {
+            return Reason::OOG;
+        }
+
+        // step the instruction
+        let stepped = self.visit(instr.value, &instr.range);
+        if let Err(e) = stepped {
+            if self.burn(e.extra_gas()).is_err() {
+                return Reason::OOG;
+            }
+
+            e.into()
+        } else {
+            Reason::Continue
+        }
+    }
+
     /// Read a value from memory
     pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
         let bytes = self
