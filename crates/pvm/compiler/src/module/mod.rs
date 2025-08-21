@@ -5,12 +5,10 @@ use cranelift_codegen::CompiledCode;
 pub use {
     context::{Context, ExtendedContext},
     info::{ExecResult, Info},
-    memory::{Memory, Page},
 };
 
 mod context;
 mod info;
-pub mod memory;
 
 /// Module with compiled code
 #[derive(Debug, Clone)]
@@ -35,7 +33,7 @@ impl Module {
         &self,
         initial_registers: &[u64; translator::PVM_REGISTER_COUNT],
         initial_pc: u64,
-        initial_memory: Memory,
+        initial_memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = Context::new(*initial_registers, initial_pc, initial_memory);
         self.run(&mut context)?;

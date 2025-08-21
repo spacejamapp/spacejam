@@ -3,10 +3,7 @@
 //! Tests the PVM compiler (JIT) against the official JAM test vectors.
 
 use anyhow::Result;
-use pvmc::{
-    module::{Memory as CompilerMemory, Page as CompilerPage},
-    Compiler,
-};
+use pvmc::Compiler;
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 use tracing_subscriber::EnvFilter;
@@ -33,12 +30,14 @@ impl Runner {
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
-        let mut initial_memory = CompilerMemory::default();
+        let mut initial_memory = parser::Memory::default();
 
-        // First, allocate pages as mutable (to allow initial data writes)
+        // First, allocate pages with proper permissions
         for page_info in &input.initial_page_map {
-            let page_num = page_info.address / 4096; // PAGE_SIZE
-            initial_memory.pages.insert(page_num, CompilerPage::new(0)); // 0=Mutable for initial setup
+            let page_num = page_info.address / parser::PAGE_SIZE as u32;
+            let page_data = vec![0u8; parser::PAGE_SIZE as usize];
+            // Initially set all pages as writable for data initialization
+            initial_memory.memory.insert(page_num, (page_data, true));
         }
 
         // Then write initial memory data
@@ -48,10 +47,9 @@ impl Runner {
 
         // Finally, set correct page permissions
         for page_info in &input.initial_page_map {
-            let page_num = page_info.address / 4096; // PAGE_SIZE
-            let access = if page_info.is_writable { 0 } else { 1 }; // 0=Mutable, 1=Immutable
-            if let Some(page) = initial_memory.pages.get_mut(&page_num) {
-                page.access = access;
+            let page_num = page_info.address / parser::PAGE_SIZE as u32;
+            if let Some((_page_data, writable)) = initial_memory.memory.get_mut(&page_num) {
+                *writable = page_info.is_writable;
             }
         }
 
@@ -121,16 +119,16 @@ pub struct Page {
 }
 
 // Convert from compiler memory to test vector memory format
-fn to_test_memory(compiler_memory: &CompilerMemory) -> Vec<Memory> {
+fn to_test_memory(memory: &parser::Memory) -> Vec<Memory> {
     let mut result = Vec::new();
 
-    for (&page_num, page) in &compiler_memory.pages {
-        let base_address = page_num * 4096; // PAGE_SIZE
+    for (&page_num, (page_data, _)) in &memory.memory {
+        let base_address = page_num * parser::PAGE_SIZE as u32;
         let mut current_addr = None;
         let mut data = Vec::new();
 
         // Find non-zero data segments in the page
-        for (offset, &byte) in page.data.iter().enumerate() {
+        for (offset, &byte) in page_data.iter().enumerate() {
             if byte == 0 {
                 if !data.is_empty() {
                     if let Some(addr) = current_addr {

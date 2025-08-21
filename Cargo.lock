@@ -2811,6 +2811,8 @@ dependencies = [
  "cranelift-pvm",
  "libc",
  "proc-macro2",
+ "pvm",
+ "pvm-parser",
  "quote",
  "serde",
  "serde_json",
