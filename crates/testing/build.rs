@@ -10,7 +10,7 @@ use std::{
 use syn::{parse_quote, Ident, ItemFn};
 
 fn main() -> Result<()> {
-    // println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
+    println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.6.7/traces");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);

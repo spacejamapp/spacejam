@@ -1,11 +1,8 @@
 //! Memory related operations
 
 use crate::{
-    constants::{
-        access, context_offsets, BITS_PER_WORD, BITS_PER_WORD_SHIFT, BYTES_PER_U64_SHIFT,
-        PAGE_SHIFT,
-    },
-    Translator,
+    access, context_offsets, Translator, BITS_PER_WORD, BITS_PER_WORD_SHIFT, BYTES_PER_U64_SHIFT,
+    PAGE_SHIFT,
 };
 use anyhow::Result;
 use cranelift::prelude::*;

@@ -1,6 +1,5 @@
 //! Translator module that converts PVM instructions to Cranelift IR
 
-use crate::constants::PVM_REGISTER_COUNT;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
@@ -46,7 +45,7 @@ impl<'b> Translator<'b> {
         // Declare all PVM registers as Cranelift variables
         // PVM has registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
         let mut registers = HashMap::new();
-        for i in 0..PVM_REGISTER_COUNT {
+        for i in 0..pvm::REGISTER_COUNT {
             let var = Variable::new(i);
             builder.declare_var(var, types::I64);
             registers.insert(i as u8, var);

@@ -1,6 +1,6 @@
 //! translation utils
 
-use crate::{constants::PVM_REGISTER_COUNT, translator::Block, Translator};
+use crate::{translator::Block, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
@@ -70,7 +70,7 @@ impl Translator<'_> {
         self.init_with_context(ctx_ptr)?;
 
         // Load all registers from context ONCE at function entry
-        for i in 0..PVM_REGISTER_COUNT {
+        for i in 0..pvm::REGISTER_COUNT {
             let reg_var = self.registers[&(i as u8)];
             let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
             let addr = self.builder.ins().iadd(ctx_ptr, offset);

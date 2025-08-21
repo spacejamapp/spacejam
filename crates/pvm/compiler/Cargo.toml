@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+pvm.workspace = true
 translator.workspace = true
 cranelift.workspace = true
 cranelift-codegen.workspace = true

@@ -12,11 +12,7 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<R: Accounts, X: Argument<R>, Memory: crate::Memory>(
-    call: u32,
-    mut state: State<Memory>,
-    data: X,
-) -> Stepped<Memory, X> {
+pub fn call<R: Accounts, X: Argument<R>>(call: u32, mut state: State, data: X) -> Stepped<X> {
     let mut data = data;
     tracing::debug!("calling host call {call}");
     let reason = match call {

@@ -7,13 +7,12 @@
 //! - calculate gas from step outputs.
 
 mod interp;
-pub mod memory;
 mod pvmi;
 mod result;
+mod visitor;
 
-pub use parser::{Register, PAGE_SIZE};
+pub use parser::{Memory, Register, PAGE_SIZE};
 pub use {
     interp::Interpreter,
-    memory::{Access, Memory, Page},
     result::{Error, Result},
 };

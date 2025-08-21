@@ -8,7 +8,7 @@ use crate::{
 use score::{Account, Accounts, Parameters, ServiceId};
 
 /// (ΩG) Get the gas to register
-pub fn gas<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
+pub fn gas(state: &mut State) -> Result<u64> {
     Ok(state.gas as u64)
 }
 
@@ -18,11 +18,7 @@ impl<R: Accounts> General<R> {
     /// parameters: ϱ,ω,µ,s,...
     ///
     /// with the range 0..5
-    pub fn call<Memory: crate::Memory>(
-        &mut self,
-        call: u32,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn call(&mut self, call: u32, state: &mut State) -> Result<ExitCode> {
         match call {
             1 => self.fetch(state),
             2 => self.lookup(state),
@@ -34,7 +30,7 @@ impl<R: Accounts> General<R> {
     }
 
     /// (ΩL) account lookup
-    fn lookup<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<u64> {
+    fn lookup(&mut self, state: &mut State) -> Result<u64> {
         let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
         };
@@ -67,7 +63,7 @@ impl<R: Accounts> General<R> {
     }
 
     /// (ΩR) storage lookup
-    fn read<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    fn read(&mut self, state: &mut State) -> Result<ExitCode> {
         // get the account
         let Some(mut account) = self.get(state.registers[7]) else {
             return Ok(Exit::None as u64);
@@ -97,7 +93,7 @@ impl<R: Accounts> General<R> {
     }
 
     /// (ΩW) storage write
-    fn write<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    fn write(&mut self, state: &mut State) -> Result<ExitCode> {
         // extract arguments from registers
         let [ko, kz, vo, vz] = [
             state.registers[7],
@@ -155,7 +151,7 @@ impl<R: Accounts> General<R> {
     /// (ΩI) fetch info
     ///
     /// fetch state of the account per Gray Paper specification
-    fn info<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    fn info(&mut self, state: &mut State) -> Result<ExitCode> {
         // Get service ID from register 7 (u64::MAX means current service)
         let r7 = state.registers[7];
         let service_id = if r7 == u64::MAX {
@@ -189,7 +185,7 @@ impl<R: Accounts> General<R> {
     }
 
     // (ΩY) fetch the on chain parameters
-    fn fetch<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    fn fetch(&mut self, state: &mut State) -> Result<ExitCode> {
         let value: Vec<u8> = match state.registers[10] {
             0 => codec::encode(&Parameters::default()).expect("should not fail"),
             1 => codec::encode(&self.entropy).expect("should not fail"),

@@ -305,21 +305,21 @@ impl Visitor for Interpreter {
 
     fn visit_load_i8(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: i8 = self.memory.read(imm0 as u32)?;
+        let value: i8 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_i16(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: i16 = self.memory.read(imm0 as u32)?;
+        let value: i16 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_i32(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: i32 = self.memory.read(imm0 as u32)?;
+        let value: i32 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
@@ -362,7 +362,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_i8(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: i8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: i8 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
@@ -370,7 +370,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u8(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: u8 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: u8 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value as u64);
         Ok(())
     }
@@ -378,7 +378,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u16(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: u16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: u16 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value as u64);
         Ok(())
     }
@@ -386,7 +386,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_i16(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: i16 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: i16 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value as u64);
         Ok(())
     }
@@ -394,7 +394,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u32(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: u32 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: u32 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value as u64);
         Ok(())
     }
@@ -402,7 +402,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_i32(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: i32 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: i32 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
@@ -410,35 +410,35 @@ impl Visitor for Interpreter {
     fn visit_load_ind_u64(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: u64 = self.memory.read_offset(addr as u32, imm0 as u32)?;
+        let value: u64 = self.read_offset(addr as u32, imm0 as u32)?;
         self.rset(reg0, value);
         Ok(())
     }
 
     fn visit_load_u8(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: u8 = self.memory.read(imm0 as u32)?;
+        let value: u8 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u16(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: u16 = self.memory.read(imm0 as u32)?;
+        let value: u16 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u32(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: u32 = self.memory.read(imm0 as u32)?;
+        let value: u32 = self.read(imm0 as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
 
     fn visit_load_u64(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
-        let value: u64 = self.memory.read(imm0 as u32)?;
+        let value: u64 = self.read(imm0 as u32)?;
         self.rset(reg0, value);
         Ok(())
     }
@@ -712,28 +712,21 @@ impl Visitor for Interpreter {
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let increment = self.rget(reg1);
-        /*    tracing::debug!(
-                   "sbrk: rD={} rA={}, ptr={}",
-                   self.rget(reg0),
-                   self.rget(reg1),
-                   self.memory.heap_ptr
-               );
-        */
-        self.rset(reg0, self.memory.heap_ptr as u64);
+        self.rset(reg0, self.state.memory.heap_ptr as u64);
         if increment == 0 {
             return Ok(());
         }
 
         let funp = |x: u64| x.div_ceil(parser::PAGE_SIZE) * parser::PAGE_SIZE;
-        let boundary = funp(self.memory.heap_ptr as u64);
-        let nptr = self.memory.heap_ptr as u64 + increment;
+        let boundary = funp(self.state.memory.heap_ptr as u64);
+        let nptr = self.state.memory.heap_ptr as u64 + increment;
         if nptr > boundary {
             let start = boundary / parser::PAGE_SIZE;
             let count = funp(nptr) / parser::PAGE_SIZE - start;
-            self.memory.allocate_pages(start as u32, count as u32)?;
+            self.allocate(start as u32, count as u32)?;
         }
 
-        self.memory.heap_ptr += increment as u32;
+        self.state.memory.heap_ptr += increment as u32;
         Ok(())
     }
 
@@ -985,56 +978,55 @@ impl Visitor for Interpreter {
     fn visit_store_u8(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = self.rget(reg0) as u8;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_u16(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = self.rget(reg0) as u16;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_u32(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = self.rget(reg0) as u32;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_u64(&mut self, format: format::RI, _range: &Range<usize>) -> Result<()> {
         let format::RI { reg0, imm0 } = format;
         let value = self.rget(reg0);
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_imm_u8(&mut self, format: format::II, _range: &Range<usize>) -> Result<()> {
         let format::II { imm0, imm1 } = format;
         let value = imm1 as u8;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_imm_u16(&mut self, format: format::II, _range: &Range<usize>) -> Result<()> {
         let format::II { imm0, imm1 } = format;
         let value = imm1 as u16;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_imm_u32(&mut self, format: format::II, _range: &Range<usize>) -> Result<()> {
         let format::II { imm0, imm1 } = format;
         let value = imm1 as u32;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_imm_u64(&mut self, format: format::II, _range: &Range<usize>) -> Result<()> {
         let format::II { imm0, imm1 } = format;
         let value = imm1;
-        self.memory.write(imm0 as u32, value)
+        self.write(imm0 as u32, value)
     }
 
     fn visit_store_imm_ind_u8(&mut self, format: format::RII, _range: &Range<usize>) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, imm1 as u8)
+        self.write_offset(address as u32, imm0 as u32, imm1 as u8)
     }
 
     fn visit_store_imm_ind_u16(
@@ -1044,8 +1036,7 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, imm1 as u16)
+        self.write_offset(address as u32, imm0 as u32, imm1 as u16)
     }
 
     fn visit_store_imm_ind_u32(
@@ -1055,8 +1046,7 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, imm1 as u32)
+        self.write_offset(address as u32, imm0 as u32, imm1 as u32)
     }
 
     fn visit_store_imm_ind_u64(
@@ -1066,35 +1056,31 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.memory.write_offset(address as u32, imm0 as u32, imm1)
+        self.write_offset(address as u32, imm0 as u32, imm1)
     }
 
     fn visit_store_ind_u8(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.rget(reg1);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u8)
+        self.write_offset(address as u32, imm0 as u32, self.rget(reg0) as u8)
     }
 
     fn visit_store_ind_u16(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.rget(reg1);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u16)
+        self.write_offset(address as u32, imm0 as u32, self.rget(reg0) as u16)
     }
 
     fn visit_store_ind_u32(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.rget(reg1);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, self.rget(reg0) as u32)
+        self.write_offset(address as u32, imm0 as u32, self.rget(reg0) as u32)
     }
 
     fn visit_store_ind_u64(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let address = self.rget(reg1);
-        self.memory
-            .write_offset(address as u32, imm0 as u32, self.rget(reg0))
+        self.write_offset(address as u32, imm0 as u32, self.rget(reg0))
     }
 
     fn visit_sub_32(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<()> {

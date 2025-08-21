@@ -1,4 +1,5 @@
-use pvmc::{module::Memory, Compiler};
+use pvm::Memory;
+use pvmc::Compiler;
 
 /// Test program from jam-test-vectors/pvm/programs/inst_load_imm.json
 const LOAD_IMM_PROGRAM: &[u8] = &[0, 0, 10, 20, 7, 239, 190, 173, 222, 0, 0, 0, 0, 1, 0];
@@ -10,11 +11,7 @@ const ADD_IMM_32_PROGRAM: &[u8] = &[0, 0, 3, 131, 121, 2, 1];
 fn test_load_imm() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
     let module = compiler.compile(LOAD_IMM_PROGRAM)?;
-    let result = module.execute(
-        &[0; translator::constants::PVM_REGISTER_COUNT],
-        0,
-        Memory::default(),
-    )?;
+    let result = module.execute(&[0; pvm::REGISTER_COUNT], 0, Memory::default())?;
 
     // Expected registers from test vector
     let expected = [0, 0, 0, 0, 0, 0, 0, 3735928559, 0, 0, 0, 0, 0];
@@ -26,11 +23,7 @@ fn test_load_imm() -> anyhow::Result<()> {
 fn test_add_imm_32() -> anyhow::Result<()> {
     let mut compiler = Compiler::new()?;
     let module = compiler.compile(ADD_IMM_32_PROGRAM)?;
-    let result = module.execute(
-        &[0; translator::constants::PVM_REGISTER_COUNT],
-        0,
-        Memory::default(),
-    )?;
+    let result = module.execute(&[0; pvm::REGISTER_COUNT], 0, Memory::default())?;
 
     // With zero initialization, register 9 should contain 0 + 2 = 2 (from add_imm_32 instruction)
     let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0];

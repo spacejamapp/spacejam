@@ -1,5 +1,6 @@
 //! PolkaVM implementation
 
+pub use parser::{Memory, PAGE_SIZE};
 pub use score::{Account, Accounts, Gas};
 pub use {
     invocation::{
@@ -8,7 +9,6 @@ pub use {
         transfer::Transferred,
         Argument, Executed, Invocation, Received, State, Stepped,
     },
-    memory::Memory,
     result::{Reason, Result},
     value::Value,
 };
@@ -23,9 +23,14 @@ macro_rules! bail {
 
 pub mod host;
 mod invocation;
-mod memory;
 mod result;
 mod value;
+
+/// (Z_A) The alignment factor of the jump table.
+pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
+
+/// The number of registers.
+pub const REGISTER_COUNT: usize = 13;
 
 /// The PVM interface
 pub trait Pvm: Invocation {}

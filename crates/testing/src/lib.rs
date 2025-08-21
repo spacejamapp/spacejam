@@ -12,7 +12,8 @@ pub mod disputes;
 pub mod erasure;
 pub mod history;
 pub mod preimage;
-pub mod pvm;
+pub mod pvmc;
+pub mod pvmi;
 pub mod reports;
 pub mod safrole;
 pub mod shuffle;
@@ -47,7 +48,7 @@ impl Runner {
             Section::Reports => crate::reports::run(test)?,
             Section::Safrole => crate::safrole::run(test)?,
             Section::Statistics => crate::statistics::run(test)?,
-            Section::Pvm => crate::pvm::run(test)?,
+            Section::Pvm => crate::pvmi::run(test)?,
             Section::Trace(_) => crate::traces::run(test)?,
             Section::Codec | Section::Shuffle | Section::Trie => {}
         }
