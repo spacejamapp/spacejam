@@ -18,6 +18,7 @@ use score::{
 };
 use spacejson::Json;
 use specjam::{Section, Test};
+
 use std::{collections::BTreeMap, sync::Arc};
 use tracing_subscriber::EnvFilter;
 
@@ -312,36 +313,36 @@ impl Runner {
                 let mut registers = [0; 13];
                 registers.copy_from_slice(&input.initial_regs);
 
-                // Initialize memory
+                // Initialize memory using the new unified parser::Memory
                 let mut memory = pvmi::Memory::default();
+
+                // First allocate pages with proper permissions
                 for page in &input.initial_page_map {
-                    memory.pages.insert(
-                        page.address / ::pvmi::PAGE_SIZE as u32,
-                        ::pvmi::Page {
-                            data: [0; ::pvmi::PAGE_SIZE as usize],
-                            access: ::pvmi::Access::Mutable,
-                        },
+                    let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+                    // Insert page with correct permission from test input
+                    memory.memory.insert(
+                        page_num,
+                        (vec![0u8; ::pvmi::PAGE_SIZE as usize], page.is_writable),
                     );
                 }
 
-                for mem in input.initial_memory {
-                    memory.write_bytes(
-                        mem.address / ::pvmi::PAGE_SIZE as u32,
-                        mem.address % ::pvmi::PAGE_SIZE as u32,
-                        mem.contents.as_slice(),
-                    )?;
+                // Then write initial memory data - temporarily make pages writable for setup
+                for mem in &input.initial_memory {
+                    let page_num = mem.address / ::pvmi::PAGE_SIZE as u32;
+                    // Temporarily make page writable for initialization
+                    if let Some((page_data, _)) = memory.memory.get(&page_num).cloned() {
+                        memory.memory.insert(page_num, (page_data, true));
+                    }
+                    memory.write_bytes(mem.address, &mem.contents)?;
                 }
 
-                for tpage in input.initial_page_map {
-                    let page = memory
-                        .pages
-                        .get_mut(&(tpage.address / ::pvmi::PAGE_SIZE as u32));
-                    if let Some(page) = page {
-                        page.access = if tpage.is_writable {
-                            ::pvmi::Access::Mutable
-                        } else {
-                            ::pvmi::Access::Immutable
-                        };
+                // Restore original page permissions after initialization
+                for page in &input.initial_page_map {
+                    let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+                    if let Some((page_data, _)) = memory.memory.get(&page_num).cloned() {
+                        memory
+                            .memory
+                            .insert(page_num, (page_data, page.is_writable));
                     }
                 }
 
@@ -356,15 +357,7 @@ impl Runner {
                     .interp(&input.program)
                     .expect("failed to run program");
 
-                let expected_memory = interpreter
-                    .memory
-                    .to_data_maps()
-                    .iter()
-                    .map(|(k, v)| pvm::Memory {
-                        address: *k,
-                        contents: v.to_vec(),
-                    })
-                    .collect::<Vec<_>>();
+                let expected_memory = crate::pvm::to_test_memory(&interpreter.memory);
 
                 assert_eq!(interpreter.pc, output.expected_pc);
                 assert_eq!(interpreter.reason.to_string(), output.expected_status);
@@ -386,16 +379,7 @@ impl Runner {
                 assert_eq!(result.state.registers.to_vec(), output.expected_regs);
                 assert_eq!(result.state.gas as u64, output.expected_gas);
                 assert_eq!(
-                    result
-                        .state
-                        .memory
-                        .to_data_maps()
-                        .iter()
-                        .map(|(k, v)| pvm::Memory {
-                            address: *k,
-                            contents: v.to_vec(),
-                        })
-                        .collect::<Vec<_>>(),
+                    crate::pvm::to_test_memory(&result.state.memory),
                     output.expected_memory
                 );
             }

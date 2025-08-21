@@ -52,4 +52,66 @@ pub struct Page {
     pub is_writable: bool,
 }
 
+/// Convert parser::Memory to test format for comparison
+pub fn to_test_memory(memory: &pvmi::Memory) -> Vec<Memory> {
+    let mut result = Vec::new();
+
+    for (&page_num, (page_data, _)) in &memory.memory {
+        // Find non-zero segments in this page
+        let base_addr = page_num * pvmi::PAGE_SIZE as u32;
+        let mut current_start = None;
+        let mut current_data = Vec::new();
+
+        for (offset, &byte) in page_data.iter().enumerate() {
+            if byte != 0 {
+                match current_start {
+                    Some(start_offset) => {
+                        // Continue current segment
+                        if offset == start_offset + current_data.len() {
+                            current_data.push(byte);
+                        } else {
+                            // Gap found, save current segment and start new one
+                            if !current_data.is_empty() {
+                                result.push(Memory {
+                                    address: base_addr + start_offset as u32,
+                                    contents: current_data,
+                                });
+                            }
+                            current_start = Some(offset);
+                            current_data = vec![byte];
+                        }
+                    }
+                    None => {
+                        // Start new segment
+                        current_start = Some(offset);
+                        current_data = vec![byte];
+                    }
+                }
+            } else if current_start.is_some() && !current_data.is_empty() {
+                // End current segment on zero byte
+                result.push(Memory {
+                    address: base_addr + current_start.unwrap() as u32,
+                    contents: current_data,
+                });
+                current_start = None;
+                current_data = Vec::new();
+            }
+        }
+
+        // Don't forget the last segment
+        if let Some(start_offset) = current_start {
+            if !current_data.is_empty() {
+                result.push(Memory {
+                    address: base_addr + start_offset as u32,
+                    contents: current_data,
+                });
+            }
+        }
+    }
+
+    // Sort by address for consistent comparison
+    result.sort_by_key(|m| m.address);
+    result
+}
+
 include!(concat!(env!("OUT_DIR"), "/pvm.rs"));

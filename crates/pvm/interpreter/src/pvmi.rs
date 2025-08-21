@@ -1,12 +1,10 @@
 //! PVM interface implementation
 
-use crate::{Interpreter, Memory};
+use crate::Interpreter;
 use parser::{reader::Offset, Instruction, Reader, Visitor};
 use pvm::{Gas, Invocation, Reason, Stepped};
 
 impl Invocation for Interpreter {
-    type Memory = Memory;
-
     /// Step the instruction.
     // #[tracing::instrument(skip_all, target = "pvmi")]
     fn step(
@@ -23,8 +21,8 @@ impl Invocation for Interpreter {
         // (ω) The registers
         registers: [u64; 13],
         // (µ) The memory
-        memory: Memory,
-    ) -> Stepped<Memory, ()> {
+        memory: parser::Memory,
+    ) -> Stepped<()> {
         let pc = pc as usize;
         let mut pvmi = Interpreter::default()
             .gas(gas)
@@ -138,7 +136,7 @@ impl Interpreter {
     }
 }
 
-impl From<Interpreter> for pvm::State<Memory> {
+impl From<Interpreter> for pvm::State {
     fn from(interp: Interpreter) -> Self {
         pvm::State {
             memory: interp.memory,

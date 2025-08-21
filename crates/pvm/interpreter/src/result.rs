@@ -69,5 +69,19 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// Convert a reason to an error (used for memory operations)
+impl From<Reason> for Error {
+    fn from(reason: Reason) -> Self {
+        match reason {
+            Reason::Fault { page } => Error::MemoryInaccessible { page },
+            Reason::Halt => Error::Terminate,
+            Reason::OOG => Error::OOG,
+            Reason::Panic(_) => Error::Trap(false),
+            Reason::HostCall(call) => Error::HostCall(call),
+            _ => Error::Trap(false),
+        }
+    }
+}
+
 /// The result type for the interpreter.
 pub type Result<T> = std::result::Result<T, Error>;

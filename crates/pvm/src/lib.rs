@@ -8,7 +8,6 @@ pub use {
         transfer::Transferred,
         Argument, Executed, Invocation, Received, State, Stepped,
     },
-    memory::Memory,
     result::{Reason, Result},
     value::Value,
 };
@@ -23,7 +22,6 @@ macro_rules! bail {
 
 pub mod host;
 mod invocation;
-mod memory;
 mod result;
 mod value;
 

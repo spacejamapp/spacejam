@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 impl<R: Accounts> Accumulate<R> {
     /// Call an accumulate host function
-    pub fn call<M: crate::Memory>(&mut self, call: u32, state: &mut State<M>) -> Result<ExitCode> {
+    pub fn call(&mut self, call: u32, state: &mut State) -> Result<ExitCode> {
         match call {
             14 => self.bless(state),
             15 => self.assign(state),
@@ -35,7 +35,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩB) bless
-    pub fn bless<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn bless(&mut self, state: &mut State) -> Result<ExitCode> {
         let [bless, assign, designate, acc, entries] = [
             state.registers[7],  // m: bless service id
             state.registers[8],  // a: memory address of assign array
@@ -94,7 +94,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩA) assign authorization queue
-    pub fn assign<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn assign(&mut self, state: &mut State) -> Result<ExitCode> {
         let [core, o, assign] = [state.registers[7], state.registers[8], state.registers[9]];
         let source = state
             .memory
@@ -127,10 +127,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩD) designate the validators to be drawn for the next epoch
-    pub fn designate<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn designate(&mut self, state: &mut State) -> Result<ExitCode> {
         // get the data source
         let o = state.registers[7];
         let source = state
@@ -166,16 +163,13 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩC) checkpoint
-    pub fn checkpoint<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn checkpoint(&mut self, state: &mut State) -> Result<ExitCode> {
         self.y = self.x.clone();
         Ok(state.gas as u64)
     }
 
     /// (ΩN) new
-    pub fn new_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn new_(&mut self, state: &mut State) -> Result<ExitCode> {
         let [o, length, accumulate_gas, transfer_gas, f] = [
             state.registers[7],
             state.registers[8],
@@ -235,10 +229,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩU) upgrade service code
-    pub fn upgrade<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn upgrade(&mut self, state: &mut State) -> Result<ExitCode> {
         let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
         let code = state.memory.read_hash(o as u32)?;
         let account = self.account()?;
@@ -249,10 +240,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩT) transfer funds from the sender to the destination
-    pub fn transfer<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn transfer(&mut self, state: &mut State) -> Result<ExitCode> {
         let [dest, amount, limit, memo] = [
             state.registers[7],
             state.registers[8],
@@ -299,7 +287,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩE) eject a sub account
-    pub fn eject<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn eject(&mut self, state: &mut State) -> Result<ExitCode> {
         let [dest, o] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
         if dest == self.x.service as u64 {
@@ -340,7 +328,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩQ) query an lookup entry
-    pub fn query<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn query(&mut self, state: &mut State) -> Result<ExitCode> {
         let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
         let hash = state.memory.read_hash(o)?;
         let account = self.account()?;
@@ -368,10 +356,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩS) solicit new lookup
-    pub fn solicit<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn solicit(&mut self, state: &mut State) -> Result<ExitCode> {
         let [o, z] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
 
@@ -399,7 +384,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩF) forget
-    pub fn forget<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn forget(&mut self, state: &mut State) -> Result<ExitCode> {
         let [o, z] = [state.registers[7], state.registers[8]];
         let hash = state.memory.read_hash(o as u32)?;
 
@@ -427,7 +412,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩY) yield
-    pub fn yield_<Memory: crate::Memory>(&mut self, state: &mut State<Memory>) -> Result<ExitCode> {
+    pub fn yield_(&mut self, state: &mut State) -> Result<ExitCode> {
         let o = state.registers[7];
         let hash = state.memory.read_hash(o as u32)?;
         self.x.output = Some(hash);
@@ -435,10 +420,7 @@ impl<R: Accounts> Accumulate<R> {
     }
 
     /// (ΩP) provide new preimage
-    pub fn provide<Memory: crate::Memory>(
-        &mut self,
-        state: &mut State<Memory>,
-    ) -> Result<ExitCode> {
+    pub fn provide(&mut self, state: &mut State) -> Result<ExitCode> {
         let [mut service, from, size] =
             [state.registers[7], state.registers[8], state.registers[9]];
         if service == u64::MAX {

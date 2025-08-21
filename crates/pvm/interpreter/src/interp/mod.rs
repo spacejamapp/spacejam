@@ -47,6 +47,52 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
+    /// Read a value from memory
+    pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
+        let bytes = self
+            .memory
+            .read_bytes(address, V::SIZE as u32)
+            .map_err(|_e| Error::MemoryInaccessible {
+                page: address / parser::PAGE_SIZE as u32,
+            })?;
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible {
+            page: address / parser::PAGE_SIZE as u32,
+        })
+    }
+
+    /// Read a value from memory at an offset
+    pub fn read_offset<V: pvm::Value>(&self, address: u32, offset: u32) -> crate::Result<V> {
+        let start = address.wrapping_add(offset);
+        self.read(start)
+    }
+
+    /// Write a value to memory
+    pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
+        self.memory
+            .write_bytes(address, &value.to_vec())
+            .map_err(|_e| Error::MemoryInaccessible {
+                page: address / parser::PAGE_SIZE as u32,
+            })
+    }
+
+    /// Write a value to memory at an offset
+    pub fn write_offset<V: pvm::Value>(
+        &mut self,
+        address: u32,
+        offset: u32,
+        value: V,
+    ) -> crate::Result<()> {
+        let start = address.wrapping_add(offset);
+        self.write(start, value)
+    }
+
+    /// Allocate pages for sbrk
+    pub fn allocate_memory_pages(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
+        self.memory
+            .allocate(start_page, count)
+            .map_err(|_e| Error::MemoryInaccessible { page: start_page })
+    }
+
     /// Branch to the given target.
     fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {
@@ -94,7 +140,6 @@ impl Interpreter {
             return Err(Error::InvalidDynamicJump);
         };
 
-        // tracing::trace!("jumping to dynamic index={index} address: {target}");
         self.jump = Some(*target as usize);
         Ok(())
     }

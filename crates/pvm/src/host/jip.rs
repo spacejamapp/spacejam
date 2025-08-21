@@ -14,7 +14,7 @@ use crate::{host::Exit, invocation::State, Result};
 /// r10 = message address
 /// r11 = message length
 #[tracing::instrument(skip_all, name = "program", parent = None)]
-pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
+pub fn log(state: &mut State) -> Result<u64> {
     let level = state.registers[7];
     let target_addr = state.registers[8] as u32;
     let target_len = state.registers[9] as u32;
@@ -32,7 +32,7 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
                 msg_len,
                 reason
             );
-            return Err(reason);
+            return Err(reason.into());
         }
     };
 
@@ -40,7 +40,7 @@ pub fn log<Memory: crate::Memory>(state: &mut State<Memory>) -> Result<u64> {
     let target = if target_len > 0 {
         match state.memory.read_bytes(target_addr, target_len) {
             Ok(data) => String::from_utf8_lossy(&data).to_string(),
-            Err(reason) => return Err(reason),
+            Err(reason) => return Err(reason.into()),
         }
     } else {
         Default::default()

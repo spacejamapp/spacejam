@@ -5,7 +5,7 @@ use score::{service::WorkExecResult, Accounts};
 
 /// The execution state of programs.
 #[derive(Default, Clone)]
-pub struct State<Memory: crate::Memory> {
+pub struct State {
     /// (ı') The program counter.
     pub pc: u64,
 
@@ -16,12 +16,12 @@ pub struct State<Memory: crate::Memory> {
     pub registers: [u64; 13],
 
     /// (µ') The memory.
-    pub memory: Memory,
+    pub memory: parser::Memory,
 }
 
-impl<Memory: crate::Memory> State<Memory> {
+impl State {
     /// Create a new stepped result
-    pub fn stepped(self, reason: Reason) -> Stepped<Memory, ()> {
+    pub fn stepped(self, reason: Reason) -> Stepped<()> {
         Stepped {
             reason,
             state: self,
@@ -31,20 +31,20 @@ impl<Memory: crate::Memory> State<Memory> {
 }
 
 /// The result of step invocation (Ψ1)
-pub struct Stepped<Memory: crate::Memory, X> {
+pub struct Stepped<X> {
     /// (ε) the reason for exiting
     pub reason: Reason,
 
     /// (U) The newly updated state
-    pub state: State<Memory>,
+    pub state: State,
 
     /// (X) the data
     pub data: X,
 }
 
-impl<Memory: crate::Memory> Stepped<Memory, ()> {
+impl Stepped<()> {
     /// Create a new stepped result with the given reason
-    pub fn new(reason: Reason, state: State<Memory>) -> Self {
+    pub fn new(reason: Reason, state: State) -> Self {
         Self {
             reason,
             state,
@@ -53,7 +53,7 @@ impl<Memory: crate::Memory> Stepped<Memory, ()> {
     }
 
     /// Create a new stepped result with the given data
-    pub fn with<X>(self, data: X) -> Stepped<Memory, X> {
+    pub fn with<X>(self, data: X) -> Stepped<X> {
         Stepped {
             reason: self.reason,
             state: self.state,
@@ -62,7 +62,7 @@ impl<Memory: crate::Memory> Stepped<Memory, ()> {
     }
 }
 
-impl<Memory: crate::Memory, X> Stepped<Memory, X> {
+impl<X> Stepped<X> {
     /// Convert the stepped result to a received result
     pub fn received(self, gas: Gas, output: Vec<u8>) -> Received<X> {
         Received {

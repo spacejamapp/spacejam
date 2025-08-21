@@ -3,7 +3,7 @@
 use crate::{
     host,
     invocation::{General, Received, State, Stepped},
-    AccumulateContext, Accumulated, Argument, Executed, Memory as _, Reason, Refined, Transferred,
+    AccumulateContext, Accumulated, Argument, Executed, Reason, Refined, Transferred,
 };
 use parser::{
     program::{self, Program},
@@ -19,9 +19,6 @@ use score::{
 ///
 /// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
-    /// The memory type of the PVM
-    type Memory: crate::Memory;
-
     /// (Ψ): the general PVM invocation
     ///
     /// defined per graypaper (A.1)
@@ -35,9 +32,9 @@ pub trait Invocation {
         // (ω) the registers
         registers: [u64; 13],
         // (µ) the memory
-        memory: Self::Memory,
-    ) -> Stepped<Self::Memory, ()> {
-        let mut state = State::<Self::Memory> {
+        memory: parser::Memory,
+    ) -> Stepped<()> {
+        let mut state = State {
             pc,
             gas: gas as i64,
             registers,
@@ -110,8 +107,8 @@ pub trait Invocation {
         // (ω) The registers
         registers: [u64; 13],
         // (µ) The memory
-        memory: Self::Memory,
-    ) -> Stepped<Self::Memory, ()>;
+        memory: parser::Memory,
+    ) -> Stepped<()>;
 
     /// (ΨH): host call invocation
     ///
@@ -126,12 +123,12 @@ pub trait Invocation {
         // (ω) The registers
         registers: [u64; 13],
         // (µ) The memory
-        memory: Self::Memory,
+        memory: parser::Memory,
         // (f) the host function
         //
         // (x) the host function input data
         input: X,
-    ) -> Stepped<Self::Memory, X> {
+    ) -> Stepped<X> {
         // (state') invoke the PVM
         let Stepped {
             reason,
@@ -143,7 +140,7 @@ pub trait Invocation {
         };
 
         // FIXME: refactor with loop
-        let stepped = host::call::<R, _, _>(call, state, input);
+        let stepped = host::call::<R, _>(call, state, input);
         match stepped.reason {
             Reason::Fault { page } => stepped
                 .state
@@ -190,7 +187,6 @@ pub trait Invocation {
             }
         };
 
-        let memory = Self::Memory::from_raw(memory);
         let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
 
         // get the output
@@ -200,10 +196,12 @@ pub trait Invocation {
             let len = stepped.state.registers[8] as u32;
 
             // Read output data from memory using ptr and len
-            if let Ok(data) = stepped.state.memory.read_bytes(ptr, len) {
-                output = data;
-            } else {
-                stepped.reason = Reason::Panic("failed to read output from memory".to_string());
+            match stepped.state.memory.read_bytes(ptr, len) {
+                Ok(data) => output = data,
+                Err(e) => {
+                    stepped.reason =
+                        Reason::Panic(format!("failed to read output from memory: {}", e))
+                }
             }
         }
 
@@ -441,8 +439,6 @@ pub trait Invocation {
 }
 
 impl Invocation for () {
-    type Memory = ();
-
     fn step(
         _instructions: &[u8],
         _bitmask: &[u8],
@@ -450,11 +446,8 @@ impl Invocation for () {
         _pc: u64,
         _gas: Gas,
         _registers: [u64; 13],
-        _memory: Self::Memory,
-    ) -> Stepped<Self::Memory, ()> {
-        Stepped::new(
-            Reason::Panic("unimplemented".to_string()),
-            State::<Self::Memory>::default(),
-        )
+        _memory: parser::Memory,
+    ) -> Stepped<()> {
+        Stepped::new(Reason::Panic("unimplemented".to_string()), State::default())
     }
 }
