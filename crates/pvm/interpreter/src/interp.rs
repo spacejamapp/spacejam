@@ -1,17 +1,7 @@
 //! PolkaVM program interpreter
-//!
-//! TODOs:
-//!
-//! - [ ]: double check the update of program counter
-//! - [ ]: double check the jump instruction (what's the exact PC)
-//! - [ ]: introduce the sign / unsign transitionss
 
-use crate::{Error, Memory, Register};
-use pvm::Reason;
-
-mod builder;
-mod register;
-mod visitor;
+use crate::Error;
+use pvm::{Reason, State};
 
 /// The interpreter for the polkavm program.
 ///
@@ -19,27 +9,14 @@ mod visitor;
 /// invocation interfaces in the future.
 #[derive(Default)]
 pub struct Interpreter {
-    /// The registers of the interpreter.
-    /// ra = [0]
-    /// sp = [1]
-    ///  s = [5, 6]
-    ///  a = [7, 8, 9, 10, 11]
-    pub registers: [Register; 13],
-
-    /// The gas limit of the interpreter.
-    pub gas: u64,
+    /// The state of the interpreter.
+    pub state: State,
 
     /// The reason of the exit-execution.
     pub reason: Reason,
 
-    /// The memory of the interpreter.
-    pub memory: Memory,
-
     /// The jump table of the program.
     pub table: Vec<u64>,
-
-    /// The program counter.
-    pub pc: usize,
 
     /// The jump target.
     pub jump: Option<usize>,
@@ -49,6 +26,7 @@ impl Interpreter {
     /// Read a value from memory
     pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
         let bytes = self
+            .state
             .memory
             .read_bytes(address, V::SIZE as u32)
             .map_err(|_e| Error::MemoryInaccessible {
@@ -67,7 +45,8 @@ impl Interpreter {
 
     /// Write a value to memory
     pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
-        self.memory
+        self.state
+            .memory
             .write_bytes(address, &value.to_vec())
             .map_err(|_e| Error::MemoryInaccessible {
                 page: address / parser::PAGE_SIZE as u32,
@@ -85,17 +64,28 @@ impl Interpreter {
         self.write(start, value)
     }
 
+    /// Get the register value.
+    pub fn rget(&self, reg: u8) -> u64 {
+        self.state.registers[reg as usize]
+    }
+
+    /// Set the register value.
+    pub fn rset(&mut self, reg: u8, value: u64) {
+        self.state.registers[reg as usize] = value;
+    }
+
     /// Allocate pages for sbrk
-    pub fn allocate_memory_pages(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
-        self.memory
+    pub fn allocate(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
+        self.state
+            .memory
             .allocate(start_page, count)
             .map_err(|_e| Error::MemoryInaccessible { page: start_page })
     }
 
     /// Branch to the given target.
-    fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
+    pub fn branch(&mut self, offset: i32, jump: bool) -> crate::Result<()> {
         if jump {
-            self.jump = Some((self.pc as i32 + offset) as usize);
+            self.jump = Some((self.state.pc as i32 + offset) as usize);
         }
 
         Ok(())
@@ -103,16 +93,16 @@ impl Interpreter {
 
     /// Burn the gas.
     pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
-        if self.gas < gas {
+        if self.state.gas < gas as i64 {
             return Err(Error::OOG);
         }
 
-        self.gas = self.gas.saturating_sub(gas);
+        self.state.gas = self.state.gas.saturating_sub(gas as i64);
         Ok(())
     }
 
     /// Dynamic jump to the given target.
-    fn djump(&mut self, address: u32) -> crate::Result<()> {
+    pub fn djump(&mut self, address: u32) -> crate::Result<()> {
         if address == u32::MAX - u16::MAX as u32 {
             return Err(Error::Terminate);
         }

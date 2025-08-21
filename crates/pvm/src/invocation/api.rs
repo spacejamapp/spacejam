@@ -35,7 +35,7 @@ pub trait Invocation {
         memory: parser::Memory,
     ) -> Stepped<()> {
         let mut state = State {
-            pc,
+            pc: pc as usize,
             gas: gas as i64,
             registers,
             memory,
@@ -63,7 +63,7 @@ pub trait Invocation {
                 &instructions,
                 &bitmask,
                 &jump,
-                state.pc,
+                state.pc as u64,
                 state.gas as u64,
                 state.registers,
                 state.memory.clone(),
@@ -148,7 +148,7 @@ pub trait Invocation {
                 .with(stepped.data),
             Reason::Continue | Reason::HostCall(_) => Self::call(
                 code,
-                stepped.state.pc,
+                stepped.state.pc as u64,
                 stepped.state.gas as u64,
                 stepped.state.registers,
                 stepped.state.memory,

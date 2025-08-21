@@ -7,7 +7,7 @@ use score::{service::WorkExecResult, Accounts};
 #[derive(Default, Clone)]
 pub struct State {
     /// (ı') The program counter.
-    pub pc: u64,
+    pub pc: usize,
 
     /// (ϱ') The gas left.
     pub gas: i64,

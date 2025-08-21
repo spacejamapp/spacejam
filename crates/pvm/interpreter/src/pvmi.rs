@@ -2,7 +2,7 @@
 
 use crate::Interpreter;
 use parser::{reader::Offset, Instruction, Reader, Visitor};
-use pvm::{Gas, Invocation, Reason, Stepped};
+use pvm::{Gas, Invocation, Reason, State, Stepped};
 
 impl Invocation for Interpreter {
     /// Step the instruction.
@@ -24,15 +24,20 @@ impl Invocation for Interpreter {
         memory: parser::Memory,
     ) -> Stepped<()> {
         let pc = pc as usize;
-        let mut pvmi = Interpreter::default()
-            .gas(gas)
-            .registers(registers)
-            .memory(memory)
-            .pc(pc)
-            .table(jump.to_vec());
+        let mut pvmi = Interpreter {
+            state: State {
+                pc,
+                gas: gas as i64,
+                registers,
+                memory,
+            },
+            reason: Reason::Continue,
+            table: jump.to_vec(),
+            jump: None,
+        };
 
         // check if the program counter is out of bounds
-        if pvmi.pc == instructions.len() {
+        if pvmi.state.pc == instructions.len() {
             let reason = if pvmi.burn(1).is_err() {
                 Reason::OOG
             } else {
@@ -72,8 +77,8 @@ impl Invocation for Interpreter {
                 "pos={:<6} {:<20} gas={:<6} regs={:?}",
                 instr.range.start,
                 instr.value.to_string(),
-                pvmi.gas,
-                pvmi.registers
+                pvmi.state.gas,
+                pvmi.state.registers
             );
 
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {
@@ -81,9 +86,9 @@ impl Invocation for Interpreter {
             }
 
             if let Some(pos) = pvmi.jump.take() {
-                pvmi.pc = pos;
+                pvmi.state.pc = pos;
             } else {
-                pvmi.pc = next;
+                pvmi.state.pc = next;
             }
 
             if matches!(reason, Reason::HostCall(_)) {
@@ -109,7 +114,7 @@ impl Interpreter {
                 let call_number = call_format.imm0 as u32;
                 match call_number {
                     // transfer: Gas cost is 10 + ω₉ (10 + register 9 value)
-                    11 => 10 + self.registers[9],
+                    11 => 10 + self.rget(9),
                     // log: Gas cost is 0 as defined in JIP-1
                     100 => 0,
                     // All other host calls: Gas cost is 10
@@ -139,10 +144,10 @@ impl Interpreter {
 impl From<Interpreter> for pvm::State {
     fn from(interp: Interpreter) -> Self {
         pvm::State {
-            memory: interp.memory,
-            registers: interp.registers,
-            gas: interp.gas as i64,
-            pc: interp.pc as u64,
+            memory: interp.state.memory,
+            registers: interp.state.registers,
+            gas: interp.state.gas,
+            pc: interp.state.pc,
         }
     }
 }

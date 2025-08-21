@@ -356,7 +356,7 @@ impl Runner {
                 );
 
                 assert_eq!(result.reason.to_string(), output.expected_status);
-                assert_eq!(result.state.pc, output.expected_pc as u64);
+                assert_eq!(result.state.pc, output.expected_pc);
                 assert_eq!(result.state.registers.to_vec(), output.expected_regs);
                 assert_eq!(result.state.gas as u64, output.expected_gas);
                 assert_eq!(

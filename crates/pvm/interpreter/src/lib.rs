@@ -9,6 +9,7 @@
 mod interp;
 mod pvmi;
 mod result;
+mod visitor;
 
 pub use parser::{Memory, Register, PAGE_SIZE};
 pub use {
