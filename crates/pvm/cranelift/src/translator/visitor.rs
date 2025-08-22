@@ -65,7 +65,6 @@ impl Visitor for Translator<'_> {
         let format::RIO { reg0, off0, imm0 } = format;
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         self.rset(reg0, imm_val);
-
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
         self.builder.ins().jump(target_block, &[]);
@@ -79,8 +78,6 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-
-        // Load source register, truncate to 32-bit, add immediate, sign extend to 64-bit
         let src_val = self.rget(reg1);
         let src_32 = self.builder.ins().ireduce(types::I32, src_val);
         let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
@@ -240,7 +237,6 @@ impl Visitor for Translator<'_> {
         let result_32 = self.builder.ins().udiv(dividend_32, safe_divisor);
         let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
         let result = self.builder.ins().select(is_zero, max_val, result_32_ext);
-
         self.rset(reg2, result);
         Ok(())
     }
@@ -251,10 +247,6 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        if reg0 > MAX_REGISTER_INDEX || reg1 > MAX_REGISTER_INDEX || reg2 > MAX_REGISTER_INDEX {
-            anyhow::bail!("Invalid register numbers: {}, {}, {}, ", reg0, reg1, reg2);
-        }
-
         let dividend_val = self.rget(reg0);
         let divisor_val = self.rget(reg1);
 
@@ -470,9 +462,7 @@ impl Visitor for Translator<'_> {
             .builder
             .ins()
             .select(is_zero, dividend_32_ext, result_32_ext);
-
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -484,20 +474,13 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let dividend_val = self.rget(reg0);
         let divisor_val = self.rget(reg1);
-
-        // Check for division by zero - return dividend if divisor is zero
         let zero = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_val, zero);
-
         let one_64 = self.builder.ins().iconst(types::I64, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
         let result_rem = self.builder.ins().urem(dividend_val, safe_divisor);
-
-        // Return original dividend for div by zero, otherwise remainder
         let result = self.builder.ins().select(is_zero, dividend_val, result_rem);
-
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -544,9 +527,7 @@ impl Visitor for Translator<'_> {
             .builder
             .ins()
             .select(is_zero, dividend_32_ext, result_or_overflow);
-
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -602,13 +583,10 @@ impl Visitor for Translator<'_> {
         let src1_val = self.rget(reg1);
         let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
         let shift_val = self.builder.ins().ireduce(types::I32, src1_val);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I32, 31);
         let safe_shift = self.builder.ins().band(shift_val, mask);
         let result_32 = self.builder.ins().ishl(src0_32, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-
         self.rset(reg2, result_64);
         Ok(())
     }
@@ -621,14 +599,10 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(src1_val, mask);
         let result = self.builder.ins().ishl(src0_val, safe_shift);
-
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -640,12 +614,9 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
         let src_32 = self.builder.ins().ireduce(types::I32, src_val);
-
-        // Mask immediate to avoid undefined behavior
         let safe_shift = (imm0 % 32) as i64;
         let result_32 = self.builder.ins().ishl_imm(src_32, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
-
         self.rset(reg0, result_64);
         Ok(())
     }
@@ -673,8 +644,6 @@ impl Visitor for Translator<'_> {
         let src1_val = self.rget(reg1);
         let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
         let shift_val = self.builder.ins().ireduce(types::I32, src1_val);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I32, 31);
         let safe_shift = self.builder.ins().band(shift_val, mask);
         let result_32 = self.builder.ins().ushr(src0_32, safe_shift);
@@ -691,13 +660,9 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
-        let src0_val = self.rget(reg0);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(src1_val, mask);
         let result = self.builder.ins().ushr(src0_val, safe_shift);
-
         let dst_var = self.registers[&reg2];
         self.builder.def_var(dst_var, result);
         Ok(())
@@ -743,8 +708,6 @@ impl Visitor for Translator<'_> {
         let src1_val = self.rget(reg1);
         let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
         let shift_val = self.builder.ins().ireduce(types::I32, src1_val);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I32, 31);
         let safe_shift = self.builder.ins().band(shift_val, mask);
         let result_32 = self.builder.ins().sshr(src0_32, safe_shift);
@@ -762,8 +725,6 @@ impl Visitor for Translator<'_> {
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
         let src0_val = self.rget(reg0);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(src1_val, mask);
         let result = self.builder.ins().sshr(src0_val, safe_shift);
@@ -852,7 +813,6 @@ impl Visitor for Translator<'_> {
         Ok(())
     }
 
-    // Rotation operations - register variants
     fn visit_rot_l_64(
         &mut self,
         format: format::RRR,
@@ -878,8 +838,6 @@ impl Visitor for Translator<'_> {
         let shift_val = self.rget(reg1);
         let src_32 = self.builder.ins().ireduce(types::I32, src_val);
         let shift_32 = self.builder.ins().ireduce(types::I32, shift_val);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I32, 31);
         let safe_shift = self.builder.ins().band(shift_32, mask);
         let result_32 = self.builder.ins().rotl(src_32, safe_shift);
@@ -896,8 +854,6 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src_val = self.rget(reg0);
         let shift_val = self.rget(reg1);
-
-        // Mask shift amount to avoid undefined behavior
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(shift_val, mask);
         let result = self.builder.ins().rotr(src_val, safe_shift);
@@ -960,14 +916,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory
-        let value = self
-            .builder
-            .ins()
-            .load(types::I8, MemFlags::new(), final_addr, 0);
+        let value = self.mget(address, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -982,8 +931,6 @@ impl Visitor for Translator<'_> {
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory
         let value = self
             .builder
             .ins()
@@ -1002,8 +949,6 @@ impl Visitor for Translator<'_> {
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory
         let value = self
             .builder
             .ins()
@@ -1022,8 +967,6 @@ impl Visitor for Translator<'_> {
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let memory_base = self.get_memory_base();
         let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory
         let value = self
             .builder
             .ins()
@@ -1526,8 +1469,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(format.reg0);
         let cond = self.rget(format.reg1);
         let dst = self.rget(format.reg2);
-
-        // Check if reg1 is zero (condition register)
         let zero = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, cond, zero);
 
@@ -1546,8 +1487,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let cond = self.rget(reg1);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Check if cond is zero
         let zero = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, cond, zero);
 
@@ -1566,8 +1505,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let cond = self.rget(reg1);
         let dst = self.rget(reg2);
-
-        // Check if cond is not zero (condition register)
         let zero = self.builder.ins().iconst(types::I64, 0);
         let not_zero = self.builder.ins().icmp(IntCC::NotEqual, cond, zero);
         let new_val = self.builder.ins().select(not_zero, src, dst);
@@ -1584,8 +1521,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let cond = self.rget(reg1);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Check if cond is not zero
         let zero = self.builder.ins().iconst(types::I64, 0);
         let not_zero = self.builder.ins().icmp(IntCC::NotEqual, cond, zero);
         let new_val = self.builder.ins().select(not_zero, imm_val, src);
@@ -1645,18 +1580,9 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-
-        // Create address from immediate
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Store to linear memory
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
-
+        self.mset(address, truncated);
         Ok(())
     }
 
@@ -1667,16 +1593,9 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
-
+        self.mset(address, truncated);
         Ok(())
     }
 
@@ -1687,15 +1606,9 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
+        self.mset(address, truncated);
 
         Ok(())
     }
@@ -1707,15 +1620,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Emit memory write
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), src, final_addr, 0);
-
+        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
+        self.mset(address, src);
         Ok(())
     }
 
@@ -1728,18 +1634,12 @@ impl Visitor for Translator<'_> {
         let format::II { imm0, imm1 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
             self.builder.ins().ireduce(types::I8, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
+        self.mset(address, write_value);
 
         Ok(())
     }
@@ -1752,19 +1652,12 @@ impl Visitor for Translator<'_> {
         let format::II { imm0, imm1 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
             self.builder.ins().ireduce(types::I16, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
-
+        self.mset(address, write_value);
         Ok(())
     }
 
@@ -1776,19 +1669,12 @@ impl Visitor for Translator<'_> {
         let format::II { imm0, imm1 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
-
+        self.mset(address, write_value);
         Ok(())
     }
 
@@ -1800,14 +1686,7 @@ impl Visitor for Translator<'_> {
         let format::II { imm0, imm1 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), value, final_addr, 0);
-
+        self.mset(address, value);
         Ok(())
     }
 
@@ -1821,15 +1700,10 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
         let truncated = self.builder.ins().ireduce(types::I8, src);
 
         // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
+        self.mset_o(addr, offset, truncated);
 
         Ok(())
     }
@@ -1843,16 +1717,8 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
-
+        self.mset_o(addr, offset, truncated);
         Ok(())
     }
 
@@ -1865,16 +1731,8 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), truncated, final_addr, 0);
-
+        self.mset_o(addr, offset, truncated);
         Ok(())
     }
 
@@ -1887,15 +1745,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), src, final_addr, 0);
-
+        self.mset_o(addr, offset, src);
         Ok(())
     }
 
@@ -1908,21 +1758,13 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
         let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
             self.builder.ins().ireduce(types::I8, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
-
+        self.mset_o(addr, offset, write_value);
         Ok(())
     }
 
@@ -1934,21 +1776,13 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
         let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
-
-        // store to memory
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
             self.builder.ins().ireduce(types::I16, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
-
+        self.mset_o(addr, offset, write_value);
         Ok(())
     }
 
@@ -1961,21 +1795,14 @@ impl Visitor for Translator<'_> {
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr, offset);
-
-        // store to memory
         self.check_store_boundaries(effective_addr, 4)?;
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
         } else {
             value
         };
-        self.builder
-            .ins()
-            .store(MemFlags::new(), write_value, final_addr, 0);
-
+        self.mset_o(addr, offset, write_value);
         Ok(())
     }
 
@@ -1988,15 +1815,9 @@ impl Visitor for Translator<'_> {
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr, offset);
-
-        // store to memory
         self.check_store_boundaries(effective_addr, 8)?;
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), value, final_addr, 0);
+        self.mset_o(addr, offset, value);
         Ok(())
     }
 
@@ -2042,8 +1863,6 @@ impl Visitor for Translator<'_> {
         let src1 = self.rget(reg1);
         let src0_val = self.builder.ins().ireduce(types::I64, src0);
         let src1_val = self.builder.ins().ireduce(types::I64, src1);
-
-        // compare: reg0 < reg1 (unsigned)
         let is_less = self
             .builder
             .ins()
@@ -2063,8 +1882,6 @@ impl Visitor for Translator<'_> {
         let src1 = self.rget(reg1);
         let src0_val = self.builder.ins().ireduce(types::I64, src0);
         let src1_val = self.builder.ins().ireduce(types::I64, src1);
-
-        // Compare: reg0 < reg1 (signed)
         let is_less = self
             .builder
             .ins()
@@ -2083,8 +1900,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_val = self.builder.ins().ireduce(types::I64, src);
         let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Compare: reg1 < imm (unsigned)
         let is_less = self
             .builder
             .ins()
@@ -2103,8 +1918,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_val = self.builder.ins().ireduce(types::I64, src);
         let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Compare: reg1 < imm (signed)
         let is_less = self.builder.ins().icmp(IntCC::SignedLessThan, src_val, imm);
         let result = self.builder.ins().uextend(types::I64, is_less);
         self.rset(reg0, result);
@@ -2120,8 +1933,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_val = self.builder.ins().ireduce(types::I64, src);
         let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Compare: reg1 > imm (unsigned)
         let is_greater = self
             .builder
             .ins()
@@ -2140,8 +1951,6 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_val = self.builder.ins().ireduce(types::I64, src);
         let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-
-        // Compare: reg1 > imm (signed)
         let is_greater = self
             .builder
             .ins()
@@ -2246,8 +2055,6 @@ impl Visitor for Translator<'_> {
         self.rset(reg0, result);
         Ok(())
     }
-
-    // Missing visitor methods for RISC-V tests
 
     fn visit_mul_upper_s_s(
         &mut self,

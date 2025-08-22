@@ -93,11 +93,6 @@ impl Translator<'_> {
     /// Uses stored context pointer and simple boundary logic matching interpreter
     pub fn check_store_boundaries(&mut self, address: Value, size_bytes: u32) -> Result<()> {
         let ctx_ptr = self.ctx_ptr;
-
-        // Page size constant is already defined and available
-
-        // Always check page allocation for stores, regardless of boundary crossing
-        // Calculate page numbers for first and last byte of the store operation
         let start_page = self.get_page_number(address);
         let size_minus_one = self
             .builder
@@ -105,8 +100,6 @@ impl Translator<'_> {
             .iconst(types::I64, (size_bytes - 1) as i64);
         let last_byte_addr = self.builder.ins().iadd(address, size_minus_one);
         let end_page = self.get_page_number(last_byte_addr);
-
-        tracing::debug!("Boundary check: will verify page allocation for store operation");
 
         // Create blocks for control flow
         let check_start_page_block = self.builder.create_block();
@@ -168,5 +161,35 @@ impl Translator<'_> {
         // Use bit shift for much faster page number calculation
         let shift_amount = self.builder.ins().iconst(types::I64, PAGE_SHIFT as i64);
         self.builder.ins().ushr(address, shift_amount)
+    }
+
+    /// Memory get - load value from memory at address
+    pub fn mget(&mut self, address: Value, ty: types::Type) -> Value {
+        let memory_base = self.get_memory_base();
+        let mem_addr = self.builder.ins().iadd(memory_base, address);
+        self.builder.ins().load(ty, MemFlags::new(), mem_addr, 0)
+    }
+
+    /// Memory set - store value to memory at address
+    pub fn mset(&mut self, address: Value, value: Value) {
+        let memory_base = self.get_memory_base();
+        let mem_addr = self.builder.ins().iadd(memory_base, address);
+        self.builder.ins().store(MemFlags::new(), value, mem_addr, 0);
+    }
+
+    /// Memory get with offset - load value from memory at address + offset
+    pub fn mget_o(&mut self, address: Value, offset: Value, ty: types::Type) -> Value {
+        let memory_base = self.get_memory_base();
+        let addr_with_offset = self.builder.ins().iadd(address, offset);
+        let mem_addr = self.builder.ins().iadd(memory_base, addr_with_offset);
+        self.builder.ins().load(ty, MemFlags::new(), mem_addr, 0)
+    }
+
+    /// Memory set with offset - store value to memory at address + offset
+    pub fn mset_o(&mut self, address: Value, offset: Value, value: Value) {
+        let memory_base = self.get_memory_base();
+        let addr_with_offset = self.builder.ins().iadd(address, offset);
+        let mem_addr = self.builder.ins().iadd(memory_base, addr_with_offset);
+        self.builder.ins().store(MemFlags::new(), value, mem_addr, 0);
     }
 }
