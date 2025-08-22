@@ -120,16 +120,12 @@ impl Translator<'_> {
             }
         }
 
-        // Step 3: Seal all blocks after translation
-        for &cranelift_block in self.blocks.values() {
-            self.builder.seal_block(cranelift_block);
-        }
-
+        self.builder.seal_all_blocks();
         Ok(())
     }
 
     /// Translate block and check termination
-    pub fn translate_block(&mut self, block: &Block) -> Result<()> {
+    fn translate_block(&mut self, block: &Block) -> Result<()> {
         // Translate all instructions in this block
         for instruction in &block.instructions {
             let pc = instruction.range.start;

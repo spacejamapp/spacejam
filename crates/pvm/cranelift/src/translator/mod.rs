@@ -25,6 +25,7 @@ pub struct Translator<'b> {
     // Jump table for dynamic jumps (djump)
     jump_table: Vec<u64>,
 
+    /// Map of PVM blocks by start PC
     pvm_blocks: HashMap<u64, Block>,
 
     // Context pointer for boundary checking and runtime operations
@@ -35,12 +36,6 @@ impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
         let mut builder = FunctionBuilder::new(func, ctx);
-
-        // Create entry block
-        let entry = builder.create_block();
-        builder.append_block_params_for_function_params(entry);
-        builder.switch_to_block(entry);
-        let ctx_ptr = builder.block_params(entry)[0];
 
         // Declare all PVM registers as Cranelift variables
         // PVM has registers: ra(0), sp(1), unused(2,3,4), s0-s1(5-6), a0-a4(7-11), unused(12)
@@ -56,7 +51,7 @@ impl<'b> Translator<'b> {
             builder,
             jump_table: Vec::new(),
             blocks: HashMap::new(),
-            ctx_ptr: Some(ctx_ptr),
+            ctx_ptr: None,
             pvm_blocks: HashMap::new(),
         })
     }

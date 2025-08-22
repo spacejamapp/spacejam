@@ -28,7 +28,6 @@ pub const MAX_REGISTER_INDEX: u8 = pvm::REGISTER_COUNT as u8 - 1;
 /// Execution result discriminant values
 pub mod result {
     pub const CONTINUE: u64 = 0;
-    pub const JUMP: u64 = 1;
     pub const HALT: u64 = 2;
     pub const TRAP: u64 = 3;
     pub const JUMP_INDIRECT: u64 = 4;

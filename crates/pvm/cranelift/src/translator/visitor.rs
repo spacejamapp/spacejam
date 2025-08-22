@@ -30,11 +30,8 @@ impl Visitor for Translator<'_> {
 
     fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         let next_pc = range.end as u64;
-        if let Some(&next_block) = self.blocks.get(&next_pc) {
-            self.builder.ins().jump(next_block, &[]);
-        } else {
-            self.return_continue_with_pc(next_pc)?;
-        }
+        let next_block = self.blocks[&next_pc];
+        self.builder.ins().jump(next_block, &[]);
         Ok(())
     }
 
@@ -73,12 +70,8 @@ impl Visitor for Translator<'_> {
         self.builder.def_var(dst_var, imm_val);
 
         let target_pc = (range.start as i64 + off0 as i64) as u64;
-        if let Some(&target_block) = self.blocks.get(&target_pc) {
-            self.builder.ins().jump(target_block, &[]);
-        } else {
-            // Jump to unknown target - return with jump result
-            self.return_with_jump_result(target_pc)?;
-        }
+        let target_block = self.blocks[&target_pc];
+        self.builder.ins().jump(target_block, &[]);
 
         Ok(())
     }
@@ -1762,11 +1755,8 @@ impl Visitor for Translator<'_> {
     fn visit_jump(&mut self, format: format::O, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
         let target_pc = (range.start as i64 + format.off0 as i64) as u64;
-        if let Some(&target_block) = self.blocks.get(&target_pc) {
-            self.builder.ins().jump(target_block, &[]);
-        } else {
-            self.return_with_jump_result(target_pc)?;
-        }
+        let target_block = self.blocks[&target_pc];
+        self.builder.ins().jump(target_block, &[]);
         Ok(())
     }
 
