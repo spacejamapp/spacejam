@@ -12,7 +12,7 @@ impl Visitor for Translator<'_> {
 
     fn visit_trap(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         // Set trap result in context for runtime handling
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let context_ptr = self.ctx_ptr;
         let result_offset = self
             .builder
             .ins()
@@ -1774,7 +1774,7 @@ impl Visitor for Translator<'_> {
 
         // For indirect jumps, we need to look up the address in the jump table at runtime
         // The runtime will validate and find the actual PC from the jump table
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let context_ptr = self.ctx_ptr;
         let result_offset = self
             .builder
             .ins()
@@ -1906,7 +1906,7 @@ impl Visitor for Translator<'_> {
         self.builder.def_var(reg0_var, imm0_val);
 
         // Store JumpIndirect result - let runtime handle jump table validation
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let context_ptr = self.ctx_ptr;
         let result_offset = self
             .builder
             .ins()

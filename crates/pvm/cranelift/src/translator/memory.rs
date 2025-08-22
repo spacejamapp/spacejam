@@ -92,7 +92,7 @@ impl Translator<'_> {
     /// Generate Cranelift IR to check page boundaries before store operations
     /// Uses stored context pointer and simple boundary logic matching interpreter
     pub fn check_store_boundaries(&mut self, address: Value, size_bytes: u32) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr;
 
         // Page size constant is already defined and available
 
@@ -152,7 +152,7 @@ impl Translator<'_> {
 
     /// Helper function to get the linear memory base address from ExtendedContext
     pub fn get_memory_base(&mut self) -> Value {
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let context_ptr = self.ctx_ptr;
         let memory_ptr_offset = self
             .builder
             .ins()

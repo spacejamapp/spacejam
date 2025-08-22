@@ -1,6 +1,6 @@
 //! PVM Compiler - A Cranelift-based compiler for the Polkadot Virtual Machine
 
-pub use translator::{Block, Code, Translator};
+pub use translator::Translator;
 
 pub mod translator;
 

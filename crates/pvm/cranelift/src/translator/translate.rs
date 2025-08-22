@@ -1,133 +1,117 @@
 //! translation utils
 
-use crate::{translator::Block, Translator};
+use crate::Translator;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
-use parser::Visitor;
+use parser::{reader::Offset, Instruction, Visitor};
+use std::collections::BTreeMap;
 
 impl Translator<'_> {
-    /// Analyze program - discovers all basic blocks using read_block()
-    /// Uses parser's natural block discovery for clean, efficient block creation
-    pub fn analyze(&mut self, program: &[u8]) -> Result<bool> {
+    /// Translate entire program
+    pub fn translate(&mut self, program: &[u8]) -> Result<bool> {
+        let (has_trap, blocks) = self.analyze(program)?;
+        self.translate_dispatcher()?;
+
+        // translate all blocks
+        for (pc, block) in &blocks {
+            let cranelift_block = self.blocks[pc];
+            self.builder.switch_to_block(cranelift_block);
+            if let Err(e) = self.translate_block(block) {
+                tracing::warn!("Failed to translate block at PC {}: {}", pc, e);
+                self.return_trap()?;
+            }
+        }
+
+        self.builder.seal_all_blocks();
+        Ok(has_trap)
+    }
+
+    /// Analyze program - discovers all basic blocks efficiently in one pass
+    fn analyze(
+        &mut self,
+        program: &[u8],
+    ) -> Result<(bool, BTreeMap<u64, Vec<Offset<Instruction>>>)> {
         let blob = parser::program::deblob(program)?;
         self.jump_table = blob.jump_table.clone();
-        self.blocks.clear();
 
+        // read all blocks and create CLIF blocks
         let mut reader = blob.reader();
         let mut has_trap = false;
-
-        // Use read_block() to naturally discover block boundaries
+        let mut blocks = BTreeMap::new();
         while !reader.eof() {
             let block_start = reader.position;
-            let block_instructions = reader.read_block()?;
-
-            if block_instructions.is_empty() {
+            let instructions = reader.read_block()?;
+            if instructions.is_empty() {
                 break;
             }
 
-            // Block terminates if it contains a terminating instruction OR if we reached EOF
-            let terminates = !block_instructions.is_empty()
-                && (reader.eof() || block_instructions.last().unwrap().value.is_termination());
-
-            // Handle indirect jump table targets first
-            self.process_jump_targets(&block_instructions, &blob)?;
-
-            // Check all instructions in the block for trap instructions
-            for instr in &block_instructions {
+            // check for trap instructions
+            for instr in &instructions {
                 if matches!(instr.value, parser::Instruction::Trap) {
                     has_trap = true;
                 }
             }
 
-            // Only create block if it doesn't already exist (might have been created by process_jump_targets)
-            if !self.blocks.contains_key(&(block_start as u64)) {
-                self.pvm_blocks.insert(
-                    block_start as u64,
-                    crate::Block {
-                        start: block_start,
-                        end: reader.position,
-                        terminates,
-                        instructions: block_instructions,
-                    },
-                );
-            }
+            // Store the block
+            blocks.insert(block_start as u64, instructions);
+            self.blocks
+                .insert(block_start as u64, self.builder.create_block());
         }
 
-        for pc in self.pvm_blocks.keys() {
-            if !self.blocks.contains_key(pc) {
-                self.blocks.insert(*pc, self.builder.create_block());
-            }
-        }
-
-        Ok(has_trap)
+        Ok((has_trap, blocks))
     }
 
-    /// Translate entire program
-    pub fn translate(&mut self) -> Result<()> {
-        let entry = self.entry();
-        let ctx_ptr = self.builder.block_params(entry)[0];
-        let start_pc = self.builder.block_params(entry)[1];
-        self.init_with_context(ctx_ptr)?;
-
-        // Load all registers from context ONCE at function entry
+    /// Declare and load registers from context
+    fn init_registers(&mut self, ctx_ptr: Value) {
         for i in 0..pvm::REGISTER_COUNT {
-            let reg_var = self.registers[&(i as u8)];
+            let var = Variable::new(i);
+            self.builder.declare_var(var, types::I64);
+
+            // Load register from context
             let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
             let addr = self.builder.ins().iadd(ctx_ptr, offset);
-            let reg_val = self
+            let val = self
                 .builder
                 .ins()
                 .load(types::I64, MemFlags::new(), addr, 0);
-            self.builder.def_var(reg_var, reg_val);
+            self.builder.def_var(var, val);
+            self.registers.insert(i as u8, var);
         }
+    }
 
-        // Dispatcher: jump to the requested starting PC
-        // Create a switch statement to jump to the correct block based on start_pc
+    /// Translate dispatcher
+    fn translate_dispatcher(&mut self) -> Result<()> {
+        let entry = self.entry();
+        let ctx_ptr = self.builder.block_params(entry)[0];
+        let start_pc = self.builder.block_params(entry)[1];
+        self.ctx_ptr = ctx_ptr;
+
+        // declare all PVM registers as Cranelift variables
+        self.init_registers(ctx_ptr);
+
+        // create a switch statement to jump to the correct block based on pc
         let mut switch = cranelift::frontend::Switch::new();
         for (&pc, &cranelift_block) in &self.blocks {
             switch.set_entry(pc as u128, cranelift_block);
         }
 
-        // Default case: if PC is not found, return with trap
+        // if the PC is not found, return with trap
         let default_block = self.builder.create_block();
         self.builder.switch_to_block(default_block);
         self.return_trap()?;
         self.builder.seal_block(default_block);
 
-        // Generate the switch on start_pc
+        // generate the switch on start_pc
         self.builder.switch_to_block(entry);
         switch.emit(&mut self.builder, start_pc, default_block);
         self.builder.seal_block(entry);
-
-        // Step 2: Translate all PVM blocks to Cranelift basic blocks using shared translator
-        //
-        // TODO: remove the clone here.
-        for (pc, pvm_block) in &self.pvm_blocks.clone() {
-            let cranelift_block = self.blocks[pc];
-            self.builder.switch_to_block(cranelift_block);
-
-            // Translate instructions in this block using shared translator
-            match self.translate_block(pvm_block) {
-                Ok(_) => {
-                    tracing::trace!("Successfully translated block at PC {}", pc);
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to translate block at PC {}: {}", pc, e);
-                    // Generate trap for failed blocks
-                    self.return_trap()?;
-                }
-            }
-        }
-
-        self.builder.seal_all_blocks();
         Ok(())
     }
 
     /// Translate block and check termination
-    fn translate_block(&mut self, block: &Block) -> Result<()> {
-        // Translate all instructions in this block
-        for instruction in &block.instructions {
+    fn translate_block(&mut self, block: &Vec<Offset<Instruction>>) -> Result<()> {
+        for instruction in block {
             let pc = instruction.range.start;
             tracing::trace!("translating PC {} instruction {:?}", pc, instruction.value);
 
@@ -136,12 +120,12 @@ impl Translator<'_> {
             }
         }
 
-        // Handle block termination with native Cranelift control flow
+        // handle block termination with native CLIF control flow
         //
-        // This is only for the tests that has incomplete blocks.
-        if let Some(last) = block.instructions.last() {
+        // this is only for the tests that has incomplete blocks.
+        if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.return_continue_with_pc(block.end as u64)?;
+                self.return_continue_with_pc(last.range.end as u64)?;
             }
         }
 
@@ -154,57 +138,5 @@ impl Translator<'_> {
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
         entry
-    }
-
-    /// Process jump targets from indirect jump instructions
-    fn process_jump_targets(
-        &mut self,
-        block_instructions: &[parser::reader::Offset<parser::Instruction>],
-        blob: &parser::program::ProgramBlob,
-    ) -> Result<()> {
-        let Some(last_instruction) = block_instructions.last() else {
-            return Ok(());
-        };
-
-        if !matches!(
-            last_instruction.value,
-            parser::Instruction::JumpInd(_) | parser::Instruction::LoadImmJumpInd(_)
-        ) {
-            return Ok(());
-        }
-
-        // Clone jump_table to avoid borrow checker issues
-        let jump_table = self.jump_table.clone();
-        for &target in &jump_table {
-            if (target as usize) >= blob.instructions.len() || self.blocks.contains_key(&target) {
-                continue;
-            }
-
-            let mut target_reader = blob.reader();
-            target_reader.set_position(target as usize);
-            if target_reader.eof() {
-                continue;
-            }
-
-            let target_start = target_reader.position;
-            let target_instructions = target_reader.read_block()?;
-            let target_end = target_reader.position;
-
-            // Check if the block actually terminates (has a terminating instruction)
-            let terminates = !target_instructions.is_empty()
-                && target_instructions.last().unwrap().value.is_termination();
-
-            self.pvm_blocks.insert(
-                target,
-                crate::translator::Block {
-                    start: target_start,
-                    end: target_end,
-                    terminates,
-                    instructions: target_instructions,
-                },
-            );
-        }
-
-        Ok(())
     }
 }

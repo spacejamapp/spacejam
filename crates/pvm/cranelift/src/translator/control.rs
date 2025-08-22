@@ -18,7 +18,7 @@ impl Translator<'_> {
 
     /// Return with continue result and specific PC
     pub fn return_continue_with_pc(&mut self, pc: u64) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -52,7 +52,7 @@ impl Translator<'_> {
 
     /// Return with trap result
     pub fn return_trap(&mut self) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -72,7 +72,7 @@ impl Translator<'_> {
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_trap_with_pc(&mut self, trap_pc: usize) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
         self.save_registers()?;
@@ -123,7 +123,7 @@ impl Translator<'_> {
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
     pub fn djump(&mut self, instruction_pc: usize) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
+        let ctx_ptr = self.ctx_ptr;
 
         // Read the target address that was computed and stored by the visitor
         let result_offset = self

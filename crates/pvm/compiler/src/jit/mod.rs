@@ -55,12 +55,9 @@ impl JIT {
     }
 
     fn translate(&mut self, program: &[u8]) -> Result<bool> {
-        // Set the function signature before creating the translator
         self.ctx.func.signature = self.signature();
-        
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
-        let is_trap = trans.analyze(program)?;
-        trans.translate()?;
+        let is_trap = trans.translate(program)?;
         trans.builder.finalize();
         Ok(is_trap)
     }
