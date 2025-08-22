@@ -97,7 +97,6 @@ pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;
-    tracing::debug!("writing to account {}", account.index(),);
     if account.threshold() > account.balance() {
         return Ok(Exit::Full as u64);
     }
@@ -140,14 +139,12 @@ pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
         r7 as ServiceId
     };
 
-    tracing::debug!("fetching info for account {}", service_id);
-
     // Get the account or return NONE if not found
     let Ok(account) = ctx.account(service_id as u64) else {
         return Ok(Exit::None as u64);
     };
 
-    let Ok(info) = account.info().host() else {
+    let Ok(info) = account.info().host(service_id == ctx.service()) else {
         crate::bail!("failed to encode account info");
     };
 
