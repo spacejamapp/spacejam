@@ -1,11 +1,30 @@
 //! Memory related operations
+//!
+//!
+//! TODO: support static memory when the calculated memory size is less than 1 MB.
 
-use crate::{
-    access, context_offsets, Translator, BITS_PER_WORD, BITS_PER_WORD_SHIFT, BYTES_PER_U64_SHIFT,
-    PAGE_SHIFT,
-};
+use crate::{context_offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
+
+/// Page size as a power of 2 (2^12 = 4096)
+pub const PAGE_SHIFT: u8 = 12;
+
+/// Number of bits per u64 word for bitmap operations
+pub const BITS_PER_WORD: u8 = 64;
+
+/// Log2 of bits per u64 word (2^6 = 64)
+pub const BITS_PER_WORD_SHIFT: u8 = 6;
+
+/// Log2 of bytes per u64 (2^3 = 8 bytes)
+pub const BYTES_PER_U64_SHIFT: u8 = 3;
+
+/// Memory access permissions
+pub mod access {
+    pub const MUTABLE: u8 = 0;
+    pub const IMMUTABLE: u8 = 1;
+    pub const INACCESSIBLE: u8 = 2;
+}
 
 impl Translator<'_> {
     /// Check if a page is allocated and writable by consulting the page bitmap and access array
@@ -109,11 +128,7 @@ impl Translator<'_> {
 
         // Always check the start page first
         self.builder.ins().jump(check_start_page_block, &[]);
-
-        // Check start page allocation and writability
         self.builder.switch_to_block(check_start_page_block);
-
-        // Check if start page is allocated and writable
         let start_page_valid = self.check_page_allocated_and_writable(ctx_ptr, start_page)?;
         self.builder
             .ins()
@@ -133,13 +148,10 @@ impl Translator<'_> {
 
         // Continue block: proceed with store operation
         self.builder.switch_to_block(continue_block);
-
-        // Seal all created blocks
         self.builder.seal_block(check_start_page_block);
         self.builder.seal_block(check_end_page_block);
         self.builder.seal_block(continue_block);
         self.builder.seal_block(trap_block);
-
         Ok(())
     }
 
@@ -174,7 +186,9 @@ impl Translator<'_> {
     pub fn mset(&mut self, address: Value, value: Value) {
         let memory_base = self.get_memory_base();
         let mem_addr = self.builder.ins().iadd(memory_base, address);
-        self.builder.ins().store(MemFlags::new(), value, mem_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), value, mem_addr, 0);
     }
 
     /// Memory get with offset - load value from memory at address + offset
@@ -190,6 +204,8 @@ impl Translator<'_> {
         let memory_base = self.get_memory_base();
         let addr_with_offset = self.builder.ins().iadd(address, offset);
         let mem_addr = self.builder.ins().iadd(memory_base, addr_with_offset);
-        self.builder.ins().store(MemFlags::new(), value, mem_addr, 0);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), value, mem_addr, 0);
     }
 }

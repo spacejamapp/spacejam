@@ -1,8 +1,16 @@
 //! Control flow related interfaces
 
-use crate::{context_offsets, result, Translator};
+use crate::{context_offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
+
+/// Execution result discriminant values
+pub mod result {
+    pub const CONTINUE: u64 = 0;
+    pub const HALT: u64 = 2;
+    pub const TRAP: u64 = 3;
+    pub const JUMP_INDIRECT: u64 = 4;
+}
 
 impl Translator<'_> {
     /// Generic helper for branch generation

@@ -16,7 +16,7 @@ impl Translator<'_> {
             let val = self
                 .builder
                 .ins()
-                .load(types::I64, MemFlags::new(), addr, 0);
+                .load(types::I64, MemFlags::trusted(), addr, 0);
             self.builder.def_var(var, val);
             self.registers.insert(i as u8, var);
         }

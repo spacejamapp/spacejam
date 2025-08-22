@@ -2,7 +2,7 @@
 
 #![allow(unused)]
 
-use crate::{context_offsets, result, Translator, MAX_REGISTER_INDEX};
+use crate::{context_offsets, result, Translator};
 use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
