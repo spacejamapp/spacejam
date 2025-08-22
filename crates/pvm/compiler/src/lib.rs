@@ -7,6 +7,6 @@ pub mod module;
 
 pub use {
     compiler::Compiler,
-    jit::Jit,
+    jit::JIT,
     module::{Context, ExecResult, ExtendedContext, Info, Module},
 };

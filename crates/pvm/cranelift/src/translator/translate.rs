@@ -148,6 +148,7 @@ impl Translator<'_> {
                 self.return_continue_with_pc(block.end as u64)?;
             }
         }
+
         Ok(())
     }
 

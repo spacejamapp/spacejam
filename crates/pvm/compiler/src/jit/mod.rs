@@ -1,18 +1,70 @@
 //! Cranelift JIT backend
 
 use anyhow::Result;
-use cranelift_jit::JITBuilder;
+use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
+use cranelift_codegen::Context;
+use cranelift_jit::{JITBuilder, JITModule};
+use cranelift_module::{Linkage, Module};
+use translator::Translator;
 
 /// Cranelift JIT module builder
-pub struct Jit {
+pub struct JIT {
     /// Cranelift JIT module builder
-    pub builder: JITBuilder,
+    pub module: JITModule,
+
+    /// Function builder context
+    pub bctx: FunctionBuilderContext,
+
+    /// Cranelift codegen context
+    pub ctx: Context,
 }
 
-impl Jit {
+impl JIT {
     /// Create new JIT module builder
     pub fn new() -> Result<Self> {
         let builder = JITBuilder::new(cranelift_module::default_libcall_names())?;
-        Ok(Self { builder })
+        let module = JITModule::new(builder);
+        Ok(Self {
+            bctx: FunctionBuilderContext::new(),
+            ctx: module.make_context(),
+            module,
+        })
+    }
+
+    /// Compile a program
+    ///
+    /// TODO: introduce different artifacts for different pc, e.g.
+    /// - accumulate
+    /// - refine
+    /// - is_authorized
+    /// - core_vm ???
+    pub fn compile(&mut self, program: &[u8]) -> Result<()> {
+        let sig = self.signature();
+        let id = self
+            .module
+            .declare_function("main", Linkage::Export, &sig)?;
+
+        // translate the program to CLIF
+        self.translate(program)?;
+        self.module.define_function(id, &mut self.ctx)?;
+
+        // TODO: get the function ptr and return a module
+        Ok(())
+    }
+
+    fn translate(&mut self, program: &[u8]) -> Result<bool> {
+        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
+        let is_trap = trans.analyze(program)?;
+        trans.translate()?;
+        trans.builder.finalize();
+        Ok(is_trap)
+    }
+
+    /// Create a signature for the function
+    fn signature(&self) -> Signature {
+        let mut sig = self.module.make_signature();
+        sig.params.push(AbiParam::new(types::I64)); // context pointer
+        sig.params.push(AbiParam::new(types::I64)); // starting PC
+        sig
     }
 }
