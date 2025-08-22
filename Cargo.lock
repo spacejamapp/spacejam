@@ -2846,7 +2846,6 @@ dependencies = [
  "cranelift-module",
  "cranelift-native",
  "cranelift-pvm",
- "libc",
  "proc-macro2",
  "pvm",
  "quote",

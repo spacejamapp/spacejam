@@ -38,18 +38,20 @@ impl JIT {
     /// - refine
     /// - is_authorized
     /// - core_vm ???
-    pub fn compile(&mut self, program: &[u8]) -> Result<()> {
+    pub fn compile(&mut self, program: &[u8]) -> Result<crate::Module> {
         let sig = self.signature();
         let id = self
             .module
             .declare_function("main", Linkage::Export, &sig)?;
 
-        // translate the program to CLIF
-        self.translate(program)?;
+        let is_trap = self.translate(program)?;
         self.module.define_function(id, &mut self.ctx)?;
-
-        // TODO: get the function ptr and return a module
-        Ok(())
+        self.module.clear_context(&mut self.ctx);
+        self.module.finalize_definitions()?;
+        Ok(crate::Module::new(
+            self.module.get_finalized_function(id),
+            is_trap,
+        ))
     }
 
     fn translate(&mut self, program: &[u8]) -> Result<bool> {

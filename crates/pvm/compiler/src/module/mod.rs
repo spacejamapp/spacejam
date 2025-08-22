@@ -1,7 +1,6 @@
 //! Compiled function metadata
 
 use anyhow::Result;
-use cranelift_codegen::CompiledCode;
 pub use {
     context::{Context, ExtendedContext},
     info::{ExecResult, Info},
@@ -14,7 +13,7 @@ mod info;
 #[derive(Debug, Clone)]
 pub struct Module {
     /// The function composed by cranelift IR
-    code: CompiledCode,
+    code: *const u8,
 
     /// Whether the program is a trap
     ///
@@ -24,7 +23,7 @@ pub struct Module {
 
 impl Module {
     /// Set the program bytes for block JIT execution
-    pub fn new(code: CompiledCode, is_trap: bool) -> Self {
+    pub fn new(code: *const u8, is_trap: bool) -> Self {
         Self { code, is_trap }
     }
 
@@ -52,7 +51,6 @@ impl Module {
 
     /// Execute compiled function
     fn run(&self, ctx: &mut Context) -> Result<()> {
-        // Generate page allocation information for boundary checking
         let (page_bitmap, page_access) = ctx.generate_page_bitmap();
         let mut ext_ctx = ExtendedContext {
             registers: ctx.registers,
@@ -64,19 +62,9 @@ impl Module {
             pc_managed: false,
         };
 
-        unsafe {
-            let bytes = self.code.buffer.data();
-            let size = bytes.len();
-            let ptr = self.alloc_exec(size)?;
-
-            // Copy the compiled code to the allocated executable memory
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, size);
-
-            let func = std::mem::transmute::<*const u8, fn(*mut ExtendedContext, u64)>(ptr);
-            func(&mut ext_ctx, ctx.pc);
-        }
-
-        // Extract final state from the context
+        let func =
+            unsafe { std::mem::transmute::<*const u8, fn(*mut ExtendedContext, u64)>(self.code) };
+        func(&mut ext_ctx, ctx.pc);
         ctx.registers = ext_ctx.registers;
         ctx.pc = ext_ctx.pc;
 
@@ -91,26 +79,6 @@ impl Module {
                 ctx.pc = 0;
                 Ok(())
             }
-        }
-    }
-
-    /// Allocate executable memory
-    fn alloc_exec(&self, size: usize) -> Result<*mut u8> {
-        unsafe {
-            let ptr = libc::mmap(
-                std::ptr::null_mut(),
-                size,
-                libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                -1,
-                0,
-            );
-
-            if ptr == libc::MAP_FAILED {
-                anyhow::bail!("Failed to allocate executable memory");
-            }
-
-            Ok(ptr as *mut u8)
         }
     }
 }

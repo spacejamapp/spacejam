@@ -12,7 +12,6 @@ cranelift-codegen.workspace = true
 cranelift-native.workspace = true
 cranelift-jit.workspace = true
 cranelift-module.workspace = true
-libc.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
