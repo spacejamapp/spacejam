@@ -5,7 +5,7 @@ use crate::{
     invocation::State,
     Argument, Result,
 };
-use score::{Account, Parameters, ServiceId};
+use score::{Account, Parameters};
 
 /// (ΩG) Get the gas to register
 pub fn gas(state: &mut State) -> Result<u64> {
@@ -127,24 +127,13 @@ pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     Ok(result)
 }
 
-/// (ΩI) fetch info
-///
-/// fetch state of the account per Gray Paper specification
+/// (ΩI) fetch account info
 pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    // Get service ID from register 7 (u64::MAX means current service)
-    let r7 = state.registers[7];
-    let service_id = if r7 == u64::MAX {
-        ctx.service()
-    } else {
-        r7 as ServiceId
-    };
-
-    // Get the account or return NONE if not found
-    let Ok(account) = ctx.account(service_id as u64) else {
+    let Ok(account) = ctx.or_this(state.registers[7]) else {
         return Ok(Exit::None as u64);
     };
 
-    let Ok(info) = account.info().host(service_id == ctx.service()) else {
+    let Ok(info) = account.info().host(account.index() == ctx.service()) else {
         crate::bail!("failed to encode account info");
     };
 
