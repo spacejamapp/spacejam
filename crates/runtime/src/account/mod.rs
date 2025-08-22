@@ -24,6 +24,9 @@ pub struct Account<S: Storage> {
     /// The index of the account
     index: u32,
 
+    /// The info of the account
+    info: ServiceInfo,
+
     /// The account state
     account: ServiceAccount,
 
@@ -39,6 +42,7 @@ impl<S: Storage> Account<S> {
         Ok(Self {
             state: storage,
             index,
+            info: account.info.clone(),
             account,
             ops: Commit::default(),
         })
@@ -58,6 +62,7 @@ impl<S: Storage> Account<S> {
         Self {
             state: storage,
             index,
+            info: account.info(),
             account: account.account(),
             ops: account.ops().into(),
         }
@@ -280,11 +285,19 @@ impl<S: Storage> score::Account for Account<S> {
         self.account.info.clone()
     }
 
+    fn updated(&self) -> bool {
+        !self.ops.update.is_empty()
+            || !self.ops.removal.is_empty()
+            || self.info != self.account.info
+    }
+
     fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
-        self.ops.set(
-            account::info(self.index),
-            codec::encode(&self.account.state()).expect("data is valid"),
-        );
+        if self.info != self.account.info {
+            self.ops.set(
+                account::info(self.index),
+                codec::encode(&self.account.state()).expect("data is valid"),
+            );
+        }
         let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
         let updates: BTreeMap<TrieKey, Vec<u8>> =
             self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
@@ -298,6 +311,7 @@ impl<S: Storage> Clone for Account<S> {
         Self {
             state: self.state.clone(),
             index: self.index,
+            info: self.info.clone(),
             account: self.account.clone(),
             ops: self.ops.clone(),
         }

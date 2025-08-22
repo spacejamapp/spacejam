@@ -52,6 +52,8 @@ pub fn read(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
+    tracing::debug!("reading from account {}", account.index());
+
     // get the key
     let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
     let key = state
@@ -95,6 +97,7 @@ pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;
+    tracing::debug!("writing to account {}", account.index(),);
     if account.threshold() > account.balance() {
         return Ok(Exit::Full as u64);
     }
@@ -136,6 +139,8 @@ pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     } else {
         r7 as ServiceId
     };
+
+    tracing::debug!("fetching info for account {}", service_id);
 
     // Get the account or return NONE if not found
     let Ok(account) = ctx.account(service_id as u64) else {

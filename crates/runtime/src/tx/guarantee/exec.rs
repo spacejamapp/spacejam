@@ -25,47 +25,43 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
 pub fn outer<V: Pvm, R: Accounts>(
-    gas_limit: Gas,
-    reports: &[WorkReport],
+    mut gas_limit: Gas,
+    mut reports: &[WorkReport],
     context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated<R> {
-    // NOTE: we might need to sort the reports by the gas limit,
-    // need to double check if we have already done it.
-    //
-    // do we need to check the gas used in always accumulate as well?
-    let mut cumulative_gas = 0;
-    let index = reports
-        .iter()
-        .take_while(|r| {
-            let report_gas: Gas = r.results.iter().map(|r| r.accumulate_gas).sum();
-            cumulative_gas += report_gas;
-            cumulative_gas <= gas_limit
-        })
-        .count();
+    let mut accumulated = Accumulated::new(context);
+    loop {
+        let mut cumulative_gas = 0;
+        let index = reports
+            .iter()
+            .take_while(|r| {
+                let report_gas: Gas = r.results.iter().map(|r| r.accumulate_gas).sum();
+                cumulative_gas += report_gas;
+                cumulative_gas <= gas_limit
+            })
+            .count();
 
-    if index == 0 {
-        return Accumulated::new(context);
+        if index == 0 {
+            return accumulated;
+        }
+
+        let step = self::parallel::<V, R>(
+            accumulated.context.clone(),
+            &reports[..index],
+            gas_table,
+            timeslot,
+        );
+
+        gas_limit -= step.gas.values().sum::<Gas>();
+        reports = &reports[index..];
+        accumulated.accumulated += step.accumulated;
+        accumulated.gas.extend(step.gas);
+        accumulated.transfers.extend(step.transfers);
+        accumulated.pairings.extend(step.pairings);
+        accumulated.context = step.context;
     }
-
-    let mut accumulated =
-        self::parallel::<V, R>(context.clone(), &reports[..index], gas_table, timeslot);
-
-    // TODO: re-check if we need a loop here.
-    let rest = self::outer::<V, R>(
-        gas_limit - accumulated.gas.values().sum::<Gas>(),
-        &reports[index..],
-        accumulated.context.clone(),
-        gas_table,
-        timeslot,
-    );
-
-    accumulated.accumulated += rest.accumulated;
-    accumulated.gas.extend(rest.gas);
-    accumulated.transfers.extend(rest.transfers);
-    accumulated.pairings.extend(rest.pairings);
-    accumulated
 }
 
 /// (Δ*) parallel accumulation
@@ -84,7 +80,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let results: BTreeMap<ServiceId, pvm::Accumulated<R>> = services
+    let mut results: BTreeMap<ServiceId, pvm::Accumulated<R>> = services
         .iter()
         .map(|service| {
             let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
@@ -93,20 +89,21 @@ pub fn parallel<V: Pvm, R: Accounts>(
         .collect();
 
     // Update the state of accounts
-    let mut removed = BTreeSet::new(); // m
+    let mut removed = BTreeSet::new();
     let mut gas = BTreeMap::new();
     let mut transfers = vec![];
     let mut pairings = BTreeMap::new();
     let services = context.accounts.services();
-    for (service_id, result) in results.iter() {
+    for (service_id, result) in results.iter_mut() {
         let lsvc = result.context.accounts.services();
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
-            if !services.contains(id) || id == service_id {
+            if account.creation() == timeslot || id == service_id {
                 let mut account = account.clone();
-                if account.creation() != timeslot {
+                if id == service_id {
                     account.set_update(timeslot);
                 }
+
                 context.accounts.upsert(*id, account);
             }
         }
