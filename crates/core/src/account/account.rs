@@ -122,6 +122,11 @@ pub trait Account: Clone {
     /// Get the account info
     fn info(&self) -> ServiceInfo;
 
+    /// Check if the account has been updated
+    fn updated(&self) -> bool {
+        false
+    }
+
     /// Get the operations of the account
     fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>);
 }

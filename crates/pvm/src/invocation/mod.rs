@@ -1,131 +1,466 @@
 //! PVM invocation interface
 
-use score::{vm::Operand, Account, Accounts, Entropy, ServiceId};
+use crate::{host, Reason};
+use parser::{
+    program::{self, Program},
+    ProgramBlob,
+};
+use score::{
+    service::{WorkExecResult, WorkPackage},
+    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
+    Account, Accounts, Gas, ServiceId, TimeSlot,
+};
 pub use {
-    accumulate::Accumulate,
-    api::Invocation,
-    refine::Refine,
+    accumulate::{Accumulate, AccumulateContext, Accumulated},
+    argument::Argument,
+    authorize::IsAuthorized,
+    general::General,
+    refine::{Refine, Refined},
     state::{Executed, Received, State, Stepped},
+    transfer::Transferred,
 };
 
 pub mod accumulate;
-mod api;
+mod argument;
+mod authorize;
+mod general;
 pub mod refine;
 mod state;
 pub mod transfer;
 
-/// Dynamic arguments for host calls
-pub trait Argument<R: Accounts> {
-    /// returns some if the input data is general
-    fn as_general(&self) -> crate::Result<General<R>> {
-        crate::bail!("not a general")
-    }
+/// The invocation Interface of PVM
+///
+/// TODO: refactor this interface when the implementation gets stable.
+pub trait Invocation {
+    /// (Ψ): the general PVM invocation
+    ///
+    /// defined per graypaper (A.1)
+    fn invoke(
+        // (p) the program blob
+        blob: &[u8],
+        // (ı) the current program counter
+        pc: u64,
+        // (ϱ) the gas
+        gas: Gas,
+        // (ω) the registers
+        registers: [u64; 13],
+        // (µ) the memory
+        memory: parser::Memory,
+    ) -> Stepped<()> {
+        let mut state = State {
+            pc: pc as usize,
+            gas: gas as i64,
+            registers,
+            memory,
+        };
 
-    /// update the general argument
-    fn update_general(&mut self, _general: General<R>) -> crate::Result<()> {
-        crate::bail!("not a general")
-    }
+        // deblob the program
+        let ProgramBlob {
+            instructions,
+            bitmask,
+            jump_table: jump,
+        } = match program::deblob(blob) {
+            Ok(program) => program,
+            Err(e) => {
+                return state.stepped(Reason::Panic(e.to_string()));
+            }
+        };
 
-    /// returns some if the input data is accumulate
-    fn as_accumulate_mut(&mut self) -> crate::Result<&mut Accumulate<R>> {
-        crate::bail!("not an accumulate")
-    }
+        // stepping instructions
+        loop {
+            let Stepped {
+                reason,
+                state: next,
+                data: _,
+            } = Self::step(
+                &instructions,
+                &bitmask,
+                &jump,
+                state.pc as u64,
+                state.gas as u64,
+                state.registers,
+                state.memory.clone(),
+            );
 
-    /// returns some if the input data is refine
-    fn as_refine_mut(&mut self) -> crate::Result<&mut Refine<R>> {
-        crate::bail!("not a refine")
-    }
+            // out of gas
+            if next.gas < 0 {
+                return state.stepped(Reason::OOG);
+            }
 
-    /// returns some if the input data is is_authorized
-    fn as_is_authorized(&self) -> crate::Result<&IsAuthorized> {
-        crate::bail!("not an is_authorized")
-    }
+            // handle the exit reason
+            state = next;
+            match reason {
+                // no exit reason, continue
+                Reason::Continue => {
+                    continue;
+                }
+                // reset the program counter on halt or panic
+                Reason::Halt | Reason::Panic(_) => {}
+                _ => {}
+            };
 
-    /// returns the arguments of the invocation
-    fn args(&self) -> &[u8] {
-        &[]
-    }
-}
-
-/// Input data of general host functions
-#[derive(Debug, Clone)]
-pub struct General<R: Accounts> {
-    /// (s) Service index
-    pub index: ServiceId,
-
-    /// (d) Account dictionary
-    pub accounts: R,
-
-    /// (o) The operands
-    pub operands: Vec<Operand>,
-
-    /// (η) The entropy
-    pub entropy: Entropy,
-
-    // if the account got updated.
-    pub updated: bool,
-}
-
-impl<R: Accounts> General<R> {
-    /// Create a new general host
-    pub fn new(index: ServiceId, accounts: R, operands: Vec<Operand>, entropy: Entropy) -> Self {
-        Self {
-            index,
-            accounts,
-            operands,
-            entropy,
-            updated: false,
+            return state.stepped(reason);
         }
     }
 
-    /// Get service account
-    pub fn get(&mut self, r7: u64) -> Option<impl Account + '_> {
-        let service = self.index as u64;
-        let mut index = r7 as ServiceId;
-        if r7 == u64::MAX || r7 == service {
-            index = self.index;
+    /// (Ψ1): single-step state transition invocation
+    ///
+    /// Defined per graypaper (A.6)
+    fn step(
+        // (c) The instruction data
+        instructions: &[u8],
+        // (k) The bitmap of the instruction data
+        bitmask: &[u8],
+        // (j) The jump table
+        jump: &[u64],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: Gas,
+        // (ω) The registers
+        registers: [u64; 13],
+        // (µ) The memory
+        memory: parser::Memory,
+    ) -> Stepped<()>;
+
+    /// (ΨH): host call invocation
+    ///
+    /// Defined per graypaper (A.34)
+    fn call<X: Argument>(
+        // (c) The instruction data
+        code: &[u8],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: u64,
+        // (ω) The registers
+        registers: [u64; 13],
+        // (µ) The memory
+        memory: parser::Memory,
+        // (f) the host function
+        //
+        // (x) the host function input data
+        input: X,
+    ) -> Stepped<X> {
+        // (state') invoke the PVM
+        let Stepped {
+            reason,
+            state,
+            data: _,
+        } = Self::invoke(code, pc, gas, registers, memory);
+        let Reason::HostCall(call) = reason else {
+            return state.stepped(reason).with(input);
+        };
+
+        // FIXME: refactor with loop
+        let stepped = host::call(call, state, input);
+        match stepped.reason {
+            Reason::Fault { page } => stepped
+                .state
+                .stepped(Reason::Fault { page })
+                .with(stepped.data),
+            Reason::Continue | Reason::HostCall(_) => Self::call(
+                code,
+                stepped.state.pc as u64,
+                stepped.state.gas as u64,
+                stepped.state.registers,
+                stepped.state.memory,
+                stepped.data,
+            ),
+            _ => stepped.state.stepped(stepped.reason).with(stepped.data),
+        }
+    }
+
+    /// (ΨM): argument invocation
+    ///
+    /// Defined per graypaper (A.43)
+    fn argument<X: Argument>(
+        // (p) The standard program blob
+        blob: &[u8],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: u64,
+        // (a) The input data
+        args: &[u8],
+        // (f) the host function
+        //
+        // (x) the host function input data
+        data: X,
+    ) -> Received<X> {
+        let Program {
+            code,
+            registers,
+            memory,
+        } = match program::preimage(blob, args) {
+            Ok(standard) => standard,
+            Err(e) => {
+                tracing::error!("failed to deblob the standard program blob: {e:?}");
+                return Received::panic(e, data);
+            }
+        };
+
+        let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
+
+        // get the output
+        let mut output = vec![];
+        if stepped.reason == Reason::Halt {
+            let ptr = stepped.state.registers[7] as u32;
+            let len = stepped.state.registers[8] as u32;
+
+            // Read output data from memory using ptr and len
+            match stepped.state.memory.read_bytes(ptr, len) {
+                Ok(data) => output = data,
+                Err(e) => {
+                    stepped.reason =
+                        Reason::Panic(format!("failed to read output from memory: {}", e))
+                }
+            }
         }
 
-        self.accounts.get(index).cloned()
+        let gas = gas - (stepped.state.gas.max(0) as u64);
+        stepped.received(gas, output)
     }
 
-    /// Get the account
-    pub fn account(&mut self) -> Option<&mut (impl Account + '_)> {
-        self.accounts.get(self.index)
+    /// (ΨI): The Is-Authorized invocation
+    ///
+    /// Defined per graypaper (B.5)
+    fn is_authorized<R: Accounts>(
+        // (p) the work package
+        package: &WorkPackage,
+        // (c) The core index
+        core_idx: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
+    ) -> Executed {
+        // Get the service account that hosts the authorization code
+        let Some(account) = accounts.get(package.auth_code_host) else {
+            tracing::warn!(
+                "Authorization code host service {} not found",
+                package.auth_code_host
+            );
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        };
+
+        // Resolve authorization code using historical lookup
+        let Some(code) = account.historical_lookup(timeslot, package.authorizer.code_hash) else {
+            tracing::warn!(
+                "Authorization code not found for hash {:?}",
+                package.authorizer.code_hash
+            );
+            return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
+        };
+
+        // Check authorization code size limit (W_A - BIG if too big)
+        if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
+            tracing::warn!(
+                "Authorization code too big: {} bytes > {} bytes limit",
+                code.len(),
+                score::MAX_IS_AUTHORIZED_CODE_SIZE as usize
+            );
+            return Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0);
+        }
+
+        // Prepare arguments
+        let args = codec::encode(&core_idx).unwrap_or_default();
+        let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
+        let result = Self::argument(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
+
+        // construct the result
+        let gas = result.gas;
+        let output = result.output.clone();
+        let exec_result = result.result();
+        Executed::new(output, exec_result, gas)
+    }
+
+    /// (ΨR): Refine invocation
+    ///
+    /// Defined per graypaper (B.5)
+    #[allow(clippy::too_many_arguments)]
+    fn refine<R: Accounts>(
+        // (c) the core index
+        core: u16,
+        // (i) the work item index
+        index: usize,
+        // (p) the work package
+        package: &WorkPackage,
+        // (r) the authorizer output
+        auth_output: &[u8],
+        // (ī) all work items' import segments
+        all_imports: &[Vec<[u8; score::SEGMENT_SIZE as usize]>],
+        // (ς) export segment offset
+        export_offset: u16,
+        // (δ) accounts for historical lookup
+        accounts: &mut R,
+        // (N_t) timeslot for the current operation
+        timeslot: TimeSlot,
+    ) -> Refined {
+        let item = &package.items[index];
+        let Some(account) = accounts.get(item.service) else {
+            tracing::warn!("no account found for service: {}", item.service);
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
+            tracing::warn!("no code found for service: {}", item.service);
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
+                Vec::new(),
+            );
+        };
+
+        if code.len() > score::MAX_REFINE_CODE_SIZE as usize {
+            return Refined::new(
+                Executed::new(Vec::new(), WorkExecResult::CodeOversize, 0),
+                Vec::new(),
+            );
+        }
+
+        // FIXME: passing the hash into this function mb. do not hash it for twice!
+        let package_hash =
+            crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let params = RefineParams {
+            core,
+            index: index as u16,
+            id: item.service,
+            payload: item.payload.clone(),
+            package: package_hash,
+        };
+
+        // Get import segments for this work item
+        let _work_item_imports = if index < all_imports.len() {
+            all_imports[index].clone()
+        } else {
+            Vec::new()
+        };
+
+        // Create refine context with proper parameters
+        let refine_context = crate::invocation::Refine {
+            accounts: accounts.clone(),
+            service: item.service,
+            core,
+            auth_output: auth_output.to_vec(),
+            all_imports: all_imports.to_vec(),
+            export_offset,
+            exports: Vec::new(),
+        };
+
+        let result = Self::argument(
+            &code,
+            0,
+            item.refine_gas_limit,
+            &codec::encode(&params).expect("failed to encode params"),
+            refine_context,
+        );
+
+        // TODO: Implement actual segment export when host calls are ready
+        // For now, return empty segments as before
+        let gas = result.gas;
+        Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
+    }
+
+    /// (ΨA): Accumulation invocation
+    ///
+    /// as defined per graypaper (B.9)
+    fn accumulate<R: Accounts>(
+        // (U) The state context
+        mut context: AccumulateState<R>,
+        // (N_t)  timeslot for the current accumulation
+        timeslot: TimeSlot,
+        // (N_s)  the service id of the caller
+        service: ServiceId,
+        // (N_g)  the gas limit for the current operation
+        gas: Gas,
+        // (O)  the accumulation operands
+        operands: Vec<Operand>,
+    ) -> Accumulated<R> {
+        let Some(code) = context.code(service) else {
+            tracing::warn!("no code found for service: {}", service);
+            return Accumulated::new(context);
+        };
+
+        // create the accumulate context
+        let context = AccumulateContext::new(context, service, timeslot);
+        let params = AccumulateParams {
+            slot: timeslot,
+            id: service,
+            results: operands.len() as u32,
+        };
+
+        let accumulate = context.accumulate(timeslot, operands);
+        let args = codec::encode(&params).expect("failed to encode");
+        let result = Self::argument(&code, 5, gas, &args, accumulate);
+        if result.reason != Reason::Continue && result.reason != Reason::Halt {
+            tracing::warn!(
+                "PVM execution stopped with reason: {:?} for service {}",
+                result.reason,
+                service
+            );
+        } else {
+            tracing::debug!(
+                "PVM execution continued for service {}, reason: {:?}",
+                service,
+                result.reason
+            );
+        }
+
+        result.to_result()
+    }
+
+    /// (ΨT): on-transfer invocation
+    ///
+    /// Defined per graypaper (B.15)
+    fn transfer<R: Accounts>(
+        // (δ) The account storage
+        mut accounts: R,
+        // (N_t)  timeslot for the current accumulation
+        slot: TimeSlot,
+        // (N_s)  the service id of the caller
+        service: ServiceId,
+        // (T)  the deferred transfers
+        transfers: &[DeferredTransfer],
+    ) -> Transferred {
+        let Some(account) = accounts.get(service) else {
+            tracing::warn!("no account found for service: {}", service);
+            return Transferred::default();
+        };
+
+        let Some(code) = account.blob() else {
+            return Transferred::default();
+        };
+
+        let code = code.clone();
+        let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
+
+        // Note: Balance update happens in defer_transfers, not here
+        // according to Gray Paper the transfer invocation executes the recipient's
+        // transfer handler but doesn't modify the balance directly
+        let updated_account = account.account();
+        let general = General::new(service, accounts, Vec::new(), Default::default());
+        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
+        let received = Self::argument(&code, 10, gas, &input, general);
+        Transferred {
+            account: updated_account,
+            gas: received.gas,
+        }
     }
 }
 
-impl<R: Accounts> Argument<R> for General<R> {
-    fn as_general(&self) -> crate::Result<General<R>> {
-        Ok(self.clone())
-    }
-
-    fn update_general(&mut self, general: General<R>) -> crate::Result<()> {
-        *self = general;
-        Ok(())
-    }
-}
-
-impl<R: Accounts> Argument<R> for () {}
-
-/// IsAuthorized invocation context
-#[derive(Debug, Clone)]
-pub struct IsAuthorized {
-    /// The work package being authorized
-    pub package: score::service::WorkPackage,
-    /// The core index
-    pub core_idx: u16,
-}
-
-impl IsAuthorized {
-    /// Create a new IsAuthorized context
-    pub fn new(package: score::service::WorkPackage, core_idx: u16) -> Self {
-        Self { package, core_idx }
-    }
-}
-
-impl<R: Accounts> Argument<R> for IsAuthorized {
-    fn as_is_authorized(&self) -> crate::Result<&IsAuthorized> {
-        Ok(self)
+impl Invocation for () {
+    fn step(
+        _instructions: &[u8],
+        _bitmask: &[u8],
+        _jump: &[u64],
+        _pc: u64,
+        _gas: Gas,
+        _registers: [u64; 13],
+        _memory: parser::Memory,
+    ) -> Stepped<()> {
+        Stepped::new(Reason::Panic("unimplemented".to_string()), State::default())
     }
 }
