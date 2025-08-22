@@ -21,7 +21,7 @@ impl Translator<'_> {
         let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
-        self.save_registers()?;
+        self.save_registers();
 
         // Save the PC
         let pc_offset = self
@@ -55,7 +55,7 @@ impl Translator<'_> {
         let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
-        self.save_registers()?;
+        self.save_registers();
 
         let result_offset = self
             .builder
@@ -75,7 +75,7 @@ impl Translator<'_> {
         let ctx_ptr = self.ctx_ptr;
 
         // Save all registers back to context before returning
-        self.save_registers()?;
+        self.save_registers();
 
         // Set PC to the trap instruction location
         let pc_offset = self

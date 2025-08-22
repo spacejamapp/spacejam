@@ -8,6 +8,7 @@ use std::collections::HashMap;
 mod context;
 mod control;
 mod memory;
+mod register;
 mod translate;
 mod visitor;
 

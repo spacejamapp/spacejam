@@ -2,7 +2,6 @@
 
 use crate::Translator;
 use anyhow::Result;
-use cranelift::prelude::*;
 use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
 use std::collections::BTreeMap;
@@ -27,7 +26,7 @@ impl Translator<'_> {
         Ok(has_trap)
     }
 
-    /// Analyze program - discovers all basic blocks efficiently in one pass
+    /// discovers all basic blocks
     fn analyze(
         &mut self,
         program: &[u8],
@@ -62,32 +61,12 @@ impl Translator<'_> {
         Ok((has_trap, blocks))
     }
 
-    /// Declare and load registers from context
-    fn init_registers(&mut self, ctx_ptr: Value) {
-        for i in 0..pvm::REGISTER_COUNT {
-            let var = Variable::new(i);
-            self.builder.declare_var(var, types::I64);
-
-            // Load register from context
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(ctx_ptr, offset);
-            let val = self
-                .builder
-                .ins()
-                .load(types::I64, MemFlags::new(), addr, 0);
-            self.builder.def_var(var, val);
-            self.registers.insert(i as u8, var);
-        }
-    }
-
-    /// Translate dispatcher
+    /// translate the dispatcher
     fn translate_dispatcher(&mut self) -> Result<()> {
         let entry = self.entry();
         let ctx_ptr = self.builder.block_params(entry)[0];
         let start_pc = self.builder.block_params(entry)[1];
         self.ctx_ptr = ctx_ptr;
-
-        // declare all PVM registers as Cranelift variables
         self.init_registers(ctx_ptr);
 
         // create a switch statement to jump to the correct block based on pc
@@ -109,7 +88,7 @@ impl Translator<'_> {
         Ok(())
     }
 
-    /// Translate block and check termination
+    /// translate a block and check termination
     fn translate_block(&mut self, block: &Vec<Offset<Instruction>>) -> Result<()> {
         for instruction in block {
             let pc = instruction.range.start;
