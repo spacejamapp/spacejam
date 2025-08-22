@@ -6,13 +6,13 @@ use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
 use std::collections::BTreeMap;
 
+type Block = Vec<Offset<Instruction>>;
+
 impl Translator<'_> {
     /// Translate entire program
     pub fn translate(&mut self, program: &[u8]) -> Result<bool> {
         let (has_trap, blocks) = self.analyze(program)?;
         self.translate_dispatcher()?;
-
-        // translate all blocks
         for (pc, block) in &blocks {
             let cranelift_block = self.blocks[pc];
             self.builder.switch_to_block(cranelift_block);
@@ -27,10 +27,7 @@ impl Translator<'_> {
     }
 
     /// discovers all basic blocks
-    fn analyze(
-        &mut self,
-        program: &[u8],
-    ) -> Result<(bool, BTreeMap<u64, Vec<Offset<Instruction>>>)> {
+    fn analyze(&mut self, program: &[u8]) -> Result<(bool, BTreeMap<u64, Block>)> {
         let blob = parser::program::deblob(program)?;
         self.jump_table = blob.jump_table.clone();
 
@@ -89,7 +86,7 @@ impl Translator<'_> {
     }
 
     /// translate a block and check termination
-    fn translate_block(&mut self, block: &Vec<Offset<Instruction>>) -> Result<()> {
+    fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
             let pc = instruction.range.start;
             tracing::trace!("translating PC {} instruction {:?}", pc, instruction.value);

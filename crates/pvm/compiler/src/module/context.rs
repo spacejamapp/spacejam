@@ -16,26 +16,26 @@ pub struct Context {
     pub registers: [u64; pvm::REGISTER_COUNT],
     pub pc: u64,
     pub memory: pvm::Memory,
-    pub linear_mem: Vec<u8>,
+    pub mem: Vec<u8>,
 }
 
 impl Context {
     /// Create new context
-    pub fn new(regs: [u64; pvm::REGISTER_COUNT], pc: u64, mem: pvm::Memory) -> Self {
-        let mut linear_mem = vec![0u8; LINEAR_MEMORY_SIZE];
-        for (&page_num, (page_data, _)) in &mem.memory {
+    pub fn new(regs: [u64; pvm::REGISTER_COUNT], pc: u64, memory: pvm::Memory) -> Self {
+        let mut mem = vec![0u8; LINEAR_MEMORY_SIZE];
+        for (&page_num, (page_data, _)) in &memory.memory {
             let start = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             let end = start + page_data.len();
-            if end <= linear_mem.len() {
-                linear_mem[start..end].copy_from_slice(page_data);
+            if end <= mem.len() {
+                mem[start..end].copy_from_slice(page_data);
             }
         }
 
         Self {
             registers: regs,
             pc,
-            memory: mem,
-            linear_mem,
+            memory,
+            mem,
         }
     }
 
@@ -71,12 +71,11 @@ impl Context {
         let page_size = pvm::PAGE_SIZE as usize;
 
         // Check for any writes to unallocated pages
-        for page_addr in (0..self.linear_mem.len()).step_by(page_size) {
+        for page_addr in (0..self.mem.len()).step_by(page_size) {
             let page_num = (page_addr / page_size) as u32;
-            let page_end = (page_addr + page_size).min(self.linear_mem.len());
-
+            let page_end = (page_addr + page_size).min(self.mem.len());
             if !self.memory.memory.contains_key(&page_num) {
-                let page_data = &self.linear_mem[page_addr..page_end];
+                let page_data = &self.mem[page_addr..page_end];
                 if page_data.iter().any(|&b| b != 0) {
                     anyhow::bail!("Page fault: write to unallocated page {}", page_num);
                 }
@@ -88,9 +87,9 @@ impl Context {
             let start = (page_num as usize) * page_size;
             let end = start + page_data.len();
 
-            if end <= self.linear_mem.len() {
+            if end <= self.mem.len() {
                 let orig = &page_data[..];
-                let new = &self.linear_mem[start..end];
+                let new = &self.mem[start..end];
 
                 if orig != new {
                     // Check for read-only page violations
@@ -105,6 +104,20 @@ impl Context {
         }
 
         Ok(())
+    }
+
+    /// Extend context to be used in compiled blocks
+    pub fn extend(&mut self) -> ExtendedContext {
+        let (page_bitmap, page_access) = self.generate_page_bitmap();
+        ExtendedContext {
+            registers: self.registers,
+            pc: self.pc,
+            memory_ptr: self.mem.as_mut_ptr(),
+            page_bitmap: page_bitmap.as_ptr(),
+            page_access: page_access.as_ptr(),
+            result: ExecResult::Continue,
+            pc_managed: false,
+        }
     }
 }
 

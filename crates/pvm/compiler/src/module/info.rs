@@ -1,4 +1,6 @@
 //! Module execution info
+//!
+//! TODO: merge with pvmi into pvm package
 
 /// Result of executing a compiled module
 #[derive(Debug, Clone)]

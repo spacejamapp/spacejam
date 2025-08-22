@@ -51,34 +51,20 @@ impl Module {
 
     /// Execute compiled function
     fn run(&self, ctx: &mut Context) -> Result<()> {
-        let (page_bitmap, page_access) = ctx.generate_page_bitmap();
-        let mut ext_ctx = ExtendedContext {
-            registers: ctx.registers,
-            pc: ctx.pc,
-            memory_ptr: ctx.linear_mem.as_mut_ptr(),
-            page_bitmap: page_bitmap.as_ptr(),
-            page_access: page_access.as_ptr(),
-            result: ExecResult::Continue,
-            pc_managed: false,
-        };
-
+        let mut ext = ctx.extend();
         let func =
             unsafe { std::mem::transmute::<*const u8, fn(*mut ExtendedContext, u64)>(self.code) };
-        func(&mut ext_ctx, ctx.pc);
-        ctx.registers = ext_ctx.registers;
-        ctx.pc = ext_ctx.pc;
+        func(&mut ext, ctx.pc);
+        ctx.registers = ext.registers;
+        ctx.pc = ext.pc;
 
         // Check for page faults
-        match ctx.sync() {
-            Ok(_) => {
-                tracing::trace!("execution completed, final PC: {}", ctx.pc);
-                Ok(())
-            }
-            Err(e) => {
-                tracing::trace!("Page fault detected during execution: {}", e);
-                ctx.pc = 0;
-                Ok(())
-            }
+        if let Err(e) = ctx.sync() {
+            tracing::trace!("Page fault detected during execution: {}", e);
+            ctx.pc = 0;
+        } else {
+            tracing::trace!("execution completed, final PC: {}", ctx.pc);
         }
+        Ok(())
     }
 }
