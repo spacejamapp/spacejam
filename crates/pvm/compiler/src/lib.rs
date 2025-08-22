@@ -1,7 +1,12 @@
 //! SpaceJam PVM compiler
 
+mod artifact;
 mod compiler;
+mod jit;
 pub mod module;
 
-pub use compiler::Compiler;
-pub use module::{Context, ExecResult, ExtendedContext, Info, Module};
+pub use {
+    compiler::Compiler,
+    jit::Jit,
+    module::{Context, ExecResult, ExtendedContext, Info, Module},
+};

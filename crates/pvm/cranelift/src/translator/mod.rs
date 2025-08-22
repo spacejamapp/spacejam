@@ -3,8 +3,8 @@
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
-
 use std::collections::HashMap;
+
 mod context;
 mod control;
 mod memory;

@@ -64,7 +64,8 @@ impl Translator<'_> {
     }
 
     /// Translate entire program
-    pub fn translate(&mut self, entry: ir::Block) -> Result<()> {
+    pub fn translate(&mut self) -> Result<()> {
+        let entry = self.entry();
         let ctx_ptr = self.builder.block_params(entry)[0];
         let start_pc = self.builder.block_params(entry)[1];
         self.init_with_context(ctx_ptr)?;
@@ -148,6 +149,14 @@ impl Translator<'_> {
             }
         }
         Ok(())
+    }
+
+    /// Create an entry block
+    fn entry(&mut self) -> ir::Block {
+        let entry = self.builder.create_block();
+        self.builder.append_block_params_for_function_params(entry);
+        self.builder.switch_to_block(entry);
+        entry
     }
 
     /// Process jump targets from indirect jump instructions

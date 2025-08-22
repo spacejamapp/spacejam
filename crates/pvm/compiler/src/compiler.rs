@@ -28,7 +28,7 @@ impl Compiler {
         Ok(Self { isa })
     }
 
-    /// Compile entire program as Cranelift function (cranelift-wasm style)
+    /// Compile entire program as a function
     pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
         tracing::debug!("Compiling entire program as Cranelift function");
 
@@ -40,13 +40,8 @@ impl Compiler {
         let mut translator = Translator::new(&mut func, &mut builder_ctx)?;
         let is_trap = translator.analyze(program)?;
 
-        // Create entry block
-        let entry = translator.builder.create_block();
-        translator
-            .builder
-            .append_block_params_for_function_params(entry);
-        translator.builder.switch_to_block(entry);
-        translator.translate(entry)?;
+        // Translate the program
+        translator.translate()?;
         translator.builder.finalize();
 
         let mut ctx = cranelift_codegen::Context::new();
