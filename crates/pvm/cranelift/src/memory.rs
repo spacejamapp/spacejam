@@ -104,7 +104,6 @@ impl Translator<'_> {
 
         // Page is valid if both allocated and writable
         let page_valid = self.builder.ins().band(page_allocated, page_writable);
-
         Ok(page_valid)
     }
 
@@ -155,19 +154,6 @@ impl Translator<'_> {
         Ok(())
     }
 
-    /// Helper function to get the linear memory base address from ExtendedContext
-    pub fn get_memory_base(&mut self) -> Value {
-        let context_ptr = self.ctx_ptr;
-        let memory_ptr_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::MEMORY_PTR_OFFSET as i64);
-        let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
-        self.builder
-            .ins()
-            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
-    }
-
     /// Calculate page number from address using efficient bit shift
     pub fn get_page_number(&mut self, address: Value) -> Value {
         // Use bit shift for much faster page number calculation
@@ -177,35 +163,35 @@ impl Translator<'_> {
 
     /// Memory get - load value from memory at address
     pub fn mget(&mut self, address: Value, ty: types::Type) -> Value {
-        let memory_base = self.get_memory_base();
-        let mem_addr = self.builder.ins().iadd(memory_base, address);
-        self.builder.ins().load(ty, MemFlags::new(), mem_addr, 0)
+        let mem_addr = self.builder.ins().iadd(self.memory, address);
+        self.builder
+            .ins()
+            .load(ty, MemFlags::trusted(), mem_addr, 0)
     }
 
     /// Memory set - store value to memory at address
     pub fn mset(&mut self, address: Value, value: Value) {
-        let memory_base = self.get_memory_base();
-        let mem_addr = self.builder.ins().iadd(memory_base, address);
+        let mem_addr = self.builder.ins().iadd(self.memory, address);
         self.builder
             .ins()
-            .store(MemFlags::new(), value, mem_addr, 0);
+            .store(MemFlags::trusted(), value, mem_addr, 0);
     }
 
     /// Memory get with offset - load value from memory at address + offset
     pub fn mget_o(&mut self, address: Value, offset: Value, ty: types::Type) -> Value {
-        let memory_base = self.get_memory_base();
         let addr_with_offset = self.builder.ins().iadd(address, offset);
-        let mem_addr = self.builder.ins().iadd(memory_base, addr_with_offset);
-        self.builder.ins().load(ty, MemFlags::new(), mem_addr, 0)
+        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
+        self.builder
+            .ins()
+            .load(ty, MemFlags::trusted(), mem_addr, 0)
     }
 
     /// Memory set with offset - store value to memory at address + offset
     pub fn mset_o(&mut self, address: Value, offset: Value, value: Value) {
-        let memory_base = self.get_memory_base();
         let addr_with_offset = self.builder.ins().iadd(address, offset);
-        let mem_addr = self.builder.ins().iadd(memory_base, addr_with_offset);
+        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
         self.builder
             .ins()
-            .store(MemFlags::new(), value, mem_addr, 0);
+            .store(MemFlags::trusted(), value, mem_addr, 0);
     }
 }

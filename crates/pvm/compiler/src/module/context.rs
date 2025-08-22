@@ -1,4 +1,6 @@
 //! Runtime context for block execution
+//!
+//! TODO: totally refactor the memory part.
 
 use crate::ExecResult;
 use anyhow::Result;

@@ -908,7 +908,6 @@ impl Visitor for Translator<'_> {
         Ok(())
     }
 
-    // Memory load operations
     fn visit_load_u8(
         &mut self,
         format: format::RI,
@@ -929,12 +928,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-        let value = self
-            .builder
-            .ins()
-            .load(types::I16, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let value = self.mget(final_addr, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -947,12 +942,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-        let value = self
-            .builder
-            .ins()
-            .load(types::I32, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let value = self.mget(final_addr, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -965,12 +956,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-        let value = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let value = self.mget(final_addr, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
@@ -982,14 +969,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory with sign extension
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I8, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let unsigned_value = self.mget(final_addr, types::I8);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -1002,14 +983,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory with sign extension
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I16, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let unsigned_value = self.mget(final_addr, types::I16);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -1022,14 +997,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, address);
-
-        // Load from linear memory with sign extension
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I32, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, address);
+        let unsigned_value = self.mget(final_addr, types::I32);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -1045,14 +1014,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // Load from linear memory
-        let value = self
-            .builder
-            .ins()
-            .load(types::I8, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let value = self.mget(final_addr, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1067,14 +1030,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // Load from linear memory
-        let value = self
-            .builder
-            .ins()
-            .load(types::I16, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let value = self.mget(final_addr, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1089,14 +1046,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // Load from linear memory
-        let value = self
-            .builder
-            .ins()
-            .load(types::I32, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let value = self.mget(final_addr, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1111,14 +1062,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // Load from linear memory
-        let value = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let value = self.mget(final_addr, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
@@ -1132,14 +1077,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // load from memory
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I8, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let unsigned_value = self.mget(final_addr, types::I8);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -1154,14 +1093,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // load from memory
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I16, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let unsigned_value = self.mget(final_addr, types::I16);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -1176,14 +1109,8 @@ impl Visitor for Translator<'_> {
         let addr_val = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let memory_base = self.get_memory_base();
-        let final_addr = self.builder.ins().iadd(memory_base, effective_addr);
-
-        // load from memory
-        let unsigned_value = self
-            .builder
-            .ins()
-            .load(types::I32, MemFlags::new(), final_addr, 0);
+        let final_addr = self.builder.ins().iadd(self.memory, effective_addr);
+        let unsigned_value = self.mget(final_addr, types::I32);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())

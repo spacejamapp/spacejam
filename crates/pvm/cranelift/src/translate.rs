@@ -64,7 +64,7 @@ impl Translator<'_> {
         let ctx_ptr = self.builder.block_params(entry)[0];
         let start_pc = self.builder.block_params(entry)[1];
         self.ctx_ptr = ctx_ptr;
-        self.init_registers(ctx_ptr);
+        self.init_context(ctx_ptr);
 
         // create a switch statement to jump to the correct block based on pc
         let mut switch = cranelift::frontend::Switch::new();

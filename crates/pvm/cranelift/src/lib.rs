@@ -53,6 +53,9 @@ pub struct Translator<'b> {
 
     // Context pointer for boundary checking and runtime operations
     ctx_ptr: Value,
+
+    /// ssv for memory pointer
+    memory: Value,
 }
 
 impl<'b> Translator<'b> {
@@ -64,6 +67,7 @@ impl<'b> Translator<'b> {
             jump_table: Vec::new(),
             blocks: HashMap::new(),
             ctx_ptr: Value::new(0),
+            memory: Value::new(0),
         })
     }
 }
