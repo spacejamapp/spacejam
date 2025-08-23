@@ -1,8 +1,6 @@
 //! Visitor implementation for PVM instructions
 
-#![allow(unused)]
-
-use crate::{context_offsets, result, Translator};
+use crate::{offsets, Translator};
 use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
@@ -338,9 +336,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let src = self.rget(format.reg0);
-        let cond = self.rget(format.reg1);
-        let dst = self.rget(format.reg2);
+        let src = self.rget(reg0);
+        let cond = self.rget(reg1);
+        let dst = self.rget(reg2);
         let zero = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, cond, zero);
 
@@ -588,7 +586,7 @@ impl Visitor for Translator<'_> {
     }
     fn visit_jump(&mut self, format: format::O, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
-        let target_pc = (range.start as i64 + format.off0 as i64) as u64;
+        let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
         self.builder.ins().jump(target_block, &[]);
         Ok(())
@@ -612,7 +610,7 @@ impl Visitor for Translator<'_> {
         let result_offset = self
             .builder
             .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
+            .iconst(types::I64, offsets::RESULT_OFFSET as i64);
         let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
 
         // Store the target address
@@ -728,6 +726,8 @@ impl Visitor for Translator<'_> {
 
         Ok(())
     }
+
+    // FIXME: when refactor the control flow stuffs
     fn visit_load_imm_jump_ind(
         &mut self,
         format: format::RRII,
@@ -742,32 +742,9 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target_addr = self.builder.ins().iadd(src, offset);
-
-        // THEN set the register to the new value
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        self.rset(reg0, imm_val);
-
-        // Store JumpIndirect result - let runtime handle jump table validation
-        let context_ptr = self.ctx_ptr;
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store JumpIndirect discriminant (4) - runtime will resolve address via jump table
-        let jump_discriminant = self.builder.ins().iconst(types::I64, 4); // JumpIndirect variant
-        self.builder
-            .ins()
-            .store(MemFlags::new(), jump_discriminant, result_addr, 0);
-
-        // Store the target address (will be resolved by runtime)
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_addr, data_addr, 0);
-
+        let imm_val = self.builder.ins().iconst(types::I64, imm1 as i64);
+        self.rset(reg1, imm_val);
+        self.set_jump(target_addr);
         self.djump(range.start)
     }
 
@@ -1607,12 +1584,11 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let src0_val = self.rget(reg0);
-        let src1_val = self.rget(reg1);
-        let src0_val = self.rget(reg0);
+        let lhs = self.rget(reg0);
+        let rhs = self.rget(reg1);
         let mask = self.builder.ins().iconst(types::I64, 63);
-        let safe_shift = self.builder.ins().band(src1_val, mask);
-        let result = self.builder.ins().sshr(src0_val, safe_shift);
+        let safe_shift = self.builder.ins().band(rhs, mask);
+        let result = self.builder.ins().sshr(lhs, safe_shift);
         self.rset(reg2, result);
         Ok(())
     }

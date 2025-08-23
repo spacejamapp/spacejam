@@ -1,6 +1,6 @@
 //! Control flow related interfaces
 
-use crate::{context_offsets, Translator};
+use crate::Translator;
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -13,8 +13,7 @@ pub mod result {
 }
 
 impl Translator<'_> {
-    /// Generic helper for branch generation
-    /// Assumes both target and next blocks exist (full compilation mode)
+    /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
@@ -26,125 +25,33 @@ impl Translator<'_> {
 
     /// Return with continue result and specific PC
     pub fn return_continue_with_pc(&mut self, pc: u64) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr;
-
-        // Save all registers back to context before returning
         self.save_registers();
-
-        // Save the PC
-        let pc_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::PC_OFFSET as i64);
-        let pc_addr = self.builder.ins().iadd(ctx_ptr, pc_offset);
-        let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), pc_val, pc_addr, 0);
-
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let continue_discriminant = self
-            .builder
-            .ins()
-            .iconst(types::I64, result::CONTINUE as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), continue_discriminant, result_addr, 0);
+        self.set_pc(pc);
+        self.set_result(result::CONTINUE);
         self.builder.ins().return_(&[]);
         Ok(())
     }
 
     /// Return with trap result
     pub fn return_trap(&mut self) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr;
-
-        // Save all registers back to context before returning
         self.save_registers();
-
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), trap_discriminant, result_addr, 0);
+        self.set_result(result::TRAP);
         self.builder.ins().return_(&[]);
         Ok(())
     }
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_trap_with_pc(&mut self, trap_pc: usize) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr;
-
-        // Save all registers back to context before returning
         self.save_registers();
-
-        // Set PC to the trap instruction location
-        let pc_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::PC_OFFSET as i64);
-        let pc_addr = self.builder.ins().iadd(ctx_ptr, pc_offset);
-        let pc_val = self.builder.ins().iconst(types::I64, trap_pc as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), pc_val, pc_addr, 0);
-
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), trap_discriminant, result_addr, 0);
+        self.set_pc(trap_pc as u64);
+        self.set_result(result::TRAP);
         self.builder.ins().return_(&[]);
-        Ok(())
-    }
-
-    /// Set trap result in the context
-    pub fn set_trap_result(&mut self, ctx_ptr: Value) -> Result<()> {
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-
-        let trap_discriminant = self.builder.ins().iconst(types::I64, result::TRAP as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), trap_discriminant, result_addr, 0);
-
-        // For page faults specifically, set PC to block start
-        // But for other traps, PC is already set correctly by the instruction visitor
-        // TODO: Only set PC for page fault traps, not all traps
-
         Ok(())
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
     pub fn djump(&mut self, instruction_pc: usize) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr;
-
-        // Read the target address that was computed and stored by the visitor
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(ctx_ptr, result_offset);
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        let target_addr = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), data_addr, 0);
+        let target_addr = self.jump();
 
         // Same validation logic as the interpreter:
         // 1. address == 0 (null address)

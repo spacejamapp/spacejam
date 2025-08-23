@@ -3,7 +3,7 @@
 //!
 //! TODO: support static memory when the calculated memory size is less than 1 MB.
 
-use crate::{context_offsets, Translator};
+use crate::{control::result, offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -37,7 +37,7 @@ impl Translator<'_> {
         let bitmap_offset = self
             .builder
             .ins()
-            .iconst(types::I64, context_offsets::PAGE_BITMAP_OFFSET as i64);
+            .iconst(types::I64, offsets::PAGE_BITMAP_OFFSET as i64);
         let bitmap_ptr_addr = self.builder.ins().iadd(ctx_ptr, bitmap_offset);
         let bitmap_ptr = self
             .builder
@@ -47,7 +47,7 @@ impl Translator<'_> {
         let access_offset = self
             .builder
             .ins()
-            .iconst(types::I64, context_offsets::PAGE_ACCESS_OFFSET as i64);
+            .iconst(types::I64, offsets::PAGE_ACCESS_OFFSET as i64);
         let access_ptr_addr = self.builder.ins().iadd(ctx_ptr, access_offset);
         let access_ptr = self
             .builder
@@ -60,12 +60,12 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, BITS_PER_WORD_SHIFT as i64);
-        let word_idx = self.builder.ins().ushr(page_num, shift_bits); // page_num / BITS_PER_WORD
+        let word_idx = self.builder.ins().ushr(page_num, shift_bits);
         let mask = self
             .builder
             .ins()
             .iconst(types::I64, (BITS_PER_WORD - 1) as i64);
-        let bit_idx = self.builder.ins().band(page_num, mask); // page_num % BITS_PER_WORD
+        let bit_idx = self.builder.ins().band(page_num, mask);
 
         // Load the bitmap word
         // Use bit shift for word offset: 8 bytes per u64
@@ -73,7 +73,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, BYTES_PER_U64_SHIFT as i64);
-        let word_offset = self.builder.ins().ishl(word_idx, byte_shift); // word_idx * 8
+        let word_offset = self.builder.ins().ishl(word_idx, byte_shift);
         let word_addr = self.builder.ins().iadd(bitmap_ptr, word_offset);
         let bitmap_word = self
             .builder
@@ -142,7 +142,7 @@ impl Translator<'_> {
 
         // Trap block: set page fault result and return
         self.builder.switch_to_block(trap_block);
-        self.set_trap_result(ctx_ptr)?;
+        self.set_result(result::TRAP);
         self.builder.ins().return_(&[]);
 
         // Continue block: proceed with store operation
