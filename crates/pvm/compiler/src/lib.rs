@@ -8,5 +8,5 @@ pub mod module;
 pub use {
     compiler::Compiler,
     jit::JIT,
-    module::{Context, ExecResult, ExtendedContext, Info, Module},
+    module::{Context, ExecResult, Info, Module},
 };

@@ -2,7 +2,6 @@
 //!
 //! TODO: totally refactor the memory part.
 
-use crate::ExecResult;
 use anyhow::Result;
 use translator::{access, BITS_PER_WORD};
 
@@ -109,28 +108,16 @@ impl Context {
     }
 
     /// Extend context to be used in compiled blocks
-    pub fn extend(&mut self) -> ExtendedContext {
+    pub fn extend(&mut self) -> translator::Context {
         let (page_bitmap, page_access) = self.generate_page_bitmap();
-        ExtendedContext {
+        translator::Context {
             registers: self.registers,
             pc: self.pc,
             memory_ptr: self.mem.as_mut_ptr(),
             page_bitmap: page_bitmap.as_ptr(),
             page_access: page_access.as_ptr(),
-            result: ExecResult::Continue,
-            pc_managed: false,
+            result: 0,
+            jump_target: 0,
         }
     }
-}
-
-/// Extended context for compiled blocks
-#[repr(C)]
-pub struct ExtendedContext {
-    pub registers: [u64; pvm::REGISTER_COUNT],
-    pub pc: u64,
-    pub memory_ptr: *mut u8,
-    pub page_bitmap: *const u64,
-    pub page_access: *const u8,
-    pub result: ExecResult,
-    pub pc_managed: bool,
 }

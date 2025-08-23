@@ -1,6 +1,6 @@
 //! Control flow related interfaces
 
-use crate::Translator;
+use crate::{context::offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -13,6 +13,54 @@ pub mod result {
 }
 
 impl Translator<'_> {
+    /// get result from the context
+    pub fn jump(&mut self) -> Value {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::JUMP_TARGET_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        self.builder
+            .ins()
+            .load(types::I64, MemFlags::trusted(), addr, 0)
+    }
+
+    /// set dynamic jump to the context
+    pub fn set_jump(&mut self, target: Value) {
+        self.set_result(result::JUMP_INDIRECT);
+        let data_addr = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::JUMP_TARGET_OFFSET as i64);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), target, data_addr, 0);
+    }
+
+    /// set pc to the context
+    pub fn set_pc(&mut self, pc: u64) {
+        let pc_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::PC_OFFSET as i64);
+        let pc_addr = self.builder.ins().iadd(self.ctx_ptr, pc_offset);
+        let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
+        self.builder
+            .ins()
+            .store(MemFlags::new(), pc_val, pc_addr, 0);
+    }
+
+    /// set result to the context
+    pub fn set_result(&mut self, result: u64) {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::RESULT_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let val = self.builder.ins().iconst(types::I64, result as i64);
+        self.builder.ins().store(MemFlags::new(), val, addr, 0);
+    }
+
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];

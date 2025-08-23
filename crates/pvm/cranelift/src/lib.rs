@@ -5,7 +5,7 @@ use cranelift::prelude::*;
 use cranelift_codegen::ir;
 use std::collections::HashMap;
 pub use {
-    context::offsets,
+    context::{offsets, Context},
     control::result,
     memory::{access, BITS_PER_WORD},
 };

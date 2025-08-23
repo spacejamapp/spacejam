@@ -27,6 +27,19 @@ pub mod access {
 }
 
 impl Translator<'_> {
+    /// Initialize memory pointer
+    pub fn init_memory(&mut self, ctx: Value) {
+        let memory_ptr_offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::MEMORY_PTR_OFFSET as i64);
+        let memory_ptr_addr = self.builder.ins().iadd(ctx, memory_ptr_offset);
+        self.memory = self
+            .builder
+            .ins()
+            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0);
+    }
+
     /// Check if a page is allocated and writable by consulting the page bitmap and access array
     pub fn check_page_allocated_and_writable(
         &mut self,

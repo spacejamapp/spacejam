@@ -723,7 +723,6 @@ impl Visitor for Translator<'_> {
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
         self.builder.ins().jump(target_block, &[]);
-
         Ok(())
     }
 
