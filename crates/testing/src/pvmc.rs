@@ -1,5 +1,7 @@
 //! PVM Compiler test vectors
 
+use std::borrow::Cow;
+
 use crate::pvmi::{to_test_memory, TestInput, TestOutput};
 use anyhow::Result;
 use pvmc::Compiler;
@@ -55,8 +57,17 @@ impl Runner {
         }
 
         let mut compiler = Compiler::new()?;
-        let module = compiler.compile(&input.program)?;
-        let result = module.execute(&initial_registers, input.initial_pc as u64, initial_memory)?;
+        let module = compiler.compile(&pvm::Program {
+            code: Cow::Borrowed(&input.program),
+            registers: initial_registers,
+            memory: initial_memory.clone(),
+        })?;
+
+        let result = module.execute(
+            &initial_registers,
+            input.initial_pc as u64,
+            initial_memory.clone(),
+        )?;
 
         assert_eq!(result.registers.len(), pvm::REGISTER_COUNT);
         assert_eq!(result.registers.to_vec(), output.expected_regs);

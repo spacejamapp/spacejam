@@ -4,15 +4,16 @@ use crate::Translator;
 use anyhow::Result;
 use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
+use pvm::Program;
 use std::collections::BTreeMap;
 
 type Block = Vec<Offset<Instruction>>;
 
 impl Translator<'_> {
     /// Translate entire program
-    pub fn translate(&mut self, program: &[u8]) -> Result<bool> {
-        let (has_trap, blocks) = self.analyze(program)?;
-        self.translate_dispatcher()?;
+    pub fn translate(&mut self, program: &Program) -> Result<bool> {
+        let (has_trap, blocks) = self.analyze(&program.code)?;
+        self.translate_dispatcher(program)?;
         for (pc, block) in &blocks {
             let cranelift_block = self.blocks[pc];
             self.builder.switch_to_block(cranelift_block);
@@ -59,12 +60,12 @@ impl Translator<'_> {
     }
 
     /// translate the dispatcher
-    fn translate_dispatcher(&mut self) -> Result<()> {
+    fn translate_dispatcher(&mut self, program: &Program) -> Result<()> {
         let entry = self.entry();
         let ctx_ptr = self.builder.block_params(entry)[0];
         let start_pc = self.builder.block_params(entry)[1];
         self.ctx_ptr = ctx_ptr;
-        self.init_context(ctx_ptr);
+        self.init_context(program, ctx_ptr);
 
         // create a switch statement to jump to the correct block based on pc
         let mut switch = cranelift::frontend::Switch::new();

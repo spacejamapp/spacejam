@@ -18,7 +18,8 @@ pub mod reader;
 pub mod util;
 pub mod visitor;
 
-// Note the constants below are same from the score library.
+/// The type of the registers.
+pub type Register = u64;
 
 /// (Z_P) The size of a page in octets (2^12)
 pub const PAGE_SIZE: u64 = 1 << 12;
@@ -37,6 +38,3 @@ pub const PVM_ZONE_SIZE: u64 = 1 << 16;
 
 /// The length of pages, p = 2^32 / 2^12
 pub const PAGE_LENGTH: u64 = 1 << 20;
-
-/// The type of the registers.
-pub type Register = u64;

@@ -5,6 +5,7 @@ use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
 use cranelift_codegen::Context;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
+use pvm::Program;
 use translator::Translator;
 
 /// Cranelift JIT module builder
@@ -38,7 +39,7 @@ impl JIT {
     /// - refine
     /// - is_authorized
     /// - core_vm ???
-    pub fn compile(&mut self, program: &[u8]) -> Result<crate::Module> {
+    pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
         let sig = self.signature();
         let id = self
             .module
@@ -54,7 +55,7 @@ impl JIT {
         ))
     }
 
-    fn translate(&mut self, program: &[u8]) -> Result<bool> {
+    fn translate(&mut self, program: &Program) -> Result<bool> {
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
         let is_trap = trans.translate(program)?;
