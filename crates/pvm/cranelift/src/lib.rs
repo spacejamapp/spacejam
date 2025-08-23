@@ -58,4 +58,11 @@ impl<'b> Translator<'b> {
             write: GlobalValue::new(0),
         })
     }
+
+    /// Initialize data pointers
+    pub fn data(mut self, read: GlobalValue, write: GlobalValue) -> Self {
+        self.read = read;
+        self.write = write;
+        self
+    }
 }

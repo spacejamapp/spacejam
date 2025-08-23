@@ -37,6 +37,15 @@ impl Translator<'_> {
             .store(MemFlags::new(), target, data_addr, 0);
     }
 
+    /// get pc from the context
+    pub fn pc(&mut self) -> Value {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::PC_OFFSET as i64);
+        self.builder.ins().iadd(self.ctx_ptr, offset)
+    }
+
     /// set pc to the context
     pub fn set_pc(&mut self, pc: u64) {
         let pc_offset = self

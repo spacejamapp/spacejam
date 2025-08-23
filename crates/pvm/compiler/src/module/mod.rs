@@ -52,10 +52,9 @@ impl Module {
     /// Execute compiled function
     fn run(&self, ctx: &mut Context) -> Result<()> {
         let mut ext = ctx.extend();
-        let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut translator::Context, u64)>(self.code)
-        };
-        func(&mut ext, ctx.pc);
+        let func =
+            unsafe { std::mem::transmute::<*const u8, fn(*mut translator::Context)>(self.code) };
+        func(&mut ext);
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
 

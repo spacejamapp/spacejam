@@ -50,8 +50,8 @@ impl JIT {
             self.ctx.func.signature = self.signature();
             let ro_data = self.make_data("ro_data", &program.memory.ro_data()?, false)?;
             let rw_data = self.make_data("rw_data", &program.memory.rw_data()?, true)?;
-            let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
-            trans.init_data(ro_data, rw_data);
+            let mut trans =
+                Translator::new(&mut self.ctx.func, &mut self.bctx)?.data(ro_data, rw_data);
 
             // translate the function
             let is_trap = trans.translate(program)?;
@@ -83,8 +83,7 @@ impl JIT {
     /// Create a signature for the function
     fn signature(&self) -> Signature {
         let mut sig = self.module.make_signature();
-        sig.params.push(AbiParam::new(types::I64)); // context pointer
-        sig.params.push(AbiParam::new(types::I64)); // starting PC
+        sig.params.push(AbiParam::new(types::I64));
         sig
     }
 }

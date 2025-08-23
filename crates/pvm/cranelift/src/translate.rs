@@ -63,7 +63,6 @@ impl Translator<'_> {
     fn translate_dispatcher(&mut self, program: &Program) -> Result<()> {
         let entry = self.entry();
         let ctx_ptr = self.builder.block_params(entry)[0];
-        let start_pc = self.builder.block_params(entry)[1];
         self.ctx_ptr = ctx_ptr;
         self.init_context(program, ctx_ptr);
 
@@ -81,7 +80,8 @@ impl Translator<'_> {
 
         // generate the switch on start_pc
         self.builder.switch_to_block(entry);
-        switch.emit(&mut self.builder, start_pc, default_block);
+        let pc = self.pc();
+        switch.emit(&mut self.builder, pc, default_block);
         self.builder.seal_block(entry);
         Ok(())
     }
