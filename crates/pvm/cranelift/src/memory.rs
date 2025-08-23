@@ -1,11 +1,30 @@
 //! Memory related operations
+//!
+//!
+//! TODO: support static memory when the calculated memory size is less than 1 MB.
 
-use crate::{
-    access, context_offsets, Translator, BITS_PER_WORD, BITS_PER_WORD_SHIFT, BYTES_PER_U64_SHIFT,
-    PAGE_SHIFT,
-};
+use crate::{control::result, offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
+
+/// Page size as a power of 2 (2^12 = 4096)
+pub const PAGE_SHIFT: u8 = 12;
+
+/// Number of bits per u64 word for bitmap operations
+pub const BITS_PER_WORD: u8 = 64;
+
+/// Log2 of bits per u64 word (2^6 = 64)
+pub const BITS_PER_WORD_SHIFT: u8 = 6;
+
+/// Log2 of bytes per u64 (2^3 = 8 bytes)
+pub const BYTES_PER_U64_SHIFT: u8 = 3;
+
+/// Memory access permissions
+pub mod access {
+    pub const MUTABLE: u8 = 0;
+    pub const IMMUTABLE: u8 = 1;
+    pub const INACCESSIBLE: u8 = 2;
+}
 
 impl Translator<'_> {
     /// Check if a page is allocated and writable by consulting the page bitmap and access array
@@ -18,7 +37,7 @@ impl Translator<'_> {
         let bitmap_offset = self
             .builder
             .ins()
-            .iconst(types::I64, context_offsets::PAGE_BITMAP_OFFSET as i64);
+            .iconst(types::I64, offsets::PAGE_BITMAP_OFFSET as i64);
         let bitmap_ptr_addr = self.builder.ins().iadd(ctx_ptr, bitmap_offset);
         let bitmap_ptr = self
             .builder
@@ -28,7 +47,7 @@ impl Translator<'_> {
         let access_offset = self
             .builder
             .ins()
-            .iconst(types::I64, context_offsets::PAGE_ACCESS_OFFSET as i64);
+            .iconst(types::I64, offsets::PAGE_ACCESS_OFFSET as i64);
         let access_ptr_addr = self.builder.ins().iadd(ctx_ptr, access_offset);
         let access_ptr = self
             .builder
@@ -41,12 +60,12 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, BITS_PER_WORD_SHIFT as i64);
-        let word_idx = self.builder.ins().ushr(page_num, shift_bits); // page_num / BITS_PER_WORD
+        let word_idx = self.builder.ins().ushr(page_num, shift_bits);
         let mask = self
             .builder
             .ins()
             .iconst(types::I64, (BITS_PER_WORD - 1) as i64);
-        let bit_idx = self.builder.ins().band(page_num, mask); // page_num % BITS_PER_WORD
+        let bit_idx = self.builder.ins().band(page_num, mask);
 
         // Load the bitmap word
         // Use bit shift for word offset: 8 bytes per u64
@@ -54,7 +73,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, BYTES_PER_U64_SHIFT as i64);
-        let word_offset = self.builder.ins().ishl(word_idx, byte_shift); // word_idx * 8
+        let word_offset = self.builder.ins().ishl(word_idx, byte_shift);
         let word_addr = self.builder.ins().iadd(bitmap_ptr, word_offset);
         let bitmap_word = self
             .builder
@@ -85,19 +104,13 @@ impl Translator<'_> {
 
         // Page is valid if both allocated and writable
         let page_valid = self.builder.ins().band(page_allocated, page_writable);
-
         Ok(page_valid)
     }
 
     /// Generate Cranelift IR to check page boundaries before store operations
     /// Uses stored context pointer and simple boundary logic matching interpreter
     pub fn check_store_boundaries(&mut self, address: Value, size_bytes: u32) -> Result<()> {
-        let ctx_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-
-        // Page size constant is already defined and available
-
-        // Always check page allocation for stores, regardless of boundary crossing
-        // Calculate page numbers for first and last byte of the store operation
+        let ctx_ptr = self.ctx_ptr;
         let start_page = self.get_page_number(address);
         let size_minus_one = self
             .builder
@@ -105,8 +118,6 @@ impl Translator<'_> {
             .iconst(types::I64, (size_bytes - 1) as i64);
         let last_byte_addr = self.builder.ins().iadd(address, size_minus_one);
         let end_page = self.get_page_number(last_byte_addr);
-
-        tracing::debug!("Boundary check: will verify page allocation for store operation");
 
         // Create blocks for control flow
         let check_start_page_block = self.builder.create_block();
@@ -116,11 +127,7 @@ impl Translator<'_> {
 
         // Always check the start page first
         self.builder.ins().jump(check_start_page_block, &[]);
-
-        // Check start page allocation and writability
         self.builder.switch_to_block(check_start_page_block);
-
-        // Check if start page is allocated and writable
         let start_page_valid = self.check_page_allocated_and_writable(ctx_ptr, start_page)?;
         self.builder
             .ins()
@@ -135,32 +142,16 @@ impl Translator<'_> {
 
         // Trap block: set page fault result and return
         self.builder.switch_to_block(trap_block);
-        self.set_trap_result(ctx_ptr)?;
+        self.set_result(result::TRAP);
         self.builder.ins().return_(&[]);
 
         // Continue block: proceed with store operation
         self.builder.switch_to_block(continue_block);
-
-        // Seal all created blocks
         self.builder.seal_block(check_start_page_block);
         self.builder.seal_block(check_end_page_block);
         self.builder.seal_block(continue_block);
         self.builder.seal_block(trap_block);
-
         Ok(())
-    }
-
-    /// Helper function to get the linear memory base address from ExtendedContext
-    pub fn get_memory_base(&mut self) -> Value {
-        let context_ptr = self.ctx_ptr.expect("Context pointer not initialized");
-        let memory_ptr_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, context_offsets::MEMORY_PTR_OFFSET as i64);
-        let memory_ptr_addr = self.builder.ins().iadd(context_ptr, memory_ptr_offset);
-        self.builder
-            .ins()
-            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0)
     }
 
     /// Calculate page number from address using efficient bit shift
@@ -168,5 +159,39 @@ impl Translator<'_> {
         // Use bit shift for much faster page number calculation
         let shift_amount = self.builder.ins().iconst(types::I64, PAGE_SHIFT as i64);
         self.builder.ins().ushr(address, shift_amount)
+    }
+
+    /// Memory get - load value from memory at address
+    pub fn mget(&mut self, address: Value, ty: types::Type) -> Value {
+        let mem_addr = self.builder.ins().iadd(self.memory, address);
+        self.builder
+            .ins()
+            .load(ty, MemFlags::trusted(), mem_addr, 0)
+    }
+
+    /// Memory set - store value to memory at address
+    pub fn mset(&mut self, address: Value, value: Value) {
+        let mem_addr = self.builder.ins().iadd(self.memory, address);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), value, mem_addr, 0);
+    }
+
+    /// Memory get with offset - load value from memory at address + offset
+    pub fn mget_o(&mut self, address: Value, offset: Value, ty: types::Type) -> Value {
+        let addr_with_offset = self.builder.ins().iadd(address, offset);
+        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
+        self.builder
+            .ins()
+            .load(ty, MemFlags::trusted(), mem_addr, 0)
+    }
+
+    /// Memory set with offset - store value to memory at address + offset
+    pub fn mset_o(&mut self, address: Value, offset: Value, value: Value) {
+        let addr_with_offset = self.builder.ins().iadd(address, offset);
+        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), value, mem_addr, 0);
     }
 }

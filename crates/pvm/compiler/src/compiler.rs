@@ -1,61 +1,19 @@
 //! Clean block-based JIT compiler for PVM programs
 
-use crate::Module;
+use crate::{Module, JIT};
 use anyhow::Result;
-use cranelift::prelude::*;
-use cranelift_codegen::ir::{Function, UserFuncName};
-use translator::Translator;
 
 /// JIT compiler
-pub struct Compiler {
-    /// Cranelift ISA
-    isa: cranelift_codegen::isa::OwnedTargetIsa,
-}
+pub struct Compiler {}
 
 impl Compiler {
     /// Create new JIT compiler
     pub fn new() -> Result<Self> {
-        let mut flag_builder = settings::builder();
-        flag_builder
-            .set("use_colocated_libcalls", "false")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        flag_builder
-            .set("is_pic", "false")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        let isa_builder = cranelift_native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
-        let isa = isa_builder.finish(settings::Flags::new(flag_builder))?;
-
-        Ok(Self { isa })
+        Ok(Self {})
     }
 
-    /// Compile entire program as Cranelift function (cranelift-wasm style)
+    /// Compile entire program as a function
     pub fn compile(&mut self, program: &[u8]) -> Result<Module> {
-        tracing::debug!("Compiling entire program as Cranelift function");
-
-        let mut sig = Signature::new(self.isa.default_call_conv());
-        sig.params.push(AbiParam::new(types::I64)); // context pointer
-        sig.params.push(AbiParam::new(types::I64)); // starting PC
-        let mut func = Function::with_name_signature(UserFuncName::user(0, 0), sig);
-        let mut builder_ctx = FunctionBuilderContext::new();
-        let mut translator = Translator::new(&mut func, &mut builder_ctx)?;
-        let is_trap = translator.analyze(program)?;
-
-        // Create entry block
-        let entry = translator.builder.create_block();
-        translator
-            .builder
-            .append_block_params_for_function_params(entry);
-        translator.builder.switch_to_block(entry);
-        translator.translate(entry)?;
-        translator.builder.finalize();
-
-        let mut ctx = cranelift_codegen::Context::new();
-        ctx.func = func;
-        let mut ctrl = cranelift_codegen::control::ControlPlane::default();
-        ctx.compile(&*self.isa, &mut ctrl)
-            .map_err(|e| anyhow::anyhow!("compilation failed: {:?}", e))?;
-
-        let code = ctx.compiled_code().unwrap();
-        Ok(Module::new(code.clone(), is_trap))
+        JIT::new()?.compile(program)
     }
 }

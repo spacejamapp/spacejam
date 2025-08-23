@@ -10,7 +10,8 @@ translator.workspace = true
 cranelift.workspace = true
 cranelift-codegen.workspace = true
 cranelift-native.workspace = true
-libc.workspace = true
+cranelift-jit.workspace = true
+cranelift-module.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
