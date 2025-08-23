@@ -2,6 +2,7 @@
 
 use crate::Translator;
 use cranelift::prelude::*;
+use cranelift_codegen::ir::GlobalValue;
 use pvm::Program;
 
 /// ExtendedContext memory layout offsets
@@ -46,6 +47,12 @@ impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
         self.init_registers(&program.registers);
-        self.init_memory(ctx);
+        self.init_memory(ctx, &program.memory);
+    }
+
+    /// Initialize data pointers
+    pub fn init_data(&mut self, read: GlobalValue, write: GlobalValue) {
+        self.read = read;
+        self.write = write;
     }
 }

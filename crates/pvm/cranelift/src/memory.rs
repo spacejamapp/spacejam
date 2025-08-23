@@ -6,6 +6,7 @@
 use crate::{control::result, offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
+use pvm::Memory;
 
 /// Page size as a power of 2 (2^12 = 4096)
 pub const PAGE_SHIFT: u8 = 12;
@@ -28,7 +29,7 @@ pub mod access {
 
 impl Translator<'_> {
     /// Initialize memory pointer
-    pub fn init_memory(&mut self, ctx: Value) {
+    pub fn init_memory(&mut self, ctx: Value, _memory: &Memory) {
         let memory_ptr_offset = self
             .builder
             .ins()

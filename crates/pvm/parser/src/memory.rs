@@ -233,4 +233,14 @@ impl Memory {
         }
         Ok(())
     }
+
+    /// Read the RO data from memory
+    pub fn ro_data(&self) -> anyhow::Result<Vec<u8>> {
+        self.read_bytes(self.read.start, self.read.end - self.read.start)
+    }
+
+    /// Read the RW data from memory
+    pub fn rw_data(&self) -> anyhow::Result<Vec<u8>> {
+        self.read_bytes(self.write.start, self.write.end - self.write.start)
+    }
 }
