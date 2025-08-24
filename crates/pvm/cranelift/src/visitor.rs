@@ -1895,8 +1895,8 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
-        self.check_store_boundaries(effective_addr, 4)?;
+        // let effective_addr = self.builder.ins().iadd(addr, offset);
+        // self.check_store_boundaries(effective_addr, 4)?;
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
@@ -1915,8 +1915,8 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr, offset);
-        self.check_store_boundaries(effective_addr, 8)?;
+        // let effective_addr = self.builder.ins().iadd(addr, offset);
+        // self.check_store_boundaries(effective_addr, 8)?;
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
         self.mset_o(addr, offset, value);
         Ok(())

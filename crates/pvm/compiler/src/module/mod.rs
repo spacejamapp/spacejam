@@ -57,14 +57,6 @@ impl Module {
         func(&mut ext);
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
-
-        // Check for page faults
-        if let Err(e) = ctx.sync() {
-            tracing::trace!("Page fault detected during execution: {}", e);
-            ctx.pc = 0;
-        } else {
-            tracing::trace!("execution completed, final PC: {}", ctx.pc);
-        }
         Ok(())
     }
 }

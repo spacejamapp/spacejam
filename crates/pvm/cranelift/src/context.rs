@@ -15,16 +15,10 @@ pub mod offsets {
     /// Offset to memory pointer (after registers + PC)
     pub const MEMORY_PTR_OFFSET: usize = REGISTERS_SIZE + 8;
 
-    /// Offset to page bitmap pointer (after registers + PC + memory_ptr)
-    pub const PAGE_BITMAP_OFFSET: usize = MEMORY_PTR_OFFSET + 8;
+    /// Offset to execution result (after registers + PC + memory_ptr)
+    pub const RESULT_OFFSET: usize = MEMORY_PTR_OFFSET + 4;
 
-    /// Offset to page access array pointer (after registers + PC + memory_ptr + page_bitmap)
-    pub const PAGE_ACCESS_OFFSET: usize = PAGE_BITMAP_OFFSET + 8;
-
-    /// Offset to execution result (after registers + PC + memory_ptr + page_bitmap + page_access)
-    pub const RESULT_OFFSET: usize = PAGE_ACCESS_OFFSET + 4;
-
-    /// Offset to dynamic jump target pointer (after registers + PC + memory_ptr + page_bitmap + page_access + result)
+    /// Offset to dynamic jump target pointer (after registers + PC + memory_ptr + result)
     pub const JUMP_TARGET_OFFSET: usize = RESULT_OFFSET + 4;
 }
 
@@ -36,8 +30,6 @@ pub struct Context {
     // legacy fields, will be removed soon!
     pub pc: u64,
     pub memory_ptr: *mut u8,
-    pub page_bitmap: *const u64,
-    pub page_access: *const u8,
     pub result: u32,
     pub jump_target: u32,
 }

@@ -7,7 +7,6 @@ use std::collections::HashMap;
 pub use {
     context::{offsets, Context},
     control::result,
-    memory::{access, BITS_PER_WORD},
 };
 
 mod context;
