@@ -104,7 +104,7 @@ pub async fn refine<R: Accounts, VM: Pvm>(
             results: work_results,
             context: work.context.clone(),
             core_index: core_idx as CoreIndex,
-            authorizer_hash: work.authorizer.hash(),
+            authorizer_hash: work.authorizer_hash(),
             auth_output: auth_output.to_vec(),
             lookup: BTreeMap::new(),
             auth_gas_used: 0,

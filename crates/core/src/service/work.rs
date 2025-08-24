@@ -35,20 +35,25 @@ pub struct WorkPackageSpec {
 /// TODO: embed token and host to the authorizer?
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackage {
-    /// (j) The authorization token
-    #[json(hex)]
-    pub authorization: Vec<u8>,
-
     /// (h) The auth code host
     pub auth_code_host: ServiceId,
 
-    /// (u, a) The authorizer
-    #[json(nested)]
-    pub authorizer: Authorizer,
+    /// (u) The auth code hash
+    #[json(hex)]
+    pub auth_code_hash: OpaqueHash,
 
     /// (c) The context
     #[json(nested)]
     pub context: RefineContext,
+
+    /// (j) The authorization token
+    #[json(hex)]
+    pub authorization: Vec<u8>,
+
+    /// (a) The authorizer
+    #[json(hex)]
+    #[serde(alias = "authorizer_config")]
+    pub config: Vec<u8>,
 
     /// (w) The items
     #[json(nested)]
@@ -74,15 +79,20 @@ pub struct WorkItem {
     #[json(hex)]
     pub code_hash: OpaqueHash,
 
-    /// (y) The payload
-    #[json(hex)]
-    pub payload: Vec<u8>,
-
     /// (g) The refine gas limit
     pub refine_gas_limit: Gas,
 
     /// (a) The accumulate gas limit
     pub accumulate_gas_limit: Gas,
+
+    /// (e) The export count
+    ///
+    /// MAX=W_X=3072
+    pub export_count: u16,
+
+    /// (y) The payload
+    #[json(hex)]
+    pub payload: Vec<u8>,
 
     /// (i) The import segments
     ///
@@ -95,11 +105,6 @@ pub struct WorkItem {
     /// MAX=T=128
     #[json(nested)]
     pub extrinsic: Vec<ExtrinsicSpec>,
-
-    /// (e) The export count
-    ///
-    /// MAX=W_X=3072
-    pub export_count: u16,
 }
 
 /// Represents an import specification for a work item.
@@ -124,24 +129,12 @@ pub struct ExtrinsicSpec {
     pub len: u32,
 }
 
-/// Represents an authorizer for a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct Authorizer {
-    /// The code hash
-    #[json(hex)]
-    pub code_hash: OpaqueHash,
-
-    /// The params
-    #[json(hex)]
-    pub params: Vec<u8>,
-}
-
 #[cfg(feature = "crypto")]
-impl Authorizer {
+impl WorkPackage {
     /// Compute the authorizer hash
     ///
     /// FIXME: shall we hash it after encoding?
-    pub fn hash(&self) -> OpaqueHash {
-        crypto::blake2b(&[self.code_hash.as_ref(), &self.params].concat())
+    pub fn authorizer_hash(&self) -> OpaqueHash {
+        crypto::blake2b(&[self.auth_code_hash.as_ref(), &self.config].concat())
     }
 }

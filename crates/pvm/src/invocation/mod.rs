@@ -245,10 +245,10 @@ pub trait Invocation {
         };
 
         // Resolve authorization code using historical lookup
-        let Some(code) = account.historical_lookup(timeslot, package.authorizer.code_hash) else {
+        let Some(code) = account.historical_lookup(timeslot, package.auth_code_hash) else {
             tracing::warn!(
                 "Authorization code not found for hash {:?}",
-                package.authorizer.code_hash
+                package.auth_code_hash
             );
             return Executed::new(Vec::new(), WorkExecResult::BadCode, 0);
         };

@@ -33,6 +33,10 @@ pub struct WorkReport {
     #[json(hex)]
     pub authorizer_hash: OpaqueHash,
 
+    /// The auth gas used
+    #[serde(with = "codec::compact")]
+    pub auth_gas_used: u64,
+
     /// The auth output
     #[json(hex)]
     pub auth_output: Vec<u8>,
@@ -45,10 +49,6 @@ pub struct WorkReport {
     /// The results of the work items
     #[json(nested)]
     pub results: Vec<WorkResult>,
-
-    /// The auth gas used
-    #[serde(with = "codec::compact")]
-    pub auth_gas_used: u64,
 }
 
 impl WorkReport {
