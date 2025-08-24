@@ -14,12 +14,6 @@ pub mod offsets {
 
     /// Offset to memory pointer (after registers + PC)
     pub const MEMORY_PTR_OFFSET: usize = REGISTERS_SIZE + 8;
-
-    /// Offset to execution result (after registers + PC + memory_ptr)
-    pub const RESULT_OFFSET: usize = MEMORY_PTR_OFFSET + 4;
-
-    /// Offset to dynamic jump target pointer (after registers + PC + memory_ptr + result)
-    pub const JUMP_TARGET_OFFSET: usize = RESULT_OFFSET + 4;
 }
 
 /// The context of the translator.
@@ -27,11 +21,11 @@ pub struct Context {
     /// The registers of the context.
     pub registers: [u64; pvm::REGISTER_COUNT],
 
-    // legacy fields, will be removed soon!
+    /// TODO: remove pc in production
     pub pc: u64,
+
+    /// The memory pointer
     pub memory_ptr: *mut u8,
-    pub result: u32,
-    pub jump_target: u32,
 }
 
 impl Translator<'_> {

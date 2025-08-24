@@ -7,8 +7,6 @@ use crate::{offsets, Translator};
 use cranelift::prelude::*;
 use pvm::Memory;
 
-/// Memory shortcuts
-
 impl Translator<'_> {
     /// Initialize memory pointer
     pub fn init_memory(&mut self, ctx: Value, _memory: &Memory) {

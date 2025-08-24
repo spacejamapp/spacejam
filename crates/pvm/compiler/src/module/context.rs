@@ -37,8 +37,6 @@ impl Context {
             registers: self.registers,
             pc: self.pc,
             memory_ptr: self.mem.as_mut_ptr(),
-            result: 0,
-            jump_target: 0,
         }
     }
 }

@@ -46,27 +46,20 @@ impl JIT {
             .declare_function("main", Linkage::Export, &sig)?;
 
         // construct the function
-        let is_trap = {
-            self.ctx.func.signature = self.signature();
-            let ro_data = self.make_data("ro_data", &program.memory.ro_data()?, false)?;
-            let rw_data = self.make_data("rw_data", &program.memory.rw_data()?, true)?;
-            let mut trans =
-                Translator::new(&mut self.ctx.func, &mut self.bctx)?.data(ro_data, rw_data);
+        self.ctx.func.signature = self.signature();
+        let ro_data = self.make_data("ro_data", &program.memory.ro_data()?, false)?;
+        let rw_data = self.make_data("rw_data", &program.memory.rw_data()?, true)?;
+        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?.data(ro_data, rw_data);
 
-            // translate the function
-            let is_trap = trans.translate(program)?;
-            trans.builder.finalize();
-            is_trap
-        };
+        // translate the function
+        trans.translate(program)?;
+        trans.builder.finalize();
 
         // define the function
         self.module.define_function(id, &mut self.ctx)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        Ok(crate::Module::new(
-            self.module.get_finalized_function(id),
-            is_trap,
-        ))
+        Ok(crate::Module::new(self.module.get_finalized_function(id)))
     }
 
     /// Create data for the function
@@ -84,6 +77,7 @@ impl JIT {
     fn signature(&self) -> Signature {
         let mut sig = self.module.make_signature();
         sig.params.push(AbiParam::new(types::I64));
+        sig.returns.push(AbiParam::new(types::I8));
         sig
     }
 }

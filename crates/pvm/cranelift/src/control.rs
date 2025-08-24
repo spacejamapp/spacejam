@@ -6,35 +6,22 @@ use cranelift::prelude::*;
 
 /// Execution result discriminant values
 pub mod result {
-    pub const CONTINUE: u64 = 0;
-    pub const HALT: u64 = 2;
-    pub const TRAP: u64 = 3;
-    pub const JUMP_INDIRECT: u64 = 4;
+    pub const HALT: i64 = 0;
+    pub const PANIC: i64 = 1;
+    pub const FAULT: i64 = 2;
+    pub const HOST: i64 = 3;
+    pub const OOG: i64 = 4;
 }
 
 impl Translator<'_> {
     /// get result from the context
     pub fn jump(&mut self) -> Value {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::JUMP_TARGET_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
-        self.builder
-            .ins()
-            .load(types::I64, MemFlags::trusted(), addr, 0)
+        self.builder.use_var(self.jump)
     }
 
     /// set dynamic jump to the context
     pub fn set_jump(&mut self, target: Value) {
-        self.set_result(result::JUMP_INDIRECT);
-        let data_addr = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::JUMP_TARGET_OFFSET as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target, data_addr, 0);
+        self.builder.def_var(self.jump, target);
     }
 
     /// get pc from the context
@@ -59,26 +46,6 @@ impl Translator<'_> {
             .store(MemFlags::new(), pc_val, pc_addr, 0);
     }
 
-    /// get result from the context
-    pub fn result(&mut self) -> Value {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::RESULT_OFFSET as i64);
-        self.builder.ins().iadd(self.ctx_ptr, offset)
-    }
-
-    /// set result to the context
-    pub fn set_result(&mut self, result: u64) {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::RESULT_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
-        let val = self.builder.ins().iconst(types::I64, result as i64);
-        self.builder.ins().store(MemFlags::trusted(), val, addr, 0);
-    }
-
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
@@ -89,34 +56,17 @@ impl Translator<'_> {
         Ok(())
     }
 
-    /// Return with continue result and specific PC
-    pub fn return_continue_with_pc(&mut self, pc: u64) -> Result<()> {
-        self.save_registers();
-        self.set_pc(pc);
-        self.set_result(result::CONTINUE);
-        self.builder.ins().return_(&[]);
-        Ok(())
-    }
-
-    /// Return with trap result
-    pub fn return_trap(&mut self) -> Result<()> {
-        self.save_registers();
-        self.set_result(result::TRAP);
-        self.builder.ins().return_(&[]);
-        Ok(())
-    }
-
     /// Return with trap result and set PC to the trap instruction location
-    pub fn return_trap_with_pc(&mut self, trap_pc: usize) -> Result<()> {
+    pub fn return_(&mut self, sig: i64, pc: usize) -> Result<()> {
         self.save_registers();
-        self.set_pc(trap_pc as u64);
-        self.set_result(result::TRAP);
-        self.builder.ins().return_(&[]);
+        self.set_pc(pc as u64);
+        let res = self.builder.ins().iconst(types::I8, sig);
+        self.builder.ins().return_(&[res]);
         Ok(())
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
-    pub fn djump(&mut self, instruction_pc: usize) -> Result<()> {
+    pub fn djump(&mut self, pc: usize) -> Result<()> {
         let target_addr = self.jump();
 
         // Jump target validation:
@@ -164,7 +114,7 @@ impl Translator<'_> {
 
         // Trap block: invalid jump target
         self.builder.switch_to_block(trap);
-        self.return_trap_with_pc(instruction_pc)?;
+        self.return_(result::PANIC, pc)?;
 
         // Seal all created blocks
         self.builder.seal_block(valid);

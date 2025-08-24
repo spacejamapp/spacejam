@@ -14,17 +14,12 @@ mod info;
 pub struct Module {
     /// The function composed by cranelift IR
     code: *const u8,
-
-    /// Whether the program is a trap
-    ///
-    /// FIXME: this is currently a workaround for tests
-    is_trap: bool,
 }
 
 impl Module {
     /// Set the program bytes for block JIT execution
-    pub fn new(code: *const u8, is_trap: bool) -> Self {
-        Self { code, is_trap }
+    pub fn new(code: *const u8) -> Self {
+        Self { code }
     }
 
     /// Execute the compiled module
@@ -36,27 +31,22 @@ impl Module {
     ) -> Result<Info> {
         let mut context = Context::new(*initial_registers, initial_pc, initial_memory);
         self.run(&mut context)?;
-        let final_pc = if initial_pc == 0 && context.pc == 1 && self.is_trap {
-            0
-        } else {
-            context.pc
-        };
-
         Ok(Info {
             registers: context.registers,
-            pc: final_pc,
+            pc: context.pc,
             memory: context.memory,
         })
     }
 
     /// Execute compiled function
-    fn run(&self, ctx: &mut Context) -> Result<()> {
+    fn run(&self, ctx: &mut Context) -> Result<i8> {
         let mut ext = ctx.extend();
-        let func =
-            unsafe { std::mem::transmute::<*const u8, fn(*mut translator::Context)>(self.code) };
-        func(&mut ext);
+        let func = unsafe {
+            std::mem::transmute::<*const u8, fn(*mut translator::Context) -> i8>(self.code)
+        };
+        let result = func(&mut ext);
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
-        Ok(())
+        Ok(result)
     }
 }

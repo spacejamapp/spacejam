@@ -16,10 +16,16 @@ mod register;
 mod translate;
 mod visitor;
 
+/// Jump variable index
+pub const JUMP_VAR: usize = 13;
+
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'b> {
     /// PVM registers (0 to MAX_REGISTER_INDEX)
     pub registers: HashMap<u8, Variable>,
+
+    /// Jump variable
+    pub jump: Variable,
 
     /// Cranelift function builder
     pub builder: FunctionBuilder<'b>,
@@ -43,9 +49,14 @@ pub struct Translator<'b> {
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
+        let mut builder = FunctionBuilder::new(func, ctx);
+        let jump = Variable::new(JUMP_VAR);
+        builder.declare_var(jump, types::I64);
+
         Ok(Self {
             registers: HashMap::new(),
-            builder: FunctionBuilder::new(func, ctx),
+            jump,
+            builder,
             blocks: HashMap::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),
