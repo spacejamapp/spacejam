@@ -2,7 +2,6 @@
 
 use crate::Translator;
 use anyhow::Result;
-use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
 use std::collections::BTreeMap;
@@ -61,7 +60,10 @@ impl Translator<'_> {
 
     /// translate the dispatcher
     fn translate_dispatcher(&mut self, program: &Program) -> Result<()> {
-        let entry = self.entry();
+        let entry = self.builder.create_block();
+        self.builder.append_block_params_for_function_params(entry);
+
+        // get the context ptr
         let ctx_ptr = self.builder.block_params(entry)[0];
         self.ctx_ptr = ctx_ptr;
         self.init_context(program, ctx_ptr);
@@ -107,13 +109,5 @@ impl Translator<'_> {
         }
 
         Ok(())
-    }
-
-    /// Create an entry block
-    fn entry(&mut self) -> ir::Block {
-        let entry = self.builder.create_block();
-        self.builder.append_block_params_for_function_params(entry);
-        self.builder.switch_to_block(entry);
-        entry
     }
 }
