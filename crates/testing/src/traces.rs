@@ -9,7 +9,7 @@ use score::{
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
-    state::{key, StateKeyInfo, StateKeyLike},
+    state::{account, key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts, EntropyBuffer, OpaqueHash,
 };
@@ -44,7 +44,6 @@ mod storage_light {
 mod fuzz {
     include!(concat!(env!("OUT_DIR"), "/traces_local_fuzz.rs"));
     include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
-    include!(concat!(env!("OUT_DIR"), "/traces_fuzz_testing.rs"));
 }
 
 /// Run the traces test
@@ -139,6 +138,13 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         }
 
         if key.starts_with(&[255]) && value != result {
+            let polkajam: ServiceInfo = codec::decode(&value)?;
+            let spacejam: ServiceInfo = codec::decode(&result)?;
+            tracing::debug!("polkajam: {:#?}", polkajam.to_json());
+            tracing::debug!("spacejam: {:#?}", spacejam.to_json());
+        }
+
+        if key == account::info(3202820706) || key == account::info(0) {
             let polkajam: ServiceInfo = codec::decode(&value)?;
             let spacejam: ServiceInfo = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());

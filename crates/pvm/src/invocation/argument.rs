@@ -42,7 +42,7 @@ pub trait Argument {
     fn or_this(&mut self, account: u64) -> Result<&mut impl Account> {
         let service = self.service() as u64;
         let mut index = account;
-        if account == u64::MAX || account == service {
+        if account == u64::MAX {
             index = service;
         }
 
