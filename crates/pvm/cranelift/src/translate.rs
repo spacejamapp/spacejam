@@ -29,7 +29,6 @@ impl Translator<'_> {
     /// discovers all basic blocks
     fn analyze(&mut self, program: &[u8]) -> Result<(bool, BTreeMap<u64, Block>)> {
         let blob = parser::program::deblob(program)?;
-        self.jump_table = blob.jump_table.clone();
 
         // read all blocks and create CLIF blocks
         let mut reader = blob.reader();
@@ -65,13 +64,12 @@ impl Translator<'_> {
 
         // get the context ptr
         let ctx_ptr = self.builder.block_params(entry)[0];
-        self.ctx_ptr = ctx_ptr;
         self.init_context(program, ctx_ptr);
 
         // create a switch statement to jump to the correct block based on pc
         let mut switch = cranelift::frontend::Switch::new();
-        for (&pc, &cranelift_block) in &self.blocks {
-            switch.set_entry(pc as u128, cranelift_block);
+        for (&pc, &block) in &self.blocks {
+            switch.set_entry(pc as u128, block);
         }
 
         // if the PC is not found, return with trap

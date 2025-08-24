@@ -1,6 +1,6 @@
 //! Visitor implementation for PVM instructions
 
-use crate::{offsets, Translator};
+use crate::Translator;
 use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
@@ -598,28 +598,10 @@ impl Visitor for Translator<'_> {
         range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-
-        // Calculate the target address: reg0 + imm0
         let lhs = self.rget(reg0);
         let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let target_addr = self.builder.ins().iadd(lhs, rhs);
-
-        // For indirect jumps, we need to look up the address in the jump table at runtime
-        // The runtime will validate and find the actual PC from the jump table
-        let context_ptr = self.ctx_ptr;
-        let result_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::RESULT_OFFSET as i64);
-        let result_addr = self.builder.ins().iadd(context_ptr, result_offset);
-
-        // Store the target address
-        let data_offset = self.builder.ins().iconst(types::I64, 8);
-        let data_addr = self.builder.ins().iadd(result_addr, data_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::new(), target_addr, data_addr, 0);
-
+        let target = self.builder.ins().iadd(lhs, rhs);
+        self.set_jump(target);
         self.djump(range.start)
     }
 
@@ -636,6 +618,7 @@ impl Visitor for Translator<'_> {
         self.rset(reg0, result_64);
         Ok(())
     }
+
     fn visit_leading_zero_bits_64(
         &mut self,
         format: format::RR,

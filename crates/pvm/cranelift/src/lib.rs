@@ -27,9 +27,6 @@ pub struct Translator<'b> {
     // Map of blocks by start PC
     pub blocks: HashMap<u64, ir::Block>,
 
-    // Jump table for dynamic jumps (djump)
-    jump_table: Vec<u64>,
-
     // Context pointer for boundary checking and runtime operations
     ctx_ptr: Value,
 
@@ -49,7 +46,6 @@ impl<'b> Translator<'b> {
         Ok(Self {
             registers: HashMap::new(),
             builder: FunctionBuilder::new(func, ctx),
-            jump_table: Vec::new(),
             blocks: HashMap::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),

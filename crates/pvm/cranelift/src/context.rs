@@ -37,6 +37,7 @@ pub struct Context {
 impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
+        self.ctx_ptr = ctx;
         self.init_registers(&program.registers);
         self.init_memory(ctx, &program.memory);
     }
