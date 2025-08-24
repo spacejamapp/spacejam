@@ -16,14 +16,14 @@ pub mod trace;
 pub const VERSION: Version = Version {
     major: 0,
     minor: 0,
-    patch: 5,
+    patch: 6,
 };
 
 /// The protocol version of spacejam
 pub const PROTOCOL_VERSION: Version = Version {
     major: 0,
-    minor: 6,
-    patch: 7,
+    minor: 7,
+    patch: 0,
 };
 
 /// Extension methods for streams
