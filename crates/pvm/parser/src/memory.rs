@@ -112,8 +112,6 @@ impl Memory {
             // insert the page into the memory
             self.memory.insert(page, (content, write));
             buff = buff[taken..].to_vec();
-
-            // check if the page is full, move to the next page
             if size + taken == crate::PAGE_SIZE as usize {
                 page += 1;
             }
@@ -161,13 +159,12 @@ impl Memory {
             return Ok(());
         }
 
-        // First validate all pages are accessible and writable
+        // validate all pages are accessible and writable
         let mut ptr = addr;
         let mut remaining = bytes.len();
         while remaining > 0 {
             let page_num = ptr / crate::PAGE_SIZE as u32;
             let page_offset = ptr % crate::PAGE_SIZE as u32;
-
             let Some((_, writable)) = self.memory.get(&page_num) else {
                 anyhow::bail!("Memory page {} not accessible", page_num);
             };
@@ -178,15 +175,13 @@ impl Memory {
 
             let available_in_page = crate::PAGE_SIZE as u32 - page_offset;
             let chunk_size = remaining.min(available_in_page as usize);
-
             remaining -= chunk_size;
             ptr += chunk_size as u32;
         }
 
-        // Validation passed - now perform the actual writes
+        // write the bytes
         ptr = addr;
         let mut bytes_written = 0;
-
         while bytes_written < bytes.len() {
             let page_num = ptr / crate::PAGE_SIZE as u32;
             let page_offset = ptr % crate::PAGE_SIZE as u32;
@@ -196,8 +191,6 @@ impl Memory {
 
             // Get mutable reference to the page data directly
             let (page_data, _) = self.memory.get_mut(&page_num).unwrap();
-
-            // Ensure page has enough capacity
             let needed_size = page_offset as usize + chunk_size;
             if page_data.len() < needed_size {
                 page_data.resize(needed_size.min(crate::PAGE_SIZE as usize), 0);
@@ -208,7 +201,6 @@ impl Memory {
             let page_end = page_start + chunk_size;
             let data_start = bytes_written;
             let data_end = data_start + chunk_size;
-
             page_data[page_start..page_end].copy_from_slice(&bytes[data_start..data_end]);
             bytes_written += chunk_size;
             ptr += chunk_size as u32;
@@ -234,6 +226,10 @@ impl Memory {
         Ok(())
     }
 
+    pub fn args(&self) -> anyhow::Result<Vec<u8>> {
+        self.read_bytes(self.args.start, self.args.end - self.args.start)
+    }
+
     /// Read the RO data from memory
     pub fn ro_data(&self) -> anyhow::Result<Vec<u8>> {
         self.read_bytes(self.read.start, self.read.end - self.read.start)
@@ -242,5 +238,43 @@ impl Memory {
     /// Read the RW data from memory
     pub fn rw_data(&self) -> anyhow::Result<Vec<u8>> {
         self.read_bytes(self.write.start, self.write.end - self.write.start)
+    }
+
+    /// Insert RO data into memory
+    pub fn with_ro_data(mut self, data: Vec<u8>, start: u32) -> Self {
+        let size = data.len() as u64;
+        self.insert_pages(data, start as u64, false);
+        self.read = start..(start + size as u32);
+        self
+    }
+
+    /// Insert RW data into memory
+    pub fn with_rw_data(mut self, data: Vec<u8>, start: u32) -> Self {
+        let size = data.len() as u64;
+        self.insert_pages(data, start as u64, true);
+        self.write = start..(start + size as u32);
+        self
+    }
+
+    /// Insert args into memory
+    pub fn with_args(mut self, data: Vec<u8>, start: u32) -> Self {
+        let size = data.len() as u64;
+        self.insert_pages(data, start as u64, false);
+        self.args = start..(start + size as u32);
+        self
+    }
+
+    /// Set the heap range
+    pub fn with_heap(mut self, range: Range<u32>) -> Self {
+        self.heap_ptr = range.start;
+        self.heap = range;
+        self
+    }
+
+    /// Set the args range
+    pub fn with_stack(mut self, range: Range<u32>) -> Self {
+        self.insert_pages(vec![0; range.len()], range.start as u64, true);
+        self.stack = range;
+        self
     }
 }

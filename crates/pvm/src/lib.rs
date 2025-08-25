@@ -1,6 +1,6 @@
 //! PolkaVM implementation
 
-pub use parser::{program::Program, Memory, PAGE_SIZE, PVM_MEMORY_SIZE};
+pub use parser::{program::Program, Memory, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
 pub use score::{Account, Accounts, Gas};
 pub use {
     invocation::{

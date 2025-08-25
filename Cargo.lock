@@ -2840,6 +2840,8 @@ name = "pvmc"
 version = "0.0.5"
 dependencies = [
  "anyhow",
+ "bindgen",
+ "cc",
  "cranelift",
  "cranelift-codegen",
  "cranelift-jit",

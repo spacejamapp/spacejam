@@ -29,3 +29,5 @@ proc-macro2.workspace = true
 quote.workspace = true
 specjam.workspace = true
 syn.workspace = true
+cc = "1.0"
+bindgen = "0.69"

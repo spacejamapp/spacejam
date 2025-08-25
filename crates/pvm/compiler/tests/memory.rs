@@ -1,82 +1,104 @@
 //! Tests for the Memory module
 
-use pvmc::Memory;
+use pvmc::{trap, Memory};
 
-#[test]
-fn test_memory_creation() {
-    let mut parser_memory = pvm::Memory::default();
-    parser_memory.memory.insert(16, (vec![1, 2, 3, 4], false));
-    parser_memory.memory.insert(32, (vec![5, 6, 7, 8], true));
+const INIT_VALUE: u8 = 1;
+const REGION_SIZE: usize = pvm::PAGE_SIZE as usize;
+const REGION_START: u32 = pvm::ZONE_SIZE as u32;
+const REGION_END: u32 = REGION_START + REGION_SIZE as u32;
 
-    let memory = Memory::new(&parser_memory).expect("Failed to create memory");
-    unsafe {
-        let ro_data = memory.read_bytes(0x10000, 4);
-        assert_eq!(ro_data, &[1, 2, 3, 4]);
+/// Generate a read test for the given memory
+fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
+    let data = memory.read_bytes(REGION_START, REGION_SIZE as u32);
+    assert_eq!(data, vec![INIT_VALUE; REGION_SIZE]);
 
-        let rw_data = memory.read_bytes(0x20000, 4);
-        assert_eq!(rw_data, &[5, 6, 7, 8]);
-    }
-}
-
-#[test]
-fn test_sbrk() {
-    let parser_memory = pvm::Memory::default();
-    let mut memory = Memory::new(&parser_memory).expect("Failed to create memory");
-    memory.sbrk(48, 2).expect("Failed to allocate");
-
-    unsafe {
-        memory.write_bytes(0x30000, &[0xAA; 16]);
-        let data = memory.read_bytes(0x30000, 16);
-        assert_eq!(data, &[0xAA; 16]);
-    }
-}
-
-#[test]
-fn test_read_write() {
-    let mut parser_memory = pvm::Memory::default();
-    parser_memory.memory.insert(64, (vec![0; 4096], true));
-    let mut memory = Memory::new(&parser_memory).expect("Failed to create memory");
-
-    unsafe {
-        memory.write(0x40000, 0x12345678u32);
-        let value: u32 = memory.read(0x40000);
-        assert_eq!(value, 0x12345678);
-        let data = vec![0xFF; 32];
-        memory.write_bytes(0x40100, &data);
-        let read_data = memory.read_bytes(0x40100, 32);
-        assert_eq!(read_data, &data[..]);
-    }
-}
-
-#[test]
-fn test_drop() {
-    let parser_memory = pvm::Memory::default();
+    // try writing to read-only memory
     {
-        let _memory = Memory::new(&parser_memory).expect("Failed to create memory");
+        let Err(info) = trap::with(|| {
+            memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
+        }) else {
+            panic!("should trap");
+        };
+        assert_eq!(info.signal, libc::SIGSEGV);
+        assert_eq!(info.code, 2);
     }
+
+    // try accessing unallocated memory
+    {
+        let Err(info) = trap::with(|| {
+            let slice = memory.read_bytes(REGION_END, REGION_SIZE as u32);
+            slice[0]
+        }) else {
+            panic!("should trap");
+        };
+        assert_eq!(info.signal, libc::SIGSEGV);
+        assert_eq!(info.code, 2);
+    }
+
+    Ok(())
+}
+
+/// Generate a write test for the given memory
+fn gen_write(mut memory: Memory) -> anyhow::Result<()> {
+    // test read
+    let data = memory.read_bytes(REGION_START, REGION_SIZE as u32);
+    assert_eq!(data, vec![1; REGION_SIZE]);
+
+    // test write
+    memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
+    assert_eq!(
+        memory.read_bytes(REGION_START, REGION_SIZE as u32),
+        vec![2; REGION_SIZE]
+    );
+
+    // try writing to unallocated memory
+    let Err(info) = trap::with(|| {
+        memory.write_bytes(REGION_END, &[3; REGION_SIZE]);
+    }) else {
+        panic!("should trap");
+    };
+
+    // check that the trap info is correct
+    assert_eq!(info.signal, libc::SIGSEGV);
+    assert_eq!(info.code, 2);
+    Ok(())
 }
 
 #[test]
-fn test_memory_with_multiple_pages() {
-    let mut parser_memory = pvm::Memory::default();
+fn test_read() -> anyhow::Result<()> {
+    let memory = Memory::new(
+        &pvm::Memory::default().with_ro_data(vec![INIT_VALUE; REGION_SIZE], REGION_START),
+    )?;
+    gen_read(memory)
+}
 
-    for i in 10..20 {
-        let data = vec![i as u8; 100];
-        let writable = i % 2 == 0;
-        parser_memory.memory.insert(i, (data, writable));
-    }
+#[test]
+fn test_write() -> anyhow::Result<()> {
+    let memory = Memory::new(
+        &pvm::Memory::default().with_rw_data(vec![INIT_VALUE; REGION_SIZE], REGION_START),
+    )?;
+    gen_write(memory)
+}
 
-    let mut memory = Memory::new(&parser_memory).expect("Failed to create memory");
-    unsafe {
-        for i in 10..20 {
-            let addr = i * pvm::PAGE_SIZE as u32;
-            let data = memory.read_bytes(addr, 1);
-            assert_eq!(data[0], i as u8);
-            if i % 2 == 0 {
-                memory.write_bytes(addr + 1, &[0xFF]);
-                let written = memory.read_bytes(addr + 1, 1);
-                assert_eq!(written[0], 0xFF);
-            }
-        }
-    }
+#[test]
+fn test_stack() -> anyhow::Result<()> {
+    let mut memory = Memory::new(&pvm::Memory::default().with_stack(REGION_START..REGION_END))?;
+    memory.write_bytes(REGION_START, &[INIT_VALUE; REGION_SIZE]);
+    gen_write(memory)
+}
+
+#[test]
+fn test_args() -> anyhow::Result<()> {
+    let memory = Memory::new(
+        &pvm::Memory::default().with_args(vec![INIT_VALUE; REGION_SIZE], REGION_START),
+    )?;
+    gen_read(memory)
+}
+
+#[test]
+fn test_heap() -> anyhow::Result<()> {
+    let mut memory = Memory::new(&pvm::Memory::default().with_heap(REGION_START..REGION_END))?;
+    memory.allocate(REGION_START, 1)?;
+    memory.write_bytes(REGION_START, &[INIT_VALUE; REGION_SIZE]);
+    gen_write(memory)
 }
