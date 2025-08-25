@@ -50,6 +50,7 @@ impl Module {
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
         ctx.gas = ext.gas;
+        tracing::debug!("result: {:?}", result);
         Ok(result)
     }
 }

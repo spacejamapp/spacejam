@@ -9,7 +9,8 @@ impl Translator<'_> {
         for (i, reg) in registers.iter().enumerate() {
             let var = Variable::new(i);
             self.builder.declare_var(var, types::I64);
-            self.builder.def_var(var, Value::new(*reg as usize));
+            let val = self.builder.ins().iconst(types::I64, *reg as i64);
+            self.builder.def_var(var, val);
             self.registers.insert(i as u8, var);
         }
     }
@@ -28,7 +29,7 @@ impl Translator<'_> {
 
     // Save registers to context
     pub fn save_registers(&mut self) {
-        for i in 0..pvm::REGISTER_COUNT {
+        for i in 0..self.registers.len() {
             let reg_var = self.registers[&(i as u8)];
             let reg_val = self.builder.use_var(reg_var);
             let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);

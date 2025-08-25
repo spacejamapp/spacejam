@@ -1,6 +1,6 @@
 //! Visitor implementation for PVM instructions
 
-use crate::Translator;
+use crate::{result, Translator};
 use core::ops::Range;
 use cranelift::prelude::*;
 use parser::{format, Visitor};
@@ -2145,6 +2145,11 @@ impl Visitor for Translator<'_> {
         let src_val = self.rget(reg1);
         let result = self.builder.ins().ctz(src_val);
         self.rset(reg0, result);
+        Ok(())
+    }
+
+    fn visit_trap(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
+        self.return_(result::PANIC, 0)?;
         Ok(())
     }
 

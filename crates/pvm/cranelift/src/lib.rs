@@ -49,14 +49,10 @@ pub struct Translator<'b> {
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
-        let mut builder = FunctionBuilder::new(func, ctx);
-        let jump = Variable::new(JUMP_VAR);
-        builder.declare_var(jump, types::I64);
-
         Ok(Self {
             registers: HashMap::new(),
-            jump,
-            builder,
+            jump: Variable::new(JUMP_VAR),
+            builder: FunctionBuilder::new(func, ctx),
             blocks: HashMap::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),

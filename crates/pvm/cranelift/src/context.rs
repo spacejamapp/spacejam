@@ -38,6 +38,7 @@ impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
         self.ctx_ptr = ctx;
+        self.builder.declare_var(self.jump, types::I64);
         self.init_registers(&program.registers);
         self.init_memory(ctx, &program.memory);
     }
