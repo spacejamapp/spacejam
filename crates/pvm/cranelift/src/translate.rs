@@ -32,6 +32,7 @@ impl Translator<'_> {
     /// discovers all basic blocks
     fn analyze(&mut self, program: &[u8]) -> Result<BTreeMap<u64, Block>> {
         let blob = parser::program::deblob(program)?;
+        self.jump_table = blob.jump_table.clone();
         let mut reader = blob.reader();
         let mut blocks = BTreeMap::new();
         while !reader.eof() {

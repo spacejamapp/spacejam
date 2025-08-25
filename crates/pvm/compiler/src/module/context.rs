@@ -15,7 +15,7 @@ pub struct Context {
 impl Context {
     /// Create new context
     pub fn new(regs: [u64; pvm::REGISTER_COUNT], pc: u64, memory: pvm::Memory) -> Self {
-        let mut mem = vec![0u8; 4096];
+        let mut mem = vec![0u8; 0x100000];
         for (&page_num, (page_data, _)) in &memory.memory {
             let start = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             let end = start + page_data.len();
@@ -40,6 +40,22 @@ impl Context {
             pc: self.pc,
             gas: self.gas,
             memory_ptr: self.mem.as_mut_ptr(),
+        }
+    }
+
+    /// Update paged memory structure from linear memory after execution
+    pub fn sync(&mut self) {
+        let page_size = pvm::PAGE_SIZE as usize;
+        for (&page_num, (page_data, _)) in self.memory.memory.iter_mut() {
+            let start = (page_num as usize) * page_size;
+            let end = start + page_data.len();
+            if end <= self.mem.len() {
+                let orig = &page_data[..];
+                let new = &self.mem[start..end];
+                if orig != new {
+                    page_data.copy_from_slice(new);
+                }
+            }
         }
     }
 }
