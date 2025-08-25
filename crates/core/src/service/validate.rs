@@ -37,7 +37,7 @@ impl PackageValidation {
         let mut total_accumulate_gas = 0u64;
         let mut bundle_size = 0u64;
         bundle_size += package.authorization.len() as u64;
-        bundle_size += package.authorizer.params.len() as u64;
+        bundle_size += package.config.len() as u64;
         for item in &package.items {
             // Count limits
             total_exports += item.export_count as u32;

@@ -57,10 +57,12 @@ pub fn outer<V: Pvm, R: Accounts>(
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
         accumulated.accumulated += step.accumulated;
-        accumulated.gas.extend(step.gas);
         accumulated.transfers.extend(step.transfers);
         accumulated.pairings.extend(step.pairings);
         accumulated.context = step.context;
+        for (service, gas) in step.gas.iter() {
+            *accumulated.gas.entry(*service).or_insert(0) += gas;
+        }
     }
 }
 

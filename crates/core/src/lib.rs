@@ -51,7 +51,7 @@ pub const GAS_REFINE: u64 = 5_000_000_000;
 /// (G_T) The total gas allocated across for all accumulation
 ///
 /// should be no smaller than G_A * C + ∑ privileges
-pub const GAS_ALL_ACC: u64 = 3_500_000_000;
+pub const GAS_ALL_ACC: u64 = 20_000_000;
 
 /// (H) The maximum number of blocks in the history
 pub const MAX_BLOCKS_HISTORY: u16 = 8;

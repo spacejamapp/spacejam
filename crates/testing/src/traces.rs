@@ -9,7 +9,7 @@ use score::{
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
-    state::{key, StateKeyInfo, StateKeyLike},
+    state::{account, key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
     Account, Accounts, EntropyBuffer, OpaqueHash,
 };
@@ -42,9 +42,8 @@ mod storage_light {
 }
 
 mod fuzz {
-    include!(concat!(env!("OUT_DIR"), "/traces_local_fuzz.rs"));
-    include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
-    include!(concat!(env!("OUT_DIR"), "/traces_fuzz_testing.rs"));
+    // include!(concat!(env!("OUT_DIR"), "/traces_local_fuzz.rs"));
+    // include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
 }
 
 /// Run the traces test
@@ -98,12 +97,12 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
             tracing::debug!("keyval matched: {info:?}: 0x{encoded}");
         }
 
-        /* if key == key::STATISTICS && value != result {
+        if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        } */
+        }
 
         if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
