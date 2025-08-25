@@ -20,7 +20,7 @@ impl Jam {
         let package = WorkPackage {
             authorization: self.auth.token.clone(),
             auth_code_host: self.auth.host,
-            auth_code_hash: self.auth.code_hash.clone(),
+            auth_code_hash: self.auth.code_hash,
             config: self.auth.config.clone(),
             context: self.chain.refine_context(),
             items: self.items.drain(..).collect(),
