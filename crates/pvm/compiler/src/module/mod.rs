@@ -27,6 +27,7 @@ impl Module {
         &self,
         initial_registers: &[u64; pvm::REGISTER_COUNT],
         initial_pc: u64,
+        initial_gas: u64,
         initial_memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = Context::new(*initial_registers, initial_pc, initial_memory);
@@ -34,19 +35,21 @@ impl Module {
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
+            gas: initial_gas.saturating_sub(context.gas),
             memory: context.memory,
         })
     }
 
     /// Execute compiled function
-    fn run(&self, ctx: &mut Context) -> Result<i8> {
+    fn run(&self, ctx: &mut Context) -> Result<u8> {
         let mut ext = ctx.extend();
         let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut translator::Context) -> i8>(self.code)
+            std::mem::transmute::<*const u8, fn(*mut translator::Context) -> u8>(self.code)
         };
         let result = func(&mut ext);
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
+        ctx.gas = ext.gas;
         Ok(result)
     }
 }

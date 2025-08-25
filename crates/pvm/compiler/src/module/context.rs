@@ -7,6 +7,7 @@
 pub struct Context {
     pub registers: [u64; pvm::REGISTER_COUNT],
     pub pc: u64,
+    pub gas: u64,
     pub memory: pvm::Memory,
     pub mem: Vec<u8>,
 }
@@ -26,6 +27,7 @@ impl Context {
         Self {
             registers: regs,
             pc,
+            gas: 0,
             memory,
             mem,
         }
@@ -36,6 +38,7 @@ impl Context {
         translator::Context {
             registers: self.registers,
             pc: self.pc,
+            gas: self.gas,
             memory_ptr: self.mem.as_mut_ptr(),
         }
     }

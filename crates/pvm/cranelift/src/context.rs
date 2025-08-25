@@ -12,8 +12,11 @@ pub mod offsets {
     /// Offset to PC field (after registers)
     pub const PC_OFFSET: usize = REGISTERS_SIZE;
 
-    /// Offset to memory pointer (after registers + PC)
-    pub const MEMORY_PTR_OFFSET: usize = REGISTERS_SIZE + 8;
+    /// Offset to gas field (after registers + PC)
+    pub const GAS_OFFSET: usize = REGISTERS_SIZE + 8;
+
+    /// Offset to memory pointer (after registers + PC + gas)
+    pub const MEMORY_PTR_OFFSET: usize = REGISTERS_SIZE + 8 + 8;
 }
 
 /// The context of the translator.
@@ -23,6 +26,9 @@ pub struct Context {
 
     /// TODO: remove pc in production
     pub pc: u64,
+
+    /// The gas cost of the context.
+    pub gas: u64,
 
     /// The memory pointer
     pub memory_ptr: *mut u8,

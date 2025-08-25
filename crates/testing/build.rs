@@ -41,6 +41,7 @@ fn main() -> Result<()> {
     build_tests(registry.erasure(Scale::Tiny)?, &out_dir.join("erasure.rs"))?;
     build_tests(registry.history(Scale::Tiny)?, &out_dir.join("history.rs"))?;
     build_tests(registry.pvm()?, &out_dir.join("pvm.rs"))?;
+    build_pvmc_tests(registry.pvm()?, &out_dir.join("pvmc.rs"))?;
     build_tests(
         registry.preimages(Scale::Tiny)?,
         &out_dir.join("preimages.rs"),
@@ -113,6 +114,32 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
             fn #test_name() {
                 let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
                 crate::Runner::step(&test).expect("failed to run test");
+            }
+        });
+    }
+
+    fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
+
+    Ok(())
+}
+
+/// Builds the PVM tests
+fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
+    let mut tests: Vec<ItemFn> = Vec::new();
+    let section = entry.section;
+    let ss = section.as_ref();
+
+    // NOTE: currently iterates over directories on each of the tests,
+    // for speed up building time.
+    for (i, test) in entry.into_iter().enumerate() {
+        let name = &test.name;
+        let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
+
+        tests.push(parse_quote! {
+            #[test]
+            fn #test_name() {
+                let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
+                Runner::step(&test).expect("failed to run test");
             }
         });
     }

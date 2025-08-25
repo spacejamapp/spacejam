@@ -24,6 +24,25 @@ impl Translator<'_> {
         self.builder.def_var(self.jump, target);
     }
 
+    /// get gas from the context
+    pub fn gas(&mut self) -> Value {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::GAS_OFFSET as i64);
+        self.builder.ins().iadd(self.ctx_ptr, offset)
+    }
+
+    /// set gas to the context
+    pub fn burn_gas(&mut self, gas: i64) {
+        let spent = self.gas();
+        let gas = self.builder.ins().iconst(types::I64, gas);
+        let result = self.builder.ins().iadd(spent, gas);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), result, spent, 0);
+    }
+
     /// get pc from the context
     pub fn pc(&mut self) -> Value {
         let offset = self
@@ -35,15 +54,11 @@ impl Translator<'_> {
 
     /// set pc to the context
     pub fn set_pc(&mut self, pc: u64) {
-        let pc_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::PC_OFFSET as i64);
-        let pc_addr = self.builder.ins().iadd(self.ctx_ptr, pc_offset);
+        let addr = self.pc();
         let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
         self.builder
             .ins()
-            .store(MemFlags::new(), pc_val, pc_addr, 0);
+            .store(MemFlags::trusted(), pc_val, addr, 0);
     }
 
     /// generate branch instruction

@@ -14,8 +14,9 @@ impl Translator<'_> {
         let blocks = self.analyze(&program.code)?;
         self.translate_dispatcher(program)?;
         for (pc, block) in &blocks {
-            let cranelift_block = self.blocks[pc];
-            self.builder.switch_to_block(cranelift_block);
+            let cblock = self.blocks[pc];
+            self.builder.switch_to_block(cblock);
+            self.burn_gas(block.len() as i64);
             self.translate_block(block)?;
         }
 
@@ -78,11 +79,12 @@ impl Translator<'_> {
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
-            let pc = instruction.range.start;
-            tracing::trace!("translating PC {} instruction {:?}", pc, instruction.value);
-
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
-                tracing::warn!("Instruction translation failed at PC {}: {}", pc, e);
+                tracing::warn!(
+                    "Instruction translation failed at PC {}: {}",
+                    instruction.range.start,
+                    e
+                );
             }
         }
 
