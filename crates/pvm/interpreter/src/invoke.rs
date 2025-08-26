@@ -2,7 +2,7 @@
 
 use crate::Interpreter;
 use anyhow::Result;
-use pvm::{host, Argument, Gas, Program, Reason, Received, Stepped};
+use pvm::{host, score::Gas, Argument, Program, Reason, Received, Stepped};
 
 impl Interpreter {
     /// Invoke a program with the given context

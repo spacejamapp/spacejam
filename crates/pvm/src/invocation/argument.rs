@@ -17,25 +17,27 @@ pub trait Argument {
 
     /// Get the check index
     fn check(&mut self, index: ServiceId) -> ServiceId {
-        index
+        unimplemented!("make sure your are invoking the accumulation interface: index={index}")
     }
 
     /// Make a checkpoint
-    fn checkpoint(&mut self) {}
+    fn checkpoint(&mut self) {
+        unimplemented!("make sure your are invoking the accumulation interface")
+    }
 
     /// Get the entropy (η'0)
     fn entropy(&self) -> OpaqueHash {
-        OpaqueHash::default()
+        unimplemented!("make sure your are invoking the accumulation interface")
     }
 
     /// Get the free index
     fn index(&self) -> ServiceId {
-        0
+        unimplemented!("make sure your are invoking the accumulation interface")
     }
 
     /// Get the operands
     fn operands(&self) -> &[Operand] {
-        &[]
+        unimplemented!("make sure your are invoking the accumulation interface")
     }
 
     /// Get the account or this
@@ -51,7 +53,7 @@ pub trait Argument {
 
     /// Set the output hash
     fn output(&mut self, hash: OpaqueHash) {
-        let _ = hash;
+        unimplemented!("make sure you are invoking the accumulation interface: hash={hash:?}")
     }
 
     /// Get the privileges
@@ -61,37 +63,47 @@ pub trait Argument {
 
     /// Remove an account
     fn remove(&mut self, service: ServiceId) {
-        let _ = service;
+        unimplemented!("make sure you are invoking the accumulation interface: service={service}")
     }
 
     /// Get the service index
     fn service(&self) -> ServiceId {
-        0
+        unimplemented!("make sure you are invoking the accumulation interface")
     }
 
     /// Set the service index
     fn set_index(&mut self, index: ServiceId) {
-        let _ = index;
+        unimplemented!("make sure you are invoking the accumulation interface: index={index}")
     }
 
     /// Set the authorization queue
     fn set_authorization(&mut self, core: u16, queue: Vec<[u8; 32]>) {
-        let _ = (core, queue);
+        unimplemented!(
+            "make sure you are invoking the accumulation interface core={core} queue={queue:?}"
+        );
     }
 
     /// Set the assign queue
     fn set_assign(&mut self, core: u16, assign: ServiceId) {
-        let _ = (core, assign);
+        unimplemented!(
+            "make sure you are invoking the accumulation interface core={core} assign={assign}",
+        );
     }
 
     /// Set the privileges
     fn set_privileges(&mut self, privileges: Privileges) {
-        let _ = privileges;
+        unimplemented!(
+            "make sure you are invoking the accumulation interface {:?}",
+            privileges
+        );
     }
 
     /// Set the validators
     fn set_validators(&mut self, validators: [ValidatorData; score::VALIDATORS_COUNT as usize]) {
-        let _ = validators;
+        unimplemented!(
+            "make sure you are invoking the accumulation interface {:?}",
+            validators.len()
+        );
     }
 
     /// Get the service account
@@ -99,22 +111,52 @@ pub trait Argument {
 
     /// Get the timeslot
     fn timeslot(&self) -> TimeSlot {
-        0
+        unimplemented!("make sure you are invoking the accumulation interface")
     }
 
     /// Transfer a deferred transfer
     fn transfer(&mut self, transfer: DeferredTransfer) {
-        let _ = transfer;
+        unimplemented!(
+            "make sure you are invoking the accumulation interface {:?}",
+            transfer
+        );
     }
 
     /// Update the account
     fn update(&mut self, account: ServiceId) {
-        let _ = account;
+        unimplemented!(
+            "make sure you are invoking the accumulation interface {:?}",
+            account
+        );
     }
 
     /// Upsert an account
     fn upsert(&mut self, id: ServiceId, account: impl Account) {
-        let _ = (id, account);
+        unimplemented!(
+            "make sure you are invoking the accumulation interface {:?}, {:?}",
+            id,
+            account.index()
+        );
+    }
+
+    /// Read from memory
+    fn read(&self, address: u32, len: u32) -> Result<Vec<u8>> {
+        unimplemented!("make sure you are accessing a VM context: address={address} len={len}")
+    }
+
+    /// Write to memory
+    fn write(&mut self, address: u32, data: &[u8]) -> Result<()> {
+        unimplemented!("make sure you are accessing a VM context: address={address} data={data:?}");
+    }
+
+    /// Allocate memory
+    fn allocate(&mut self, start: u32, count: u32) -> Result<()> {
+        unimplemented!("make sure you are accessing a VM context: start={start} count={count}")
+    }
+
+    /// Get the heap pointer
+    fn heap_ptr(&self) -> u32 {
+        unimplemented!("make sure you are accessing a VM context")
     }
 }
 

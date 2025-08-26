@@ -1,10 +1,10 @@
 //! Execution of work reports
 
-use pvm::{Account, Accounts, Pvm};
+use pvm::Pvm;
 use score::{
     service::WorkReport,
     vm::{AccumulateState, Accumulated},
-    Gas, ServiceId, TimeSlot,
+    Account, Accounts, Gas, ServiceId, TimeSlot,
 };
 use std::collections::{BTreeMap, BTreeSet};
 

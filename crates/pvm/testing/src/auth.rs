@@ -1,6 +1,6 @@
 //! Authorization related stuffs
 
-use pvm::Account;
+use pvm::score::Account;
 use score::{service::ServiceAccount, OpaqueHash, ServiceId};
 
 use crate::{AccountBuilder, Jam};

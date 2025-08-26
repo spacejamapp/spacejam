@@ -6,12 +6,14 @@
 //! - embed execution result in step outputs.
 //! - calculate gas from step outputs.
 
+mod context;
 mod interp;
 mod invoke;
 mod pvmi;
 mod result;
 mod visitor;
 
+pub use context::Context;
 pub use parser::{Memory, Reader, Register, PAGE_SIZE};
 use pvm::{Reason, State};
 pub use result::{Error, Result};
