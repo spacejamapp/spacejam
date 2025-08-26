@@ -16,19 +16,9 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let mut memory = pvmi::Memory::default();
     for page in &input.initial_page_map {
         let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
-        memory.memory.insert(
-            page_num,
-            (vec![0u8; ::pvmi::PAGE_SIZE as usize], page.is_writable),
-        );
-
-        // WORKAROUND: adapt to the standard memory layout
-        if page.is_writable {
-            memory.write.start = page.address;
-            memory.write.end = page.address + page.length as u32;
-        } else {
-            memory.read.start = page.address;
-            memory.read.end = page.address + page.length as u32;
-        }
+        memory
+            .memory
+            .insert(page_num, (vec![0u8; ::pvmi::PAGE_SIZE as usize], true));
     }
 
     // write initial memory data

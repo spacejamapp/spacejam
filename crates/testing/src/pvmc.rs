@@ -41,17 +41,25 @@ impl Runner {
 
             // WORKAROUND: adapt to the standard memory layout
             if page.is_writable {
-                memory.write.start = page.address;
-                memory.write.end = page.address + page.length as u32;
+                memory.info.write.start = page.address;
+                memory.info.write.end = page.address + page.length as u32;
             } else {
-                memory.read.start = page.address;
-                memory.read.end = page.address + page.length as u32;
+                memory.info.read.start = page.address;
+                memory.info.read.end = page.address + page.length as u32;
             }
         }
 
         // Then write initial memory data
         for mem in &input.initial_memory {
             memory.write_bytes(mem.address, &mem.contents)?;
+        }
+
+        // restore original page permissions
+        for page in &input.initial_page_map {
+            let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
+            if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
+                memory.memory.insert(page_num, (data, page.is_writable));
+            }
         }
 
         let mut compiler = Compiler::new()?;

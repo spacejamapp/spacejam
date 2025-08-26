@@ -49,7 +49,7 @@ impl Memory {
             // Set up read-only data region
             {
                 let read = memory.ro_data()?;
-                let start = memory.read.start as usize;
+                let start = memory.info.read.start as usize;
                 let size = read.len();
                 if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     bail!(
@@ -70,7 +70,7 @@ impl Memory {
             // Set up write region as read-write
             {
                 let write = memory.rw_data()?;
-                let start = memory.write.start as usize;
+                let start = memory.info.write.start as usize;
                 let size = write.len();
                 if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     bail!(
@@ -84,8 +84,8 @@ impl Memory {
 
             // Set up stack region as read-write
             {
-                let start = memory.stack.start as usize;
-                let size = (memory.stack.end - memory.stack.start) as usize;
+                let start = memory.info.stack.start as usize;
+                let size = (memory.info.stack.end - memory.info.stack.start) as usize;
                 if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     bail!(
                         "Failed to set stack region protection: {}",
@@ -97,7 +97,7 @@ impl Memory {
             // Set up args region as read-only
             {
                 let args = memory.args()?;
-                let start = memory.args.start as usize;
+                let start = memory.info.args.start as usize;
                 let size = args.len();
                 if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     bail!(
@@ -212,11 +212,7 @@ impl Memory {
 
         pvm::Memory {
             memory: memory_map,
-            read: original.read.clone(),
-            write: original.write.clone(),
-            args: original.args.clone(),
-            stack: original.stack.clone(),
-            heap: original.heap.clone(),
+            info: original.info.clone(),
             heap_ptr: original.heap_ptr,
         }
     }
