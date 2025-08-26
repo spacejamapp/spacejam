@@ -42,13 +42,6 @@ impl ServiceAccount {
         }
     }
 
-    /// The threshold of the service account
-    pub fn threshold(&self) -> u64 {
-        crate::BALANCE_PER_SERVICE
-            + crate::BALANCE_PER_ITEM * self.info.items as u64
-            + crate::BALANCE_PER_OCTET * self.info.total
-    }
-
     /// The state of the service account
     pub fn state(&self) -> ServiceInfo {
         self.info.clone()
@@ -104,11 +97,11 @@ impl ServiceInfo {
     ///
     /// FIXME: currently just for passing the test, we should
     /// use the account's threshold without conditions.
-    pub fn host(&self, threshold: bool) -> Result<Vec<u8>> {
+    pub fn host(&self) -> Result<Vec<u8>> {
         codec::encode(&(
             self.code,
             self.balance,
-            if threshold { self.threshold() } else { 0_u64 },
+            self.threshold(),
             self.accumulate,
             self.transfer,
             self.total,
@@ -123,10 +116,10 @@ impl ServiceInfo {
 
     /// The threshold of the service account
     pub fn threshold(&self) -> u64 {
-        crate::BALANCE_PER_SERVICE
+        (crate::BALANCE_PER_SERVICE
             + crate::BALANCE_PER_ITEM * self.items as u64
-            + crate::BALANCE_PER_OCTET * self.total
-            - self.offset
+            + crate::BALANCE_PER_OCTET * self.total)
+            .saturating_sub(self.offset)
     }
 }
 

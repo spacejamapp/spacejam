@@ -15,7 +15,7 @@ impl Parameters {
             max_accumulate_gas: 10_000_000,
             max_is_authorized_gas: 50_000_000,
             max_refine_gas: 5_000_000_000,
-            block_gas_limit: 3_500_000_000,
+            block_gas_limit: 20_000_000,
             recent_block_count: 8,
             max_work_items: 16,
             max_dependencies: 8,

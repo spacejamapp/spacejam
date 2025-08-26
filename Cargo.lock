@@ -652,7 +652,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cargo-jam"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-pvm"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "cranelift",
@@ -1978,7 +1978,7 @@ dependencies = [
 
 [[package]]
 name = "jam-null-authorizer"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "cargo-jam",
  "jam-pvm-common",
@@ -2821,7 +2821,7 @@ dependencies = [
 
 [[package]]
 name = "pvm-testing"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "cargo-jam",
@@ -2837,7 +2837,7 @@ dependencies = [
 
 [[package]]
 name = "pvmc"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3538,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "simple-token-service"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "cargo-jam",
  "jam-codec",
@@ -3610,7 +3610,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3640,7 +3640,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-core"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "hex",
@@ -3685,7 +3685,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-network"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -3708,7 +3708,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-offchain"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3724,7 +3724,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-rpc"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "jsonrpsee",
@@ -3736,7 +3736,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-runtime"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "hex",
@@ -3754,7 +3754,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testing"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "hex",
@@ -3781,7 +3781,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testnet"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -3792,7 +3792,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-worker"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "jamcodec",

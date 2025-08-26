@@ -133,7 +133,7 @@ pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
-    let Ok(info) = account.info().host(account.index() == ctx.service()) else {
+    let Ok(info) = account.info().host() else {
         crate::bail!("failed to encode account info");
     };
 

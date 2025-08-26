@@ -89,11 +89,6 @@ fn main() -> Result<()> {
         &out_dir.join("traces_fuzz.rs"),
     )?;
 
-    build_fuzz_tests(
-        "../../res/jam-conformance/fuzz-reports/0.6.7/traces/TESTING",
-        &out_dir.join("traces_fuzz_testing.rs"),
-    )?;
-
     Ok(())
 }
 

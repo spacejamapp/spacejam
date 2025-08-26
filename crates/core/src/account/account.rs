@@ -153,7 +153,7 @@ impl Account for ServiceAccount {
     }
 
     fn threshold(&self) -> u64 {
-        self.threshold()
+        self.info.threshold()
     }
 
     fn total(&self) -> u64 {

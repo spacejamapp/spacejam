@@ -71,10 +71,6 @@ pub struct Header {
     #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
 
-    /// The offenders mark (H_o)
-    #[json(hex)]
-    pub offenders_mark: Vec<Ed25519Public>,
-
     /// The author index (H_i)
     pub author_index: ValidatorIndex,
 
@@ -82,6 +78,10 @@ pub struct Header {
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub entropy_source: BandersnatchVrfSignature,
+
+    /// The offenders mark (H_o)
+    #[json(hex)]
+    pub offenders_mark: Vec<Ed25519Public>,
 
     /// The seal (H_s)
     #[json(hex)]

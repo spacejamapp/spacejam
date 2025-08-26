@@ -1,10 +1,7 @@
 //! Authorization related stuffs
 
 use pvm::Account;
-use score::{
-    service::{Authorizer, ServiceAccount},
-    OpaqueHash, ServiceId,
-};
+use score::{service::ServiceAccount, OpaqueHash, ServiceId};
 
 use crate::{AccountBuilder, Jam};
 
@@ -17,8 +14,11 @@ pub struct Auth {
     /// The authorization host
     pub host: ServiceId,
 
-    /// The authorizer
-    pub authorizer: Authorizer,
+    /// The auth code hash
+    pub code_hash: OpaqueHash,
+
+    /// The authorizer config
+    pub config: Vec<u8>,
 }
 
 impl Auth {
@@ -31,13 +31,13 @@ impl Auth {
     /// Set the authorizer
     pub fn with_authorizer(mut self, service: ServiceId, code: OpaqueHash) -> Self {
         self.host = service;
-        self.authorizer.code_hash = code;
+        self.code_hash = code;
         self
     }
 
     /// Set the authorizer config
     pub fn with_config(mut self, config: Vec<u8>) -> Self {
-        self.authorizer.params = config;
+        self.config = config;
         self
     }
 }
@@ -48,7 +48,7 @@ impl Jam {
         let mut auth = ServiceAccount::default().with_balance(1000);
         let hash = auth.add_preimage(code, self.chain.finalized.slot);
         self.auth.host = service;
-        self.auth.authorizer.code_hash = hash;
+        self.auth.code_hash = hash;
         self.add_account(service, auth);
         self
     }
@@ -61,7 +61,7 @@ impl Jam {
 
     /// Set the authorizer config
     pub fn with_auth_config(mut self, config: Vec<u8>) -> Self {
-        self.auth.authorizer.params = config;
+        self.auth.config = config;
         self
     }
 
