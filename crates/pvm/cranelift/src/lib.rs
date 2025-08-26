@@ -5,9 +5,8 @@ use cranelift::prelude::*;
 use cranelift_codegen::ir;
 use std::collections::HashMap;
 pub use {
-    context::offsets,
+    context::{offsets, Context},
     control::result,
-    memory::{access, BITS_PER_WORD},
 };
 
 mod context;
@@ -17,10 +16,16 @@ mod register;
 mod translate;
 mod visitor;
 
+/// Jump variable index
+pub const JUMP_VAR: usize = 13;
+
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'b> {
     /// PVM registers (0 to MAX_REGISTER_INDEX)
     pub registers: HashMap<u8, Variable>,
+
+    /// Jump variable
+    pub jump: Variable,
 
     /// Cranelift function builder
     pub builder: FunctionBuilder<'b>,
@@ -28,7 +33,7 @@ pub struct Translator<'b> {
     // Map of blocks by start PC
     pub blocks: HashMap<u64, ir::Block>,
 
-    // Jump table for dynamic jumps (djump)
+    // Jump table for dynamic jumps
     jump_table: Vec<u64>,
 
     // Context pointer for boundary checking and runtime operations
@@ -43,9 +48,10 @@ impl<'b> Translator<'b> {
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
         Ok(Self {
             registers: HashMap::new(),
+            jump: Variable::new(JUMP_VAR),
             builder: FunctionBuilder::new(func, ctx),
-            jump_table: Vec::new(),
             blocks: HashMap::new(),
+            jump_table: Vec::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),
         })

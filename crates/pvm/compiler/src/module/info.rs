@@ -9,6 +9,8 @@ pub struct Info {
     pub registers: [u64; pvm::REGISTER_COUNT],
     /// Final program counter
     pub pc: u64,
+    /// Final gas
+    pub gas: u64,
     /// Final memory state
     pub memory: pvm::Memory,
 }

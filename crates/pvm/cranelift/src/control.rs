@@ -1,18 +1,84 @@
 //! Control flow related interfaces
 
-use crate::Translator;
+use crate::{context::offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
 /// Execution result discriminant values
 pub mod result {
-    pub const CONTINUE: u64 = 0;
-    pub const HALT: u64 = 2;
-    pub const TRAP: u64 = 3;
-    pub const JUMP_INDIRECT: u64 = 4;
+    pub const HALT: i64 = 0;
+    pub const PANIC: i64 = 1;
+    pub const FAULT: i64 = 2;
+    pub const HOST: i64 = 3;
+    pub const OOG: i64 = 4;
 }
 
 impl Translator<'_> {
+    /// get result from the context
+    pub fn jump(&mut self) -> Value {
+        self.builder.use_var(self.jump)
+    }
+
+    /// set dynamic jump to the context
+    pub fn set_jump(&mut self, target: Value) {
+        self.builder.def_var(self.jump, target);
+    }
+
+    /// get gas value from the context
+    pub fn gas(&mut self) -> Value {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::GAS_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        self.builder
+            .ins()
+            .load(types::I64, MemFlags::trusted(), addr, 0)
+    }
+
+    /// burn gas (add to the gas counter)
+    pub fn burn_gas(&mut self, gas: i64) {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::GAS_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let current_gas = self
+            .builder
+            .ins()
+            .load(types::I64, MemFlags::trusted(), addr, 0);
+        let burn_amount = self.builder.ins().iconst(types::I64, gas);
+        let result = self.builder.ins().iadd(current_gas, burn_amount);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), result, addr, 0);
+    }
+
+    /// get pc from the context
+    pub fn pc(&mut self) -> Value {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::PC_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        self.builder
+            .ins()
+            .load(types::I64, MemFlags::trusted(), addr, 0)
+    }
+
+    /// set pc to the context
+    pub fn set_pc(&mut self, pc: u64) {
+        let offset = self
+            .builder
+            .ins()
+            .iconst(types::I64, offsets::PC_OFFSET as i64);
+        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), pc_val, addr, 0);
+    }
+
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
@@ -23,98 +89,74 @@ impl Translator<'_> {
         Ok(())
     }
 
-    /// Return with continue result and specific PC
-    pub fn return_continue_with_pc(&mut self, pc: u64) -> Result<()> {
-        self.save_registers();
-        self.set_pc(pc);
-        self.set_result(result::CONTINUE);
-        self.builder.ins().return_(&[]);
-        Ok(())
-    }
-
-    /// Return with trap result
-    pub fn return_trap(&mut self) -> Result<()> {
-        self.save_registers();
-        self.set_result(result::TRAP);
-        self.builder.ins().return_(&[]);
-        Ok(())
-    }
-
     /// Return with trap result and set PC to the trap instruction location
-    pub fn return_trap_with_pc(&mut self, trap_pc: usize) -> Result<()> {
+    pub fn return_(&mut self, sig: i64, pc: usize) -> Result<()> {
         self.save_registers();
-        self.set_pc(trap_pc as u64);
-        self.set_result(result::TRAP);
-        self.builder.ins().return_(&[]);
+        self.set_pc(pc as u64);
+        let res = self.builder.ins().iconst(types::I8, sig);
+        self.builder.ins().return_(&[res]);
         Ok(())
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
-    pub fn djump(&mut self, instruction_pc: usize) -> Result<()> {
+    pub fn djump(&mut self, pc: usize) -> Result<()> {
         let target_addr = self.jump();
 
-        // Same validation logic as the interpreter:
+        // Jump target validation:
         // 1. address == 0 (null address)
         // 2. address > table.len() * JUMP_ALIGNMENT_FACTOR (beyond table bounds)
         // 3. address % 2 != 0 (not aligned to 2-byte boundary)
-        let valid_jump_block = self.builder.create_block();
-        let trap_block = self.builder.create_block();
-
-        // Check 1: address == 0
-        let zero = self.builder.ins().iconst(types::I64, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, target_addr, zero);
-
-        // Check 2: address > table.len() * JUMP_ALIGNMENT_FACTOR
-        let table_len = self.jump_table.len() as u32;
-        let max_address = table_len * pvm::JUMP_ALIGNMENT_FACTOR;
-        let max_addr_val = self.builder.ins().iconst(types::I64, max_address as i64);
-        let exceeds_bounds =
-            self.builder
-                .ins()
-                .icmp(IntCC::UnsignedGreaterThan, target_addr, max_addr_val);
-
-        // Check 3: address % 2 != 0 (misaligned)
+        let valid = self.builder.create_block();
+        let trap = self.builder.create_block();
         let two = self.builder.ins().iconst(types::I64, 2);
-        let remainder = self.builder.ins().urem(target_addr, two);
-        let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
+        {
+            // Check 1: address == 0
+            let zero = self.builder.ins().iconst(types::I64, 0);
+            let is_zero = self.builder.ins().icmp(IntCC::Equal, target_addr, zero);
 
-        // Combine all invalid conditions with OR
-        let invalid1 = self.builder.ins().bor(is_zero, exceeds_bounds);
-        let invalid_jump = self.builder.ins().bor(invalid1, is_misaligned);
+            // Check 2: address > table.len() * JUMP_ALIGNMENT_FACTOR
+            let table_len = self.jump_table.len() as u32;
+            let max_address = table_len * pvm::JUMP_ALIGNMENT_FACTOR;
+            let max_addr_val = self.builder.ins().iconst(types::I64, max_address as i64);
+            let exceeds_bounds =
+                self.builder
+                    .ins()
+                    .icmp(IntCC::UnsignedGreaterThan, target_addr, max_addr_val);
 
-        // Branch: if invalid, trap; otherwise continue to valid jump handling
-        self.builder
-            .ins()
-            .brif(invalid_jump, trap_block, &[], valid_jump_block, &[]);
+            // Check 3: address % 2 != 0 (misaligned)
+            let remainder = self.builder.ins().urem(target_addr, two);
+            let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
 
-        // Valid jump block: calculate index and dispatch
-        self.builder.switch_to_block(valid_jump_block);
-
-        // Calculate jump table index: (address / 2) - 1 (following interpreter logic)
-        let addr_div_2 = self.builder.ins().udiv(target_addr, two);
-        let one = self.builder.ins().iconst(types::I64, 1);
-        let jump_index = self.builder.ins().isub(addr_div_2, one);
-
-        // Create switch to dispatch to correct block based on jump table index
-        let mut switch = cranelift::frontend::Switch::new();
-
-        // Add all jump table entries as switch cases
-        for (i, &jump_pc) in self.jump_table.iter().enumerate() {
-            let cranelift_block = self.blocks[&jump_pc];
-            switch.set_entry(i as u128, cranelift_block);
+            // Combine all invalid conditions with OR
+            let invalid1 = self.builder.ins().bor(is_zero, exceeds_bounds);
+            let invalid_jump = self.builder.ins().bor(invalid1, is_misaligned);
+            self.builder.ins().brif(invalid_jump, trap, &[], valid, &[]);
         }
 
-        // Emit the switch (default case goes to trap for out-of-bounds indices)
-        switch.emit(&mut self.builder, jump_index, trap_block);
+        // Valid jump block: calculate index and dispatch
+        self.builder.switch_to_block(valid);
+        {
+            // Calculate jump table index: (address / 2) - 1
+            let addr_div_2 = self.builder.ins().udiv(target_addr, two);
+            let one = self.builder.ins().iconst(types::I64, 1);
+            let jump_index = self.builder.ins().isub(addr_div_2, one);
+            let mut switch = cranelift::frontend::Switch::new();
+            for (i, &jump_pc) in self.jump_table.iter().enumerate() {
+                if let Some(&cranelift_block) = self.blocks.get(&jump_pc) {
+                    switch.set_entry(i as u128, cranelift_block);
+                }
+            }
+
+            switch.emit(&mut self.builder, jump_index, trap);
+        }
 
         // Trap block: invalid jump target
-        self.builder.switch_to_block(trap_block);
-        self.return_trap_with_pc(instruction_pc)?;
+        self.builder.switch_to_block(trap);
+        self.return_(result::PANIC, pc)?;
 
         // Seal all created blocks
-        self.builder.seal_block(valid_jump_block);
-        self.builder.seal_block(trap_block);
-
+        self.builder.seal_block(valid);
+        self.builder.seal_block(trap);
         Ok(())
     }
 }

@@ -13,12 +13,15 @@ cranelift-native.workspace = true
 cranelift-jit.workspace = true
 cranelift-module.workspace = true
 tracing.workspace = true
+libc.workspace = true
 
 [dev-dependencies]
+libc.workspace = true
 specjam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing-subscriber.workspace = true
+
 
 [build-dependencies]
 anyhow.workspace = true
@@ -26,3 +29,5 @@ proc-macro2.workspace = true
 quote.workspace = true
 specjam.workspace = true
 syn.workspace = true
+cc = "1.0"
+bindgen = "0.69"

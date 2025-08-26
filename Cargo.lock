@@ -2840,12 +2840,15 @@ name = "pvmc"
 version = "0.0.6"
 dependencies = [
  "anyhow",
+ "bindgen",
+ "cc",
  "cranelift",
  "cranelift-codegen",
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
  "cranelift-pvm",
+ "libc",
  "proc-macro2",
  "pvm",
  "quote",

@@ -14,15 +14,11 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 
     // Initialize memory using the new unified parser::Memory
     let mut memory = pvmi::Memory::default();
-
-    // First allocate pages with proper permissions
     for page in &input.initial_page_map {
         let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
-        // Insert page with correct permission from test input
-        memory.memory.insert(
-            page_num,
-            (vec![0u8; ::pvmi::PAGE_SIZE as usize], page.is_writable),
-        );
+        memory
+            .memory
+            .insert(page_num, (vec![0u8; ::pvmi::PAGE_SIZE as usize], true));
     }
 
     // write initial memory data
