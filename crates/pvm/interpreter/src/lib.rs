@@ -6,17 +6,16 @@
 //! - embed execution result in step outputs.
 //! - calculate gas from step outputs.
 
-mod context;
 mod interp;
 mod invoke;
 mod pvmi;
 mod result;
 mod visitor;
 
-pub use context::Context;
 pub use parser::{Memory, Reader, Register, PAGE_SIZE};
 use pvm::{Reason, State};
 pub use result::{Error, Result};
+use std::{cell::RefCell, rc::Rc};
 
 /// The interpreter for the polkavm program.
 ///
@@ -31,7 +30,7 @@ pub struct Interpreter {
     pub jump: Option<usize>,
 
     /// The memory of the interpreter.
-    pub memory: parser::Memory,
+    pub memory: Rc<RefCell<parser::Memory>>,
 
     /// The program counter of the interpreter.
     pub pc: usize,
@@ -53,7 +52,7 @@ impl Interpreter {
             pc: self.pc,
             gas: self.gas,
             registers: self.registers,
-            memory: self.memory.clone(),
+            memory: self.memory.borrow().clone(),
         }
     }
 
@@ -62,13 +61,16 @@ impl Interpreter {
         self.pc = state.pc;
         self.gas = state.gas;
         self.registers = state.registers;
-        self.memory = state.memory;
+        self.memory = Rc::new(RefCell::new(state.memory));
     }
 
     /// Get the output of the interpreter.
     pub fn output(&self) -> Vec<u8> {
         let ptr = self.registers[7] as u32;
         let len = self.registers[8] as u32;
-        self.memory.read_bytes(ptr, len).unwrap_or_default()
+        self.memory
+            .borrow()
+            .read_bytes(ptr, len)
+            .unwrap_or_default()
     }
 }

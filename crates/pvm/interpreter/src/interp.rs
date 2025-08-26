@@ -40,6 +40,7 @@ impl Interpreter {
     pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
         let bytes = self
             .memory
+            .borrow()
             .read_bytes(address, V::SIZE as u32)
             .map_err(|_e| Error::MemoryInaccessible {
                 page: address / parser::PAGE_SIZE as u32,
@@ -58,6 +59,7 @@ impl Interpreter {
     /// Write a value to memory
     pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
         self.memory
+            .borrow_mut()
             .write_bytes(address, &value.to_vec())
             .map_err(|_e| Error::MemoryInaccessible {
                 page: address / parser::PAGE_SIZE as u32,
@@ -88,6 +90,7 @@ impl Interpreter {
     /// Allocate pages for sbrk
     pub fn allocate(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
         self.memory
+            .borrow_mut()
             .allocate(start_page, count)
             .map_err(|_e| Error::MemoryInaccessible { page: start_page })
     }

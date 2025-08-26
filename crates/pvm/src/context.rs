@@ -1,26 +1,26 @@
 //! Invocation context of the interpreter
 
+use crate::Argument;
 use anyhow::Result;
-use pvm::{
-    score::{
-        safrole::ValidatorData,
-        service::Privileges,
-        vm::{DeferredTransfer, Operand},
-        Account, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
-    },
-    Argument,
+use parser::MemoryLike;
+use score::{
+    safrole::ValidatorData,
+    service::Privileges,
+    vm::{DeferredTransfer, Operand},
+    Account, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
+use std::{cell::RefCell, rc::Rc};
 
-/// The context of the interpreter
-pub struct Context<X: Argument> {
+/// Helper context that wraps the invocation arguments and the memory.
+pub struct Context<X: Argument, M: MemoryLike> {
     /// The context from the chain
-    ctx: X,
+    pub ctx: X,
 
     /// The hosting memory
-    memory: parser::Memory,
+    pub memory: Rc<RefCell<M>>,
 }
 
-impl<X: Argument> Argument for Context<X> {
+impl<X: Argument, M: MemoryLike> Argument for Context<X, M> {
     const SUPPORTED_CALLS: &[u32] = X::SUPPORTED_CALLS;
 
     fn account(&mut self, id: u64) -> Result<&mut impl Account> {
@@ -108,18 +108,18 @@ impl<X: Argument> Argument for Context<X> {
     }
 
     fn read(&self, address: u32, len: u32) -> Result<Vec<u8>> {
-        self.memory.read_bytes(address, len)
+        self.memory.borrow().read(address, len)
     }
 
     fn write(&mut self, address: u32, data: &[u8]) -> Result<()> {
-        self.memory.write_bytes(address, data)
+        self.memory.borrow_mut().write(address, data)
     }
 
     fn allocate(&mut self, start: u32, count: u32) -> Result<()> {
-        self.memory.allocate(start, count)
+        self.memory.borrow_mut().allocate(start, count)
     }
 
     fn heap_ptr(&self) -> u32 {
-        self.memory.heap_ptr
+        self.memory.borrow().heap_ptr()
     }
 }

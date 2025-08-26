@@ -2,6 +2,7 @@
 
 pub use parser::{program::Program, Memory, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
 pub use {
+    context::Context,
     invocation::{
         AccumulateContext, Accumulated, Argument, Executed, Invocation, Received, State, Stepped,
     },
@@ -18,6 +19,7 @@ macro_rules! bail {
     };
 }
 
+mod context;
 pub mod host;
 pub mod invocation;
 mod result;

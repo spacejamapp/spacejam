@@ -3,6 +3,7 @@
 use crate::Interpreter;
 use anyhow::Result;
 use pvm::{host, score::Gas, Argument, Program, Reason, Received, Stepped};
+use std::{cell::RefCell, rc::Rc};
 
 impl Interpreter {
     /// Invoke a program with the given context
@@ -17,7 +18,7 @@ impl Interpreter {
             gas: gas as i64,
             pc,
             registers: program.registers,
-            memory: program.memory.clone(),
+            memory: Rc::new(RefCell::new(program.memory.clone())),
             ..Default::default()
         };
 
