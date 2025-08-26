@@ -19,7 +19,7 @@ impl Translator<'_> {
         let blocks = self.analyze(&program.code)?;
         self.translate_dispatcher(program, entry)?;
         for (pc, block) in &blocks {
-            let cblock = self.blocks[&pc];
+            let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
             self.burn_gas(block.len() as i64);
             self.translate_block(block)?;

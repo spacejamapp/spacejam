@@ -21,11 +21,11 @@ pub struct TrapInfo {
 
 thread_local! {
     /// Thread-local atomic pointer to jmp_buf
-    static JMP_BUF_PTR: AtomicPtr<libc::c_void> = AtomicPtr::new(ptr::null_mut());
+    static JMP_BUF_PTR: AtomicPtr<libc::c_void> = const { AtomicPtr::new(ptr::null_mut()) };
     /// Thread-local trap info storage
-    static TRAP_INFO: Cell<Option<TrapInfo>> = Cell::new(None);
+    static TRAP_INFO: Cell<Option<TrapInfo>> = const { Cell::new(None) };
     /// Thread-local result storage for passing results back from C
-    static RESULT_STORAGE: Cell<*mut libc::c_void> = Cell::new(ptr::null_mut());
+    static RESULT_STORAGE: Cell<*mut libc::c_void> = const { Cell::new(ptr::null_mut()) };
 }
 
 /// Execute a function with SIGSEGV trap protection
@@ -53,14 +53,12 @@ where
         let mut jmp_buf_storage: *mut libc::c_void = ptr::null_mut();
         let boxed_f = Box::new(f);
         let f_ptr = Box::into_raw(boxed_f) as *mut libc::c_void;
-        let result = pvm_setjmp(
+        pvm_setjmp(
             &mut jmp_buf_storage as *mut *mut libc::c_void,
             Some(execute::<F, T>),
             f_ptr,
             ptr::null_mut(),
-        );
-
-        result
+        )
     };
 
     // Clear jmp_buf and result storage

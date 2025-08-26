@@ -35,9 +35,9 @@ impl Runner {
         // Initialize memory from test input
         let mut memory = pvm::Memory::default();
         for page in &input.initial_page_map {
-            let index = page.address / pvm::PAGE_SIZE as u32;
-            let data = vec![0u8; pvm::PAGE_SIZE as usize];
-            memory.memory.insert(index, (data, true));
+            let start = page.address / pvm::PAGE_SIZE as u32;
+            let count = (page.length as u32).div_ceil(pvm::PAGE_SIZE as u32);
+            memory.allocate(start, count)?;
 
             // WORKAROUND: adapt to the standard memory layout
             if page.is_writable {
@@ -56,9 +56,12 @@ impl Runner {
 
         // restore original page permissions
         for page in &input.initial_page_map {
-            let page_num = page.address / ::pvmi::PAGE_SIZE as u32;
-            if let Some((data, _)) = memory.memory.get(&page_num).cloned() {
-                memory.memory.insert(page_num, (data, page.is_writable));
+            let start = page.address / pvm::PAGE_SIZE as u32;
+            let count = (page.length as u32).div_ceil(pvm::PAGE_SIZE as u32);
+            for page_idx in start..(start + count) {
+                if let Some((data, _)) = memory.memory.get(&page_idx).cloned() {
+                    memory.memory.insert(page_idx, (data, page.is_writable));
+                }
             }
         }
 

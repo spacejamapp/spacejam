@@ -42,7 +42,7 @@ impl JIT {
     pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
         // Create the virtual memory at compile time
         let memory = crate::Memory::new(&program.memory)?;
-        
+
         let sig = self.signature();
         let id = self
             .module
@@ -60,7 +60,7 @@ impl JIT {
         self.module.define_function(id, &mut self.ctx)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        
+
         // Pass the memory to Module
         Ok(crate::Module::new(
             self.module.get_finalized_function(id),

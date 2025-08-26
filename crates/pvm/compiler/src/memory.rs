@@ -221,7 +221,7 @@ impl Memory {
 impl Drop for Memory {
     fn drop(&mut self) {
         unsafe {
-            if self.base != ptr::null_mut() {
+            if !self.base.is_null() {
                 munmap(self.base as *mut _, pvm::PVM_MEMORY_SIZE as usize);
             }
         }
