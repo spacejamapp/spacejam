@@ -405,9 +405,9 @@ pub trait Invocation {
 
         let accumulate = context.accumulate(timeslot, operands);
         let args = codec::encode(&params).expect("failed to encode");
-        // let program = program::preimage(&code, &args).expect("failed to preimage");
-        // let result = Self::invoke2(&program, accumulate, gas, 5);
-        let result = Self::argument(&code, 5, gas, &args, accumulate);
+        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let result = Self::invoke2(&program, accumulate, gas, 5);
+        // let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
