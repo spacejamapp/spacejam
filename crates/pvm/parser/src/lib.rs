@@ -2,7 +2,7 @@
 
 pub use {
     instruction::Instruction,
-    memory::Memory,
+    memory::{Memory, MemoryLike},
     opcode::Opcode,
     program::{deblob, preimage, standard, PreimageBlob, ProgramBlob, StandardProgramBlob},
     reader::Reader,
