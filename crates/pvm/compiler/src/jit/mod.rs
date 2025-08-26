@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
-use cranelift_codegen::{ir::GlobalValue, Context};
+use cranelift_codegen::Context;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataDescription, Linkage, Module};
+use cranelift_module::{Linkage, Module};
 use pvm::Program;
 use translator::Translator;
 
@@ -40,6 +40,9 @@ impl JIT {
     /// - is_authorized
     /// - core_vm ???
     pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
+        // Create the virtual memory at compile time
+        let memory = crate::Memory::new(&program.memory)?;
+        
         let sig = self.signature();
         let id = self
             .module
@@ -47,11 +50,9 @@ impl JIT {
 
         // construct the function
         self.ctx.func.signature = self.signature();
-        let ro_data = self.make_data("ro_data", &program.memory.ro_data()?, false)?;
-        let rw_data = self.make_data("rw_data", &program.memory.rw_data()?, true)?;
-        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?.data(ro_data, rw_data);
+        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
 
-        // translate the function
+        // translate the function - no changes needed here
         trans.translate(program)?;
         trans.builder.finalize();
 
@@ -59,18 +60,12 @@ impl JIT {
         self.module.define_function(id, &mut self.ctx)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        Ok(crate::Module::new(self.module.get_finalized_function(id)))
-    }
-
-    /// Create data for the function
-    fn make_data(&mut self, name: &str, data: &[u8], writable: bool) -> Result<GlobalValue> {
-        let mut desc = DataDescription::new();
-        let id = self
-            .module
-            .declare_data(name, Linkage::Local, writable, false)?;
-        desc.define(data.into());
-        self.module.define_data(id, &desc)?;
-        Ok(self.module.declare_data_in_func(id, &mut self.ctx.func))
+        
+        // Pass the memory to Module
+        Ok(crate::Module::new(
+            self.module.get_finalized_function(id),
+            memory,
+        ))
     }
 
     /// Create a signature for the function

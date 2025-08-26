@@ -5,7 +5,7 @@ use libc::{
     mmap, mprotect, munmap, MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ,
     PROT_WRITE,
 };
-use std::{io, ptr};
+use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
 #[derive(Debug)]
@@ -186,15 +186,11 @@ impl Memory {
 
     /// Convert the virtual memory back to pvm::Memory structure
     /// This reads the modified memory and creates a new pvm::Memory with the changes
-    pub fn memory(&self, original: &pvm::Memory) -> pvm::Memory {
-        use std::collections::BTreeMap;
-        
+    pub fn fill(&self, original: &pvm::Memory) -> pvm::Memory {
         let mut memory_map = BTreeMap::new();
-        
-        // Iterate through all pages that were in the original memory
         for (&page_num, (_, perms)) in &original.memory {
             let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
-            
+
             // Read the page data from virtual memory
             let mut page_data = vec![0u8; pvm::PAGE_SIZE as usize];
             unsafe {
@@ -204,16 +200,16 @@ impl Memory {
                     pvm::PAGE_SIZE as usize,
                 );
             }
-            
+
             // Only store non-zero pages
             if page_data.iter().any(|&b| b != 0) {
                 memory_map.insert(page_num, (page_data, *perms));
             }
         }
-        
+
         // Also check for new pages that might have been allocated (heap growth)
         // For now, we'll only sync pages that were already in the original memory
-        
+
         pvm::Memory {
             memory: memory_map,
             read: original.read.clone(),

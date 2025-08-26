@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{self, GlobalValue};
+use cranelift_codegen::ir;
 use std::collections::HashMap;
 pub use {
     context::{offsets, Context},
@@ -41,12 +41,6 @@ pub struct Translator<'b> {
 
     /// ssv for memory pointer
     memory: Value,
-
-    /// Read data pointer
-    read: GlobalValue,
-
-    /// Write data pointer
-    write: GlobalValue,
 }
 
 impl<'b> Translator<'b> {
@@ -60,15 +54,6 @@ impl<'b> Translator<'b> {
             jump_table: Vec::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),
-            read: GlobalValue::new(0),
-            write: GlobalValue::new(0),
         })
-    }
-
-    /// Initialize data pointers
-    pub fn data(mut self, read: GlobalValue, write: GlobalValue) -> Self {
-        self.read = read;
-        self.write = write;
-        self
     }
 }
