@@ -1,6 +1,7 @@
 //! Program blob.
 
 use crate::Memory;
+use anyhow::Result;
 use codec::JamCodec;
 use std::borrow::Cow;
 
@@ -34,4 +35,10 @@ pub struct Program<'a> {
 
     /// The memory (µ).
     pub memory: Memory,
+}
+
+impl<'a> Program<'a> {
+    pub fn blob(&'a self) -> Result<ProgramBlob<'a>> {
+        crate::deblob(self.code.as_ref())
+    }
 }

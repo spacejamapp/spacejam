@@ -7,12 +7,51 @@
 //! - calculate gas from step outputs.
 
 mod interp;
+mod invoke;
 mod pvmi;
 mod result;
 mod visitor;
 
-pub use parser::{Memory, Register, PAGE_SIZE};
-pub use {
-    interp::Interpreter,
-    result::{Error, Result},
-};
+pub use parser::{Memory, Reader, Register, PAGE_SIZE};
+use pvm::{Reason, State};
+pub use result::{Error, Result};
+
+/// The interpreter for the polkavm program.
+///
+/// TODO: maybe use lifetime to save the cost for adpating the
+/// invocation interfaces in the future.
+#[derive(Default)]
+pub struct Interpreter {
+    /// The gas of the interpreter.
+    pub gas: i64,
+
+    /// The jump target.
+    pub jump: Option<usize>,
+
+    /// The memory of the interpreter.
+    pub memory: parser::Memory,
+
+    /// The program counter of the interpreter.
+    pub pc: usize,
+
+    /// The reason of the exit-execution.
+    pub reason: Reason,
+
+    /// The registers of the interpreter.
+    pub registers: [u64; 13],
+
+    /// The jump table of the interpreter.
+    pub table: Vec<u64>,
+}
+
+impl Interpreter {
+    /// Get the state of the interpreter.
+    pub fn state(self) -> State {
+        State {
+            pc: self.pc,
+            gas: self.gas,
+            registers: self.registers,
+            memory: self.memory,
+        }
+    }
+}

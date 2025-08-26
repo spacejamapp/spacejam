@@ -2,7 +2,7 @@
 
 use crate::Interpreter;
 use parser::Reader;
-use pvm::{Gas, Invocation, Reason, State, Stepped};
+use pvm::{Gas, Invocation, Reason, Stepped};
 
 impl Invocation for Interpreter {
     /// Step the instruction.
@@ -24,25 +24,22 @@ impl Invocation for Interpreter {
         memory: parser::Memory,
     ) -> Stepped<()> {
         let pc = pc as usize;
-        let mut pvmi = Interpreter::new(
-            State {
-                pc,
-                gas: gas as i64,
-                registers,
-                memory,
-            },
-            jump.to_vec(),
-        );
+        let mut pvmi = Interpreter::default();
+        pvmi.pc = pc as usize;
+        pvmi.gas = gas as i64;
+        pvmi.registers = registers;
+        pvmi.memory = memory;
+        pvmi.table = jump.to_vec();
 
         // check if the program counter is out of bounds
-        if pvmi.state.pc == instructions.len() {
+        if pvmi.pc == instructions.len() {
             let reason = if pvmi.burn(1).is_err() {
                 Reason::OOG
             } else {
                 Reason::Panic("end of program".to_string())
             };
 
-            return Stepped::new(reason, pvmi.state);
+            return Stepped::new(reason, pvmi.state());
         }
 
         // read the instruction
@@ -52,10 +49,10 @@ impl Invocation for Interpreter {
             Err(e) => {
                 tracing::error!("invalid instruction: {}", e);
                 if pvmi.burn(1).is_err() {
-                    return Stepped::new(Reason::OOG, pvmi.state);
+                    return Stepped::new(Reason::OOG, pvmi.state());
                 }
 
-                return Stepped::new(Reason::Panic(e.to_string()), pvmi.state);
+                return Stepped::new(Reason::Panic(e.to_string()), pvmi.state());
             }
         };
 
@@ -68,8 +65,8 @@ impl Invocation for Interpreter {
                 "pos={:<6} {:<20} gas={:<6} regs={:?}",
                 instr.range.start,
                 instr.value.to_string(),
-                pvmi.state.gas,
-                pvmi.state.registers
+                pvmi.gas,
+                pvmi.registers
             );
 
             if !matches!(reason, Reason::Continue | Reason::HostCall(_)) {
@@ -77,9 +74,9 @@ impl Invocation for Interpreter {
             }
 
             if let Some(pos) = pvmi.jump.take() {
-                pvmi.state.pc = pos;
+                pvmi.pc = pos;
             } else {
-                pvmi.state.pc = next;
+                pvmi.pc = next;
             }
 
             if matches!(reason, Reason::HostCall(_)) {
@@ -87,6 +84,6 @@ impl Invocation for Interpreter {
             }
         }
 
-        Stepped::new(reason, pvmi.state)
+        Stepped::new(reason, pvmi.state())
     }
 }
