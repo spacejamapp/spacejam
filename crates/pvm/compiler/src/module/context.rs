@@ -2,60 +2,48 @@
 //!
 //! TODO: totally refactor the memory part.
 
+use crate::Memory;
+use anyhow::Result;
+
 /// Runtime context for block execution
-#[derive(Debug, Clone)]
 pub struct Context {
     pub registers: [u64; pvm::REGISTER_COUNT],
     pub pc: u64,
     pub gas: u64,
     pub memory: pvm::Memory,
-    pub mem: Vec<u8>,
+    pub memory_impl: Option<Memory>,
 }
 
 impl Context {
     /// Create new context
     pub fn new(regs: [u64; pvm::REGISTER_COUNT], pc: u64, memory: pvm::Memory) -> Self {
-        let mut mem = vec![0u8; 0x100000];
-        for (&page_num, (page_data, _)) in &memory.memory {
-            let start = (page_num as usize) * (pvm::PAGE_SIZE as usize);
-            let end = start + page_data.len();
-            if end <= mem.len() {
-                mem[start..end].copy_from_slice(page_data);
-            }
-        }
-
         Self {
             registers: regs,
             pc,
             gas: 0,
             memory,
-            mem,
+            memory_impl: None,
         }
     }
 
     /// Extend context to be used in compiled blocks
-    pub fn extend(&mut self) -> translator::Context {
-        translator::Context {
+    pub fn extend(&mut self) -> Result<translator::Context> {
+        let memory_impl = Memory::new(&self.memory)?;
+        let memory_ptr = memory_impl.base();
+        self.memory_impl = Some(memory_impl);
+
+        Ok(translator::Context {
             registers: self.registers,
             pc: self.pc,
             gas: self.gas,
-            memory_ptr: self.mem.as_mut_ptr(),
-        }
+            memory_ptr: memory_ptr as _,
+        })
     }
 
-    /// Update paged memory structure from linear memory after execution
+    /// Sync memory changes back from virtual memory to pvm::Memory
     pub fn sync(&mut self) {
-        let page_size = pvm::PAGE_SIZE as usize;
-        for (&page_num, (page_data, _)) in self.memory.memory.iter_mut() {
-            let start = (page_num as usize) * page_size;
-            let end = start + page_data.len();
-            if end <= self.mem.len() {
-                let orig = &page_data[..];
-                let new = &self.mem[start..end];
-                if orig != new {
-                    page_data.copy_from_slice(new);
-                }
-            }
+        if let Some(ref memory_impl) = self.memory_impl {
+            self.memory = memory_impl.memory(&self.memory);
         }
     }
 }

@@ -55,7 +55,7 @@ where
         let f_ptr = Box::into_raw(boxed_f) as *mut libc::c_void;
         let result = pvm_setjmp(
             &mut jmp_buf_storage as *mut *mut libc::c_void,
-            Some(execute_closure::<F, T>),
+            Some(execute::<F, T>),
             f_ptr,
             ptr::null_mut(),
         );
@@ -88,11 +88,8 @@ where
     }
 }
 
-/// Execute the Rust closure within the setjmp context
-unsafe extern "C" fn execute_closure<F, T>(
-    payload: *mut libc::c_void,
-    jmp_buf: *mut libc::c_void,
-) -> bool
+/// Execute closure within the setjmp context
+unsafe extern "C" fn execute<F, T>(payload: *mut libc::c_void, jmp_buf: *mut libc::c_void) -> bool
 where
     F: FnOnce() -> T,
 {

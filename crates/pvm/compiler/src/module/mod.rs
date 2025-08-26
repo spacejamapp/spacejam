@@ -1,5 +1,6 @@
 //! Compiled function metadata
 
+use crate::trap;
 use anyhow::Result;
 pub use {
     context::Context,
@@ -42,11 +43,11 @@ impl Module {
 
     /// Execute compiled function
     fn run(&self, ctx: &mut Context) -> Result<u8> {
-        let mut ext = ctx.extend();
+        let mut ext = ctx.extend()?;
         let func = unsafe {
             std::mem::transmute::<*const u8, fn(*mut translator::Context) -> u8>(self.code)
         };
-        let result = func(&mut ext);
+        let result = trap::with(|| func(&mut ext)).unwrap_or(2);
         ctx.registers = ext.registers;
         ctx.pc = ext.pc;
         ctx.gas = ext.gas;

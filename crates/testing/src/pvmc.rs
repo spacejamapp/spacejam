@@ -33,41 +33,39 @@ impl Runner {
         initial_registers.copy_from_slice(&input.initial_regs);
 
         // Initialize memory from test input
-        let mut initial_memory = pvm::Memory::default();
+        let mut memory = pvm::Memory::default();
+        for page in &input.initial_page_map {
+            let index = page.address / pvm::PAGE_SIZE as u32;
+            let data = vec![0u8; pvm::PAGE_SIZE as usize];
+            memory.memory.insert(index, (data, true));
 
-        // First, allocate pages with proper permissions
-        for page_info in &input.initial_page_map {
-            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
-            let page_data = vec![0u8; pvm::PAGE_SIZE as usize];
-            // Initially set all pages as writable for data initialization
-            initial_memory.memory.insert(page_num, (page_data, true));
+            // WORKAROUND: adapt to the standard memory layout
+            if page.is_writable {
+                memory.write.start = page.address;
+                memory.write.end = page.address + page.length as u32;
+            } else {
+                memory.read.start = page.address;
+                memory.read.end = page.address + page.length as u32;
+            }
         }
 
         // Then write initial memory data
         for mem in &input.initial_memory {
-            initial_memory.write_bytes(mem.address, &mem.contents)?;
-        }
-
-        // Finally, set correct page permissions
-        for page_info in &input.initial_page_map {
-            let page_num = page_info.address / pvm::PAGE_SIZE as u32;
-            if let Some((_page_data, writable)) = initial_memory.memory.get_mut(&page_num) {
-                *writable = page_info.is_writable;
-            }
+            memory.write_bytes(mem.address, &mem.contents)?;
         }
 
         let mut compiler = Compiler::new()?;
         let module = compiler.compile(&pvm::Program {
             code: Cow::Borrowed(&input.program),
             registers: initial_registers,
-            memory: initial_memory.clone(),
+            memory: memory.clone(),
         })?;
 
         let result = module.execute(
             &initial_registers,
             input.initial_pc as u64,
             input.initial_gas as u64,
-            initial_memory.clone(),
+            memory.clone(),
         )?;
 
         assert_eq!(result.registers.to_vec(), output.expected_regs);
