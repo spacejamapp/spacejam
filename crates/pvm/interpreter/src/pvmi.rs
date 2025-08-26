@@ -2,9 +2,13 @@
 
 use crate::Interpreter;
 use parser::Reader;
-use pvm::{Gas, Invocation, Reason, Stepped};
+use pvm::{Argument, Gas, Invocation, Program, Reason, Received, Stepped};
 
 impl Invocation for Interpreter {
+    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Received<X> {
+        Self::invoke(program, ctx, gas, pc).expect("fix me later")
+    }
+
     /// Step the instruction.
     // #[tracing::instrument(skip_all, target = "pvmi")]
     fn step(

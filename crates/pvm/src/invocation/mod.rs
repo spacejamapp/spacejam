@@ -364,6 +364,17 @@ pub trait Invocation {
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
     }
 
+    /// Invoke a program with the given context (version 3)
+    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Received<X> {
+        let _ = (program, gas, pc);
+        Received {
+            gas: 0,
+            output: vec![],
+            reason: Reason::Panic("unimplemented".to_string()),
+            data: ctx,
+        }
+    }
+
     /// (ΨA): Accumulation invocation
     ///
     /// as defined per graypaper (B.9)
@@ -394,6 +405,8 @@ pub trait Invocation {
 
         let accumulate = context.accumulate(timeslot, operands);
         let args = codec::encode(&params).expect("failed to encode");
+        // let program = program::preimage(&code, &args).expect("failed to preimage");
+        // let result = Self::invoke2(&program, accumulate, gas, 5);
         let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(

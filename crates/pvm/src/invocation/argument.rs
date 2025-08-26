@@ -3,7 +3,7 @@
 use anyhow::Result;
 use score::{
     safrole::ValidatorData,
-    service::Privileges,
+    service::{Privileges, ServiceAccount},
     vm::{DeferredTransfer, Operand},
     Account, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -115,5 +115,17 @@ pub trait Argument {
     /// Upsert an account
     fn upsert(&mut self, id: ServiceId, account: impl Account) {
         let _ = (id, account);
+    }
+}
+
+impl Argument for () {
+    const SUPPORTED_CALLS: &[u32] = &[];
+
+    fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
+        anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
+    }
+
+    fn this(&mut self) -> anyhow::Result<&mut impl Account> {
+        anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
     }
 }

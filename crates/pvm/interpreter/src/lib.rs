@@ -46,12 +46,27 @@ pub struct Interpreter {
 
 impl Interpreter {
     /// Get the state of the interpreter.
-    pub fn state(self) -> State {
+    pub fn state(&self) -> State {
         State {
             pc: self.pc,
             gas: self.gas,
             registers: self.registers,
-            memory: self.memory,
+            memory: self.memory.clone(),
         }
+    }
+
+    /// Set the state of the interpreter.
+    pub fn set_state(&mut self, state: State) {
+        self.pc = state.pc;
+        self.gas = state.gas;
+        self.registers = state.registers;
+        self.memory = state.memory;
+    }
+
+    /// Get the output of the interpreter.
+    pub fn output(&self) -> Vec<u8> {
+        let ptr = self.registers[7] as u32;
+        let len = self.registers[8] as u32;
+        self.memory.read_bytes(ptr, len).unwrap_or_default()
     }
 }
