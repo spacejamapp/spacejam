@@ -70,6 +70,7 @@ impl<X> Stepped<X> {
             output,
             reason: self.reason,
             data: self.data,
+            state: self.state,
         }
     }
 }
@@ -87,6 +88,9 @@ pub struct Received<X> {
 
     /// (m??) The data we got
     pub data: X,
+
+    /// (U) The state
+    pub state: State,
 }
 
 impl<X> Received<X> {
@@ -97,6 +101,7 @@ impl<X> Received<X> {
             output: Vec::new(),
             reason: Reason::Panic(message.to_string()),
             data,
+            state: State::default(),
         }
     }
 

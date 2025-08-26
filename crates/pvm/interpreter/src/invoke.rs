@@ -13,13 +13,12 @@ impl Interpreter {
         pc: usize,
     ) -> Result<Received<X>> {
         let initial_gas = gas;
-        let mut interp = {
-            let mut interp = Interpreter::default();
-            interp.gas = gas as i64;
-            interp.pc = pc;
-            interp.registers = program.registers;
-            interp.memory = program.memory.clone();
-            interp
+        let mut interp = Interpreter {
+            gas: gas as i64,
+            pc,
+            registers: program.registers,
+            memory: program.memory.clone(),
+            ..Default::default()
         };
 
         // deblob the program
@@ -66,6 +65,7 @@ impl Interpreter {
                                 output: interp.output(),
                                 reason,
                                 data: ctx,
+                                state: interp.state(),
                             });
                         }
                     }
@@ -76,18 +76,22 @@ impl Interpreter {
                             output: interp.output(),
                             reason,
                             data: ctx,
+                            state: interp.state(),
                         });
                     }
                 }
             }
         }
 
+        interp.pc = reader.position;
+        let _ = interp.burn(1);
         let consumed_gas = initial_gas - interp.gas.max(0) as u64;
         Ok(Received {
             gas: consumed_gas,
             output: interp.output(),
-            reason: Reason::Halt,
+            reason: Reason::Panic("end of program".to_string()),
             data: ctx,
+            state: interp.state(),
         })
     }
 }

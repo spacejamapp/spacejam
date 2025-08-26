@@ -1,6 +1,8 @@
 //! PVM test vectors
 
-use pvm::Invocation;
+use std::borrow::Cow;
+
+use pvm::{Invocation, Program};
 use serde::{Deserialize, Serialize};
 
 include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
@@ -39,12 +41,16 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     }
 
     // run the program
-    let result = <pvmi::Interpreter as Invocation>::invoke(
-        &input.program,
-        input.initial_pc as u64,
-        input.initial_gas,
+    let program = Program {
+        code: Cow::Borrowed(&input.program),
+        memory: memory.clone(),
         registers,
-        memory.clone(),
+    };
+    let result = <pvmi::Interpreter as Invocation>::invoke2(
+        &program,
+        (),
+        input.initial_gas,
+        input.initial_pc as usize,
     );
 
     assert_eq!(result.reason.to_string(), output.expected_status);

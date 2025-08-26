@@ -1,10 +1,7 @@
 //! PVM invocation interface
 
-use crate::{host, Reason};
-use parser::{
-    program::{self, Program},
-    ProgramBlob,
-};
+use crate::Reason;
+use parser::program::{self, Program};
 use score::{
     service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
@@ -29,197 +26,17 @@ mod state;
 pub mod transfer;
 
 /// The invocation Interface of PVM
-///
-/// TODO: refactor this interface when the implementation gets stable.
 pub trait Invocation {
-    /// (Ψ): the general PVM invocation
-    ///
-    /// defined per graypaper (A.1)
-    fn invoke(
-        // (p) the program blob
-        blob: &[u8],
-        // (ı) the current program counter
-        pc: u64,
-        // (ϱ) the gas
-        gas: Gas,
-        // (ω) the registers
-        registers: [u64; 13],
-        // (µ) the memory
-        memory: parser::Memory,
-    ) -> Stepped<()> {
-        let mut state = State {
-            pc: pc as usize,
-            gas: gas as i64,
-            registers,
-            memory,
-        };
-
-        // deblob the program
-        let ProgramBlob {
-            instructions,
-            bitmask,
-            jump_table: jump,
-        } = match program::deblob(blob) {
-            Ok(program) => program,
-            Err(e) => {
-                return state.stepped(Reason::Panic(e.to_string()));
-            }
-        };
-
-        // stepping instructions
-        loop {
-            let Stepped {
-                reason,
-                state: next,
-                data: _,
-            } = Self::step(
-                &instructions,
-                &bitmask,
-                &jump,
-                state.pc as u64,
-                state.gas as u64,
-                state.registers,
-                state.memory.clone(),
-            );
-
-            // out of gas
-            if next.gas < 0 {
-                return state.stepped(Reason::OOG);
-            }
-
-            // handle the exit reason
-            state = next;
-            match reason {
-                // no exit reason, continue
-                Reason::Continue => {
-                    continue;
-                }
-                // reset the program counter on halt or panic
-                Reason::Halt | Reason::Panic(_) => {}
-                _ => {}
-            };
-
-            return state.stepped(reason);
+    /// Invoke a program with the given context (version 3)
+    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Received<X> {
+        let _ = (program, gas, pc);
+        Received {
+            gas: 0,
+            output: vec![],
+            reason: Reason::Panic("unimplemented".to_string()),
+            data: ctx,
+            state: Default::default(),
         }
-    }
-
-    /// (Ψ1): single-step state transition invocation
-    ///
-    /// Defined per graypaper (A.6)
-    fn step(
-        // (c) The instruction data
-        instructions: &[u8],
-        // (k) The bitmap of the instruction data
-        bitmask: &[u8],
-        // (j) The jump table
-        jump: &[u64],
-        // (ı) The current program counter
-        pc: u64,
-        // (ϱ) The gas
-        gas: Gas,
-        // (ω) The registers
-        registers: [u64; 13],
-        // (µ) The memory
-        memory: parser::Memory,
-    ) -> Stepped<()>;
-
-    /// (ΨH): host call invocation
-    ///
-    /// Defined per graypaper (A.34)
-    fn call<X: Argument>(
-        // (c) The instruction data
-        code: &[u8],
-        // (ı) The current program counter
-        pc: u64,
-        // (ϱ) The gas
-        gas: u64,
-        // (ω) The registers
-        registers: [u64; 13],
-        // (µ) The memory
-        memory: parser::Memory,
-        // (f) the host function
-        //
-        // (x) the host function input data
-        input: X,
-    ) -> Stepped<X> {
-        // (state') invoke the PVM
-        let Stepped {
-            reason,
-            state,
-            data: _,
-        } = Self::invoke(code, pc, gas, registers, memory);
-        let Reason::HostCall(call) = reason else {
-            return state.stepped(reason).with(input);
-        };
-
-        // FIXME: refactor with loop
-        let stepped = host::call(call, state, input);
-        match stepped.reason {
-            Reason::Fault { page } => stepped
-                .state
-                .stepped(Reason::Fault { page })
-                .with(stepped.data),
-            Reason::Continue | Reason::HostCall(_) => Self::call(
-                code,
-                stepped.state.pc as u64,
-                stepped.state.gas as u64,
-                stepped.state.registers,
-                stepped.state.memory,
-                stepped.data,
-            ),
-            _ => stepped.state.stepped(stepped.reason).with(stepped.data),
-        }
-    }
-
-    /// (ΨM): argument invocation
-    ///
-    /// Defined per graypaper (A.43)
-    fn argument<X: Argument>(
-        // (p) The standard program blob
-        blob: &[u8],
-        // (ı) The current program counter
-        pc: u64,
-        // (ϱ) The gas
-        gas: u64,
-        // (a) The input data
-        args: &[u8],
-        // (f) the host function
-        //
-        // (x) the host function input data
-        data: X,
-    ) -> Received<X> {
-        let Program {
-            code,
-            registers,
-            memory,
-        } = match program::preimage(blob, args) {
-            Ok(standard) => standard,
-            Err(e) => {
-                tracing::error!("failed to deblob the standard program blob: {e:?}");
-                return Received::panic(e, data);
-            }
-        };
-
-        let mut stepped = Self::call(&code, pc, gas, registers, memory, data);
-
-        // get the output
-        let mut output = vec![];
-        if stepped.reason == Reason::Halt {
-            let ptr = stepped.state.registers[7] as u32;
-            let len = stepped.state.registers[8] as u32;
-
-            // Read output data from memory using ptr and len
-            match stepped.state.memory.read_bytes(ptr, len) {
-                Ok(data) => output = data,
-                Err(e) => {
-                    stepped.reason =
-                        Reason::Panic(format!("failed to read output from memory: {}", e))
-                }
-            }
-        }
-
-        let gas = gas - (stepped.state.gas.max(0) as u64);
-        stepped.received(gas, output)
     }
 
     /// (ΨI): The Is-Authorized invocation
@@ -266,7 +83,8 @@ pub trait Invocation {
         // Prepare arguments
         let args = codec::encode(&core_idx).unwrap_or_default();
         let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
-        let result = Self::argument(&code, 0, score::GAS_IS_AUTHORIZED, &args, context);
+        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let result = Self::invoke2(&program, context, score::GAS_IS_AUTHORIZED, 0);
 
         // construct the result
         let gas = result.gas;
@@ -340,7 +158,7 @@ pub trait Invocation {
         };
 
         // Create refine context with proper parameters
-        let refine_context = crate::invocation::Refine {
+        let refine = crate::invocation::Refine {
             accounts: accounts.clone(),
             service: item.service,
             core,
@@ -350,29 +168,14 @@ pub trait Invocation {
             exports: Vec::new(),
         };
 
-        let result = Self::argument(
-            &code,
-            0,
-            item.refine_gas_limit,
-            &codec::encode(&params).expect("failed to encode params"),
-            refine_context,
-        );
+        let args = codec::encode(&params).expect("failed to encode params");
+        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let result = Self::invoke2(&program, refine, item.refine_gas_limit, 5);
 
         // TODO: Implement actual segment export when host calls are ready
         // For now, return empty segments as before
         let gas = result.gas;
         Refined::new(Executed::new(Vec::new(), result.result(), gas), Vec::new())
-    }
-
-    /// Invoke a program with the given context (version 3)
-    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Received<X> {
-        let _ = (program, gas, pc);
-        Received {
-            gas: 0,
-            output: vec![],
-            reason: Reason::Panic("unimplemented".to_string()),
-            data: ctx,
-        }
     }
 
     /// (ΨA): Accumulation invocation
@@ -407,7 +210,6 @@ pub trait Invocation {
         let args = codec::encode(&params).expect("failed to encode");
         let program = program::preimage(&code, &args).expect("failed to preimage");
         let result = Self::invoke2(&program, accumulate, gas, 5);
-        // let result = Self::argument(&code, 5, gas, &args, accumulate);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
@@ -456,24 +258,109 @@ pub trait Invocation {
         let updated_account = account.account();
         let general = General::new(service, accounts, Vec::new(), Default::default());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
-        let received = Self::argument(&code, 10, gas, &input, general);
+        let program = program::preimage(&code, &input).expect("failed to preimage");
+        let received = Self::invoke2(&program, general, gas, 10);
         Transferred {
             account: updated_account,
             gas: received.gas,
         }
     }
-}
 
-impl Invocation for () {
-    fn step(
-        _instructions: &[u8],
-        _bitmask: &[u8],
-        _jump: &[u64],
-        _pc: u64,
-        _gas: Gas,
-        _registers: [u64; 13],
-        _memory: parser::Memory,
+    /// (Ψ): the general PVM invocation
+    ///
+    /// defined per graypaper (A.1)
+    #[deprecated(note = "non-production design from GP, use invoke2 instead")]
+    fn invoke(
+        // (p) the program blob
+        blob: &[u8],
+        // (ı) the current program counter
+        pc: u64,
+        // (ϱ) the gas
+        gas: Gas,
+        // (ω) the registers
+        registers: [u64; 13],
+        // (µ) the memory
+        memory: parser::Memory,
     ) -> Stepped<()> {
-        Stepped::new(Reason::Panic("unimplemented".to_string()), State::default())
+        let _ = (blob, pc, gas, registers, memory);
+        Stepped::new(Reason::Panic("deprecated".to_string()), State::default())
+    }
+
+    /// (Ψ1): single-step state transition invocation
+    ///
+    /// Defined per graypaper (A.6)
+    #[deprecated(note = "non-production design from GP, use invoke2 instead")]
+    fn step(
+        // (c) The instruction data
+        instructions: &[u8],
+        // (k) The bitmap of the instruction data
+        bitmask: &[u8],
+        // (j) The jump table
+        jump: &[u64],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: Gas,
+        // (ω) The registers
+        registers: [u64; 13],
+        // (µ) The memory
+        memory: parser::Memory,
+    ) -> Stepped<()> {
+        let _ = (instructions, bitmask, jump, pc, gas, registers, memory);
+        Stepped::new(Reason::Panic("deprecated".to_string()), State::default())
+    }
+
+    /// (ΨH): host call invocation
+    ///
+    /// Defined per graypaper (A.34)
+    #[deprecated(note = "non-production design from GP, use invoke2 instead")]
+    fn call<X: Argument>(
+        // (c) The instruction data
+        code: &[u8],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: u64,
+        // (ω) The registers
+        registers: [u64; 13],
+        // (µ) The memory
+        memory: parser::Memory,
+        // (f) the host function
+        //
+        // (x) the host function input data
+        input: X,
+    ) -> Stepped<X> {
+        let _ = (code, pc, gas, registers, memory);
+        Stepped::new(Reason::Panic("deprecated".to_string()), State::default()).with(input)
+    }
+
+    /// (ΨM): argument invocation
+    ///
+    /// Defined per graypaper (A.43)
+    #[deprecated(note = "non-production design from GP, use invoke2 instead")]
+    fn argument<X: Argument>(
+        // (p) The standard program blob
+        blob: &[u8],
+        // (ı) The current program counter
+        pc: u64,
+        // (ϱ) The gas
+        gas: u64,
+        // (a) The input data
+        args: &[u8],
+        // (f) the host function
+        //
+        // (x) the host function input data
+        data: X,
+    ) -> Received<X> {
+        let _ = (blob, pc, gas, args);
+        Received {
+            gas: 0,
+            output: vec![],
+            reason: Reason::Panic("deprecated".to_string()),
+            data,
+            state: Default::default(),
+        }
     }
 }
+
+impl Invocation for () {}
