@@ -30,30 +30,21 @@ impl Module {
         initial_gas: u64,
         initial_memory: pvm::Memory,
     ) -> Result<Info> {
-        let mut context = Context::new(*initial_registers, initial_pc);
+        let mut context = Context::new(*initial_registers, initial_pc, self.memory.clone());
         let reason = self.run(&mut context)?;
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
             gas: initial_gas.saturating_sub(context.gas),
-            memory: self.memory.fill(&initial_memory),
+            memory: context.memory.fill(&initial_memory),
             reason,
         })
     }
 
     /// Execute compiled function
     fn run(&self, ctx: &mut Context) -> Result<Reason> {
-        let mut ext = translator::Context {
-            registers: ctx.registers,
-            pc: ctx.pc,
-            gas: ctx.gas,
-            memory_ptr: self.memory.base() as _,
-        };
-
-        let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut translator::Context) -> u8>(self.code)
-        };
-        let result = match trap::with(|| func(&mut ext)) {
+        let func = unsafe { std::mem::transmute::<*const u8, fn(*mut Context) -> u8>(self.code) };
+        let result = match trap::with(|| func(ctx)) {
             Ok(r) => match r {
                 0 => Reason::Halt,
                 1 => Reason::Panic("Trap".to_string()),
@@ -65,10 +56,6 @@ impl Module {
             },
         };
 
-        // Update context with execution results
-        ctx.registers = ext.registers;
-        ctx.pc = ext.pc;
-        ctx.gas = ext.gas;
         Ok(result)
     }
 }

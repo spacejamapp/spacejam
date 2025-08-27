@@ -4,10 +4,7 @@ use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir;
 use std::collections::HashMap;
-pub use {
-    context::{offsets, Context},
-    control::result,
-};
+pub use {context::offsets, control::result};
 
 mod context;
 mod control;

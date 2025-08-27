@@ -8,7 +8,7 @@ use libc::{
 use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     /// Base pointer to the virtual memory region
     base: *mut u8,
