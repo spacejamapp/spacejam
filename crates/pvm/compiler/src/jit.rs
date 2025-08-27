@@ -40,9 +40,7 @@ impl JIT {
     /// - is_authorized
     /// - core_vm ???
     pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
-        // Create the virtual memory at compile time
         let memory = crate::Memory::new(&program.memory)?;
-
         let sig = self.signature();
         let id = self
             .module
@@ -51,8 +49,6 @@ impl JIT {
         // construct the function
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
-
-        // translate the function - no changes needed here
         trans.translate(program)?;
         trans.builder.finalize();
 
@@ -60,8 +56,6 @@ impl JIT {
         self.module.define_function(id, &mut self.ctx)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-
-        // Pass the memory to Module
         Ok(crate::Module::new(
             self.module.get_finalized_function(id),
             memory,
