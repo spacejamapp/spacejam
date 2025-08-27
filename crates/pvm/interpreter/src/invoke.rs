@@ -2,7 +2,7 @@
 
 use crate::{Context, Interpreter};
 use anyhow::Result;
-use pvm::{host, score::Gas, Argument, Program, Reason, Received};
+use pvm::{host, score::Gas, Argument, Invoked, Program, Reason};
 
 impl Interpreter {
     /// Invoke a program with the given context
@@ -11,7 +11,7 @@ impl Interpreter {
         mut ctx: X,
         gas: Gas,
         pc: usize,
-    ) -> Result<Received<X>> {
+    ) -> Result<Invoked<X>> {
         let initial_gas = gas;
         let mut interp = Interpreter {
             context: Context {
@@ -57,25 +57,11 @@ impl Interpreter {
                         let reason = host::call(call, &mut context);
                         ctx = context.ctx;
                         if reason != Reason::Continue {
-                            let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
-                            return Ok(Received {
-                                gas: consumed_gas,
-                                output: interp.output(),
-                                reason,
-                                data: ctx,
-                                state: interp.state(),
-                            });
+                            return Ok(interp.result(ctx, initial_gas, reason));
                         }
                     }
                     reason => {
-                        let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
-                        return Ok(Received {
-                            gas: consumed_gas,
-                            output: interp.output(),
-                            reason,
-                            data: ctx,
-                            state: interp.state(),
-                        });
+                        return Ok(interp.result(ctx, initial_gas, reason));
                     }
                 }
             }
@@ -83,13 +69,10 @@ impl Interpreter {
 
         interp.pc = reader.position;
         let _ = interp.burn(1);
-        let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
-        Ok(Received {
-            gas: consumed_gas,
-            output: interp.output(),
-            reason: Reason::Panic("end of program".to_string()),
-            data: ctx,
-            state: interp.state(),
-        })
+        Ok(interp.result(
+            ctx,
+            initial_gas,
+            Reason::Panic("end of program".to_string()),
+        ))
     }
 }

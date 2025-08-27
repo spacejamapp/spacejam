@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::{Argument, Executed, Reason, Received, State, Stepped};
+use crate::{Argument, Executed, Invoked, Reason};
 use parser::program::{self, Program};
 use score::{
     service::{WorkExecResult, WorkPackage},
@@ -24,9 +24,9 @@ pub mod transfer;
 /// The invocation Interface of PVM
 pub trait Invocation {
     /// Invoke a program with the given context (version 3)
-    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Received<X> {
+    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Invoked<X> {
         let _ = (program, gas, pc);
-        Received {
+        Invoked {
             gas: 0,
             output: vec![],
             reason: Reason::Panic("unimplemented".to_string()),
@@ -277,9 +277,9 @@ pub trait Invocation {
         registers: [u64; 13],
         // (µ) the memory
         memory: parser::Memory,
-    ) -> Stepped<()> {
+    ) -> Invoked<()> {
         let _ = (blob, pc, gas, registers, memory);
-        Stepped::new(Reason::Panic("deprecated".to_string()), State::default())
+        Invoked::panic("deprecated", ())
     }
 
     /// (Ψ1): single-step state transition invocation
@@ -301,9 +301,9 @@ pub trait Invocation {
         registers: [u64; 13],
         // (µ) The memory
         memory: parser::Memory,
-    ) -> Stepped<()> {
+    ) -> Invoked<()> {
         let _ = (instructions, bitmask, jump, pc, gas, registers, memory);
-        Stepped::new(Reason::Panic("deprecated".to_string()), State::default())
+        Invoked::panic("deprecated", ())
     }
 
     /// (ΨH): host call invocation
@@ -325,9 +325,9 @@ pub trait Invocation {
         //
         // (x) the host function input data
         input: X,
-    ) -> Stepped<X> {
+    ) -> Invoked<X> {
         let _ = (code, pc, gas, registers, memory);
-        Stepped::new(Reason::Panic("deprecated".to_string()), State::default()).with(input)
+        Invoked::panic("deprecated", input)
     }
 
     /// (ΨM): argument invocation
@@ -347,15 +347,9 @@ pub trait Invocation {
         //
         // (x) the host function input data
         data: X,
-    ) -> Received<X> {
+    ) -> Invoked<X> {
         let _ = (blob, pc, gas, args);
-        Received {
-            gas: 0,
-            output: vec![],
-            reason: Reason::Panic("deprecated".to_string()),
-            data,
-            state: Default::default(),
-        }
+        Invoked::panic("deprecated", data)
     }
 }
 

@@ -2,91 +2,9 @@
 
 use crate::{Error, Interpreter};
 use parser::{reader::Offset, Instruction, Visitor};
-use pvm::Reason;
+use pvm::{Argument, Invoked, Reason};
 
 impl Interpreter {
-    /// Step a single instruction.
-    pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
-        if self.burn(1).is_err() {
-            return Reason::OOG;
-        }
-
-        // charge extra gas for host calls based on the specification
-        let extra_gas = match instr.value {
-            Instruction::Ecalli(call_format) => {
-                let call_number = call_format.imm0 as u32;
-                match call_number {
-                    11 => 10 + self.rget(9),
-                    100 => 0,
-                    _ => 10,
-                }
-            }
-            _ => 0,
-        };
-        if extra_gas > 0 && self.burn(extra_gas).is_err() {
-            return Reason::OOG;
-        }
-
-        // step the instruction
-        let stepped = self.visit(instr.value, &instr.range);
-        if let Err(e) = stepped {
-            e.into()
-        } else {
-            Reason::Continue
-        }
-    }
-
-    /// Read a value from memory
-    pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
-        let bytes = self
-            .context
-            .memory
-            .read_bytes(address, V::SIZE as u32)
-            .map_err(|_e| Error::MemoryInaccessible {
-                page: address / parser::PAGE_SIZE as u32,
-            })?;
-        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible {
-            page: address / parser::PAGE_SIZE as u32,
-        })
-    }
-
-    /// Read a value from memory at an offset
-    pub fn read_offset<V: pvm::Value>(&self, address: u32, offset: u32) -> crate::Result<V> {
-        let start = address.wrapping_add(offset);
-        self.read(start)
-    }
-
-    /// Write a value to memory
-    pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
-        self.context
-            .memory
-            .write_bytes(address, &value.to_vec())
-            .map_err(|_e| Error::MemoryInaccessible {
-                page: address / parser::PAGE_SIZE as u32,
-            })
-    }
-
-    /// Write a value to memory at an offset
-    pub fn write_offset<V: pvm::Value>(
-        &mut self,
-        address: u32,
-        offset: u32,
-        value: V,
-    ) -> crate::Result<()> {
-        let start = address.wrapping_add(offset);
-        self.write(start, value)
-    }
-
-    /// Get the register value.
-    pub fn rget(&self, reg: u8) -> u64 {
-        self.context.registers[reg as usize]
-    }
-
-    /// Set the register value.
-    pub fn rset(&mut self, reg: u8, value: u64) {
-        self.context.registers[reg as usize] = value;
-    }
-
     /// Allocate pages for sbrk
     pub fn allocate(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
         self.context
@@ -144,5 +62,98 @@ impl Interpreter {
 
         self.jump = Some(*target as usize);
         Ok(())
+    }
+
+    /// Read a value from memory
+    pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
+        let bytes = self
+            .context
+            .memory
+            .read_bytes(address, V::SIZE as u32)
+            .map_err(|_e| Error::MemoryInaccessible {
+                page: address / parser::PAGE_SIZE as u32,
+            })?;
+        V::from_bytes(&bytes).ok_or(Error::MemoryInaccessible {
+            page: address / parser::PAGE_SIZE as u32,
+        })
+    }
+
+    /// Read a value from memory at an offset
+    pub fn read_offset<V: pvm::Value>(&self, address: u32, offset: u32) -> crate::Result<V> {
+        let start = address.wrapping_add(offset);
+        self.read(start)
+    }
+
+    /// Get the result of the interpreter
+    pub fn result<X: Argument>(&self, data: X, gas: u64, reason: Reason) -> Invoked<X> {
+        Invoked {
+            gas: gas - self.context.gas.max(0) as u64,
+            output: self.output(),
+            reason,
+            data,
+            state: self.state(),
+        }
+    }
+
+    /// Get the register value.
+    pub fn rget(&self, reg: u8) -> u64 {
+        self.context.registers[reg as usize]
+    }
+
+    /// Set the register value.
+    pub fn rset(&mut self, reg: u8, value: u64) {
+        self.context.registers[reg as usize] = value;
+    }
+
+    /// Step a single instruction.
+    pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
+        if self.burn(1).is_err() {
+            return Reason::OOG;
+        }
+
+        // charge extra gas for host calls based on the specification
+        let extra_gas = match instr.value {
+            Instruction::Ecalli(call_format) => {
+                let call_number = call_format.imm0 as u32;
+                match call_number {
+                    11 => 10 + self.rget(9),
+                    100 => 0,
+                    _ => 10,
+                }
+            }
+            _ => 0,
+        };
+        if extra_gas > 0 && self.burn(extra_gas).is_err() {
+            return Reason::OOG;
+        }
+
+        // step the instruction
+        let stepped = self.visit(instr.value, &instr.range);
+        if let Err(e) = stepped {
+            e.into()
+        } else {
+            Reason::Continue
+        }
+    }
+
+    /// Write a value to memory
+    pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
+        self.context
+            .memory
+            .write_bytes(address, &value.to_vec())
+            .map_err(|_e| Error::MemoryInaccessible {
+                page: address / parser::PAGE_SIZE as u32,
+            })
+    }
+
+    /// Write a value to memory at an offset
+    pub fn write_offset<V: pvm::Value>(
+        &mut self,
+        address: u32,
+        offset: u32,
+        value: V,
+    ) -> crate::Result<()> {
+        let start = address.wrapping_add(offset);
+        self.write(start, value)
     }
 }

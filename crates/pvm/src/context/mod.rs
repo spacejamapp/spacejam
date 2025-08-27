@@ -10,7 +10,7 @@ use score::{
 pub use {
     argument::Argument,
     memory::MemoryLike,
-    state::{Executed, Received, State, Stepped},
+    state::{Executed, Invoked, State},
 };
 
 mod argument;
