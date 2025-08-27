@@ -9,7 +9,7 @@ pub type Result<T> = core::result::Result<T, Reason>;
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub enum Reason {
     /// The program has halted.
     Halt,
@@ -17,14 +17,14 @@ pub enum Reason {
     /// The program has panicked.
     Panic(String),
 
-    /// The program has run out of gas.
-    OOG,
-
     /// The invocation completed with a page fault.
     Fault { page: u32 },
 
     /// The status is unknown.
     HostCall(u32),
+
+    /// The program has run out of gas.
+    OOG,
 
     /// The program is still running.
     #[default]

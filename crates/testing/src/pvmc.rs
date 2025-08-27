@@ -79,9 +79,10 @@ impl Runner {
             memory.clone(),
         )?;
 
-        assert_eq!(result.registers.to_vec(), output.expected_regs);
         // assert_eq!(result.pc, output.expected_pc as u64);
+        assert_eq!(result.registers.to_vec(), output.expected_regs);
         assert_eq!(result.gas, output.expected_gas as u64);
+        assert_eq!(result.reason.to_string(), output.expected_status);
 
         // Validate memory state using helper function
         let final_memory_test = to_test_memory(&result.memory);

@@ -2,6 +2,8 @@
 //!
 //! TODO: merge with pvmi into pvm package
 
+use pvm::Reason;
+
 /// Result of executing a compiled module
 #[derive(Debug, Clone)]
 pub struct Info {
@@ -13,13 +15,7 @@ pub struct Info {
     pub gas: u64,
     /// Final memory state
     pub memory: pvm::Memory,
-}
 
-/// Block execution result
-#[derive(Debug, Clone)]
-pub enum ExecResult {
-    Continue,
-    Jump(u64),
-    Halt,
-    Trap,
+    /// The exit reason
+    pub reason: Reason,
 }

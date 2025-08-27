@@ -13,6 +13,8 @@ pub mod result {
     pub const OOG: i64 = 4;
 }
 
+const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
+
 impl Translator<'_> {
     /// get result from the context
     pub fn jump(&mut self) -> Value {
@@ -100,19 +102,31 @@ impl Translator<'_> {
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
     pub fn djump(&mut self, pc: usize) -> Result<()> {
-        let target_addr = self.jump();
+        let halt_block = self.builder.create_block();
+        let check_valid = self.builder.create_block();
+        let target = self.jump();
+        let halt = self.builder.ins().iconst(types::I64, HALT_TARGET as i64);
+        let is_halt = self.builder.ins().icmp(IntCC::Equal, target, halt);
+        self.builder
+            .ins()
+            .brif(is_halt, halt_block, &[], check_valid, &[]);
+
+        // Halt block: return halt result
+        self.builder.switch_to_block(halt_block);
+        self.return_(result::HALT, pc)?;
 
         // Jump target validation:
         // 1. address == 0 (null address)
         // 2. address > table.len() * JUMP_ALIGNMENT_FACTOR (beyond table bounds)
         // 3. address % 2 != 0 (not aligned to 2-byte boundary)
+        self.builder.switch_to_block(check_valid);
         let valid = self.builder.create_block();
         let trap = self.builder.create_block();
         let two = self.builder.ins().iconst(types::I64, 2);
         {
             // Check 1: address == 0
             let zero = self.builder.ins().iconst(types::I64, 0);
-            let is_zero = self.builder.ins().icmp(IntCC::Equal, target_addr, zero);
+            let is_zero = self.builder.ins().icmp(IntCC::Equal, target, zero);
 
             // Check 2: address > table.len() * JUMP_ALIGNMENT_FACTOR
             let table_len = self.jump_table.len() as u32;
@@ -121,10 +135,10 @@ impl Translator<'_> {
             let exceeds_bounds =
                 self.builder
                     .ins()
-                    .icmp(IntCC::UnsignedGreaterThan, target_addr, max_addr_val);
+                    .icmp(IntCC::UnsignedGreaterThan, target, max_addr_val);
 
             // Check 3: address % 2 != 0 (misaligned)
-            let remainder = self.builder.ins().urem(target_addr, two);
+            let remainder = self.builder.ins().urem(target, two);
             let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
 
             // Combine all invalid conditions with OR
@@ -137,7 +151,7 @@ impl Translator<'_> {
         self.builder.switch_to_block(valid);
         {
             // Calculate jump table index: (address / 2) - 1
-            let addr_div_2 = self.builder.ins().udiv(target_addr, two);
+            let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
             let mut switch = cranelift::frontend::Switch::new();
@@ -155,6 +169,8 @@ impl Translator<'_> {
         self.return_(result::PANIC, pc)?;
 
         // Seal all created blocks
+        self.builder.seal_block(halt_block);
+        self.builder.seal_block(check_valid);
         self.builder.seal_block(valid);
         self.builder.seal_block(trap);
         Ok(())

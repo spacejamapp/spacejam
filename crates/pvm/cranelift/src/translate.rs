@@ -76,6 +76,7 @@ impl Translator<'_> {
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
+            tracing::trace!("{instruction:?}");
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
