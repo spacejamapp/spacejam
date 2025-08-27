@@ -10,7 +10,6 @@ use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
 #[derive(Debug, Clone)]
-#[repr(C)]
 pub struct Memory {
     /// Base pointer to the virtual memory region
     base: *mut u8,

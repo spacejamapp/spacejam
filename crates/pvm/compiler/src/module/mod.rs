@@ -30,11 +30,12 @@ impl Module {
         gas: u64,
         memory: pvm::Memory,
     ) -> Result<Info> {
-        let mut context = Context {
+        let mut context = pvm::Context {
             registers: *registers,
             pc,
             gas: gas as i64,
             memory: self.memory.clone(),
+            ctx: &mut (),
         };
 
         let reason = self.run(&mut context)?;
@@ -48,8 +49,10 @@ impl Module {
     }
 
     /// Execute compiled function
-    fn run(&self, ctx: &mut Context) -> Result<Reason> {
-        let func = unsafe { std::mem::transmute::<*const u8, fn(*mut Context) -> u8>(self.code) };
+    fn run(&self, ctx: &mut pvm::Context<'_, (), Memory>) -> Result<Reason> {
+        let func = unsafe {
+            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, (), Memory>) -> u8>(self.code)
+        };
         let result = match trap::with(|| func(ctx)) {
             Ok(r) => match r {
                 0 => Reason::Halt,

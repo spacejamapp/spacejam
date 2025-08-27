@@ -18,6 +18,7 @@ mod memory;
 mod state;
 
 /// Helper context that wraps the invocation arguments and the memory.
+#[repr(C)]
 pub struct Context<'ctx, X: Argument, M: MemoryLike> {
     /// The registers of the context
     pub registers: [u64; 13],
