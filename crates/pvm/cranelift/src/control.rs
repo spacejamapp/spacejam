@@ -38,7 +38,9 @@ impl Translator<'_> {
             .load(types::I64, MemFlags::trusted(), addr, 0)
     }
 
-    /// burn gas (add to the gas counter)
+    /// burn gas (subtract from the gas counter)
+    ///
+    /// TODO: handle OOG
     pub fn burn_gas(&mut self, gas: i64) {
         let offset = self
             .builder
@@ -50,7 +52,7 @@ impl Translator<'_> {
             .ins()
             .load(types::I64, MemFlags::trusted(), addr, 0);
         let burn_amount = self.builder.ins().iconst(types::I64, gas);
-        let result = self.builder.ins().iadd(current_gas, burn_amount);
+        let result = self.builder.ins().isub(current_gas, burn_amount);
         self.builder
             .ins()
             .store(MemFlags::trusted(), result, addr, 0);

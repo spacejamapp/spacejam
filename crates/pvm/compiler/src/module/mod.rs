@@ -25,18 +25,23 @@ impl Module {
     /// Execute the compiled module
     pub fn execute(
         &self,
-        initial_registers: &[u64; pvm::REGISTER_COUNT],
-        initial_pc: u64,
-        initial_gas: u64,
-        initial_memory: pvm::Memory,
+        registers: &[u64; pvm::REGISTER_COUNT],
+        pc: u64,
+        gas: u64,
+        memory: pvm::Memory,
     ) -> Result<Info> {
-        let mut context = Context::new(*initial_registers, initial_pc, self.memory.clone());
+        let mut context = Context {
+            registers: *registers,
+            pc,
+            gas,
+            memory: self.memory.clone(),
+        };
         let reason = self.run(&mut context)?;
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
-            gas: initial_gas.saturating_sub(context.gas),
-            memory: context.memory.fill(&initial_memory),
+            gas: context.gas,
+            memory: context.memory.fill(&memory),
             reason,
         })
     }

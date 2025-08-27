@@ -6,8 +6,8 @@ use crate::Memory;
 #[derive(Debug)]
 pub struct Context {
     pub registers: [u64; pvm::REGISTER_COUNT],
-    pub pc: u64,
     pub gas: u64,
+    pub pc: u64,
     pub memory: Memory,
 }
 
