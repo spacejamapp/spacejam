@@ -17,7 +17,10 @@ pub struct Context {
 
 impl Context {
     /// Convert the context to the PVM context.
-    pub fn ctx<X: Argument>(&mut self, ctx: X) -> pvm::Context<'_, X, parser::Memory> {
+    pub fn ctx<'ctx, X: Argument>(
+        &'ctx mut self,
+        ctx: &'ctx mut X,
+    ) -> pvm::Context<'ctx, X, parser::Memory> {
         pvm::Context {
             ctx,
             memory: &mut self.memory,

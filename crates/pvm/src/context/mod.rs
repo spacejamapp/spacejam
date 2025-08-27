@@ -20,7 +20,7 @@ mod state;
 /// Helper context that wraps the invocation arguments and the memory.
 pub struct Context<'ctx, X: Argument, M: MemoryLike> {
     /// The context from the chain
-    pub ctx: X,
+    pub ctx: &'ctx mut X,
 
     /// The registers of the context
     pub registers: &'ctx mut [u64; 13],
