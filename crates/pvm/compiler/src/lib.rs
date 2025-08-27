@@ -1,6 +1,5 @@
 //! SpaceJam PVM compiler
 
-mod artifact;
 mod compiler;
 mod jit;
 mod memory;

@@ -81,7 +81,7 @@ impl Runner {
 
         assert_eq!(result.registers.to_vec(), output.expected_regs);
         // assert_eq!(result.pc, output.expected_pc as u64);
-        // assert_eq!(result.gas, output.expected_gas as u64);
+        assert_eq!(result.gas, output.expected_gas as u64);
 
         // Validate memory state using helper function
         let final_memory_test = to_test_memory(&result.memory);

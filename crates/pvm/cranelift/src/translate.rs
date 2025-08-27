@@ -86,11 +86,10 @@ impl Translator<'_> {
         }
 
         // handle block termination with native CLIF control flow
-        //
-        // this is only for the tests that has incomplete blocks.
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.return_(result::HALT, last.range.end)?;
+                self.burn_gas(1);
+                self.return_(result::PANIC, last.range.end)?;
             }
         }
 

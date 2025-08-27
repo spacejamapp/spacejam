@@ -580,7 +580,8 @@ impl Visitor for Translator<'_> {
         if let Some(block) = self.blocks.get(&(range.end as u64)) {
             self.builder.ins().jump(*block, &[]);
         } else {
-            self.return_(result::HALT, 0)?;
+            self.burn_gas(1);
+            self.return_(result::PANIC, range.end)?;
         }
 
         Ok(())
