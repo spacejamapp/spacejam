@@ -1,46 +1,46 @@
 //! Invocation context of the interpreter
 
 use anyhow::Result;
-use parser::MemoryLike;
 use score::{
     safrole::ValidatorData,
     service::Privileges,
     vm::{DeferredTransfer, Operand},
     Account, Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
-use std::{cell::RefCell, rc::Rc};
 pub use {
     argument::Argument,
+    memory::MemoryLike,
     state::{Executed, Received, State, Stepped},
 };
 
 mod argument;
+mod memory;
 mod state;
 
 /// Helper context that wraps the invocation arguments and the memory.
-pub struct Context<X: Argument, M: MemoryLike + Clone> {
+pub struct Context<'ctx, X: Argument, M: MemoryLike> {
     /// The context from the chain
     pub ctx: X,
 
     /// The registers of the context
-    pub registers: [u64; 13],
+    pub registers: &'ctx mut [u64; 13],
 
     /// The gas of the context
-    pub gas: i64,
+    pub gas: &'ctx mut i64,
 
     /// The hosting memory
-    pub memory: Rc<RefCell<M>>,
+    pub memory: &'ctx mut M,
 }
 
-impl<X: Argument, M: MemoryLike + Clone> Argument for Context<X, M> {
-    const SUPPORTED_CALLS: &[u32] = X::SUPPORTED_CALLS;
+impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
+    const SUPPORTED_CALLS: &'static [u32] = X::SUPPORTED_CALLS;
 
     fn account(&mut self, id: u64) -> Result<&mut impl Account> {
         self.ctx.account(id)
     }
 
     fn burn(&mut self, gas: Gas) {
-        self.gas -= gas as i64;
+        *self.gas -= gas as i64;
     }
 
     fn check(&mut self, index: ServiceId) -> ServiceId {
@@ -56,7 +56,7 @@ impl<X: Argument, M: MemoryLike + Clone> Argument for Context<X, M> {
     }
 
     fn gas(&self) -> Gas {
-        self.gas as u64
+        *self.gas as u64
     }
 
     fn index(&self) -> ServiceId {
@@ -136,18 +136,18 @@ impl<X: Argument, M: MemoryLike + Clone> Argument for Context<X, M> {
     }
 
     fn read(&self, address: u32, len: u32) -> Result<Vec<u8>> {
-        self.memory.borrow().read(address, len)
+        self.memory.read(address, len)
     }
 
     fn write(&mut self, address: u32, data: &[u8]) -> Result<()> {
-        self.memory.borrow_mut().write(address, data)
+        self.memory.write(address, data)
     }
 
     fn allocate(&mut self, start: u32, count: u32) -> Result<()> {
-        self.memory.borrow_mut().allocate(start, count)
+        self.memory.allocate(start, count)
     }
 
     fn heap_ptr(&self) -> u32 {
-        self.memory.borrow().heap_ptr()
+        self.memory.heap_ptr()
     }
 }

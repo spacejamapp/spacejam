@@ -141,7 +141,7 @@ pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩC) checkpoint
 pub fn checkpoint(ctx: &mut impl Argument) -> Result<ExitCode> {
     ctx.checkpoint();
-    Ok(ctx.gas() as u64)
+    Ok(ctx.gas())
 }
 
 /// (ΩN) new

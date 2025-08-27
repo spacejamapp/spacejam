@@ -1,7 +1,6 @@
 //! Context of the interpreter
 
 use pvm::Argument;
-use std::{cell::RefCell, rc::Rc};
 
 /// Context of the interpreter
 #[derive(Default)]
@@ -10,7 +9,7 @@ pub struct Context {
     pub gas: i64,
 
     /// The memory of the interpreter.
-    pub memory: Rc<RefCell<parser::Memory>>,
+    pub memory: parser::Memory,
 
     /// The registers of the interpreter.
     pub registers: [u64; 13],
@@ -18,18 +17,12 @@ pub struct Context {
 
 impl Context {
     /// Convert the context to the PVM context.
-    pub fn ctx<X: Argument>(&self, ctx: X) -> pvm::Context<X, parser::Memory> {
+    pub fn ctx<X: Argument>(&mut self, ctx: X) -> pvm::Context<'_, X, parser::Memory> {
         pvm::Context {
             ctx,
-            memory: self.memory.clone(),
-            registers: self.registers,
-            gas: self.gas,
+            memory: &mut self.memory,
+            registers: &mut self.registers,
+            gas: &mut self.gas,
         }
-    }
-
-    /// sync from the PVM context
-    pub fn sync<X: Argument>(&mut self, ctx: &pvm::Context<X, parser::Memory>) {
-        self.gas = ctx.gas;
-        self.registers = ctx.registers;
     }
 }

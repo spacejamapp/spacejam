@@ -3,7 +3,6 @@
 use crate::{Context, Interpreter};
 use anyhow::Result;
 use pvm::{host, score::Gas, Argument, Program, Reason, Received};
-use std::{cell::RefCell, rc::Rc};
 
 impl Interpreter {
     /// Invoke a program with the given context
@@ -18,7 +17,7 @@ impl Interpreter {
             context: Context {
                 gas: gas as i64,
                 registers: program.registers,
-                memory: Rc::new(RefCell::new(program.memory.clone())),
+                memory: program.memory.clone(),
             },
             pc,
             ..Default::default()
@@ -56,7 +55,6 @@ impl Interpreter {
                     Reason::HostCall(call) => {
                         let mut context = interp.context.ctx(ctx);
                         let reason = host::call(call, &mut context);
-                        interp.context.sync(&context);
                         ctx = context.ctx;
                         if reason != Reason::Continue {
                             let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;

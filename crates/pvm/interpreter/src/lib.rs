@@ -15,7 +15,6 @@ mod visitor;
 
 pub use parser::{Memory, Reader, Register, PAGE_SIZE};
 use pvm::{Reason, State};
-use std::{cell::RefCell, rc::Rc};
 pub use {
     context::Context,
     result::{Error, Result},
@@ -50,7 +49,7 @@ impl Interpreter {
             pc: self.pc,
             gas: self.context.gas,
             registers: self.context.registers,
-            memory: self.context.memory.borrow().clone(),
+            memory: self.context.memory.clone(),
         }
     }
 
@@ -59,17 +58,13 @@ impl Interpreter {
         self.pc = state.pc;
         self.context.gas = state.gas;
         self.context.registers = state.registers;
-        self.context.memory = Rc::new(RefCell::new(state.memory));
+        self.context.memory = state.memory;
     }
 
     /// Get the output of the interpreter.
     pub fn output(&self) -> Vec<u8> {
         let ptr = self.context.registers[7] as u32;
         let len = self.context.registers[8] as u32;
-        self.context
-            .memory
-            .borrow()
-            .read_bytes(ptr, len)
-            .unwrap_or_default()
+        self.context.memory.read_bytes(ptr, len).unwrap_or_default()
     }
 }
