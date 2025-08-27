@@ -5,13 +5,17 @@ use libc::{
     mmap, mprotect, munmap, MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ,
     PROT_WRITE,
 };
+use pvm::MemoryLike;
 use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct Memory {
     /// Base pointer to the virtual memory region
     base: *mut u8,
+    /// Heap pointer
+    heap_ptr: u32,
 }
 
 impl Memory {
@@ -37,6 +41,7 @@ impl Memory {
 
         let memory = Memory {
             base: base as *mut u8,
+            heap_ptr: pmemory.heap_ptr,
         };
 
         memory.init(pmemory)?;
@@ -230,3 +235,22 @@ impl Drop for Memory {
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
+
+impl MemoryLike for Memory {
+    fn read(&self, addr: u32, len: u32) -> Result<Vec<u8>> {
+        Ok(self.read_bytes(addr, len).to_vec())
+    }
+
+    fn write(&mut self, addr: u32, data: &[u8]) -> Result<()> {
+        self.write_bytes(addr, data);
+        Ok(())
+    }
+
+    fn allocate(&mut self, page: u32, count: u32) -> Result<()> {
+        Memory::allocate(self, page, count)
+    }
+
+    fn heap_ptr(&self) -> u32 {
+        self.heap_ptr
+    }
+}

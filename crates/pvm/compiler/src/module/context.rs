@@ -4,9 +4,10 @@ use crate::Memory;
 
 /// Runtime context for block execution
 #[derive(Debug)]
+#[repr(C)]
 pub struct Context {
     pub registers: [u64; pvm::REGISTER_COUNT],
-    pub gas: u64,
+    pub gas: i64,
     pub pc: u64,
     pub memory: Memory,
 }

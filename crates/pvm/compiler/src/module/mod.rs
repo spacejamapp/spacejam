@@ -33,7 +33,7 @@ impl Module {
         let mut context = Context {
             registers: *registers,
             pc,
-            gas,
+            gas: gas as i64,
             memory: self.memory.clone(),
         };
 
@@ -41,7 +41,7 @@ impl Module {
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
-            gas: context.gas,
+            gas: context.gas as u64,
             memory: context.memory.fill(&memory),
             reason,
         })
