@@ -39,6 +39,7 @@ impl Interpreter {
     /// Read a value from memory
     pub fn read<V: pvm::Value>(&self, address: u32) -> crate::Result<V> {
         let bytes = self
+            .context
             .memory
             .borrow()
             .read_bytes(address, V::SIZE as u32)
@@ -58,7 +59,8 @@ impl Interpreter {
 
     /// Write a value to memory
     pub fn write<V: pvm::Value>(&mut self, address: u32, value: V) -> crate::Result<()> {
-        self.memory
+        self.context
+            .memory
             .borrow_mut()
             .write_bytes(address, &value.to_vec())
             .map_err(|_e| Error::MemoryInaccessible {
@@ -79,17 +81,18 @@ impl Interpreter {
 
     /// Get the register value.
     pub fn rget(&self, reg: u8) -> u64 {
-        self.registers[reg as usize]
+        self.context.registers[reg as usize]
     }
 
     /// Set the register value.
     pub fn rset(&mut self, reg: u8, value: u64) {
-        self.registers[reg as usize] = value;
+        self.context.registers[reg as usize] = value;
     }
 
     /// Allocate pages for sbrk
     pub fn allocate(&mut self, start_page: u32, count: u32) -> crate::Result<()> {
-        self.memory
+        self.context
+            .memory
             .borrow_mut()
             .allocate(start_page, count)
             .map_err(|_e| Error::MemoryInaccessible { page: start_page })
@@ -106,11 +109,11 @@ impl Interpreter {
 
     /// Burn the gas.
     pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
-        if self.gas < gas as i64 {
+        if self.context.gas < gas as i64 {
             return Err(Error::OOG);
         }
 
-        self.gas = self.gas.saturating_sub(gas as i64);
+        self.context.gas = self.context.gas.saturating_sub(gas as i64);
         Ok(())
     }
 

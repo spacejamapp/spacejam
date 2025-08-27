@@ -1,8 +1,8 @@
 //! Invocation APIs of the interpreter
 
-use crate::Interpreter;
+use crate::{Context, Interpreter};
 use anyhow::Result;
-use pvm::{host, score::Gas, Argument, Program, Reason, Received, Stepped};
+use pvm::{host, score::Gas, Argument, Program, Reason, Received};
 use std::{cell::RefCell, rc::Rc};
 
 impl Interpreter {
@@ -15,10 +15,12 @@ impl Interpreter {
     ) -> Result<Received<X>> {
         let initial_gas = gas;
         let mut interp = Interpreter {
-            gas: gas as i64,
+            context: Context {
+                gas: gas as i64,
+                registers: program.registers,
+                memory: Rc::new(RefCell::new(program.memory.clone())),
+            },
             pc,
-            registers: program.registers,
-            memory: Rc::new(RefCell::new(program.memory.clone())),
             ..Default::default()
         };
 
@@ -37,8 +39,8 @@ impl Interpreter {
                     "pos={:<6} {:<20} gas={:<6} regs={:?}",
                     instr.range.start,
                     instr.value.to_string(),
-                    interp.gas,
-                    interp.registers
+                    interp.context.gas,
+                    interp.context.registers
                 );
                 interp.pc = instr.range.start;
                 match interp.step(&instr) {
@@ -52,15 +54,11 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
-                        let Stepped {
-                            reason,
-                            state,
-                            data,
-                        } = host::call(call, interp.state(), ctx);
-                        interp.set_state(state);
-                        ctx = data;
+                        let (reason, next) = host::call(call, interp.context.ctx(ctx));
+                        interp.context.sync(&next);
+                        ctx = next.ctx;
                         if reason != Reason::Continue {
-                            let consumed_gas = initial_gas - interp.gas.max(0) as u64;
+                            let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
                             return Ok(Received {
                                 gas: consumed_gas,
                                 output: interp.output(),
@@ -71,7 +69,7 @@ impl Interpreter {
                         }
                     }
                     reason => {
-                        let consumed_gas = initial_gas - interp.gas.max(0) as u64;
+                        let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
                         return Ok(Received {
                             gas: consumed_gas,
                             output: interp.output(),
@@ -86,7 +84,7 @@ impl Interpreter {
 
         interp.pc = reader.position;
         let _ = interp.burn(1);
-        let consumed_gas = initial_gas - interp.gas.max(0) as u64;
+        let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
         Ok(Received {
             gas: consumed_gas,
             output: interp.output(),

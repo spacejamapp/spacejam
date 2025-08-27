@@ -6,6 +6,7 @@
 //! - embed execution result in step outputs.
 //! - calculate gas from step outputs.
 
+mod context;
 mod interp;
 mod invoke;
 mod pvmi;
@@ -14,8 +15,11 @@ mod visitor;
 
 pub use parser::{Memory, Reader, Register, PAGE_SIZE};
 use pvm::{Reason, State};
-pub use result::{Error, Result};
 use std::{cell::RefCell, rc::Rc};
+pub use {
+    context::Context,
+    result::{Error, Result},
+};
 
 /// The interpreter for the polkavm program.
 ///
@@ -23,23 +27,17 @@ use std::{cell::RefCell, rc::Rc};
 /// invocation interfaces in the future.
 #[derive(Default)]
 pub struct Interpreter {
-    /// The gas of the interpreter.
-    pub gas: i64,
+    /// The context of the interpreter.
+    pub context: Context,
 
     /// The jump target.
     pub jump: Option<usize>,
-
-    /// The memory of the interpreter.
-    pub memory: Rc<RefCell<parser::Memory>>,
 
     /// The program counter of the interpreter.
     pub pc: usize,
 
     /// The reason of the exit-execution.
     pub reason: Reason,
-
-    /// The registers of the interpreter.
-    pub registers: [u64; 13],
 
     /// The jump table of the interpreter.
     pub table: Vec<u64>,
@@ -50,25 +48,26 @@ impl Interpreter {
     pub fn state(&self) -> State {
         State {
             pc: self.pc,
-            gas: self.gas,
-            registers: self.registers,
-            memory: self.memory.borrow().clone(),
+            gas: self.context.gas,
+            registers: self.context.registers,
+            memory: self.context.memory.borrow().clone(),
         }
     }
 
     /// Set the state of the interpreter.
     pub fn set_state(&mut self, state: State) {
         self.pc = state.pc;
-        self.gas = state.gas;
-        self.registers = state.registers;
-        self.memory = Rc::new(RefCell::new(state.memory));
+        self.context.gas = state.gas;
+        self.context.registers = state.registers;
+        self.context.memory = Rc::new(RefCell::new(state.memory));
     }
 
     /// Get the output of the interpreter.
     pub fn output(&self) -> Vec<u8> {
-        let ptr = self.registers[7] as u32;
-        let len = self.registers[8] as u32;
-        self.memory
+        let ptr = self.context.registers[7] as u32;
+        let len = self.context.registers[8] as u32;
+        self.context
+            .memory
             .borrow()
             .read_bytes(ptr, len)
             .unwrap_or_default()

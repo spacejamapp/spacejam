@@ -5,7 +5,7 @@ use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
     vm::{DeferredTransfer, Operand},
-    Account, OpaqueHash, ServiceId, TimeSlot,
+    Account, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
 /// Dynamic arguments for host calls
@@ -14,6 +14,11 @@ pub trait Argument {
 
     /// Get an account by account id
     fn account(&mut self, id: u64) -> Result<&mut impl Account>;
+
+    /// Burn the input gas
+    fn burn(&mut self, gas: Gas) {
+        unimplemented!("make sure your are invoking the accumulation interface: gas={gas}")
+    }
 
     /// Get the check index
     fn check(&mut self, index: ServiceId) -> ServiceId {
@@ -27,6 +32,11 @@ pub trait Argument {
 
     /// Get the entropy (η'0)
     fn entropy(&self) -> OpaqueHash {
+        unimplemented!("make sure your are invoking the accumulation interface")
+    }
+
+    /// Get the gas
+    fn gas(&self) -> Gas {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
@@ -59,6 +69,18 @@ pub trait Argument {
     /// Get the privileges
     fn privileges(&self) -> Privileges {
         Privileges::default()
+    }
+
+    /// Get the register value
+    fn rget(&mut self, reg: u8) -> u64 {
+        unimplemented!("make sure you are invoking the accumulation interface: reg={reg}")
+    }
+
+    /// Set the register value
+    fn rset(&mut self, reg: u8, value: u64) {
+        unimplemented!(
+            "make sure you are invoking the accumulation interface: reg={reg} value={value}"
+        )
     }
 
     /// Remove an account
@@ -142,6 +164,13 @@ pub trait Argument {
     /// Read from memory
     fn read(&self, address: u32, len: u32) -> Result<Vec<u8>> {
         unimplemented!("make sure you are accessing a VM context: address={address} len={len}")
+    }
+
+    /// Read a hash from memory
+    fn read_hash(&self, address: u32) -> Result<[u8; 32]> {
+        let mut hash = [0; 32];
+        hash.copy_from_slice(&self.read(address, 32)?);
+        Ok(hash)
     }
 
     /// Write to memory

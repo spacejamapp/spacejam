@@ -712,22 +712,22 @@ impl Visitor for Interpreter {
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<()> {
         let format::RR { reg0, reg1 } = format;
         let increment = self.rget(reg1);
-        let heap_ptr = self.memory.borrow().heap_ptr;
+        let heap_ptr = self.context.memory.borrow().heap_ptr;
         self.rset(reg0, heap_ptr as u64);
         if increment == 0 {
             return Ok(());
         }
 
         let funp = |x: u64| x.div_ceil(parser::PAGE_SIZE) * parser::PAGE_SIZE;
-        let boundary = funp(self.memory.borrow().heap_ptr as u64);
-        let nptr = self.memory.borrow().heap_ptr as u64 + increment;
+        let boundary = funp(self.context.memory.borrow().heap_ptr as u64);
+        let nptr = self.context.memory.borrow().heap_ptr as u64 + increment;
         if nptr > boundary {
             let start = boundary / parser::PAGE_SIZE;
             let count = funp(nptr) / parser::PAGE_SIZE - start;
             self.allocate(start as u32, count as u32)?;
         }
 
-        self.memory.borrow_mut().heap_ptr += increment as u32;
+        self.context.memory.borrow_mut().heap_ptr += increment as u32;
         Ok(())
     }
 

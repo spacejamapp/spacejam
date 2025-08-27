@@ -7,24 +7,34 @@ use score::{
     safrole::ValidatorData,
     service::Privileges,
     vm::{DeferredTransfer, Operand},
-    Account, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
+    Account, Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
 use std::{cell::RefCell, rc::Rc};
 
 /// Helper context that wraps the invocation arguments and the memory.
-pub struct Context<X: Argument, M: MemoryLike> {
+pub struct Context<X: Argument, M: MemoryLike + Clone> {
     /// The context from the chain
     pub ctx: X,
+
+    /// The registers of the context
+    pub registers: [u64; 13],
+
+    /// The gas of the context
+    pub gas: i64,
 
     /// The hosting memory
     pub memory: Rc<RefCell<M>>,
 }
 
-impl<X: Argument, M: MemoryLike> Argument for Context<X, M> {
+impl<X: Argument, M: MemoryLike + Clone> Argument for Context<X, M> {
     const SUPPORTED_CALLS: &[u32] = X::SUPPORTED_CALLS;
 
     fn account(&mut self, id: u64) -> Result<&mut impl Account> {
         self.ctx.account(id)
+    }
+
+    fn burn(&mut self, gas: Gas) {
+        self.gas -= gas as i64;
     }
 
     fn check(&mut self, index: ServiceId) -> ServiceId {
@@ -37,6 +47,10 @@ impl<X: Argument, M: MemoryLike> Argument for Context<X, M> {
 
     fn entropy(&self) -> OpaqueHash {
         self.ctx.entropy()
+    }
+
+    fn gas(&self) -> Gas {
+        self.gas as u64
     }
 
     fn index(&self) -> ServiceId {
@@ -57,6 +71,14 @@ impl<X: Argument, M: MemoryLike> Argument for Context<X, M> {
 
     fn privileges(&self) -> Privileges {
         self.ctx.privileges()
+    }
+
+    fn rget(&mut self, reg: u8) -> u64 {
+        self.registers[reg as usize]
+    }
+
+    fn rset(&mut self, reg: u8, value: u64) {
+        self.registers[reg as usize] = value;
     }
 
     fn remove(&mut self, service: ServiceId) {
