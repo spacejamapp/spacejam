@@ -19,17 +19,20 @@ mod state;
 
 /// Helper context that wraps the invocation arguments and the memory.
 pub struct Context<'ctx, X: Argument, M: MemoryLike> {
-    /// The context from the chain
-    pub ctx: &'ctx mut X,
-
     /// The registers of the context
-    pub registers: &'ctx mut [u64; 13],
+    pub registers: [u64; 13],
 
     /// The gas of the context
-    pub gas: &'ctx mut i64,
+    pub gas: i64,
+
+    /// The program counter of the context
+    pub pc: u64,
 
     /// The hosting memory
-    pub memory: &'ctx mut M,
+    pub memory: M,
+
+    /// The context from the chain
+    pub ctx: &'ctx mut X,
 }
 
 impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
@@ -40,7 +43,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     }
 
     fn burn(&mut self, gas: Gas) {
-        *self.gas -= gas as i64;
+        self.gas -= gas as i64;
     }
 
     fn check(&mut self, index: ServiceId) -> ServiceId {
@@ -56,7 +59,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     }
 
     fn gas(&self) -> Gas {
-        *self.gas as u64
+        self.gas as u64
     }
 
     fn index(&self) -> ServiceId {

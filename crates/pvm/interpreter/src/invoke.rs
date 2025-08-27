@@ -55,6 +55,7 @@ impl Interpreter {
                     Reason::HostCall(call) => {
                         let mut context = interp.context.ctx(&mut ctx);
                         let reason = host::call(call, &mut context);
+                        interp.context.registers = context.registers;
                         if reason != Reason::Continue {
                             return Ok(interp.result(ctx, initial_gas, reason));
                         }

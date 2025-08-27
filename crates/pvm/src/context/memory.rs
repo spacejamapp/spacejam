@@ -34,3 +34,21 @@ impl MemoryLike for parser::Memory {
         self.heap_ptr
     }
 }
+
+impl MemoryLike for &mut parser::Memory {
+    fn read(&self, addr: u32, len: u32) -> Result<Vec<u8>> {
+        self.read_bytes(addr, len)
+    }
+
+    fn write(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
+        self.write_bytes(addr, bytes)
+    }
+
+    fn allocate(&mut self, start: u32, count: u32) -> Result<()> {
+        parser::Memory::allocate(self, start, count)
+    }
+
+    fn heap_ptr(&self) -> u32 {
+        self.heap_ptr
+    }
+}

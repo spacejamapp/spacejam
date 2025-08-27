@@ -20,12 +20,13 @@ impl Context {
     pub fn ctx<'ctx, X: Argument>(
         &'ctx mut self,
         ctx: &'ctx mut X,
-    ) -> pvm::Context<'ctx, X, parser::Memory> {
+    ) -> pvm::Context<'ctx, X, &'ctx mut parser::Memory> {
         pvm::Context {
             ctx,
             memory: &mut self.memory,
-            registers: &mut self.registers,
-            gas: &mut self.gas,
+            pc: 0,
+            registers: self.registers,
+            gas: self.gas,
         }
     }
 }

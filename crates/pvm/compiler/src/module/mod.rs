@@ -36,6 +36,7 @@ impl Module {
             gas,
             memory: self.memory.clone(),
         };
+
         let reason = self.run(&mut context)?;
         Ok(Info {
             registers: context.registers,
