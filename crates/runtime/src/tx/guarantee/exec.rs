@@ -1,10 +1,10 @@
 //! Execution of work reports
 
-use pvm::{Account, Accounts, Pvm};
+use pvm::Pvm;
 use score::{
     service::WorkReport,
     vm::{AccumulateState, Accumulated},
-    Gas, ServiceId, TimeSlot,
+    Account, Accounts, Gas, ServiceId, TimeSlot,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -141,7 +141,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
     // Handle the assign array - each core has its own assign service
     for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
         if let Some(result) = results.get(assign_service) {
-            // Update the authorization queue for this specific core
             context.authorization[core_index] = result.context.authorization[core_index].clone();
         }
     }

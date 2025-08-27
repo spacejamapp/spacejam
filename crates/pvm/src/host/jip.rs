@@ -1,6 +1,6 @@
 //! JIP specified host calls
 
-use crate::{host::Exit, invocation::State, Result};
+use crate::{host::Exit, Argument, Result};
 
 /// JIP-1 logging host function implementation
 ///
@@ -14,13 +14,13 @@ use crate::{host::Exit, invocation::State, Result};
 /// r10 = message address
 /// r11 = message length
 #[tracing::instrument(skip_all, name = "program", parent = None)]
-pub fn log(state: &mut State) -> Result<u64> {
-    let level = state.registers[7];
-    let target_addr = state.registers[8] as u32;
-    let target_len = state.registers[9] as u32;
-    let msg_addr = state.registers[10] as u32;
-    let msg_len = state.registers[11] as u32;
-    let message = match state.memory.read_bytes(msg_addr, msg_len) {
+pub fn log(ctx: &mut impl Argument) -> Result<u64> {
+    let level = ctx.rget(7);
+    let target_addr = ctx.rget(8) as u32;
+    let target_len = ctx.rget(9) as u32;
+    let msg_addr = ctx.rget(10) as u32;
+    let msg_len = ctx.rget(11) as u32;
+    let message = match ctx.read(msg_addr, msg_len) {
         Ok(data) => {
             let msg_str = String::from_utf8_lossy(&data).to_string();
             msg_str
@@ -38,7 +38,7 @@ pub fn log(state: &mut State) -> Result<u64> {
 
     // Read target if provided (for structured logging)
     let target = if target_len > 0 {
-        match state.memory.read_bytes(target_addr, target_len) {
+        match ctx.read(target_addr, target_len) {
             Ok(data) => String::from_utf8_lossy(&data).to_string(),
             Err(reason) => return Err(reason.into()),
         }

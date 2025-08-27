@@ -2,31 +2,56 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::State,
     Argument, Result,
 };
 use score::{Account, Parameters};
 
 /// (ΩG) Get the gas to register
-pub fn gas(state: &mut State) -> Result<u64> {
-    Ok(state.gas as u64)
+pub fn gas(ctx: &impl Argument) -> Result<u64> {
+    Ok(ctx.gas())
+}
+
+// (ΩY) fetch the on chain parameters
+pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let value: Vec<u8> = match ctx.rget(10) {
+        0 => codec::encode(&Parameters::default()).expect("should not fail"),
+        1 => codec::encode(&ctx.entropy()).expect("should not fail"),
+        14 => codec::encode(&ctx.operands()).expect("should not fail"),
+        kind => {
+            tracing::warn!("kind {kind} not supported");
+            return Ok(Exit::None as u64);
+        }
+    };
+
+    let vlen = value.len() as u64;
+    let out = ctx.rget(7);
+    let from = ctx.rget(8).min(vlen);
+    let length = ctx.rget(9).min(vlen - from);
+    if length > 0 {
+        ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
+    }
+
+    Ok(vlen)
 }
 
 /// (ΩL) account lookup
-pub fn lookup(ctx: &mut impl Argument, state: &mut State) -> Result<u64> {
-    let Ok(account) = ctx.or_this(state.registers[7]) else {
+pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
+    let [acc, address, target, from, to] = [
+        ctx.rget(7),
+        ctx.rget(8),
+        ctx.rget(9),
+        ctx.rget(10),
+        ctx.rget(11),
+    ];
+    let phash = ctx.read(address as u32, 32)?;
+    let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
     // get the preimage
     let preimage = {
-        let address = state.registers[8];
-
-        // get the preimage hash
-        let phash = state.memory.read_bytes(address as u32, 32)?;
         let mut hash = [0u8; 32];
         hash.copy_from_slice(&phash);
-
         let Some(preimage) = account.preimage(hash) else {
             return Ok(Exit::None as u64);
         };
@@ -36,30 +61,23 @@ pub fn lookup(ctx: &mut impl Argument, state: &mut State) -> Result<u64> {
 
     // write patrial preimage to memory
     let plen = preimage.len() as u64;
-    let (from, to) = (state.registers[10].min(plen), state.registers[11].min(plen));
-    state.memory.write_bytes(
-        state.registers[9] as u32,
-        &preimage[from as usize..to as usize],
-    )?;
-
+    let (from, to) = (from.min(plen), to.min(plen));
+    ctx.write(target as u32, &preimage[from as usize..to as usize])?;
     Ok(plen)
 }
 
 /// (ΩR) storage lookup
-pub fn read(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
+    // get the key
+    let [acc, ko, kz, o] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    let key = ctx.read(ko as u32, kz as u32)?;
+
     // get the account
-    let Ok(account) = ctx.or_this(state.registers[7]) else {
+    let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
     tracing::debug!("reading from account {}", account.index());
-
-    // get the key
-    let [ko, kz, o] = [state.registers[8], state.registers[9], state.registers[10]];
-    let key = state
-        .memory
-        .read_bytes(ko as u32, kz as u32)
-        .expect("should not fail");
 
     // get the storage value
     let Some(value) = account.read(&key) else {
@@ -67,33 +85,20 @@ pub fn read(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     };
 
     let vlen = value.len() as u64;
-    let from = state.registers[11].min(vlen);
-    let length = state.registers[12].min(vlen - from);
+    let from = ctx.rget(11).min(vlen);
+    let length = ctx.rget(12).min(vlen - from);
     if length > 0 {
-        state
-            .memory
-            .write_bytes(o as u32, &value[from as usize..(from + length) as usize])?;
+        ctx.write(o as u32, &value[from as usize..(from + length) as usize])?;
     }
     Ok(vlen)
 }
 
 /// (ΩW) storage write
-pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     // extract arguments from registers
-    let [ko, kz, vo, vz] = [
-        state.registers[7],
-        state.registers[8],
-        state.registers[9],
-        state.registers[10],
-    ];
-
-    // Get key bytes from memory, log both address and length to help with debugging
-    let key = match state.memory.read_bytes(ko as u32, kz as u32) {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            crate::bail!("Failed to read key bytes: {:?}", err);
-        }
-    };
+    let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    let value = ctx.read(vo as u32, vz as u32)?;
+    let key = ctx.read(ko as u32, kz as u32)?;
 
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;
@@ -113,13 +118,6 @@ pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         };
     } else {
-        let value = match state.memory.read_bytes(vo as u32, vz as u32) {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                crate::bail!("Failed to read value bytes: {:?}", err);
-            }
-        };
-
         // TODO: we actually can update the key here for avoiding hashing for twice
         account.write(&key, value);
     }
@@ -128,8 +126,9 @@ pub fn write(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩI) fetch account info
-pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let Ok(account) = ctx.or_this(state.registers[7]) else {
+pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [acc, output, from, to] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
@@ -139,40 +138,12 @@ pub fn info(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 
     // Get memory write parameters from registers
     let total_len = info.len() as u64;
-    let output = state.registers[8] as u32;
-    let from = state.registers[9].min(total_len) as usize;
-    let length = state.registers[10].min(total_len - from as u64) as usize;
+    let (from, to) = (from.min(total_len) as usize, to.min(total_len) as usize);
+    let length = to - from;
     if length > 0 {
-        state
-            .memory
-            .write_bytes(output, &info[from..(from + length)])?;
+        ctx.write(output as u32, &info[from..(from + length)])?;
     }
 
     // Return total length of encoded data
     Ok(total_len)
-}
-
-// (ΩY) fetch the on chain parameters
-pub fn fetch(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let value: Vec<u8> = match state.registers[10] {
-        0 => codec::encode(&Parameters::default()).expect("should not fail"),
-        1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => codec::encode(&ctx.operands()).expect("should not fail"),
-        kind => {
-            tracing::warn!("kind {kind} not supported");
-            return Ok(Exit::None as u64);
-        }
-    };
-
-    let vlen = value.len() as u64;
-    let out = state.registers[7];
-    let from = state.registers[8].min(vlen);
-    let length = state.registers[9].min(vlen - from);
-    if length > 0 {
-        state
-            .memory
-            .write_bytes(out as u32, &value[from as usize..(from + length) as usize])?;
-    }
-
-    Ok(vlen)
 }

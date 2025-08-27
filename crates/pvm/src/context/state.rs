@@ -1,7 +1,7 @@
 //! Primitives for the general invocation
 
-use crate::{invocation::Accumulate, Accumulated, Gas, Reason};
-use score::{service::WorkExecResult, Accounts};
+use crate::{invocation::Accumulate, Accumulated, Reason};
+use score::{service::WorkExecResult, Accounts, Gas};
 
 /// The execution state of programs.
 #[derive(Default, Clone)]
@@ -19,63 +19,8 @@ pub struct State {
     pub memory: parser::Memory,
 }
 
-impl State {
-    /// Create a new stepped result
-    pub fn stepped(self, reason: Reason) -> Stepped<()> {
-        Stepped {
-            reason,
-            state: self,
-            data: (),
-        }
-    }
-}
-
-/// The result of step invocation (Ψ1)
-pub struct Stepped<X> {
-    /// (ε) the reason for exiting
-    pub reason: Reason,
-
-    /// (U) The newly updated state
-    pub state: State,
-
-    /// (X) the data
-    pub data: X,
-}
-
-impl Stepped<()> {
-    /// Create a new stepped result with the given reason
-    pub fn new(reason: Reason, state: State) -> Self {
-        Self {
-            reason,
-            state,
-            data: (),
-        }
-    }
-
-    /// Create a new stepped result with the given data
-    pub fn with<X>(self, data: X) -> Stepped<X> {
-        Stepped {
-            reason: self.reason,
-            state: self.state,
-            data,
-        }
-    }
-}
-
-impl<X> Stepped<X> {
-    /// Convert the stepped result to a received result
-    pub fn received(self, gas: Gas, output: Vec<u8>) -> Received<X> {
-        Received {
-            gas,
-            output,
-            reason: self.reason,
-            data: self.data,
-        }
-    }
-}
-
 /// The received data from (ΨM)
-pub struct Received<X> {
+pub struct Invoked<X> {
     /// (u) The gas we used
     pub gas: Gas,
 
@@ -87,9 +32,12 @@ pub struct Received<X> {
 
     /// (m??) The data we got
     pub data: X,
+
+    /// (U) The state
+    pub state: State,
 }
 
-impl<X> Received<X> {
+impl<X> Invoked<X> {
     /// Create a new received result with a panic reason
     pub fn panic(message: impl ToString, data: X) -> Self {
         Self {
@@ -97,6 +45,7 @@ impl<X> Received<X> {
             output: Vec::new(),
             reason: Reason::Panic(message.to_string()),
             data,
+            state: State::default(),
         }
     }
 
@@ -111,7 +60,7 @@ impl<X> Received<X> {
     }
 }
 
-impl<R: Accounts> Received<Accumulate<R>> {
+impl<R: Accounts> Invoked<Accumulate<R>> {
     /// Convert the received result to an accumulate result
     pub fn to_result(self) -> Accumulated<R> {
         // Treat Continue and Halt as successful completion

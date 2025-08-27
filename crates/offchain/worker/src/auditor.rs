@@ -2,7 +2,7 @@
 
 use crate::{d3l::Justification, Guarantor, WorkPackageBundle};
 use anyhow::Result;
-use pvm::{Accounts, Pvm};
+use pvm::{score::Accounts, Pvm};
 use score::{service::WorkReport, OpaqueHash};
 
 /// Auditor utilities for work-report verification

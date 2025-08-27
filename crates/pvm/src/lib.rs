@@ -1,12 +1,11 @@
 //! PolkaVM implementation
 
-pub use parser::{program::Program, Memory, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
-pub use score::{Account, Accounts, Gas};
+pub use parser::{program::Program, Memory, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
 pub use {
-    invocation::{
-        AccumulateContext, Accumulated, Argument, Executed, Invocation, Received, State, Stepped,
-    },
+    context::{Argument, Context, Executed, Invoked, MemoryLike, State},
+    invocation::{AccumulateContext, Accumulated, Invocation},
     result::{Reason, Result},
+    score,
     value::Value,
 };
 
@@ -18,6 +17,7 @@ macro_rules! bail {
     };
 }
 
+mod context;
 pub mod host;
 pub mod invocation;
 mod result;

@@ -2,7 +2,7 @@
 
 use crate::{storage::Commit, Storage};
 use anyhow::Result;
-use pvm::Gas;
+use pvm::score::Gas;
 pub use registry::Accounts;
 use score::{
     service::{ServiceAccount, ServiceInfo},

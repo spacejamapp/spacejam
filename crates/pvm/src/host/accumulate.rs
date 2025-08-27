@@ -2,7 +2,6 @@
 
 use crate::{
     host::{Exit, ExitCode},
-    invocation::State,
     Argument, Result,
 };
 use score::{
@@ -14,13 +13,13 @@ use score::{
 use std::collections::BTreeMap;
 
 /// (ΩB) bless
-pub fn bless(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [bless, assign, designate, acc, entries] = [
-        state.registers[7],  // m: bless service id
-        state.registers[8],  // a: memory address of assign array
-        state.registers[9],  // v: designate service id
-        state.registers[10], // o: memory address of always_acc map
-        state.registers[11], // n: count of always_acc entries
+        ctx.rget(7),  // m: bless service id
+        ctx.rget(8),  // a: memory address of assign array
+        ctx.rget(9),  // v: designate service id
+        ctx.rget(10), // o: memory address of always_acc map
+        ctx.rget(11), // n: count of always_acc entries
     ];
 
     // Check if current service is the blessed service
@@ -37,7 +36,7 @@ pub fn bless(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     // Read assign array from memory
     let assign = {
         let size = 4 * score::CORES_COUNT as u32;
-        let data = state.memory.read_bytes(assign as u32, size)?;
+        let data = ctx.read(assign as u32, size)?;
         let mut assign = [0u32; score::CORES_COUNT];
         for (i, chunk) in data.chunks(4).enumerate() {
             if i < score::CORES_COUNT {
@@ -51,7 +50,7 @@ pub fn bless(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     // Read always accumulate map from memory
     let mut always_acc = BTreeMap::new();
     if entries > 0 {
-        let source = state.memory.read_bytes(acc as u32, (12 * entries) as u32)?;
+        let source = ctx.read(acc as u32, (12 * entries) as u32)?;
         for chunk in source.chunks(12) {
             let service_id = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             let gas_allowance = u64::from_le_bytes([
@@ -73,11 +72,9 @@ pub fn bless(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩA) assign authorization queue
-pub fn assign(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [core, o, assign] = [state.registers[7], state.registers[8], state.registers[9]];
-    let source = state
-        .memory
-        .read_bytes(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
+pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [core, o, assign] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
+    let source = ctx.read(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
 
     // return if invalid core index
     if core > score::CORES_COUNT as u64 {
@@ -107,12 +104,10 @@ pub fn assign(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩD) designate the validators to be drawn for the next epoch
-pub fn designate(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
     // get the data source
-    let o = state.registers[7];
-    let source = state
-        .memory
-        .read_bytes(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
+    let o = ctx.rget(7);
+    let source = ctx.read(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
 
     let privileges = ctx.privileges();
     if ctx.service() != privileges.designate {
@@ -144,19 +139,19 @@ pub fn designate(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode>
 }
 
 /// (ΩC) checkpoint
-pub fn checkpoint(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn checkpoint(ctx: &mut impl Argument) -> Result<ExitCode> {
     ctx.checkpoint();
-    Ok(state.gas as u64)
+    Ok(ctx.gas())
 }
 
 /// (ΩN) new
-pub fn new_(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
+pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [o, length, accumulate_gas, transfer_gas, f] = [
-        state.registers[7],
-        state.registers[8],
-        state.registers[9],
-        state.registers[10],
-        state.registers[11],
+        ctx.rget(7),
+        ctx.rget(8),
+        ctx.rget(9),
+        ctx.rget(10),
+        ctx.rget(11),
     ];
 
     // check if the service is blessed
@@ -166,7 +161,7 @@ pub fn new_(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     }
 
     // get the account code
-    let code = state.memory.read_hash(o as u32)?;
+    let code = ctx.read_hash(o as u32)?;
     if length > u32::MAX as u64 {
         crate::bail!("Invalid length");
     }
@@ -200,7 +195,7 @@ pub fn new_(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
     *service.balance_mut() -= new_account_threshold;
     created.info.balance = new_account_threshold;
 
-    state.gas -= accumulate_gas as i64;
+    ctx.burn(accumulate_gas);
     ctx.upsert(index, created);
 
     let new_index = ctx.check(((index - (1 << 8) + 42) % score::CHECK_SALT) + (1 << 8));
@@ -209,9 +204,9 @@ pub fn new_(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩU) upgrade service code
-pub fn upgrade(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [o, g, m] = [state.registers[7], state.registers[8], state.registers[9]];
-    let code = state.memory.read_hash(o as u32)?;
+pub fn upgrade(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [o, g, m] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
+    let code = ctx.read_hash(o as u32)?;
     let account = ctx.this()?;
     account.set_code(code);
     account.set_transfer_gas(m);
@@ -220,18 +215,11 @@ pub fn upgrade(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩT) transfer funds from the sender to the destination
-pub fn transfer(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [dest, amount, limit, memo] = [
-        state.registers[7],
-        state.registers[8],
-        state.registers[9],
-        state.registers[10],
-    ];
+pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [dest, amount, limit, memo] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
 
     // check if the defer transfer is valid
-    let memo = state
-        .memory
-        .read_bytes(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+    let memo = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
     let transfer = DeferredTransfer {
         sender: ctx.service(),
         recipient: dest as u32,
@@ -242,7 +230,6 @@ pub fn transfer(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> 
 
     // check if the sender has enough balance
     let sender = ctx.this()?;
-    let sender_id = sender.index();
     let balance = sender.balance();
     if balance.saturating_sub(amount) < sender.threshold() {
         return Ok(Exit::Cash as u64);
@@ -258,16 +245,15 @@ pub fn transfer(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> 
     }
 
     // add the transfer to the deferred transfers
-    tracing::debug!("transferring {amount} from {sender_id} to {}", dest.index());
     ctx.transfer(transfer);
     *ctx.this()?.balance_mut() -= amount;
     Ok(Exit::Ok as u64)
 }
 
 /// (ΩE) eject a sub account
-pub fn eject(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [dest, o] = [state.registers[7], state.registers[8]];
-    let hash = state.memory.read_hash(o as u32)?;
+pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [dest, o] = [ctx.rget(7), ctx.rget(8)];
+    let hash = ctx.read_hash(o as u32)?;
     if dest == ctx.service() as u64 {
         crate::bail!("cannot eject to self");
     }
@@ -308,37 +294,37 @@ pub fn eject(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩQ) query an lookup entry
-pub fn query(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let (o, z) = (state.registers[7] as u32, state.registers[8] as u32);
-    let hash = state.memory.read_hash(o)?;
+pub fn query(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let (o, z) = (ctx.rget(7) as u32, ctx.rget(8) as u32);
+    let hash = ctx.read_hash(o)?;
     let account = ctx.this()?;
     let Some(lookup) = account.lookup(hash, z) else {
-        state.registers[8] = 0;
+        ctx.rset(8, 0);
         return Ok(Exit::None as u64);
     };
 
     // update result
     let base = 1u64 << 32;
     let exit = if lookup.is_empty() {
-        state.registers[8] = 0;
+        ctx.rset(8, 0);
         0
     } else if lookup.len() == 1 {
-        state.registers[8] = 0;
+        ctx.rset(8, 0);
         1 + base * lookup[0] as u64
     } else if lookup.len() == 2 {
-        state.registers[8] = lookup[1] as u64;
+        ctx.rset(8, lookup[1] as u64);
         2 + base * lookup[0] as u64
     } else {
-        state.registers[8] = lookup[1] as u64 + base * lookup[2] as u64;
+        ctx.rset(8, lookup[1] as u64 + base * lookup[2] as u64);
         3 + base * lookup[0] as u64
     };
     Ok(exit)
 }
 
 /// (ΩS) solicit new lookup
-pub fn solicit(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [o, z] = [state.registers[7], state.registers[8]];
-    let hash = state.memory.read_hash(o as u32)?;
+pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [o, z] = [ctx.rget(7), ctx.rget(8)];
+    let hash = ctx.read_hash(o as u32)?;
 
     // check if the account has enough balance
     let timeslot = ctx.timeslot();
@@ -364,9 +350,9 @@ pub fn solicit(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩF) forget
-pub fn forget(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [o, z] = [state.registers[7], state.registers[8]];
-    let hash = state.memory.read_hash(o as u32)?;
+pub fn forget(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [o, z] = [ctx.rget(7), ctx.rget(8)];
+    let hash = ctx.read_hash(o as u32)?;
 
     // get the lookup data
     let timeslot = ctx.timeslot();
@@ -392,21 +378,21 @@ pub fn forget(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
 }
 
 /// (ΩY) yield
-pub fn yield_(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let o = state.registers[7];
-    let hash = state.memory.read_hash(o as u32)?;
+pub fn yield_(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let o = ctx.rget(7);
+    let hash = ctx.read_hash(o as u32)?;
     ctx.output(hash);
     Ok(Exit::Ok as u64)
 }
 
 /// (ΩP) provide new preimage
-pub fn provide(ctx: &mut impl Argument, state: &mut State) -> Result<ExitCode> {
-    let [mut service, from, size] = [state.registers[7], state.registers[8], state.registers[9]];
+pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
+    let [mut service, from, size] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
     if service == u64::MAX {
         service = ctx.service() as u64;
     }
 
-    let image = state.memory.read_bytes(from as u32, size as u32)?;
+    let image = ctx.read(from as u32, size as u32)?;
     let Ok(account) = ctx.account(service) else {
         return Ok(Exit::Who as u64);
     };

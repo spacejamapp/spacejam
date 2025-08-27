@@ -1,9 +1,6 @@
 //! Host functions
 
-use crate::{
-    invocation::{Argument, State, Stepped},
-    Reason,
-};
+use crate::{Argument, Reason};
 
 mod accumulate;
 mod general;
@@ -11,39 +8,39 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument>(call: u32, mut state: State, mut data: X) -> Stepped<X> {
+pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
     if !X::SUPPORTED_CALLS.contains(&call) {
         tracing::error!("unsupported host call: {}", call);
-        state.registers[7] = Exit::What as u64;
-        return Stepped::new(Reason::Continue, state).with(data);
+        ctx.rset(7, Exit::What as u64);
+        return Reason::Continue;
     }
 
     tracing::debug!("calling host call {call}");
     let reason = match call {
-        0 => general::gas(&mut state),
-        1 => general::fetch(&mut data, &mut state),
-        2 => general::lookup(&mut data, &mut state),
-        3 => general::read(&mut data, &mut state),
-        4 => general::write(&mut data, &mut state),
-        5 => general::info(&mut data, &mut state),
+        0 => general::gas(ctx),
+        1 => general::fetch(ctx),
+        2 => general::lookup(ctx),
+        3 => general::read(ctx),
+        4 => general::write(ctx),
+        5 => general::info(ctx),
         6..14 => {
             tracing::error!("refine host call: {}", call);
             Ok(Exit::What as u64)
         }
-        14 => accumulate::bless(&mut data, &mut state),
-        15 => accumulate::assign(&mut data, &mut state),
-        16 => accumulate::designate(&mut data, &mut state),
-        17 => accumulate::checkpoint(&mut data, &mut state),
-        18 => accumulate::new_(&mut data, &mut state),
-        19 => accumulate::upgrade(&mut data, &mut state),
-        20 => accumulate::transfer(&mut data, &mut state),
-        21 => accumulate::eject(&mut data, &mut state),
-        22 => accumulate::query(&mut data, &mut state),
-        23 => accumulate::solicit(&mut data, &mut state),
-        24 => accumulate::forget(&mut data, &mut state),
-        25 => accumulate::yield_(&mut data, &mut state),
-        26 => accumulate::provide(&mut data, &mut state),
-        100 => jip::log(&mut state),
+        14 => accumulate::bless(ctx),
+        15 => accumulate::assign(ctx),
+        16 => accumulate::designate(ctx),
+        17 => accumulate::checkpoint(ctx),
+        18 => accumulate::new_(ctx),
+        19 => accumulate::upgrade(ctx),
+        20 => accumulate::transfer(ctx),
+        21 => accumulate::eject(ctx),
+        22 => accumulate::query(ctx),
+        23 => accumulate::solicit(ctx),
+        24 => accumulate::forget(ctx),
+        25 => accumulate::yield_(ctx),
+        26 => accumulate::provide(ctx),
+        100 => jip::log(ctx),
         _ => {
             tracing::debug!("unknown host call: {}", call);
             Ok(Exit::What as u64)
@@ -52,10 +49,10 @@ pub fn call<X: Argument>(call: u32, mut state: State, mut data: X) -> Stepped<X>
 
     match reason {
         Ok(exit) => {
-            state.registers[7] = exit;
-            Stepped::new(Reason::Continue, state).with(data)
+            ctx.rset(7, exit);
+            Reason::Continue
         }
-        Err(reason) => Stepped::new(reason, state).with(data),
+        Err(reason) => reason,
     }
 }
 
