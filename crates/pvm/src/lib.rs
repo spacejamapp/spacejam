@@ -2,10 +2,8 @@
 
 pub use parser::{program::Program, Memory, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
 pub use {
-    context::Context,
-    invocation::{
-        AccumulateContext, Accumulated, Argument, Executed, Invocation, Received, State, Stepped,
-    },
+    context::{Argument, Context, Executed, Received, State, Stepped},
+    invocation::{AccumulateContext, Accumulated, Invocation},
     result::{Reason, Result},
     score,
     value::Value,

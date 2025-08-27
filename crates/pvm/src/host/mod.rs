@@ -1,6 +1,6 @@
 //! Host functions
 
-use crate::{invocation::Argument, Reason};
+use crate::{Argument, Reason};
 
 mod accumulate;
 mod general;
@@ -8,39 +8,39 @@ mod jip;
 mod refine;
 
 /// Call the host function
-pub fn call<X: Argument>(call: u32, mut ctx: X) -> (Reason, X) {
+pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
     if !X::SUPPORTED_CALLS.contains(&call) {
         tracing::error!("unsupported host call: {}", call);
         ctx.rset(7, Exit::What as u64);
-        return (Reason::Continue, ctx);
+        return Reason::Continue;
     }
 
     tracing::debug!("calling host call {call}");
     let reason = match call {
-        0 => general::gas(&ctx),
-        1 => general::fetch(&mut ctx),
-        2 => general::lookup(&mut ctx),
-        3 => general::read(&mut ctx),
-        4 => general::write(&mut ctx),
-        5 => general::info(&mut ctx),
+        0 => general::gas(ctx),
+        1 => general::fetch(ctx),
+        2 => general::lookup(ctx),
+        3 => general::read(ctx),
+        4 => general::write(ctx),
+        5 => general::info(ctx),
         6..14 => {
             tracing::error!("refine host call: {}", call);
             Ok(Exit::What as u64)
         }
-        14 => accumulate::bless(&mut ctx),
-        15 => accumulate::assign(&mut ctx),
-        16 => accumulate::designate(&mut ctx),
-        17 => accumulate::checkpoint(&mut ctx),
-        18 => accumulate::new_(&mut ctx),
-        19 => accumulate::upgrade(&mut ctx),
-        20 => accumulate::transfer(&mut ctx),
-        21 => accumulate::eject(&mut ctx),
-        22 => accumulate::query(&mut ctx),
-        23 => accumulate::solicit(&mut ctx),
-        24 => accumulate::forget(&mut ctx),
-        25 => accumulate::yield_(&mut ctx),
-        26 => accumulate::provide(&mut ctx),
-        100 => jip::log(&mut ctx),
+        14 => accumulate::bless(ctx),
+        15 => accumulate::assign(ctx),
+        16 => accumulate::designate(ctx),
+        17 => accumulate::checkpoint(ctx),
+        18 => accumulate::new_(ctx),
+        19 => accumulate::upgrade(ctx),
+        20 => accumulate::transfer(ctx),
+        21 => accumulate::eject(ctx),
+        22 => accumulate::query(ctx),
+        23 => accumulate::solicit(ctx),
+        24 => accumulate::forget(ctx),
+        25 => accumulate::yield_(ctx),
+        26 => accumulate::provide(ctx),
+        100 => jip::log(ctx),
         _ => {
             tracing::debug!("unknown host call: {}", call);
             Ok(Exit::What as u64)
@@ -50,9 +50,9 @@ pub fn call<X: Argument>(call: u32, mut ctx: X) -> (Reason, X) {
     match reason {
         Ok(exit) => {
             ctx.rset(7, exit);
-            (Reason::Continue, ctx)
+            Reason::Continue
         }
-        Err(reason) => (reason, ctx),
+        Err(reason) => reason,
     }
 }
 

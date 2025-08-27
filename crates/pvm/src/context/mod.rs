@@ -1,6 +1,5 @@
 //! Invocation context of the interpreter
 
-use crate::Argument;
 use anyhow::Result;
 use parser::MemoryLike;
 use score::{
@@ -10,6 +9,13 @@ use score::{
     Account, Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
 use std::{cell::RefCell, rc::Rc};
+pub use {
+    argument::Argument,
+    state::{Executed, Received, State, Stepped},
+};
+
+mod argument;
+mod state;
 
 /// Helper context that wraps the invocation arguments and the memory.
 pub struct Context<X: Argument, M: MemoryLike + Clone> {

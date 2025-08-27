@@ -54,9 +54,10 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
-                        let (reason, next) = host::call(call, interp.context.ctx(ctx));
-                        interp.context.sync(&next);
-                        ctx = next.ctx;
+                        let mut context = interp.context.ctx(ctx);
+                        let reason = host::call(call, &mut context);
+                        interp.context.sync(&context);
+                        ctx = context.ctx;
                         if reason != Reason::Continue {
                             let consumed_gas = initial_gas - interp.context.gas.max(0) as u64;
                             return Ok(Received {

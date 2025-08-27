@@ -1,6 +1,6 @@
 //! PVM invocation interface
 
-use crate::Reason;
+use crate::{Argument, Executed, Reason, Received, State, Stepped};
 use parser::program::{self, Program};
 use score::{
     service::{WorkExecResult, WorkPackage},
@@ -9,20 +9,16 @@ use score::{
 };
 pub use {
     accumulate::{Accumulate, AccumulateContext, Accumulated},
-    argument::Argument,
     authorize::IsAuthorized,
     general::General,
     refine::{Refine, Refined},
-    state::{Executed, Received, State, Stepped},
     transfer::Transferred,
 };
 
 pub mod accumulate;
-mod argument;
 mod authorize;
 mod general;
 pub mod refine;
-mod state;
 pub mod transfer;
 
 /// The invocation Interface of PVM

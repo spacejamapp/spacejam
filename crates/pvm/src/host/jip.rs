@@ -1,6 +1,6 @@
 //! JIP specified host calls
 
-use crate::{host::Exit, invocation::Argument, Result};
+use crate::{host::Exit, Argument, Result};
 
 /// JIP-1 logging host function implementation
 ///
