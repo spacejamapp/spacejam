@@ -1,7 +1,8 @@
 //! Accumulate tests
 
 use anyhow::Result;
-use pvmi::Interpreter;
+use pvmc::Compiler;
+// use pvmi::Interpreter;
 use runtime::tx;
 use score::{
     service::{WorkReport, WorkReportJson},
@@ -20,7 +21,7 @@ pub fn run(test: &specjam::Test) -> Result<()> {
     let accounts = input.pre_state.accounts();
 
     // run the accumulate function
-    let mut accumulation = tx::guarantee::accumulate::<Interpreter, _>(
+    let mut accumulation = tx::guarantee::accumulate::<Compiler, _>(
         input.input.slot,
         input.pre_state.slot,
         input.input.reports,

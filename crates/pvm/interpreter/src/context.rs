@@ -1,6 +1,10 @@
 //! Context of the interpreter
 
-use pvm::Argument;
+use crate::Interpreter;
+use pvm::{
+    score::{service::ServiceAccount, Account},
+    Argument,
+};
 
 /// Context of the interpreter
 #[derive(Default)]
@@ -28,5 +32,46 @@ impl Context {
             registers: self.registers,
             gas: self.gas,
         }
+    }
+}
+
+impl Argument for Interpreter {
+    const SUPPORTED_CALLS: &[u32] = &[];
+    const INITIAL_PC: u64 = 0;
+
+    fn read(&self, address: u32, len: u32) -> anyhow::Result<Vec<u8>> {
+        self.context.memory.read_bytes(address, len)
+    }
+
+    fn write(&mut self, address: u32, data: &[u8]) -> anyhow::Result<()> {
+        self.context.memory.write_bytes(address, data)
+    }
+
+    fn rget(&self, reg: u8) -> u64 {
+        self.context.registers[reg as usize]
+    }
+
+    fn rset(&mut self, reg: u8, value: u64) {
+        self.context.registers[reg as usize] = value;
+    }
+
+    fn heap_ptr(&self) -> u32 {
+        self.context.memory.heap_ptr
+    }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.context.memory.heap_ptr = heap_ptr;
+    }
+
+    fn allocate(&mut self, start: u32, count: u32) -> anyhow::Result<()> {
+        self.context.memory.allocate(start, count)
+    }
+
+    fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
+        anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
+    }
+
+    fn this(&mut self) -> anyhow::Result<&mut impl Account> {
+        anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
     }
 }

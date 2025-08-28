@@ -85,7 +85,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.privileges()
     }
 
-    fn rget(&mut self, reg: u8) -> u64 {
+    fn rget(&self, reg: u8) -> u64 {
         self.registers[reg as usize]
     }
 

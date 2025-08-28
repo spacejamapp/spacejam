@@ -14,7 +14,7 @@ pub struct Memory {
     /// Base pointer to the virtual memory region
     base: *mut u8,
     /// Heap pointer
-    heap_ptr: u32,
+    pub heap_ptr: u32,
 }
 
 impl Memory {
@@ -246,7 +246,9 @@ impl MemoryLike for Memory {
     }
 
     fn allocate(&mut self, page: u32, count: u32) -> Result<()> {
-        Memory::allocate(self, page, count)
+        Memory::allocate(self, page, count)?;
+        self.heap_ptr = page * (pvm::PAGE_SIZE as u32) + count * (pvm::PAGE_SIZE as u32);
+        Ok(())
     }
 
     fn heap_ptr(&self) -> u32 {

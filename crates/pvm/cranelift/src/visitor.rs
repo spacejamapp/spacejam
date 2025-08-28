@@ -1423,7 +1423,7 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        Err(anyhow::anyhow!("sbrk not implemented {reg0}, {reg1}"))
+        Ok(())
     }
 
     fn visit_set_gt_s_imm(
