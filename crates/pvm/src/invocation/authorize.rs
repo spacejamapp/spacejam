@@ -22,6 +22,8 @@ impl IsAuthorized {
 impl Argument for IsAuthorized {
     const SUPPORTED_CALLS: &[u32] = &[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
 
+    const INITIAL_PC: u64 = 0;
+
     fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
         anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
     }

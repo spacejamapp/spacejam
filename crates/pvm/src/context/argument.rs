@@ -10,7 +10,11 @@ use score::{
 
 /// Dynamic arguments for host calls
 pub trait Argument {
+    /// Supported host calls
     const SUPPORTED_CALLS: &[u32];
+
+    /// The initial program counter for execution
+    const INITIAL_PC: u64;
 
     /// Get an account by account id
     fn account(&mut self, id: u64) -> Result<&mut impl Account>;
@@ -191,6 +195,8 @@ pub trait Argument {
 
 impl Argument for () {
     const SUPPORTED_CALLS: &[u32] = &[];
+
+    const INITIAL_PC: u64 = 0;
 
     fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
         anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))

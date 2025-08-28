@@ -39,6 +39,8 @@ pub struct Context<'ctx, X: Argument, M: MemoryLike> {
 impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     const SUPPORTED_CALLS: &'static [u32] = X::SUPPORTED_CALLS;
 
+    const INITIAL_PC: u64 = X::INITIAL_PC;
+
     fn account(&mut self, id: u64) -> Result<&mut impl Account> {
         self.ctx.account(id)
     }

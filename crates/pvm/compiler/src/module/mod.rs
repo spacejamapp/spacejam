@@ -18,7 +18,29 @@ pub struct Module {
 }
 
 impl Module {
+    /// Execute compiled function
+    pub fn execute<X: Argument>(&self, ctx: &mut pvm::Context<'_, X, Memory>) -> Result<Reason> {
+        let func = unsafe {
+            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>) -> u8>(self.code)
+        };
+        let result = match trap::with(|| func(ctx)) {
+            Ok(r) => match r {
+                0 => Reason::Halt,
+                1 => Reason::Panic("Trap".to_string()),
+                4 => Reason::OOG,
+                _ => Reason::Panic("Unknown exit code".to_string()),
+            },
+            Err(info) => Reason::Fault {
+                page: info.address as u32 / pvm::PAGE_SIZE as u32,
+            },
+        };
+
+        Ok(result)
+    }
+
     /// Invoke the compiled module
+    ///
+    /// NOTE: this API is mainly used for testing
     pub fn invoke(
         &self,
         registers: &[u64; pvm::REGISTER_COUNT],
@@ -34,7 +56,7 @@ impl Module {
             ctx: &mut (),
         };
 
-        let reason = self.run(&mut context)?;
+        let reason = self.execute(&mut context)?;
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
@@ -42,30 +64,5 @@ impl Module {
             memory: context.memory.fill(&memory),
             reason,
         })
-    }
-
-    /// Execute the module with given context
-    pub fn execute<X: Argument>(&self, _ctx: &mut pvm::Context<'_, (), Memory>) -> Result<Reason> {
-        todo!()
-    }
-
-    /// Execute compiled function
-    fn run(&self, ctx: &mut pvm::Context<'_, (), Memory>) -> Result<Reason> {
-        let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, (), Memory>) -> u8>(self.code)
-        };
-        let result = match trap::with(|| func(ctx)) {
-            Ok(r) => match r {
-                0 => Reason::Halt,
-                1 => Reason::Panic("Trap".to_string()),
-                4 => Reason::OOG,
-                _ => Reason::Panic("Unknown exit code".to_string()),
-            },
-            Err(info) => Reason::Fault {
-                page: info.address as u32 / pvm::PAGE_SIZE as u32,
-            },
-        };
-
-        Ok(result)
     }
 }
