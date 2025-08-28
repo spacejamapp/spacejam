@@ -569,11 +569,12 @@ impl Visitor for Translator<'_> {
     fn visit_ecalli(&mut self, format: format::I, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
-        let ctx = self
+        self.save_registers();
+        let inst = self
             .builder
             .ins()
-            .load(types::I64, MemFlags::trusted(), self.ctx_ptr, 0);
-        let inst = self.builder.ins().call(self.host[&"call"], &[index, ctx]);
+            .call(self.host[&"call"], &[index, self.ctx_ptr]);
+        self.load_registers();
         let result = self.builder.inst_results(inst)[0];
         let panic = self.builder.ins().iconst(types::I8, result::PANIC);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
@@ -1423,14 +1424,14 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let ctx = self.ctx_ptr;
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
+        self.save_registers();
         let _inst = self
             .builder
             .ins()
-            .call(self.host[&"sbrk"], &[ctx, target, increment]);
-
+            .call(self.host[&"sbrk"], &[self.ctx_ptr, target, increment]);
+        self.load_registers();
         Ok(())
     }
 

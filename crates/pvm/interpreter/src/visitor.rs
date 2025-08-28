@@ -1041,7 +1041,7 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.write((address + imm0) as u32, imm1 as u64)
+        self.write((address + imm0) as u32, imm1)
     }
 
     fn visit_store_ind_u8(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {

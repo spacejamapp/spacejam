@@ -37,4 +37,18 @@ impl Translator<'_> {
             self.builder.ins().store(MemFlags::new(), reg_val, addr, 0);
         }
     }
+
+    /// Load registers from context
+    pub fn load_registers(&mut self) {
+        for i in 0..self.registers.len() {
+            let var = self.registers[&(i as u8)];
+            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
+            let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+            let val = self
+                .builder
+                .ins()
+                .load(types::I64, MemFlags::trusted(), addr, 0);
+            self.builder.def_var(var, val);
+        }
+    }
 }
