@@ -129,13 +129,12 @@ impl Memory {
         self.base
     }
 
-    /// Allocate heap memory
+    /// Allocate heap memory by committing pages with mprotect
     pub fn allocate(&self, page: u32, count: u32) -> Result<()> {
         if count == 0 {
             return Ok(());
         }
 
-        // Make pages writable
         for page_num in page..(page + count) {
             let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             unsafe {
@@ -145,10 +144,12 @@ impl Memory {
                     PROT_READ | PROT_WRITE,
                 ) != 0
                 {
-                    let err = io::Error::last_os_error();
-                    if err.raw_os_error() != Some(libc::EACCES) {
-                        bail!("Failed to allocate page {}: {}", page_num, err);
-                    }
+                    bail!(
+                        "Failed to commit page {} at addr {:#x}: {}",
+                        page_num,
+                        page_addr,
+                        io::Error::last_os_error()
+                    );
                 }
             }
         }
@@ -171,7 +172,6 @@ impl Memory {
     }
 
     /// Convert the virtual memory back to pvm::Memory structure
-    /// This reads the modified memory and creates a new pvm::Memory with the changes
     pub fn fill(&self, original: &pvm::Memory) -> pvm::Memory {
         let mut memory_map = BTreeMap::new();
         for (&page_num, (_, perms)) in &original.memory {
