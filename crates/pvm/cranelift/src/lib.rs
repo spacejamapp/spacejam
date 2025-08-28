@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::ir;
+use cranelift_codegen::ir::{self, FuncRef};
 use std::collections::HashMap;
 pub use {context::offsets, control::result};
 
@@ -30,6 +30,9 @@ pub struct Translator<'b> {
     // Map of blocks by start PC
     pub blocks: HashMap<u64, ir::Block>,
 
+    /// The host call function
+    pub host: FuncRef,
+
     // Jump table for dynamic jumps
     jump_table: Vec<u64>,
 
@@ -48,6 +51,7 @@ impl<'b> Translator<'b> {
             jump: Variable::new(JUMP_VAR),
             builder: FunctionBuilder::new(func, ctx),
             blocks: HashMap::new(),
+            host: FuncRef::from_u32(0),
             jump_table: Vec::new(),
             ctx_ptr: Value::new(0),
             memory: Value::new(0),
