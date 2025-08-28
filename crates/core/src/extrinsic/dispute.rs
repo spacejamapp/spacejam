@@ -132,7 +132,7 @@ pub struct DisputesExtrinsic {
     pub faults: Vec<Fault>,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "ed25519")]
 mod crypto_impl {
     use super::*;
 
