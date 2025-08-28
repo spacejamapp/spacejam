@@ -51,6 +51,7 @@ pub struct AccumulateState<R: Accounts> {
 
 impl<R: Accounts> AccumulateState<R> {
     /// (I) Generate a new index from provided environment
+    #[cfg(feature = "blake2")]
     pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
         let encoded = codec::encode(&IndexSalt {
             service,
@@ -154,7 +155,7 @@ impl<R: Accounts> Accumulated<R> {
     /// Get the accumulation root
     ///
     /// see also (7.7) in the graypaper
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "merkle")]
     pub fn root(&self) -> OpaqueHash {
         let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
         sorted_pairs.sort_by_key(|(service_id, _)| *service_id);

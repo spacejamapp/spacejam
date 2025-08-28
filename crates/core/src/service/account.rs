@@ -123,7 +123,7 @@ impl ServiceInfo {
     }
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "blake2")]
 mod crypto_impl {
     use super::*;
     use crate::{state::account, TrieKey};

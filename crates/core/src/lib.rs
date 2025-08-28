@@ -1,6 +1,4 @@
 //! Core of SpaceJam
-//!
-//! TODO: remove crypto as dependency
 
 pub use {
     account::{Account, Accounts},

@@ -11,7 +11,7 @@ name = "worker"
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto.workspace = true
+crypto = { workspace = true, features = ["merkle"] }
 erasure.workspace = true
 score.workspace = true
 serde.workspace = true

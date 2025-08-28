@@ -1,6 +1,6 @@
 //! core utilities
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "shuffle")]
 /// Core assignments based on the timeslot and entropy
 pub fn assignments(timeslot: u32, eta: [u8; 32]) -> [Vec<u16>; crate::CORES_COUNT] {
     let shuffled = crypto::shuffle::eq331(

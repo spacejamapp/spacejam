@@ -42,7 +42,7 @@ pub struct Mmr {
     pub peaks: Vec<MmrPeak>,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "merkle")]
 mod crypto_impl {
     use super::*;
     use crate::{block::BlockInfo, service::ReportedWorkPackage, MAX_BLOCKS_HISTORY};

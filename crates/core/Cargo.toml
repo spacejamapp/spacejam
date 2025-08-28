@@ -13,13 +13,10 @@ serde_json.workspace = true
 spacejson.workspace = true
 
 # crypto features
-crypto = { workspace = true, features = [
-    "blake2",
-    "ed25519",
-    "merkle",
-    "shuffle",
-], optional = true }
+crypto = { workspace = true, optional = true }
 
 [features]
 default = []
-crypto = ["dep:crypto"]
+merkle = ["crypto/merkle"]
+blake2 = ["crypto/blake2"]
+shuffle = ["crypto/shuffle"]
