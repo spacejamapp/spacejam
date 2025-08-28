@@ -107,6 +107,7 @@ pub trait Argument {
         if nptr > boundary {
             let start = boundary / crate::PAGE_SIZE;
             let count = funp(nptr) / crate::PAGE_SIZE - start;
+            tracing::debug!("allocate: start={start} count={count}");
             let _ = self.allocate(start as u32, count as u32);
         }
 

@@ -156,4 +156,8 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     fn heap_ptr(&self) -> u32 {
         self.memory.heap_ptr()
     }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.memory.set_heap_ptr(heap_ptr);
+    }
 }

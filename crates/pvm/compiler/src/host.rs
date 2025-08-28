@@ -57,7 +57,7 @@ impl JIT {
         };
 
         // declare the host call function
-        let host_id = self.module.declare_function(CALL, Linkage::Export, &sig)?;
+        let host_id = self.module.declare_function(CALL, Linkage::Import, &sig)?;
         let local_id = self
             .module
             .declare_func_in_func(host_id, &mut self.ctx.func);
@@ -74,7 +74,7 @@ impl JIT {
             sig
         };
 
-        let host_id = self.module.declare_function(SBRK, Linkage::Export, &sig)?;
+        let host_id = self.module.declare_function(SBRK, Linkage::Import, &sig)?;
         let local_id = self
             .module
             .declare_func_in_func(host_id, &mut self.ctx.func);

@@ -15,6 +15,9 @@ pub trait MemoryLike {
 
     /// Get the heap pointer.
     fn heap_ptr(&self) -> u32;
+
+    /// Set the heap pointer.
+    fn set_heap_ptr(&mut self, heap_ptr: u32);
 }
 
 impl MemoryLike for parser::Memory {
@@ -33,6 +36,10 @@ impl MemoryLike for parser::Memory {
     fn heap_ptr(&self) -> u32 {
         self.heap_ptr
     }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.heap_ptr = heap_ptr;
+    }
 }
 
 impl MemoryLike for &mut parser::Memory {
@@ -50,5 +57,9 @@ impl MemoryLike for &mut parser::Memory {
 
     fn heap_ptr(&self) -> u32 {
         self.heap_ptr
+    }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.heap_ptr = heap_ptr;
     }
 }
