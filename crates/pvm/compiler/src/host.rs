@@ -1,5 +1,7 @@
 //! Host call trampoline
 
+use std::collections::BTreeMap;
+
 use crate::JIT;
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam};
@@ -37,6 +39,14 @@ pub extern "C" fn sbrk<X: Argument>(ctx: *mut u8, target: u8, increment: u8) {
 
 impl JIT {
     /// Declare the host functions
+    pub fn declare_host(&mut self) -> Result<BTreeMap<&'static str, FuncRef>> {
+        let mut map = BTreeMap::new();
+        map.insert(CALL, self.declare_call()?);
+        map.insert(SBRK, self.declare_sbrk()?);
+        Ok(map)
+    }
+
+    /// Declare the host functions
     pub fn declare_call(&mut self) -> Result<FuncRef> {
         let sig = {
             let mut sig = self.module.make_signature();
@@ -48,6 +58,23 @@ impl JIT {
 
         // declare the host call function
         let host_id = self.module.declare_function(CALL, Linkage::Export, &sig)?;
+        let local_id = self
+            .module
+            .declare_func_in_func(host_id, &mut self.ctx.func);
+        Ok(local_id)
+    }
+
+    /// Declare the sbrk function
+    pub fn declare_sbrk(&mut self) -> Result<FuncRef> {
+        let sig = {
+            let mut sig = self.module.make_signature();
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I8));
+            sig.params.push(AbiParam::new(types::I8));
+            sig
+        };
+
+        let host_id = self.module.declare_function(SBRK, Linkage::Export, &sig)?;
         let local_id = self
             .module
             .declare_func_in_func(host_id, &mut self.ctx.func);

@@ -37,9 +37,9 @@ impl JIT {
 
     /// Create new JIT module builder for host functions
     pub fn host<X: Argument>() -> Result<Self> {
-        let ptr = host::call::<X> as *const u8;
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names())?;
-        builder.symbol(host::CALL, ptr);
+        builder.symbol(host::CALL, host::call::<X> as *const u8);
+        builder.symbol(host::SBRK, host::sbrk::<X> as *const u8);
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),
@@ -61,7 +61,7 @@ impl JIT {
         let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
 
         // construct the function
-        let host = self.declare_call()?;
+        let host = self.declare_host()?;
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
         trans.host = host;
