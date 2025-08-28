@@ -56,10 +56,11 @@ impl JIT {
         self.module.define_function(id, &mut self.ctx)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        Ok(crate::Module::new(
-            self.module.get_finalized_function(id),
+        Ok(crate::Module {
+            code: self.module.get_finalized_function(id),
             memory,
-        ))
+            registers: program.registers,
+        })
     }
 
     /// Create a signature for the function

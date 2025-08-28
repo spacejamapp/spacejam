@@ -72,7 +72,7 @@ impl Runner {
             memory: memory.clone(),
         })?;
 
-        let result = module.execute(
+        let result = module.invoke(
             &initial_registers,
             input.initial_pc as u64,
             input.initial_gas as u64,

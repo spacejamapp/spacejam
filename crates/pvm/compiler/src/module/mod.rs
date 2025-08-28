@@ -2,28 +2,24 @@
 
 use crate::{trap, Memory};
 use anyhow::Result;
-use pvm::Reason;
-pub use {context::Context, info::Info};
+pub use info::Info;
+use pvm::{Argument, Reason};
 
-mod context;
 mod info;
 
 /// Module with compiled code
 pub struct Module {
     /// The function composed by cranelift IR
-    code: *const u8,
+    pub code: *const u8,
     /// The virtual memory for this module
-    memory: Memory,
+    pub memory: Memory,
+    /// The registers for this module
+    pub registers: [u64; pvm::REGISTER_COUNT],
 }
 
 impl Module {
-    /// Set the program bytes for block JIT execution with memory
-    pub fn new(code: *const u8, memory: Memory) -> Self {
-        Self { code, memory }
-    }
-
-    /// Execute the compiled module
-    pub fn execute(
+    /// Invoke the compiled module
+    pub fn invoke(
         &self,
         registers: &[u64; pvm::REGISTER_COUNT],
         pc: u64,
@@ -46,6 +42,11 @@ impl Module {
             memory: context.memory.fill(&memory),
             reason,
         })
+    }
+
+    /// Execute the module with given context
+    pub fn execute<X: Argument>(&self, _ctx: &mut pvm::Context<'_, (), Memory>) -> Result<Reason> {
+        todo!()
     }
 
     /// Execute compiled function

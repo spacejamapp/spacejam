@@ -10,6 +10,6 @@ pub use {
     compiler::Compiler,
     jit::JIT,
     memory::Memory,
-    module::{Context, Info, Module},
+    module::{Info, Module},
     trap::TrapInfo,
 };
