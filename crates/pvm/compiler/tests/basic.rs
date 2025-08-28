@@ -16,7 +16,7 @@ fn test_load_imm() -> anyhow::Result<()> {
         registers: [0; pvm::REGISTER_COUNT],
         memory: Memory::default(),
     })?;
-    let result = module.execute(&[0; pvm::REGISTER_COUNT], 0, 10000, Memory::default())?;
+    let result = module.invoke(&[0; pvm::REGISTER_COUNT], 0, 10000, Memory::default())?;
 
     // Expected registers from test vector
     let expected = [0, 0, 0, 0, 0, 0, 0, 3735928559, 0, 0, 0, 0, 0];
@@ -32,7 +32,7 @@ fn test_add_imm_32() -> anyhow::Result<()> {
         registers: [0; pvm::REGISTER_COUNT],
         memory: Memory::default(),
     })?;
-    let result = module.execute(&[0; pvm::REGISTER_COUNT], 0, 10000, Memory::default())?;
+    let result = module.invoke(&[0; pvm::REGISTER_COUNT], 0, 10000, Memory::default())?;
 
     // With zero initialization, register 9 should contain 0 + 2 = 2 (from add_imm_32 instruction)
     let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0];

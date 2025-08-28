@@ -30,6 +30,8 @@ pub struct Refine<R: Accounts> {
 impl<R: Accounts> Argument for Refine<R> {
     const SUPPORTED_CALLS: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100];
 
+    const INITIAL_PC: u64 = 0;
+
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.accounts
             .get(id as u32)

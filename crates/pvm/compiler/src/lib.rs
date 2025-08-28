@@ -1,7 +1,7 @@
 //! SpaceJam PVM compiler
 
-mod artifact;
 mod compiler;
+pub mod host;
 mod jit;
 mod memory;
 pub mod module;
@@ -11,6 +11,6 @@ pub use {
     compiler::Compiler,
     jit::JIT,
     memory::Memory,
-    module::{Context, ExecResult, Info, Module},
+    module::{Info, Module},
     trap::TrapInfo,
 };

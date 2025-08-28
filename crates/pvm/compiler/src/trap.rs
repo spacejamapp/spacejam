@@ -33,8 +33,6 @@ pub fn with<F, T>(f: F) -> Result<T, TrapInfo>
 where
     F: FnOnce() -> T,
 {
-    // Install signal handler - needs to be done each time as signal handlers
-    // can be reset after being triggered
     unsafe {
         if pvm_install_sigsegv_handler(Some(sigsegv_handler)) != 0 {
             panic!("Failed to install SIGSEGV handler");

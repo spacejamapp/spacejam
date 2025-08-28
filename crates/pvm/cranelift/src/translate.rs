@@ -76,6 +76,7 @@ impl Translator<'_> {
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
+            tracing::trace!("{instruction:?}");
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
@@ -86,11 +87,10 @@ impl Translator<'_> {
         }
 
         // handle block termination with native CLIF control flow
-        //
-        // this is only for the tests that has incomplete blocks.
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.return_(result::HALT, last.range.end)?;
+                self.burn_gas(1);
+                self.return_(result::PANIC, last.range.end)?;
             }
         }
 

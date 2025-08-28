@@ -2,65 +2,67 @@
 
 use crate::{trap, Memory};
 use anyhow::Result;
-pub use {
-    context::Context,
-    info::{ExecResult, Info},
-};
+pub use info::Info;
+use pvm::{Argument, Reason};
 
-mod context;
 mod info;
 
 /// Module with compiled code
 pub struct Module {
     /// The function composed by cranelift IR
-    code: *const u8,
+    pub code: *const u8,
     /// The virtual memory for this module
-    memory: Memory,
+    pub memory: Memory,
+    /// The registers for this module
+    pub registers: [u64; pvm::REGISTER_COUNT],
 }
 
 impl Module {
-    /// Set the program bytes for block JIT execution with memory
-    pub fn new(code: *const u8, memory: Memory) -> Self {
-        Self { code, memory }
+    /// Execute compiled function
+    pub fn execute<X: Argument>(&self, ctx: &mut pvm::Context<'_, X, Memory>) -> Result<Reason> {
+        let func = unsafe {
+            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>) -> u8>(self.code)
+        };
+        let result = match trap::with(|| func(ctx)) {
+            Ok(r) => match r {
+                0 => Reason::Halt,
+                1 => Reason::Panic("Trap".to_string()),
+                4 => Reason::OOG,
+                _ => Reason::Panic("Unknown exit code".to_string()),
+            },
+            Err(info) => Reason::Fault {
+                page: info.address as u32 / pvm::PAGE_SIZE as u32,
+            },
+        };
+
+        Ok(result)
     }
 
-    /// Execute the compiled module
-    pub fn execute(
+    /// Invoke the compiled module
+    ///
+    /// NOTE: this API is mainly used for testing
+    pub fn invoke(
         &self,
-        initial_registers: &[u64; pvm::REGISTER_COUNT],
-        initial_pc: u64,
-        initial_gas: u64,
-        initial_memory: pvm::Memory,
+        registers: &[u64; pvm::REGISTER_COUNT],
+        pc: u64,
+        gas: u64,
+        memory: pvm::Memory,
     ) -> Result<Info> {
-        let mut context = Context::new(*initial_registers, initial_pc);
-        self.run(&mut context)?;
+        let mut context = pvm::Context {
+            registers: *registers,
+            pc,
+            gas: gas as i64,
+            memory: self.memory.clone(),
+            ctx: &mut (),
+        };
+
+        let reason = self.execute(&mut context)?;
         Ok(Info {
             registers: context.registers,
             pc: context.pc,
-            gas: initial_gas.saturating_sub(context.gas),
-            memory: self.memory.fill(&initial_memory),
+            gas: context.gas as u64,
+            memory: context.memory.fill(&memory),
+            reason,
         })
-    }
-
-    /// Execute compiled function
-    fn run(&self, ctx: &mut Context) -> Result<u8> {
-        let mut ext = translator::Context {
-            registers: ctx.registers,
-            pc: ctx.pc,
-            gas: ctx.gas,
-            memory_ptr: self.memory.base() as _,
-        };
-
-        let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut translator::Context) -> u8>(self.code)
-        };
-        let result = trap::with(|| func(&mut ext)).unwrap_or(2);
-
-        // Update context with execution results
-        ctx.registers = ext.registers;
-        ctx.pc = ext.pc;
-        ctx.gas = ext.gas;
-        tracing::debug!("result: {:?}", result);
-        Ok(result)
     }
 }

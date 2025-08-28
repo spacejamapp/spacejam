@@ -10,7 +10,11 @@ use score::{
 
 /// Dynamic arguments for host calls
 pub trait Argument {
+    /// Supported host calls
     const SUPPORTED_CALLS: &[u32];
+
+    /// The initial program counter for execution
+    const INITIAL_PC: u64;
 
     /// Get an account by account id
     fn account(&mut self, id: u64) -> Result<&mut impl Account>;
@@ -72,7 +76,7 @@ pub trait Argument {
     }
 
     /// Get the register value
-    fn rget(&mut self, reg: u8) -> u64 {
+    fn rget(&self, reg: u8) -> u64 {
         unimplemented!("make sure you are invoking the accumulation interface: reg={reg}")
     }
 
@@ -86,6 +90,28 @@ pub trait Argument {
     /// Remove an account
     fn remove(&mut self, service: ServiceId) {
         unimplemented!("make sure you are invoking the accumulation interface: service={service}")
+    }
+
+    /// The sbrk instruction
+    fn sbrk(&mut self, target: u8, increment: u8) {
+        let increment = self.rget(increment);
+        let heap_ptr = self.heap_ptr();
+        self.rset(target, heap_ptr as u64);
+        if increment == 0u64 {
+            return;
+        }
+
+        let funp = |x: u64| x.div_ceil(crate::PAGE_SIZE) * crate::PAGE_SIZE;
+        let boundary = funp(self.heap_ptr() as u64);
+        let nptr = self.heap_ptr() as u64 + increment;
+        if nptr > boundary {
+            let start = boundary / crate::PAGE_SIZE;
+            let count = funp(nptr) / crate::PAGE_SIZE - start;
+            tracing::debug!("allocate: start={start} count={count}");
+            let _ = self.allocate(start as u32, count as u32);
+        }
+
+        self.set_heap_ptr(heap_ptr + increment as u32);
     }
 
     /// Get the service index
@@ -110,6 +136,11 @@ pub trait Argument {
         unimplemented!(
             "make sure you are invoking the accumulation interface core={core} assign={assign}",
         );
+    }
+
+    /// Set the heap pointer
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        unimplemented!("make sure you are invoking the accumulation interface: heap_ptr={heap_ptr}")
     }
 
     /// Set the privileges
@@ -191,6 +222,8 @@ pub trait Argument {
 
 impl Argument for () {
     const SUPPORTED_CALLS: &[u32] = &[];
+
+    const INITIAL_PC: u64 = 0;
 
     fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
         anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))

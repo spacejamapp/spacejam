@@ -42,6 +42,8 @@ impl<R: Accounts> Argument for Accumulate<R> {
         0, 1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 100,
     ];
 
+    const INITIAL_PC: u64 = 5;
+
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.x
             .context

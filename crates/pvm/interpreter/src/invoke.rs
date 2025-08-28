@@ -22,10 +22,10 @@ impl Interpreter {
             pc,
             ..Default::default()
         };
-
-        // deblob the program
         let blob = program.blob()?;
         interp.table = blob.jump_table.to_vec();
+
+        // interpret the program
         let mut reader = blob.reader().with_position(pc);
         loop {
             let block = reader.read_block()?;
@@ -53,9 +53,9 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
-                        let mut context = interp.context.ctx(ctx);
+                        let mut context = interp.context.ctx(&mut ctx);
                         let reason = host::call(call, &mut context);
-                        ctx = context.ctx;
+                        interp.context.registers = context.registers;
                         if reason != Reason::Continue {
                             return Ok(interp.result(ctx, initial_gas, reason));
                         }

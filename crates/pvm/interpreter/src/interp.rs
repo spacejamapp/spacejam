@@ -78,12 +78,6 @@ impl Interpreter {
         })
     }
 
-    /// Read a value from memory at an offset
-    pub fn read_offset<V: pvm::Value>(&self, address: u32, offset: u32) -> crate::Result<V> {
-        let start = address.wrapping_add(offset);
-        self.read(start)
-    }
-
     /// Get the result of the interpreter
     pub fn result<X: Argument>(&self, data: X, gas: u64, reason: Reason) -> Invoked<X> {
         Invoked {
@@ -93,16 +87,6 @@ impl Interpreter {
             data,
             state: self.state(),
         }
-    }
-
-    /// Get the register value.
-    pub fn rget(&self, reg: u8) -> u64 {
-        self.context.registers[reg as usize]
-    }
-
-    /// Set the register value.
-    pub fn rset(&mut self, reg: u8, value: u64) {
-        self.context.registers[reg as usize] = value;
     }
 
     /// Step a single instruction.
@@ -144,16 +128,5 @@ impl Interpreter {
             .map_err(|_e| Error::MemoryInaccessible {
                 page: address / parser::PAGE_SIZE as u32,
             })
-    }
-
-    /// Write a value to memory at an offset
-    pub fn write_offset<V: pvm::Value>(
-        &mut self,
-        address: u32,
-        offset: u32,
-        value: V,
-    ) -> crate::Result<()> {
-        let start = address.wrapping_add(offset);
-        self.write(start, value)
     }
 }

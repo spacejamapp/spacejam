@@ -54,6 +54,8 @@ impl<R: Accounts> General<R> {
 impl<R: Accounts> Argument for General<R> {
     const SUPPORTED_CALLS: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 
+    const INITIAL_PC: u64 = 0;
+
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.accounts
             .get(id as u32)

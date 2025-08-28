@@ -5,13 +5,16 @@ use libc::{
     mmap, mprotect, munmap, MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ,
     PROT_WRITE,
 };
+use pvm::MemoryLike;
 use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     /// Base pointer to the virtual memory region
     base: *mut u8,
+    /// Heap pointer
+    pub heap_ptr: u32,
 }
 
 impl Memory {
@@ -37,6 +40,7 @@ impl Memory {
 
         let memory = Memory {
             base: base as *mut u8,
+            heap_ptr: pmemory.heap_ptr,
         };
 
         memory.init(pmemory)?;
@@ -166,32 +170,12 @@ impl Memory {
         }
     }
 
-    /// Read a value from memory
-    #[inline]
-    pub fn read<T: Copy>(&self, addr: u32) -> T {
-        unsafe {
-            let ptr = self.base.add(addr as usize) as *const T;
-            ptr.read_unaligned()
-        }
-    }
-
-    /// Write a value to memory
-    #[inline]
-    pub fn write<T>(&mut self, addr: u32, value: T) {
-        unsafe {
-            let ptr = self.base.add(addr as usize) as *mut T;
-            ptr.write_unaligned(value);
-        }
-    }
-
     /// Convert the virtual memory back to pvm::Memory structure
     /// This reads the modified memory and creates a new pvm::Memory with the changes
     pub fn fill(&self, original: &pvm::Memory) -> pvm::Memory {
         let mut memory_map = BTreeMap::new();
         for (&page_num, (_, perms)) in &original.memory {
             let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
-
-            // Read the page data from virtual memory
             let mut page_data = vec![0u8; pvm::PAGE_SIZE as usize];
             unsafe {
                 ptr::copy_nonoverlapping(
@@ -206,9 +190,6 @@ impl Memory {
                 memory_map.insert(page_num, (page_data, *perms));
             }
         }
-
-        // Also check for new pages that might have been allocated (heap growth)
-        // For now, we'll only sync pages that were already in the original memory
 
         pvm::Memory {
             memory: memory_map,
@@ -230,3 +211,26 @@ impl Drop for Memory {
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
+
+impl MemoryLike for Memory {
+    fn read(&self, addr: u32, len: u32) -> Result<Vec<u8>> {
+        Ok(self.read_bytes(addr, len).to_vec())
+    }
+
+    fn write(&mut self, addr: u32, data: &[u8]) -> Result<()> {
+        self.write_bytes(addr, data);
+        Ok(())
+    }
+
+    fn allocate(&mut self, page: u32, count: u32) -> Result<()> {
+        Memory::allocate(self, page, count)
+    }
+
+    fn heap_ptr(&self) -> u32 {
+        self.heap_ptr
+    }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.heap_ptr = heap_ptr;
+    }
+}

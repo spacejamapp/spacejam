@@ -562,25 +562,41 @@ impl Visitor for Translator<'_> {
         let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
         let result_div = self.builder.ins().udiv(dividend_val, safe_divisor);
         let result = self.builder.ins().select(is_zero, max_val, result_div);
-
         self.rset(reg2, result);
         Ok(())
     }
 
-    fn visit_ecalli(
-        &mut self,
-        format: format::I,
-        _range: &Range<usize>,
-    ) -> Result<(), Self::Error> {
+    fn visit_ecalli(&mut self, format: format::I, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
-        Err(anyhow::anyhow!("Host call requested: {}", imm0))
+        let index = self.builder.ins().iconst(types::I32, imm0 as i64);
+        self.save_registers();
+        let inst = self
+            .builder
+            .ins()
+            .call(self.host[&"call"], &[index, self.ctx_ptr]);
+        self.load_registers();
+        let result = self.builder.inst_results(inst)[0];
+        let panic = self.builder.ins().iconst(types::I8, result::PANIC);
+        let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
+
+        // Return with panic if result equals panic
+        let then_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        self.builder
+            .ins()
+            .brif(is_panic, then_block, &[], else_block, &[]);
+        self.builder.switch_to_block(then_block);
+        self.return_(result::PANIC, range.end)?;
+        self.builder.switch_to_block(else_block);
+        Ok(())
     }
 
     fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         if let Some(block) = self.blocks.get(&(range.end as u64)) {
             self.builder.ins().jump(*block, &[]);
         } else {
-            self.return_(result::HALT, 0)?;
+            self.burn_gas(1);
+            self.return_(result::PANIC, range.end)?;
         }
 
         Ok(())
@@ -1408,7 +1424,15 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        Err(anyhow::anyhow!("sbrk not implemented {reg0}, {reg1}"))
+        let target = self.builder.ins().iconst(types::I8, reg0 as i64);
+        let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
+        self.save_registers();
+        let _inst = self
+            .builder
+            .ins()
+            .call(self.host[&"sbrk"], &[self.ctx_ptr, target, increment]);
+        self.load_registers();
+        Ok(())
     }
 
     fn visit_set_gt_s_imm(

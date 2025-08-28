@@ -18,29 +18,35 @@ mod memory;
 mod state;
 
 /// Helper context that wraps the invocation arguments and the memory.
+#[repr(C)]
 pub struct Context<'ctx, X: Argument, M: MemoryLike> {
-    /// The context from the chain
-    pub ctx: X,
-
     /// The registers of the context
-    pub registers: &'ctx mut [u64; 13],
+    pub registers: [u64; 13],
 
     /// The gas of the context
-    pub gas: &'ctx mut i64,
+    pub gas: i64,
+
+    /// The program counter of the context
+    pub pc: u64,
 
     /// The hosting memory
-    pub memory: &'ctx mut M,
+    pub memory: M,
+
+    /// The context from the chain
+    pub ctx: &'ctx mut X,
 }
 
 impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     const SUPPORTED_CALLS: &'static [u32] = X::SUPPORTED_CALLS;
+
+    const INITIAL_PC: u64 = X::INITIAL_PC;
 
     fn account(&mut self, id: u64) -> Result<&mut impl Account> {
         self.ctx.account(id)
     }
 
     fn burn(&mut self, gas: Gas) {
-        *self.gas -= gas as i64;
+        self.gas -= gas as i64;
     }
 
     fn check(&mut self, index: ServiceId) -> ServiceId {
@@ -56,7 +62,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     }
 
     fn gas(&self) -> Gas {
-        *self.gas as u64
+        self.gas as u64
     }
 
     fn index(&self) -> ServiceId {
@@ -79,7 +85,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.privileges()
     }
 
-    fn rget(&mut self, reg: u8) -> u64 {
+    fn rget(&self, reg: u8) -> u64 {
         self.registers[reg as usize]
     }
 
@@ -149,5 +155,9 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
 
     fn heap_ptr(&self) -> u32 {
         self.memory.heap_ptr()
+    }
+
+    fn set_heap_ptr(&mut self, heap_ptr: u32) {
+        self.memory.set_heap_ptr(heap_ptr);
     }
 }
