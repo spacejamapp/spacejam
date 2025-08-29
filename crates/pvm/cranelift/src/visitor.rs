@@ -573,7 +573,7 @@ impl Visitor for Translator<'_> {
         let inst = self
             .builder
             .ins()
-            .call(self.host[&"call"], &[index, self.ctx]);
+            .call(self.host[&"call"], &[index, self.pool.ctx]);
         self.load_registers();
         let result = self.builder.inst_results(inst)[0];
         let panic = self.builder.ins().iconst(types::I8, result::PANIC);
@@ -1422,7 +1422,7 @@ impl Visitor for Translator<'_> {
         let _inst = self
             .builder
             .ins()
-            .call(self.host[&"sbrk"], &[self.ctx, target, increment]);
+            .call(self.host[&"sbrk"], &[self.pool.ctx, target, increment]);
         self.load_registers();
         Ok(())
     }
@@ -2036,7 +2036,6 @@ impl Visitor for Translator<'_> {
         let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I32, src);
         self.mset(address, truncated);
-
         Ok(())
     }
 

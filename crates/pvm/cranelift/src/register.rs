@@ -34,7 +34,7 @@ impl Translator<'_> {
             let val = self.builder.use_var(var);
             self.builder
                 .ins()
-                .store(MemFlags::new(), val, self.ctx, (i * 8) as i32);
+                .store(MemFlags::new(), val, self.pool.ctx, (i * 8) as i32);
         }
     }
 
@@ -42,10 +42,12 @@ impl Translator<'_> {
     pub fn load_registers(&mut self) {
         for i in 0..self.registers.len() {
             let var = self.registers[&(i as u8)];
-            let val =
-                self.builder
-                    .ins()
-                    .load(types::I64, MemFlags::trusted(), self.ctx, (i * 8) as i32);
+            let val = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                (i * 8) as i32,
+            );
             self.builder.def_var(var, val);
         }
     }

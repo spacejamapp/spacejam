@@ -1,5 +1,6 @@
 //! PVM Compiler - A Cranelift-based compiler for the Polkadot Virtual Machine
 
+use crate::context::Pool;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{self, FuncRef};
@@ -36,14 +37,7 @@ pub struct Translator<'b> {
     // Jump table for dynamic jumps
     jump_table: Vec<u64>,
 
-    /// ssv for the context pointer
-    ctx: Value,
-
-    /// ssv for memory pointer
-    memory: Value,
-
-    /// ssv for heap pointer
-    heap: Value,
+    pool: Pool,
 }
 
 impl<'b> Translator<'b> {
@@ -56,9 +50,12 @@ impl<'b> Translator<'b> {
             blocks: BTreeMap::new(),
             host: BTreeMap::new(),
             jump_table: Vec::new(),
-            ctx: Value::new(0),
-            memory: Value::new(0),
-            heap: Value::new(0),
+            pool: Pool {
+                ctx: Value::new(0),
+                memory: Value::new(0),
+                heap: Value::new(0),
+                hrange: Value::new(0)..Value::new(0),
+            },
         })
     }
 }

@@ -1,6 +1,7 @@
 //! Translator context
 
 use crate::Translator;
+use core::ops::Range;
 use cranelift::prelude::*;
 use pvm::Program;
 
@@ -22,12 +23,49 @@ pub mod offsets {
     pub const MEMORY_PTR_OFFSET: i32 = HEAP_PTR_OFFSET + 8;
 }
 
+/// Constants pool with Single Static Assignment Values
+pub struct Pool {
+    /// The context pointer
+    pub ctx: Value,
+
+    /// The memory pointer
+    pub memory: Value,
+
+    /// The heap pointer
+    pub heap: Value,
+
+    /// The heap range
+    pub hrange: Range<Value>,
+}
+
 impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
-        self.ctx = ctx;
         self.builder.declare_var(self.jump, types::I64);
+        self.pool = Pool {
+            memory: self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                ctx,
+                offsets::MEMORY_PTR_OFFSET,
+            ),
+            heap: self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                ctx,
+                offsets::HEAP_PTR_OFFSET,
+            ),
+            hrange: self
+                .builder
+                .ins()
+                .iconst(types::I64, program.memory.info.heap.start as i64)
+                ..self.builder.ins().iconst(
+                    types::I64,
+                    (program.memory.info.heap.start + program.memory.info.heap.end) as i64,
+                ),
+            ctx,
+        };
+
         self.init_registers(&program.registers);
-        self.init_memory();
     }
 }
