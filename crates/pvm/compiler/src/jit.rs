@@ -1,5 +1,7 @@
 //! Cranelift JIT backend
 
+use std::time::Instant;
+
 use crate::{engine, host};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
@@ -65,11 +67,15 @@ impl JIT {
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
         trans.host = host;
+        let mut start = Instant::now();
         trans.translate(program)?;
         trans.builder.finalize();
+        tracing::info!("translating took {:?}ms", start.elapsed().as_millis());
 
         // define the function
+        start = Instant::now();
         self.module.define_function(id, &mut self.ctx)?;
+        tracing::info!("defining function took {:?}ms", start.elapsed().as_millis());
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
         Ok(crate::Module {
