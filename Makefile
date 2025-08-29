@@ -21,16 +21,16 @@ bundle: macos-arm64 macos-amd64 linux-arm64 linux-amd64
 
 # build macos-arm64
 macos-arm64:
-	cargo b --release --target aarch64-apple-darwin
+	cargo b --profile prod --target aarch64-apple-darwin
 
 # build macos-amd64
 macos-amd64:
-	cargo b --release --target x86_64-apple-darwin
+	cargo b --profile prod --target x86_64-apple-darwin
 
 # build linux-arm64
 linux-arm64:
-	cargo b --release --target aarch64-unknown-linux-gnu
+	cargo b --profile prod --target aarch64-unknown-linux-gnu
 
 # build linux-amd64
 linux-amd64:
-	cargo b --release --target x86_64-unknown-linux-gnu
+	cargo b --profile prod --target x86_64-unknown-linux-gnu
