@@ -1,7 +1,4 @@
 //! Memory related operations
-//!
-//!
-//! TODO: support static memory when the calculated memory size is less than 1 MB.
 
 use crate::{offsets, Translator};
 use cranelift::prelude::*;
@@ -23,35 +20,27 @@ impl Translator<'_> {
 
     /// Memory get - load value from memory at address
     pub fn mget(&mut self, address: Value, ty: types::Type) -> Value {
-        let mem_addr = self.builder.ins().iadd(self.memory, address);
-        self.builder
-            .ins()
-            .load(ty, MemFlags::trusted(), mem_addr, 0)
+        let maddr = self.builder.ins().iadd(self.memory, address);
+        self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
     /// Memory set - store value to memory at address
     pub fn mset(&mut self, address: Value, value: Value) {
-        let mem_addr = self.builder.ins().iadd(self.memory, address);
+        let maddr = self.builder.ins().iadd(self.memory, address);
         self.builder
             .ins()
-            .store(MemFlags::trusted(), value, mem_addr, 0);
+            .store(MemFlags::trusted(), value, maddr, 0);
     }
 
     /// Memory get with offset - load value from memory at address + offset
     pub fn mget_o(&mut self, address: Value, offset: Value, ty: types::Type) -> Value {
-        let addr_with_offset = self.builder.ins().iadd(address, offset);
-        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
-        self.builder
-            .ins()
-            .load(ty, MemFlags::trusted(), mem_addr, 0)
+        let maddr = self.builder.ins().iadd(address, offset);
+        self.mget(maddr, ty)
     }
 
     /// Memory set with offset - store value to memory at address + offset
     pub fn mset_o(&mut self, address: Value, offset: Value, value: Value) {
-        let addr_with_offset = self.builder.ins().iadd(address, offset);
-        let mem_addr = self.builder.ins().iadd(self.memory, addr_with_offset);
-        self.builder
-            .ins()
-            .store(MemFlags::trusted(), value, mem_addr, 0);
+        let maddr = self.builder.ins().iadd(address, offset);
+        self.mset(maddr, value)
     }
 }

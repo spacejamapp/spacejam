@@ -16,10 +16,10 @@ pub mod offsets {
     pub const PC_OFFSET: usize = REGISTERS_SIZE + 8;
 
     /// Offset to memory pointer (after registers + PC + gas)
-    pub const MEMORY_PTR_OFFSET: usize = PC_OFFSET + 8;
+    pub const HEAP_PTR_OFFSET: usize = PC_OFFSET + 8;
 
-    /// Offset to context pointer (after registers + PC + gas + memory pointer)
-    pub const CTX_PTR_OFFSET: usize = MEMORY_PTR_OFFSET + pvm::PVM_MEMORY_SIZE as usize;
+    /// Offset to memory pointer (after registers + PC + gas)
+    pub const MEMORY_PTR_OFFSET: usize = HEAP_PTR_OFFSET + 8;
 }
 
 impl Translator<'_> {

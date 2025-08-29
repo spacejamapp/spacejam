@@ -35,6 +35,17 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
 
+    /*     // try accessing unallocated memory near the allocated memory
+    {
+        let Err(info) = trap::with(|| {
+            let slice = memory.read_bytes(REGION_END, 1);
+            slice[0]
+        }) else {
+            panic!("should trap on reading unallocated memory (REGION_END + 1)");
+        };
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
+    } */
+
     Ok(())
 }
 
