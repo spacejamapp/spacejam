@@ -2849,13 +2849,10 @@ dependencies = [
  "cranelift-native",
  "cranelift-pvm",
  "libc",
- "proc-macro2",
  "pvm",
- "quote",
  "serde",
  "serde_json",
  "specjam",
- "syn 2.0.100",
  "tracing",
  "tracing-subscriber",
 ]

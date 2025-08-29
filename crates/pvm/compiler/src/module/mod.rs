@@ -21,15 +21,14 @@ impl Module {
     /// Execute compiled function
     pub fn execute<X: Argument>(&self, ctx: &mut pvm::Context<'_, X, Memory>) -> Result<Reason> {
         let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>) -> u8>(self.code)
+            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>) -> i64>(self.code)
         };
         let result = match trap::with(|| func(ctx)) {
-            Ok(r) => match r {
-                0 => Reason::Halt,
-                1 => Reason::Panic("Trap".to_string()),
-                4 => Reason::OOG,
-                _ => Reason::Panic("Unknown exit code".to_string()),
-            },
+            Ok(r) => {
+                let reason = translator::Exit::to_reason(r);
+                tracing::warn!("exit code: {r}, reason: {reason:?}");
+                reason
+            }
             Err(info) => Reason::Fault {
                 page: info.address as u32 / pvm::PAGE_SIZE as u32,
             },

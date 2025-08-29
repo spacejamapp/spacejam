@@ -1,6 +1,6 @@
 //! translation utils
 
-use crate::{control::result, Translator};
+use crate::{Exit, Translator};
 use anyhow::Result;
 use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
@@ -32,7 +32,7 @@ impl Translator<'_> {
     /// discovers all basic blocks
     fn analyze(&mut self, program: &[u8]) -> Result<BTreeMap<u64, Block>> {
         let blob = parser::program::deblob(program)?;
-        self.jump_table = blob.jump_table.clone();
+        self.jump = blob.jump_table.clone();
         let mut reader = blob.reader();
         let mut blocks = BTreeMap::new();
         while !reader.eof() {
@@ -68,7 +68,7 @@ impl Translator<'_> {
 
         // populate trap block
         self.builder.switch_to_block(trap);
-        self.return_(result::PANIC, 0)?;
+        self.return_(Exit::InvalidStartPC);
         self.builder.seal_block(trap);
         Ok(())
     }
@@ -90,7 +90,7 @@ impl Translator<'_> {
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
                 self.burn_gas(1);
-                self.return_(result::PANIC, last.range.end)?;
+                self.return_(Exit::ProgramNotTerminated);
             }
         }
 

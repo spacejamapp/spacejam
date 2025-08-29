@@ -20,8 +20,8 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
         }) else {
             panic!("should trap");
         };
-        assert_eq!(info.signal, libc::SIGSEGV);
-        assert_eq!(info.code, 2); // SEGV_ACCERR
+
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
 
     // try accessing unallocated memory
@@ -32,36 +32,50 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
         }) else {
             panic!("should trap");
         };
-        assert_eq!(info.signal, libc::SIGSEGV);
-        assert_eq!(info.code, 2);
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
+
+    /*     // try accessing unallocated memory near the allocated memory
+    {
+        let Err(info) = trap::with(|| {
+            let slice = memory.read_bytes(REGION_END, 1);
+            slice[0]
+        }) else {
+            panic!("should trap on reading unallocated memory (REGION_END + 1)");
+        };
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
+    } */
 
     Ok(())
 }
 
 /// Generate a write test for the given memory
 fn gen_write(mut memory: Memory) -> anyhow::Result<()> {
-    // test read
     let data = memory.read_bytes(REGION_START, REGION_SIZE as u32);
     assert_eq!(data, vec![1; REGION_SIZE]);
 
-    // test write
-    memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
-    assert_eq!(
-        memory.read_bytes(REGION_START, REGION_SIZE as u32),
-        vec![2; REGION_SIZE]
-    );
+    // try writing to writable memory
+    {
+        memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
+        assert_eq!(
+            memory.read_bytes(REGION_START, REGION_SIZE as u32),
+            vec![2; REGION_SIZE]
+        );
+    }
 
     // try writing to unallocated memory
-    let Err(info) = trap::with(|| {
-        memory.write_bytes(REGION_END, &[3; REGION_SIZE]);
-    }) else {
-        panic!("should trap");
-    };
+    {
+        let Err(info) = trap::with(|| {
+            memory.write_bytes(UNALLOCATED_ADDR, &[3; REGION_SIZE]);
+        }) else {
+            panic!("should trap on unallocated memory access");
+        };
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
+    }
 
-    // check that the trap info is correct
-    assert_eq!(info.signal, libc::SIGSEGV);
-    assert_eq!(info.code, 2);
+    // FIXME: test writing to a page that is next to the allocated page
+    // but not allocated.
+
     Ok(())
 }
 

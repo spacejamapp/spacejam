@@ -6,11 +6,11 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
-crypto = { workspace = true, features = ["shuffle", "vrf"] }
+crypto = { workspace = true, features = ["vrf"] }
 erasure.workspace = true
 hex.workspace = true
 pvm.workspace = true
-score = { workspace = true, features = ["crypto"] }
+score = { workspace = true, features = ["ed25519", "merkle", "shuffle"] }
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true

@@ -6,20 +6,16 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 codec.workspace = true
+crypto = { workspace = true, optional = true }
 hex.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
 
-# crypto features
-crypto = { workspace = true, features = [
-    "blake2",
-    "ed25519",
-    "merkle",
-    "shuffle",
-], optional = true }
-
 [features]
 default = []
-crypto = ["dep:crypto"]
+ed25519 = ["crypto/ed25519"]
+merkle = ["crypto/merkle"]
+blake2 = ["crypto/blake2"]
+shuffle = ["crypto/shuffle"]

@@ -1,6 +1,4 @@
 //! Core of SpaceJam
-//!
-//! TODO: remove crypto as dependency
 
 pub use {
     account::{Account, Accounts},
@@ -18,7 +16,6 @@ pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod util;
 pub mod vm;
 
 /// (B_I) The balance per item

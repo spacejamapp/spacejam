@@ -30,11 +30,11 @@ impl Translator<'_> {
     // Save registers to context
     pub fn save_registers(&mut self) {
         for i in 0..self.registers.len() {
-            let reg_var = self.registers[&(i as u8)];
-            let reg_val = self.builder.use_var(reg_var);
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
-            self.builder.ins().store(MemFlags::new(), reg_val, addr, 0);
+            let var = self.registers[&(i as u8)];
+            let val = self.builder.use_var(var);
+            self.builder
+                .ins()
+                .store(MemFlags::new(), val, self.pool.ctx, (i * 8) as i32);
         }
     }
 
@@ -42,12 +42,12 @@ impl Translator<'_> {
     pub fn load_registers(&mut self) {
         for i in 0..self.registers.len() {
             let var = self.registers[&(i as u8)];
-            let offset = self.builder.ins().iconst(types::I64, (i * 8) as i64);
-            let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
-            let val = self
-                .builder
-                .ins()
-                .load(types::I64, MemFlags::trusted(), addr, 0);
+            let val = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                (i * 8) as i32,
+            );
             self.builder.def_var(var, val);
         }
     }

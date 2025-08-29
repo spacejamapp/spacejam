@@ -26,6 +26,8 @@ thread_local! {
     static TRAP_INFO: Cell<Option<TrapInfo>> = const { Cell::new(None) };
     /// Thread-local result storage for passing results back from C
     static RESULT_STORAGE: Cell<*mut libc::c_void> = const { Cell::new(ptr::null_mut()) };
+    /// Track whether signal handlers are installed for this thread
+    static HANDLERS_INSTALLED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Execute a function with SIGSEGV trap protection
@@ -33,11 +35,18 @@ pub fn with<F, T>(f: F) -> Result<T, TrapInfo>
 where
     F: FnOnce() -> T,
 {
-    unsafe {
-        if pvm_install_sigsegv_handler(Some(sigsegv_handler)) != 0 {
-            panic!("Failed to install SIGSEGV handler");
+    HANDLERS_INSTALLED.with(|installed| {
+        if !installed.get() {
+            unsafe {
+                let result = install_signal_handlers(Some(sigsegv_handler));
+
+                if result != 0 {
+                    panic!("Failed to install signal handler(s)");
+                }
+            }
+            installed.set(true);
         }
-    }
+    });
 
     // Clear any previous trap info and result
     TRAP_INFO.with(|info| info.set(None));
@@ -51,7 +60,7 @@ where
         let mut jmp_buf_storage: *mut libc::c_void = ptr::null_mut();
         let boxed_f = Box::new(f);
         let f_ptr = Box::into_raw(boxed_f) as *mut libc::c_void;
-        pvm_setjmp(
+        setjmp_rs(
             &mut jmp_buf_storage as *mut *mut libc::c_void,
             Some(execute::<F, T>),
             f_ptr,
@@ -111,9 +120,13 @@ where
 }
 
 /// SIGSEGV signal handler
-extern "C" fn sigsegv_handler(sig: libc::c_int, info: *mut siginfo_t, _context: *mut libc::c_void) {
-    let fault_addr = unsafe { (*info)._sifields._sigfault.si_addr };
-    let fault_code = unsafe { (*info).si_code };
+extern "C" fn sigsegv_handler(
+    sig: libc::c_int,
+    info: *mut pvm_siginfo_t,
+    _context: *mut libc::c_void,
+) {
+    let (fault_addr, fault_code) =
+        unsafe { ((*info)._sifields._sigfault.si_addr, (*info).si_code) };
     TRAP_INFO.with(|trap_info| {
         trap_info.set(Some(TrapInfo {
             signal: sig,
@@ -127,7 +140,7 @@ extern "C" fn sigsegv_handler(sig: libc::c_int, info: *mut siginfo_t, _context: 
         let jmp_buf_ptr = ptr.load(Ordering::SeqCst);
         if !jmp_buf_ptr.is_null() {
             unsafe {
-                pvm_longjmp(jmp_buf_ptr);
+                longjmp_rs(jmp_buf_ptr);
             }
         }
     });

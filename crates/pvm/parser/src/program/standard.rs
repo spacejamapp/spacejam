@@ -3,27 +3,26 @@
 use crate::{program::Program, Memory};
 use anyhow::Result;
 use codec::{io, Reader};
-use std::borrow::Cow;
 
 /// The standard program blob
-pub struct StandardProgramBlob<'a> {
+pub struct StandardProgramBlob {
     /// (o) The read-only data
-    pub ro_data: Cow<'a, [u8]>,
+    pub ro_data: Vec<u8>,
     /// (w) The read-write data
-    pub rw_data: Cow<'a, [u8]>,
+    pub rw_data: Vec<u8>,
     /// (c) The blob of the code
-    pub code_blob: Cow<'a, [u8]>,
+    pub code_blob: Vec<u8>,
     /// (z) Padding pages for read-write data
     pub rw_data_padding_pages: u16,
     /// (s) The size of stack
     pub stack_size: u32,
 }
 
-impl<'a> StandardProgramBlob<'a> {
+impl StandardProgramBlob {
     /// Initialize the program.
     ///
     /// decode the registers (ω) and the memory (µ)
-    pub fn init(&self, args: &'a [u8]) -> Result<Program<'a>> {
+    pub fn init(&self, args: &[u8]) -> Result<Program> {
         let funz = |x: u64| x.div_ceil(crate::ZONE_SIZE) * crate::ZONE_SIZE;
         let (ro_len, rw_len) = (self.ro_data.len() as u64, self.rw_data.len() as u64);
 
@@ -48,15 +47,15 @@ impl<'a> StandardProgramBlob<'a> {
         Ok(Program {
             registers,
             memory: Memory::init(self, args),
-            code: self.code_blob.clone(),
+            code: self.code_blob.to_vec(),
         })
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {
+impl TryFrom<&[u8]> for StandardProgramBlob {
     type Error = anyhow::Error;
 
-    fn try_from(mut blob: &'a [u8]) -> Result<Self, Self::Error> {
+    fn try_from(mut blob: &[u8]) -> Result<Self, Self::Error> {
         if blob.len() < 15 {
             anyhow::bail!("Invalid format length")
         }
@@ -101,9 +100,9 @@ impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {
         Ok(Self {
             rw_data_padding_pages,
             stack_size,
-            ro_data,
-            rw_data,
-            code_blob,
+            ro_data: ro_data.to_vec(),
+            rw_data: rw_data.to_vec(),
+            code_blob: code_blob.to_vec(),
         })
     }
 }
@@ -119,6 +118,6 @@ impl<'a> TryFrom<&'a [u8]> for StandardProgramBlob<'a> {
 ///
 /// * let E3(∣o∣)⌢ E3(∣w∣)⌢ E2(z)⌢ E3(s)⌢ o⌢ w⌢ E4(∣c∣)⌢ c = p
 /// * (p, a) -> (c, ω, µ)
-pub fn standard<'a>(format: &'a [u8], args: &'a [u8]) -> anyhow::Result<Program<'a>> {
+pub fn standard(format: &[u8], args: &[u8]) -> anyhow::Result<Program> {
     StandardProgramBlob::try_from(format)?.init(args)
 }

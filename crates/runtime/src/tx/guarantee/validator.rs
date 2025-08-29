@@ -3,8 +3,9 @@
 use crate::tx::guarantee::error::{Error, Result};
 use score::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
+    params::assignments,
     service::{ReportedWorkPackage, WorkExecResult},
-    util, Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
+    Account, Accounts, Ed25519Public, OpaqueHash, State, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
     MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS,
     VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
 };
@@ -288,7 +289,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             == slot / ROTATION_PERIOD as u32
         {
             tracing::trace!("report in the same rotation, using current validators");
-            let assignments = util::assignments(slot, self.state.entropy[2]);
+            let assignments = assignments::core(slot, self.state.entropy[2]);
             (self.state.validators.current, assignments)
         } else {
             let (entropy, validators) = if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH
@@ -301,7 +302,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 (self.state.entropy[3], self.state.validators.previous)
             };
             let assignments =
-                util::assignments(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
+                assignments::core(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
             (validators, assignments)
         };
 

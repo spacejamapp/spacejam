@@ -6,7 +6,7 @@ use crate::{
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
-    EntropyBuffer, OpaqueHash, TimeSlot,
+    EntropyBuffer, OpaqueHash,
 };
 use crate::{service::WorkExecResult, Gas, ServiceId};
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,8 @@ pub struct AccumulateState<R: Accounts> {
 
 impl<R: Accounts> AccumulateState<R> {
     /// (I) Generate a new index from provided environment
-    pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
+    #[cfg(feature = "blake2")]
+    pub fn index(&mut self, service: ServiceId, timeslot: crate::TimeSlot) -> ServiceId {
         let encoded = codec::encode(&IndexSalt {
             service,
             entropy: self.entropy[0],
@@ -154,7 +155,7 @@ impl<R: Accounts> Accumulated<R> {
     /// Get the accumulation root
     ///
     /// see also (7.7) in the graypaper
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "merkle")]
     pub fn root(&self) -> OpaqueHash {
         let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
         sorted_pairs.sort_by_key(|(service_id, _)| *service_id);

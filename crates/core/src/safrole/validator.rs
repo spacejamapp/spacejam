@@ -106,7 +106,7 @@ impl ValidatorIter for ValidatorsData {
     }
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "ed25519")]
 mod crypto_impl {
     use super::ValidatorData;
 
