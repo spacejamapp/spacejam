@@ -83,7 +83,7 @@ impl JIT {
     fn signature(&self) -> Signature {
         let mut sig = self.module.make_signature();
         sig.params.push(AbiParam::new(types::I64));
-        sig.returns.push(AbiParam::new(types::I8));
+        sig.returns.push(AbiParam::new(types::I64));
         sig
     }
 }

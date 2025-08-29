@@ -96,7 +96,7 @@ impl Translator<'_> {
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, sig: i64) {
         self.save_registers();
-        let res = self.builder.ins().iconst(types::I8, sig);
+        let res = self.builder.ins().iconst(types::I64, sig);
         self.builder.ins().return_(&[res]);
     }
 

@@ -1,6 +1,6 @@
 //! Memory related operations
 
-use crate::{result, Translator};
+use crate::Translator;
 use cranelift::prelude::*;
 
 impl Translator<'_> {
@@ -27,7 +27,7 @@ impl Translator<'_> {
 
         // If the address is not allocated, return FAULT
         self.builder.switch_to_block(fault);
-        self.return_(result::FAULT);
+        self.builder.ins().return_(&[address]);
         self.builder.switch_to_block(then);
     }
 
