@@ -36,11 +36,14 @@ pub struct Translator<'b> {
     // Jump table for dynamic jumps
     jump_table: Vec<u64>,
 
-    // Context pointer for boundary checking and runtime operations
-    ctx_ptr: Value,
+    /// ssv for the context pointer
+    ctx: Value,
 
     /// ssv for memory pointer
     memory: Value,
+
+    /// ssv for heap pointer
+    heap: Value,
 }
 
 impl<'b> Translator<'b> {
@@ -53,8 +56,9 @@ impl<'b> Translator<'b> {
             blocks: BTreeMap::new(),
             host: BTreeMap::new(),
             jump_table: Vec::new(),
-            ctx_ptr: Value::new(0),
+            ctx: Value::new(0),
             memory: Value::new(0),
+            heap: Value::new(0),
         })
     }
 }

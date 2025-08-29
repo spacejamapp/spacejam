@@ -2,21 +2,30 @@
 
 use crate::{offsets, Translator};
 use cranelift::prelude::*;
-use pvm::Memory;
 
 impl Translator<'_> {
     /// Initialize memory pointer
-    pub fn init_memory(&mut self, ctx: Value, _memory: &Memory) {
-        let memory_ptr_offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::MEMORY_PTR_OFFSET as i64);
-        let memory_ptr_addr = self.builder.ins().iadd(ctx, memory_ptr_offset);
-        self.memory = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::new(), memory_ptr_addr, 0);
+    pub fn init_memory(&mut self) {
+        self.memory = self.builder.ins().load(
+            types::I64,
+            MemFlags::new(),
+            self.ctx,
+            offsets::MEMORY_PTR_OFFSET,
+        );
+
+        self.heap = self.builder.ins().load(
+            types::I64,
+            MemFlags::new(),
+            self.ctx,
+            offsets::HEAP_PTR_OFFSET,
+        );
     }
+
+    /// Check if the target memory address is allocated
+    ///
+    ///     allocated: heap start < target < heap ptr
+    /// not allocated: heap ptr   < target < heap end
+    pub fn allocated(&mut self, _address: Value) {}
 
     /// Memory get - load value from memory at address
     pub fn mget(&mut self, address: Value, ty: types::Type) -> Value {

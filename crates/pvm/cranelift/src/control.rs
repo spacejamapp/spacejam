@@ -32,7 +32,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, offsets::GAS_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let addr = self.builder.ins().iadd(self.ctx, offset);
         self.builder
             .ins()
             .load(types::I64, MemFlags::trusted(), addr, 0)
@@ -46,7 +46,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, offsets::GAS_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let addr = self.builder.ins().iadd(self.ctx, offset);
         let current_gas = self
             .builder
             .ins()
@@ -64,7 +64,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, offsets::PC_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let addr = self.builder.ins().iadd(self.ctx, offset);
         self.builder
             .ins()
             .load(types::I64, MemFlags::trusted(), addr, 0)
@@ -76,7 +76,7 @@ impl Translator<'_> {
             .builder
             .ins()
             .iconst(types::I64, offsets::PC_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.ctx_ptr, offset);
+        let addr = self.builder.ins().iadd(self.ctx, offset);
         let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
         self.builder
             .ins()

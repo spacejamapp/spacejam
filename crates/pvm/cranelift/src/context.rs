@@ -7,27 +7,27 @@ use pvm::Program;
 /// ExtendedContext memory layout offsets
 pub mod offsets {
     /// Size of register array in bytes
-    pub const REGISTERS_SIZE: usize = pvm::REGISTER_COUNT * 8;
+    pub const REGISTERS_SIZE: i32 = (pvm::REGISTER_COUNT as i32) * 8;
 
     /// Offset to gas field (after registers)
-    pub const GAS_OFFSET: usize = REGISTERS_SIZE;
+    pub const GAS_OFFSET: i32 = REGISTERS_SIZE;
 
     /// Offset to PC field (after registers + gas)
-    pub const PC_OFFSET: usize = REGISTERS_SIZE + 8;
+    pub const PC_OFFSET: i32 = REGISTERS_SIZE + 8;
 
     /// Offset to memory pointer (after registers + PC + gas)
-    pub const HEAP_PTR_OFFSET: usize = PC_OFFSET + 8;
+    pub const HEAP_PTR_OFFSET: i32 = PC_OFFSET + 8;
 
     /// Offset to memory pointer (after registers + PC + gas)
-    pub const MEMORY_PTR_OFFSET: usize = HEAP_PTR_OFFSET + 8;
+    pub const MEMORY_PTR_OFFSET: i32 = HEAP_PTR_OFFSET + 8;
 }
 
 impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
-        self.ctx_ptr = ctx;
+        self.ctx = ctx;
         self.builder.declare_var(self.jump, types::I64);
         self.init_registers(&program.registers);
-        self.init_memory(ctx, &program.memory);
+        self.init_memory();
     }
 }

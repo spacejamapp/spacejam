@@ -573,7 +573,7 @@ impl Visitor for Translator<'_> {
         let inst = self
             .builder
             .ins()
-            .call(self.host[&"call"], &[index, self.ctx_ptr]);
+            .call(self.host[&"call"], &[index, self.ctx]);
         self.load_registers();
         let result = self.builder.inst_results(inst)[0];
         let panic = self.builder.ins().iconst(types::I8, result::PANIC);
@@ -723,7 +723,6 @@ impl Visitor for Translator<'_> {
         Ok(())
     }
 
-    // FIXME: when refactor the control flow stuffs
     fn visit_load_imm_jump_ind(
         &mut self,
         format: format::RRII,
@@ -750,11 +749,10 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let unsigned_value = self.mget(effective_addr, types::I16);
-        let value = self.builder.ins().sextend(types::I64, unsigned_value);
+        let unsigned = self.mget_o(addr, offset, types::I16);
+        let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
     }
@@ -765,11 +763,10 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let unsigned_value = self.mget(effective_addr, types::I32);
-        let value = self.builder.ins().sextend(types::I64, unsigned_value);
+        let unsigned = self.mget_o(addr, offset, types::I32);
+        let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
     }
@@ -780,11 +777,10 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let unsigned_value = self.mget(effective_addr, types::I8);
-        let value = self.builder.ins().sextend(types::I64, unsigned_value);
+        let unsigned = self.mget_o(addr, offset, types::I8);
+        let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
     }
@@ -795,10 +791,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let value = self.mget(effective_addr, types::I16);
+        let value = self.mget_o(addr, offset, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -810,10 +805,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let value = self.mget(effective_addr, types::I32);
+        let value = self.mget_o(addr, offset, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -825,10 +819,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let value = self.mget(effective_addr, types::I64);
+        let value = self.mget_o(addr, offset, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
@@ -838,10 +831,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
-        let addr_val = self.rget(reg1);
+        let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let effective_addr = self.builder.ins().iadd(addr_val, offset);
-        let value = self.mget(effective_addr, types::I8);
+        let value = self.mget_o(addr, offset, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1430,7 +1422,7 @@ impl Visitor for Translator<'_> {
         let _inst = self
             .builder
             .ins()
-            .call(self.host[&"sbrk"], &[self.ctx_ptr, target, increment]);
+            .call(self.host[&"sbrk"], &[self.ctx, target, increment]);
         self.load_registers();
         Ok(())
     }
@@ -1762,8 +1754,6 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
         let src_32 = self.builder.ins().ireduce(types::I32, src_val);
-
-        // Mask immediate to avoid undefined behavior
         let safe_shift = (imm0 % 32) as i64;
         let result_32 = self.builder.ins().ushr_imm(src_32, safe_shift);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
@@ -1867,8 +1857,6 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        // let effective_addr = self.builder.ins().iadd(addr, offset);
-        // self.check_store_boundaries(effective_addr, 4)?;
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
@@ -1887,8 +1875,6 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
-        // let effective_addr = self.builder.ins().iadd(addr, offset);
-        // self.check_store_boundaries(effective_addr, 8)?;
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
         self.mset_o(addr, offset, value);
         Ok(())
@@ -1970,7 +1956,6 @@ impl Visitor for Translator<'_> {
             value
         };
         self.mset(address, write_value);
-
         Ok(())
     }
 
@@ -2024,10 +2009,7 @@ impl Visitor for Translator<'_> {
         let addr = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-
-        // store to memory
         self.mset_o(addr, offset, truncated);
-
         Ok(())
     }
 
