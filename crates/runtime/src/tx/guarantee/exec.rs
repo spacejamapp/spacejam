@@ -34,14 +34,14 @@ pub async fn outer<V: Pvm, R: Accounts>(
     let mut accumulated = Accumulated::new(context);
     loop {
         let mut cumulative_gas = 0;
-        let index = reports
-            .iter()
-            .take_while(|r| {
-                let report_gas: Gas = r.results.iter().map(|r| r.accumulate_gas).sum();
+        let mut index = 0;
+        for (i, report) in reports.iter().enumerate() {
+            let report_gas: Gas = report.results.iter().map(|r| r.accumulate_gas).sum();
+            if cumulative_gas + report_gas <= gas_limit {
                 cumulative_gas += report_gas;
-                cumulative_gas <= gas_limit
-            })
-            .count();
+                index = i + 1;
+            }
+        }
 
         if index == 0 {
             return accumulated;
