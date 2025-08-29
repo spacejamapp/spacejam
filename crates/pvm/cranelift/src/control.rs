@@ -1,17 +1,8 @@
 //! Control flow related interfaces
 
-use crate::{context::offsets, Translator};
+use crate::{context::offsets, exit::Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
-
-/// Execution result discriminant values
-pub mod result {
-    pub const HALT: i64 = 0;
-    pub const PANIC: i64 = 1;
-    pub const FAULT: i64 = 2;
-    pub const HOST: i64 = 3;
-    pub const OOG: i64 = 4;
-}
 
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
@@ -94,9 +85,9 @@ impl Translator<'_> {
     }
 
     /// Return with trap result and set PC to the trap instruction location
-    pub fn return_(&mut self, sig: i64) {
+    pub fn return_(&mut self, exit: Exit) {
         self.save_registers();
-        let res = self.builder.ins().iconst(types::I64, sig);
+        let res = exit.value(&mut self.builder);
         self.builder.ins().return_(&[res]);
     }
 
@@ -113,7 +104,7 @@ impl Translator<'_> {
 
         // Halt block: return halt result
         self.builder.switch_to_block(halt_block);
-        self.return_(result::HALT);
+        self.return_(Exit::Halt);
 
         // Jump target validation:
         // 1. address == 0 (null address)
@@ -166,7 +157,7 @@ impl Translator<'_> {
 
         // Trap block: invalid jump target
         self.builder.switch_to_block(trap);
-        self.return_(result::PANIC);
+        self.return_(Exit::InvalidJumpTarget);
 
         // Seal all created blocks
         self.builder.seal_block(halt_block);

@@ -5,10 +5,11 @@ use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{self, FuncRef};
 use std::collections::BTreeMap;
-pub use {context::offsets, control::result};
+pub use {context::offsets, exit::Exit};
 
 mod context;
 mod control;
+mod exit;
 mod memory;
 mod register;
 mod translate;

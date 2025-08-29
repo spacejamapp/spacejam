@@ -1,7 +1,7 @@
 //! Visitor implementation for PVM instructions
 
 use crate::offsets;
-use crate::result;
+use crate::Exit;
 use crate::Translator;
 use core::ops::Range;
 use cranelift::prelude::*;
@@ -581,7 +581,7 @@ impl Visitor for Translator<'_> {
             .call(self.host[&"call"], &[index, self.pool.ctx]);
         self.load_registers();
         let result = self.builder.inst_results(inst)[0];
-        let panic = self.builder.ins().iconst(types::I8, result::PANIC);
+        let panic = self.builder.ins().iconst(types::I8, 1);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
 
         // Return with panic if result equals panic
@@ -591,7 +591,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .brif(is_panic, then_block, &[], else_block, &[]);
         self.builder.switch_to_block(then_block);
-        self.return_(result::PANIC);
+        self.return_(Exit::HostCallPanicked);
         self.builder.switch_to_block(else_block);
         Ok(())
     }
@@ -601,7 +601,7 @@ impl Visitor for Translator<'_> {
             self.builder.ins().jump(*block, &[]);
         } else {
             self.burn_gas(1);
-            self.return_(result::PANIC);
+            self.return_(Exit::ProgramNotTerminated);
         }
 
         Ok(())
@@ -2130,7 +2130,7 @@ impl Visitor for Translator<'_> {
     }
 
     fn visit_trap(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
-        self.return_(result::PANIC);
+        self.return_(Exit::Trap);
         Ok(())
     }
 
