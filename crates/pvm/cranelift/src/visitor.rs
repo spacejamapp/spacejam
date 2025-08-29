@@ -623,8 +623,7 @@ impl Visitor for Translator<'_> {
         let lhs = self.rget(reg0);
         let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target = self.builder.ins().iadd(lhs, rhs);
-        self.set_jump(target);
-        self.djump()
+        self.djump(target)
     }
 
     fn visit_leading_zero_bits_32(
@@ -741,11 +740,10 @@ impl Visitor for Translator<'_> {
         } = format;
         let src = self.rget(reg1);
         let offset = self.builder.ins().iconst(types::I64, imm1 as i64);
-        let target_addr = self.builder.ins().iadd(src, offset);
+        let target = self.builder.ins().iadd(src, offset);
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         self.rset(reg0, imm_val);
-        self.set_jump(target_addr);
-        self.djump()
+        self.djump(target)
     }
 
     fn visit_load_ind_i16(

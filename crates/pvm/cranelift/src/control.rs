@@ -7,16 +7,6 @@ use cranelift::prelude::*;
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
 impl Translator<'_> {
-    /// get result from the context
-    pub fn jump(&mut self) -> Value {
-        self.builder.use_var(self.jump)
-    }
-
-    /// set dynamic jump to the context
-    pub fn set_jump(&mut self, target: Value) {
-        self.builder.def_var(self.jump, target);
-    }
-
     /// get gas value from the context
     pub fn gas(&mut self) -> Value {
         let offset = self
@@ -37,7 +27,7 @@ impl Translator<'_> {
             types::I64,
             MemFlags::trusted(),
             self.pool.ctx,
-            offsets::GAS_OFFSET as i32,
+            offsets::GAS_OFFSET,
         );
         let amount = self.builder.ins().iconst(types::I64, gas);
         let result = self.builder.ins().isub(current_gas, amount);
@@ -45,7 +35,7 @@ impl Translator<'_> {
             MemFlags::trusted(),
             result,
             self.pool.ctx,
-            offsets::GAS_OFFSET as i32,
+            offsets::GAS_OFFSET,
         );
     }
 
@@ -92,10 +82,9 @@ impl Translator<'_> {
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
-    pub fn djump(&mut self) -> Result<()> {
+    pub fn djump(&mut self, target: Value) -> Result<()> {
         let halt_block = self.builder.create_block();
         let check_valid = self.builder.create_block();
-        let target = self.jump();
         let halt = self.builder.ins().iconst(types::I64, HALT_TARGET as i64);
         let is_halt = self.builder.ins().icmp(IntCC::Equal, target, halt);
         self.builder
@@ -120,7 +109,7 @@ impl Translator<'_> {
             let is_zero = self.builder.ins().icmp(IntCC::Equal, target, zero);
 
             // Check 2: address > table.len() * JUMP_ALIGNMENT_FACTOR
-            let table_len = self.jump_table.len() as u32;
+            let table_len = self.jump.len() as u32;
             let max_address = table_len * pvm::JUMP_ALIGNMENT_FACTOR;
             let max_addr_val = self.builder.ins().iconst(types::I64, max_address as i64);
             let exceeds_bounds =
@@ -133,8 +122,8 @@ impl Translator<'_> {
             let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
 
             // Combine all invalid conditions with OR
-            let invalid1 = self.builder.ins().bor(is_zero, exceeds_bounds);
-            let invalid_jump = self.builder.ins().bor(invalid1, is_misaligned);
+            let invalid = self.builder.ins().bor(is_zero, exceeds_bounds);
+            let invalid_jump = self.builder.ins().bor(invalid, is_misaligned);
             self.builder.ins().brif(invalid_jump, trap, &[], valid, &[]);
         }
 
@@ -146,7 +135,7 @@ impl Translator<'_> {
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
             let mut switch = cranelift::frontend::Switch::new();
-            for (i, &jump_pc) in self.jump_table.iter().enumerate() {
+            for (i, &jump_pc) in self.jump.iter().enumerate() {
                 if let Some(&cranelift_block) = self.blocks.get(&jump_pc) {
                     switch.set_entry(i as u128, cranelift_block);
                 }

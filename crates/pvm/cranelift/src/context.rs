@@ -54,7 +54,6 @@ impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
         tracing::debug!("memory info: {:?}", program.memory.info);
-        self.builder.declare_var(self.jump, types::I64);
         self.pool = Pool {
             memory: self.builder.ins().load(
                 types::I64,
