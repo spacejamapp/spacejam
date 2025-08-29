@@ -94,7 +94,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>().await?.start().await,
             Command::Key(key) => key.run(),
-            Command::Fuzz(fuzz) => fuzz.run(),
+            Command::Fuzz(fuzz) => fuzz.run().await,
         }
     }
 }

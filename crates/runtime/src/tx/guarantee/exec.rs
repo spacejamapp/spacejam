@@ -24,7 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - [T]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-pub fn outer<V: Pvm, R: Accounts>(
+pub async fn outer<V: Pvm, R: Accounts>(
     mut gas_limit: Gas,
     mut reports: &[WorkReport],
     context: AccumulateState<R>,
@@ -52,7 +52,8 @@ pub fn outer<V: Pvm, R: Accounts>(
             &reports[..index],
             gas_table,
             timeslot,
-        );
+        )
+        .await;
 
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
@@ -67,7 +68,7 @@ pub fn outer<V: Pvm, R: Accounts>(
 }
 
 /// (Δ*) parallel accumulation
-pub fn parallel<V: Pvm, R: Accounts>(
+pub async fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,

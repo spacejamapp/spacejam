@@ -56,7 +56,7 @@ impl<C: runtime::Config> Validating<C> {
                 if let Some(block) = block {
                     let hash = block.header.hash().expect("failed to get hash");
                     tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
-                    match runtime.chain_mut().await.import(&block) {
+                    match runtime.chain_mut().await.import(&block).await {
                         Ok(imported) => {
                             if imported.imported() {
                                 if let Err(e) = runtime.announce(block.header.clone()).await {

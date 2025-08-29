@@ -15,7 +15,7 @@ pub use types::*;
 include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
 
 /// Run the accumulate test
-pub fn run(test: &specjam::Test) -> Result<()> {
+pub async fn run(test: &specjam::Test) -> Result<()> {
     let input = TestInput::from_json(&test.input)?;
     let output = TestOutput::from_json(&test.output)?;
     let accounts = input.pre_state.accounts();
@@ -31,7 +31,8 @@ pub fn run(test: &specjam::Test) -> Result<()> {
         &Default::default(),
         accounts.clone(),
         Default::default(),
-    )?;
+    )
+    .await?;
     accumulation.root = Default::default();
 
     // convert the accounts to the service items

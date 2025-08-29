@@ -105,10 +105,10 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
 
         tests.push(parse_quote! {
-            #[test]
-            fn #test_name() {
+            #[tokio::test]
+            async fn #test_name() {
                 let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
-                crate::Runner::step(&test).expect("failed to run test");
+                crate::Runner::step(&test).await.expect("failed to run test");
             }
         });
     }
@@ -160,10 +160,10 @@ fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
 
         tests.push(parse_quote! {
-            #[test]
-            fn #test_name() {
+            #[tokio::test]
+            async fn #test_name() {
                 let test = specjam::Entry::fuzz(#path).unwrap().get(#i).unwrap();
-                crate::Runner::step(&test).expect("failed to run test");
+                crate::Runner::step(&test).await.expect("failed to run test");
             }
         });
     }

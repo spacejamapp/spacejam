@@ -23,7 +23,7 @@ mod validator;
 /// (b) Accumulate the available work reports
 #[tracing::instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
-pub fn accumulate<V: Pvm, R: Accounts>(
+pub async fn accumulate<V: Pvm, R: Accounts>(
     // The next timeslot (τ')
     slot: TimeSlot,
     // The prior timeslot (τ)
@@ -61,7 +61,8 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         },
         &privileges.always_acc,
         slot,
-    );
+    )
+    .await;
 
     // (πS') compose the service activity records
     let mut records = accumulated.records();

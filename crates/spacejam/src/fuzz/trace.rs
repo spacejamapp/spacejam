@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 use testing::{Runner, Scale, Section, Test, Trace};
 
 /// Test traces
-pub fn test(test: &Path) -> anyhow::Result<()> {
+pub async fn test(test: &Path) -> anyhow::Result<()> {
     let json: Value = serde_json::from_slice(&fs::read(test)?)?;
     let input = serde_json::json!({
         "block": json["block"],
@@ -26,5 +26,5 @@ pub fn test(test: &Path) -> anyhow::Result<()> {
         name: test.file_name().unwrap().to_string_lossy().to_string(),
     };
 
-    Runner::step(&test)
+    Runner::step(&test).await
 }

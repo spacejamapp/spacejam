@@ -42,9 +42,9 @@ pub enum Fuzz {
 
 impl Fuzz {
     /// Run the fuzz command
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target { socket } => Target::serve(socket),
+            Self::Target { socket } => Target::serve(socket).await,
             Self::Fuzzer {
                 socket,
                 traces,
@@ -57,7 +57,7 @@ impl Fuzz {
                     Fuzzer::run(socket, traces, report)
                 }
             }
-            Self::Tx { test } => fuzz::trace::test(test),
+            Self::Tx { test } => fuzz::trace::test(test).await,
         }
     }
 }

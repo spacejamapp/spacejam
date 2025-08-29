@@ -44,12 +44,12 @@ impl<C: Config> Chain<C> {
     }
 
     /// Create a new fork at the latest finalized block.
-    pub fn fork(&mut self, block: &Block) -> Result<()> {
+    pub async fn fork(&mut self, block: &Block) -> Result<()> {
         let head = self.grandpa.handshake.head.clone();
         let hash = block.header.hash()?;
         let branch = Branch::checkout(self.state.clone());
         let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
-        fork.import::<C::Vm>(&head, block)?;
+        fork.import::<C::Vm>(&head, block).await?;
         self.forks.insert(hash, fork);
         Ok(())
     }
@@ -57,7 +57,7 @@ impl<C: Config> Chain<C> {
     /// Import a new block to the chain.
     ///
     /// returns true if the block is imported.
-    pub fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
+    pub async fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
         let head = block.header.head()?;
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
@@ -95,7 +95,7 @@ impl<C: Config> Chain<C> {
         // 2. the block is a child of the finalized
         if block.header.parent == self.grandpa.handshake.head.hash {
             tracing::trace!("block is child of the finalized head");
-            self.fork(block)?;
+            self.fork(block).await?;
             return Ok(Imported::Finalized);
         }
 
@@ -105,7 +105,7 @@ impl<C: Config> Chain<C> {
             let best = fork.best()?;
             if best.hash == block.header.parent {
                 tracing::trace!("block is a child of a fork");
-                fork.import::<C::Vm>(&best, block)?;
+                fork.import::<C::Vm>(&best, block).await?;
                 return Ok(Imported::Fork);
             }
 
@@ -113,7 +113,7 @@ impl<C: Config> Chain<C> {
             for fhead in fork.chain.iter() {
                 if fhead.hash == block.header.parent {
                     tracing::trace!("block is on a fork of a fork");
-                    let nfork = fork.fork::<C::Vm>(fhead, block)?;
+                    let nfork = fork.fork::<C::Vm>(fhead, block).await?;
                     self.forks.insert(head.hash, nfork);
                     return Ok(Imported::ForkOfFork);
                 }
@@ -173,12 +173,12 @@ impl<C: Config> Chain<C> {
     }
 
     /// Resolve the orphan blocks
-    pub fn resolve_orphan(&mut self) -> anyhow::Result<()> {
+    pub async fn resolve_orphan(&mut self) -> anyhow::Result<()> {
         let mut imported = vec![];
         let orphan = self.orphan.clone();
         for (slot, orphans) in orphan.iter() {
             for (hash, block) in orphans.iter() {
-                if self.import(block)?.imported() {
+                if self.import(block).await?.imported() {
                     imported.push((slot, hash));
                 }
             }

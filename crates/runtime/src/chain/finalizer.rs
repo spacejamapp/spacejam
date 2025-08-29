@@ -11,9 +11,9 @@ use std::collections::BTreeSet;
 
 impl<C: Config> Chain<C> {
     /// Try finalize the chain.
-    pub fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
+    pub async fn finalize(&mut self) -> Result<Vec<BlockWithDiff>> {
         tracing::trace!("finalizing the chain...");
-        self.resolve_orphan()?;
+        self.resolve_orphan().await?;
         let best = self.best()?;
         tracing::trace!("best: #{}@0x{}", best.slot, hex::encode(&best.hash[..3]));
         if best.hash == self.grandpa.handshake.head.hash {
@@ -68,7 +68,7 @@ impl<C: Config> Chain<C> {
         self.reset_forks(finalized)?;
 
         // handle orphan blocks
-        self.process_orphan()?;
+        self.process_orphan().await?;
         Ok(blocks)
     }
 
@@ -113,7 +113,7 @@ impl<C: Config> Chain<C> {
     }
 
     /// try process the orphan blocks
-    fn process_orphan(&mut self) -> Result<()> {
+    async fn process_orphan(&mut self) -> Result<()> {
         let finalized = &self.grandpa.handshake.head;
         let mut to_remove = Vec::new();
         let mut to_import = Vec::new();
@@ -128,7 +128,7 @@ impl<C: Config> Chain<C> {
         }
 
         for (slot, hash, block) in to_import.into_iter() {
-            if self.import(&block)?.imported() {
+            if self.import(&block).await?.imported() {
                 to_remove.push((slot, hash));
             }
         }
