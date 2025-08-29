@@ -33,20 +33,20 @@ impl Translator<'_> {
     ///
     /// TODO: handle OOG
     pub fn burn_gas(&mut self, gas: i64) {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::GAS_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.pool.ctx, offset);
-        let current_gas = self
-            .builder
-            .ins()
-            .load(types::I64, MemFlags::trusted(), addr, 0);
-        let burn_amount = self.builder.ins().iconst(types::I64, gas);
-        let result = self.builder.ins().isub(current_gas, burn_amount);
-        self.builder
-            .ins()
-            .store(MemFlags::trusted(), result, addr, 0);
+        let current_gas = self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            self.pool.ctx,
+            offsets::GAS_OFFSET as i32,
+        );
+        let amount = self.builder.ins().iconst(types::I64, gas);
+        let result = self.builder.ins().isub(current_gas, amount);
+        self.builder.ins().store(
+            MemFlags::trusted(),
+            result,
+            self.pool.ctx,
+            offsets::GAS_OFFSET as i32,
+        );
     }
 
     /// get pc from the context

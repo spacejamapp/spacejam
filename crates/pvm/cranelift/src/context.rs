@@ -32,15 +32,28 @@ pub struct Pool {
     pub memory: Value,
 
     /// The heap pointer
-    pub heap: Value,
+    pub heapp: Value,
+
+    /// The read range
+    pub read: Range<Value>,
+
+    /// The write range
+    pub write: Range<Value>,
 
     /// The heap range
-    pub hrange: Range<Value>,
+    pub heap: Range<Value>,
+
+    /// The stack range
+    pub stack: Range<Value>,
+
+    /// The args range
+    pub args: Range<Value>,
 }
 
 impl Translator<'_> {
     /// Initialize context
     pub fn init_context(&mut self, program: &Program, ctx: Value) {
+        tracing::debug!("memory info: {:?}", program.memory.info);
         self.builder.declare_var(self.jump, types::I64);
         self.pool = Pool {
             memory: self.builder.ins().load(
@@ -49,20 +62,52 @@ impl Translator<'_> {
                 ctx,
                 offsets::MEMORY_PTR_OFFSET,
             ),
-            heap: self.builder.ins().load(
+            heapp: self.builder.ins().load(
                 types::I64,
                 MemFlags::trusted(),
                 ctx,
                 offsets::HEAP_PTR_OFFSET,
             ),
-            hrange: self
+            read: self
+                .builder
+                .ins()
+                .iconst(types::I64, program.memory.info.read.start as i64)
+                ..self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, program.memory.info.read.end as i64),
+            write: self
+                .builder
+                .ins()
+                .iconst(types::I64, program.memory.info.write.start as i64)
+                ..self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, program.memory.info.write.end as i64),
+            heap: self
                 .builder
                 .ins()
                 .iconst(types::I64, program.memory.info.heap.start as i64)
-                ..self.builder.ins().iconst(
-                    types::I64,
-                    (program.memory.info.heap.start + program.memory.info.heap.end) as i64,
-                ),
+                ..self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, program.memory.info.heap.end as i64),
+            stack: self
+                .builder
+                .ins()
+                .iconst(types::I64, program.memory.info.stack.start as i64)
+                ..self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, program.memory.info.stack.end as i64),
+            args: self
+                .builder
+                .ins()
+                .iconst(types::I64, program.memory.info.args.start as i64)
+                ..self
+                    .builder
+                    .ins()
+                    .iconst(types::I64, program.memory.info.args.end as i64),
             ctx,
         };
 

@@ -1429,7 +1429,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .call(self.host[&"sbrk"], &[self.pool.ctx, target, increment]);
         self.load_registers();
-        self.pool.heap = self.builder.ins().load(
+        self.pool.heapp = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
             self.pool.ctx,

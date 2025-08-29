@@ -29,15 +29,16 @@ pub struct Translator<'b> {
     /// Cranelift function builder
     pub builder: FunctionBuilder<'b>,
 
-    // Map of blocks by start PC
+    /// Map of blocks by start PC
     pub blocks: BTreeMap<u64, ir::Block>,
 
     /// The host call function
     pub host: BTreeMap<&'static str, FuncRef>,
 
-    // Jump table for dynamic jumps
+    /// Jump table for dynamic jumps
     jump_table: Vec<u64>,
 
+    /// The constants pool
     pool: Pool,
 }
 
@@ -54,8 +55,12 @@ impl<'b> Translator<'b> {
             pool: Pool {
                 ctx: Value::new(0),
                 memory: Value::new(0),
-                heap: Value::new(0),
-                hrange: Value::new(0)..Value::new(0),
+                heapp: Value::new(0),
+                read: Value::new(0)..Value::new(0),
+                write: Value::new(0)..Value::new(0),
+                heap: Value::new(0)..Value::new(0),
+                stack: Value::new(0)..Value::new(0),
+                args: Value::new(0)..Value::new(0),
             },
         })
     }
