@@ -5,7 +5,7 @@ fn main() {
     // Compile C setjmp wrapper with proper feature macros for cross-platform compatibility
     let mut build = cc::Build::new();
     build
-        .file("csrc/setjmp.c")
+        .file("csrc/setjmp.rs.c")
         .include("csrc")
         .flag_if_supported("-Wno-implicit-function-declaration");
 
@@ -24,11 +24,12 @@ fn main() {
 
     // Generate bindings for the C wrapper
     let bindings = bindgen::Builder::default()
-        .header("csrc/setjmp.h")
+        .header("csrc/setjmp.rs.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .allowlist_function("pvm_setjmp")
-        .allowlist_function("pvm_longjmp")
-        .allowlist_function("pvm_install_signal_handlers") // Updated function name
+        .allowlist_function("setjmp_rs")
+        .allowlist_function("longjmp_rs")
+        .allowlist_function("install_signal_handlers")
+        .allowlist_type("pvm_siginfo_t")
         .generate()
         .expect("Unable to generate bindings");
 
@@ -38,6 +39,6 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     // Tell cargo to rerun if C files change
-    println!("cargo:rerun-if-changed=csrc/setjmp.c");
-    println!("cargo:rerun-if-changed=csrc/setjmp.h");
+    println!("cargo:rerun-if-changed=csrc/setjmp.rs.c");
+    println!("cargo:rerun-if-changed=csrc/setjmp.rs.h");
 }

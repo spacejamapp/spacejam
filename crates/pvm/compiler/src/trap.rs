@@ -38,8 +38,10 @@ where
     HANDLERS_INSTALLED.with(|installed| {
         if !installed.get() {
             unsafe {
-                if pvm_install_signal_handlers(Some(sigsegv_handler)) != 0 {
-                    panic!("Failed to install signal handlers");
+                let result = install_signal_handlers(Some(sigsegv_handler));
+
+                if result != 0 {
+                    panic!("Failed to install signal handler(s)");
                 }
             }
             installed.set(true);
@@ -58,7 +60,7 @@ where
         let mut jmp_buf_storage: *mut libc::c_void = ptr::null_mut();
         let boxed_f = Box::new(f);
         let f_ptr = Box::into_raw(boxed_f) as *mut libc::c_void;
-        pvm_setjmp(
+        setjmp_rs(
             &mut jmp_buf_storage as *mut *mut libc::c_void,
             Some(execute::<F, T>),
             f_ptr,
@@ -123,8 +125,8 @@ extern "C" fn sigsegv_handler(
     info: *mut pvm_siginfo_t,
     _context: *mut libc::c_void,
 ) {
-    let fault_addr = unsafe { (*info)._sifields._sigfault.si_addr };
-    let fault_code = unsafe { (*info).si_code };
+    let (fault_addr, fault_code) =
+        unsafe { ((*info)._sifields._sigfault.si_addr, (*info).si_code) };
     TRAP_INFO.with(|trap_info| {
         trap_info.set(Some(TrapInfo {
             signal: sig,
@@ -138,7 +140,7 @@ extern "C" fn sigsegv_handler(
         let jmp_buf_ptr = ptr.load(Ordering::SeqCst);
         if !jmp_buf_ptr.is_null() {
             unsafe {
-                pvm_longjmp(jmp_buf_ptr);
+                longjmp_rs(jmp_buf_ptr);
             }
         }
     });
