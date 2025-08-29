@@ -19,9 +19,6 @@ mod visitor;
 
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'b> {
-    /// PVM registers (0 to MAX_REGISTER_INDEX)
-    pub registers: BTreeMap<u8, Variable>,
-
     /// Cranelift function builder
     pub builder: FunctionBuilder<'b>,
 
@@ -42,7 +39,6 @@ impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
         Ok(Self {
-            registers: BTreeMap::new(),
             builder: FunctionBuilder::new(func, ctx),
             blocks: BTreeMap::new(),
             host: BTreeMap::new(),
