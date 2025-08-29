@@ -1,15 +1,34 @@
 //! Memory related operations
 
-use crate::Translator;
+use crate::{result, Translator};
 use cranelift::prelude::*;
 
 impl Translator<'_> {
     /// Check if the target memory address is allocated
     ///
-    ///     allocated: heap start < target < heap ptr
-    /// not allocated: heap ptr   < target < heap end
-    pub fn allocated(&mut self, address: Value) -> Value {
-        todo!("{}", address)
+    /// not allocated: heap ptr < target < heap end
+    pub fn allocated(&mut self, address: Value) {
+        let above = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedGreaterThan, address, self.pool.heap);
+        let below = self
+            .builder
+            .ins()
+            .icmp(IntCC::UnsignedLessThan, address, self.pool.hrange.end);
+        let is_not_allocated = self.builder.ins().band(above, below);
+
+        // set up condition
+        let fault = self.builder.create_block();
+        let then = self.builder.create_block();
+        self.builder
+            .ins()
+            .brif(is_not_allocated, fault, &[], then, &[]);
+
+        // If the address is not allocated, return FAULT
+        self.builder.switch_to_block(fault);
+        self.return_(result::FAULT);
+        self.builder.switch_to_block(then);
     }
 
     /// Memory get - load value from memory at address

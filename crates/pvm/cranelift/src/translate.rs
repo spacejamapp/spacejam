@@ -68,7 +68,7 @@ impl Translator<'_> {
 
         // populate trap block
         self.builder.switch_to_block(trap);
-        self.return_(result::PANIC, 0)?;
+        self.return_(result::PANIC);
         self.builder.seal_block(trap);
         Ok(())
     }
@@ -90,7 +90,7 @@ impl Translator<'_> {
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
                 self.burn_gas(1);
-                self.return_(result::PANIC, last.range.end)?;
+                self.return_(result::PANIC);
             }
         }
 

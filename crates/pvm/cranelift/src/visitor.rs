@@ -1,5 +1,6 @@
 //! Visitor implementation for PVM instructions
 
+use crate::offsets;
 use crate::result;
 use crate::Translator;
 use core::ops::Range;
@@ -566,7 +567,11 @@ impl Visitor for Translator<'_> {
         Ok(())
     }
 
-    fn visit_ecalli(&mut self, format: format::I, range: &Range<usize>) -> Result<(), Self::Error> {
+    fn visit_ecalli(
+        &mut self,
+        format: format::I,
+        _range: &Range<usize>,
+    ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
         self.save_registers();
@@ -586,7 +591,7 @@ impl Visitor for Translator<'_> {
             .ins()
             .brif(is_panic, then_block, &[], else_block, &[]);
         self.builder.switch_to_block(then_block);
-        self.return_(result::PANIC, range.end)?;
+        self.return_(result::PANIC);
         self.builder.switch_to_block(else_block);
         Ok(())
     }
@@ -596,7 +601,7 @@ impl Visitor for Translator<'_> {
             self.builder.ins().jump(*block, &[]);
         } else {
             self.burn_gas(1);
-            self.return_(result::PANIC, range.end)?;
+            self.return_(result::PANIC);
         }
 
         Ok(())
@@ -612,14 +617,14 @@ impl Visitor for Translator<'_> {
     fn visit_jump_ind(
         &mut self,
         format: format::RI,
-        range: &Range<usize>,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let lhs = self.rget(reg0);
         let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
         let target = self.builder.ins().iadd(lhs, rhs);
         self.set_jump(target);
-        self.djump(range.start)
+        self.djump()
     }
 
     fn visit_leading_zero_bits_32(
@@ -726,7 +731,7 @@ impl Visitor for Translator<'_> {
     fn visit_load_imm_jump_ind(
         &mut self,
         format: format::RRII,
-        range: &Range<usize>,
+        _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRII {
             reg0,
@@ -740,7 +745,7 @@ impl Visitor for Translator<'_> {
         let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
         self.rset(reg0, imm_val);
         self.set_jump(target_addr);
-        self.djump(range.start)
+        self.djump()
     }
 
     fn visit_load_ind_i16(
@@ -1424,6 +1429,12 @@ impl Visitor for Translator<'_> {
             .ins()
             .call(self.host[&"sbrk"], &[self.pool.ctx, target, increment]);
         self.load_registers();
+        self.pool.heap = self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            self.pool.ctx,
+            offsets::HEAP_PTR_OFFSET,
+        );
         Ok(())
     }
 
@@ -2119,7 +2130,7 @@ impl Visitor for Translator<'_> {
     }
 
     fn visit_trap(&mut self, _range: &Range<usize>) -> Result<(), Self::Error> {
-        self.return_(result::PANIC, 0)?;
+        self.return_(result::PANIC);
         Ok(())
     }
 

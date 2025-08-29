@@ -94,16 +94,14 @@ impl Translator<'_> {
     }
 
     /// Return with trap result and set PC to the trap instruction location
-    pub fn return_(&mut self, sig: i64, pc: usize) -> Result<()> {
+    pub fn return_(&mut self, sig: i64) {
         self.save_registers();
-        self.set_pc(pc as u64);
         let res = self.builder.ins().iconst(types::I8, sig);
         self.builder.ins().return_(&[res]);
-        Ok(())
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
-    pub fn djump(&mut self, pc: usize) -> Result<()> {
+    pub fn djump(&mut self) -> Result<()> {
         let halt_block = self.builder.create_block();
         let check_valid = self.builder.create_block();
         let target = self.jump();
@@ -115,7 +113,7 @@ impl Translator<'_> {
 
         // Halt block: return halt result
         self.builder.switch_to_block(halt_block);
-        self.return_(result::HALT, pc)?;
+        self.return_(result::HALT);
 
         // Jump target validation:
         // 1. address == 0 (null address)
@@ -168,7 +166,7 @@ impl Translator<'_> {
 
         // Trap block: invalid jump target
         self.builder.switch_to_block(trap);
-        self.return_(result::PANIC, pc)?;
+        self.return_(result::PANIC);
 
         // Seal all created blocks
         self.builder.seal_block(halt_block);
