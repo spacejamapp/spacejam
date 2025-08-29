@@ -83,13 +83,24 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results: BTreeMap<ServiceId, pvm::Accumulated<R>> = services
-        .iter()
-        .map(|service| {
-            let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
-            (*service, result)
-        })
-        .collect();
+    let mut results = {
+        let mut pool = tokio::task::JoinSet::new();
+        for service in services.iter().cloned() {
+            let context = context.clone();
+            let reports = reports.to_vec();
+            let table = table.clone();
+            pool.spawn(async move {
+                let result = self::once::<V, R>(context, &reports, &table, service, timeslot);
+                (service, result)
+            });
+        }
+
+        let mut results = BTreeMap::new();
+        while let Some(Ok((service, result))) = pool.join_next().await {
+            results.insert(service, result);
+        }
+        results
+    };
 
     // Update the state of accounts
     let mut removed = BTreeSet::new();

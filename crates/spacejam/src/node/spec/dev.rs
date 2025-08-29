@@ -27,7 +27,7 @@ impl<C: runtime::Config> Dev<C> {
                 hex::encode(&block.header.hash()?[..3])
             );
 
-            runtime.chain_mut().await.import(&block).await;
+            runtime.chain_mut().await.import(&block).await?;
             runtime.finalize().await?;
         }
     }

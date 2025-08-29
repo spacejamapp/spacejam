@@ -44,7 +44,7 @@ impl App {
         // set up logs
         let name = App::command().get_name().to_string();
         let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
-            0 => format!(""),
+            0 => Default::default(),
             1 => format!("{name}=info"),
             2 => format!("{name}=debug"),
             3 => format!("{name}=trace,debug"),

@@ -7,7 +7,7 @@ use anyhow::Result;
 use score::{state::StateKeyLike, OpaqueHash, TrieKey};
 
 /// The archived storage
-pub trait ArchiveStorage: KVStorage {
+pub trait ArchiveStorage: KVStorage + Send + Sync + 'static {
     /// Archive a block
     fn archive(&self, block: &OpaqueHash) -> Result<()> {
         let mut commit = Commit::default();
