@@ -12,16 +12,19 @@
 # make linux-amd64
 
 # build all targets
-bundle: macos-arm64 macos-amd64 linux-arm64 linux-amd64
+bundle: macos-arm64 macos-amd64 tar-all
+
+# make tarball for all platforms
+tar-all:
 	mkdir -p target/bundle
-	tar -czf target/bundle/spacejam-0.7.0-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release spacejam testnet
-	tar -czf target/bundle/spacejam-0.7.0-macos-amd64.tar.gz -C target/x86_64-apple-darwin/release spacejam testnet
-	tar -czf target/bundle/spacejam-0.7.0-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release spacejam testnet
-	tar -czf target/bundle/spacejam-0.7.0-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/release spacejam testnet
+	tar -czf target/bundle/spacejam-0.7.0-macos-arm64.tar.gz -C target/aarch64-apple-darwin/prod spacejam testnet
+	tar -czf target/bundle/spacejam-0.7.0-macos-amd64.tar.gz -C target/x86_64-apple-darwin/prod spacejam testnet
+	# tar -czf target/bundle/spacejam-0.7.0-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/prod spacejam testnet
+	# tar -czf target/bundle/spacejam-0.7.0-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/prod spacejam testnet
 
 # build macos-arm64
 macos-arm64:
-	cargo b --profile prod --target aarch64-apple-darwin
+	RUSTFLAGS="-C target-cpu=native" cargo b --profile prod --target aarch64-apple-darwin
 
 # build macos-amd64
 macos-amd64:
@@ -34,3 +37,11 @@ linux-arm64:
 # build linux-amd64
 linux-amd64:
 	cargo b --profile prod --target x86_64-unknown-linux-gnu
+
+# build linux-amd64 with native optimizations
+linux-amd64-native:
+	RUSTFLAGS="-C target-cpu=native" cargo b --profile prod --target x86_64-unknown-linux-gnu
+
+# build linux-arm64 with native optimizations
+linux-arm64-native:
+	cargo b --profile prod --target aarch64-unknown-linux-gnu

@@ -26,7 +26,6 @@ repository = "https://github.com/spacejamapp/spacejam"
 license = "GPL-3.0"
 authors = ["clearloop <tianyi.gc@gmail.com>"]
 
-
 [profile.prod]
 inherits = "release"
 opt-level = 3
