@@ -67,7 +67,7 @@ impl Runner {
 
         let mut compiler = Compiler::new()?;
         let module = compiler.compile(&pvm::Program {
-            code: Cow::Borrowed(&input.program),
+            code: input.program.to_vec(),
             registers: initial_registers,
             memory: memory.clone(),
         })?;

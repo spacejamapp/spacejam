@@ -79,7 +79,7 @@ pub trait Invocation {
         // Prepare arguments
         let args = codec::encode(&core_idx).unwrap_or_default();
         let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
-        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let program = program::preimage(code, &args).expect("failed to preimage");
         let result = Self::invoke2(&program, context, score::GAS_IS_AUTHORIZED, 0);
 
         // construct the result
@@ -165,7 +165,7 @@ pub trait Invocation {
         };
 
         let args = codec::encode(&params).expect("failed to encode params");
-        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let program = program::preimage(code, &args).expect("failed to preimage");
         let result = Self::invoke2(&program, refine, item.refine_gas_limit, 5);
 
         // TODO: Implement actual segment export when host calls are ready
@@ -204,7 +204,7 @@ pub trait Invocation {
 
         let accumulate = context.accumulate(timeslot, operands);
         let args = codec::encode(&params).expect("failed to encode");
-        let program = program::preimage(&code, &args).expect("failed to preimage");
+        let program = program::preimage(code, &args).expect("failed to preimage");
         let result = Self::invoke2(&program, accumulate, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
@@ -254,7 +254,7 @@ pub trait Invocation {
         let updated_account = account.account();
         let general = General::new(service, accounts, Vec::new(), Default::default());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
-        let program = program::preimage(&code, &input).expect("failed to preimage");
+        let program = program::preimage(code, &input).expect("failed to preimage");
         let received = Self::invoke2(&program, general, gas, 10);
         Transferred {
             account: updated_account,

@@ -3,7 +3,6 @@
 use crate::Memory;
 use anyhow::Result;
 use codec::JamCodec;
-use std::borrow::Cow;
 
 pub use {
     blob::{deblob, ProgramBlob},
@@ -18,17 +17,17 @@ mod preimage;
 mod standard;
 
 /// Convert a preimage blob to a program.
-pub fn preimage<'a>(blob: &'a [u8], args: &'a [u8]) -> anyhow::Result<Program<'a>> {
-    let preimage = PreimageBlob::from_bytes(blob)?;
+pub fn preimage(blob: Vec<u8>, args: &[u8]) -> anyhow::Result<Program> {
+    let preimage = PreimageBlob::from_bytes(&blob)?;
     let metadata = ConventionalMetadata::decode(&preimage.metadata)?;
     tracing::debug!("metadata: {metadata:?}");
     preimage.blob.init(args)
 }
 
 /// A PVM program.
-pub struct Program<'a> {
+pub struct Program {
     /// The program code (c).
-    pub code: Cow<'a, [u8]>,
+    pub code: Vec<u8>,
 
     /// The registers (ω).
     pub registers: [u64; 13],
@@ -37,8 +36,8 @@ pub struct Program<'a> {
     pub memory: Memory,
 }
 
-impl<'a> Program<'a> {
-    pub fn blob(&'a self) -> Result<ProgramBlob<'a>> {
+impl Program {
+    pub fn blob(&self) -> Result<ProgramBlob<'_>> {
         crate::deblob(self.code.as_ref())
     }
 }

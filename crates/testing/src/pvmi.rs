@@ -42,7 +42,7 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 
     // run the program
     let program = Program {
-        code: Cow::Borrowed(&input.program),
+        code: input.program.to_vec(),
         memory: memory.clone(),
         registers,
     };
