@@ -27,11 +27,12 @@ pub static RING_CTX: Lazy<RingProofParams> = Lazy::new(|| {
 
 /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
 /// Takes a vector of 32-byte Bandersnatch public keys and returns a ring commitment
-pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
+pub fn commitment(keys: impl AsRef<[[u8; 32]]>) -> [u8; 144] {
     let keys = keys
-        .into_iter()
+        .as_ref()
+        .iter()
         .map(|key| {
-            AffineRepr::from_random_bytes(&key).unwrap_or_else(|| {
+            AffineRepr::from_random_bytes(key).unwrap_or_else(|| {
                 // If key is invalid (zeroed or can't be decoded), use padding point
                 RingProofParams::padding_point()
             })
@@ -48,8 +49,9 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
 }
 
 /// Creates a VRF verifier for a set of Bandersnatch keys
-pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
+pub fn verifier(keys: impl AsRef<[[u8; 32]]>) -> vrf::Verifier {
     let keys: Vec<_> = keys
+        .as_ref()
         .iter()
         .map(|k| AffineRepr::from_random_bytes(k).unwrap_or_else(RingProofParams::padding_point))
         .map(Public)

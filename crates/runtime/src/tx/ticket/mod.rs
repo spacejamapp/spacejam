@@ -6,12 +6,13 @@ use score::{
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
     },
-    safrole::{Safrole, ValidatorData, Validators, ValidatorsData},
-    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
+    safrole::{Safrole, ValidatorData, ValidatorIter, Validators, ValidatorsData},
+    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 use std::time::Instant;
 
 pub mod error;
+pub mod lazy;
 mod verify;
 
 /// (η') Updates the entropy accumulator.
@@ -72,30 +73,39 @@ pub async fn safrole(
 
     // Process accumulator and ring commitment in parallel
     tracing::info!("> accumulating and committing tickets...");
+    let next = safrole.validators.bandersnatch();
     let (accumulator, commitment) = tokio::join!(
         async {
             let now = Instant::now();
             let accumulator = self::accumulator(
+                epoch,
                 new_epoch,
                 &safrole.accumulator,
                 entropy,
-                &safrole.validators,
+                &next,
                 tickets,
             )
             .await;
-            tracing::info!("  accumulator time: {}ms", now.elapsed().as_millis());
+            tracing::info!("accumulator time outer: {}ms", now.elapsed().as_millis());
             accumulator
         },
         async {
             let now = Instant::now();
-            let commitment = self::ring_commitment(&safrole, new_epoch).await;
-            tracing::info!("  ring_commitment time: {}ms", now.elapsed().as_millis());
+            let commitment = if new_epoch {
+                self::ring_commitment(epoch, &next).await
+            } else {
+                Ok(safrole.ring_commitment)
+            };
+            tracing::info!(
+                "ring_commitment time outer: {}ms",
+                now.elapsed().as_millis()
+            );
             commitment
         }
     );
 
     safrole.accumulator = accumulator?;
-    safrole.ring_commitment = commitment;
+    safrole.ring_commitment = commitment?;
     Ok(safrole)
 }
 
@@ -103,15 +113,16 @@ pub async fn safrole(
 ///
 /// NOTE: gamma_k has already been updated at this point
 pub async fn accumulator(
+    epoch: u32,
     new_epoch: bool,
     accumulator: &TicketsAccumulator,
     entropy: [OpaqueHash; 4],
-    next: &[ValidatorData],
+    next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator> {
     let mut new_tickets = Vec::new();
     if !tickets.is_empty() {
-        new_tickets = self::verify::tickets(entropy, next, tickets).await?;
+        new_tickets = self::verify::tickets(epoch, entropy, next, tickets).await?;
     }
 
     // update the accumulator
@@ -170,15 +181,9 @@ pub fn sealing_key_series(
 }
 
 /// (γ_z') Returns the bandersnatch ring commitment.
-pub async fn ring_commitment(safrole: &Safrole, new_epoch: bool) -> BandersnatchRingCommitment {
-    if !new_epoch {
-        return safrole.ring_commitment;
-    }
-
-    let keys = safrole
-        .validators
-        .iter()
-        .map(|validator| validator.bandersnatch)
-        .collect::<Vec<_>>();
-    crypto::ring::commitment(keys)
+pub async fn ring_commitment(
+    epoch: u32,
+    next: &Vec<BandersnatchPublic>,
+) -> Result<BandersnatchRingCommitment> {
+    lazy::commitment(epoch, next).await
 }

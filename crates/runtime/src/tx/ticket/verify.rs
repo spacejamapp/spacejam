@@ -1,28 +1,21 @@
 //! Verification utilities for tickets
 
-use crate::tx::ticket::Error;
+use crate::tx::ticket::{lazy, Error};
 use score::{
     extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
-    safrole::ValidatorData,
-    OpaqueHash,
+    BandersnatchPublic, OpaqueHash,
 };
 use std::{collections::BTreeMap, sync::Arc, time::Instant};
 use tokio::task::JoinSet;
 
 /// Verify tickets
 pub async fn tickets(
+    epoch: u32,
     entropy: [OpaqueHash; 4],
-    next: &[ValidatorData],
+    next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator, Error> {
-    let now = Instant::now();
-    let verifier = Arc::new(crypto::ring::verifier(
-        next.iter().map(|v| v.bandersnatch).collect(),
-    ));
-    tracing::info!(
-        "    setting up verifier time: {}ms",
-        now.elapsed().as_millis()
-    );
+    let verifier = lazy::verifier(epoch, next).await?;
 
     // process verification in parallel
     let now = Instant::now();
@@ -41,7 +34,7 @@ pub async fn tickets(
     // Check for bad order: 6.32 & 6.33
     let new_tickets = ordered_tickets.into_values().collect::<Vec<_>>();
     tracing::info!(
-        "    verifying tickets time: {}ms, tickets count: {}",
+        "verifying tickets time: {}ms, tickets count: {}",
         now.elapsed().as_millis(),
         new_tickets.len()
     );
