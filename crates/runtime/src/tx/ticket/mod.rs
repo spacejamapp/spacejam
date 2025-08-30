@@ -73,24 +73,22 @@ pub async fn safrole(
 
     // Process accumulator and ring commitment in parallel
     let next = safrole.validators.bandersnatch();
-    let (accumulator, commitment) = {
-        lazy::drawn(epoch, &validators.drawn).await;
-        (
-            self::accumulator(
-                epoch,
-                new_epoch,
-                &safrole.accumulator,
-                entropy,
-                &next,
-                tickets,
-            )
-            .await,
-            self::ring_commitment(epoch, &next).await,
-        )
+    safrole.accumulator = self::accumulator(
+        epoch,
+        new_epoch,
+        &safrole.accumulator,
+        entropy,
+        &next,
+        tickets,
+    )
+    .await?;
+
+    safrole.ring_commitment = if new_epoch {
+        self::ring_commitment(epoch, &next).await
+    } else {
+        safrole.ring_commitment
     };
 
-    safrole.accumulator = accumulator?;
-    safrole.ring_commitment = commitment;
     Ok(safrole)
 }
 
