@@ -147,7 +147,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::SignedGreaterThanOrEqual, lhs, imm0 as i64);
+        let condition =
+            self.builder
+                .ins()
+                .icmp_imm(IntCC::SignedGreaterThanOrEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -175,7 +178,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThanOrEqual, lhs, imm0 as i64);
+        let condition =
+            self.builder
+                .ins()
+                .icmp_imm(IntCC::UnsignedGreaterThanOrEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -201,7 +207,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -213,7 +222,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::SignedLessThanOrEqual, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedLessThanOrEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -225,7 +237,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::UnsignedLessThanOrEqual, lhs, imm0 as i64);
+        let condition =
+            self.builder
+                .ins()
+                .icmp_imm(IntCC::UnsignedLessThanOrEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -250,7 +265,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::SignedLessThan, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedLessThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -275,7 +293,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::UnsignedLessThan, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedLessThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -300,7 +321,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::NotEqual, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::NotEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -629,8 +653,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let unsigned_value = self.mget(address, types::I16);
+        let unsigned_value = self.mget_imm(imm0 as i64, types::I16);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -642,8 +665,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let unsigned_value = self.mget(address, types::I32);
+        let unsigned_value = self.mget_imm(imm0 as i64, types::I32);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -655,8 +677,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let unsigned_value = self.mget(address, types::I8);
+        let unsigned_value = self.mget_imm(imm0 as i64, types::I8);
         let value = self.builder.ins().sextend(types::I64, unsigned_value);
         self.rset(reg0, value);
         Ok(())
@@ -811,8 +832,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.mget(address, types::I16);
+        let value = self.mget_imm(imm0 as i64, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -824,8 +844,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.mget(address, types::I32);
+        let value = self.mget_imm(imm0 as i64, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -837,8 +856,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.mget(address, types::I64);
+        let value = self.mget_imm(imm0 as i64, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
@@ -849,8 +867,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.mget(address, types::I8);
+        let value = self.mget_imm(imm0 as i64, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1395,7 +1412,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let is_greater = self.builder.ins().icmp_imm(IntCC::SignedGreaterThan, src, imm0 as i64);
+        let is_greater = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedGreaterThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_greater);
         self.rset(reg0, result);
         Ok(())
@@ -1408,11 +1428,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
         let is_greater = self
             .builder
             .ins()
-            .icmp(IntCC::UnsignedGreaterThan, src, imm);
+            .icmp_imm(IntCC::UnsignedGreaterThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_greater);
         self.rset(reg0, result);
         Ok(())
@@ -1444,7 +1463,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let is_less = self.builder.ins().icmp_imm(IntCC::SignedLessThan, src, imm0 as i64);
+        let is_less = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedLessThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_less);
         self.rset(reg0, result);
         Ok(())
@@ -1476,12 +1498,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let src_val = src;
-        let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
         let is_less = self
             .builder
             .ins()
-            .icmp(IntCC::UnsignedLessThan, src_val, imm);
+            .icmp_imm(IntCC::UnsignedLessThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_less);
         self.rset(reg0, result);
         Ok(())
@@ -1796,14 +1816,13 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
             self.builder.ins().ireduce(types::I16, value)
         } else {
             value
         };
-        self.mset_o(addr, offset, write_value);
+        self.mset_o_imm(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1814,14 +1833,13 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
             self.builder.ins().ireduce(types::I32, value)
         } else {
             value
         };
-        self.mset_o(addr, offset, write_value);
+        self.mset_o_imm(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1843,14 +1861,13 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
         let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
             self.builder.ins().ireduce(types::I8, value)
         } else {
             value
         };
-        self.mset_o(addr, offset, write_value);
+        self.mset_o_imm(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1860,14 +1877,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.builder.ins().iconst(types::I16, (imm1 as u16) as i64);
-        let write_value = if self.builder.func.dfg.value_type(value).bits() > 16 {
-            self.builder.ins().ireduce(types::I16, value)
-        } else {
-            value
-        };
-        self.mset(address, write_value);
+        self.mset_imm_imm(imm0 as i64, (imm1 as u16) as i64, types::I16);
         Ok(())
     }
 
@@ -1877,14 +1887,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.builder.ins().iconst(types::I32, (imm1 as u32) as i64);
-        let write_value = if self.builder.func.dfg.value_type(value).bits() > 32 {
-            self.builder.ins().ireduce(types::I32, value)
-        } else {
-            value
-        };
-        self.mset(address, write_value);
+        self.mset_imm_imm(imm0 as i64, (imm1 as u32) as i64, types::I32);
         Ok(())
     }
 
@@ -1894,9 +1897,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.builder.ins().iconst(types::I64, imm1 as i64);
-        self.mset(address, value);
+        self.mset_imm_imm(imm0 as i64, imm1 as i64, types::I64);
         Ok(())
     }
     fn visit_store_imm_u8(
@@ -1905,14 +1906,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let value = self.builder.ins().iconst(types::I8, (imm1 as u8) as i64);
-        let write_value = if self.builder.func.dfg.value_type(value).bits() > 8 {
-            self.builder.ins().ireduce(types::I8, value)
-        } else {
-            value
-        };
-        self.mset(address, write_value);
+        self.mset_imm_imm(imm0 as i64, (imm1 as u8) as i64, types::I8);
         Ok(())
     }
 
@@ -1924,9 +1918,8 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-        self.mset_o(addr, offset, truncated);
+        self.mset_o_imm(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1938,9 +1931,8 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-        self.mset_o(addr, offset, truncated);
+        self.mset_o_imm(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1963,9 +1955,8 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
-        let offset = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-        self.mset_o(addr, offset, truncated);
+        self.mset_o_imm(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1976,9 +1967,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-        self.mset(address, truncated);
+        self.mset_imm(imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1989,9 +1979,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-        self.mset(address, truncated);
+        self.mset_imm(imm0 as i64, truncated);
         Ok(())
     }
 
@@ -2002,8 +1991,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
-        self.mset(address, src);
+        self.mset_imm(imm0 as i64, src);
         Ok(())
     }
     fn visit_store_u8(
@@ -2013,9 +2001,8 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let src = self.rget(reg0);
-        let address = self.builder.ins().iconst(types::I64, imm0 as i64);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-        self.mset(address, truncated);
+        self.mset_imm(imm0 as i64, truncated);
         Ok(())
     }
 
