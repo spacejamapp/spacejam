@@ -72,7 +72,6 @@ pub async fn safrole(
     safrole.validators = safrole.next(new_epoch, &validators.drawn, offenders);
 
     // Process accumulator and ring commitment in parallel
-    tracing::info!("> accumulating and committing tickets...");
     let next = safrole.validators.bandersnatch();
     let (accumulator, commitment) = {
         lazy::drawn(epoch, &validators.drawn).await;

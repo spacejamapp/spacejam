@@ -5,7 +5,7 @@ use score::{
     extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
     BandersnatchPublic, OpaqueHash,
 };
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::task::JoinSet;
 
 /// Verify tickets
@@ -18,7 +18,6 @@ pub async fn tickets(
     let verifier = lazy::verifier(epoch, next).await;
 
     // process verification in parallel
-    let now = Instant::now();
     let mut queue = JoinSet::new();
     for (index, envelope) in tickets.iter().cloned().enumerate() {
         let verifier = verifier.clone();
@@ -33,11 +32,6 @@ pub async fn tickets(
 
     // Check for bad order: 6.32 & 6.33
     let new_tickets = ordered_tickets.into_values().collect::<Vec<_>>();
-    tracing::info!(
-        "verifying tickets time: {}ms, tickets count: {}",
-        now.elapsed().as_millis(),
-        new_tickets.len()
-    );
     let mut sorted_new_tickets = new_tickets.clone();
     sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
     if sorted_new_tickets != new_tickets {
