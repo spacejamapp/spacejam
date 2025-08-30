@@ -213,6 +213,11 @@ pub async fn simulate<Vm: Pvm>(
         )
         .await?;
 
+        // lazy load vrf rings
+        if state.validators.drawn != accumulation.validators || ticket::lazy::is_empty().await {
+            tokio::spawn(async move { ticket::lazy::drawn(epoch, &accumulation.validators).await });
+        }
+
         // update state fields
         state.privileges = accumulation.privileges;
         state.queue = accumulation.ready_queue;
@@ -221,7 +226,7 @@ pub async fn simulate<Vm: Pvm>(
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
         processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
-        tokio::spawn(async move { ticket::lazy::drawn(epoch, &accumulation.validators).await });
+
         (accumulation.root, accumulation.accounts)
     };
 

@@ -228,6 +228,28 @@ impl Verifier {
         Self { ring, commitment }
     }
 
+    /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
+    /// Takes a vector of 32-byte Bandersnatch public keys and returns a ring commitment
+    pub fn commitment(&self) -> [u8; 144] {
+        let mut bytes = [0u8; 144];
+        self.commitment
+            .serialize_compressed(bytes.as_mut_slice())
+            .unwrap();
+        bytes
+    }
+
+    /// Get the ring as a vector of 32-byte Bandersnatch public keys.
+    pub fn ring(&self) -> Vec<[u8; 32]> {
+        self.ring
+            .iter()
+            .map(|pk| {
+                let mut buf = [0u8; 32];
+                pk.0.serialize_compressed(&mut buf[..]).unwrap();
+                buf
+            })
+            .collect()
+    }
+
     /// Anonymous VRF signature verification.
     ///
     /// Used for tickets verification.
