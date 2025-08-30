@@ -30,6 +30,19 @@ impl Translator<'_> {
         self.writable(maddr, value);
         self.mset(maddr, value)
     }
+
+    /// Memory get with immediate offset - optimized for constant offsets
+    pub fn mget_o_imm(&mut self, address: Value, offset_imm: i64, ty: types::Type) -> Value {
+        let maddr = self.builder.ins().iadd_imm(address, offset_imm);
+        self.mget(maddr, ty)
+    }
+
+    /// Memory set with immediate offset - optimized for constant offsets
+    pub fn mset_o_imm(&mut self, address: Value, offset_imm: i64, value: Value) {
+        let maddr = self.builder.ins().iadd_imm(address, offset_imm);
+        self.writable(maddr, value);
+        self.mset(maddr, value)
+    }
 }
 
 /// Throw trap directly here for higher performance.
