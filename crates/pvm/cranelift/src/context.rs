@@ -36,7 +36,6 @@ pub struct Pool {
     pub heapp: Value,
 
     /// The read range
-
     #[cfg(target_os = "macos")]
     pub read: Range<Value>,
 

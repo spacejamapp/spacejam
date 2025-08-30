@@ -40,8 +40,7 @@ impl JIT {
     /// Create new JIT module builder for host functions
     pub fn host<X: Argument>() -> Result<Self> {
         let mut builder = engine::compilation()?;
-        builder.symbol(host::CALL, host::call::<X> as *const u8);
-        builder.symbol(host::SBRK, host::sbrk::<X> as *const u8);
+        host::symbols::<X>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),
