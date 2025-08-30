@@ -42,7 +42,7 @@ impl Runner {
             Section::Assurances => crate::assurances::run(test)?,
             Section::Authorizations => crate::authorizations::run(test)?,
             Section::Disputes => crate::disputes::run(test)?,
-            Section::Erasure => crate::erasure::run(test)?,
+            Section::Erasure => crate::erasure::run(test).await?,
             Section::History => crate::history::run(test)?,
             Section::Preimages => crate::preimage::run(test)?,
             Section::Reports => crate::reports::run(test)?,
