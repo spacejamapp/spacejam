@@ -16,6 +16,7 @@ rcgen = { workspace = true, optional = true }
 ring = { workspace = true, optional = true }
 tiny-keccak = { workspace = true, optional = true }
 w3f-bls = { workspace = true, optional = true }
+tracing.workspace = true
 
 [features]
 default = []

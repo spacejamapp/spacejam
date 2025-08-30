@@ -20,6 +20,7 @@ mod grandpa;
 mod hook;
 mod pool;
 pub mod storage;
+pub mod timing;
 pub mod tx;
 mod validator;
 
