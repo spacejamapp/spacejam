@@ -1,12 +1,11 @@
 //! PVM Compiler test vectors
 
-use std::borrow::Cow;
-
 use crate::pvmi::{to_test_memory, TestInput, TestOutput};
 use anyhow::Result;
 use pvmc::Compiler;
 use serde::{Deserialize, Serialize};
 use specjam::Test;
+use std::borrow::Cow;
 use tracing_subscriber::EnvFilter;
 
 include!(concat!(env!("OUT_DIR"), "/pvmc.rs"));

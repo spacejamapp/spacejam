@@ -195,7 +195,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let condition = self.builder.ins().icmp_imm(IntCC::SignedGreaterThan, lhs, imm0 as i64);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedGreaterThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }

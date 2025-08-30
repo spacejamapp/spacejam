@@ -63,7 +63,7 @@ fn main() {
         if !gcc_name.is_empty() {
             // Try to find the cross-compiler sysroot
             if let Ok(output) = std::process::Command::new(gcc_name)
-                .args(&["-print-sysroot"])
+                .args(["-print-sysroot"])
                 .output()
             {
                 let sysroot = String::from_utf8_lossy(&output.stdout).trim().to_string();
