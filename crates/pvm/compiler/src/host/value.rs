@@ -1,5 +1,7 @@
 //! Value type for host functions
 
+use cranelift::prelude::{types, Type};
+
 /// Value type for host functions
 #[repr(u8)]
 pub enum Value {
@@ -85,6 +87,18 @@ impl From<u8> for Value {
             6 => Value::U32,
             7 => Value::U64,
             _ => panic!("invalid value: {value}"),
+        }
+    }
+}
+
+impl From<Type> for Value {
+    fn from(ty: Type) -> Self {
+        match ty {
+            types::I8 => Value::I8,
+            types::I16 => Value::I16,
+            types::I32 => Value::I32,
+            types::I64 => Value::I64,
+            _ => panic!("invalid type: {ty}"),
         }
     }
 }
