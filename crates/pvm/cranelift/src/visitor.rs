@@ -270,8 +270,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedLessThan, lhs, rhs);
+        let condition = self.builder.ins().icmp_imm(IntCC::SignedLessThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -296,8 +295,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::UnsignedLessThan, lhs, rhs);
+        let condition = self.builder.ins().icmp_imm(IntCC::UnsignedLessThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -322,8 +320,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::NotEqual, lhs, rhs);
+        let condition = self.builder.ins().icmp_imm(IntCC::NotEqual, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -992,8 +989,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().imul(src_val, imm_val);
+        let result = self.builder.ins().imul_imm(src_val, imm0 as i64);
         let result_32 = self.builder.ins().ireduce(types::I32, result);
         let result_sext = self.builder.ins().sextend(types::I64, result_32);
         self.rset(reg0, result_sext);
@@ -1007,8 +1003,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().imul(src_val, imm_val);
+        let result = self.builder.ins().imul_imm(src_val, imm0 as i64);
         self.rset(reg0, result);
         Ok(())
     }
@@ -1428,8 +1423,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let is_greater = self.builder.ins().icmp(IntCC::SignedGreaterThan, src, imm);
+        let is_greater = self.builder.ins().icmp_imm(IntCC::SignedGreaterThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_greater);
         self.rset(reg0, result);
         Ok(())
@@ -1478,8 +1472,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg1);
-        let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let is_less = self.builder.ins().icmp(IntCC::SignedLessThan, src, imm);
+        let is_less = self.builder.ins().icmp_imm(IntCC::SignedLessThan, src, imm0 as i64);
         let result = self.builder.ins().uextend(types::I64, is_less);
         self.rset(reg0, result);
         Ok(())
