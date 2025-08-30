@@ -56,6 +56,7 @@ pub async fn transit<Vm: Pvm>(
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let diff = self::simulate::<Vm>(&mut block, storage.clone()).await?;
+    let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
 }
@@ -156,19 +157,17 @@ pub async fn simulate<Vm: Pvm>(
         }
 
         // (ρ') Update availability assignments based on guarantees (11.43)
-        if !block.extrinsic.guarantees.is_empty() {
-            reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-            processor.encode(key::PENDING_REPORTS, reports.clone());
-            state.reports = reports;
-        }
-
+        //
+        // NOTE: can not skip bcz None should be written to the state as well.
+        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
+        state.reports = reports;
         (available, assurances)
     };
 
     // Round 3 computation
     let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
-        if !block.extrinsic.tickets.is_empty() {
+        if !block.extrinsic.tickets.is_empty() || block.header.slot % score::EPOCH_LENGTH == 0 {
             let _guard = timing::safrole();
             state.safrole = ticket::safrole(
                 state.timeslot,
@@ -192,65 +191,57 @@ pub async fn simulate<Vm: Pvm>(
         }
 
         // (π') Update the statistic
-        tracing::trace!("handle statistic");
         state
             .statistics
             .update(new_epoch, block.header.author_index, &block.extrinsic);
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
-        tracing::trace!("handle accumulation");
-        let mut accounts = Accounts::new(storage);
-        let mut root = [0; 32];
-        if !available.is_empty() {
-            let _guard = timing::accumulate();
-            let accumulation = guarantee::accumulate::<Vm, _>(
-                block.header.slot,
-                state.timeslot,
-                available,
-                &state.queue,
-                &state.history,
-                &state.privileges,
-                &state.validators.drawn,
-                accounts,
-                state.entropy,
-            )
-            .await?;
+        let accounts = Accounts::new(storage);
+        let _guard = timing::accumulate();
+        let accumulation = guarantee::accumulate::<Vm, _>(
+            block.header.slot,
+            state.timeslot,
+            available,
+            &state.queue,
+            &state.history,
+            &state.privileges,
+            &state.validators.drawn,
+            accounts,
+            state.entropy,
+        )
+        .await?;
 
-            // update state fields
-            state.privileges = accumulation.privileges;
-            state.queue = accumulation.ready_queue;
-            state.history = accumulation.accumulated_queue;
-            state.validators.drawn = accumulation.validators;
-            state.statistics.merge_services(accumulation.records);
-            state.statistics.merge_transfers(accumulation.transfers);
-            processor.encode(key::PRIVILEGED_SERVICE, state.privileges.clone());
-            processor.encode(key::ACCUMULATION_QUEUE, state.queue.clone());
-            processor.encode(key::ACCUMULATION_HISTORY, state.history.clone());
-            processor.encode(key::DRAWN_VALIDATORS, state.validators.drawn);
-            processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
-            root = accumulation.root;
-            accounts = accumulation.accounts;
-        }
-        (root, accounts)
+        // update state fields
+        state.privileges = accumulation.privileges;
+        state.queue = accumulation.ready_queue;
+        state.history = accumulation.accumulated_queue;
+        state.validators.drawn = accumulation.validators;
+        state.statistics.merge_services(accumulation.records);
+        state.statistics.merge_transfers(accumulation.transfers);
+        processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
+        (accumulation.root, accumulation.accounts)
     };
 
     // Round 4 computation
     {
-        tracing::trace!("handle block history");
         state
             .recent_blocks
             .complete_state_root(block.header.parent_state_root)?;
+
+        // (p of β') Report the work packages
         let (mut reported, mut reporters) = (vec![], vec![]);
         if !block.extrinsic.guarantees.is_empty() {
-            let _guard = timing::guarantees();
-            (reported, reporters) = guarantee::report(
-                &state,
-                block.header.slot,
-                &accounts,
-                &block.extrinsic.guarantees,
-            )?;
-        }
+            (reported, reporters) = {
+                let _guard = timing::guarantees();
+                guarantee::report(
+                    &state,
+                    block.header.slot,
+                    &accounts,
+                    &block.extrinsic.guarantees,
+                )?
+            }
+        };
 
         // (β') Update the block history
         state
@@ -261,18 +252,15 @@ pub async fn simulate<Vm: Pvm>(
             state
                 .statistics
                 .merge_reporters(&reporters, &state.validators.current.ed25519());
-            processor.encode(key::RECENT_BLOCKS, state.recent_blocks.clone());
-            processor.encode(key::STATISTICS, state.statistics.clone());
         }
 
         // (δ') Update the accounts
-        if !block.extrinsic.preimages.is_empty() {
-            let _guard = timing::preimages();
-            let accounts =
-                preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
-            let (updates, removals) = accounts.diff();
-            diff.extend_iter(updates, removals);
-        }
+        // if !block.extrinsic.preimages.is_empty() {
+        let _guard = timing::preimages();
+        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
+        let (updates, removals) = accounts.diff();
+        diff.extend_iter(updates, removals);
+        // }
 
         // FIXME: looks like polkajam currently doesn't update the authorization
         // pool, so we're not updating it here as well atm.
@@ -290,13 +278,18 @@ pub async fn simulate<Vm: Pvm>(
         // }
 
         // (τ') Update the timeslot
-        tracing::trace!("handle timeslot");
         state.timeslot = block.header.slot;
         processor.encode(key::TIMESLOT, state.timeslot);
     }
 
     // Finish all encoding tasks in parallel
+    processor.encode(key::PENDING_REPORTS, state.reports);
+    processor.encode(key::PRIVILEGED_SERVICE, state.privileges);
+    processor.encode(key::ACCUMULATION_QUEUE, state.queue);
+    processor.encode(key::ACCUMULATION_HISTORY, state.history);
+    processor.encode(key::DRAWN_VALIDATORS, state.validators.drawn);
+    processor.encode(key::RECENT_BLOCKS, state.recent_blocks);
+    processor.encode(key::STATISTICS, state.statistics);
     processor.finish(&mut diff).await?;
-
     Ok(diff)
 }

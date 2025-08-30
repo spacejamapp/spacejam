@@ -14,6 +14,11 @@ thread_local! {
     static PROFILER: RefCell<Box<dyn Profiler>> = RefCell::new(Box::new(DefaultProfiler));
 }
 
+/// Setup the timing for the current thread.
+pub fn setup() {
+    self::set_thread_profiler(Box::new(DefaultProfiler));
+}
+
 /// Set the profiler for the current thread.
 ///
 /// Returns the old profiler.
@@ -115,7 +120,7 @@ thread_local! {
 impl Profiler for DefaultProfiler {
     fn start(&self, pass: Pass) -> Box<DefaultTimingToken> {
         let prev = CURRENT_PASS.with(|p| p.replace(pass));
-        tracing::debug!("timing: Starting {pass}, (during {prev})");
+        tracing::trace!("timing: Starting {pass}, (during {prev})");
         Box::new(DefaultTimingToken {
             start: Instant::now(),
             pass,
@@ -141,7 +146,7 @@ pub struct DefaultTimingToken {
 impl Drop for DefaultTimingToken {
     fn drop(&mut self) {
         let duration = self.start.elapsed();
-        tracing::debug!("timing: Ending {}: {}ms", self.pass, duration.as_millis());
+        tracing::trace!("timing: Ending {}: {}ms", self.pass, duration.as_millis());
         let old_cur = CURRENT_PASS.with(|p| p.replace(self.prev));
         debug_assert_eq!(self.pass, old_cur, "Timing tokens dropped out of order");
         PASS_TIME.with(|rc| {

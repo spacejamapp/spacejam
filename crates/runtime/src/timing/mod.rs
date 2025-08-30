@@ -62,6 +62,7 @@ define_passes! {
     accumulate: "accumulating available work reports",
     guarantees: "validating guarantees",
     preimages: "validating preimages",
+    commit: "committing the state",
 }
 
 impl Pass {
