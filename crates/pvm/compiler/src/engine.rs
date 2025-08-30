@@ -10,7 +10,7 @@ use cranelift_module::default_libcall_names;
 pub fn compilation() -> Result<JITBuilder> {
     let mut builder = settings::builder();
     builder.set("opt_level", "none")?;
-    builder.set("enable_verifier", "false")?;
+    // builder.set("enable_verifier", "false")?;
     builder.set("enable_alias_analysis", "false")?;
     builder.set("regalloc_checker", "false")?;
     builder.set("regalloc_verbose_logs", "false")?;

@@ -27,7 +27,7 @@ pub struct Translator<'b> {
     pub blocks: BTreeMap<u64, ir::Block>,
 
     /// The host call function
-    pub host: BTreeMap<&'static str, FuncRef>,
+    pub host: BTreeMap<String, FuncRef>,
 
     /// Jump table for dynamic jumps
     jump: Vec<u64>,

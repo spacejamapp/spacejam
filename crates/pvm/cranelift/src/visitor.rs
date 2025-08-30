@@ -484,7 +484,7 @@ impl Visitor for Translator<'_> {
         let inst = self
             .builder
             .ins()
-            .call(self.host[&"call"], &[index, self.pool.ctx]);
+            .call(self.host["call"], &[index, self.pool.ctx]);
         let result = self.builder.inst_results(inst)[0];
         let panic = self.builder.ins().iconst(types::I8, 1);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
@@ -653,7 +653,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o_imm(addr, imm0 as i64, types::I16);
+        let unsigned = self.mget_o(addr, imm0 as i64, types::I16);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -666,7 +666,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o_imm(addr, imm0 as i64, types::I32);
+        let unsigned = self.mget_o(addr, imm0 as i64, types::I32);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -679,7 +679,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o_imm(addr, imm0 as i64, types::I8);
+        let unsigned = self.mget_o(addr, imm0 as i64, types::I8);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -692,7 +692,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o_imm(addr, imm0 as i64, types::I16);
+        let value = self.mget_o(addr, imm0 as i64, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -705,7 +705,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o_imm(addr, imm0 as i64, types::I32);
+        let value = self.mget_o(addr, imm0 as i64, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -718,10 +718,11 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o_imm(addr, imm0 as i64, types::I64);
+        let value = self.mget_o(addr, imm0 as i64, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
+
     fn visit_load_ind_u8(
         &mut self,
         format: format::RRI,
@@ -729,7 +730,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o_imm(addr, imm0 as i64, types::I8);
+        let value = self.mget_o(addr, imm0 as i64, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1221,7 +1222,7 @@ impl Visitor for Translator<'_> {
         let _inst = self
             .builder
             .ins()
-            .call(self.host[&"sbrk"], &[self.pool.ctx, target, increment]);
+            .call(self.host["sbrk"], &[self.pool.ctx, target, increment]);
         self.pool.heapp = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
@@ -1648,7 +1649,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o_imm(addr, imm0 as i64, write_value);
+        self.mset_o(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1665,7 +1666,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o_imm(addr, imm0 as i64, write_value);
+        self.mset_o(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1677,7 +1678,7 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
-        self.mset_o_imm(addr, imm0 as i64, value);
+        self.mset_o(addr, imm0 as i64, value);
         Ok(())
     }
     fn visit_store_imm_ind_u8(
@@ -1693,7 +1694,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o_imm(addr, imm0 as i64, write_value);
+        self.mset_o(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1745,7 +1746,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-        self.mset_o_imm(addr, imm0 as i64, truncated);
+        self.mset_o(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1758,7 +1759,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-        self.mset_o_imm(addr, imm0 as i64, truncated);
+        self.mset_o(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1770,7 +1771,7 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
-        self.mset_o_imm(addr, imm0 as i64, src);
+        self.mset_o(addr, imm0 as i64, src);
         Ok(())
     }
     fn visit_store_ind_u8(
@@ -1782,7 +1783,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-        self.mset_o_imm(addr, imm0 as i64, truncated);
+        self.mset_o(addr, imm0 as i64, truncated);
         Ok(())
     }
 

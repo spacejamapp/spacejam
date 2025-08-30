@@ -123,3 +123,28 @@ impl Value for u64 {
 
     impl_bytes!();
 }
+
+/// Convert a slice of bytes to a i64
+pub fn as_i64(bytes: &[u8]) -> Option<i64> {
+    match bytes.len() {
+        1 => Some(bytes[0] as i64),
+        2 => Some(bytes[0] as i64 | (bytes[1] as i64) << 8),
+        4 => Some(
+            bytes[0] as i64
+                | (bytes[1] as i64) << 8
+                | (bytes[2] as i64) << 16
+                | (bytes[3] as i64) << 24,
+        ),
+        8 => Some(
+            bytes[0] as i64
+                | (bytes[1] as i64) << 8
+                | (bytes[2] as i64) << 16
+                | (bytes[3] as i64) << 24
+                | (bytes[4] as i64) << 32
+                | (bytes[5] as i64) << 40
+                | (bytes[6] as i64) << 48
+                | (bytes[7] as i64) << 56,
+        ),
+        _ => None,
+    }
+}

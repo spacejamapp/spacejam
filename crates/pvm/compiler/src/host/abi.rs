@@ -1,8 +1,7 @@
 //! ABI for host functions
+#![allow(improper_ctypes_definitions)]
 
-use crate::host::Value;
 use pvm::Argument;
-use translator::Exit;
 
 /// Host function trampoline
 ///
@@ -27,39 +26,4 @@ pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
 pub extern "C" fn sbrk<X: Argument>(ctx: *mut u8, target: u8, increment: u8) {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
     context.sbrk(target, increment);
-}
-
-/// Memory get trampoline
-///
-/// NOTE: this is for macos only since can't allocate memory > 2.5GB here.
-pub extern "C" fn mget<X: Argument>(ctx: *mut u8, address: u32, offset: u32, ty: u8) -> *const i64 {
-    let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
-    let address = address + offset;
-    let value = Value::from(ty);
-    match context
-        .read(address, value.bytes() as u32)
-        .and_then(|bytes| value.as_u64(&bytes))
-    {
-        Ok(value) => [value as i64, Exit::Halt.code()].as_ptr(),
-        Err(_) => [0, address as i64].as_ptr(),
-    }
-}
-
-/// Memory set trampoline
-///
-/// NOTE: this is for macos only since can't allocate memory > 2.5GB here.
-pub extern "C" fn mset<X: Argument>(
-    ctx: *mut u8,
-    address: u32,
-    offset: u32,
-    data: i64,
-    ty: u8,
-) -> i64 {
-    let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
-    let address = address + offset;
-    let value = Value::from(ty);
-    match context.write(address, &value.as_bytes(data)) {
-        Ok(_) => 0,
-        Err(_) => address as i64,
-    }
 }

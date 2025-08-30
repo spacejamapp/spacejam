@@ -3,21 +3,18 @@
 use std::collections::BTreeMap;
 
 use crate::JIT;
+pub use abi::*;
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, Signature};
 use cranelift_codegen::ir::FuncRef;
 use cranelift_jit::JITBuilder;
 use cranelift_module::{Linkage, Module};
 use pvm::Argument;
-pub use {abi::*, value::Value};
 
 pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";
-pub const MGET: &str = "mget";
-pub const MSET: &str = "mset";
 
 mod abi;
-mod value;
 
 /// Register host call symbols
 pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
@@ -28,12 +25,10 @@ pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
 impl JIT {
     /// Create new JIT module builder for host functions
     /// Declare the host functions
-    pub fn declare_host(&mut self) -> Result<BTreeMap<&'static str, FuncRef>> {
+    pub fn declare_host(&mut self) -> Result<BTreeMap<String, FuncRef>> {
         let mut map = BTreeMap::new();
-        map.insert(CALL, self.declare_call()?);
-        map.insert(SBRK, self.declare_sbrk()?);
-        map.insert(MGET, self.declare_mget()?);
-        map.insert(MSET, self.declare_mset()?);
+        map.insert(CALL.to_string(), self.declare_call()?);
+        map.insert(SBRK.to_string(), self.declare_sbrk()?);
         Ok(map)
     }
 
@@ -58,36 +53,6 @@ impl JIT {
 
         // declare the host call function
         self.declare(CALL, sig)
-    }
-
-    /// Declare the mget function
-    fn declare_mget(&mut self) -> Result<FuncRef> {
-        let sig = {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.returns.push(AbiParam::new(types::I64));
-            sig
-        };
-
-        self.declare(MGET, sig)
-    }
-
-    /// Declare the mset function
-    fn declare_mset(&mut self) -> Result<FuncRef> {
-        let sig = {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.returns.push(AbiParam::new(types::I64));
-            sig
-        };
-
-        self.declare(MSET, sig)
     }
 
     /// Declare the sbrk function

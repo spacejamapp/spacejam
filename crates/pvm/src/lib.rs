@@ -6,7 +6,7 @@ pub use {
     invocation::{AccumulateContext, Accumulated, Invocation},
     result::{Reason, Result},
     score,
-    value::Value,
+    value::{as_i64, Value},
 };
 
 /// Bail out with a panic
