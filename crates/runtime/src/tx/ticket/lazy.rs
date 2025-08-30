@@ -21,6 +21,13 @@ static LAZY_DRAWN_VALIDATORS: LazyLock<RwLock<BTreeMap<u32, Vec<BandersnatchPubl
 /// Only cache last CACHED epochs
 const CACHED: usize = 3;
 
+/// Clear all cached data
+pub async fn clear() {
+    LAZY_RING_COMMITMENT.write().await.clear();
+    LAZY_RING_VERIFIER.write().await.clear();
+    LAZY_DRAWN_VALIDATORS.write().await.clear();
+}
+
 /// Accept drawn validators after accumulation
 pub async fn drawn(epoch: u32, drawn: &[ValidatorData]) {
     let keys = drawn.iter().map(|v| v.bandersnatch).collect::<Vec<_>>();
