@@ -428,45 +428,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-        let dividend_32 = self.builder.ins().ireduce(types::I32, dividend_val);
-        let divisor_32 = self.builder.ins().ireduce(types::I32, divisor_val);
-
-        // Check for division by zero
-        let zero = self.builder.ins().iconst(types::I32, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero);
-
-        // Check for overflow (i32::MIN / -1)
-        let min_val_32 = self.builder.ins().iconst(types::I32, i32::MIN as i64);
-        let neg_one = self.builder.ins().iconst(types::I32, -1);
-        let is_min = self
-            .builder
-            .ins()
-            .icmp(IntCC::Equal, dividend_32, min_val_32);
-        let is_neg_one = self.builder.ins().icmp(IntCC::Equal, divisor_32, neg_one);
-        let is_overflow = self.builder.ins().band(is_min, is_neg_one);
-
-        let max_val = self.builder.ins().iconst(types::I64, u64::MAX as i64);
-        let min_result = self.builder.ins().iconst(types::I64, i32::MIN as i64);
-
-        // Use safe divisor to avoid division faults
-        let one_32 = self.builder.ins().iconst(types::I32, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
-        let safe_divisor = self.builder.ins().select(is_overflow, one_32, safe_divisor);
-        let result_32 = self.builder.ins().sdiv(dividend_32, safe_divisor);
-        let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
-
-        // Return u64::MAX for div by zero, i32::MIN for overflow, otherwise result
-        let result_or_overflow = self
-            .builder
-            .ins()
-            .select(is_overflow, min_result, result_32_ext);
-        let result = self
-            .builder
-            .ins()
-            .select(is_zero, max_val, result_or_overflow);
-
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_div_s32(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -477,41 +441,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-
-        // Check for division by zero
-        let zero = self.builder.ins().iconst(types::I64, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_val, zero);
-
-        // Check for overflow (i64::MIN / -1)
-        let min_val_64 = self.builder.ins().iconst(types::I64, i64::MIN);
-        let neg_one = self.builder.ins().iconst(types::I64, -1);
-        let is_min = self
-            .builder
-            .ins()
-            .icmp(IntCC::Equal, dividend_val, min_val_64);
-        let is_neg_one = self.builder.ins().icmp(IntCC::Equal, divisor_val, neg_one);
-        let is_overflow = self.builder.ins().band(is_min, is_neg_one);
-
-        let max_val = self.builder.ins().iconst(types::I64, u64::MAX as i64);
-
-        // Use safe divisor to avoid division faults
-        let one_64 = self.builder.ins().iconst(types::I64, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
-        let safe_divisor = self.builder.ins().select(is_overflow, one_64, safe_divisor);
-        let result_div = self.builder.ins().sdiv(dividend_val, safe_divisor);
-
-        // Return u64::MAX for div by zero, original dividend for overflow, otherwise result
-        let result_or_overflow = self
-            .builder
-            .ins()
-            .select(is_overflow, dividend_val, result_div);
-        let result = self
-            .builder
-            .ins()
-            .select(is_zero, max_val, result_or_overflow);
-
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_div_s64(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -522,22 +454,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-        let dividend_32 = self.builder.ins().ireduce(types::I32, dividend_val);
-        let divisor_32 = self.builder.ins().ireduce(types::I32, divisor_val);
-
-        // Check for division by zero and return u64::MAX if so
-        let zero = self.builder.ins().iconst(types::I32, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero);
-        let max_val = self.builder.ins().iconst(types::I64, u64::MAX as i64);
-
-        // Use conditional blocks to avoid division by zero
-        let one_32 = self.builder.ins().iconst(types::I32, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
-        let result_32 = self.builder.ins().udiv(dividend_32, safe_divisor);
-        let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
-        let result = self.builder.ins().select(is_zero, max_val, result_32_ext);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_div_u32(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -548,19 +467,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-
-        // Check for division by zero and return u64::MAX if so
-        let zero = self.builder.ins().iconst(types::I64, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_val, zero);
-        let max_val = self.builder.ins().iconst(types::I64, u64::MAX as i64);
-
-        // Use conditional blocks to avoid division by zero
-        let one_64 = self.builder.ins().iconst(types::I64, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
-        let result_div = self.builder.ins().udiv(dividend_val, safe_divisor);
-        let result = self.builder.ins().select(is_zero, max_val, result_div);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_div_u64(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -1121,43 +1030,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-        let dividend_32 = self.builder.ins().ireduce(types::I32, dividend_val);
-        let divisor_32 = self.builder.ins().ireduce(types::I32, divisor_val);
-
-        // Check for division by zero
-        let zero = self.builder.ins().iconst(types::I32, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero);
-
-        // Check for overflow (i32::MIN % -1)
-        let min_val_32 = self.builder.ins().iconst(types::I32, i32::MIN as i64);
-        let neg_one = self.builder.ins().iconst(types::I32, -1);
-        let is_min = self
-            .builder
-            .ins()
-            .icmp(IntCC::Equal, dividend_32, min_val_32);
-        let is_neg_one = self.builder.ins().icmp(IntCC::Equal, divisor_32, neg_one);
-        let is_overflow = self.builder.ins().band(is_min, is_neg_one);
-
-        // Use safe divisor to avoid division faults
-        let one_32 = self.builder.ins().iconst(types::I32, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
-        let safe_divisor = self.builder.ins().select(is_overflow, one_32, safe_divisor);
-        let result_32 = self.builder.ins().srem(dividend_32, safe_divisor);
-        let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
-
-        // Return original dividend for div by zero, 0 for overflow, otherwise remainder
-        let dividend_32_ext = self.builder.ins().sextend(types::I64, dividend_32);
-        let zero_64 = self.builder.ins().iconst(types::I64, 0);
-        let result_or_overflow = self
-            .builder
-            .ins()
-            .select(is_overflow, zero_64, result_32_ext);
-        let result = self
-            .builder
-            .ins()
-            .select(is_zero, dividend_32_ext, result_or_overflow);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_rem_s32(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -1168,36 +1043,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-
-        // Check for division by zero
-        let zero = self.builder.ins().iconst(types::I64, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_val, zero);
-
-        // Check for overflow (i64::MIN % -1)
-        let min_val_64 = self.builder.ins().iconst(types::I64, i64::MIN);
-        let neg_one = self.builder.ins().iconst(types::I64, -1);
-        let is_min = self
-            .builder
-            .ins()
-            .icmp(IntCC::Equal, dividend_val, min_val_64);
-        let is_neg_one = self.builder.ins().icmp(IntCC::Equal, divisor_val, neg_one);
-        let is_overflow = self.builder.ins().band(is_min, is_neg_one);
-
-        // Use safe divisor to avoid division faults
-        let one_64 = self.builder.ins().iconst(types::I64, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
-        let safe_divisor = self.builder.ins().select(is_overflow, one_64, safe_divisor);
-        let result_rem = self.builder.ins().srem(dividend_val, safe_divisor);
-
-        // Return original dividend for div by zero, 0 for overflow, otherwise remainder
-        let zero_64 = self.builder.ins().iconst(types::I64, 0);
-        let result_or_overflow = self.builder.ins().select(is_overflow, zero_64, result_rem);
-        let result = self
-            .builder
-            .ins()
-            .select(is_zero, dividend_val, result_or_overflow);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_rem_s64(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -1208,26 +1056,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-        let dividend_32 = self.builder.ins().ireduce(types::I32, dividend_val);
-        let divisor_32 = self.builder.ins().ireduce(types::I32, divisor_val);
-
-        // Check for division by zero - return dividend if divisor is zero
-        let zero = self.builder.ins().iconst(types::I32, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero);
-
-        let one_32 = self.builder.ins().iconst(types::I32, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
-        let result_32 = self.builder.ins().urem(dividend_32, safe_divisor);
-        let result_32_ext = self.builder.ins().sextend(types::I64, result_32);
-
-        // Return original dividend for div by zero, otherwise remainder
-        let dividend_32_ext = self.builder.ins().sextend(types::I64, dividend_32);
-        let result = self
-            .builder
-            .ins()
-            .select(is_zero, dividend_32_ext, result_32_ext);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_rem_u32(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }
@@ -1238,14 +1069,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::RRR { reg0, reg1, reg2 } = format;
-        let dividend_val = self.rget(reg0);
-        let divisor_val = self.rget(reg1);
-        let zero = self.builder.ins().iconst(types::I64, 0);
-        let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_val, zero);
-        let one_64 = self.builder.ins().iconst(types::I64, 1);
-        let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor_val);
-        let result_rem = self.builder.ins().urem(dividend_val, safe_divisor);
-        let result = self.builder.ins().select(is_zero, dividend_val, result_rem);
+        let dividend = self.rget(reg0);
+        let divisor = self.rget(reg1);
+        let result = self.safe_rem_u64(dividend, divisor);
         self.rset(reg2, result);
         Ok(())
     }

@@ -12,6 +12,7 @@ pub use {
 mod context;
 mod control;
 mod exit;
+mod math;
 mod memory;
 mod register;
 mod translate;
