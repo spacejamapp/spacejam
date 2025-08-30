@@ -9,7 +9,6 @@ use score::{
     safrole::{Safrole, ValidatorData, ValidatorIter, Validators, ValidatorsData},
     BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
-use std::time::Instant;
 
 pub mod error;
 pub mod lazy;
@@ -65,8 +64,9 @@ pub async fn safrole(
         return Err(Error::UnexpectedTicket);
     }
 
-    let epoch = slot / score::EPOCH_LENGTH;
-    let new_epoch: bool = epoch > (tau / score::EPOCH_LENGTH);
+    let epoch = tau / score::EPOCH_LENGTH;
+    let next_epoch = slot / score::EPOCH_LENGTH;
+    let new_epoch: bool = next_epoch > epoch;
     let mut safrole = safrole.clone();
     safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
     safrole.validators = safrole.next(new_epoch, &validators.drawn, offenders);
@@ -74,10 +74,10 @@ pub async fn safrole(
     // Process accumulator and ring commitment in parallel
     tracing::info!("> accumulating and committing tickets...");
     let next = safrole.validators.bandersnatch();
-    let (accumulator, commitment) = tokio::join!(
-        async {
-            let now = Instant::now();
-            let accumulator = self::accumulator(
+    let (accumulator, commitment) = {
+        lazy::drawn(epoch, &validators.drawn).await;
+        (
+            self::accumulator(
                 epoch,
                 new_epoch,
                 &safrole.accumulator,
@@ -85,27 +85,13 @@ pub async fn safrole(
                 &next,
                 tickets,
             )
-            .await;
-            tracing::info!("accumulator time outer: {}ms", now.elapsed().as_millis());
-            accumulator
-        },
-        async {
-            let now = Instant::now();
-            let commitment = if new_epoch {
-                self::ring_commitment(epoch, &next).await
-            } else {
-                Ok(safrole.ring_commitment)
-            };
-            tracing::info!(
-                "ring_commitment time outer: {}ms",
-                now.elapsed().as_millis()
-            );
-            commitment
-        }
-    );
+            .await,
+            self::ring_commitment(epoch, &next).await,
+        )
+    };
 
     safrole.accumulator = accumulator?;
-    safrole.ring_commitment = commitment?;
+    safrole.ring_commitment = commitment;
     Ok(safrole)
 }
 
@@ -184,6 +170,6 @@ pub fn sealing_key_series(
 pub async fn ring_commitment(
     epoch: u32,
     next: &Vec<BandersnatchPublic>,
-) -> Result<BandersnatchRingCommitment> {
+) -> BandersnatchRingCommitment {
     lazy::commitment(epoch, next).await
 }

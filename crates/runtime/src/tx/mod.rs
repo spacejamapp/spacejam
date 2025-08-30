@@ -221,7 +221,7 @@ pub async fn simulate<Vm: Pvm>(
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
         processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
-        ticket::lazy::drawn(block.header.slot, &accumulation.validators);
+        tokio::spawn(async move { ticket::lazy::drawn(epoch, &accumulation.validators).await });
         (accumulation.root, accumulation.accounts)
     };
 

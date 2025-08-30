@@ -15,7 +15,7 @@ pub async fn tickets(
     next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator, Error> {
-    let verifier = lazy::verifier(epoch, next).await?;
+    let verifier = lazy::verifier(epoch, next).await;
 
     // process verification in parallel
     let now = Instant::now();
