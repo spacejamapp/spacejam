@@ -8,13 +8,46 @@ use crate::{
 use anyhow::Result;
 use pvm::Pvm;
 use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
+use serde::Serialize;
 use std::sync::Arc;
+use tokio::task::JoinSet;
 
 pub mod assurance;
 pub mod dispute;
 pub mod guarantee;
 pub mod preimage;
 pub mod ticket;
+
+/// Processor for state transition
+pub struct Processor {
+    /// The set of encoding tasks
+    encode: JoinSet<Result<(TrieKey, Vec<u8>)>>,
+}
+
+impl Processor {
+    fn new() -> Self {
+        Self {
+            encode: JoinSet::new(),
+        }
+    }
+
+    /// Add an encoding task to the pool
+    fn encode<T: Serialize + Send + 'static>(&mut self, key: TrieKey, value: T) {
+        self.encode.spawn(async move {
+            let encoded = codec::encode(&value)?;
+            Ok((key, encoded))
+        });
+    }
+
+    /// Collect all encoding results and populate the diff
+    async fn finish(mut self, diff: &mut Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        while let Some(result) = self.encode.join_next().await {
+            let (key, value) = result??;
+            diff.set(key, value);
+        }
+        Ok(())
+    }
+}
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
@@ -34,6 +67,7 @@ pub async fn simulate<Vm: Pvm>(
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut state: score::State = storage.state()?;
     let mut diff = Commit::default();
+    let mut processor = Processor::new();
 
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
@@ -58,16 +92,13 @@ pub async fn simulate<Vm: Pvm>(
         tracing::trace!("handle entropy");
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        diff.set(key::ENTROPY, codec::encode(&state.entropy)?);
+        processor.encode(key::ENTROPY, state.entropy);
 
         // (λ') Update validator state (6.13)
         tracing::trace!("handle previous validators");
         state.validators.previous = state.validators.previous(new_epoch);
         if new_epoch {
-            diff.set(
-                key::PREVIOUS_VALIDATORS,
-                codec::encode(&state.validators.previous)?,
-            );
+            processor.encode(key::PREVIOUS_VALIDATORS, state.validators.previous);
         }
 
         // (ψ') Update disputes and get marks
@@ -80,7 +111,7 @@ pub async fn simulate<Vm: Pvm>(
             &block.extrinsic.disputes,
         )?;
         if disputes != state.disputes {
-            diff.set(key::DISPUTES, codec::encode(&disputes)?);
+            processor.encode(key::DISPUTES, disputes.clone());
             state.disputes = disputes;
             block.header.offenders_mark = marks.offenders.clone();
         }
@@ -108,10 +139,7 @@ pub async fn simulate<Vm: Pvm>(
             .validators
             .current(new_epoch, &state.safrole.validators);
         if new_epoch {
-            diff.set(
-                key::CURRENT_VALIDATORS,
-                codec::encode(&state.validators.current)?,
-            );
+            processor.encode(key::CURRENT_VALIDATORS, state.validators.current);
         }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
@@ -120,7 +148,7 @@ pub async fn simulate<Vm: Pvm>(
         // (ρ') Update availability assignments based on guarantees (11.43)
         reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
         if reports != state.reports {
-            diff.set(key::PENDING_REPORTS, codec::encode(&reports)?);
+            processor.encode(key::PENDING_REPORTS, reports.clone());
             state.reports = reports;
         }
 
@@ -140,7 +168,7 @@ pub async fn simulate<Vm: Pvm>(
             &state.validators,
             &block.extrinsic.tickets,
         )?;
-        diff.set(key::SAFROLE, codec::encode(&state.safrole)?);
+        processor.encode(key::SAFROLE, state.safrole.clone());
         block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
         block.header.tickets_mark = state
             .safrole
@@ -170,21 +198,17 @@ pub async fn simulate<Vm: Pvm>(
         .await?;
 
         state.privileges = accumulation.privileges;
-        diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
+        processor.encode(key::PRIVILEGED_SERVICE, state.privileges.clone());
 
         state.queue = accumulation.ready_queue;
-        diff.set(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
+        processor.encode(key::ACCUMULATION_QUEUE, state.queue.clone());
 
         state.history = accumulation.accumulated_queue;
-        diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
+        processor.encode(key::ACCUMULATION_HISTORY, state.history.clone());
 
         state.validators.drawn = accumulation.validators;
-        diff.set(
-            key::DRAWN_VALIDATORS,
-            codec::encode(&state.validators.drawn)?,
-        );
-
-        diff.set(key::ACCUMULATION_LOGS, codec::encode(&accumulation.logs)?);
+        processor.encode(key::DRAWN_VALIDATORS, state.validators.drawn);
+        processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
 
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
@@ -212,8 +236,8 @@ pub async fn simulate<Vm: Pvm>(
         state
             .statistics
             .merge_reporters(&reporters, &state.validators.current.ed25519());
-        diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
-        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
+        processor.encode(key::RECENT_BLOCKS, state.recent_blocks.clone());
+        processor.encode(key::STATISTICS, state.statistics.clone());
 
         // (δ') Update the accounts
         tracing::trace!("handle preimages");
@@ -239,8 +263,11 @@ pub async fn simulate<Vm: Pvm>(
         // (τ') Update the timeslot
         tracing::trace!("handle timeslot");
         state.timeslot = block.header.slot;
-        diff.set(key::TIMESLOT, codec::encode(&state.timeslot)?);
+        processor.encode(key::TIMESLOT, state.timeslot);
     }
+
+    // Finish all encoding tasks in parallel
+    processor.finish(&mut diff).await?;
 
     Ok(diff)
 }
