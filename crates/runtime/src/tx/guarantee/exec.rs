@@ -89,7 +89,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             let context = context.clone();
             let reports = reports.to_vec();
             let table = table.clone();
-            pool.spawn(async move {
+            pool.spawn_blocking(move || {
                 let result = self::once::<V, R>(context, &reports, &table, service, timeslot);
                 (service, result)
             });
