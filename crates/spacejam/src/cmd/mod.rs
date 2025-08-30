@@ -41,12 +41,28 @@ impl App {
             return;
         }
 
-        // set up logs
+        app.setup_logger();
+        let Some(cmd) = app.cmd else {
+            return;
+        };
+
+        if let Err(e) = cmd.run::<Development>().await {
+            tracing::error!("{e}");
+        }
+    }
+
+    /// Setup the logger
+    fn setup_logger(&self) {
+        if self.verbose == 0 {
+            return;
+        }
+
         let name = App::command().get_name().to_string();
-        let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match app.verbose {
-            0 => format!("{name}=info"),
-            1 => format!("{name}=debug"),
-            2 => format!("{name}=trace,debug"),
+        let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match self.verbose {
+            0 => Default::default(),
+            1 => format!("{name}=info"),
+            2 => format!("{name}=debug"),
+            3 => format!("{name}=trace,debug"),
             _ => "trace".into(),
         }));
 
@@ -55,20 +71,13 @@ impl App {
             .with_env_filter(env)
             .with_timer(fmt::Time)
             .with_target(false)
-            .with_ansi(!app.noansi);
+            .with_ansi(!self.noansi);
 
-        if app.verbose > 2 {
+        if self.verbose > 2 {
             subscriber = subscriber.with_target(true)
         }
 
         subscriber.init();
-        let Some(cmd) = app.cmd else {
-            return;
-        };
-
-        if let Err(e) = cmd.run::<Development>().await {
-            tracing::error!("{e}");
-        }
     }
 }
 
@@ -93,7 +102,7 @@ impl Command {
         match self {
             Command::Run(run) => run.build::<C>().await?.start().await,
             Command::Key(key) => key.run(),
-            Command::Fuzz(fuzz) => fuzz.run(),
+            Command::Fuzz(fuzz) => fuzz.run().await,
         }
     }
 }

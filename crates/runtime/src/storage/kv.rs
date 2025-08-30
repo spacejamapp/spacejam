@@ -9,7 +9,7 @@ use std::{
 };
 
 /// Key-value storage
-pub trait KVStorage {
+pub trait KVStorage: Send + Sync + 'static {
     /// Batch write a set of key-value pairs to the storage
     fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()>;
 

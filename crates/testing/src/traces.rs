@@ -1,6 +1,5 @@
 //! state transition traces
 
-use pvmi::Interpreter;
 use runtime::{
     storage::{MemoryDb, StateStorage},
     tx,
@@ -47,7 +46,7 @@ mod fuzz {
 }
 
 /// Run the traces test
-pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     if test.input.len() == 31 {
         // SKIP the genesis block
         return Ok(());
@@ -71,7 +70,7 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 
     // 2. verify the state transition
     let mut pkeys = Vec::new();
-    if let Err(e) = tx::transit::<Interpreter>(block, memdb.clone()) {
+    if let Err(e) = tx::transit::<pvmi::Interpreter>(block, memdb.clone()).await {
         tracing::warn!("failed to transit block with error: {e:?}");
     }
 

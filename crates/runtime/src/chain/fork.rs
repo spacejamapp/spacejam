@@ -86,7 +86,7 @@ impl<S: Storage> Fork<S> {
     /// Create a fork of a fork
     ///
     /// FIXME: there could be problem in this implementation.
-    pub fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
+    pub async fn fork<Vm: Pvm>(&self, parent: &Head, block: &Block) -> Result<Self> {
         let timeslot = parent.slot;
 
         // checkout branch and commit diffs
@@ -111,12 +111,12 @@ impl<S: Storage> Fork<S> {
             state: Arc::new(branch),
             series: self.series.clone(),
         };
-        fork.import::<Vm>(parent, block)?;
+        fork.import::<Vm>(parent, block).await?;
         Ok(fork)
     }
 
     /// Insert a new block to the chain.
-    pub fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
+    pub async fn import<Vm: Pvm>(&mut self, parent: &Head, block: &Block) -> Result<()> {
         // 1. check the state root
         tracing::trace!("checking state root");
         let root = self.state.root()?;
@@ -142,7 +142,7 @@ impl<S: Storage> Fork<S> {
         // We execute the block instead of querying the latest state from the remote.
         tracing::trace!("transiting block");
         let head = block.header.head()?;
-        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
+        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone()).await?;
         self.state.commit(Column::State, diff.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",

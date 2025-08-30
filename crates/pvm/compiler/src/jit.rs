@@ -1,10 +1,12 @@
 //! Cranelift JIT backend
 
-use crate::host;
+use std::time::Instant;
+
+use crate::{engine, host};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
 use cranelift_codegen::Context;
-use cranelift_jit::{JITBuilder, JITModule};
+use cranelift_jit::JITModule;
 use cranelift_module::{Linkage, Module};
 use pvm::{Argument, Program};
 use translator::Translator;
@@ -26,7 +28,7 @@ pub struct JIT {
 impl JIT {
     /// Create new JIT module builder
     pub fn new() -> Result<Self> {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names())?;
+        let builder = engine::compilation()?;
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),
@@ -37,7 +39,7 @@ impl JIT {
 
     /// Create new JIT module builder for host functions
     pub fn host<X: Argument>() -> Result<Self> {
-        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names())?;
+        let mut builder = engine::compilation()?;
         builder.symbol(host::CALL, host::call::<X> as *const u8);
         builder.symbol(host::SBRK, host::sbrk::<X> as *const u8);
         let module = JITModule::new(builder);
@@ -65,11 +67,15 @@ impl JIT {
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
         trans.host = host;
+        let mut start = Instant::now();
         trans.translate(program)?;
         trans.builder.finalize();
+        tracing::info!("translating took {:?}ms", start.elapsed().as_millis());
 
         // define the function
+        start = Instant::now();
         self.module.define_function(id, &mut self.ctx)?;
+        tracing::info!("defining function took {:?}ms", start.elapsed().as_millis());
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
         Ok(crate::Module {

@@ -44,7 +44,7 @@ impl Target {
     }
 
     /// Run the target
-    pub fn serve(socket: &Path) -> anyhow::Result<()> {
+    pub async fn serve(socket: &Path) -> anyhow::Result<()> {
         fs::remove_file(socket).ok();
         let listener = UnixListener::bind(socket)
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
@@ -52,14 +52,14 @@ impl Target {
         tracing::info!("Listening on {socket:?}");
         for stream in listener.incoming() {
             let stream = stream.context("Failed to accept connection")?;
-            Self::run(stream)?;
+            Self::run(stream).await?;
         }
 
         Ok(())
     }
 
     /// Handle a new connection
-    pub fn run(stream: UnixStream) -> anyhow::Result<()> {
+    pub async fn run(stream: UnixStream) -> anyhow::Result<()> {
         let mut target = Target::new(stream);
         loop {
             let Ok(message) = target.read_message().inspect_err(|e| {
@@ -68,18 +68,18 @@ impl Target {
                 return Ok(());
             };
 
-            if let Err(e) = target.handle(message) {
+            if let Err(e) = target.handle(message).await {
                 tracing::warn!("failed to process message: {e}, waiting for the next message ...");
             }
         }
     }
 
     /// Handle a incoming message
-    pub fn handle(&mut self, message: Message) -> anyhow::Result<()> {
+    pub async fn handle(&mut self, message: Message) -> anyhow::Result<()> {
         match message {
             Message::Info(info) => self.info(info),
             Message::ImportBlock(block) => {
-                if let Err(e) = self.import_block(block) {
+                if let Err(e) = self.import_block(block).await {
                     tracing::warn!("failed to import block: {e}");
                     let root = self.data.root()?;
                     self.write_message(Message::StateRoot(root))
@@ -116,9 +116,9 @@ impl Target {
 
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
-    pub fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
+    pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
-        tx::transit::<Interpreter>(block, self.data.clone())?;
+        tx::transit::<Interpreter>(block, self.data.clone()).await?;
         self.imports.push(timer.elapsed().as_millis() as u32);
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;

@@ -103,7 +103,7 @@ impl<C: Config> Runtime<C> {
     /// Import a block to the chain
     pub async fn import(&self, block: &Block) -> anyhow::Result<bool> {
         let mut chain = self.chain_mut().await;
-        let imported = chain.import(block)?;
+        let imported = chain.import(block).await?;
         if imported.imported() {
             let head = block.header.head()?;
             let mut handshake = chain.grandpa.handshake.clone();

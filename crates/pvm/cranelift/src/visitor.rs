@@ -18,11 +18,10 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
-        let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
-        let src1_32 = self.builder.ins().ireduce(types::I32, src1_val);
-        let result_32 = self.builder.ins().iadd(src0_32, src1_32);
-        let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        self.rset(reg2, result_64);
+        let result = self.builder.ins().iadd(src0_val, src1_val);
+        let result_32 = self.builder.ins().ireduce(types::I32, result);
+        let result_sext = self.builder.ins().sextend(types::I64, result_32);
+        self.rset(reg2, result_sext);
         Ok(())
     }
 
@@ -46,11 +45,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let src_32 = self.builder.ins().ireduce(types::I32, src_val);
-        let imm_val = self.builder.ins().iconst(types::I32, imm0 as u32 as i64);
-        let result_32 = self.builder.ins().iadd(src_32, imm_val);
-        let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        self.rset(reg0, result_64);
+        let result = self.builder.ins().iadd_imm(src_val, imm0 as i64);
+        let result_32 = self.builder.ins().ireduce(types::I32, result);
+        let result_sext = self.builder.ins().sextend(types::I64, result_32);
+        self.rset(reg0, result_sext);
         Ok(())
     }
 
@@ -61,8 +59,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().iadd(src_val, imm_val);
+        let result = self.builder.ins().iadd_imm(src_val, imm0 as i64);
         self.rset(reg0, result);
         Ok(())
     }
@@ -83,8 +80,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().band(src_val, imm_val);
+        let result = self.builder.ins().band_imm(src_val, imm0 as i64);
         self.rset(reg0, result);
         Ok(())
     }
@@ -123,8 +119,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::Equal, lhs, rhs);
+        let condition = self.builder.ins().icmp_imm(IntCC::Equal, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -200,8 +195,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RIO { reg0, imm0, off0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let condition = self.builder.ins().icmp(IntCC::SignedGreaterThan, lhs, rhs);
+        let condition = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::SignedGreaterThan, lhs, imm0 as i64);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         self.branch(condition, target_pc, range.end as u64)
     }
@@ -574,12 +571,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
-        self.save_registers();
         let inst = self
             .builder
             .ins()
             .call(self.host[&"call"], &[index, self.pool.ctx]);
-        self.load_registers();
         let result = self.builder.inst_results(inst)[0];
         let panic = self.builder.ins().iconst(types::I8, 1);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
@@ -621,8 +616,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RI { reg0, imm0 } = format;
         let lhs = self.rget(reg0);
-        let rhs = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let target = self.builder.ins().iadd(lhs, rhs);
+        let target = self.builder.ins().iadd_imm(lhs, imm0 as i64);
         self.djump(target)
     }
 
@@ -971,11 +965,10 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
-        let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
-        let src1_32 = self.builder.ins().ireduce(types::I32, src1_val);
-        let result_32 = self.builder.ins().imul(src0_32, src1_32);
-        let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        self.rset(reg2, result_64);
+        let result = self.builder.ins().imul(src0_val, src1_val);
+        let result_32 = self.builder.ins().ireduce(types::I32, result);
+        let result_sext = self.builder.ins().sextend(types::I64, result_32);
+        self.rset(reg2, result_sext);
         Ok(())
     }
 
@@ -999,11 +992,11 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let src_32 = self.builder.ins().ireduce(types::I32, src_val);
-        let imm_val = self.builder.ins().iconst(types::I32, imm0 as i64);
-        let result_32 = self.builder.ins().imul(src_32, imm_val);
-        let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        self.rset(reg0, result_64);
+        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
+        let result = self.builder.ins().imul(src_val, imm_val);
+        let result_32 = self.builder.ins().ireduce(types::I32, result);
+        let result_sext = self.builder.ins().sextend(types::I64, result_32);
+        self.rset(reg0, result_sext);
         Ok(())
     }
 
@@ -1053,8 +1046,7 @@ impl Visitor for Translator<'_> {
             .icmp(IntCC::SignedLessThan, src0_val, zero);
         let correction = self.builder.ins().select(src0_negative, src1_val, zero);
         let result = self.builder.ins().isub(unsigned_high, correction);
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -1082,8 +1074,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_32 = self.builder.ins().ireduce(types::I32, src);
         let negated = self.builder.ins().ineg(src_32);
-        let imm = self.builder.ins().iconst(types::I32, imm0 as i64);
-        let result_32 = self.builder.ins().iadd(negated, imm);
+        let result_32 = self.builder.ins().iadd_imm(negated, imm0 as i64);
         let result_64 = self.builder.ins().sextend(types::I64, result_32);
         self.rset(reg0, result_64);
         Ok(())
@@ -1098,8 +1089,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg1);
         let src_64 = src;
         let negated = self.builder.ins().ineg(src_64);
-        let imm = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result_64 = self.builder.ins().iadd(negated, imm);
+        let result_64 = self.builder.ins().iadd_imm(negated, imm0 as i64);
         self.rset(reg0, result_64);
         Ok(())
     }
@@ -1120,8 +1110,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().bor(src_val, imm_val);
+        let result = self.builder.ins().bor_imm(src_val, imm0 as i64);
         self.rset(reg0, result);
         Ok(())
     }
@@ -1225,9 +1214,7 @@ impl Visitor for Translator<'_> {
             .builder
             .ins()
             .select(is_zero, dividend_val, result_or_overflow);
-
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -1421,12 +1408,10 @@ impl Visitor for Translator<'_> {
         let format::RR { reg0, reg1 } = format;
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
-        self.save_registers();
         let _inst = self
             .builder
             .ins()
             .call(self.host[&"sbrk"], &[self.pool.ctx, target, increment]);
-        self.load_registers();
         self.pool.heapp = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
@@ -1750,8 +1735,7 @@ impl Visitor for Translator<'_> {
         let mask = self.builder.ins().iconst(types::I64, 63);
         let safe_shift = self.builder.ins().band(src1_val, mask);
         let result = self.builder.ins().ushr(src0_val, safe_shift);
-        let dst_var = self.registers[&reg2];
-        self.builder.def_var(dst_var, result);
+        self.rset(reg2, result);
         Ok(())
     }
 
@@ -2080,11 +2064,10 @@ impl Visitor for Translator<'_> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let src0_val = self.rget(reg0);
         let src1_val = self.rget(reg1);
-        let src0_32 = self.builder.ins().ireduce(types::I32, src0_val);
-        let src1_32 = self.builder.ins().ireduce(types::I32, src1_val);
-        let result_32 = self.builder.ins().isub(src0_32, src1_32);
-        let result_64 = self.builder.ins().sextend(types::I64, result_32);
-        self.rset(reg2, result_64);
+        let result = self.builder.ins().isub(src0_val, src1_val);
+        let result_32 = self.builder.ins().ireduce(types::I32, result);
+        let result_sext = self.builder.ins().sextend(types::I64, result_32);
+        self.rset(reg2, result_sext);
         Ok(())
     }
 
@@ -2164,8 +2147,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src_val = self.rget(reg1);
-        let imm_val = self.builder.ins().iconst(types::I64, imm0 as i64);
-        let result = self.builder.ins().bxor(src_val, imm_val);
+        let result = self.builder.ins().bxor_imm(src_val, imm0 as i64);
         self.rset(reg0, result);
         Ok(())
     }

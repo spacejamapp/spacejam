@@ -20,18 +20,22 @@ resolver = "1"
 
 [workspace.package]
 edition = "2021"
-version = "0.0.6"
+version = "0.0.7"
 homepage = "https://github.com/spacejamapp/spacejam"
 repository = "https://github.com/spacejamapp/spacejam"
 license = "GPL-3.0"
 authors = ["clearloop <tianyi.gc@gmail.com>"]
 
-[profile.release]
-debug = false
-strip = true
-lto = true
-opt-level = "z"
+[profile.prod]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
 panic = "abort"
+debug = false
+debug-assertions = false
+overflow-checks = false
+strip = true
 
 [workspace.dependencies]
 codec = { path = "crates/codec", package = "jamcodec" }

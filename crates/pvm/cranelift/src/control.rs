@@ -76,7 +76,6 @@ impl Translator<'_> {
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, exit: Exit) {
-        self.save_registers();
         let res = exit.value(&mut self.builder);
         self.builder.ins().return_(&[res]);
     }

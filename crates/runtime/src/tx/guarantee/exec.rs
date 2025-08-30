@@ -24,7 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - [T]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-pub fn outer<V: Pvm, R: Accounts>(
+pub async fn outer<V: Pvm, R: Accounts>(
     mut gas_limit: Gas,
     mut reports: &[WorkReport],
     context: AccumulateState<R>,
@@ -34,14 +34,14 @@ pub fn outer<V: Pvm, R: Accounts>(
     let mut accumulated = Accumulated::new(context);
     loop {
         let mut cumulative_gas = 0;
-        let index = reports
-            .iter()
-            .take_while(|r| {
-                let report_gas: Gas = r.results.iter().map(|r| r.accumulate_gas).sum();
+        let mut index = 0;
+        for (i, report) in reports.iter().enumerate() {
+            let report_gas: Gas = report.results.iter().map(|r| r.accumulate_gas).sum();
+            if cumulative_gas + report_gas <= gas_limit {
                 cumulative_gas += report_gas;
-                cumulative_gas <= gas_limit
-            })
-            .count();
+                index = i + 1;
+            }
+        }
 
         if index == 0 {
             return accumulated;
@@ -52,7 +52,8 @@ pub fn outer<V: Pvm, R: Accounts>(
             &reports[..index],
             gas_table,
             timeslot,
-        );
+        )
+        .await;
 
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
@@ -67,7 +68,7 @@ pub fn outer<V: Pvm, R: Accounts>(
 }
 
 /// (Δ*) parallel accumulation
-pub fn parallel<V: Pvm, R: Accounts>(
+pub async fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
@@ -82,13 +83,24 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results: BTreeMap<ServiceId, pvm::Accumulated<R>> = services
-        .iter()
-        .map(|service| {
-            let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
-            (*service, result)
-        })
-        .collect();
+    let mut results = {
+        let mut pool = tokio::task::JoinSet::new();
+        for service in services.iter().cloned() {
+            let context = context.clone();
+            let reports = reports.to_vec();
+            let table = table.clone();
+            pool.spawn(async move {
+                let result = self::once::<V, R>(context, &reports, &table, service, timeslot);
+                (service, result)
+            });
+        }
+
+        let mut results = BTreeMap::new();
+        while let Some(Ok((service, result))) = pool.join_next().await {
+            results.insert(service, result);
+        }
+        results
+    };
 
     // Update the state of accounts
     let mut removed = BTreeSet::new();

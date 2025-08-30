@@ -18,17 +18,17 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub fn transit<Vm: Pvm>(
+pub async fn transit<Vm: Pvm>(
     mut block: Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
+    let diff = self::simulate::<Vm>(&mut block, storage.clone()).await?;
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
 }
 
 /// Simulate state transition with new block
-pub fn simulate<Vm: Pvm>(
+pub async fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
@@ -166,7 +166,8 @@ pub fn simulate<Vm: Pvm>(
             &state.validators.drawn,
             accounts,
             state.entropy,
-        )?;
+        )
+        .await?;
 
         state.privileges = accumulation.privileges;
         diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);

@@ -33,7 +33,7 @@ pub enum Column {
 }
 
 /// The storage of SpaceJam
-pub trait Storage: StateStorage + SyncStorage {}
+pub trait Storage: StateStorage + SyncStorage + Send + Sync + 'static {}
 
 impl<T: KVStorage> ArchiveStorage for T {}
 impl<T: KVStorage> StateStorage for T {}

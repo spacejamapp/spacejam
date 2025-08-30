@@ -109,7 +109,5 @@ impl Translator<'_> {
                     .iconst(types::I64, program.memory.info.args.end as i64),
             ctx,
         };
-
-        self.init_registers(&program.registers);
     }
 }

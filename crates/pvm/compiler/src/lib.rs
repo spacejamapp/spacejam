@@ -1,6 +1,7 @@
 //! SpaceJam PVM compiler
 
 mod compiler;
+pub mod engine;
 pub mod host;
 mod jit;
 mod memory;

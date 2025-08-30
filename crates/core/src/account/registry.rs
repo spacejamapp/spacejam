@@ -4,7 +4,7 @@ use crate::{account::Account, service::ServiceAccount, OpaqueHash, ServiceId, Tr
 use std::collections::BTreeMap;
 
 /// Account registry
-pub trait Accounts: Clone {
+pub trait Accounts: Clone + Send + Sync + 'static {
     /// Check and find a free account index
     fn check(&mut self, mut index: ServiceId) -> ServiceId {
         loop {
