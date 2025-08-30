@@ -1,6 +1,7 @@
 //! Translator context
 
 use crate::Translator;
+#[cfg(target_os = "macos")]
 use core::ops::Range;
 use cranelift::prelude::*;
 use pvm::Program;
@@ -35,18 +36,24 @@ pub struct Pool {
     pub heapp: Value,
 
     /// The read range
+
+    #[cfg(target_os = "macos")]
     pub read: Range<Value>,
 
     /// The write range
+    #[cfg(target_os = "macos")]
     pub write: Range<Value>,
 
     /// The heap range
+    #[cfg(target_os = "macos")]
     pub heap: Range<Value>,
 
     /// The stack range
+    #[cfg(target_os = "macos")]
     pub stack: Range<Value>,
 
     /// The args range
+    #[cfg(target_os = "macos")]
     pub args: Range<Value>,
 }
 
@@ -67,6 +74,7 @@ impl Translator<'_> {
                 ctx,
                 offsets::HEAP_PTR_OFFSET,
             ),
+            #[cfg(target_os = "macos")]
             read: self
                 .builder
                 .ins()
@@ -75,6 +83,7 @@ impl Translator<'_> {
                     .builder
                     .ins()
                     .iconst(types::I64, program.memory.info.read.end as i64),
+            #[cfg(target_os = "macos")]
             write: self
                 .builder
                 .ins()
@@ -83,6 +92,7 @@ impl Translator<'_> {
                     .builder
                     .ins()
                     .iconst(types::I64, program.memory.info.write.end as i64),
+            #[cfg(target_os = "macos")]
             heap: self
                 .builder
                 .ins()
@@ -91,6 +101,7 @@ impl Translator<'_> {
                     .builder
                     .ins()
                     .iconst(types::I64, program.memory.info.heap.end as i64),
+            #[cfg(target_os = "macos")]
             stack: self
                 .builder
                 .ins()
@@ -99,6 +110,7 @@ impl Translator<'_> {
                     .builder
                     .ins()
                     .iconst(types::I64, program.memory.info.stack.end as i64),
+            #[cfg(target_os = "macos")]
             args: self
                 .builder
                 .ins()
