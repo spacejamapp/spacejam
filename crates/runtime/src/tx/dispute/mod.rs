@@ -61,7 +61,6 @@ pub fn reports(
     let mut next_assignments = assignments.clone();
 
     // Clean work-reports from rho if they were judged as uncertain or invalid
-    // This implements equation (eq:removenonpositive) from the graypaper
     for maybe_assignment in next_assignments.iter_mut() {
         if let Some(assignment) = maybe_assignment {
             let hashed =
