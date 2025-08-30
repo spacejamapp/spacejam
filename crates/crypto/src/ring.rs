@@ -51,12 +51,7 @@ pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
 pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
     let keys: Vec<_> = keys
         .iter()
-        .map(|k| {
-            AffineRepr::from_random_bytes(k).unwrap_or_else(|| {
-                // If key is invalid (zeroed or can't be decoded), use padding point
-                RingProofParams::padding_point()
-            })
-        })
+        .map(|k| AffineRepr::from_random_bytes(k).unwrap_or_else(RingProofParams::padding_point))
         .map(Public)
         .collect();
     vrf::Verifier::new(keys)

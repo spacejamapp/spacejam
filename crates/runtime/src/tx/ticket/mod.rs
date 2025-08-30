@@ -1,5 +1,7 @@
 //! Spacejam's SAFRole prototype
 
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
+
 pub use error::{Error, Result};
 use score::{
     extrinsic::{
@@ -9,6 +11,7 @@ use score::{
     safrole::{Safrole, ValidatorData, Validators, ValidatorsData},
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
+use tokio::task::JoinSet;
 
 pub mod error;
 
@@ -43,7 +46,7 @@ pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validator
 }
 
 /// (γ') Enacts an epoch change and updates the entropy accumulator.
-pub fn safrole(
+pub async fn safrole(
     tau: u32,
     slot: u32,
     entropy: [OpaqueHash; 4],
@@ -65,80 +68,125 @@ pub fn safrole(
     let epoch = slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (tau / score::EPOCH_LENGTH);
     let mut safrole = safrole.clone();
-    safrole.series = sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
-    safrole.accumulator = accumulator(
-        new_epoch,
-        &safrole.accumulator,
-        entropy,
-        &safrole.validators,
-        tickets,
-    )?;
+    safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
     safrole.validators = safrole.next(new_epoch, &validators.drawn, offenders);
-    safrole.ring_commitment = self::ring_commitment(&safrole, new_epoch);
+
+    // Process accumulator and ring commitment in parallel
+    tracing::info!("> accumulating and committing tickets...");
+    let (accumulator, commitment) = tokio::join!(
+        async {
+            let now = Instant::now();
+            let accumulator = self::accumulator(
+                new_epoch,
+                &safrole.accumulator,
+                entropy,
+                &safrole.validators,
+                tickets,
+            )
+            .await;
+            tracing::info!("  accumulator time: {}ms", now.elapsed().as_millis());
+            accumulator
+        },
+        async {
+            let now = Instant::now();
+            let commitment = self::ring_commitment(&safrole, new_epoch).await;
+            tracing::info!("  ring_commitment time: {}ms", now.elapsed().as_millis());
+            commitment
+        }
+    );
+
+    safrole.accumulator = accumulator?;
+    safrole.ring_commitment = commitment;
     Ok(safrole)
 }
 
 /// (γ_a') Verifies tickets and updates the accumulator according to graypaper section 6.7.
-pub fn accumulator(
+///
+/// NOTE: gamma_k has already been updated at this point
+pub async fn accumulator(
     new_epoch: bool,
     accumulator: &TicketsAccumulator,
     entropy: [OpaqueHash; 4],
     next: &[ValidatorData],
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator> {
-    // NOTE: gamma_k has already been updated at this point
-    let verifier = crypto::ring::verifier(next.iter().map(|v| v.bandersnatch).collect());
-
-    // Process each ticket envelope
     let mut new_tickets = Vec::new();
-    for envelope in tickets {
-        // 1. Verify ticket attempt (6.29)
-        if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
-            return Err(Error::BadTicketAttempt);
+    if !tickets.is_empty() {
+        let now = Instant::now();
+        let verifier = Arc::new(crypto::ring::verifier(
+            next.iter().map(|v| v.bandersnatch).collect(),
+        ));
+        tracing::info!(
+            "    setting up verifier time: {}ms",
+            now.elapsed().as_millis()
+        );
+
+        // process verification in parallel
+        let now = Instant::now();
+        let mut queue = JoinSet::new();
+        for (index, envelope) in tickets.iter().cloned().enumerate() {
+            let verifier = verifier.clone();
+            queue.spawn_blocking(move || {
+                // 1. Verify ticket attempt (6.29)
+                if envelope.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+                    return Err(Error::BadTicketAttempt);
+                }
+
+                // 2. Verify ring VRF signature and get ticket identifier
+                let id = verifier
+                    .ring_vrf_verify(
+                        &TicketBody::message(envelope.attempt, &entropy[2]),
+                        &[],
+                        &envelope.signature,
+                    )
+                    .map_err(|e| {
+                        tracing::error!("failed to verify ring VRF signature: {:?}", e);
+                        Error::BadTicketProof
+                    })?;
+
+                // 3. Store ticket for accumulation
+                Ok((
+                    index,
+                    TicketBody {
+                        id,
+                        attempt: envelope.attempt,
+                    },
+                ))
+            });
         }
 
-        // 2. Verify ring VRF signature and get ticket identifier
-        let id = verifier
-            .ring_vrf_verify(
-                &TicketBody::message(envelope.attempt, &entropy[2]),
-                &[],
-                &envelope.signature,
-            )
-            .map_err(|e| {
-                tracing::error!("failed to verify ring VRF signature: {:?}", e);
-                Error::BadTicketProof
-            })?;
+        let mut ordered_tickets = BTreeMap::new();
+        while let Some(ticket) = queue.join_next().await {
+            let (index, ticket) = ticket.map_err(|_| Error::Reserved)??;
+            ordered_tickets.insert(index, ticket);
+        }
 
-        // 3. Store ticket for accumulation
-        new_tickets.push(TicketBody {
-            id,
-            attempt: envelope.attempt,
-        });
+        // Check for bad order: 6.32 & 6.33
+        new_tickets = ordered_tickets.into_values().collect();
+        tracing::info!(
+            "    verifying tickets time: {}ms, tickets count: {}",
+            now.elapsed().as_millis(),
+            new_tickets.len()
+        );
+        let mut sorted_new_tickets = new_tickets.clone();
+        sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
+        if sorted_new_tickets != new_tickets {
+            return Err(Error::BadTicketOrder);
+        }
     }
 
-    // Check for bad order: 6.32 & 6.33
-    let mut sorted_new_tickets = new_tickets.clone();
-    sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
-    if sorted_new_tickets != new_tickets {
-        return Err(Error::BadTicketOrder);
-    }
-
+    // update the accumulator
     let mut accumulator = accumulator.clone();
-
-    // Clear the accumulator if we're starting a new epoch: 6.34
     if new_epoch {
+        // Clear the accumulator if we're starting a new epoch: 6.34
         accumulator.clear();
-    }
-
-    // Check for duplicates
-    if accumulator.iter().any(|t| new_tickets.contains(t)) {
-        return Err(Error::DuplicateTicket);
-    }
-
-    // Create merged set of tickets (formula 6.35: n ∪ γ_a)
-    if new_epoch {
         accumulator = new_tickets;
     } else {
+        // or check for duplicates and create merged set of tickets
+        // (formula 6.35: n ∪ γ_a)
+        if accumulator.iter().any(|t| new_tickets.contains(t)) {
+            return Err(Error::DuplicateTicket);
+        }
         accumulator.extend(new_tickets);
     };
 
@@ -162,7 +210,6 @@ pub fn sealing_key_series(
     let curr_epoch = slot / score::EPOCH_LENGTH;
     let prev_epoch = tau / score::EPOCH_LENGTH;
     let prev_slot_phase = tau % score::EPOCH_LENGTH;
-
     if curr_epoch == prev_epoch {
         return next;
     }
@@ -184,7 +231,7 @@ pub fn sealing_key_series(
 }
 
 /// (γ_z') Returns the bandersnatch ring commitment.
-pub fn ring_commitment(safrole: &Safrole, new_epoch: bool) -> BandersnatchRingCommitment {
+pub async fn ring_commitment(safrole: &Safrole, new_epoch: bool) -> BandersnatchRingCommitment {
     if !new_epoch {
         return safrole.ring_commitment;
     }

@@ -3664,6 +3664,7 @@ dependencies = [
  "rand 0.8.5",
  "rcgen",
  "tiny-keccak",
+ "tracing",
  "w3f-bls",
  "w3f-ring-proof",
 ]

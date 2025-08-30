@@ -16,10 +16,10 @@ use spacejson::{Json, ResultJson};
 include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
 /// Run the safrole test
-pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let mut input = TestInput::from_json(&test.input)?;
     let output = TestOutput::from_json(&test.output)?;
-    let result = input.pre_state.enact(&input.input);
+    let result = input.pre_state.enact(&input.input).await;
 
     assert_eq!(result, output.output);
     assert_eq!(output.post_state.gamma_a, input.pre_state.gamma_a);
@@ -108,7 +108,7 @@ pub struct State {
 
 impl State {
     /// Enacts the epoch change and updates the state.
-    pub fn enact(&mut self, input: &Input) -> Result<Markers, Error> {
+    pub async fn enact(&mut self, input: &Input) -> Result<Markers, Error> {
         let prev = self.clone();
         let new_epoch = input.slot / score::EPOCH_LENGTH > self.tau / score::EPOCH_LENGTH;
         let safrole = Safrole {
@@ -136,7 +136,9 @@ impl State {
             &safrole,
             &validators,
             &input.extrinsic,
-        ) {
+        )
+        .await
+        {
             Ok(safrole) => {
                 markers.epoch_mark = safrole.epoch_mark(new_epoch, &self.eta);
                 markers.tickets_mark = safrole.tickets_mark(self.tau, input.slot);

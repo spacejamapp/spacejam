@@ -177,7 +177,8 @@ pub async fn simulate<Vm: Pvm>(
                 &state.safrole,
                 &state.validators,
                 &block.extrinsic.tickets,
-            )?;
+            )
+            .await?;
 
             processor.encode(key::SAFROLE, state.safrole.clone());
             {

@@ -220,8 +220,8 @@ pub struct Verifier {
 }
 
 impl Verifier {
+    // Backend currently requires the wrapped type (plain affine points)
     pub fn new(ring: Vec<Public>) -> Self {
-        // Backend currently requires the wrapped type (plain affine points)
         let pts: Vec<_> = ring.iter().map(|pk| pk.0).collect();
         let verifier_key = RING_CTX.verifier_key(&pts);
         let commitment = verifier_key.commitment();
