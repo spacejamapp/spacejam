@@ -1,2 +1,3 @@
 [default.extend-words]
 NOO = "NOO"
+sigfault = "sigfault"
