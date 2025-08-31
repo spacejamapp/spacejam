@@ -113,28 +113,6 @@ fn write_to_readonly_page_fails() {
 }
 
 #[test]
-fn read_hash() {
-    let mut memory = Memory::default();
-
-    // Insert a mutable page
-    let mut page_data = vec![0u8; PAGE_SIZE as usize];
-    // Set up a 32-byte hash at the beginning
-    for i in 0..32 {
-        page_data[i] = i as u8;
-    }
-    memory.memory.insert(0, (page_data, true));
-
-    // Read the hash
-    let hash = memory.read_hash(0).unwrap();
-    let expected: [u8; 32] = (0..32)
-        .map(|i| i as u8)
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-    assert_eq!(hash, expected);
-}
-
-#[test]
 fn allocate_pages() {
     let mut memory = Memory::default();
 

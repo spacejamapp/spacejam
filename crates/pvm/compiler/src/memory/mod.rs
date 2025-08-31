@@ -11,7 +11,13 @@
 //! - re-mapping allocated memory address to the head
 //! - use a sperated heap track the heap area
 
-pub use linux::Memory;
+pub use {hybrid::Memory as HybridMemory, hybrid::Memory, mmap::Memory as MmapMemory};
 
-mod linux;
-mod macos;
+/* #[cfg(target_os = "linux")]
+pub use mmap::Memory;
+
+#[cfg(target_os = "macos")]
+pub use hybrid::Memory; */
+
+mod hybrid;
+mod mmap;

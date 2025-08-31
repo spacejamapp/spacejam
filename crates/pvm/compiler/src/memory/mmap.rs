@@ -1,10 +1,7 @@
 //! Memory management for PVM programs using mmap for efficient virtual memory
 
-use anyhow::{bail, Result};
-use libc::{
-    mmap, mprotect, munmap, MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ,
-    PROT_WRITE,
-};
+use anyhow::Result;
+use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use pvm::MemoryLike;
 use std::{collections::BTreeMap, io, ptr};
 
@@ -24,7 +21,7 @@ impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
         let base = unsafe {
-            mmap(
+            libc::mmap(
                 ptr::null_mut(),
                 pvm::PVM_MEMORY_SIZE as usize,
                 PROT_NONE,
@@ -35,7 +32,7 @@ impl Memory {
         };
 
         if base == libc::MAP_FAILED {
-            bail!(
+            anyhow::bail!(
                 "Failed to mmap virtual memory: {}",
                 std::io::Error::last_os_error()
             );
@@ -58,16 +55,17 @@ impl Memory {
                 let read = memory.ro_data()?;
                 let start = memory.info.read.start as usize;
                 let size = read.len();
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                {
+                    anyhow::bail!(
                         "Failed to make read region writable: {}",
                         io::Error::last_os_error()
                     );
                 }
 
                 ptr::copy_nonoverlapping(read.as_ptr(), self.base.add(start), size);
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                    anyhow::bail!(
                         "Failed to set read region read-only: {}",
                         io::Error::last_os_error()
                     );
@@ -79,8 +77,9 @@ impl Memory {
                 let write = memory.rw_data()?;
                 let start = memory.info.write.start as usize;
                 let size = write.len();
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                {
+                    anyhow::bail!(
                         "Failed to set write region protection: {}",
                         io::Error::last_os_error()
                     );
@@ -93,8 +92,9 @@ impl Memory {
             {
                 let start = memory.info.stack.start as usize;
                 let size = (memory.info.stack.end - memory.info.stack.start) as usize;
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                {
+                    anyhow::bail!(
                         "Failed to set stack region protection: {}",
                         io::Error::last_os_error()
                     );
@@ -106,45 +106,18 @@ impl Memory {
                 let args = memory.args()?;
                 let start = memory.info.args.start as usize;
                 let size = args.len();
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                {
+                    anyhow::bail!(
                         "Failed to make args region writable: {}",
                         io::Error::last_os_error()
                     );
                 }
 
                 ptr::copy_nonoverlapping(args.as_ptr(), self.base.add(start), size);
-                if mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
-                    bail!(
+                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                    anyhow::bail!(
                         "Failed to set args region read-only: {}",
-                        io::Error::last_os_error()
-                    );
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Allocate heap memory by committing pages with mprotect
-    pub fn allocate(&self, page: u32, count: u32) -> Result<()> {
-        if count == 0 {
-            return Ok(());
-        }
-
-        for page_num in page..(page + count) {
-            let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
-            unsafe {
-                if mprotect(
-                    self.base.add(page_addr) as *mut _,
-                    pvm::PAGE_SIZE as usize,
-                    PROT_READ | PROT_WRITE,
-                ) != 0
-                {
-                    bail!(
-                        "Failed to commit page {} at addr {:#x}: {}",
-                        page_num,
-                        page_addr,
                         io::Error::last_os_error()
                     );
                 }
@@ -200,7 +173,7 @@ impl Drop for Memory {
     fn drop(&mut self) {
         unsafe {
             if !self.base.is_null() {
-                munmap(self.base as *mut _, pvm::PVM_MEMORY_SIZE as usize);
+                libc::munmap(self.base as *mut _, pvm::PVM_MEMORY_SIZE as usize);
             }
         }
     }
@@ -220,7 +193,30 @@ impl MemoryLike for Memory {
     }
 
     fn allocate(&mut self, page: u32, count: u32) -> Result<()> {
-        Memory::allocate(self, page, count)
+        if count == 0 {
+            return Ok(());
+        }
+
+        for page_num in page..(page + count) {
+            let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
+            unsafe {
+                if libc::mprotect(
+                    self.base.add(page_addr) as *mut _,
+                    pvm::PAGE_SIZE as usize,
+                    PROT_READ | PROT_WRITE,
+                ) != 0
+                {
+                    anyhow::bail!(
+                        "Failed to commit page {} at addr {:#x}: {}",
+                        page_num,
+                        page_addr,
+                        io::Error::last_os_error()
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn heap_ptr(&self) -> u32 {
