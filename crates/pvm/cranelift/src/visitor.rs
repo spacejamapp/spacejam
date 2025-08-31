@@ -653,7 +653,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o(addr, imm0 as i64, types::I16);
+        let unsigned = self.mget(addr, imm0 as i64, types::I16);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -666,7 +666,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o(addr, imm0 as i64, types::I32);
+        let unsigned = self.mget(addr, imm0 as i64, types::I32);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -679,7 +679,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let unsigned = self.mget_o(addr, imm0 as i64, types::I8);
+        let unsigned = self.mget(addr, imm0 as i64, types::I8);
         let value = self.builder.ins().sextend(types::I64, unsigned);
         self.rset(reg0, value);
         Ok(())
@@ -692,7 +692,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o(addr, imm0 as i64, types::I16);
+        let value = self.mget(addr, imm0 as i64, types::I16);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -705,7 +705,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o(addr, imm0 as i64, types::I32);
+        let value = self.mget(addr, imm0 as i64, types::I32);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -718,7 +718,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o(addr, imm0 as i64, types::I64);
+        let value = self.mget(addr, imm0 as i64, types::I64);
         self.rset(reg0, value);
         Ok(())
     }
@@ -730,7 +730,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value = self.mget_o(addr, imm0 as i64, types::I8);
+        let value = self.mget(addr, imm0 as i64, types::I8);
         let extended = self.builder.ins().uextend(types::I64, value);
         self.rset(reg0, extended);
         Ok(())
@@ -1649,7 +1649,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o(addr, imm0 as i64, write_value);
+        self.mset(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1666,7 +1666,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o(addr, imm0 as i64, write_value);
+        self.mset(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1678,7 +1678,7 @@ impl Visitor for Translator<'_> {
         let format::RII { reg0, imm0, imm1 } = format;
         let addr = self.rget(reg0);
         let value = self.builder.ins().iconst(types::I64, imm1 as i64);
-        self.mset_o(addr, imm0 as i64, value);
+        self.mset(addr, imm0 as i64, value);
         Ok(())
     }
     fn visit_store_imm_ind_u8(
@@ -1694,7 +1694,7 @@ impl Visitor for Translator<'_> {
         } else {
             value
         };
-        self.mset_o(addr, imm0 as i64, write_value);
+        self.mset(addr, imm0 as i64, write_value);
         Ok(())
     }
 
@@ -1704,7 +1704,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        self.mset_imm_imm(imm0 as i64, (imm1 as u16) as i64, types::I16);
+        self.mset_iimm(imm0 as i64, (imm1 as u16) as i64, types::I16);
         Ok(())
     }
 
@@ -1714,7 +1714,7 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        self.mset_imm_imm(imm0 as i64, (imm1 as u32) as i64, types::I32);
+        self.mset_iimm(imm0 as i64, (imm1 as u32) as i64, types::I32);
         Ok(())
     }
 
@@ -1724,16 +1724,17 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        self.mset_imm_imm(imm0 as i64, imm1 as i64, types::I64);
+        self.mset_iimm(imm0 as i64, imm1 as i64, types::I64);
         Ok(())
     }
+
     fn visit_store_imm_u8(
         &mut self,
         format: format::II,
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::II { imm0, imm1 } = format;
-        self.mset_imm_imm(imm0 as i64, (imm1 as u8) as i64, types::I8);
+        self.mset_iimm(imm0 as i64, (imm1 as u8) as i64, types::I8);
         Ok(())
     }
 
@@ -1746,7 +1747,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I16, src);
-        self.mset_o(addr, imm0 as i64, truncated);
+        self.mset(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1759,7 +1760,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I32, src);
-        self.mset_o(addr, imm0 as i64, truncated);
+        self.mset(addr, imm0 as i64, truncated);
         Ok(())
     }
 
@@ -1771,7 +1772,7 @@ impl Visitor for Translator<'_> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
-        self.mset_o(addr, imm0 as i64, src);
+        self.mset(addr, imm0 as i64, src);
         Ok(())
     }
     fn visit_store_ind_u8(
@@ -1783,7 +1784,7 @@ impl Visitor for Translator<'_> {
         let src = self.rget(reg0);
         let addr = self.rget(reg1);
         let truncated = self.builder.ins().ireduce(types::I8, src);
-        self.mset_o(addr, imm0 as i64, truncated);
+        self.mset(addr, imm0 as i64, truncated);
         Ok(())
     }
 
