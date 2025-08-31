@@ -34,6 +34,10 @@ pub struct Translator<'b> {
 
     /// The constants pool
     pool: Pool,
+
+    /// The memory info
+    #[cfg(target_os = "macos")]
+    pub memory: pvm::MemoryInfo,
 }
 
 impl<'b> Translator<'b> {
@@ -47,8 +51,9 @@ impl<'b> Translator<'b> {
             pool: Pool {
                 ctx: Value::new(0),
                 memory: Value::new(0),
-                heapp: Value::new(0),
             },
+            #[cfg(target_os = "macos")]
+            memory: pvm::MemoryInfo::default(),
         })
     }
 }

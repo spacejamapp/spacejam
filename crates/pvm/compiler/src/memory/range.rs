@@ -2,8 +2,8 @@
 //!
 //! ## macOS
 //!
-//! since macOS doesn't support virtual memory larger than 2.5GB thus we use
-//! a hybrid approach to implement the memory management on macOS.
+//! since macOS doesn't support large virtual memory, thus we use
+//! a range table to implement the memory management on macOS.
 //!
 //! - re-mapping allocated memory address to the head
 //! - use a sperated heap track the heap area
@@ -28,6 +28,7 @@ use crate::TrapInfo;
 ///
 /// With this approach, we can avoid host call when access to immediate address.
 #[derive(Debug, Clone, Default)]
+#[repr(C)]
 pub struct Memory {
     /// Read pointer
     read: Vec<u8>,
@@ -61,7 +62,6 @@ impl Memory {
 
     /// Initialize memory regions from parser memory
     fn init(&mut self, memory: &pvm::Memory) -> Result<()> {
-        tracing::debug!("initializing memory regions: {:?}", memory.info);
         if !memory.info.read.is_empty() {
             self.read = memory.ro_data()?;
         }

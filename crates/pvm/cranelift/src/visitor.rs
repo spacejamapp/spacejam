@@ -1,6 +1,5 @@
 //! Visitor implementation for PVM instructions
 
-use crate::offsets;
 use crate::Exit;
 use crate::Translator;
 use core::ops::Range;
@@ -1223,12 +1222,6 @@ impl Visitor for Translator<'_> {
             .builder
             .ins()
             .call(self.host["sbrk"], &[self.pool.ctx, target, increment]);
-        self.pool.heapp = self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            self.pool.ctx,
-            offsets::HEAP_PTR_OFFSET,
-        );
         Ok(())
     }
 

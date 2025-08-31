@@ -16,10 +16,7 @@ pub mod offsets {
     pub const PC_OFFSET: i32 = REGISTERS_SIZE + 8;
 
     /// Offset to memory pointer (after registers + PC + gas)
-    pub const HEAP_PTR_OFFSET: i32 = PC_OFFSET + 8;
-
-    /// Offset to memory pointer (after registers + PC + gas)
-    pub const MEMORY_PTR_OFFSET: i32 = HEAP_PTR_OFFSET + 8;
+    pub const MEMORY_PTR_OFFSET: i32 = PC_OFFSET + 8;
 }
 
 /// Constants pool with Single Static Assignment Values
@@ -29,9 +26,6 @@ pub struct Pool {
 
     /// The memory pointer
     pub memory: Value,
-
-    /// The heap pointer
-    pub heapp: Value,
 }
 
 impl Translator<'_> {
@@ -45,13 +39,12 @@ impl Translator<'_> {
                 ctx,
                 offsets::MEMORY_PTR_OFFSET,
             ),
-            heapp: self.builder.ins().load(
-                types::I64,
-                MemFlags::trusted(),
-                ctx,
-                offsets::HEAP_PTR_OFFSET,
-            ),
             ctx,
         };
+
+        #[cfg(target_os = "macos")]
+        {
+            self.memory = program.memory.info.clone();
+        }
     }
 }

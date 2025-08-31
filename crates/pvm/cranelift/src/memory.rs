@@ -54,40 +54,30 @@ impl Translator<'_> {
 #[cfg(target_os = "macos")]
 impl Translator<'_> {
     /// Memory get with immediate offset
-    ///
-    /// TODO: for imm operations, we might not need to load the address
-    pub fn mget(&mut self, address: Value, offset_imm: i64, ty: types::Type) -> Value {
-        let offset = self.builder.ins().iadd_imm(address, offset_imm);
-        self.mload(ty, offset)
+    pub fn mget(&mut self, address: Value, offset: i64, ty: types::Type) -> Value {
+        let address = self.builder.ins().iadd_imm(address, offset);
+        self.mload(ty, address)
     }
 
     /// Memory get with immediate address - optimized for constant addresses
-    ///
-    /// TODO: for imm operations, we might not need to load the address
-    pub fn mget_imm(&mut self, address_imm: i64, ty: types::Type) -> Value {
-        let offset = self.builder.ins().iconst(types::I64, address_imm);
-        self.mload(ty, offset)
+    pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
+        let address = self.builder.ins().iconst(types::I64, address);
+        self.mload(ty, address)
     }
 
     /// Memory set with immediate offset
-    ///
-    /// TODO: for imm operations, we might not need to load the address
-    pub fn mset(&mut self, address: Value, offset_imm: i64, value: Value) {
-        let offset = self.builder.ins().iadd_imm(address, offset_imm);
+    pub fn mset(&mut self, address: Value, offset: i64, value: Value) {
+        let offset = self.builder.ins().iadd_imm(address, offset);
         self.mstore(offset, value)
     }
 
     /// Memory set with immediate address - optimized for constant addresses  
-    ///
-    /// TODO: for imm operations, we don't need to load the address
     pub fn mset_imm(&mut self, address: i64, value: Value) {
         let offset = self.builder.ins().iconst(types::I64, address);
         self.mstore(offset, value)
     }
 
     /// Store immediate value at immediate address
-    ///
-    /// TODO: for imm operations, we might not need to load the address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
         let offset = self.builder.ins().iconst(types::I64, address);
         let value = self.builder.ins().iconst(ty, value);
@@ -130,5 +120,44 @@ impl Translator<'_> {
         self.builder
             .ins()
             .call(self.host["mset"], &[self.pool.ctx, address, value, clen]);
+    }
+
+    /// Convert the given address to the real address in memory
+    ///
+    /// If failed to find the correct range, panic in rust directly!
+    pub fn maddr(&mut self, address: i64) -> i64 {
+        let mut ptr = 0;
+        let start = address as u32;
+        if start >= self.memory.read.start && start < self.memory.write.start {
+            return (ptr + start - self.memory.read.start) as i64;
+        }
+
+        // now the pointer is at the start of the write area
+        ptr = self.memory.read.len() as u32;
+        if start >= self.memory.write.start
+            && start < self.memory.heap.start.max(self.memory.write.end)
+        {
+            return (ptr + start - self.memory.write.start) as i64;
+        }
+
+        // now the pointer is at the start of the stack area
+        ptr += self.memory.write.len() as u32;
+        if start >= self.memory.stack.start
+            && start < self.memory.args.start.max(self.memory.stack.end)
+        {
+            return (ptr + start - self.memory.stack.start) as i64;
+        }
+
+        // now the pointer is at the start of the args area
+        ptr += self.memory.stack.len() as u32;
+        if start >= self.memory.args.start
+            && start < self.memory.args.start.max(self.memory.args.end)
+        {
+            return (ptr + start - self.memory.args.start) as i64;
+        }
+
+        // now the pointer is at the start of the heap area
+        ptr += self.memory.args.len() as u32;
+        (ptr + start - self.memory.heap.start) as i64
     }
 }

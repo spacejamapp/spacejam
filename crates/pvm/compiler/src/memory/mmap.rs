@@ -9,13 +9,13 @@ use std::{collections::BTreeMap, io, ptr};
 /// memory for PVM programs
 #[derive(Debug, Clone)]
 pub struct Memory {
+    /// Base pointer to the virtual memory region
+    base: *mut u8,
+
     /// Heap pointer
     ///
     /// NOTE: using [u64] for safe mapping in C API
-    pub heap_ptr: u64,
-
-    /// Base pointer to the virtual memory region
-    base: *mut u8,
+    pub heap_ptr: u32,
 }
 
 impl Memory {
@@ -41,7 +41,7 @@ impl Memory {
 
         let memory = Memory {
             base: base as *mut u8,
-            heap_ptr: pmemory.heap_ptr as u64,
+            heap_ptr: pmemory.heap_ptr as u32,
         };
 
         memory.init(pmemory)?;
@@ -225,6 +225,6 @@ impl MemoryLike for Memory {
     }
 
     fn set_heap_ptr(&mut self, heap_ptr: u32) {
-        self.heap_ptr = heap_ptr as u64;
+        self.heap_ptr = heap_ptr;
     }
 }

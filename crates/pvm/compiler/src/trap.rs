@@ -21,20 +21,9 @@ pub struct TrapInfo {
 
 impl TrapInfo {
     /// Raise a page fault signal
-    #[cfg(not(target_os = "macos"))]
     pub fn fault(address: u32) -> Self {
         Self {
             signal: libc::SIGSEGV,
-            address: address as *mut libc::c_void,
-            code: 0,
-        }
-    }
-
-    /// Raise a page fault signal
-    #[cfg(target_os = "macos")]
-    pub fn fault(address: u32) -> Self {
-        Self {
-            signal: libc::SIGBUS,
             address: address as *mut libc::c_void,
             code: 0,
         }
