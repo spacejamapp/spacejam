@@ -30,17 +30,8 @@ use crate::TrapInfo;
 #[derive(Debug, Clone, Default)]
 #[repr(C)]
 pub struct Memory {
-    /// Read pointer
-    read: Vec<u8>,
-
-    /// Write pointer
-    write: Vec<u8>,
-
-    /// Stack pointer
-    stack: Vec<u8>,
-
-    /// Args pointer
-    args: Vec<u8>,
+    /// Base pointer to the memory
+    base: Box<[u8]>,
 
     /// Heap pointer
     heap: Vec<u8>,
@@ -52,33 +43,17 @@ pub struct Memory {
 impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
-        let mut memory = Self {
+        let mut data = vec![];
+        data.extend_from_slice(&pmemory.ro_data()?);
+        data.extend_from_slice(&pmemory.rw_data()?);
+        data.extend_from_slice(&vec![0; pmemory.info.stack.len()]);
+        data.extend_from_slice(&pmemory.args()?);
+
+        Ok(Self {
+            base: data.into_boxed_slice(),
             info: pmemory.info.clone(),
-            ..Default::default()
-        };
-        memory.init(pmemory)?;
-        Ok(memory)
-    }
-
-    /// Initialize memory regions from parser memory
-    fn init(&mut self, memory: &pvm::Memory) -> Result<()> {
-        if !memory.info.read.is_empty() {
-            self.read = memory.ro_data()?;
-        }
-
-        if !memory.info.write.is_empty() {
-            self.write = memory.rw_data()?;
-        }
-
-        if !memory.info.stack.is_empty() {
-            self.stack = vec![0; memory.info.stack.len()];
-        }
-
-        if !memory.info.args.is_empty() {
-            self.args = memory.args()?;
-        }
-
-        Ok(())
+            heap: vec![],
+        })
     }
 
     // Check if a range of heap is allocated
@@ -95,24 +70,28 @@ impl Memory {
     /// Read bytes from memory with boundary checks
     pub fn read_bytes(&self, addr: u32, len: u32) -> &[u8] {
         let end = addr + len;
+        let mut ptr = 0;
         if addr >= self.info.read.start && end <= self.info.read.end {
             let start = (addr - self.info.read.start) as usize;
-            return &self.read[start..(start + len as usize)];
+            return &self.base[start..(start + len as usize)];
         }
 
+        ptr += self.info.read.len();
         if addr >= self.info.write.start && end <= self.info.write.end {
-            let start = (addr - self.info.write.start) as usize;
-            return &self.write[start..(start + len as usize)];
+            let start = (addr - self.info.write.start) as usize + ptr;
+            return &self.base[start..(start + len as usize)];
         }
 
+        ptr += self.info.write.len();
         if addr >= self.info.stack.start && end <= self.info.stack.end {
-            let start = (addr - self.info.stack.start) as usize;
-            return &self.stack[start..(start + len as usize)];
+            let start = (addr - self.info.stack.start) as usize + ptr;
+            return &self.base[start..(start + len as usize)];
         }
 
+        ptr += self.info.stack.len();
         if addr >= self.info.args.start && end <= self.info.args.end {
-            let start = (addr - self.info.args.start) as usize;
-            return &self.args[start..(start + len as usize)];
+            let start = (addr - self.info.args.start) as usize + ptr;
+            return &self.base[start..(start + len as usize)];
         }
 
         // heap area
@@ -123,25 +102,27 @@ impl Memory {
 
         // we need to handle make the trap here bcz our heap is not mmap.
         if self.hallocated(addr, len) {
-            return &self.heap[addr as usize..(addr as usize + len as usize)];
+            &self.heap[addr as usize..(addr as usize + len as usize)]
         } else {
             TrapInfo::fault(addr).raise();
-            return &[];
+            &[]
         }
     }
 
     /// Write bytes to memory with boundary checks
     pub fn write_bytes(&mut self, addr: u32, data: &[u8]) {
         let end = addr + data.len() as u32;
+        let mut ptr = self.info.read.len();
         if addr >= self.info.write.start && end <= self.info.write.end {
-            let start = (addr - self.info.write.start) as usize;
-            self.write[start..(start + data.len())].copy_from_slice(data);
+            let start = (addr - self.info.write.start) as usize + ptr;
+            self.base[start..(start + data.len())].copy_from_slice(data);
             return;
         }
 
+        ptr += self.info.write.len();
         if addr >= self.info.stack.start && end <= self.info.stack.end {
-            let start = (addr - self.info.stack.start) as usize;
-            self.stack[start..(start + data.len())].copy_from_slice(data);
+            let start = (addr - self.info.stack.start) as usize + ptr;
+            self.base[start..(start + data.len())].copy_from_slice(data);
             return;
         }
 
@@ -208,7 +189,8 @@ impl MemoryLike for Memory {
     }
 
     fn write(&mut self, addr: u32, data: &[u8]) -> Result<()> {
-        Ok(self.write_bytes(addr, data))
+        self.write_bytes(addr, data);
+        Ok(())
     }
 
     fn allocate(&mut self, page: u32, count: u32) -> Result<()> {

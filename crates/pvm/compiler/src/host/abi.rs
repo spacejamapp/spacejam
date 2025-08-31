@@ -41,7 +41,7 @@ pub extern "C" fn mget<X: Argument>(ctx: *mut u8, address: u32, len: u8) -> u64 
         4 => u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64,
         8 => u64::from_le_bytes([
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]) as u64,
+        ]),
         _ => panic!("invalid value length"),
     }
 }

@@ -61,27 +61,32 @@ impl Translator<'_> {
 
     /// Memory get with immediate address - optimized for constant addresses
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
-        let address = self.builder.ins().iconst(types::I64, address);
-        self.mload(ty, address)
+        let maddr = self.maddr(address);
+        let maddr = self.builder.ins().iadd_imm(self.pool.memory, maddr);
+        self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
     /// Memory set with immediate offset
     pub fn mset(&mut self, address: Value, offset: i64, value: Value) {
-        let offset = self.builder.ins().iadd_imm(address, offset);
-        self.mstore(offset, value)
+        let address = self.builder.ins().iadd_imm(address, offset);
+        self.mstore(address, value)
     }
 
     /// Memory set with immediate address - optimized for constant addresses  
     pub fn mset_imm(&mut self, address: i64, value: Value) {
-        let offset = self.builder.ins().iconst(types::I64, address);
-        self.mstore(offset, value)
+        let maddr = self.maddr(address);
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), value, self.pool.memory, maddr as i32);
     }
 
     /// Store immediate value at immediate address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
-        let offset = self.builder.ins().iconst(types::I64, address);
+        let maddr = self.maddr(address);
         let value = self.builder.ins().iconst(ty, value);
-        self.mstore(offset, value)
+        self.builder
+            .ins()
+            .store(MemFlags::trusted(), value, self.pool.memory, maddr as i32);
     }
 
     /// Memory load abi
@@ -123,17 +128,16 @@ impl Translator<'_> {
     }
 
     /// Convert the given address to the real address in memory
-    ///
-    /// If failed to find the correct range, panic in rust directly!
     pub fn maddr(&mut self, address: i64) -> i64 {
-        let mut ptr = 0;
         let start = address as u32;
-        if start >= self.memory.read.start && start < self.memory.write.start {
-            return (ptr + start - self.memory.read.start) as i64;
+        if start >= self.memory.read.start
+            && start < self.memory.write.start.max(self.memory.read.end)
+        {
+            return (start - self.memory.read.start) as i64;
         }
 
         // now the pointer is at the start of the write area
-        ptr = self.memory.read.len() as u32;
+        let mut ptr = self.memory.read.len() as u32;
         if start >= self.memory.write.start
             && start < self.memory.heap.start.max(self.memory.write.end)
         {
