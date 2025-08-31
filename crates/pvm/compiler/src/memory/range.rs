@@ -6,7 +6,7 @@
 //! a range table to implement the memory management on macOS.
 //!
 //! - re-mapping allocated memory address to the head
-//! - use a sperated heap track the heap area
+//! - use a separated heap track the heap area
 #![cfg(target_os = "macos")]
 
 use anyhow::Result;
@@ -22,7 +22,7 @@ use crate::TrapInfo;
 /// [ [ro data] [rw data] [heap] [stack] [args] ]
 ///
 /// while in our hybrid approach, we re-map the allocated memory address to the head
-/// and use a sperated heap to track the heap area.
+/// and use a separated heap to track the heap area.
 ///
 /// [ [rw data] [ro data] [stack] [args] [heap] ]
 ///

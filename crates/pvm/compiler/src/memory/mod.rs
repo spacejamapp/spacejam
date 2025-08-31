@@ -9,7 +9,7 @@
 //! a hybrid approach to implement the memory management on macOS.
 //!
 //! - re-mapping allocated memory address to the head
-//! - use a sperated heap track the heap area
+//! - use a separated heap track the heap area
 
 #[cfg(not(target_os = "macos"))]
 pub use mmap::Memory;

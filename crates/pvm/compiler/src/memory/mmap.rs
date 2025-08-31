@@ -41,7 +41,7 @@ impl Memory {
 
         let memory = Memory {
             base: base as *mut u8,
-            heap_ptr: pmemory.heap_ptr as u32,
+            heap_ptr: pmemory.heap_ptr,
         };
 
         memory.init(pmemory)?;
@@ -221,7 +221,7 @@ impl MemoryLike for Memory {
     }
 
     fn heap_ptr(&self) -> u32 {
-        self.heap_ptr as u32
+        self.heap_ptr
     }
 
     fn set_heap_ptr(&mut self, heap_ptr: u32) {
