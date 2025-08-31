@@ -10,18 +10,12 @@ const UNALLOCATED_ADDR: u32 = pvm::ZONE_SIZE as u32 * 2;
 
 /// Generate a read test for the given memory
 fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
-    let data = memory
-        .read(REGION_START, REGION_SIZE as u32)
-        .expect("should not trap");
+    let data = memory.read_bytes(REGION_START, REGION_SIZE as u32);
     assert_eq!(data, vec![INIT_VALUE; REGION_SIZE]);
 
     // try writing to read-only memory
     {
-        let Err(info) = trap::with(|| {
-            memory
-                .write(REGION_START, &[2; REGION_SIZE])
-                .expect("should not trap");
-        }) else {
+        let Err(info) = trap::with(|| memory.write_bytes(REGION_START, &[2; REGION_SIZE])) else {
             panic!("should trap");
         };
 
@@ -30,10 +24,7 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
 
     // try accessing unallocated memory
     {
-        let Err(info) = trap::with(|| {
-            let slice = memory.read(UNALLOCATED_ADDR, 1).expect("should not trap");
-            slice[0]
-        }) else {
+        let Err(info) = trap::with(|| memory.read_bytes(UNALLOCATED_ADDR, 1)[0]) else {
             panic!("should trap");
         };
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
@@ -55,14 +46,14 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
 
 /// Generate a write test for the given memory
 fn gen_write(mut memory: Memory) -> anyhow::Result<()> {
-    let data = memory.read(REGION_START, REGION_SIZE as u32)?;
+    let data = memory.read_bytes(REGION_START, REGION_SIZE as u32);
     assert_eq!(data, vec![1; REGION_SIZE]);
 
     // try writing to writable memory
     {
-        memory.write(REGION_START, &[2; REGION_SIZE])?;
+        memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
         assert_eq!(
-            memory.read(REGION_START, REGION_SIZE as u32)?,
+            memory.read_bytes(REGION_START, REGION_SIZE as u32),
             vec![2; REGION_SIZE]
         );
     }
@@ -70,17 +61,12 @@ fn gen_write(mut memory: Memory) -> anyhow::Result<()> {
     // try writing to unallocated memory
     {
         let Err(info) = trap::with(|| {
-            memory
-                .write(UNALLOCATED_ADDR, &[3; REGION_SIZE])
-                .expect("should not trap");
+            memory.write_bytes(UNALLOCATED_ADDR, &[3; REGION_SIZE]);
         }) else {
             panic!("should trap on unallocated memory access");
         };
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
-
-    // FIXME: test writing to a page that is next to the allocated page
-    // but not allocated.
 
     Ok(())
 }
@@ -104,7 +90,7 @@ fn test_write() -> anyhow::Result<()> {
 #[test]
 fn test_stack() -> anyhow::Result<()> {
     let mut memory = Memory::new(&pvm::Memory::default().with_stack(REGION_START..REGION_END))?;
-    memory.write(REGION_START, &[INIT_VALUE; REGION_SIZE])?;
+    memory.write_bytes(REGION_START, &[INIT_VALUE; REGION_SIZE]);
     gen_write(memory)
 }
 
@@ -122,7 +108,6 @@ fn test_heap() -> anyhow::Result<()> {
     // allocate takes page number, not address
     let page_num = REGION_START / pvm::PAGE_SIZE as u32;
     memory.allocate(page_num, 1)?;
-    memory.write(REGION_START, &[INIT_VALUE; REGION_SIZE])?;
-
+    memory.write_bytes(REGION_START, &[INIT_VALUE; REGION_SIZE]);
     gen_write(memory)
 }

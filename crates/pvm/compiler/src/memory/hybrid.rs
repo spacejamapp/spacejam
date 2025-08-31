@@ -13,6 +13,8 @@ use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT
 use pvm::MemoryLike;
 use std::{collections::BTreeMap, io, ptr, slice};
 
+use crate::TrapInfo;
+
 /// Hybrid memory management for PVM programs on macOS
 ///
 /// the original PVM memory layout is as follows:
@@ -25,11 +27,14 @@ use std::{collections::BTreeMap, io, ptr, slice};
 /// [ [rw data] [ro data] [stack] [args] [heap] ]
 #[derive(Debug, Clone)]
 pub struct Memory {
-    /// Base pointer
-    base: *mut u8,
+    /// Head pointer (read-only + read-write)
+    head: *mut u8,
 
     /// Heap pointer
     heap: Vec<u8>,
+
+    /// Trail pointer (stack + args)
+    trail: *mut u8,
 
     /// The offset between ro-data and stack previous the heap area.
     info: pvm::MemoryInfo,
@@ -39,16 +44,21 @@ impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
         let info = &pmemory.info;
-        tracing::debug!("memory info: {:?}", info);
-        let size = info.args.len()
-            + info.read.len()
-            + info.write.len()
-            + info.stack.len()
-            + info.args.len();
-        let base = unsafe {
+        let head = unsafe {
             libc::mmap(
                 ptr::null_mut(),
-                size,
+                (info.write.end as usize).max(info.read.end as usize),
+                PROT_NONE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+                -1,
+                0,
+            )
+        };
+
+        let trail = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                (info.args.end as usize).max(info.stack.end as usize),
                 PROT_NONE,
                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
                 -1,
@@ -57,8 +67,9 @@ impl Memory {
         };
 
         let memory = Self {
-            base: base as *mut u8,
-            heap: vec![0; info.heap.end as usize - info.heap.start as usize],
+            head: head as *mut u8,
+            trail: trail as *mut u8,
+            heap: vec![],
             info: info.clone(),
         };
 
@@ -74,18 +85,22 @@ impl Memory {
                 let read = memory.ro_data()?;
                 let start = memory.info.read.start as usize;
                 let size = read.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                if libc::mprotect(self.head.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
                 {
                     anyhow::bail!(
-                        "Failed to make read region writable: {}",
+                        "Failed to make region {}-{} writable: {}",
+                        memory.info.read.start,
+                        memory.info.read.end,
                         io::Error::last_os_error()
                     );
                 }
 
-                ptr::copy_nonoverlapping(read.as_ptr(), self.base.add(start), size);
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                ptr::copy_nonoverlapping(read.as_ptr(), self.head.add(start), size);
+                if libc::mprotect(self.head.add(start) as *mut _, size, PROT_READ) != 0 {
                     anyhow::bail!(
-                        "Failed to set read region read-only: {}",
+                        "Failed to set read region {}-{} read-only: {}",
+                        memory.info.read.start,
+                        memory.info.read.end,
                         io::Error::last_os_error()
                     );
                 }
@@ -96,15 +111,17 @@ impl Memory {
                 let write = memory.rw_data()?;
                 let start = memory.info.write.start as usize;
                 let size = write.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                if libc::mprotect(self.head.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
                 {
                     anyhow::bail!(
-                        "Failed to set write region protection: {}",
+                        "Failed to set write region {}-{} writable: {}",
+                        memory.info.write.start,
+                        memory.info.write.end,
                         io::Error::last_os_error()
                     );
                 }
 
-                ptr::copy_nonoverlapping(write.as_ptr(), self.base.add(start), size);
+                ptr::copy_nonoverlapping(write.as_ptr(), self.head.add(start), size);
             }
 
             let offset = memory.info.heap.len();
@@ -113,7 +130,11 @@ impl Memory {
             if !memory.info.stack.is_empty() {
                 let start = memory.info.stack.start as usize - offset;
                 let size = (memory.info.stack.end - memory.info.stack.start) as usize;
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                if libc::mprotect(
+                    self.trail.add(start) as *mut _,
+                    size,
+                    PROT_READ | PROT_WRITE,
+                ) != 0
                 {
                     anyhow::bail!(
                         "Failed to set stack region protection: {}",
@@ -127,7 +148,11 @@ impl Memory {
                 let args = memory.args()?;
                 let start = memory.info.args.start as usize - offset;
                 let size = args.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                if libc::mprotect(
+                    self.trail.add(start) as *mut _,
+                    size,
+                    PROT_READ | PROT_WRITE,
+                ) != 0
                 {
                     anyhow::bail!(
                         "Failed to make args region writable: {}",
@@ -135,8 +160,8 @@ impl Memory {
                     );
                 }
 
-                ptr::copy_nonoverlapping(args.as_ptr(), self.base.add(start), size);
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                ptr::copy_nonoverlapping(args.as_ptr(), self.head.add(start), size);
+                if libc::mprotect(self.head.add(start) as *mut _, size, PROT_READ) != 0 {
                     anyhow::bail!(
                         "Failed to set args region read-only: {}",
                         io::Error::last_os_error()
@@ -160,99 +185,111 @@ impl Memory {
     }
 
     /// Read bytes from memory with boundary checks
-    pub fn read_bytes(&self, addr: u32, len: u32) -> Result<&[u8]> {
-        tracing::info!("reading bytes from memory: {} - {}", addr, len);
+    ///
+    /// Some condition may confused bcz we need to adapt the tests which
+    /// are not standard memory layout, however it's okay since all of
+    /// the problems will be catched by the virtual memory.
+    pub fn read_bytes(&self, addr: u32, len: u32) -> &[u8] {
         let end = addr + len;
-        if addr < self.info.read.start || addr > self.info.args.end || end > self.info.args.end {
-            anyhow::bail!("Invalid address: {}", addr);
+        if (addr >= self.info.read.start && end <= self.info.read.end)
+            || (addr >= self.info.write.start && end <= self.info.write.end)
+        {
+            return unsafe { slice::from_raw_parts(self.head.add(addr as usize), len as usize) };
         }
 
-        if addr < self.info.heap.start && end < self.info.heap.start {
-            return Ok(unsafe {
-                slice::from_raw_parts(self.base.add(addr as usize), len as usize)
-            });
-        }
-
-        if addr > self.info.heap.end {
-            return Ok(unsafe {
+        if (addr >= self.info.stack.start && end <= self.info.stack.end)
+            || (addr >= self.info.args.start && end <= self.info.args.end)
+        {
+            return unsafe {
                 slice::from_raw_parts(
-                    self.base.add(addr as usize - self.info.heap.len()),
+                    self.trail.add(addr as usize - self.info.heap.len()),
                     len as usize,
                 )
-            });
+            };
         }
 
         // heap area
-        let addr = addr - self.info.heap.start;
+        let Some(addr) = addr.checked_sub(self.info.heap.start) else {
+            TrapInfo::fault(addr).raise();
+            return &[];
+        };
+
+        // we need to handle make the trap here bcz our heap is not mmap.
         if self.hallocated(addr, len) {
-            Ok(&self.heap[addr as usize..(addr as usize + len as usize)])
+            return &self.heap[addr as usize..(addr as usize + len as usize)];
         } else {
-            anyhow::bail!("address not allocated: {}", addr);
+            TrapInfo::fault(addr).raise();
+            return &[];
         }
     }
 
     /// Write bytes to memory with boundary checks
-    pub fn write_bytes(&mut self, addr: u32, data: &[u8]) -> Result<()> {
+    pub fn write_bytes(&mut self, addr: u32, data: &[u8]) {
         let end = addr + data.len() as u32;
-        if addr < self.info.read.start || addr > self.info.args.end || end > self.info.args.end {
-            anyhow::bail!("address not accessible: {}", addr);
+        if addr >= self.info.write.start && end <= self.info.write.end {
+            unsafe {
+                ptr::copy_nonoverlapping(data.as_ptr(), self.head.add(addr as usize), data.len())
+            }
+
+            return;
         }
 
-        if addr > self.info.write.start && end < self.info.write.end {
-            return Ok(unsafe {
-                ptr::copy_nonoverlapping(data.as_ptr(), self.base.add(addr as usize), data.len())
-            });
-        }
-
-        if addr > self.info.stack.start && end < self.info.stack.end {
-            return Ok(unsafe {
+        if addr >= self.info.stack.start && end <= self.info.stack.end {
+            unsafe {
                 ptr::copy_nonoverlapping(
                     data.as_ptr(),
-                    self.base.add(addr as usize - self.info.heap.len()),
+                    self.trail.add(addr as usize - self.info.heap.len()),
                     data.len(),
                 )
-            });
+            };
+
+            return;
         }
 
         // If the address is not in the heap area, throw error
         if !self.info.heap.contains(&addr) || !self.info.heap.contains(&end) {
-            anyhow::bail!("address not accessible: {}", addr);
+            TrapInfo::fault(addr).raise();
+            return;
         }
 
         // heap area
-        let addr = addr - self.info.heap.start;
-        if self.hallocated(addr, data.len() as u32) {
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    data.as_ptr(),
-                    self.heap.as_mut_ptr().add(addr as usize),
-                    data.len(),
-                );
-            }
-        } else {
-            anyhow::bail!("address not allocated: {}", addr);
-        }
+        let Some(haddr) = addr.checked_sub(self.info.heap.start) else {
+            TrapInfo::fault(addr).raise();
+            return;
+        };
 
-        Ok(())
+        if self.hallocated(haddr, data.len() as u32) {
+            self.heap[haddr as usize..(haddr as usize + data.len())].copy_from_slice(data);
+        } else {
+            tracing::error!("heap area not allocated: {} - {}", addr, data.len());
+            TrapInfo::fault(addr).raise();
+        }
     }
 
     /// Convert the virtual memory back to pvm::Memory structure
     pub fn fill(&self, original: &pvm::Memory) -> pvm::Memory {
         let mut memory_map = BTreeMap::new();
-        for (&page_num, (_, perms)) in &original.memory {
-            let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
-            let mut page_data = vec![0u8; pvm::PAGE_SIZE as usize];
-            unsafe {
-                ptr::copy_nonoverlapping(
-                    self.base.add(page_addr),
-                    page_data.as_mut_ptr(),
-                    pvm::PAGE_SIZE as usize,
-                );
+        for (&page, (_, perms)) in &original.memory {
+            let addr = page * pvm::PAGE_SIZE as u32;
+            let mut data = vec![0u8; pvm::PAGE_SIZE as usize];
+            let mut size = pvm::PAGE_SIZE as u32;
+            if addr < self.info.read.end {
+                size = size.min(self.info.read.end - addr);
+            } else if addr < self.info.write.end {
+                size = size.min(self.info.write.end - addr);
+            } else if addr < self.info.heap.start {
+                size = size.min(self.info.heap.start - addr);
+            } else if addr < self.info.stack.end {
+                size = size.min(self.info.stack.end - addr);
+            } else if addr < self.info.args.end {
+                size = size.min(self.info.args.end - addr);
             }
 
-            // Only store non-zero pages
-            if page_data.iter().any(|&b| b != 0) {
-                memory_map.insert(page_num, (page_data, *perms));
+            // read bytes from memory
+            let bytes = self.read_bytes(addr, size);
+            data[..bytes.len()].copy_from_slice(bytes);
+            if data.iter().any(|&b| b != 0) {
+                memory_map.insert(page, (data, *perms));
             }
         }
 
@@ -264,13 +301,36 @@ impl Memory {
     }
 }
 
+impl Drop for Memory {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.head.is_null() {
+                libc::munmap(
+                    self.head as *mut _,
+                    self.info.read.end.max(self.info.write.end) as usize,
+                );
+            }
+
+            if !self.trail.is_null() {
+                libc::munmap(
+                    self.trail as *mut _,
+                    self.info.args.end.max(self.info.stack.end) as usize,
+                );
+            }
+        }
+    }
+}
+
+unsafe impl Send for Memory {}
+unsafe impl Sync for Memory {}
+
 impl MemoryLike for Memory {
     fn read(&self, addr: u32, len: u32) -> Result<Vec<u8>> {
-        Ok(self.read_bytes(addr, len)?.to_vec())
+        Ok(self.read_bytes(addr, len).to_vec())
     }
 
     fn write(&mut self, addr: u32, data: &[u8]) -> Result<()> {
-        self.write_bytes(addr, data)
+        Ok(self.write_bytes(addr, data))
     }
 
     fn allocate(&mut self, page: u32, count: u32) -> Result<()> {
@@ -278,9 +338,10 @@ impl MemoryLike for Memory {
             return Ok(());
         }
 
-        let start = page * pvm::PAGE_SIZE as u32 - self.info.heap.start;
+        let start = page * pvm::PAGE_SIZE as u32;
         let size = count * pvm::PAGE_SIZE as u32;
-        self.write_bytes(start, &vec![0; size as usize])?;
+        tracing::debug!("allocating memory: {} - {}", start, size);
+        self.heap.resize((start + size) as usize, 0);
         Ok(())
     }
 
