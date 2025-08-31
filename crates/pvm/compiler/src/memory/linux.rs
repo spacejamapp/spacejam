@@ -126,12 +126,6 @@ impl Memory {
         Ok(())
     }
 
-    /// base pointer for direct memory access
-    #[inline]
-    pub fn base(&self) -> *mut u8 {
-        self.base
-    }
-
     /// Allocate heap memory by committing pages with mprotect
     pub fn allocate(&self, page: u32, count: u32) -> Result<()> {
         if count == 0 {
