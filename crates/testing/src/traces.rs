@@ -75,7 +75,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
         tracing::warn!("failed to transit block with error: {e:?}");
     }
 
-    tracing::debug!("timing: {}", runtime::timing::take_current());
+    // tracing::debug!("timing: {}", runtime::timing::take_current());
     for KeyValue { key, value } in output.post_state.keyvals {
         let info = key.as_state_key().info();
         let encoded = hex::encode(&key);
