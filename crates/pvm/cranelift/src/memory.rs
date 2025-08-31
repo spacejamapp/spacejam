@@ -50,4 +50,36 @@ impl Translator<'_> {
     }
 }
 
-impl Translator<'_> {}
+impl Translator<'_> {
+    /// Memory load abi
+    pub fn mload(&mut self, ty: types::Type, address: Value) -> Value {
+        let length = match ty {
+            types::I8 => 1,
+            types::I16 => 2,
+            types::I32 => 4,
+            types::I64 => 8,
+            _ => panic!("invalid type"),
+        };
+        let clen = self.builder.ins().iconst(types::I8, length);
+        let inst = self
+            .builder
+            .ins()
+            .call(self.host["mget"], &[self.pool.ctx, address, clen]);
+        let value = self.builder.inst_results(inst)[0];
+
+        if length != 8 {
+            self.builder.ins().ireduce(ty, value)
+        } else {
+            value
+        }
+    }
+
+    /// Memory store abi
+    pub fn mstore(&mut self, address: Value, value: Value) {
+        let length = self.builder.func.dfg.value_type(value).bytes();
+        let clen = self.builder.ins().iconst(types::I8, length as i64);
+        self.builder
+            .ins()
+            .call(self.host["mset"], &[self.pool.ctx, address, value, clen]);
+    }
+}

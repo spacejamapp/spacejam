@@ -28,7 +28,8 @@ pub struct JIT {
 impl JIT {
     /// Create new JIT module builder
     pub fn new() -> Result<Self> {
-        let builder = engine::compilation()?;
+        let mut builder = engine::compilation()?;
+        host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),

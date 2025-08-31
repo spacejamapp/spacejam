@@ -13,6 +13,8 @@ use pvm::Argument;
 
 pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";
+pub const MGET: &str = "mget";
+pub const MSET: &str = "mset";
 
 mod abi;
 
@@ -20,6 +22,8 @@ mod abi;
 pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
     builder.symbol(CALL, abi::call::<X> as *const u8);
     builder.symbol(SBRK, abi::sbrk::<X> as *const u8);
+    builder.symbol(MGET, abi::mget::<X> as *const u8);
+    builder.symbol(MSET, abi::mset::<X> as *const u8);
 }
 
 impl JIT {
@@ -29,6 +33,8 @@ impl JIT {
         let mut map = BTreeMap::new();
         map.insert(CALL.to_string(), self.declare_call()?);
         map.insert(SBRK.to_string(), self.declare_sbrk()?);
+        map.insert(MGET.to_string(), self.declare_mget()?);
+        map.insert(MSET.to_string(), self.declare_mset()?);
         Ok(map)
     }
 
@@ -53,6 +59,34 @@ impl JIT {
 
         // declare the host call function
         self.declare(CALL, sig)
+    }
+
+    /// Declare the mget function
+    fn declare_mget(&mut self) -> Result<FuncRef> {
+        let sig = {
+            let mut sig = self.module.make_signature();
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I8));
+            sig.returns.push(AbiParam::new(types::I64));
+            sig
+        };
+
+        self.declare(MGET, sig)
+    }
+
+    /// Declare the mset function
+    fn declare_mset(&mut self) -> Result<FuncRef> {
+        let sig = {
+            let mut sig = self.module.make_signature();
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I8));
+            sig
+        };
+
+        self.declare(MSET, sig)
     }
 
     /// Declare the sbrk function
