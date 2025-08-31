@@ -1,12 +1,14 @@
 //! PolkaVM implementation
 
-pub use parser::{program::Program, Memory, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE};
+pub use parser::{
+    program::Program, Memory, MemoryInfo, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE,
+};
 pub use {
     context::{Argument, Context, Executed, Invoked, MemoryLike, State},
     invocation::{AccumulateContext, Accumulated, Invocation},
     result::{Reason, Result},
     score,
-    value::Value,
+    value::{as_i64, Value},
 };
 
 /// Bail out with a panic

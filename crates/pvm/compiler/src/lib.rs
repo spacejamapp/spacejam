@@ -4,7 +4,7 @@ mod compiler;
 pub mod engine;
 pub mod host;
 mod jit;
-mod memory;
+pub mod memory;
 pub mod module;
 pub mod trap;
 
@@ -13,5 +13,6 @@ pub use {
     jit::JIT,
     memory::Memory,
     module::{Info, Module},
+    pvm::MemoryLike,
     trap::TrapInfo,
 };

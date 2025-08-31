@@ -15,7 +15,6 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         return Reason::Continue;
     }
 
-    tracing::debug!("calling host call {call}");
     let reason = match call {
         0 => general::gas(ctx),
         1 => general::fetch(ctx),
@@ -24,7 +23,7 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         4 => general::write(ctx),
         5 => general::info(ctx),
         6..14 => {
-            tracing::error!("refine host call: {}", call);
+            tracing::warn!("refine host call: {}", call);
             Ok(Exit::What as u64)
         }
         14 => accumulate::bless(ctx),
@@ -42,7 +41,7 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         26 => accumulate::provide(ctx),
         100 => jip::log(ctx),
         _ => {
-            tracing::debug!("unknown host call: {}", call);
+            tracing::warn!("unknown host call: {}", call);
             Ok(Exit::What as u64)
         }
     };

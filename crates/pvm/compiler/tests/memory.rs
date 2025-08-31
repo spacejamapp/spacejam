@@ -1,6 +1,6 @@
 //! Tests for the Memory module
 
-use pvmc::{trap, Memory};
+use pvmc::{trap, Memory, MemoryLike};
 
 const INIT_VALUE: u8 = 1;
 const REGION_SIZE: usize = pvm::PAGE_SIZE as usize;
@@ -15,9 +15,7 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
 
     // try writing to read-only memory
     {
-        let Err(info) = trap::with(|| {
-            memory.write_bytes(REGION_START, &[2; REGION_SIZE]);
-        }) else {
+        let Err(info) = trap::with(|| memory.write_bytes(REGION_START, &[2; REGION_SIZE])) else {
             panic!("should trap");
         };
 
@@ -26,10 +24,7 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
 
     // try accessing unallocated memory
     {
-        let Err(info) = trap::with(|| {
-            let slice = memory.read_bytes(UNALLOCATED_ADDR, 1);
-            slice[0]
-        }) else {
+        let Err(info) = trap::with(|| memory.read_bytes(UNALLOCATED_ADDR, 1)[0]) else {
             panic!("should trap");
         };
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
@@ -72,9 +67,6 @@ fn gen_write(mut memory: Memory) -> anyhow::Result<()> {
         };
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
-
-    // FIXME: test writing to a page that is next to the allocated page
-    // but not allocated.
 
     Ok(())
 }

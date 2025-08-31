@@ -28,7 +28,8 @@ pub struct JIT {
 impl JIT {
     /// Create new JIT module builder
     pub fn new() -> Result<Self> {
-        let builder = engine::compilation()?;
+        let mut builder = engine::compilation()?;
+        host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),
@@ -40,8 +41,7 @@ impl JIT {
     /// Create new JIT module builder for host functions
     pub fn host<X: Argument>() -> Result<Self> {
         let mut builder = engine::compilation()?;
-        builder.symbol(host::CALL, host::call::<X> as *const u8);
-        builder.symbol(host::SBRK, host::sbrk::<X> as *const u8);
+        host::symbols::<X>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
             bctx: FunctionBuilderContext::new(),
@@ -78,6 +78,8 @@ impl JIT {
         tracing::info!("defining function took {:?}ms", start.elapsed().as_millis());
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
+        let timing = cranelift_codegen::timing::take_current();
+        tracing::debug!("CLIF timing: {}", timing);
         Ok(crate::Module {
             code: self.module.get_finalized_function(id),
             memory,

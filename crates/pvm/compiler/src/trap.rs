@@ -19,6 +19,24 @@ pub struct TrapInfo {
     pub code: i32,
 }
 
+impl TrapInfo {
+    /// Raise a page fault signal
+    pub fn fault(address: u32) -> Self {
+        Self {
+            signal: libc::SIGSEGV,
+            address: address as *mut libc::c_void,
+            code: 0,
+        }
+    }
+
+    /// Raise the signal via libc
+    pub fn raise(&self) {
+        unsafe {
+            libc::raise(self.signal);
+        }
+    }
+}
+
 thread_local! {
     /// Thread-local atomic pointer to jmp_buf
     static JMP_BUF_PTR: AtomicPtr<libc::c_void> = const { AtomicPtr::new(ptr::null_mut()) };

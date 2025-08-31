@@ -12,6 +12,7 @@ pub use {
 mod context;
 mod control;
 mod exit;
+mod math;
 mod memory;
 mod register;
 mod translate;
@@ -26,13 +27,17 @@ pub struct Translator<'b> {
     pub blocks: BTreeMap<u64, ir::Block>,
 
     /// The host call function
-    pub host: BTreeMap<&'static str, FuncRef>,
+    pub host: BTreeMap<String, FuncRef>,
 
     /// Jump table for dynamic jumps
     jump: Vec<u64>,
 
     /// The constants pool
     pool: Pool,
+
+    /// The memory info
+    #[cfg(target_os = "macos")]
+    pub memory: pvm::MemoryInfo,
 }
 
 impl<'b> Translator<'b> {
@@ -46,13 +51,9 @@ impl<'b> Translator<'b> {
             pool: Pool {
                 ctx: Value::new(0),
                 memory: Value::new(0),
-                heapp: Value::new(0),
-                read: Value::new(0)..Value::new(0),
-                write: Value::new(0)..Value::new(0),
-                heap: Value::new(0)..Value::new(0),
-                stack: Value::new(0)..Value::new(0),
-                args: Value::new(0)..Value::new(0),
             },
+            #[cfg(target_os = "macos")]
+            memory: pvm::MemoryInfo::default(),
         })
     }
 }
