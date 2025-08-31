@@ -3,7 +3,7 @@
 use crate::Translator;
 use cranelift::prelude::*;
 
-#[cfg(target_os = "macos")]
+#[cfg(not(target_os = "macos"))]
 impl Translator<'_> {
     /// Memory get with immediate offset
     pub fn mget(&mut self, address: Value, offset: i64, ty: types::Type) -> Value {
@@ -51,33 +51,43 @@ impl Translator<'_> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(target_os = "macos")]
 impl Translator<'_> {
     /// Memory get with immediate offset
+    ///
+    /// TODO: for imm operations, we might not need to load the address
     pub fn mget(&mut self, address: Value, offset_imm: i64, ty: types::Type) -> Value {
         let offset = self.builder.ins().iadd_imm(address, offset_imm);
         self.mload(ty, offset)
     }
 
     /// Memory get with immediate address - optimized for constant addresses
+    ///
+    /// TODO: for imm operations, we might not need to load the address
     pub fn mget_imm(&mut self, address_imm: i64, ty: types::Type) -> Value {
         let offset = self.builder.ins().iconst(types::I64, address_imm);
         self.mload(ty, offset)
     }
 
     /// Memory set with immediate offset
+    ///
+    /// TODO: for imm operations, we might not need to load the address
     pub fn mset(&mut self, address: Value, offset_imm: i64, value: Value) {
         let offset = self.builder.ins().iadd_imm(address, offset_imm);
         self.mstore(offset, value)
     }
 
     /// Memory set with immediate address - optimized for constant addresses  
+    ///
+    /// TODO: for imm operations, we don't need to load the address
     pub fn mset_imm(&mut self, address: i64, value: Value) {
         let offset = self.builder.ins().iconst(types::I64, address);
         self.mstore(offset, value)
     }
 
     /// Store immediate value at immediate address
+    ///
+    /// TODO: for imm operations, we might not need to load the address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
         let offset = self.builder.ins().iconst(types::I64, address);
         let value = self.builder.ins().iconst(ty, value);

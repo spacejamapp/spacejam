@@ -48,16 +48,6 @@ impl<'b> Translator<'b> {
                 ctx: Value::new(0),
                 memory: Value::new(0),
                 heapp: Value::new(0),
-                #[cfg(target_os = "macos")]
-                read: Value::new(0)..Value::new(0),
-                #[cfg(target_os = "macos")]
-                write: Value::new(0)..Value::new(0),
-                #[cfg(target_os = "macos")]
-                heap: Value::new(0)..Value::new(0),
-                #[cfg(target_os = "macos")]
-                stack: Value::new(0)..Value::new(0),
-                #[cfg(target_os = "macos")]
-                args: Value::new(0)..Value::new(0),
             },
         })
     }

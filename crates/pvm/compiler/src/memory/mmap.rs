@@ -1,4 +1,5 @@
 //! Memory management for PVM programs using mmap for efficient virtual memory
+#![cfg(target_os = "linux")]
 
 use anyhow::Result;
 use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
