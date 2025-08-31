@@ -53,16 +53,18 @@ impl App {
 
     /// Setup the logger
     fn setup_logger(&self) {
-        if self.verbose == 0 {
+        let env = EnvFilter::try_from_default_env();
+        if self.verbose == 0 && env.is_err() {
             return;
         }
 
         let name = App::command().get_name().to_string();
-        let env = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new(match self.verbose {
+        let env = env.unwrap_or(EnvFilter::new(match self.verbose {
             0 => Default::default(),
             1 => format!("{name}=info"),
             2 => format!("{name}=debug"),
-            3 => format!("{name}=trace,debug"),
+            3 => format!("debug,{name}=trace"),
+            4 => "trace".to_string(),
             _ => "trace".into(),
         }));
 

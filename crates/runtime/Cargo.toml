@@ -16,3 +16,7 @@ serde_json.workspace = true
 spacejson.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[features]
+default = ["timing"]
+timing = []

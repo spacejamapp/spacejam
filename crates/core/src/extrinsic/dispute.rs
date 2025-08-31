@@ -132,6 +132,13 @@ pub struct DisputesExtrinsic {
     pub faults: Vec<Fault>,
 }
 
+impl DisputesExtrinsic {
+    /// Returns true if the extrinsic contains any disputes.
+    pub fn is_empty(&self) -> bool {
+        self.verdicts.is_empty() && self.culprits.is_empty() && self.faults.is_empty()
+    }
+}
+
 #[cfg(feature = "ed25519")]
 mod crypto_impl {
     use super::*;

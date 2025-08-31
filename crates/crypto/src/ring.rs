@@ -3,7 +3,7 @@
 
 use crate::vrf;
 use ark_ec::AffineRepr;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::CanonicalDeserialize;
 use ark_vrf::{
     suites::bandersnatch::{PcsParams, RingProofParams},
     Public,
@@ -27,36 +27,16 @@ pub static RING_CTX: Lazy<RingProofParams> = Lazy::new(|| {
 
 /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
 /// Takes a vector of 32-byte Bandersnatch public keys and returns a ring commitment
-pub fn commitment(keys: Vec<[u8; 32]>) -> [u8; 144] {
-    let keys = keys
-        .into_iter()
-        .map(|key| {
-            AffineRepr::from_random_bytes(&key).unwrap_or_else(|| {
-                // If key is invalid (zeroed or can't be decoded), use padding point
-                RingProofParams::padding_point()
-            })
-        })
-        .collect::<Vec<_>>();
-
-    let verifier_key = RING_CTX.verifier_key(&keys);
-    let commitment = verifier_key.commitment();
-    let mut bytes = [0u8; 144];
-    commitment
-        .serialize_compressed(bytes.as_mut_slice())
-        .unwrap();
-    bytes
+pub fn commitment(keys: impl AsRef<[[u8; 32]]>) -> [u8; 144] {
+    self::verifier(keys).commitment()
 }
 
 /// Creates a VRF verifier for a set of Bandersnatch keys
-pub fn verifier(keys: Vec<[u8; 32]>) -> vrf::Verifier {
+pub fn verifier(keys: impl AsRef<[[u8; 32]]>) -> vrf::Verifier {
     let keys: Vec<_> = keys
+        .as_ref()
         .iter()
-        .map(|k| {
-            AffineRepr::from_random_bytes(k).unwrap_or_else(|| {
-                // If key is invalid (zeroed or can't be decoded), use padding point
-                RingProofParams::padding_point()
-            })
-        })
+        .map(|k| AffineRepr::from_random_bytes(k).unwrap_or_else(RingProofParams::padding_point))
         .map(Public)
         .collect();
     vrf::Verifier::new(keys)

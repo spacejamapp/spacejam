@@ -36,6 +36,7 @@ pub struct Target {
 impl Target {
     /// Create a new target
     pub fn new(stream: UnixStream) -> Self {
+        runtime::timing::setup();
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
@@ -84,6 +85,7 @@ impl Target {
                     let root = self.data.root()?;
                     self.write_message(Message::StateRoot(root))
                 } else {
+                    tracing::debug!("\n{}", runtime::timing::take_current());
                     Ok(())
                 }
             }

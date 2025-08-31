@@ -3,18 +3,51 @@
 use crate::{
     account::Accounts,
     storage::{Column, Commit},
-    Storage,
+    timing, Storage,
 };
 use anyhow::Result;
 use pvm::Pvm;
 use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
+use serde::Serialize;
 use std::sync::Arc;
+use tokio::task::JoinSet;
 
 pub mod assurance;
 pub mod dispute;
 pub mod guarantee;
 pub mod preimage;
 pub mod ticket;
+
+/// Processor for state transition
+pub struct Processor {
+    /// The set of encoding tasks
+    encode: JoinSet<Result<(TrieKey, Vec<u8>)>>,
+}
+
+impl Processor {
+    fn new() -> Self {
+        Self {
+            encode: JoinSet::new(),
+        }
+    }
+
+    /// Add an encoding task to the pool
+    fn encode<T: Serialize + Send + 'static>(&mut self, key: TrieKey, value: T) {
+        self.encode.spawn(async move {
+            let encoded = codec::encode(&value)?;
+            Ok((key, encoded))
+        });
+    }
+
+    /// Collect all encoding results and populate the diff
+    async fn finish(mut self, diff: &mut Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        while let Some(result) = self.encode.join_next().await {
+            let (key, value) = result??;
+            diff.set(key, value);
+        }
+        Ok(())
+    }
+}
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
@@ -23,6 +56,7 @@ pub async fn transit<Vm: Pvm>(
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let diff = self::simulate::<Vm>(&mut block, storage.clone()).await?;
+    let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
 }
@@ -34,20 +68,17 @@ pub async fn simulate<Vm: Pvm>(
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut state: score::State = storage.state()?;
     let mut diff = Commit::default();
+    let mut processor = Processor::new();
 
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    tracing::debug!("new epoch: {}", new_epoch);
 
     // handle marks in the block
-    {
-        // validate the tickets mark
-        if let Some(tickets_mark) = block.header.tickets_mark {
-            for ticket in tickets_mark {
-                if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
-                    anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
-                }
+    if let Some(tickets_mark) = block.header.tickets_mark {
+        for ticket in tickets_mark {
+            if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+                anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
             }
         }
     }
@@ -55,107 +86,120 @@ pub async fn simulate<Vm: Pvm>(
     // The first round computation
     let mut reports = {
         // (η') Update entropy (6.22)
-        tracing::trace!("handle entropy");
-        let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
-        state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        diff.set(key::ENTROPY, codec::encode(&state.entropy)?);
+        //
+        // TODO: check if we can skip this calculation at cases
+        {
+            let _guard = timing::entropy();
+            let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
+            state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
+            processor.encode(key::ENTROPY, state.entropy);
+        };
 
         // (λ') Update validator state (6.13)
-        tracing::trace!("handle previous validators");
-        state.validators.previous = state.validators.previous(new_epoch);
         if new_epoch {
-            diff.set(
-                key::PREVIOUS_VALIDATORS,
-                codec::encode(&state.validators.previous)?,
-            );
+            state.validators.previous = state.validators.previous(new_epoch);
+            processor.encode(key::PREVIOUS_VALIDATORS, state.validators.previous);
         }
 
         // (ψ') Update disputes and get marks
-        tracing::trace!("handle disputes");
-        let (disputes, marks) = self::dispute::disputes(
-            state.timeslot,
-            &state.validators.current,
-            &state.validators.previous,
-            &state.disputes,
-            &block.extrinsic.disputes,
-        )?;
-        if disputes != state.disputes {
-            diff.set(key::DISPUTES, codec::encode(&disputes)?);
+        let marks = if block.extrinsic.disputes.is_empty() {
+            Default::default()
+        } else {
+            let _guard = timing::disputes();
+            let (disputes, marks) = self::dispute::disputes(
+                state.timeslot,
+                &state.validators.current,
+                &state.validators.previous,
+                &state.disputes,
+                &block.extrinsic.disputes,
+            )?;
+
+            processor.encode(key::DISPUTES, disputes.clone());
             state.disputes = disputes;
-            block.header.offenders_mark = marks.offenders.clone();
-        }
+            {
+                // FIXME: for building blocks only, could be removed
+                // on importing blocks.
+                block.header.offenders_mark = marks.offenders.clone();
+            }
+            marks
+        };
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
-        tracing::trace!("handle availability assignments");
+        let _guard = timing::assignments();
         dispute::reports(&marks, &state.reports)
     };
 
     // Round 2 computation
     let (available, assurances) = {
         // (W) the sequence of new available work reports (11.16)
-        tracing::trace!("handle available work reports");
-        let (available, assurances) = self::assurance::available(
-            &state.reports,
-            &state.validators.current,
-            block.header.slot,
-            block.header.parent,
-            &block.extrinsic.assurances,
-        )?;
+        let (available, assurances) = {
+            let _guard = timing::assurances();
+            self::assurance::available(
+                &state.reports,
+                &state.validators.current,
+                block.header.slot,
+                block.header.parent,
+                &block.extrinsic.assurances,
+            )?
+        };
 
         // (κ') Update current validators (6.13)
-        tracing::trace!("handle current validators");
-        state.validators.current = state
-            .validators
-            .current(new_epoch, &state.safrole.validators);
         if new_epoch {
-            diff.set(
-                key::CURRENT_VALIDATORS,
-                codec::encode(&state.validators.current)?,
-            );
+            state.validators.current = state
+                .validators
+                .current(new_epoch, &state.safrole.validators);
+            processor.encode(key::CURRENT_VALIDATORS, state.validators.current);
         }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
-        reports = self::assurance::reports(block.header.slot, &available, reports.clone());
-
-        // (ρ') Update availability assignments based on guarantees (11.43)
-        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-        if reports != state.reports {
-            diff.set(key::PENDING_REPORTS, codec::encode(&reports)?);
-            state.reports = reports;
+        if !available.is_empty() {
+            reports = self::assurance::reports(block.header.slot, &available, reports.clone());
         }
 
+        // (ρ') Update availability assignments based on guarantees (11.43)
+        //
+        // NOTE: can not skip bcz None should be written to the state as well.
+        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
+        state.reports = reports;
         (available, assurances)
     };
 
     // Round 3 computation
     let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
-        tracing::trace!("handle sealing-key series");
-        state.safrole = ticket::safrole(
-            state.timeslot,
-            block.header.slot,
-            state.entropy,
-            &state.disputes.offenders,
-            &state.safrole,
-            &state.validators,
-            &block.extrinsic.tickets,
-        )?;
-        diff.set(key::SAFROLE, codec::encode(&state.safrole)?);
-        block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
-        block.header.tickets_mark = state
-            .safrole
-            .tickets_mark(state.timeslot, block.header.slot);
+        if !block.extrinsic.tickets.is_empty() || block.header.slot % score::EPOCH_LENGTH == 0 {
+            let _guard = timing::safrole();
+            state.safrole = ticket::safrole(
+                state.timeslot,
+                block.header.slot,
+                state.entropy,
+                &state.disputes.offenders,
+                &state.safrole,
+                &state.validators,
+                &block.extrinsic.tickets,
+            )
+            .await?;
+
+            processor.encode(key::SAFROLE, state.safrole.clone());
+            {
+                // FIXME: for building blocks only, could be removed
+                // on importing blocks.
+                block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
+                block.header.tickets_mark = state
+                    .safrole
+                    .tickets_mark(state.timeslot, block.header.slot);
+            }
+        }
 
         // (π') Update the statistic
-        tracing::trace!("handle statistic");
         state
             .statistics
             .update(new_epoch, block.header.author_index, &block.extrinsic);
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
-        tracing::trace!("handle accumulation");
         let accounts = Accounts::new(storage);
+        let _guard = timing::accumulate();
         let accumulation = guarantee::accumulate::<Vm, _>(
             block.header.slot,
             state.timeslot,
@@ -169,57 +213,61 @@ pub async fn simulate<Vm: Pvm>(
         )
         .await?;
 
+        // lazy load vrf rings
+        if state.validators.drawn != accumulation.validators || ticket::lazy::is_empty().await {
+            tokio::spawn(async move { ticket::lazy::drawn(epoch, &accumulation.validators).await });
+        }
+
+        // update state fields
         state.privileges = accumulation.privileges;
-        diff.set(key::PRIVILEGED_SERVICE, codec::encode(&state.privileges)?);
-
         state.queue = accumulation.ready_queue;
-        diff.set(key::ACCUMULATION_QUEUE, codec::encode(&state.queue)?);
-
         state.history = accumulation.accumulated_queue;
-        diff.set(key::ACCUMULATION_HISTORY, codec::encode(&state.history)?);
-
         state.validators.drawn = accumulation.validators;
-        diff.set(
-            key::DRAWN_VALIDATORS,
-            codec::encode(&state.validators.drawn)?,
-        );
-
-        diff.set(key::ACCUMULATION_LOGS, codec::encode(&accumulation.logs)?);
-
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
+        processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
+
         (accumulation.root, accumulation.accounts)
     };
 
     // Round 4 computation
     {
-        tracing::trace!("handle block history");
         state
             .recent_blocks
             .complete_state_root(block.header.parent_state_root)?;
-        let (reported, reporters) = guarantee::report(
-            &state,
-            block.header.slot,
-            &accounts,
-            &block.extrinsic.guarantees,
-        )?;
+
+        // (p of β') Report the work packages
+        let (mut reported, mut reporters) = (vec![], vec![]);
+        if !block.extrinsic.guarantees.is_empty() {
+            (reported, reporters) = {
+                let _guard = timing::guarantees();
+                guarantee::report(
+                    &state,
+                    block.header.slot,
+                    &accounts,
+                    &block.extrinsic.guarantees,
+                )?
+            }
+        };
 
         // (β') Update the block history
         state
             .recent_blocks
             .import(block.header.hash()?, root, reported);
 
-        state
-            .statistics
-            .merge_reporters(&reporters, &state.validators.current.ed25519());
-        diff.set(key::RECENT_BLOCKS, codec::encode(&state.recent_blocks)?);
-        diff.set(key::STATISTICS, codec::encode(&state.statistics)?);
+        if !reporters.is_empty() {
+            state
+                .statistics
+                .merge_reporters(&reporters, &state.validators.current.ed25519());
+        }
 
         // (δ') Update the accounts
-        tracing::trace!("handle preimages");
+        // if !block.extrinsic.preimages.is_empty() {
+        let _guard = timing::preimages();
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
+        // }
 
         // FIXME: looks like polkajam currently doesn't update the authorization
         // pool, so we're not updating it here as well atm.
@@ -237,10 +285,18 @@ pub async fn simulate<Vm: Pvm>(
         // }
 
         // (τ') Update the timeslot
-        tracing::trace!("handle timeslot");
         state.timeslot = block.header.slot;
-        diff.set(key::TIMESLOT, codec::encode(&state.timeslot)?);
+        processor.encode(key::TIMESLOT, state.timeslot);
     }
 
+    // Finish all encoding tasks in parallel
+    processor.encode(key::PENDING_REPORTS, state.reports);
+    processor.encode(key::PRIVILEGED_SERVICE, state.privileges);
+    processor.encode(key::ACCUMULATION_QUEUE, state.queue);
+    processor.encode(key::ACCUMULATION_HISTORY, state.history);
+    processor.encode(key::DRAWN_VALIDATORS, state.validators.drawn);
+    processor.encode(key::RECENT_BLOCKS, state.recent_blocks);
+    processor.encode(key::STATISTICS, state.statistics);
+    processor.finish(&mut diff).await?;
     Ok(diff)
 }
