@@ -91,8 +91,6 @@ impl JIT {
             .define_function_bytes(id, 1, compiled.code_buffer(), &relocs)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        let timing = cranelift_codegen::timing::take_current();
-        tracing::debug!("CLIF timing: {}", timing);
         Ok(crate::Module {
             code: self.module.get_finalized_function(id),
             memory,

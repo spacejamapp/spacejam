@@ -53,6 +53,15 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
+                        let gas = match call {
+                            20 => 10 + interp.rget(9),
+                            100 => 0,
+                            _ => 10,
+                        };
+                        if gas > 0 && interp.burn(gas).is_err() {
+                            return Ok(interp.result(ctx, initial_gas, Reason::OOG));
+                        }
+
                         let mut context = interp.context.ctx(&mut ctx);
                         let reason = host::call(call, &mut context);
                         interp.context.registers = context.registers;

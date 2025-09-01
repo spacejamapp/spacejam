@@ -94,22 +94,6 @@ impl Interpreter {
             return Reason::OOG;
         }
 
-        // charge extra gas for host calls based on the specification
-        let extra_gas = match instr.value {
-            Instruction::Ecalli(call_format) => {
-                let call_number = call_format.imm0 as u32;
-                match call_number {
-                    11 => 10 + self.rget(9),
-                    100 => 0,
-                    _ => 10,
-                }
-            }
-            _ => 0,
-        };
-        if extra_gas > 0 && self.burn(extra_gas).is_err() {
-            return Reason::OOG;
-        }
-
         // step the instruction
         let stepped = self.visit(instr.value, &instr.range);
         if let Err(e) = stepped {

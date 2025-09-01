@@ -2108,6 +2108,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jastime"
+version = "0.0.8"
+dependencies = [
+ "pvm",
+ "pvmc",
+ "pvmi",
+ "tokio",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3863,6 +3873,7 @@ dependencies = [
  "anyhow",
  "hex",
  "jamcodec",
+ "jastime",
  "paste",
  "proc-macro2",
  "pvm",
@@ -5027,16 +5038,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
  "time",
-]
-
-[[package]]
-name = "yeast"
-version = "0.0.8"
-dependencies = [
- "pvm",
- "pvmc",
- "pvmi",
- "tokio",
 ]
 
 [[package]]

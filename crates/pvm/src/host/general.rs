@@ -24,10 +24,6 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
-    if kind == 0 {
-        tracing::debug!("fetched chain parameters: 0x{}", hex::encode(&value));
-    }
-
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
