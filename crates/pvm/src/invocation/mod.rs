@@ -1,7 +1,6 @@
 //! PVM invocation interface
 
 use crate::{Argument, Executed, Invoked, Reason};
-use parser::program::{self, Program};
 use score::{
     service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},

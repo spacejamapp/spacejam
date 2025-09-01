@@ -8,7 +8,7 @@ use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, Signature};
 use cranelift_codegen::ir::FuncRef;
 use cranelift_jit::JITBuilder;
-use cranelift_module::{Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module};
 use pvm::Argument;
 
 pub const CALL: &str = "call";
@@ -27,78 +27,61 @@ pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
 }
 
 impl JIT {
-    /// Create new JIT module builder for host functions
     /// Declare the host functions
-    pub fn declare_host(&mut self) -> Result<BTreeMap<String, FuncRef>> {
+    pub fn declare_host_in_func(
+        &mut self,
+        host: BTreeMap<String, FuncId>,
+    ) -> Result<BTreeMap<String, FuncRef>> {
         let mut map = BTreeMap::new();
-        map.insert(CALL.to_string(), self.declare_call()?);
-        map.insert(SBRK.to_string(), self.declare_sbrk()?);
-        map.insert(MGET.to_string(), self.declare_mget()?);
-        map.insert(MSET.to_string(), self.declare_mset()?);
+        for (name, id) in host {
+            let func = self.module.declare_func_in_func(id, &mut self.ctx.func);
+            map.insert(name, func);
+        }
         Ok(map)
     }
 
-    /// Declare a function
-    fn declare(&mut self, name: &str, sig: Signature) -> Result<FuncRef> {
-        let host_id = self.module.declare_function(name, Linkage::Import, &sig)?;
-        let local_id = self
-            .module
-            .declare_func_in_func(host_id, &mut self.ctx.func);
-        Ok(local_id)
+    /// Declare the host functions in the module
+    pub fn declare_host_in_module(&mut self) -> Result<BTreeMap<String, FuncId>> {
+        let mut map = BTreeMap::new();
+        for (name, sig) in self.host_calls() {
+            let id = self.module.declare_function(&name, Linkage::Import, &sig)?;
+            map.insert(name, id);
+        }
+        Ok(map)
     }
 
-    /// Declare the host functions
-    fn declare_call(&mut self) -> Result<FuncRef> {
-        let sig = {
+    fn host_calls(&self) -> BTreeMap<String, Signature> {
+        let mut map = BTreeMap::new();
+        map.insert(CALL.to_string(), {
             let mut sig = self.module.make_signature();
             sig.params.push(AbiParam::new(types::I32));
             sig.params.push(AbiParam::new(types::I64));
             sig.returns.push(AbiParam::new(types::I8));
             sig
-        };
-
-        // declare the host call function
-        self.declare(CALL, sig)
-    }
-
-    /// Declare the mget function
-    fn declare_mget(&mut self) -> Result<FuncRef> {
-        let sig = {
+        });
+        map.insert(SBRK.to_string(), {
+            let mut sig = self.module.make_signature();
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I8));
+            sig.params.push(AbiParam::new(types::I8));
+            sig
+        });
+        map.insert(MGET.to_string(), {
             let mut sig = self.module.make_signature();
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I8));
             sig.returns.push(AbiParam::new(types::I64));
             sig
-        };
-
-        self.declare(MGET, sig)
-    }
-
-    /// Declare the mset function
-    fn declare_mset(&mut self) -> Result<FuncRef> {
-        let sig = {
+        });
+        map.insert(MSET.to_string(), {
             let mut sig = self.module.make_signature();
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I8));
             sig
-        };
-
-        self.declare(MSET, sig)
-    }
-
-    /// Declare the sbrk function
-    fn declare_sbrk(&mut self) -> Result<FuncRef> {
-        let sig = {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.params.push(AbiParam::new(types::I8));
-            sig
-        };
-
-        self.declare(SBRK, sig)
+        });
+        map
     }
 }

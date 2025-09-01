@@ -6,7 +6,7 @@ use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
 use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module, ModuleReloc};
-use pvm::{Argument, Program};
+use pvm::{score::OpaqueHash, Argument, Program};
 use translator::Translator;
 
 const MAIN: &str = "main";
@@ -60,13 +60,19 @@ impl JIT {
     /// - refine
     /// - is_authorized
     /// - core_vm ???
-    pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
+    ///
+    /// FIXME: clean the API later then.
+    pub fn compile(
+        &mut self,
+        program: &Program,
+        hash: Option<OpaqueHash>,
+    ) -> Result<crate::Module> {
         let memory = crate::Memory::new(&program.memory)?;
-        let id = self.clif(program)?;
+        let id = self.clif(program, hash)?;
         let func = self.ctx.func.clone();
 
         // define the function
-        let (compiled, hit) = self
+        let (compiled, _hit) = self
             .ctx
             .compile_with_cache(
                 self.module.isa(),
@@ -75,7 +81,6 @@ impl JIT {
             )
             .map_err(|e| anyhow::anyhow!("{e:?}"))?;
 
-        tracing::debug!("code cache hit: {}", hit);
         let relocs = compiled
             .buffer
             .relocs()
@@ -96,17 +101,31 @@ impl JIT {
     }
 
     /// Translate the program to CLIF
-    fn clif(&mut self, program: &Program) -> Result<FuncId> {
-        let sig = self.signature();
-        let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
+    fn clif(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
+        let host = self.declare_host_in_module()?;
+        if let Some(fun) = hash.and_then(|h| self.artifact.clif(h)) {
+            self.ctx = Context::for_function(fun);
+            let id =
+                self.module
+                    .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;
+            self.declare_host_in_func(host)?;
+            return Ok(id);
+        }
 
         // construct the function
-        let host = self.declare_host()?;
+        let sig = self.signature();
+        let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
+        let host = self.declare_host_in_func(host)?;
         self.ctx.func.signature = self.signature();
         let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
         trans.host = host;
         trans.translate(program)?;
         trans.builder.finalize();
+
+        // cache the function
+        if let Some(hash) = hash {
+            self.artifact.put(hash, &self.ctx.func)?;
+        }
         Ok(id)
     }
 
