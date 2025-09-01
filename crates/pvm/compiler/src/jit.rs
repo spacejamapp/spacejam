@@ -3,7 +3,7 @@
 use crate::{engine, host, Artifact};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
-use cranelift_codegen::Context;
+use cranelift_codegen::{timing, Context};
 use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module, ModuleReloc};
 use pvm::{score::OpaqueHash, Argument, Program};
@@ -91,6 +91,7 @@ impl JIT {
             .define_function_bytes(id, 1, compiled.code_buffer(), &relocs)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
+        println!("{}", timing::take_current());
         Ok(crate::Module {
             code: self.module.get_finalized_function(id),
             memory,
@@ -103,7 +104,6 @@ impl JIT {
         let host = self.declare_host_in_module()?;
         if let Some(fun) = hash.and_then(|h| self.artifact.clif(h)) {
             self.ctx = Context::for_function(fun);
-            // println!("clif: {}", self.ctx.func.display());
             let id =
                 self.module
                     .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;
@@ -125,6 +125,7 @@ impl JIT {
         if let Some(hash) = hash {
             self.artifact.put(hash, &self.ctx.func)?;
         }
+
         Ok(id)
     }
 

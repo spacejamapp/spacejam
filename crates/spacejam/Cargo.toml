@@ -19,7 +19,7 @@ hex.workspace = true
 network.workspace = true
 offchain.workspace = true
 parity-db.workspace = true
-pvmi.workspace = true
+jastime.workspace = true
 rand.workspace = true
 runtime.workspace = true
 score = { workspace = true }
