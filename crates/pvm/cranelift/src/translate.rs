@@ -2,7 +2,7 @@
 
 use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC};
+use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData};
 use cranelift_codegen::ir::{self, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
@@ -58,9 +58,9 @@ impl Translator<'_> {
         self.init_context(program, ctx_ptr);
 
         // Generate the runtime jump table for djump instructions
-        let trap_block = self.builder.create_block();
+        let trap = self.builder.create_block();
         let default_block = BlockCall::new(
-            trap_block,
+            trap,
             std::iter::empty(),
             &mut self.builder.func.dfg.value_lists,
         );
@@ -68,7 +68,7 @@ impl Translator<'_> {
         // Create block calls for each jump table entry
         let mut block_calls = Vec::with_capacity(self.jump.len());
         for &jump_pc in &self.jump {
-            let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap_block);
+            let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
             let block_call = BlockCall::new(
                 block,
                 std::iter::empty(),
@@ -78,26 +78,47 @@ impl Translator<'_> {
         }
 
         // Create and cache the jump table
-        let jt_data = cranelift_codegen::ir::JumpTableData::new(default_block, &block_calls);
+        let jt_data = JumpTableData::new(default_block, &block_calls);
         self.rt_jump_table = self.builder.create_jump_table(jt_data);
-        self.builder.switch_to_block(trap_block);
+        self.builder.switch_to_block(trap);
         self.return_(Exit::InvalidJumpTarget);
-        self.builder.seal_block(trap_block);
+        self.builder.seal_block(trap);
+        self.translate_entry(entry, trap)?;
+        Ok(())
+    }
 
-        // Now handle the entry point
-        //
-        // 5 for accumulate programs
-        // 0 for general programs
+    /// Handle the entry point
+    ///
+    /// 5 for accumulate programs
+    /// 13 for testing
+    /// 0 for general programs
+    fn translate_entry(&mut self, entry: ir::Block, trap: ir::Block) -> Result<()> {
         self.builder.switch_to_block(entry);
         let pc = self.pc();
+
+        // Check for pc == 5 (accumulate)
         let five = self.builder.ins().iconst(types::I64, 5);
         let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
-        let accumulate = self.blocks.get(&5).copied().unwrap_or(trap_block);
-        let general = self.blocks.get(&0).copied().unwrap_or(trap_block);
+        let accumulate = self.blocks.get(&5).copied().unwrap_or(trap);
+
+        // Check for pc == 13 (testing)
+        let thirteen = self.builder.ins().iconst(types::I64, 13);
+        let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
+        let test = self.blocks.get(&13).copied().unwrap_or(trap);
+
+        // Default to block 0 (general)
+        let general = self.blocks.get(&0).copied().unwrap_or(trap);
+
+        // Branch: if pc == 5 goto accumulate, else check for pc == 13
+        let check_test = self.builder.create_block();
         self.builder
             .ins()
-            .brif(is_accumulate, accumulate, &[], general, &[]);
+            .brif(is_accumulate, accumulate, &[], check_test, &[]);
 
+        // Branch: if pc == 13 goto test, else goto general
+        self.builder.switch_to_block(check_test);
+        self.builder.ins().brif(is_test, test, &[], general, &[]);
+        self.builder.seal_block(check_test);
         self.builder.seal_block(entry);
         Ok(())
     }
