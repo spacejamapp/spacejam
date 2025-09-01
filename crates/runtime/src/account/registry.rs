@@ -30,12 +30,6 @@ impl<S: Storage> Accounts<S> {
             removed: BTreeSet::new(),
         }
     }
-
-    /// Remove an account from the registry
-    pub fn remove(&mut self, index: u32) {
-        self.accounts.remove(&index);
-        self.removed.insert(index);
-    }
 }
 
 impl<S: Storage> score::Accounts for Accounts<S> {
@@ -72,6 +66,7 @@ impl<S: Storage> score::Accounts for Accounts<S> {
 
     fn remove(&mut self, index: u32) {
         self.accounts.remove(&index);
+        self.removed.insert(index);
     }
 
     fn services(&self) -> Vec<u32> {
@@ -82,6 +77,10 @@ impl<S: Storage> score::Accounts for Accounts<S> {
         &self.accounts
     }
 
+    fn removed(&self) -> BTreeSet<u32> {
+        self.removed.clone()
+    }
+
     fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {
         let mut updates = Vec::new();
         let mut removals = Vec::new();
@@ -89,6 +88,11 @@ impl<S: Storage> score::Accounts for Accounts<S> {
             let (lupdates, lremovals) = account.ops();
             updates.extend(lupdates);
             removals.extend(lremovals);
+        }
+
+        for index in self.removed {
+            let keys = self.storage.account_keys(index).unwrap_or_default();
+            removals.extend(keys);
         }
 
         (updates, removals)

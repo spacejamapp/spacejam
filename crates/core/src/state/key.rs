@@ -121,8 +121,6 @@ impl StorageKeyEncode for (u8, u32) {
 }
 
 // used for service account state keys
-//
-// FIXME: This seems not correct, I forgot if it is used anywhere.
 impl StorageKeyEncode for (u32, [u8; 32]) {
     fn key(&self) -> TrieKey {
         let mut key = [0u8; 31];

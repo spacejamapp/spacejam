@@ -122,6 +122,10 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
+        for removed in result.context.accounts.removed() {
+            context.accounts.remove(removed);
+        }
+
         for account_id in &services {
             if !lsvc.contains(account_id) {
                 removed.insert(account_id);
