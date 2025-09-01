@@ -8,12 +8,16 @@ use pvm::{Argument, MemoryLike};
 /// It casts the raw context pointer and delegates to [pvm::host::call]
 pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
-    context.gas -= match index {
+    let gas = match index {
         100 => 0,
         20 => (10 + context.registers[9]) as i64,
         _ => 10,
+    };
+
+    context.burn(gas as u64);
+    if context.gas < 0 {
+        return 4;
     }
-    .max(0);
 
     match pvm::host::call(index, context) {
         pvm::Reason::Halt => 0,
