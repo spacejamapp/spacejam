@@ -5,7 +5,7 @@ use cranelift_codegen::{incremental_cache::CacheKvStore, ir::Function};
 use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
 
 /// Cache directory for the compiled modules
-pub static YEEST_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+pub static JASTIME_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 /// Artifact for the compiled modules
 pub struct Artifact {
@@ -16,11 +16,11 @@ pub struct Artifact {
 impl Artifact {
     /// Create new artifact
     pub fn new() -> Result<Self> {
-        let dir = YEEST_CACHE_DIR.get_or_init(|| {
+        let dir = JASTIME_CACHE_DIR.get_or_init(|| {
             let dir = dirs::data_dir()
                 .unwrap_or_default()
                 .join("spacejam")
-                .join("yeest");
+                .join("jastime");
             Some(dir)
         });
 
@@ -32,6 +32,17 @@ impl Artifact {
         fs::create_dir_all(dir.join("artifacts"))?;
         fs::create_dir_all(dir.join("clif"))?;
         Ok(Self { dir })
+    }
+
+    /// Check if the cache hits
+    pub fn hits(&self, key: [u8; 32]) -> bool {
+        let clif = self.dir.join("clif").join(hex::encode(key));
+        if clif.exists() {
+            return true;
+        }
+
+        let artifact = self.dir.join("artifacts").join(hex::encode(key));
+        artifact.exists()
     }
 
     /// Get the path to the CLIF artifacts

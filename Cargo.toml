@@ -10,6 +10,7 @@ members = [
     "crates/pvm/compiler",
     "crates/pvm/cranelift",
     "crates/pvm/interpreter",
+    "crates/pvm/jastime",
     "crates/pvm/parser",
     "crates/pvm/testing",
     "crates/testing/spec",

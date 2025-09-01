@@ -21,6 +21,15 @@ impl Compiler {
     pub fn compile(&mut self, program: &Program) -> Result<Module> {
         JIT::new()?.compile(program, None)
     }
+
+    /// Compile entire program as a function with cache
+    pub fn compile_with_cache<X: Argument>(
+        &mut self,
+        program: &Program,
+        hash: Option<OpaqueHash>,
+    ) -> Result<Module> {
+        JIT::host::<X>()?.compile(program, hash)
+    }
 }
 
 impl Invocation for Compiler {
