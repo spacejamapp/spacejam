@@ -105,7 +105,9 @@ pub const MAX_INPUT: u32 = 12 * (1 << 20);
 pub const MAX_REFINE_CODE_SIZE: u32 = 4_000_000;
 
 /// (W_E) The number of octets in a erasure-coded piece.
-pub const BASIC_PIECE_LEN: u32 = 684;
+///
+/// NOTE: for the full config this should be 684
+pub const BASIC_PIECE_LEN: u32 = 4;
 
 /// (W_G) The size of a segment in octets
 pub const SEGMENT_SIZE: u32 = 4104;
@@ -120,7 +122,9 @@ pub const MAX_IS_AUTHORIZED_MEMORY: usize = 0;
 pub const MAX_IMPORTS: u32 = 3072;
 
 /// (W_P) The number of erasure-coded pieces in a segment
-pub const ERASURE_CODED_PIECES: u32 = 6;
+///
+/// NOTE: for the full config this should be 6
+pub const ERASURE_CODED_PIECES: u32 = 1026;
 
 /// (W_T) The size of the transfer memo
 pub const TRANSFER_MEMO_SIZE: u32 = 128;

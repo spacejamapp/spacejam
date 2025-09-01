@@ -13,7 +13,8 @@ pub fn gas(ctx: &impl Argument) -> Result<u64> {
 
 // (ΩY) fetch the on chain parameters
 pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let value: Vec<u8> = match ctx.rget(10) {
+    let kind = ctx.rget(10);
+    let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
         14 => codec::encode(&ctx.operands()).expect("should not fail"),
@@ -22,6 +23,10 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         }
     };
+
+    if kind == 0 {
+        tracing::debug!("fetched chain parameters: 0x{}", hex::encode(&value));
+    }
 
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
