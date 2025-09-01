@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 /// while in our hybrid approach, we re-map the allocated memory address to the head
 /// and use a separated heap to track the heap area.
 ///
-/// [ [rw data] [ro data] [stack] [args] [heap] ]
+/// [ [rw data] [ro data] [stack] [args] ] [ heap ]
 ///
 /// With this approach, we can avoid host call when access to immediate address.
 #[derive(Debug, Clone, Default)]
@@ -112,6 +112,10 @@ impl Memory {
 
     /// Write bytes to memory with boundary checks
     pub fn write_bytes(&mut self, addr: u32, data: &[u8]) {
+        if data.len() == 0 {
+            return;
+        }
+
         let end = addr + data.len() as u32;
         let mut ptr = self.info.read.len();
         if addr >= self.info.write.start && end <= self.info.write.end {
@@ -129,25 +133,25 @@ impl Memory {
 
         // NOTE: for mutiple regions, we only support (write + heap) atm.
         let mut addr = addr;
-        let mut len = data.len();
+        let mut written = 0;
         if addr < self.info.heap.start {
             let wstart = (addr - self.info.write.start + self.info.read.len() as u32) as usize;
             let wend = self.info.read.len() + self.info.write.len();
             let size = (wend - wstart) as usize;
             self.base[wstart..wend].copy_from_slice(&data[..size]);
-            len = len - size;
+            written += size;
             addr = self.info.write.end;
         }
 
         // If the address is not in the heap area, throw error
         if end > self.info.heap.start + self.heap.len() as u32 {
-            tracing::error!("write to heap area: {addr}..{end}");
             TrapInfo::fault(addr).raise();
             return;
         }
 
         addr = addr - self.info.heap.start;
-        self.heap[addr as usize..(addr as usize + len)].copy_from_slice(&data[..len]);
+        let len = data.len() - written;
+        self.heap[addr as usize..(addr as usize + len)].copy_from_slice(&data[written..]);
     }
 
     /// Convert the virtual memory back to pvm::Memory structure
@@ -205,16 +209,11 @@ impl MemoryLike for Memory {
 
         let address = page * pvm::PAGE_SIZE as u32;
         let Some(start) = address.checked_sub(self.info.heap.start) else {
-            tracing::error!("execuse me? {address}");
             TrapInfo::fault(page).raise();
             return Ok(());
         };
 
         let size = count * pvm::PAGE_SIZE as u32;
-        tracing::debug!(
-            "allocating memory(range={page}..{}): {address}[{start}..{size}]",
-            page + count
-        );
         self.heap.resize((start + size) as usize, 0);
         Ok(())
     }
