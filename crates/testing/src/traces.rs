@@ -41,8 +41,7 @@ mod storage_light {
 }
 
 mod fuzz {
-    // include!(concat!(env!("OUT_DIR"), "/traces_local_fuzz.rs"));
-    // include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
+    include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
 }
 
 /// Run the traces test
@@ -71,7 +70,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     // 2. verify the state transition
     let mut pkeys = Vec::new();
     runtime::timing::setup();
-    if let Err(e) = tx::transit::<pvmc::Compiler>(block, memdb.clone()).await {
+    if let Err(e) = tx::transit::<pvmi::Interpreter>(block, memdb.clone()).await {
         tracing::warn!("failed to transit block with error: {e:?}");
     }
 
