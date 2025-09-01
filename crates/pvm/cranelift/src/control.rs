@@ -3,6 +3,7 @@
 use crate::{context::offsets, exit::Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
+use cranelift_codegen::ir::BlockCall;
 
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
@@ -133,14 +134,30 @@ impl Translator<'_> {
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-            let mut switch = cranelift::frontend::Switch::new();
-            for (i, &jump_pc) in self.jump.iter().enumerate() {
-                if let Some(&cranelift_block) = self.blocks.get(&jump_pc) {
-                    switch.set_entry(i as u128, cranelift_block);
-                }
+            let default = BlockCall::new(
+                trap,
+                std::iter::empty(),
+                &mut self.builder.func.dfg.value_lists,
+            );
+
+            // Create block calls for each jump table entry
+            //
+            // TODO: how to optimize this?
+            let mut block_calls = Vec::with_capacity(self.jump.len());
+            for &jump_pc in &self.jump {
+                let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
+                let block_call = BlockCall::new(
+                    block,
+                    std::iter::empty(),
+                    &mut self.builder.func.dfg.value_lists,
+                );
+                block_calls.push(block_call);
             }
 
-            switch.emit(&mut self.builder, jump_index, trap);
+            // Create the jump table and use br_table for a single indirect branch
+            let jt_data = JumpTableData::new(default, &block_calls);
+            let jt = self.builder.create_jump_table(jt_data);
+            self.builder.ins().br_table(jump_index, jt);
         }
 
         // Trap block: invalid jump target
