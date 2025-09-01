@@ -10,7 +10,7 @@ pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
     context.gas -= match index {
         100 => 0,
-        11 => (10 + context.registers[9]) as i64,
+        20 => (10 + context.registers[9]) as i64,
         _ => 10,
     }
     .max(0);

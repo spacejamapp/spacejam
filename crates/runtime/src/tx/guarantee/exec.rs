@@ -74,7 +74,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated<R> {
-    // FIXME: extract the services from reports
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
         for result in &report.results {

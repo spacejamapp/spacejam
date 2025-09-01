@@ -1,7 +1,7 @@
 //! PolkaVM program interpreter
 
 use crate::{Error, Interpreter};
-use parser::{reader::Offset, Instruction, Visitor};
+use parser::{format, reader::Offset, Instruction, Visitor};
 use pvm::{Argument, Invoked, Reason};
 
 impl Interpreter {
@@ -19,15 +19,6 @@ impl Interpreter {
             self.jump = Some((self.pc as i32 + offset) as usize);
         }
 
-        Ok(())
-    }
-
-    /// Burn the gas.
-    pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
-        self.context.gas -= gas as i64;
-        if self.context.gas < 0 {
-            return Err(Error::OOG);
-        }
         Ok(())
     }
 
@@ -90,11 +81,20 @@ impl Interpreter {
 
     /// Step a single instruction.
     pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
-        if self.burn(1).is_err() {
+        let gas = match instr.value {
+            Instruction::Ecalli(format::I { imm0: call }) => match call {
+                20 => 11 + self.rget(9),
+                100 => 1,
+                _ => 11,
+            },
+            _ => 1,
+        };
+
+        self.burn(gas);
+        if self.context.gas < 0 {
             return Reason::OOG;
         }
 
-        // step the instruction
         let stepped = self.visit(instr.value, &instr.range);
         if let Err(e) = stepped {
             e.into()

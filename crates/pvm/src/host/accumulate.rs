@@ -244,8 +244,6 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Low as u64);
     }
 
-    tracing::debug!("transfer: {:?} ", transfer);
-
     // add the transfer to the deferred transfers
     ctx.transfer(transfer);
     *ctx.this()?.balance_mut() -= amount;
