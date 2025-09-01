@@ -128,8 +128,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
-        gas.insert(*service_id, result.gas);
+        let transfered_gas = result.transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
         transfers.extend(result.transfers.clone());
+        gas.insert(*service_id, result.gas + transfered_gas);
         if let Some(hash) = result.hash {
             pairings.insert(*service_id, hash);
         }
