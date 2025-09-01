@@ -6,6 +6,7 @@ pub use parser::{
 pub use {
     context::{Argument, Context, Executed, Invoked, MemoryLike, State},
     invocation::{AccumulateContext, Accumulated, Invocation},
+    parser,
     result::{Reason, Result},
     score,
     value::{as_i64, Value},

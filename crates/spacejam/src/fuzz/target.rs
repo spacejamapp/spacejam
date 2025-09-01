@@ -85,7 +85,7 @@ impl Target {
                     let root = self.data.root()?;
                     self.write_message(Message::StateRoot(root))
                 } else {
-                    tracing::debug!("\n{}", runtime::timing::take_current());
+                    // tracing::debug!("\n{}", runtime::timing::take_current());
                     Ok(())
                 }
             }

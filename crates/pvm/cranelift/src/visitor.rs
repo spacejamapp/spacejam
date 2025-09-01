@@ -480,6 +480,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
+        if imm0 != 100 {
+            self.burn_gas(10);
+        }
+
         let inst = self
             .builder
             .ins()

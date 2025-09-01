@@ -2,7 +2,11 @@
 
 use crate::{Module, JIT};
 use anyhow::Result;
-use pvm::{score::Gas, Argument, Invocation, Invoked, Program, State};
+use pvm::{
+    parser,
+    score::{Gas, OpaqueHash},
+    Argument, Invocation, Invoked, Program, State,
+};
 
 /// PVM compiler
 pub struct Compiler;
@@ -15,14 +19,22 @@ impl Compiler {
 
     /// Compile entire program as a function
     pub fn compile(&mut self, program: &Program) -> Result<Module> {
-        JIT::new()?.compile(program)
+        JIT::new()?.compile(program, None)
     }
 }
 
 impl Invocation for Compiler {
-    fn invoke2<X: Argument>(program: &Program, mut ctx: X, gas: Gas, pc: usize) -> Invoked<X> {
+    fn invoke2<X: Argument>(
+        mut ctx: X,
+        hash: OpaqueHash,
+        code: Vec<u8>,
+        args: Vec<u8>,
+        gas: Gas,
+        pc: usize,
+    ) -> Invoked<X> {
+        let program = parser::program::preimage(code, &args).expect("failed to preimage");
         let mut pvmc = JIT::host::<X>().expect("fix me later");
-        let module = pvmc.compile(program).expect("fix me later");
+        let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
         let mut context = pvm::Context {
             registers: module.registers,
             gas: gas as i64,

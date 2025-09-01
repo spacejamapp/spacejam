@@ -5,10 +5,16 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+dirs.workspace = true
+hex.workspace = true
+postcard.workspace = true
 pvm.workspace = true
 translator.workspace = true
 cranelift.workspace = true
-cranelift-codegen.workspace = true
+cranelift-codegen = { workspace = true, features = [
+    "incremental-cache",
+    "serde",
+] }
 cranelift-native.workspace = true
 cranelift-jit.workspace = true
 cranelift-module.workspace = true
@@ -22,7 +28,6 @@ serde.workspace = true
 serde_json.workspace = true
 tracing-subscriber.workspace = true
 
-
 [build-dependencies]
-cc = "1.0"
-bindgen = "0.69"
+cc.workspace = true
+bindgen.workspace = true

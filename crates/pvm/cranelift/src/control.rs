@@ -133,14 +133,9 @@ impl Translator<'_> {
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-            let mut switch = cranelift::frontend::Switch::new();
-            for (i, &jump_pc) in self.jump.iter().enumerate() {
-                if let Some(&cranelift_block) = self.blocks.get(&jump_pc) {
-                    switch.set_entry(i as u128, cranelift_block);
-                }
-            }
 
-            switch.emit(&mut self.builder, jump_index, trap);
+            // Use the pre-created jump table - no need to recreate it every time!
+            self.builder.ins().br_table(jump_index, self.rt_jump_table);
         }
 
         // Trap block: invalid jump target

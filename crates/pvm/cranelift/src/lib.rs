@@ -32,6 +32,9 @@ pub struct Translator<'b> {
     /// Jump table for dynamic jumps
     jump: Vec<u64>,
 
+    /// Runtime jump table for br_table instruction (cached)
+    rt_jump_table: ir::JumpTable,
+
     /// The constants pool
     pool: Pool,
 
@@ -48,6 +51,7 @@ impl<'b> Translator<'b> {
             blocks: BTreeMap::new(),
             host: BTreeMap::new(),
             jump: Vec::new(),
+            rt_jump_table: ir::JumpTable::new(0),
             pool: Pool {
                 ctx: Value::new(0),
                 memory: Value::new(0),

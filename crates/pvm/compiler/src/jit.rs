@@ -1,14 +1,12 @@
 //! Cranelift JIT backend
 
-use std::time::Instant;
-
-use crate::{engine, host};
+use crate::{engine, host, Artifact};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
 use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
-use cranelift_module::{Linkage, Module};
-use pvm::{Argument, Program};
+use cranelift_module::{FuncId, Linkage, Module, ModuleReloc};
+use pvm::{score::OpaqueHash, Argument, Program};
 use translator::Translator;
 
 const MAIN: &str = "main";
@@ -23,6 +21,9 @@ pub struct JIT {
 
     /// Cranelift codegen context
     pub ctx: Context,
+
+    /// Artifact
+    pub artifact: Artifact,
 }
 
 impl JIT {
@@ -35,6 +36,7 @@ impl JIT {
             bctx: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
+            artifact: Artifact::new()?,
         })
     }
 
@@ -47,6 +49,7 @@ impl JIT {
             bctx: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
+            artifact: Artifact::new()?,
         })
     }
 
@@ -57,25 +60,35 @@ impl JIT {
     /// - refine
     /// - is_authorized
     /// - core_vm ???
-    pub fn compile(&mut self, program: &Program) -> Result<crate::Module> {
+    ///
+    /// FIXME: clean the API later then.
+    pub fn compile(
+        &mut self,
+        program: &Program,
+        hash: Option<OpaqueHash>,
+    ) -> Result<crate::Module> {
         let memory = crate::Memory::new(&program.memory)?;
-        let sig = self.signature();
-        let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
-
-        // construct the function
-        let host = self.declare_host()?;
-        self.ctx.func.signature = self.signature();
-        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
-        trans.host = host;
-        let mut start = Instant::now();
-        trans.translate(program)?;
-        trans.builder.finalize();
-        tracing::info!("translating took {:?}ms", start.elapsed().as_millis());
+        let id = self.clif(program, hash)?;
+        let func = self.ctx.func.clone();
 
         // define the function
-        start = Instant::now();
-        self.module.define_function(id, &mut self.ctx)?;
-        tracing::info!("defining function took {:?}ms", start.elapsed().as_millis());
+        let (compiled, _hit) = self
+            .ctx
+            .compile_with_cache(
+                self.module.isa(),
+                &mut self.artifact,
+                &mut Default::default(),
+            )
+            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+
+        let relocs = compiled
+            .buffer
+            .relocs()
+            .iter()
+            .map(|r| ModuleReloc::from_mach_reloc(r, &func, id))
+            .collect::<Vec<_>>();
+        self.module
+            .define_function_bytes(id, 1, compiled.code_buffer(), &relocs)?;
         self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
         let timing = cranelift_codegen::timing::take_current();
@@ -85,6 +98,36 @@ impl JIT {
             memory,
             registers: program.registers,
         })
+    }
+
+    /// Translate the program to CLIF
+    fn clif(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
+        let host = self.declare_host_in_module()?;
+        if let Some(fun) = hash.and_then(|h| self.artifact.clif(h)) {
+            self.ctx = Context::for_function(fun);
+            // println!("clif: {}", self.ctx.func.display());
+            let id =
+                self.module
+                    .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;
+            self.declare_host_in_func(host)?;
+            return Ok(id);
+        }
+
+        // construct the function
+        let sig = self.signature();
+        let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
+        let host = self.declare_host_in_func(host)?;
+        self.ctx.func.signature = self.signature();
+        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
+        trans.host = host;
+        trans.translate(program)?;
+        trans.builder.finalize();
+
+        // cache the function
+        if let Some(hash) = hash {
+            self.artifact.put(hash, &self.ctx.func)?;
+        }
+        Ok(id)
     }
 
     /// Create a signature for the function

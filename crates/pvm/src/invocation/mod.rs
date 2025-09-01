@@ -1,11 +1,10 @@
 //! PVM invocation interface
 
 use crate::{Argument, Executed, Invoked, Reason};
-use parser::program::{self, Program};
 use score::{
     service::{WorkExecResult, WorkPackage},
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
-    Account, Accounts, Gas, ServiceId, TimeSlot,
+    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 pub use {
     accumulate::{Accumulate, AccumulateContext, Accumulated},
@@ -24,8 +23,15 @@ pub mod transfer;
 /// The invocation Interface of PVM
 pub trait Invocation {
     /// Invoke a program with the given context (version 3)
-    fn invoke2<X: Argument>(program: &Program, ctx: X, gas: Gas, pc: usize) -> Invoked<X> {
-        let _ = (program, gas, pc);
+    fn invoke2<X: Argument>(
+        ctx: X,
+        hash: OpaqueHash,
+        code: Vec<u8>,
+        args: Vec<u8>,
+        gas: Gas,
+        pc: usize,
+    ) -> Invoked<X> {
+        let _ = (hash, code, args, gas, pc);
         Invoked {
             gas: 0,
             output: vec![],
@@ -79,8 +85,14 @@ pub trait Invocation {
         // Prepare arguments
         let args = codec::encode(&core_idx).unwrap_or_default();
         let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
-        let program = program::preimage(code, &args).expect("failed to preimage");
-        let result = Self::invoke2(&program, context, score::GAS_IS_AUTHORIZED, 0);
+        let result = Self::invoke2(
+            context,
+            package.auth_code_hash,
+            code,
+            args,
+            score::GAS_IS_AUTHORIZED,
+            0,
+        );
 
         // construct the result
         let gas = result.gas;
@@ -165,8 +177,7 @@ pub trait Invocation {
         };
 
         let args = codec::encode(&params).expect("failed to encode params");
-        let program = program::preimage(code, &args).expect("failed to preimage");
-        let result = Self::invoke2(&program, refine, item.refine_gas_limit, 5);
+        let result = Self::invoke2(refine, item.code_hash, code, args, item.refine_gas_limit, 5);
 
         // TODO: Implement actual segment export when host calls are ready
         // For now, return empty segments as before
@@ -194,6 +205,11 @@ pub trait Invocation {
             return Accumulated::new(context);
         };
 
+        let Some(code_hash) = context.code_hash(service) else {
+            tracing::warn!("no code hash found for service: {}", service);
+            return Accumulated::new(context);
+        };
+
         // create the accumulate context
         let context = AccumulateContext::new(context, service, timeslot);
         let params = AccumulateParams {
@@ -204,8 +220,7 @@ pub trait Invocation {
 
         let accumulate = context.accumulate(timeslot, operands);
         let args = codec::encode(&params).expect("failed to encode");
-        let program = program::preimage(code, &args).expect("failed to preimage");
-        let result = Self::invoke2(&program, accumulate, gas, 5);
+        let result = Self::invoke2(accumulate, code_hash, code, args, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
                 "PVM execution stopped with reason: {:?} for service {}",
@@ -245,6 +260,7 @@ pub trait Invocation {
             return Transferred::default();
         };
 
+        let code_hash = account.code();
         let code = code.clone();
         let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
 
@@ -254,8 +270,7 @@ pub trait Invocation {
         let updated_account = account.account();
         let general = General::new(service, accounts, Vec::new(), Default::default());
         let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
-        let program = program::preimage(code, &input).expect("failed to preimage");
-        let received = Self::invoke2(&program, general, gas, 10);
+        let received = Self::invoke2(general, code_hash, code, input, gas, 10);
         Transferred {
             account: updated_account,
             gas: received.gas,

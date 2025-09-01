@@ -65,6 +65,11 @@ impl<R: Accounts> AccumulateState<R> {
         self.accounts.check(index)
     }
 
+    /// Get the code hash of an account
+    pub fn code_hash(&mut self, service: ServiceId) -> Option<OpaqueHash> {
+        self.accounts.code_hash(service)
+    }
+
     /// Share preimages for the services in the state context
     pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
         self.accounts.blob(service)
