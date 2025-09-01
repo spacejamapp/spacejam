@@ -3,7 +3,7 @@
 use crate::{Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::InstBuilder;
-use cranelift_codegen::ir;
+use cranelift_codegen::ir::{self, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
 use std::collections::BTreeMap;
@@ -53,12 +53,42 @@ impl Translator<'_> {
 
     /// translate the dispatcher
     ///
-    /// FIXE: now is using a hard coded 5 as the starting PC for accumulate programs
+    /// FIXME: now is using a hard coded 5 as the starting PC for accumulate programs
     /// this should be fixed after fixing our 0.7.0 reports.
     fn translate_dispatcher(&mut self, program: &Program, entry: ir::Block) -> Result<()> {
         let ctx_ptr = self.builder.block_params(entry)[0];
         self.builder.switch_to_block(entry);
         self.init_context(program, ctx_ptr);
+
+        // Generate the runtime jump table for djump instructions
+        let trap_block = self.builder.create_block();
+        let default_block = BlockCall::new(
+            trap_block,
+            std::iter::empty(),
+            &mut self.builder.func.dfg.value_lists,
+        );
+
+        // Create block calls for each jump table entry
+        let mut block_calls = Vec::with_capacity(self.jump.len());
+        for &jump_pc in &self.jump {
+            let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap_block);
+            let block_call = BlockCall::new(
+                block,
+                std::iter::empty(),
+                &mut self.builder.func.dfg.value_lists,
+            );
+            block_calls.push(block_call);
+        }
+
+        // Create and cache the jump table
+        let jt_data = cranelift_codegen::ir::JumpTableData::new(default_block, &block_calls);
+        self.rt_jump_table = self.builder.create_jump_table(jt_data);
+        self.builder.switch_to_block(trap_block);
+        self.return_(Exit::InvalidJumpTarget);
+        self.builder.seal_block(trap_block);
+
+        // Now handle the entry point - hardcoded to 5 for now
+        self.builder.switch_to_block(entry);
         if let Some(&start_block) = self.blocks.get(&5) {
             self.builder.ins().jump(start_block, &[]);
         } else {
