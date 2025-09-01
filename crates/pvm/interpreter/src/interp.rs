@@ -24,11 +24,11 @@ impl Interpreter {
 
     /// Burn the gas.
     pub fn burn(&mut self, gas: u64) -> crate::Result<()> {
-        if self.context.gas < gas as i64 {
+        self.context.gas = self.context.gas - gas as i64;
+        if self.context.gas < 0 {
+            tracing::error!("gas underflow: {}", self.context.gas);
             return Err(Error::OOG);
         }
-
-        self.context.gas = self.context.gas.saturating_sub(gas as i64);
         Ok(())
     }
 
