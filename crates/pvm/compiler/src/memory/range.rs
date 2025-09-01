@@ -9,11 +9,10 @@
 //! - use a separated heap track the heap area
 #![cfg(target_os = "macos")]
 
+use crate::TrapInfo;
 use anyhow::Result;
 use pvm::MemoryLike;
 use std::collections::BTreeMap;
-
-use crate::TrapInfo;
 
 /// Hybrid memory management for PVM programs on macOS
 ///
@@ -43,6 +42,7 @@ pub struct Memory {
 impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
+        tracing::debug!("memory info: {:?}", pmemory.info);
         let mut data = vec![];
         data.extend_from_slice(&pmemory.ro_data()?);
         data.extend_from_slice(&pmemory.rw_data()?);
@@ -56,57 +56,58 @@ impl Memory {
         })
     }
 
-    // Check if a range of heap is allocated
-    fn hallocated(&self, start: u32, count: u32) -> bool {
-        let end = start + count;
-        let size = self.heap.len() as u32;
-        if start >= size || end > size {
-            return false;
+    /// Read bytes from memory with boundary checks
+    pub fn read_bytes(&self, addr: u32, len: u32) -> Vec<u8> {
+        if len == 0 {
+            return vec![];
         }
 
-        true
-    }
-
-    /// Read bytes from memory with boundary checks
-    pub fn read_bytes(&self, addr: u32, len: u32) -> &[u8] {
         let end = addr + len;
         let mut ptr = 0;
         if addr >= self.info.read.start && end <= self.info.read.end {
             let start = (addr - self.info.read.start) as usize;
-            return &self.base[start..(start + len as usize)];
+            return self.base[start..(start + len as usize)].to_vec();
         }
 
         ptr += self.info.read.len();
         if addr >= self.info.write.start && end <= self.info.write.end {
             let start = (addr - self.info.write.start) as usize + ptr;
-            return &self.base[start..(start + len as usize)];
+            return self.base[start..(start + len as usize)].to_vec();
         }
 
         ptr += self.info.write.len();
         if addr >= self.info.stack.start && end <= self.info.stack.end {
             let start = (addr - self.info.stack.start) as usize + ptr;
-            return &self.base[start..(start + len as usize)];
+            return self.base[start..(start + len as usize)].to_vec();
         }
 
         ptr += self.info.stack.len();
         if addr >= self.info.args.start && end <= self.info.args.end {
             let start = (addr - self.info.args.start) as usize + ptr;
-            return &self.base[start..(start + len as usize)];
+            return self.base[start..(start + len as usize)].to_vec();
         }
 
-        // heap area
-        let Some(addr) = addr.checked_sub(self.info.heap.start) else {
-            TrapInfo::fault(addr).raise();
-            return &[];
-        };
-
-        // we need to handle make the trap here bcz our heap is not mmap.
-        if self.hallocated(addr, len) {
-            &self.heap[addr as usize..(addr as usize + len as usize)]
-        } else {
-            TrapInfo::fault(addr).raise();
-            &[]
+        // reading data from heap or from mutiple regions
+        //
+        // NOTE: for mutiple regions, we only support (write + heap) atm.
+        let mut bytes = vec![];
+        let mut addr = addr;
+        if addr < self.info.heap.start {
+            let start = (addr - self.info.write.start + self.info.read.len() as u32) as usize;
+            let end = self.info.read.len() + self.info.write.len();
+            bytes.extend_from_slice(&self.base[start..end]);
+            addr = self.info.write.end;
         }
+
+        if end > self.info.heap.start + self.heap.len() as u32 {
+            TrapInfo::fault(addr).raise();
+            return vec![];
+        }
+
+        let len = len - bytes.len() as u32;
+        addr = addr - self.info.heap.start;
+        bytes.extend_from_slice(&self.heap[addr as usize..(addr as usize + len as usize)]);
+        bytes
     }
 
     /// Write bytes to memory with boundary checks
@@ -126,23 +127,27 @@ impl Memory {
             return;
         }
 
+        // NOTE: for mutiple regions, we only support (write + heap) atm.
+        let mut addr = addr;
+        let mut len = data.len();
+        if addr < self.info.heap.start {
+            let wstart = (addr - self.info.write.start + self.info.read.len() as u32) as usize;
+            let wend = self.info.read.len() + self.info.write.len();
+            let size = (wend - wstart) as usize;
+            self.base[wstart..wend].copy_from_slice(&data[..size]);
+            len = len - size;
+            addr = self.info.write.end;
+        }
+
         // If the address is not in the heap area, throw error
-        if addr < self.info.heap.start || end > self.info.heap.end {
+        if end > self.info.heap.start + self.heap.len() as u32 {
+            tracing::error!("write to heap area: {addr}..{end}");
             TrapInfo::fault(addr).raise();
             return;
         }
 
-        // heap area
-        let Some(haddr) = addr.checked_sub(self.info.heap.start) else {
-            TrapInfo::fault(addr).raise();
-            return;
-        };
-
-        if self.hallocated(haddr, data.len() as u32) {
-            self.heap[haddr as usize..(haddr as usize + data.len())].copy_from_slice(data);
-        } else {
-            TrapInfo::fault(addr).raise();
-        }
+        addr = addr - self.info.heap.start;
+        self.heap[addr as usize..(addr as usize + len)].copy_from_slice(&data[..len]);
     }
 
     /// Convert the virtual memory back to pvm::Memory structure
@@ -166,7 +171,7 @@ impl Memory {
 
             // read bytes from memory
             let bytes = self.read_bytes(addr, size);
-            data[..bytes.len()].copy_from_slice(bytes);
+            data[..bytes.len()].copy_from_slice(&bytes);
             if data.iter().any(|&b| b != 0) {
                 memory_map.insert(page, (data, *perms));
             }
@@ -198,9 +203,18 @@ impl MemoryLike for Memory {
             return Ok(());
         }
 
-        let start = page * pvm::PAGE_SIZE as u32;
+        let address = page * pvm::PAGE_SIZE as u32;
+        let Some(start) = address.checked_sub(self.info.heap.start) else {
+            tracing::error!("execuse me? {address}");
+            TrapInfo::fault(page).raise();
+            return Ok(());
+        };
+
         let size = count * pvm::PAGE_SIZE as u32;
-        tracing::debug!("allocating memory: {} - {}", start, size);
+        tracing::debug!(
+            "allocating memory(range={page}..{}): {address}[{start}..{size}]",
+            page + count
+        );
         self.heap.resize((start + size) as usize, 0);
         Ok(())
     }
