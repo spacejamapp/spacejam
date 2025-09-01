@@ -29,8 +29,8 @@ impl Artifact {
             .ok_or_else(|| anyhow::anyhow!("cache dir not found"))?
             .clone();
 
-        fs::create_dir_all(&dir.join("artifacts"))?;
-        fs::create_dir_all(&dir.join("clif"))?;
+        fs::create_dir_all(dir.join("artifacts"))?;
+        fs::create_dir_all(dir.join("clif"))?;
         Ok(Self { dir })
     }
 
