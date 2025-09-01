@@ -105,6 +105,7 @@ impl JIT {
         let host = self.declare_host_in_module()?;
         if let Some(fun) = hash.and_then(|h| self.artifact.clif(h)) {
             self.ctx = Context::for_function(fun);
+            // println!("clif: {}", self.ctx.func.display());
             let id =
                 self.module
                     .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;

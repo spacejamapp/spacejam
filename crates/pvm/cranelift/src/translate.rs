@@ -2,6 +2,7 @@
 
 use crate::{Exit, Translator};
 use anyhow::Result;
+use cranelift::prelude::InstBuilder;
 use cranelift_codegen::ir;
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
@@ -51,32 +52,27 @@ impl Translator<'_> {
     }
 
     /// translate the dispatcher
+    ///
+    /// FIXE: now is using a hard coded 5 as the starting PC for accumulate programs
+    /// this should be fixed after fixing our 0.7.0 reports.
     fn translate_dispatcher(&mut self, program: &Program, entry: ir::Block) -> Result<()> {
-        let trap = self.builder.create_block();
         let ctx_ptr = self.builder.block_params(entry)[0];
-        let mut switch = cranelift::frontend::Switch::new();
-        for (&pc, &block) in &self.blocks {
-            switch.set_entry(pc as u128, block);
-        }
-
-        // generate the switch on start_pc
         self.builder.switch_to_block(entry);
         self.init_context(program, ctx_ptr);
-        let pc = self.pc();
-        switch.emit(&mut self.builder, pc, trap);
-        self.builder.seal_block(entry);
+        if let Some(&start_block) = self.blocks.get(&5) {
+            self.builder.ins().jump(start_block, &[]);
+        } else {
+            self.return_(Exit::InvalidStartPC);
+        }
 
-        // populate trap block
-        self.builder.switch_to_block(trap);
-        self.return_(Exit::InvalidStartPC);
-        self.builder.seal_block(trap);
+        self.builder.seal_block(entry);
         Ok(())
     }
 
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
-            tracing::trace!("{instruction:?}");
+            // tracing::trace!("{instruction:?}");
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
