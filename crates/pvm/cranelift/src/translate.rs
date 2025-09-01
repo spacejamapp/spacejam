@@ -2,7 +2,7 @@
 
 use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::InstBuilder;
+use cranelift::prelude::{types, InstBuilder, IntCC};
 use cranelift_codegen::ir::{self, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
@@ -52,9 +52,6 @@ impl Translator<'_> {
     }
 
     /// translate the dispatcher
-    ///
-    /// FIXME: now is using a hard coded 5 as the starting PC for accumulate programs
-    /// this should be fixed after fixing our 0.7.0 reports.
     fn translate_dispatcher(&mut self, program: &Program, entry: ir::Block) -> Result<()> {
         let ctx_ptr = self.builder.block_params(entry)[0];
         self.builder.switch_to_block(entry);
@@ -87,13 +84,19 @@ impl Translator<'_> {
         self.return_(Exit::InvalidJumpTarget);
         self.builder.seal_block(trap_block);
 
-        // Now handle the entry point - hardcoded to 5 for now
+        // Now handle the entry point
+        //
+        // 5 for accumulate programs
+        // 0 for general programs
         self.builder.switch_to_block(entry);
-        if let Some(&start_block) = self.blocks.get(&5) {
-            self.builder.ins().jump(start_block, &[]);
-        } else {
-            self.return_(Exit::InvalidStartPC);
-        }
+        let pc = self.pc();
+        let five = self.builder.ins().iconst(types::I64, 5);
+        let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
+        let accumulate = self.blocks.get(&5).copied().unwrap_or(trap_block);
+        let general = self.blocks.get(&0).copied().unwrap_or(trap_block);
+        self.builder
+            .ins()
+            .brif(is_accumulate, accumulate, &[], general, &[]);
 
         self.builder.seal_block(entry);
         Ok(())
