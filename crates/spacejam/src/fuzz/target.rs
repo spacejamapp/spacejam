@@ -133,7 +133,7 @@ impl Target {
         .await;
         block
             .header
-            .validate(new_epoch, state.entropy, &state.safrole.series, verifier)?;
+            .validate(new_epoch, state.entropy, &state.safrole, verifier)?;
 
         if self.compiler {
             tx::transit_with_state::<jastime::Jastime>(block, state, self.data.clone()).await?;

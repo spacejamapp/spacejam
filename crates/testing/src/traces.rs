@@ -78,7 +78,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     .await;
     if let Err(e) = block
         .header
-        .validate(new_epoch, state.entropy, &state.safrole.series, verifier)
+        .validate(new_epoch, state.entropy, &state.safrole, verifier)
     {
         tracing::warn!("failed to validate block header with error: {e:?}");
     } else if let Err(e) =
@@ -109,12 +109,12 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }
 
-        if key == key::STATISTICS && value != result {
+        /* if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        }
+        } */
 
         if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;

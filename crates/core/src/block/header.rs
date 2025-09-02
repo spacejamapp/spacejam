@@ -1,5 +1,7 @@
 //! Block header
 
+#[cfg(feature = "vrf")]
+use crate::safrole::Safrole;
 use crate::EntropyBuffer;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
@@ -114,7 +116,7 @@ impl Header {
         &self,
         new_epoch: bool,
         entropy: EntropyBuffer,
-        series: &TicketsOrKeys,
+        safrole: &Safrole,
         verifier: std::sync::Arc<crypto::vrf::Verifier>,
     ) -> anyhow::Result<()> {
         let slot = (self.slot % crate::EPOCH_LENGTH) as usize;
@@ -127,7 +129,11 @@ impl Header {
         };
 
         // check the ticket mark
-        if let TicketsOrKeys::Tickets(tickets) = series {
+        if new_epoch && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize {
+            let mut tickets = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
+            tickets.copy_from_slice(&TicketBody::sequence(&safrole.accumulator));
+            ticket = Some(tickets[slot]);
+        } else if let TicketsOrKeys::Tickets(tickets) = safrole.series {
             ticket = Some(tickets[slot]);
         }
 
