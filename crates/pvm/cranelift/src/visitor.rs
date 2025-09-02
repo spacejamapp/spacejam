@@ -504,7 +504,7 @@ impl Visitor for Translator<'_> {
         if let Some(block) = self.blocks.get(&(range.end as u64)) {
             self.builder.ins().jump(*block, &[]);
         } else {
-            self.burn_gas(1);
+            self.burn_gas(self.pool.one);
             self.return_(Exit::ProgramNotTerminated);
         }
 

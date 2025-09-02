@@ -26,6 +26,19 @@ pub struct Pool {
 
     /// The memory pointer
     pub memory: Value,
+
+    /// ssv for 1
+    pub one: Value,
+}
+
+impl Default for Pool {
+    fn default() -> Self {
+        Self {
+            ctx: Value::new(0),
+            memory: Value::new(0),
+            one: Value::new(0),
+        }
+    }
 }
 
 impl Translator<'_> {
@@ -40,6 +53,7 @@ impl Translator<'_> {
                 offsets::MEMORY_PTR_OFFSET,
             ),
             ctx,
+            one: self.builder.ins().iconst(types::I64, 1),
         };
 
         #[cfg(target_os = "macos")]

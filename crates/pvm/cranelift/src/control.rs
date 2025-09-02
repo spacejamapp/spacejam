@@ -7,29 +7,16 @@ use cranelift::prelude::*;
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
 impl Translator<'_> {
-    /// get gas value from the context
-    pub fn gas(&mut self) -> Value {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::GAS_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.pool.ctx, offset);
-        self.builder
-            .ins()
-            .load(types::I64, MemFlags::trusted(), addr, 0)
-    }
-
     /// burn gas (subtract from the gas counter)
     ///
     /// TODO: handle OOG
-    pub fn burn_gas(&mut self, gas: i64) {
+    pub fn burn_gas(&mut self, amount: Value) {
         let current_gas = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
             self.pool.ctx,
             offsets::GAS_OFFSET,
         );
-        let amount = self.builder.ins().iconst(types::I64, gas);
         let result = self.builder.ins().isub(current_gas, amount);
         self.builder.ins().store(
             MemFlags::trusted(),

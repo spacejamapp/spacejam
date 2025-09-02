@@ -52,10 +52,7 @@ impl<'b> Translator<'b> {
             host: BTreeMap::new(),
             jump: Vec::new(),
             rt_jump_table: ir::JumpTable::new(0),
-            pool: Pool {
-                ctx: Value::new(0),
-                memory: Value::new(0),
-            },
+            pool: Pool::default(),
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
