@@ -3,7 +3,7 @@
 use crate::{engine, host, Artifact};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
-use cranelift_codegen::{timing, Context};
+use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module, ModuleReloc};
 use pvm::{score::OpaqueHash, Argument, Program};
@@ -72,7 +72,7 @@ impl JIT {
         let func = self.ctx.func.clone();
 
         // define the function
-        let (compiled, _hit) = self
+        let (compiled, hits) = self
             .ctx
             .compile_with_cache(
                 self.module.isa(),
@@ -89,9 +89,12 @@ impl JIT {
             .collect::<Vec<_>>();
         self.module
             .define_function_bytes(id, 1, compiled.code_buffer(), &relocs)?;
-        self.module.clear_context(&mut self.ctx);
         self.module.finalize_definitions()?;
-        println!("{}", timing::take_current());
+        if let Some(hash) = hash.and_then(|h| hits.then_some(h)) {
+            self.artifact.put(hash, &func, true)?;
+        }
+
+        self.module.clear_context(&mut self.ctx);
         Ok(crate::Module {
             code: self.module.get_finalized_function(id),
             memory,
@@ -102,13 +105,12 @@ impl JIT {
     /// Translate the program to CLIF
     fn clif(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
         let host = self.declare_host_in_module()?;
-        if let Some(fun) = hash.and_then(|h| self.artifact.clif(h)) {
+        if let Some((fun, _)) = hash.and_then(|h| self.artifact.clif(h)) {
             self.ctx = Context::for_function(fun);
-            let id =
+            let fun =
                 self.module
                     .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;
-            self.declare_host_in_func(host)?;
-            return Ok(id);
+            return Ok(fun);
         }
 
         // construct the function
@@ -123,7 +125,7 @@ impl JIT {
 
         // cache the function
         if let Some(hash) = hash {
-            self.artifact.put(hash, &self.ctx.func)?;
+            self.artifact.put(hash, &self.ctx.func, false)?;
         }
 
         Ok(id)

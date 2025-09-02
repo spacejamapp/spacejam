@@ -35,38 +35,30 @@ impl Artifact {
     }
 
     /// Check if the cache hits
-    ///
-    /// for the returned status:
-    ///
-    /// 0 -> cache exists
-    /// 1 -> cache miss
-    /// 2 -> compiling
     pub fn hits(&self, key: [u8; 32]) -> bool {
-        let key = hex::encode(key);
-        let clif = self.dir.join("clif").join(&key);
-        clif.exists()
+        if let Some((_, confirmed)) = self.clif(key) {
+            return confirmed;
+        }
+
+        false
     }
 
     /// Get the path to the CLIF artifacts
-    pub fn clif(&self, key: [u8; 32]) -> Option<Function> {
+    pub fn clif(&self, key: [u8; 32]) -> Option<(Function, bool)> {
         let path = self.dir.join("clif").join(hex::encode(key));
         if !path.exists() {
             return None;
         }
 
         let serialized = fs::read(path).ok()?;
-        let function: Function = postcard::from_bytes(&serialized).ok()?;
-        Some(function)
+        postcard::from_bytes(&serialized).ok()
     }
 
     /// Put the CLIF artifact
-    pub fn put(&self, key: [u8; 32], function: &Function) -> Result<()> {
-        let path = self.dir.join("clif").join(hex::encode(key));
-        if path.exists() {
-            return Ok(());
-        }
-
-        let serialized = postcard::to_allocvec(&function)?;
+    pub fn put(&self, key: [u8; 32], function: &Function, confirmed: bool) -> Result<()> {
+        let key = hex::encode(key);
+        let path = self.dir.join("clif").join(&key);
+        let serialized = postcard::to_allocvec(&(function, confirmed))?;
         fs::write(path, serialized)?;
         Ok(())
     }
@@ -75,7 +67,6 @@ impl Artifact {
 impl CacheKvStore for Artifact {
     fn get(&self, key: &[u8]) -> Option<Cow<'_, [u8]>> {
         let key = hex::encode(key);
-        tracing::debug!("get cache {key}");
         let path = self.dir.join("artifacts").join(key);
         if !path.exists() {
             return None;
@@ -87,7 +78,6 @@ impl CacheKvStore for Artifact {
 
     fn insert(&mut self, key: &[u8], value: Vec<u8>) {
         let key = hex::encode(key);
-        tracing::debug!("put cache {key}");
         let path = self.dir.join("artifacts").join(key);
         if path.exists() {
             return;

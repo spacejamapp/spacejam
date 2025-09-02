@@ -17,17 +17,6 @@ pub static JASTIME_LOCKS: LazyLock<RwLock<HashSet<OpaqueHash>>> =
 /// Jastime - JAM virtual machine
 pub struct Jastime;
 
-impl Jastime {
-    /// Compile a program
-    pub fn compile<X: Argument>(hash: OpaqueHash, code: Vec<u8>, args: Vec<u8>) {
-        let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        Compiler::new()
-            .expect("fix me later")
-            .compile_with_cache::<X>(&program, Some(hash))
-            .expect("fix me later");
-    }
-}
-
 impl Invocation for Jastime {
     fn invoke2<X: Argument>(
         ctx: X,
@@ -51,15 +40,17 @@ impl Invocation for Jastime {
                     return;
                 }
 
-                println!("compiling {hash:?}");
                 JASTIME_LOCKS.write().await.insert(hash);
-                Jastime::compile::<()>(hash, code, args);
+                let _ = Compiler.compile_with_cache::<()>(
+                    &parser::program::preimage(code, &args).expect("failed to preimage"),
+                    Some(hash),
+                );
+
                 JASTIME_LOCKS.write().await.remove(&hash);
             });
         }
 
         // fallback to the interpreter
-        println!("fallback to the interpreter");
         Interpreter::invoke2(ctx, hash, code, args, gas, pc)
     }
 }

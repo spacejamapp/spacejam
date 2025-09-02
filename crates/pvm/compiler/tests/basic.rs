@@ -9,8 +9,7 @@ const ADD_IMM_32_PROGRAM: &[u8] = &[0, 0, 3, 131, 121, 2, 1];
 
 #[test]
 fn test_load_imm() -> anyhow::Result<()> {
-    let mut compiler = Compiler::new()?;
-    let module = compiler.compile(&pvm::Program {
+    let module = Compiler.compile(&pvm::Program {
         code: LOAD_IMM_PROGRAM.to_vec(),
         registers: [0; pvm::REGISTER_COUNT],
         memory: Memory::default(),
@@ -25,8 +24,7 @@ fn test_load_imm() -> anyhow::Result<()> {
 
 #[test]
 fn test_add_imm_32() -> anyhow::Result<()> {
-    let mut compiler = Compiler::new()?;
-    let module = compiler.compile(&pvm::Program {
+    let module = Compiler.compile(&pvm::Program {
         code: ADD_IMM_32_PROGRAM.to_vec(),
         registers: [0; pvm::REGISTER_COUNT],
         memory: Memory::default(),
