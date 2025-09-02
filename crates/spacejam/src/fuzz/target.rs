@@ -10,7 +10,7 @@ use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
-use score::{Block, OpaqueHash};
+use score::{safrole::ValidatorIter, Block, OpaqueHash};
 use std::{
     fs,
     ops::{Deref, DerefMut},
@@ -123,15 +123,17 @@ impl Target {
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
-
         let state = self.data.state()?;
-        block.header.validate(
-            block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH,
-            state.entropy,
-            &state.safrole.validators,
-            &state.validators.current,
-            &state.safrole.series,
-        )?;
+        let new_epoch =
+            block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
+        let verifier = runtime::tx::ticket::lazy::verifier(
+            state.timeslot / score::EPOCH_LENGTH,
+            &state.safrole.validators.bandersnatch(),
+        )
+        .await;
+        block
+            .header
+            .validate(new_epoch, state.entropy, &state.safrole.series, verifier)?;
 
         if self.compiler {
             tx::transit_with_state::<jastime::Jastime>(block, state, self.data.clone()).await?;

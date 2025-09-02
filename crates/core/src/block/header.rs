@@ -1,6 +1,5 @@
 //! Block header
 
-use crate::safrole::ValidatorData;
 use crate::EntropyBuffer;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
@@ -108,15 +107,15 @@ impl Default for Header {
     }
 }
 
+#[cfg(feature = "vrf")]
 impl Header {
     /// Validate the header
     pub fn validate(
         &self,
         new_epoch: bool,
         entropy: EntropyBuffer,
-        next: &[ValidatorData],
-        current: &[ValidatorData],
         series: &TicketsOrKeys,
+        verifier: std::sync::Arc<crypto::vrf::Verifier>,
     ) -> anyhow::Result<()> {
         let slot = (self.slot % crate::EPOCH_LENGTH) as usize;
         let entropy_buffer = entropy;
@@ -131,12 +130,6 @@ impl Header {
         if let TicketsOrKeys::Tickets(tickets) = series {
             ticket = Some(tickets[slot]);
         }
-
-        // indicate the keys to be used
-        let keys = if new_epoch { next } else { current }
-            .iter()
-            .map(|v| v.bandersnatch)
-            .collect::<Vec<_>>();
 
         // construct the message
         let encoded = codec::encode(&self)?;
@@ -153,7 +146,6 @@ impl Header {
 
         // check the ticket seal
         let author_index = self.author_index;
-        let verifier = crypto::ring::verifier(keys.clone());
         let output = verifier
             .ietf_vrf_verify(&message, &context, &self.seal, author_index as usize)
             .map_err(|e| {

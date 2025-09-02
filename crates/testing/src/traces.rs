@@ -6,7 +6,7 @@ use runtime::{
 };
 use score::{
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
-    safrole::{Safrole, ValidatorsData},
+    safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{account, key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
@@ -70,14 +70,16 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let mut pkeys = Vec::new();
     runtime::timing::setup();
     let state = memdb.state()?;
-
-    if let Err(e) = block.header.validate(
-        block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH,
-        state.entropy,
-        &state.safrole.validators,
-        &state.validators.current,
-        &state.safrole.series,
-    ) {
+    let new_epoch = block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
+    let verifier = runtime::tx::ticket::lazy::verifier(
+        state.timeslot / score::EPOCH_LENGTH,
+        &state.safrole.validators.bandersnatch(),
+    )
+    .await;
+    if let Err(e) = block
+        .header
+        .validate(new_epoch, state.entropy, &state.safrole.series, verifier)
+    {
         tracing::warn!("failed to validate block header with error: {e:?}");
     } else if let Err(e) =
         tx::transit_with_state::<jastime::Interpreter>(block, state, memdb.clone()).await
