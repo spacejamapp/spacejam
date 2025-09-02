@@ -1,5 +1,7 @@
 //! Block header
 
+use crate::safrole::ValidatorData;
+use crate::EntropyBuffer;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
 use crate::{
@@ -103,6 +105,81 @@ impl Default for Header {
             entropy_source: [0; 96],
             seal: [0; 96],
         }
+    }
+}
+
+impl Header {
+    /// Validate the header
+    pub fn validate(
+        &self,
+        new_epoch: bool,
+        entropy: EntropyBuffer,
+        next: &[ValidatorData],
+        current: &[ValidatorData],
+        series: &TicketsOrKeys,
+    ) -> anyhow::Result<()> {
+        let slot = (self.slot % crate::EPOCH_LENGTH) as usize;
+        let entropy_buffer = entropy;
+        let mut ticket = None;
+        let entropy = if new_epoch {
+            entropy_buffer[2]
+        } else {
+            entropy_buffer[3]
+        };
+
+        // check the ticket mark
+        if let TicketsOrKeys::Tickets(tickets) = series {
+            ticket = Some(tickets[slot]);
+        }
+
+        // indicate the keys to be used
+        let keys = if new_epoch { next } else { current }
+            .iter()
+            .map(|v| v.bandersnatch)
+            .collect::<Vec<_>>();
+
+        // construct the message
+        let encoded = codec::encode(&self)?;
+        let context = encoded[..encoded.len() - 96].to_vec();
+
+        // construct the context
+        let mut message = Vec::new();
+        if let Some(ticket) = ticket {
+            message = TicketBody::message(ticket.attempt, &entropy);
+        } else {
+            message.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
+            message.extend_from_slice(&entropy);
+        }
+
+        // check the ticket seal
+        let author_index = self.author_index;
+        let verifier = crypto::ring::verifier(keys.clone());
+        let output = verifier
+            .ietf_vrf_verify(&message, &context, &self.seal, author_index as usize)
+            .map_err(|e| {
+                anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
+            })?;
+
+        if let Some(ticket) = ticket {
+            if ticket.id != output {
+                anyhow::bail!("header seal mismatched");
+            }
+        }
+
+        // verify entropy source
+        let extracted_vrf_output = crypto::vrf::ietf_output(self.seal)?;
+        let entropy_message = [&crate::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
+        verifier
+            .ietf_vrf_verify(
+                &entropy_message,
+                &[],
+                &self.entropy_source,
+                author_index as usize,
+            )
+            .map(|_| ())
+            .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
+
+        Ok(())
     }
 }
 

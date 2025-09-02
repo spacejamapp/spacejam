@@ -69,7 +69,19 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     // 2. verify the state transition
     let mut pkeys = Vec::new();
     runtime::timing::setup();
-    if let Err(e) = tx::transit::<jastime::Interpreter>(block, memdb.clone()).await {
+    let state = memdb.state()?;
+
+    if let Err(e) = block.header.validate(
+        block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH,
+        state.entropy,
+        &state.safrole.validators,
+        &state.validators.current,
+        &state.safrole.series,
+    ) {
+        tracing::warn!("failed to validate block header with error: {e:?}");
+    } else if let Err(e) =
+        tx::transit_with_state::<jastime::Interpreter>(block, state, memdb.clone()).await
+    {
         tracing::warn!("failed to transit block with error: {e:?}");
     }
 

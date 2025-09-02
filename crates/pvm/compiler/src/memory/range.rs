@@ -105,14 +105,14 @@ impl Memory {
         }
 
         let len = len - bytes.len() as u32;
-        addr = addr - self.info.heap.start;
+        addr -= self.info.heap.start;
         bytes.extend_from_slice(&self.heap[addr as usize..(addr as usize + len as usize)]);
         bytes
     }
 
     /// Write bytes to memory with boundary checks
     pub fn write_bytes(&mut self, addr: u32, data: &[u8]) {
-        if data.len() == 0 {
+        if data.is_empty() {
             return;
         }
 
@@ -137,7 +137,7 @@ impl Memory {
         if addr < self.info.heap.start {
             let wstart = (addr - self.info.write.start + self.info.read.len() as u32) as usize;
             let wend = self.info.read.len() + self.info.write.len();
-            let size = (wend - wstart) as usize;
+            let size = wend - wstart;
             self.base[wstart..wend].copy_from_slice(&data[..size]);
             written += size;
             addr = self.info.write.end;
@@ -149,7 +149,7 @@ impl Memory {
             return;
         }
 
-        addr = addr - self.info.heap.start;
+        addr -= self.info.heap.start;
         let len = data.len() - written;
         self.heap[addr as usize..(addr as usize + len)].copy_from_slice(&data[written..]);
     }

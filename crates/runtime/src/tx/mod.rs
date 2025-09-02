@@ -61,12 +61,34 @@ pub async fn transit<Vm: Pvm>(
     Ok(diff)
 }
 
+/// Transit state with new block
+#[tracing::instrument(skip_all, name = "stf")]
+pub async fn transit_with_state<Vm: Pvm>(
+    mut block: Block,
+    state: score::State,
+    storage: Arc<impl Storage>,
+) -> Result<Commit<TrieKey, Vec<u8>>> {
+    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone()).await?;
+    let _guard = timing::commit();
+    storage.commit(Column::State, diff.clone())?;
+    Ok(diff)
+}
+
 /// Simulate state transition with new block
 pub async fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let mut state: score::State = storage.state()?;
+    let state = storage.state()?;
+    self::simulate_with_state::<Vm>(block, state, storage.clone()).await
+}
+
+/// Simulate state transition with new block
+pub async fn simulate_with_state<Vm: Pvm>(
+    block: &mut Block,
+    mut state: score::State,
+    storage: Arc<impl Storage>,
+) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut diff = Commit::default();
     let mut processor = Processor::new();
 

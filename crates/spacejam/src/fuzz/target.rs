@@ -32,18 +32,18 @@ pub struct Target {
     imports: Vec<u32>,
 
     /// If use interpreter instead
-    interp: bool,
+    compiler: bool,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: UnixStream, interp: bool) -> Self {
+    pub fn new(stream: UnixStream, compiler: bool) -> Self {
         runtime::timing::setup();
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
             imports: Vec::new(),
-            interp,
+            compiler,
         }
     }
 
@@ -123,10 +123,20 @@ impl Target {
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
-        if self.interp {
-            tx::transit::<jastime::Interpreter>(block, self.data.clone()).await?;
+
+        let state = self.data.state()?;
+        block.header.validate(
+            block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH,
+            state.entropy,
+            &state.safrole.validators,
+            &state.validators.current,
+            &state.safrole.series,
+        )?;
+
+        if self.compiler {
+            tx::transit_with_state::<jastime::Jastime>(block, state, self.data.clone()).await?;
         } else {
-            tx::transit::<jastime::Jastime>(block, self.data.clone()).await?;
+            tx::transit_with_state::<jastime::Interpreter>(block, state, self.data.clone()).await?;
         }
 
         self.imports.push(timer.elapsed().as_millis() as u32);
