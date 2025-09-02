@@ -167,7 +167,7 @@ pub async fn simulate<Vm: Pvm>(
     // Round 3 computation
     let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
-        if !block.extrinsic.tickets.is_empty() || block.header.slot % score::EPOCH_LENGTH == 0 {
+        if !block.extrinsic.tickets.is_empty() || new_epoch {
             let _guard = timing::safrole();
             state.safrole = ticket::safrole(
                 state.timeslot,
@@ -184,7 +184,9 @@ pub async fn simulate<Vm: Pvm>(
             {
                 // FIXME: for building blocks only, could be removed
                 // on importing blocks.
-                block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
+                if new_epoch {
+                    block.header.epoch_mark = state.safrole.epoch_mark(&state.entropy);
+                }
                 block.header.tickets_mark = state
                     .safrole
                     .tickets_mark(state.timeslot, block.header.slot);

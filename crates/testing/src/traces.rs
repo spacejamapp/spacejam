@@ -6,7 +6,7 @@ use runtime::{
 };
 use score::{
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
-    safrole::ValidatorsData,
+    safrole::{Safrole, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{account, key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
@@ -69,7 +69,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     // 2. verify the state transition
     let mut pkeys = Vec::new();
     runtime::timing::setup();
-    if let Err(e) = tx::transit::<jastime::Compiler>(block, memdb.clone()).await {
+    if let Err(e) = tx::transit::<jastime::Interpreter>(block, memdb.clone()).await {
         tracing::warn!("failed to transit block with error: {e:?}");
     }
 
@@ -114,6 +114,13 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
             let spacejam: Privileges = codec::decode(&result)?;
             tracing::debug!("polkajam: {:?}", polkajam);
             tracing::debug!("spacejam: {:?}", spacejam);
+        }
+
+        if key == key::SAFROLE && value != result {
+            let polkajam: Safrole = codec::decode(&value)?;
+            let spacejam: Safrole = codec::decode(&result)?;
+            tracing::debug!("polkajam: {:?}", polkajam.to_json());
+            tracing::debug!("spacejam: {:?}", spacejam.to_json());
         }
 
         if key == key::DRAWN_VALIDATORS && value != result {

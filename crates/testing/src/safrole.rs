@@ -140,7 +140,9 @@ impl State {
         .await
         {
             Ok(safrole) => {
-                markers.epoch_mark = safrole.epoch_mark(new_epoch, &self.eta);
+                if new_epoch {
+                    markers.epoch_mark = safrole.epoch_mark(&self.eta);
+                }
                 markers.tickets_mark = safrole.tickets_mark(self.tau, input.slot);
 
                 self.gamma_a = safrole.accumulator;

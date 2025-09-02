@@ -36,16 +36,7 @@ pub struct Safrole {
 
 impl Safrole {
     /// (γ_k') Returns the validators for the next epoch.
-    pub fn next(
-        &self,
-        new_epoch: bool,
-        drawn: &ValidatorsData,
-        offenders: &[Ed25519Public],
-    ) -> ValidatorsData {
-        if !new_epoch {
-            return self.validators;
-        }
-
+    pub fn next(&self, drawn: &ValidatorsData, offenders: &[Ed25519Public]) -> ValidatorsData {
         // Apply blacklist filter Φ(ι)
         let mut next = [ValidatorData::default(); crate::VALIDATORS_COUNT as usize];
         for (i, validator) in drawn.iter().enumerate() {
@@ -60,11 +51,7 @@ impl Safrole {
     }
 
     /// Collects the epoch mark.
-    pub fn epoch_mark(&self, new_epoch: bool, entropy: &[OpaqueHash; 4]) -> Option<EpochMark> {
-        if !new_epoch {
-            return None;
-        }
-
+    pub fn epoch_mark(&self, entropy: &[OpaqueHash; 4]) -> Option<EpochMark> {
         let next_epoch_validators: Vec<_> = self
             .validators
             .iter()
