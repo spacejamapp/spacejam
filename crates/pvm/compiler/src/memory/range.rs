@@ -87,9 +87,9 @@ impl Memory {
             return self.base[start..(start + len as usize)].to_vec();
         }
 
-        // reading data from heap or from mutiple regions
+        // reading data from heap or from multiple regions
         //
-        // NOTE: for mutiple regions, we only support (write + heap) atm.
+        // NOTE: for multiple regions, we only support (write + heap) atm.
         let mut bytes = vec![];
         let mut addr = addr;
         if addr < self.info.heap.start {
@@ -131,7 +131,7 @@ impl Memory {
             return;
         }
 
-        // NOTE: for mutiple regions, we only support (write + heap) atm.
+        // NOTE: for multiple regions, we only support (write + heap) atm.
         let mut addr = addr;
         let mut written = 0;
         if addr < self.info.heap.start {
