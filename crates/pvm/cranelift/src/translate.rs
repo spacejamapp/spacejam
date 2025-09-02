@@ -22,7 +22,6 @@ impl Translator<'_> {
         for (pc, block) in &blocks {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
-            self.burn_gas(block.len() as i64);
             self.translate_block(block)?;
         }
 
@@ -126,7 +125,7 @@ impl Translator<'_> {
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
-            // tracing::trace!("{instruction:?}");
+            self.burn_gas(1);
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",

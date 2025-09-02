@@ -2,7 +2,7 @@
 
 use crate::Interpreter;
 use pvm::{
-    score::{service::ServiceAccount, Account},
+    score::{service::ServiceAccount, Account, Gas},
     Argument,
 };
 
@@ -38,6 +38,10 @@ impl Context {
 impl Argument for Interpreter {
     const SUPPORTED_CALLS: &[u32] = &[];
     const INITIAL_PC: u64 = 0;
+
+    fn burn(&mut self, gas: Gas) {
+        self.context.gas -= gas as i64;
+    }
 
     fn read(&self, address: u32, len: u32) -> anyhow::Result<Vec<u8>> {
         self.context.memory.read_bytes(address, len)

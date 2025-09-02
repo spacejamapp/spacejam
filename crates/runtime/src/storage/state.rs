@@ -10,7 +10,7 @@ use score::{
     service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceInfo, WorkReport},
     state::{account, key, State, StateKeyLike},
     statistic::Statistics,
-    EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, CORES_COUNT, EPOCH_LENGTH,
+    EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, TrieKey, CORES_COUNT, EPOCH_LENGTH,
 };
 
 /// Storage of the state of SpaceJam
@@ -274,6 +274,25 @@ pub trait StateStorage: KVStorage {
         account.index = index;
         account.info = info;
         Ok(account)
+    }
+
+    /// Get all account keys
+    fn account_keys(&self, index: u32) -> Result<Vec<TrieKey>> {
+        let info = account::info(index);
+        let bytes = index.to_le_bytes();
+        let mut removals = vec![info];
+        for pair in self.state_iter()? {
+            let (k, _) = pair?;
+            if [k[0], k[2], k[4], k[6]] != bytes {
+                continue;
+            }
+
+            let mut key = [0; 31];
+            key.copy_from_slice(&k);
+            removals.push(key);
+        }
+
+        Ok(removals)
     }
 
     /// Fetch the account state

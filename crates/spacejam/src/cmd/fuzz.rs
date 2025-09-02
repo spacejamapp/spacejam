@@ -12,6 +12,10 @@ pub enum Fuzz {
         /// The path to the unix socket
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
+
+        /// If use interpreter instead
+        #[clap(short, long)]
+        interp: bool,
     },
 
     /// Fuzz with a fuzzer
@@ -44,7 +48,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target { socket } => Target::serve(socket).await,
+            Self::Target { socket, interp } => Target::serve(socket, *interp).await,
             Self::Fuzzer {
                 socket,
                 traces,

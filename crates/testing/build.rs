@@ -85,7 +85,7 @@ fn main() -> Result<()> {
 
     // fuzz tests
     build_fuzz_tests(
-        "../../res/jam-conformance/fuzz-reports/0.6.7/traces",
+        "../../res/jam-conformance/fuzz-reports/0.7.0/traces",
         &out_dir.join("traces_fuzz.rs"),
     )?;
 
@@ -150,10 +150,7 @@ fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
-        if test.name.contains("report")
-            || test.name.contains("1754982087_00000005")
-            || test.name.contains("1755621252_00000009")
-        {
+        if test.name.contains("report") {
             continue;
         }
 

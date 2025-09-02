@@ -1,7 +1,7 @@
 //! Account registry
 
 use crate::{account::Account, service::ServiceAccount, OpaqueHash, ServiceId, TrieKey};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Account registry
 pub trait Accounts: Clone + Send + Sync + 'static {
@@ -36,6 +36,10 @@ pub trait Accounts: Clone + Send + Sync + 'static {
 
     /// Batch all accounts from the registry
     fn accounts(&self) -> &BTreeMap<u32, impl Account>;
+
+    fn removed(&self) -> BTreeSet<u32> {
+        Default::default()
+    }
 
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);

@@ -26,7 +26,7 @@ impl Module {
         let result = match trap::with(|| func(ctx)) {
             Ok(r) => {
                 let reason = translator::Exit::to_reason(r);
-                tracing::warn!("exit code: {r}, reason: {reason:?}");
+                tracing::debug!("exit code: {r}, reason: {reason:?}");
                 reason
             }
             Err(info) => Reason::Fault {

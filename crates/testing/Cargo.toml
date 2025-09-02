@@ -9,6 +9,7 @@ codec.workspace = true
 crypto.workspace = true
 erasure.workspace = true
 hex.workspace = true
+jastime.workspace = true
 paste.workspace = true
 pvm.workspace = true
 pvmi.workspace = true

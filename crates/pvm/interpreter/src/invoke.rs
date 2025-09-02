@@ -68,7 +68,7 @@ impl Interpreter {
         }
 
         interp.pc = reader.position;
-        let _ = interp.burn(1);
+        interp.burn(1);
         Ok(interp.result(
             ctx,
             initial_gas,

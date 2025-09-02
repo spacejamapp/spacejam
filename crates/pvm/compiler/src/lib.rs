@@ -1,8 +1,9 @@
 //! SpaceJam PVM compiler
 
 pub use {
-    artifact::{Artifact, YEEST_CACHE_DIR},
+    artifact::{Artifact, JASTIME_CACHE_DIR},
     compiler::Compiler,
+    cranelift_codegen::timing,
     jit::JIT,
     memory::Memory,
     module::{Info, Module},

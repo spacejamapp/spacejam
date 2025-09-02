@@ -1,0 +1,10 @@
+[package]
+name = "jastime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+pvm.workspace = true
+pvmc.workspace = true
+pvmi.workspace = true
+tokio.workspace = true

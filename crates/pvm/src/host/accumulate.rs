@@ -194,8 +194,6 @@ pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
     // Deduct full threshold from parent and give it to new account
     *service.balance_mut() -= new_account_threshold;
     created.info.balance = new_account_threshold;
-
-    ctx.burn(accumulate_gas);
     ctx.upsert(index, created);
 
     let new_index = ctx.check(((index - (1 << 8) + 42) % score::CHECK_SALT) + (1 << 8));

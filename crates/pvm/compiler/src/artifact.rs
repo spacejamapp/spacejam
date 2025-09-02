@@ -5,7 +5,7 @@ use cranelift_codegen::{incremental_cache::CacheKvStore, ir::Function};
 use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
 
 /// Cache directory for the compiled modules
-pub static YEEST_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+pub static JASTIME_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 /// Artifact for the compiled modules
 pub struct Artifact {
@@ -16,11 +16,11 @@ pub struct Artifact {
 impl Artifact {
     /// Create new artifact
     pub fn new() -> Result<Self> {
-        let dir = YEEST_CACHE_DIR.get_or_init(|| {
+        let dir = JASTIME_CACHE_DIR.get_or_init(|| {
             let dir = dirs::data_dir()
                 .unwrap_or_default()
                 .join("spacejam")
-                .join("yeest");
+                .join("jastime");
             Some(dir)
         });
 
@@ -34,26 +34,31 @@ impl Artifact {
         Ok(Self { dir })
     }
 
+    /// Check if the cache hits
+    pub fn hits(&self, key: [u8; 32]) -> bool {
+        if let Some((_, confirmed)) = self.clif(key) {
+            return confirmed;
+        }
+
+        false
+    }
+
     /// Get the path to the CLIF artifacts
-    pub fn clif(&self, key: [u8; 32]) -> Option<Function> {
+    pub fn clif(&self, key: [u8; 32]) -> Option<(Function, bool)> {
         let path = self.dir.join("clif").join(hex::encode(key));
         if !path.exists() {
             return None;
         }
 
         let serialized = fs::read(path).ok()?;
-        let function: Function = postcard::from_bytes(&serialized).ok()?;
-        Some(function)
+        postcard::from_bytes(&serialized).ok()
     }
 
     /// Put the CLIF artifact
-    pub fn put(&self, key: [u8; 32], function: &Function) -> Result<()> {
-        let path = self.dir.join("clif").join(hex::encode(key));
-        if path.exists() {
-            return Ok(());
-        }
-
-        let serialized = postcard::to_allocvec(&function)?;
+    pub fn put(&self, key: [u8; 32], function: &Function, confirmed: bool) -> Result<()> {
+        let key = hex::encode(key);
+        let path = self.dir.join("clif").join(&key);
+        let serialized = postcard::to_allocvec(&(function, confirmed))?;
         fs::write(path, serialized)?;
         Ok(())
     }

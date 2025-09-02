@@ -6,7 +6,6 @@ use crate::fuzz::{
     StreamExt,
 };
 use anyhow::Context;
-use pvmi::Interpreter;
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
@@ -31,21 +30,25 @@ pub struct Target {
 
     /// The import time for each block
     imports: Vec<u32>,
+
+    /// If use interpreter instead
+    interp: bool,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: UnixStream) -> Self {
+    pub fn new(stream: UnixStream, interp: bool) -> Self {
         runtime::timing::setup();
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
             imports: Vec::new(),
+            interp,
         }
     }
 
     /// Run the target
-    pub async fn serve(socket: &Path) -> anyhow::Result<()> {
+    pub async fn serve(socket: &Path, interp: bool) -> anyhow::Result<()> {
         fs::remove_file(socket).ok();
         let listener = UnixListener::bind(socket)
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
@@ -53,15 +56,15 @@ impl Target {
         tracing::info!("Listening on {socket:?}");
         for stream in listener.incoming() {
             let stream = stream.context("Failed to accept connection")?;
-            Self::run(stream).await?;
+            Self::run(stream, interp).await?;
         }
 
         Ok(())
     }
 
     /// Handle a new connection
-    pub async fn run(stream: UnixStream) -> anyhow::Result<()> {
-        let mut target = Target::new(stream);
+    pub async fn run(stream: UnixStream, interp: bool) -> anyhow::Result<()> {
+        let mut target = Target::new(stream, interp);
         loop {
             let Ok(message) = target.read_message().inspect_err(|e| {
                 tracing::warn!("No more bytes from the stream: {e}!",);
@@ -120,7 +123,12 @@ impl Target {
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
-        tx::transit::<Interpreter>(block, self.data.clone()).await?;
+        if self.interp {
+            tx::transit::<jastime::Interpreter>(block, self.data.clone()).await?;
+        } else {
+            tx::transit::<jastime::Jastime>(block, self.data.clone()).await?;
+        }
+
         self.imports.push(timer.elapsed().as_millis() as u32);
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;

@@ -1,7 +1,5 @@
 //! Host call trampoline
 
-use std::collections::BTreeMap;
-
 use crate::JIT;
 pub use abi::*;
 use anyhow::Result;
@@ -10,6 +8,7 @@ use cranelift_codegen::ir::FuncRef;
 use cranelift_jit::JITBuilder;
 use cranelift_module::{FuncId, Linkage, Module};
 use pvm::Argument;
+use std::collections::BTreeMap;
 
 pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";

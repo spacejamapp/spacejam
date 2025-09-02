@@ -74,7 +74,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated<R> {
-    // FIXME: extract the services from reports
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
         for result in &report.results {
@@ -122,14 +121,18 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
+        for removed in result.context.accounts.removed() {
+            context.accounts.remove(removed);
+        }
+
         for account_id in &services {
             if !lsvc.contains(account_id) {
                 removed.insert(account_id);
             }
         }
 
-        gas.insert(*service_id, result.gas);
         transfers.extend(result.transfers.clone());
+        gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
             pairings.insert(*service_id, hash);
         }
