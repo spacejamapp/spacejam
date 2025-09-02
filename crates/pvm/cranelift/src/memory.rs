@@ -98,12 +98,27 @@ impl Translator<'_> {
             types::I64 => 8,
             _ => panic!("invalid type"),
         };
+
+        // Sync registers to memory for host call
+        self.sync();
+
         let clen = self.builder.ins().iconst(types::I8, length);
         let inst = self
             .builder
             .ins()
             .call(self.host["mget"], &[self.pool.ctx, address, clen]);
         let value = self.builder.inst_results(inst)[0];
+
+        // Reload registers from memory after host call
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                i as i32 * 8,
+            );
+        }
+
         if length != 8 {
             self.builder.ins().ireduce(ty, value)
         } else {
@@ -113,6 +128,9 @@ impl Translator<'_> {
 
     /// Memory store abi
     pub fn mstore(&mut self, address: Value, value: Value) {
+        // Sync registers to memory for host call
+        self.sync();
+
         let length = self.builder.func.dfg.value_type(value).bytes();
         let clen = self.builder.ins().iconst(types::I8, length as i64);
         let value = match self.builder.func.dfg.value_type(value).bytes() {
@@ -125,6 +143,16 @@ impl Translator<'_> {
         self.builder
             .ins()
             .call(self.host["mset"], &[self.pool.ctx, address, value, clen]);
+
+        // Reload registers from memory after host call
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                i as i32 * 8,
+            );
+        }
     }
 
     /// Convert the given address to the real address in memory

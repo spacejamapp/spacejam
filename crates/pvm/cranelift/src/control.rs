@@ -55,14 +55,16 @@ impl Translator<'_> {
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
+        let args = self.args();
         self.builder
             .ins()
-            .brif(condition, target_block, &[], next_block, &[]);
+            .brif(condition, target_block, &args, next_block, &args);
         Ok(())
     }
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, exit: Exit) {
+        self.sync();
         let res = exit.value(&mut self.builder);
         self.builder.ins().return_(&[res]);
     }
@@ -116,6 +118,10 @@ impl Translator<'_> {
         // Valid jump block: calculate index and dispatch
         self.builder.switch_to_block(valid);
         {
+            // Sync current register state to memory before br_table
+            // since adapter blocks will load from memory (br_table can't pass parameters)
+            self.sync();
+
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);

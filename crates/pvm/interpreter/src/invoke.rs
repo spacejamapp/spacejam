@@ -33,14 +33,13 @@ impl Interpreter {
                 break;
             }
 
+            tracing::trace!(
+                "pos={:<6} gas={:<6} regs={:?}",
+                interp.pc,
+                interp.context.gas,
+                interp.context.registers
+            );
             for instr in block {
-                tracing::trace!(
-                    "pos={:<6} {:<20} gas={:<6} regs={:?}",
-                    instr.range.start,
-                    instr.value.to_string(),
-                    interp.context.gas,
-                    interp.context.registers
-                );
                 interp.pc = instr.range.start;
                 match interp.step(&instr) {
                     Reason::Continue => {

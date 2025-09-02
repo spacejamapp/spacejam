@@ -82,7 +82,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     {
         tracing::warn!("failed to validate block header with error: {e:?}");
     } else if let Err(e) =
-        tx::transit_with_state::<jastime::Interpreter>(block, state, memdb.clone()).await
+        tx::transit_with_state::<jastime::Compiler>(block, state, memdb.clone()).await
     {
         tracing::warn!("failed to transit block with error: {e:?}");
     }

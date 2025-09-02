@@ -313,7 +313,8 @@ pub fn query(ctx: &mut impl Argument) -> Result<ExitCode> {
         ctx.rset(8, lookup[1] as u64);
         2 + base * lookup[0] as u64
     } else {
-        ctx.rset(8, lookup[1] as u64 + base * lookup[2] as u64);
+        let reg8_val = lookup[1] as u64 + base * lookup[2] as u64;
+        ctx.rset(8, reg8_val);
         3 + base * lookup[0] as u64
     };
     Ok(exit)

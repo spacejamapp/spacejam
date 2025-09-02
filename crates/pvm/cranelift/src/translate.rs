@@ -2,7 +2,7 @@
 
 use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData};
+use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
 use cranelift_codegen::ir::{self, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
@@ -22,6 +22,10 @@ impl Translator<'_> {
         for (pc, block) in &blocks {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
+            let params = (0..13)
+                .map(|_| self.builder.append_block_param(cblock, types::I64))
+                .collect::<Vec<_>>();
+            self.params(&params);
             self.translate_block(block)?;
         }
 
@@ -64,16 +68,27 @@ impl Translator<'_> {
             &mut self.builder.func.dfg.value_lists,
         );
 
-        // Create block calls for each jump table entry
+        // Create adapter blocks and block calls for each jump table entry
         let mut block_calls = Vec::with_capacity(self.jump.len());
+        let mut adapter_blocks = Vec::new();
         for &jump_pc in &self.jump {
-            let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
-            let block_call = BlockCall::new(
-                block,
-                std::iter::empty(),
-                &mut self.builder.func.dfg.value_lists,
-            );
-            block_calls.push(block_call);
+            if let Some(&target_block) = self.blocks.get(&jump_pc) {
+                let adapter_block = self.builder.create_block();
+                adapter_blocks.push((adapter_block, target_block));
+                let block_call = BlockCall::new(
+                    adapter_block,
+                    std::iter::empty(),
+                    &mut self.builder.func.dfg.value_lists,
+                );
+                block_calls.push(block_call);
+            } else {
+                let block_call = BlockCall::new(
+                    trap,
+                    std::iter::empty(),
+                    &mut self.builder.func.dfg.value_lists,
+                );
+                block_calls.push(block_call);
+            }
         }
 
         // Create and cache the jump table
@@ -83,14 +98,25 @@ impl Translator<'_> {
         self.return_(Exit::InvalidJumpTarget);
         self.builder.seal_block(trap);
         self.translate_entry(entry, trap)?;
+
+        // Store the context pointer for adapter blocks to use
+        for (adapter_block, target_block) in adapter_blocks {
+            self.builder.switch_to_block(adapter_block);
+            self.load_registers();
+
+            let args = self.args();
+            self.builder.ins().jump(target_block, &args);
+            self.builder.seal_block(adapter_block);
+        }
+
         Ok(())
     }
 
     /// Handle the entry point
     ///
-    /// 5 for accumulate programs
-    /// 13 for testing
-    /// 0 for general programs
+    /// - 5 for accumulate programs
+    /// - 13 for testing
+    /// - 0 for general programs
     fn translate_entry(&mut self, entry: ir::Block, trap: ir::Block) -> Result<()> {
         self.builder.switch_to_block(entry);
         let pc = self.pc();
@@ -107,16 +133,52 @@ impl Translator<'_> {
 
         // Default to block 0 (general)
         let general = self.blocks.get(&0).copied().unwrap_or(trap);
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                i as i32 * 8,
+            );
+        }
 
         // Branch: if pc == 5 goto accumulate, else check for pc == 13
         let check_test = self.builder.create_block();
-        self.builder
-            .ins()
-            .brif(is_accumulate, accumulate, &[], check_test, &[]);
+        for _ in 0..13 {
+            self.builder.append_block_param(check_test, types::I64);
+        }
+
+        let args = self.args();
+        let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
+        let block_args = |block: ir::Block| -> &[cranelift_codegen::ir::BlockArg] {
+            if block == trap {
+                &empty_args[..]
+            } else {
+                &args[..]
+            }
+        };
+
+        self.builder.ins().brif(
+            is_accumulate,
+            accumulate,
+            block_args(accumulate),
+            check_test,
+            &args,
+        );
 
         // Branch: if pc == 13 goto test, else goto general
         self.builder.switch_to_block(check_test);
-        self.builder.ins().brif(is_test, test, &[], general, &[]);
+        let check_test_params = (0..13)
+            .map(|i| self.builder.block_params(check_test)[i])
+            .collect::<Vec<_>>();
+        self.params(&check_test_params);
+        self.builder.ins().brif(
+            is_test,
+            test,
+            block_args(test),
+            general,
+            block_args(general),
+        );
         self.builder.seal_block(check_test);
         self.builder.seal_block(entry);
         Ok(())
@@ -124,7 +186,6 @@ impl Translator<'_> {
 
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
-        // self.burn_gas(block.len() as i64);
         for instruction in block {
             self.burn_gas(self.pool.one);
             if let Err(e) = self.visit(instruction.value, &instruction.range) {

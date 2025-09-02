@@ -479,12 +479,27 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
+
+        // Sync registers to memory for host call
+        self.sync();
+
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
         let inst = self
             .builder
             .ins()
             .call(self.host["call"], &[index, self.pool.ctx]);
         let result = self.builder.inst_results(inst)[0];
+
+        // Reload registers from memory after host call
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                i as i32 * 8,
+            );
+        }
+
         let panic = self.builder.ins().iconst(types::I8, 1);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);
 
@@ -502,7 +517,8 @@ impl Visitor for Translator<'_> {
 
     fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         if let Some(block) = self.blocks.get(&(range.end as u64)) {
-            self.builder.ins().jump(*block, &[]);
+            let args = self.args();
+            self.builder.ins().jump(*block, &args);
         } else {
             self.burn_gas(self.pool.one);
             self.return_(Exit::ProgramNotTerminated);
@@ -514,7 +530,8 @@ impl Visitor for Translator<'_> {
         let format::O { off0 } = format;
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        self.builder.ins().jump(target_block, &[]);
+        let args = self.args();
+        self.builder.ins().jump(target_block, &args);
         Ok(())
     }
 
@@ -623,7 +640,8 @@ impl Visitor for Translator<'_> {
         self.rset(reg0, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        self.builder.ins().jump(target_block, &[]);
+        let args = self.args();
+        self.builder.ins().jump(target_block, &args);
         Ok(())
     }
 
@@ -1216,12 +1234,27 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
+
+        // Sync registers to memory for host call
+        self.sync();
+
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
         let _inst = self
             .builder
             .ins()
             .call(self.host["sbrk"], &[self.pool.ctx, target, increment]);
+
+        // Reload registers from memory after host call
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.ctx,
+                i as i32 * 8,
+            );
+        }
+
         Ok(())
     }
 
