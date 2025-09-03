@@ -121,26 +121,46 @@ impl Target {
 
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
-    pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
+    pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
         let state = self.data.state()?;
-        let new_epoch =
-            block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
-        let verifier = runtime::tx::ticket::lazy::verifier(
-            state.timeslot / score::EPOCH_LENGTH,
-            &state.safrole.validators.bandersnatch(),
-        )
-        .await;
-        block
-            .header
-            .validate(new_epoch, state.entropy, &state.safrole, verifier)?;
+        let epoch = state.timeslot / score::EPOCH_LENGTH;
+        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
 
-        if self.compiler {
-            tx::transit_with_state::<jastime::Jastime>(block, state, self.data.clone()).await?;
-        } else {
-            tx::transit_with_state::<jastime::Interpreter>(block, state, self.data.clone()).await?;
-        }
+        let entropy = state.entropy;
+        let safrole = state.safrole.clone();
+        let header = block.header.clone();
+        let diff = tokio::try_join!(
+            async {
+                let verifier =
+                    runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
+                        .await;
 
+                tokio::task::spawn_blocking(move || {
+                    header.validate(new_epoch, entropy, &safrole, verifier)
+                })
+                .await?
+            },
+            async {
+                if self.compiler {
+                    tx::simulate_with_state::<jastime::Jastime>(
+                        &mut block,
+                        state,
+                        self.data.clone(),
+                    )
+                    .await
+                } else {
+                    tx::simulate_with_state::<jastime::Interpreter>(
+                        &mut block,
+                        state,
+                        self.data.clone(),
+                    )
+                    .await
+                }
+            }
+        );
+
+        self.data.commit(Column::State, diff?.1)?;
         self.imports.push(timer.elapsed().as_millis() as u32);
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
