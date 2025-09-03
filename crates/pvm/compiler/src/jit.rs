@@ -105,13 +105,13 @@ impl JIT {
     /// Translate the program to CLIF
     fn clif(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
         let host = self.declare_host_in_module()?;
-        /* if let Some((fun, _)) = hash.and_then(|h| self.artifact.clif(h)) {
+        if let Some((fun, _)) = hash.and_then(|h| self.artifact.clif(h)) {
             self.ctx = Context::for_function(fun);
             let fun =
                 self.module
                     .declare_function(MAIN, Linkage::Export, &self.ctx.func.signature)?;
             return Ok(fun);
-        } */
+        }
 
         // construct the function
         let sig = self.signature();
