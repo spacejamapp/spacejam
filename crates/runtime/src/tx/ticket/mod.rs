@@ -69,7 +69,9 @@ pub async fn safrole(
     let new_epoch: bool = next_epoch > epoch;
     let mut safrole = safrole.clone();
     safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
-    safrole.validators = safrole.next(new_epoch, &validators.drawn, offenders);
+    if new_epoch {
+        safrole.validators = safrole.next(&validators.drawn, offenders);
+    }
 
     // Process accumulator and ring commitment in parallel
     let next = safrole.validators.bandersnatch();
@@ -152,8 +154,10 @@ pub fn sealing_key_series(
         && prev_slot_phase >= score::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == score::EPOCH_LENGTH as usize
     {
+        tracing::info!("use safrole keys");
         next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
+        tracing::info!("use fallback keys");
         next = TicketsOrKeys::fallback(
             curr_validators.iter().map(|v| v.bandersnatch).collect(),
             entropy[2],

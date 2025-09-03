@@ -1,12 +1,12 @@
 //! state transition traces
 
 use runtime::{
-    storage::{MemoryDb, StateStorage},
+    storage::{Column, KVStorage, MemoryDb, StateStorage},
     tx,
 };
 use score::{
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
-    safrole::ValidatorsData,
+    safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{account, key, StateKeyInfo, StateKeyLike},
     statistic::Statistics,
@@ -14,7 +14,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 mod fallback {
     include!(concat!(env!("OUT_DIR"), "/traces_fallback.rs"));
@@ -47,7 +47,6 @@ mod fuzz {
 /// Run the traces test
 pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     if test.input.len() == 31 {
-        // SKIP the genesis block
         return Ok(());
     }
 
@@ -68,10 +67,41 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     assert_eq!(state_root, input.pre_state.state_root);
 
     // 2. verify the state transition
+    let use_compiler = std::env::var("JASTIME").is_ok_and(|v| v == "true");
     let mut pkeys = Vec::new();
     runtime::timing::setup();
-    if let Err(e) = tx::transit::<jastime::Interpreter>(block, memdb.clone()).await {
-        tracing::warn!("failed to transit block with error: {e:?}");
+    let state = memdb.state()?;
+    let epoch = state.timeslot / score::EPOCH_LENGTH;
+    let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
+    let mut block2 = block.clone();
+    let safrole = state.safrole.clone();
+    let entropy = state.entropy;
+    let verifier =
+        runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
+    let result = tokio::try_join!(
+        async {
+            tokio::task::spawn_blocking(move || {
+                block
+                    .header
+                    .validate(new_epoch, entropy, &safrole, verifier)
+            })
+            .await?
+        },
+        async {
+            if use_compiler {
+                tx::simulate_with_state::<jastime::Jastime>(&mut block2, state, memdb.clone()).await
+            } else {
+                tx::simulate_with_state::<jastime::Interpreter>(&mut block2, state, memdb.clone())
+                    .await
+            }
+        },
+    );
+
+    match result {
+        Err(e) => tracing::warn!("failed to import block: {e:?}"),
+        Ok(((), diff)) => memdb
+            .commit(Column::State, diff)
+            .expect("failed to commit state"),
     }
 
     for KeyValue { key, value } in output.post_state.keyvals {
@@ -96,12 +126,12 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }
 
-        if key == key::STATISTICS && value != result {
+        /* if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        }
+        } */
 
         if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
@@ -115,6 +145,13 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
             let spacejam: Privileges = codec::decode(&result)?;
             tracing::debug!("polkajam: {:?}", polkajam);
             tracing::debug!("spacejam: {:?}", spacejam);
+        }
+
+        if key == key::SAFROLE && value != result {
+            let polkajam: Safrole = codec::decode(&value)?;
+            let spacejam: Safrole = codec::decode(&result)?;
+            tracing::debug!("polkajam: {:?}", polkajam.to_json());
+            tracing::debug!("spacejam: {:?}", spacejam.to_json());
         }
 
         if key == key::DRAWN_VALIDATORS && value != result {

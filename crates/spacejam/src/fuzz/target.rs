@@ -10,7 +10,7 @@ use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
-use score::{Block, OpaqueHash};
+use score::{safrole::ValidatorIter, Block, OpaqueHash};
 use std::{
     fs,
     ops::{Deref, DerefMut},
@@ -32,18 +32,18 @@ pub struct Target {
     imports: Vec<u32>,
 
     /// If use interpreter instead
-    interp: bool,
+    compiler: bool,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: UnixStream, interp: bool) -> Self {
+    pub fn new(stream: UnixStream, compiler: bool) -> Self {
         runtime::timing::setup();
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
             imports: Vec::new(),
-            interp,
+            compiler,
         }
     }
 
@@ -121,14 +121,46 @@ impl Target {
 
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
-    pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
+    pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
         let timer = Instant::now();
-        if self.interp {
-            tx::transit::<jastime::Interpreter>(block, self.data.clone()).await?;
-        } else {
-            tx::transit::<jastime::Jastime>(block, self.data.clone()).await?;
-        }
+        let state = self.data.state()?;
+        let epoch = state.timeslot / score::EPOCH_LENGTH;
+        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
 
+        let entropy = state.entropy;
+        let safrole = state.safrole.clone();
+        let header = block.header.clone();
+        let diff = tokio::try_join!(
+            async {
+                let verifier =
+                    runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
+                        .await;
+
+                tokio::task::spawn_blocking(move || {
+                    header.validate(new_epoch, entropy, &safrole, verifier)
+                })
+                .await?
+            },
+            async {
+                if self.compiler {
+                    tx::simulate_with_state::<jastime::Jastime>(
+                        &mut block,
+                        state,
+                        self.data.clone(),
+                    )
+                    .await
+                } else {
+                    tx::simulate_with_state::<jastime::Interpreter>(
+                        &mut block,
+                        state,
+                        self.data.clone(),
+                    )
+                    .await
+                }
+            }
+        );
+
+        self.data.commit(Column::State, diff?.1)?;
         self.imports.push(timer.elapsed().as_millis() as u32);
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;

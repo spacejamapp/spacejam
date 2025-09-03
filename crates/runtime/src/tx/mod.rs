@@ -61,12 +61,34 @@ pub async fn transit<Vm: Pvm>(
     Ok(diff)
 }
 
+/// Transit state with new block
+#[tracing::instrument(skip_all, name = "stf")]
+pub async fn transit_with_state<Vm: Pvm>(
+    mut block: Block,
+    state: score::State,
+    storage: Arc<impl Storage>,
+) -> Result<Commit<TrieKey, Vec<u8>>> {
+    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone()).await?;
+    let _guard = timing::commit();
+    storage.commit(Column::State, diff.clone())?;
+    Ok(diff)
+}
+
 /// Simulate state transition with new block
 pub async fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let mut state: score::State = storage.state()?;
+    let state = storage.state()?;
+    self::simulate_with_state::<Vm>(block, state, storage.clone()).await
+}
+
+/// Simulate state transition with new block
+pub async fn simulate_with_state<Vm: Pvm>(
+    block: &mut Block,
+    mut state: score::State,
+    storage: Arc<impl Storage>,
+) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut diff = Commit::default();
     let mut processor = Processor::new();
 
@@ -167,7 +189,7 @@ pub async fn simulate<Vm: Pvm>(
     // Round 3 computation
     let (root, accounts) = {
         // (γ') Update the sealing-key series (12.10)
-        if !block.extrinsic.tickets.is_empty() || block.header.slot % score::EPOCH_LENGTH == 0 {
+        if !block.extrinsic.tickets.is_empty() || new_epoch {
             let _guard = timing::safrole();
             state.safrole = ticket::safrole(
                 state.timeslot,
@@ -184,7 +206,9 @@ pub async fn simulate<Vm: Pvm>(
             {
                 // FIXME: for building blocks only, could be removed
                 // on importing blocks.
-                block.header.epoch_mark = state.safrole.epoch_mark(new_epoch, &state.entropy);
+                if new_epoch {
+                    block.header.epoch_mark = state.safrole.epoch_mark(&state.entropy);
+                }
                 block.header.tickets_mark = state
                     .safrole
                     .tickets_mark(state.timeslot, block.header.slot);
@@ -226,7 +250,6 @@ pub async fn simulate<Vm: Pvm>(
         state.statistics.merge_services(accumulation.records);
         state.statistics.merge_transfers(accumulation.transfers);
         processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
-
         (accumulation.root, accumulation.accounts)
     };
 

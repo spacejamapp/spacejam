@@ -64,6 +64,7 @@ impl Runner {
             }
         }
 
+        std::env::set_var("PVM_TESTING", "true");
         let module = Compiler.compile(&pvm::Program {
             code: input.program.to_vec(),
             registers: initial_registers,

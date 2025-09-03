@@ -3,7 +3,7 @@
 use crate::{Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData};
-use cranelift_codegen::ir::{self, BlockCall};
+use cranelift_codegen::ir::{self, BlockArg, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
 use std::collections::BTreeMap;
@@ -22,6 +22,15 @@ impl Translator<'_> {
         for (pc, block) in &blocks {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
+            if self.need_sync(pc) {
+                self.load_params();
+            } else {
+                // Parameter-based: receive registers + gas via block parameters (14 total)
+                let params = (0..14)
+                    .map(|_| self.builder.append_block_param(cblock, types::I64))
+                    .collect::<Vec<_>>();
+                self.params(&params);
+            }
             self.translate_block(block)?;
         }
 
@@ -64,12 +73,12 @@ impl Translator<'_> {
             &mut self.builder.func.dfg.value_lists,
         );
 
-        // Create block calls for each jump table entry
+        // Create block calls pointing directly to target blocks (no adapters needed)
         let mut block_calls = Vec::with_capacity(self.jump.len());
         for &jump_pc in &self.jump {
-            let block = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
+            let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
             let block_call = BlockCall::new(
-                block,
+                target,
                 std::iter::empty(),
                 &mut self.builder.func.dfg.value_lists,
             );
@@ -88,9 +97,9 @@ impl Translator<'_> {
 
     /// Handle the entry point
     ///
-    /// 5 for accumulate programs
-    /// 13 for testing
-    /// 0 for general programs
+    /// - 5 for accumulate programs
+    /// - 13 for testing
+    /// - 0 for general programs
     fn translate_entry(&mut self, entry: ir::Block, trap: ir::Block) -> Result<()> {
         self.builder.switch_to_block(entry);
         let pc = self.pc();
@@ -108,24 +117,55 @@ impl Translator<'_> {
         // Default to block 0 (general)
         let general = self.blocks.get(&0).copied().unwrap_or(trap);
 
+        // construct the arguments for the blocks (registers + gas)
+        self.load_params();
+        let args = self.args();
+        let empty_args: Vec<BlockArg> = vec![];
+        let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
+            // The entry blocks will never be jump targets.
+            if b == trap || self.testing {
+                &empty_args[..]
+            } else {
+                &args[..]
+            }
+        });
+
         // Branch: if pc == 5 goto accumulate, else check for pc == 13
         let check_test = self.builder.create_block();
-        self.builder
-            .ins()
-            .brif(is_accumulate, accumulate, &[], check_test, &[]);
+        {
+            for _ in 0..14 {
+                self.builder.append_block_param(check_test, types::I64);
+            }
+
+            self.builder.ins().brif(
+                is_accumulate,
+                accumulate,
+                accumulate_args,
+                check_test,
+                &args,
+            );
+        }
 
         // Branch: if pc == 13 goto test, else goto general
-        self.builder.switch_to_block(check_test);
-        self.builder.ins().brif(is_test, test, &[], general, &[]);
-        self.builder.seal_block(check_test);
-        self.builder.seal_block(entry);
+        {
+            self.builder.switch_to_block(check_test);
+            let check_test_params = (0..14)
+                .map(|i| self.builder.block_params(check_test)[i])
+                .collect::<Vec<_>>();
+            self.params(&check_test_params);
+            self.builder
+                .ins()
+                .brif(is_test, test, test_args, general, general_args);
+            self.builder.seal_block(check_test);
+            self.builder.seal_block(entry);
+        }
         Ok(())
     }
 
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
-            self.burn_gas(1);
+            self.burn_gas(-1);
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
@@ -138,7 +178,7 @@ impl Translator<'_> {
         // handle block termination with native CLIF control flow
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.burn_gas(1);
+                self.burn_gas(-1);
                 self.return_(Exit::ProgramNotTerminated);
             }
         }
