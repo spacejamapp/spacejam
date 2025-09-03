@@ -164,20 +164,30 @@ impl Translator<'_> {
 
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
-        let (pre, post) = (0, 0);
-        let mut is_pre = true;
-        for instruction in block {
-            if instruction.value.is_memory_op() {
-                // split operations
+        let mut gas_map = BTreeMap::new();
+        let mut gas = 0;
+        for (index, instr) in block.iter().enumerate() {
+            if instr.value.is_memory_op() {
+                gas_map.insert(index, gas - 1);
+                gas = 0;
+            } else {
+                gas -= 1;
             }
         }
 
-        for instruction in block {
-            self.burn_gas(-1);
-            if let Err(e) = self.visit(instruction.value, &instruction.range) {
+        let last_index = block.len() - 1;
+        for (index, instr) in block.iter().enumerate() {
+            if let Some(gas) = gas_map.get(&index) {
+                self.burn_gas(*gas as i64);
+                self.sync_gas();
+            } else if index == last_index && gas != 0 {
+                self.burn_gas(gas as i64);
+            }
+
+            if let Err(e) = self.visit(instr.value, &instr.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
-                    instruction.range.start,
+                    instr.range.start,
                     e
                 );
             }
