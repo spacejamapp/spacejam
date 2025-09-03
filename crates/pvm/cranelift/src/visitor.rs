@@ -516,7 +516,7 @@ impl Visitor for Translator<'_> {
                 self.builder.ins().jump(block, &args);
             }
         } else {
-            self.burn_gas(self.pool.one);
+            self.burn_gas(-1);
             self.return_(Exit::ProgramNotTerminated);
         }
 

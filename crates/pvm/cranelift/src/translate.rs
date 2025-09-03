@@ -165,7 +165,7 @@ impl Translator<'_> {
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
         for instruction in block {
-            self.burn_gas(self.pool.one);
+            self.burn_gas(-1);
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
@@ -178,7 +178,7 @@ impl Translator<'_> {
         // handle block termination with native CLIF control flow
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.burn_gas(self.pool.one);
+                self.burn_gas(-1);
                 self.return_(Exit::ProgramNotTerminated);
             }
         }

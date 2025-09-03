@@ -15,9 +15,9 @@ impl Translator<'_> {
     /// burn gas (subtract from the gas counter using SSA)
     ///
     /// TODO: handle OOG
-    pub fn burn_gas(&mut self, amount: Value) {
+    pub fn burn_gas(&mut self, amount: i64) {
         // Use SSA subtraction instead of memory load/store
-        self.pool.gas = self.builder.ins().isub(self.pool.gas, amount);
+        self.pool.gas = self.builder.ins().iadd_imm(self.pool.gas, amount);
     }
 
     /// get pc from the context
