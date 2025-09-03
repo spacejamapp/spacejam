@@ -1,7 +1,7 @@
 //! state transition traces
 
 use runtime::{
-    storage::{MemoryDb, StateStorage},
+    storage::{Column, KVStorage, MemoryDb, StateStorage},
     tx,
 };
 use score::{
@@ -14,7 +14,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 mod fallback {
     include!(concat!(env!("OUT_DIR"), "/traces_fallback.rs"));
@@ -70,21 +70,32 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let mut pkeys = Vec::new();
     runtime::timing::setup();
     let state = memdb.state()?;
-    let new_epoch = block.header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
-    let verifier = runtime::tx::ticket::lazy::verifier(
-        state.timeslot / score::EPOCH_LENGTH,
-        &state.safrole.validators.bandersnatch(),
-    )
-    .await;
-    if let Err(e) = block
-        .header
-        .validate(new_epoch, state.entropy, &state.safrole, verifier)
-    {
-        tracing::warn!("failed to validate block header with error: {e:?}");
-    } else if let Err(e) =
-        tx::transit_with_state::<jastime::Compiler>(block, state, memdb.clone()).await
-    {
-        tracing::warn!("failed to transit block with error: {e:?}");
+    let epoch = state.timeslot / score::EPOCH_LENGTH;
+    let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
+    let mut block2 = block.clone();
+    let safrole = state.safrole.clone();
+    let entropy = state.entropy;
+    let verifier =
+        runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
+    let result = tokio::try_join!(
+        async {
+            tokio::task::spawn_blocking(move || {
+                block
+                    .header
+                    .validate(new_epoch, entropy, &safrole, verifier)
+            })
+            .await?
+        },
+        async {
+            tx::simulate_with_state::<jastime::Compiler>(&mut block2, state, memdb.clone()).await
+        },
+    );
+
+    match result {
+        Err(e) => tracing::warn!("failed to import block: {e:?}"),
+        Ok(((), diff)) => memdb
+            .commit(Column::State, diff)
+            .expect("failed to commit state"),
     }
 
     for KeyValue { key, value } in output.post_state.keyvals {
