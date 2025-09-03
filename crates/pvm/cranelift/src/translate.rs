@@ -164,6 +164,14 @@ impl Translator<'_> {
 
     /// translate a block and check termination
     fn translate_block(&mut self, block: &Block) -> Result<()> {
+        let (pre, post) = (0, 0);
+        let mut is_pre = true;
+        for instruction in block {
+            if instruction.value.is_memory_op() {
+                // split operations
+            }
+        }
+
         for instruction in block {
             self.burn_gas(-1);
             if let Err(e) = self.visit(instruction.value, &instruction.range) {
