@@ -1,8 +1,5 @@
 //! Block header
 
-#[cfg(feature = "vrf")]
-use crate::safrole::Safrole;
-use crate::EntropyBuffer;
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
 use crate::{
@@ -115,8 +112,8 @@ impl Header {
     pub fn validate(
         &self,
         new_epoch: bool,
-        entropy: EntropyBuffer,
-        safrole: &Safrole,
+        entropy: crate::EntropyBuffer,
+        safrole: &crate::safrole::Safrole,
         verifier: std::sync::Arc<crypto::vrf::Verifier>,
     ) -> anyhow::Result<()> {
         let slot = (self.slot % crate::EPOCH_LENGTH) as usize;

@@ -49,7 +49,7 @@ pub struct Translator<'b> {
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
     pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
-        let testing = std::env::var("PVM_TESTING").map_or(false, |v| v == "true");
+        let testing = std::env::var("PVM_TESTING").is_ok_and(|v| v == "true");
         Ok(Self {
             builder: FunctionBuilder::new(func, ctx),
             blocks: BTreeMap::new(),

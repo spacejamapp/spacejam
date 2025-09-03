@@ -67,7 +67,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     assert_eq!(state_root, input.pre_state.state_root);
 
     // 2. verify the state transition
-    let use_compiler = std::env::var("JASTIME").map_or(false, |v| v == "true");
+    let use_compiler = std::env::var("JASTIME").is_ok_and(|v| v == "true");
     let mut pkeys = Vec::new();
     runtime::timing::setup();
     let state = memdb.state()?;
