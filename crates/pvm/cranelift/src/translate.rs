@@ -2,8 +2,8 @@
 
 use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
-use cranelift_codegen::ir::{self, BlockCall};
+use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData};
+use cranelift_codegen::ir::{self, BlockArg, BlockCall};
 use parser::{reader::Offset, Instruction, Visitor};
 use pvm::Program;
 use std::collections::BTreeMap;
@@ -22,7 +22,7 @@ impl Translator<'_> {
         for (pc, block) in &blocks {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
-            if self.jump.contains(pc) {
+            if self.need_sync(pc) {
                 self.load_registers();
             } else {
                 let params = (0..13)
@@ -115,54 +115,48 @@ impl Translator<'_> {
 
         // Default to block 0 (general)
         let general = self.blocks.get(&0).copied().unwrap_or(trap);
-        for i in 0..13 {
-            self.pool.registers[i] = self.builder.ins().load(
-                types::I64,
-                MemFlags::trusted(),
-                self.pool.ctx,
-                i as i32 * 8,
-            );
-        }
 
-        // Branch: if pc == 5 goto accumulate, else check for pc == 13
-        let check_test = self.builder.create_block();
-        for _ in 0..13 {
-            self.builder.append_block_param(check_test, types::I64);
-        }
-
+        // construct the arguments for the blocks
+        self.load_registers();
         let args = self.args();
-        let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
-        let block_args = |block: ir::Block| -> &[cranelift_codegen::ir::BlockArg] {
-            if block == trap {
+        let empty_args: Vec<BlockArg> = vec![];
+        let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
+            if b == trap {
                 &empty_args[..]
             } else {
                 &args[..]
             }
-        };
+        });
 
-        self.builder.ins().brif(
-            is_accumulate,
-            accumulate,
-            block_args(accumulate),
-            check_test,
-            &args,
-        );
+        // Branch: if pc == 5 goto accumulate, else check for pc == 13
+        let check_test = self.builder.create_block();
+        {
+            for _ in 0..13 {
+                self.builder.append_block_param(check_test, types::I64);
+            }
+
+            self.builder.ins().brif(
+                is_accumulate,
+                accumulate,
+                accumulate_args,
+                check_test,
+                &args,
+            );
+        }
 
         // Branch: if pc == 13 goto test, else goto general
-        self.builder.switch_to_block(check_test);
-        let check_test_params = (0..13)
-            .map(|i| self.builder.block_params(check_test)[i])
-            .collect::<Vec<_>>();
-        self.params(&check_test_params);
-        self.builder.ins().brif(
-            is_test,
-            test,
-            block_args(test),
-            general,
-            block_args(general),
-        );
-        self.builder.seal_block(check_test);
-        self.builder.seal_block(entry);
+        {
+            self.builder.switch_to_block(check_test);
+            let check_test_params = (0..13)
+                .map(|i| self.builder.block_params(check_test)[i])
+                .collect::<Vec<_>>();
+            self.params(&check_test_params);
+            self.builder
+                .ins()
+                .brif(is_test, test, test_args, general, general_args);
+            self.builder.seal_block(check_test);
+            self.builder.seal_block(entry);
+        }
         Ok(())
     }
 

@@ -7,6 +7,11 @@ use cranelift::prelude::*;
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
 impl Translator<'_> {
+    /// Check if the pc needs to sync
+    pub fn need_sync(&self, pc: &u64) -> bool {
+        self.jump.contains(pc)
+    }
+
     /// burn gas (subtract from the gas counter)
     ///
     /// TODO: handle OOG
@@ -57,8 +62,8 @@ impl Translator<'_> {
         let next_block = self.blocks[&next_pc];
 
         // Check if blocks expect parameters or load from memory
-        let target_needs_sync = self.jump.contains(&target_pc);
-        let next_needs_sync = self.jump.contains(&next_pc);
+        let target_needs_sync = self.need_sync(&target_pc);
+        let next_needs_sync = self.need_sync(&next_pc);
         let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
         let args = self.args();
         if target_needs_sync || next_needs_sync {
