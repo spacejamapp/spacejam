@@ -22,10 +22,14 @@ impl Translator<'_> {
         for (pc, block) in &blocks {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
-            let params = (0..13)
-                .map(|_| self.builder.append_block_param(cblock, types::I64))
-                .collect::<Vec<_>>();
-            self.params(&params);
+            if self.jump.contains(pc) {
+                self.load_registers();
+            } else {
+                let params = (0..13)
+                    .map(|_| self.builder.append_block_param(cblock, types::I64))
+                    .collect::<Vec<_>>();
+                self.params(&params);
+            }
             self.translate_block(block)?;
         }
 
@@ -68,27 +72,16 @@ impl Translator<'_> {
             &mut self.builder.func.dfg.value_lists,
         );
 
-        // Create adapter blocks and block calls for each jump table entry
+        // Create block calls pointing directly to target blocks (no adapters needed)
         let mut block_calls = Vec::with_capacity(self.jump.len());
-        let mut adapter_blocks = Vec::new();
         for &jump_pc in &self.jump {
-            if let Some(&target_block) = self.blocks.get(&jump_pc) {
-                let adapter_block = self.builder.create_block();
-                adapter_blocks.push((adapter_block, target_block));
-                let block_call = BlockCall::new(
-                    adapter_block,
-                    std::iter::empty(),
-                    &mut self.builder.func.dfg.value_lists,
-                );
-                block_calls.push(block_call);
-            } else {
-                let block_call = BlockCall::new(
-                    trap,
-                    std::iter::empty(),
-                    &mut self.builder.func.dfg.value_lists,
-                );
-                block_calls.push(block_call);
-            }
+            let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
+            let block_call = BlockCall::new(
+                target,
+                std::iter::empty(),
+                &mut self.builder.func.dfg.value_lists,
+            );
+            block_calls.push(block_call);
         }
 
         // Create and cache the jump table
@@ -98,17 +91,6 @@ impl Translator<'_> {
         self.return_(Exit::InvalidJumpTarget);
         self.builder.seal_block(trap);
         self.translate_entry(entry, trap)?;
-
-        // Store the context pointer for adapter blocks to use
-        for (adapter_block, target_block) in adapter_blocks {
-            self.builder.switch_to_block(adapter_block);
-            self.load_registers();
-
-            let args = self.args();
-            self.builder.ins().jump(target_block, &args);
-            self.builder.seal_block(adapter_block);
-        }
-
         Ok(())
     }
 

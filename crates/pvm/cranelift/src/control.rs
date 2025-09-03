@@ -55,10 +55,34 @@ impl Translator<'_> {
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
+
+        // Check if blocks expect parameters or load from memory
+        let target_needs_sync = self.jump.contains(&target_pc);
+        let next_needs_sync = self.jump.contains(&next_pc);
+        let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
         let args = self.args();
+        if target_needs_sync || next_needs_sync {
+            self.sync();
+        }
+
+        // switch the arguments based on the needs
+        let (target_args, next_args) = {
+            let target_args = if target_needs_sync {
+                &empty_args[..]
+            } else {
+                &args[..]
+            };
+            let next_args = if next_needs_sync {
+                &empty_args[..]
+            } else {
+                &args[..]
+            };
+            (target_args, next_args)
+        };
+
         self.builder
             .ins()
-            .brif(condition, target_block, &args, next_block, &args);
+            .brif(condition, target_block, target_args, next_block, next_args);
         Ok(())
     }
 

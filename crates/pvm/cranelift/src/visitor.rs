@@ -516,9 +516,15 @@ impl Visitor for Translator<'_> {
     }
 
     fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
-        if let Some(block) = self.blocks.get(&(range.end as u64)) {
-            let args = self.args();
-            self.builder.ins().jump(*block, &args);
+        let target_pc = range.end as u64;
+        if let Some(&block) = self.blocks.get(&target_pc) {
+            if self.jump.contains(&target_pc) {
+                self.sync();
+                self.builder.ins().jump(block, &[]);
+            } else {
+                let args = self.args();
+                self.builder.ins().jump(block, &args);
+            }
         } else {
             self.burn_gas(self.pool.one);
             self.return_(Exit::ProgramNotTerminated);
@@ -530,8 +536,13 @@ impl Visitor for Translator<'_> {
         let format::O { off0 } = format;
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        let args = self.args();
-        self.builder.ins().jump(target_block, &args);
+        if self.jump.contains(&target_pc) {
+            self.sync();
+            self.builder.ins().jump(target_block, &[]);
+        } else {
+            let args = self.args();
+            self.builder.ins().jump(target_block, &args);
+        }
         Ok(())
     }
 
@@ -640,8 +651,13 @@ impl Visitor for Translator<'_> {
         self.rset(reg0, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        let args = self.args();
-        self.builder.ins().jump(target_block, &args);
+        if self.jump.contains(&target_pc) {
+            self.sync();
+            self.builder.ins().jump(target_block, &[]);
+        } else {
+            let args = self.args();
+            self.builder.ins().jump(target_block, &args);
+        }
         Ok(())
     }
 
