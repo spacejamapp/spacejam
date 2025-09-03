@@ -121,7 +121,7 @@ impl Translator<'_> {
         let args = self.args();
         let empty_args: Vec<BlockArg> = vec![];
         let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
-            if b == trap {
+            if b == trap || self.testing {
                 &empty_args[..]
             } else {
                 &args[..]

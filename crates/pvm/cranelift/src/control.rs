@@ -9,7 +9,7 @@ const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 impl Translator<'_> {
     /// Check if the pc needs to sync
     pub fn need_sync(&self, pc: &u64) -> bool {
-        self.jump.contains(pc)
+        self.jump.contains(pc) || self.testing
     }
 
     /// burn gas (subtract from the gas counter)
@@ -147,16 +147,13 @@ impl Translator<'_> {
         // Valid jump block: calculate index and dispatch
         self.builder.switch_to_block(valid);
         {
-            // Sync current register state to memory before br_table
-            // since adapter blocks will load from memory (br_table can't pass parameters)
             self.sync();
 
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-
-            // Use the pre-created jump table - no need to recreate it every time!
+            let jump_index = self.builder.ins().ireduce(types::I32, jump_index);
             self.builder.ins().br_table(jump_index, self.rt_jump_table);
         }
 
