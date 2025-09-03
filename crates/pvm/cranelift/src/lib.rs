@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{self, FuncRef};
+use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
 use std::collections::BTreeMap;
 pub use {
     context::{offsets, Pool},
@@ -12,6 +12,7 @@ pub use {
 mod context;
 mod control;
 mod exit;
+pub mod ir;
 mod math;
 mod memory;
 mod register;
@@ -24,7 +25,7 @@ pub struct Translator<'b> {
     pub builder: FunctionBuilder<'b>,
 
     /// Map of blocks by start PC
-    pub blocks: BTreeMap<u64, ir::Block>,
+    pub blocks: BTreeMap<u64, Block>,
 
     /// The host call function
     pub host: BTreeMap<String, FuncRef>,
@@ -36,7 +37,7 @@ pub struct Translator<'b> {
     jump: Vec<u64>,
 
     /// Runtime jump table for br_table instruction (cached)
-    rt_jump_table: ir::JumpTable,
+    rt_jump_table: JumpTable,
 
     /// The constants pool
     pool: Pool,
@@ -48,7 +49,7 @@ pub struct Translator<'b> {
 
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
-    pub fn new(func: &'b mut ir::Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
+    pub fn new(func: &'b mut Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
         let testing = std::env::var("PVM_TESTING").is_ok_and(|v| v == "true");
         Ok(Self {
             builder: FunctionBuilder::new(func, ctx),
@@ -56,7 +57,7 @@ impl<'b> Translator<'b> {
             host: BTreeMap::new(),
             testing,
             jump: Vec::new(),
-            rt_jump_table: ir::JumpTable::new(0),
+            rt_jump_table: JumpTable::new(0),
             pool: Pool::default(),
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
