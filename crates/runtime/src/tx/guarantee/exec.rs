@@ -82,7 +82,15 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results = {
+    let mut results = if services.len() == 1 {
+        // Fast path: single service - avoid thread spawning overhead
+        let service = *services.iter().next().expect("single service");
+        let result = self::once::<V, R>(context.clone(), reports, table, service, timeslot);
+        let mut results = BTreeMap::new();
+        results.insert(service, result);
+        results
+    } else {
+        // Parallel path: multiple services - use thread pool
         let mut pool = tokio::task::JoinSet::new();
         for service in services.iter().cloned() {
             let context = context.clone();
