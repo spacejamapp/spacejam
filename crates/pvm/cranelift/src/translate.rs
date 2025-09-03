@@ -23,9 +23,10 @@ impl Translator<'_> {
             let cblock = self.blocks[pc];
             self.builder.switch_to_block(cblock);
             if self.need_sync(pc) {
-                self.load_registers();
+                self.load_params();
             } else {
-                let params = (0..13)
+                // Parameter-based: receive registers + gas via block parameters (14 total)
+                let params = (0..14)
                     .map(|_| self.builder.append_block_param(cblock, types::I64))
                     .collect::<Vec<_>>();
                 self.params(&params);
@@ -116,11 +117,12 @@ impl Translator<'_> {
         // Default to block 0 (general)
         let general = self.blocks.get(&0).copied().unwrap_or(trap);
 
-        // construct the arguments for the blocks
-        self.load_registers();
+        // construct the arguments for the blocks (registers + gas)
+        self.load_params();
         let args = self.args();
         let empty_args: Vec<BlockArg> = vec![];
         let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
+            // The entry blocks will never be jump targets.
             if b == trap || self.testing {
                 &empty_args[..]
             } else {
@@ -131,7 +133,7 @@ impl Translator<'_> {
         // Branch: if pc == 5 goto accumulate, else check for pc == 13
         let check_test = self.builder.create_block();
         {
-            for _ in 0..13 {
+            for _ in 0..14 {
                 self.builder.append_block_param(check_test, types::I64);
             }
 
@@ -147,7 +149,7 @@ impl Translator<'_> {
         // Branch: if pc == 13 goto test, else goto general
         {
             self.builder.switch_to_block(check_test);
-            let check_test_params = (0..13)
+            let check_test_params = (0..14)
                 .map(|i| self.builder.block_params(check_test)[i])
                 .collect::<Vec<_>>();
             self.params(&check_test_params);
