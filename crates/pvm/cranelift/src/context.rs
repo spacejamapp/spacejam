@@ -2,7 +2,7 @@
 
 use crate::Translator;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::BlockArg;
+use cranelift_codegen::ir::{BlockArg, StackSlot};
 use pvm::Program;
 
 /// ExtendedContext memory layout offsets
@@ -25,6 +25,9 @@ pub struct Pool {
     /// The context pointer
     pub ctx: Value,
 
+    /// The stack slot
+    pub stack: StackSlot,
+
     /// The memory pointer
     pub memory: Value,
 
@@ -42,6 +45,7 @@ impl Default for Pool {
     fn default() -> Self {
         Self {
             ctx: Value::new(0),
+            stack: StackSlot::new(0),
             memory: Value::new(0),
             registers: [Value::new(0); 13],
             gas: Value::new(0),
@@ -67,6 +71,32 @@ impl Translator<'_> {
         {
             self.memory = program.memory.info.clone();
         }
+    }
+
+    /// Load parameters from the stack
+    pub fn stack_load_params(&mut self) {
+        for i in 0..13 {
+            self.pool.registers[i] =
+                self.builder
+                    .ins()
+                    .stack_load(types::I64, self.pool.stack, i as i32 * 8);
+        }
+        self.pool.gas = self
+            .builder
+            .ins()
+            .stack_load(types::I64, self.pool.stack, 13 * 8);
+    }
+
+    /// Store parameters to the stack
+    pub fn stack_store_params(&mut self) {
+        for i in 0..13 {
+            self.builder
+                .ins()
+                .stack_store(self.pool.registers[i], self.pool.stack, i as i32 * 8);
+        }
+        self.builder
+            .ins()
+            .stack_store(self.pool.gas, self.pool.stack, 13 * 8);
     }
 
     /// load registers from the context

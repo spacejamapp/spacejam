@@ -16,6 +16,7 @@ pub mod ir;
 mod math;
 mod memory;
 mod register;
+mod trans;
 mod translate;
 mod visitor;
 
@@ -29,6 +30,9 @@ pub struct Translator<'b> {
 
     /// The host call function
     pub host: BTreeMap<String, FuncRef>,
+
+    /// Map of functions by PC
+    pub funcs: BTreeMap<u64, FuncRef>,
 
     /// If the translator is used for testing
     testing: bool,
@@ -55,6 +59,7 @@ impl<'b> Translator<'b> {
             builder: FunctionBuilder::new(func, ctx),
             blocks: BTreeMap::new(),
             host: BTreeMap::new(),
+            funcs: BTreeMap::new(),
             testing,
             jump: Vec::new(),
             rt_jump_table: JumpTable::new(0),

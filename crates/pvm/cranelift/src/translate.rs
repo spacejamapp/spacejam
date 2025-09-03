@@ -163,7 +163,7 @@ impl Translator<'_> {
     }
 
     /// translate a block and check termination
-    fn translate_block(&mut self, block: &Block) -> Result<()> {
+    pub fn translate_block(&mut self, block: &Block) -> Result<()> {
         let mut gas_map = BTreeMap::new();
         let mut gas = 0;
         for (index, instr) in block.iter().enumerate() {
