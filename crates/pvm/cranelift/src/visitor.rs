@@ -512,7 +512,7 @@ impl Visitor for Translator<'_> {
                 self.sync_params();
                 self.builder.ins().jump(block, &[]);
             } else {
-                let args = self.args();
+                let args = self.block_args();
                 self.builder.ins().jump(block, &args);
             }
         } else {
@@ -530,7 +530,7 @@ impl Visitor for Translator<'_> {
             self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
-            let args = self.args();
+            let args = self.block_args();
             self.builder.ins().jump(target_block, &args);
         }
         Ok(())
@@ -645,7 +645,7 @@ impl Visitor for Translator<'_> {
             self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
-            let args = self.args();
+            let args = self.block_args();
             self.builder.ins().jump(target_block, &args);
         }
         Ok(())

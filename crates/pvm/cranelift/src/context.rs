@@ -73,32 +73,6 @@ impl Translator<'_> {
         }
     }
 
-    /// Load parameters from the stack
-    pub fn stack_load_params(&mut self) {
-        for i in 0..13 {
-            self.pool.registers[i] =
-                self.builder
-                    .ins()
-                    .stack_load(types::I64, self.pool.stack, i as i32 * 8);
-        }
-        self.pool.gas = self
-            .builder
-            .ins()
-            .stack_load(types::I64, self.pool.stack, 13 * 8);
-    }
-
-    /// Store parameters to the stack
-    pub fn stack_store_params(&mut self) {
-        for i in 0..13 {
-            self.builder
-                .ins()
-                .stack_store(self.pool.registers[i], self.pool.stack, i as i32 * 8);
-        }
-        self.builder
-            .ins()
-            .stack_store(self.pool.gas, self.pool.stack, 13 * 8);
-    }
-
     /// load registers from the context
     pub fn load_registers(&mut self) {
         for i in 0..13 {
@@ -112,7 +86,7 @@ impl Translator<'_> {
     }
 
     /// Get register and gas values as block parameters (14 total)
-    pub fn args(&self) -> Vec<BlockArg> {
+    pub fn block_args(&self) -> Vec<BlockArg> {
         let mut params = Vec::new();
         for &reg in &self.pool.registers {
             params.push(BlockArg::Value(reg));

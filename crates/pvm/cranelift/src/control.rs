@@ -54,7 +54,7 @@ impl Translator<'_> {
         let target_needs_sync = self.need_sync(&target_pc);
         let next_needs_sync = self.need_sync(&next_pc);
         let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
-        let args = self.args();
+        let args = self.block_args();
         if target_needs_sync || next_needs_sync {
             self.sync_params();
         }

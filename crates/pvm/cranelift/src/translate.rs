@@ -119,7 +119,7 @@ impl Translator<'_> {
 
         // construct the arguments for the blocks (registers + gas)
         self.load_params();
-        let args = self.args();
+        let args = self.block_args();
         let empty_args: Vec<BlockArg> = vec![];
         let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
             // The entry blocks will never be jump targets.

@@ -2,8 +2,8 @@
 
 use crate::{ir, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC, Value};
-use cranelift_codegen::ir::{Block, BlockArg, StackSlot, StackSlotData, StackSlotKind};
+use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, Value};
+use cranelift_codegen::ir::{Block, BlockArg, BlockCall, StackSlot};
 use pvm::MemoryInfo;
 
 impl Translator<'_> {
@@ -19,12 +19,10 @@ impl Translator<'_> {
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
         self.init_context(self.builder.block_params(entry)[0], info);
-        self.stack_load_params();
         for block in &fun.blocks {
             self.translate_block(block)?;
         }
 
-        self.stack_store_params();
         self.builder.seal_all_blocks();
         Ok(())
     }
@@ -42,21 +40,38 @@ impl Translator<'_> {
         self.init_context(self.builder.block_params(entry)[0], info);
         self.load_params();
 
-        // Store final state to shared stack
-        self.pool.stack = self.builder.create_sized_stack_slot(StackSlotData::new(
-            StackSlotKind::ExplicitSlot,
-            14 * 8,
-            3,
-        ));
+        // Generate the runtime jump table for djump instructions
+        let trap = self.builder.create_block();
+        let default = BlockCall::new(
+            trap,
+            std::iter::empty(),
+            &mut self.builder.func.dfg.value_lists,
+        );
+
+        // Create block calls pointing to functions
+        let mut block_calls = Vec::with_capacity(self.jump.len());
+        for (_, funcref) in self.funcs.clone() {
+            let call = self.create_block();
+            self.builder.switch_to_block(call);
+            let block_args = self.load_block_args(call);
+            self.builder.ins().return_call(funcref, &block_args);
+            block_calls.push(BlockCall::new(
+                call,
+                self.block_args(),
+                &mut self.builder.func.dfg.value_lists,
+            ));
+        }
+
+        // Create and cache the jump table
+        let jt_data = JumpTableData::new(default, &block_calls);
+        self.rt_jump_table = self.builder.create_jump_table(jt_data);
 
         // Translate main function blocks
-        self.translate_entry_v2(entry)?;
+        self.translate_entry_v2(entry, trap)?;
         for block in &main.blocks {
             self.translate_block(block)?;
         }
 
-        // Store final state to shared stack
-        self.stack_store_params();
         self.builder.seal_all_blocks();
         Ok(self.pool.stack)
     }
@@ -66,10 +81,9 @@ impl Translator<'_> {
     /// - 5 for accumulate programs
     /// - 13 for testing
     /// - 0 for general programs
-    fn translate_entry_v2(&mut self, entry: Block) -> Result<()> {
+    fn translate_entry_v2(&mut self, entry: Block, trap: Block) -> Result<()> {
         self.builder.switch_to_block(entry);
         let pc = self.pc();
-        let trap = self.builder.create_block();
         let [accumulate, test] = [self.create_block(); 2];
 
         // Check for pc == 5 (accumulate)
@@ -86,7 +100,7 @@ impl Translator<'_> {
         let general = self.blocks.get(&0).copied().unwrap_or(trap);
 
         // construct the arguments for the blocks (registers + gas)
-        let args = self.args();
+        let args = self.block_args();
         let empty_args: Vec<BlockArg> = vec![];
         let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
             if b == trap || self.testing {
