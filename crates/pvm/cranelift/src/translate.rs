@@ -63,7 +63,7 @@ impl Translator<'_> {
     fn translate_dispatcher(&mut self, program: &Program, entry: ir::Block) -> Result<()> {
         let ctx_ptr = self.builder.block_params(entry)[0];
         self.builder.switch_to_block(entry);
-        self.init_context(program, ctx_ptr);
+        self.init_context(ctx_ptr, program.memory.info.clone());
 
         // Generate the runtime jump table for djump instructions
         let trap = self.builder.create_block();
@@ -157,8 +157,8 @@ impl Translator<'_> {
                 .ins()
                 .brif(is_test, test, test_args, general, general_args);
             self.builder.seal_block(check_test);
-            self.builder.seal_block(entry);
         }
+        self.builder.seal_block(entry);
         Ok(())
     }
 

@@ -17,7 +17,7 @@ mod compiler;
 pub mod engine;
 pub mod host;
 mod jit;
-mod translate;
 pub mod memory;
 pub mod module;
+mod translate;
 pub mod trap;

@@ -8,7 +8,7 @@ use cranelift_codegen::{
     Context,
 };
 use cranelift_module::{FuncId, Linkage, Module as _};
-use pvm::Program;
+use pvm::{MemoryInfo, Program};
 use std::collections::BTreeMap;
 use translator::{ir, Translator};
 
@@ -20,6 +20,7 @@ impl JIT {
         let blob = program.blob()?;
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
+        let minfo = program.memory.info.clone();
 
         // 1. declare all functions
         let main = self
@@ -27,14 +28,14 @@ impl JIT {
             .declare_function(MAIN, Linkage::Export, &format.main.signature)?;
 
         // 1. translate the main function
-        let (mut context, stack) = self.translate_main(&format.main)?;
+        let (mut context, stack) = self.translate_main(&format.main, minfo.clone())?;
         self.module.define_function(main, &mut context)?;
         context.clear();
 
         // 2. translate the rest of the functions
         let (table, funcs) = self.declare(&format, &mut context)?;
         for (id, func) in funcs {
-            self.translate_func(&mut context, func, stack, &table)?;
+            self.translate_func(&mut context, func, stack, &table, minfo.clone())?;
             self.module.define_function(id, &mut context)?;
         }
 
@@ -54,6 +55,7 @@ impl JIT {
         func: &ir::Function,
         stack: StackSlot,
         table: &BTreeMap<u64, FuncRef>,
+        info: MemoryInfo,
     ) -> Result<()> {
         let mut bctx = FunctionBuilderContext::new();
         context.func.signature = func.signature.clone();
@@ -61,16 +63,20 @@ impl JIT {
         // translate the function
         let mut trans = Translator::new(&mut context.func, &mut bctx)?;
         trans.funcs = table.clone();
-        trans.translate_v2(func, stack)?;
+        trans.translate_v2(func, stack, info)?;
         Ok(())
     }
 
     /// Translate the main function
-    pub fn translate_main(&mut self, main: &ir::Function) -> Result<(Context, StackSlot)> {
+    pub fn translate_main(
+        &mut self,
+        main: &ir::Function,
+        info: MemoryInfo,
+    ) -> Result<(Context, StackSlot)> {
         let mut ctx = self.module.make_context();
         let mut bctx = FunctionBuilderContext::new();
         let mut trans = Translator::new(&mut ctx.func, &mut bctx)?;
-        let stack = trans.translate_dispatcher_v2(main)?;
+        let stack = trans.translate_dispatcher_v2(main, info)?;
         Ok((ctx, stack))
     }
 

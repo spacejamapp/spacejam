@@ -3,7 +3,7 @@
 use crate::Translator;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{BlockArg, StackSlot};
-use pvm::Program;
+use pvm::MemoryInfo;
 
 /// ExtendedContext memory layout offsets
 pub mod offsets {
@@ -56,8 +56,8 @@ impl Default for Pool {
 
 impl Translator<'_> {
     /// Initialize context
-    pub fn init_context(&mut self, program: &Program, ctx: Value) {
-        tracing::debug!("memory info: {:?}", program.memory.info);
+    pub fn init_context(&mut self, ctx: Value, info: MemoryInfo) {
+        tracing::debug!("memory info: {:?}", &info);
         self.pool.memory = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
@@ -69,7 +69,7 @@ impl Translator<'_> {
 
         #[cfg(target_os = "macos")]
         {
-            self.memory = program.memory.info.clone();
+            self.memory = info;
         }
     }
 
@@ -120,6 +120,16 @@ impl Translator<'_> {
         // Add gas as the 14th parameter
         params.push(BlockArg::Value(self.pool.gas));
         params
+    }
+
+    /// Get function arguments
+    pub fn func_args(&self) -> Vec<Value> {
+        let mut args = Vec::new();
+        for &reg in &self.pool.registers {
+            args.push(reg);
+        }
+        args.push(self.pool.gas);
+        args
     }
 
     /// Update registers and gas from block parameters (14 total)
