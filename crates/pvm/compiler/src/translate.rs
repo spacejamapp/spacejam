@@ -22,15 +22,18 @@ impl JIT {
         let mut context = self.module.make_context();
 
         // 1. create signatures
+        //
+        // - main function: [ctx, a0, a1, a2, a3, gas] -> [exit]
+        // - dispatcher function: [ctx, target, a0, a1, a2, gas] -> [ctx, a0, a1, a2, a3, gas]
         let [main_sig, diaptcher_sig] = [
             Signature {
-                params: vec![AbiParam::new(types::I64); 1],
+                params: vec![AbiParam::new(types::I64); 6],
                 returns: vec![AbiParam::new(types::I64); 1],
                 call_conv: CallConv::SystemV,
             },
             Signature {
-                params: vec![AbiParam::new(types::I64); 15],
-                returns: vec![AbiParam::new(types::I64); 14],
+                params: vec![AbiParam::new(types::I64); 6],
+                returns: vec![AbiParam::new(types::I64); 6],
                 call_conv: CallConv::SystemV,
             },
         ];
@@ -42,7 +45,7 @@ impl JIT {
         context.func.signature = main_sig;
 
         // 2. declare all functions
-        let (table, funcs) = self.declare(&format, &mut context)?;
+        let funcs = self.declare(&format, &mut context)?;
 
         // 3. declare the dispatcher function
         let dispatcher_id =
@@ -57,62 +60,70 @@ impl JIT {
         self.module.define_function(main, &mut context)?;
         context.clear();
 
-        // 5. define the dispatcher function
-        context.func.signature = diaptcher_sig;
-        self.translate_dispatcher(&mut context, &table)?;
-        self.module.define_function(dispatcher_id, &mut context)?;
-        context.clear();
-
-        // 6. define all other functions
-        for (id, func) in funcs {
+        // 5. define all other functions
+        for (id, func) in &funcs {
             context.func.signature = func.signature.clone();
-            self.translate_func(&mut context, dispatcher, func, &table, minfo.clone())?;
-            self.module.define_function(id, &mut context)?;
+            self.translate_func(&mut context, dispatcher, func, minfo.clone())?;
+            self.module.define_function(*id, &mut context)?;
             context.clear();
         }
 
+        // 6. define the dispatcher function
+        context.func.signature = diaptcher_sig;
+        self.translate_dispatcher(&mut context)?;
+        self.module.define_function(dispatcher_id, &mut context)?;
+        context.clear();
+
         // 7. finalize the compilation
         self.module.finalize_definitions()?;
+
+        // 8. create the function table
+        let table = self.create_fun_table(&funcs)?;
         Ok(Module {
             code: self.module.get_finalized_function(main),
             memory,
             registers: program.registers,
+            table,
         })
     }
 
     /// Translate a single function
-    pub fn translate_func(
+    fn translate_func(
         &mut self,
         context: &mut Context,
         dispatcher: FuncRef,
         func: &ir::Function,
-        table: &BTreeMap<u64, FuncRef>,
         info: MemoryInfo,
     ) -> Result<()> {
         let mut bctx = FunctionBuilderContext::new();
         context.func.signature = func.signature.clone();
-
-        // translate the function
         let mut trans = Translator::new(&mut context.func, &mut bctx)?;
-        trans.funcs = table.clone();
         trans.translate_v2(dispatcher, func, info)?;
         Ok(())
     }
 
+    /// create the function table
+    fn create_fun_table<'f>(
+        &self,
+        table: &BTreeMap<FuncId, &'f ir::Function>,
+    ) -> Result<*const u8> {
+        let mut fun = Vec::new();
+        for func in table.keys() {
+            fun.push(self.module.get_finalized_function(*func));
+        }
+        Ok(fun.as_ptr() as *const u8)
+    }
+
     /// Translate the main function
-    pub fn translate_dispatcher(
-        &mut self,
-        context: &mut Context,
-        table: &BTreeMap<u64, FuncRef>,
-    ) -> Result<()> {
+    fn translate_dispatcher(&mut self, context: &mut Context) -> Result<()> {
         let mut bctx = FunctionBuilderContext::new();
         let mut trans = Translator::new(&mut context.func, &mut bctx)?;
-        trans.translate_dispatcher_v2(table)?;
+        trans.translate_dispatcher_v2(0 as *const u8)?;
         Ok(())
     }
 
     /// Translate the main function
-    pub fn translate_main(
+    fn translate_main(
         &mut self,
         ctx: &mut Context,
         dispatcher: FuncRef,
@@ -125,24 +136,22 @@ impl JIT {
     }
 
     /// Declare all functions
-    pub fn declare<'a>(
+    fn declare<'a>(
         &mut self,
         format: &'a ir::IR,
         context: &mut Context,
-    ) -> Result<(BTreeMap<u64, FuncRef>, BTreeMap<FuncId, &'a ir::Function>)> {
-        let mut table = BTreeMap::new();
+    ) -> Result<BTreeMap<FuncId, &'a ir::Function>> {
         let mut funcs = BTreeMap::new();
         for (pc, func) in &format.functions {
             let id = self.module.declare_function(
-                format!("{pc}").as_str(),
+                format!("local_{pc}").as_str(),
                 Linkage::Local,
                 &func.signature,
             )?;
 
-            let funref = self.module.declare_func_in_func(id, &mut context.func);
+            self.module.declare_func_in_func(id, &mut context.func);
             funcs.insert(id, func);
-            table.insert(*pc, funref);
         }
-        Ok((table, funcs))
+        Ok(funcs)
     }
 }

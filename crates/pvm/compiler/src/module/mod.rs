@@ -15,6 +15,8 @@ pub struct Module {
     pub memory: Memory,
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
+    /// The function table for this module
+    pub table: *const u8,
 }
 
 impl Module {
@@ -23,6 +25,7 @@ impl Module {
         let func = unsafe {
             std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>) -> i64>(self.code)
         };
+        ctx.table = self.table;
         let result = match trap::with(|| func(ctx)) {
             Ok(r) => {
                 let reason = translator::Exit::to_reason(r);
@@ -48,6 +51,7 @@ impl Module {
         memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = pvm::Context {
+            table: 0 as *const u8,
             registers: *registers,
             pc,
             gas: gas as i64,

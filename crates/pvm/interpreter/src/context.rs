@@ -26,6 +26,7 @@ impl Context {
         ctx: &'ctx mut X,
     ) -> pvm::Context<'ctx, X, &'ctx mut parser::Memory> {
         pvm::Context {
+            table: 0 as *const u8,
             ctx,
             memory: &mut self.memory,
             pc: 0,

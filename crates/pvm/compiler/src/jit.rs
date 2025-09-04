@@ -94,6 +94,7 @@ impl JIT {
             code: self.module.get_finalized_function(id),
             memory,
             registers: program.registers,
+            table: 0 as *const u8,
         })
     }
 

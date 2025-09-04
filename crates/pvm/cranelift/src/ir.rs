@@ -5,6 +5,15 @@ use cranelift_codegen::isa::CallConv;
 use parser::{reader::Offset, Instruction, ProgramBlob};
 use std::{collections::BTreeMap, ops::Range};
 
+/// Signature for the function
+pub fn sig() -> Signature {
+    Signature {
+        params: vec![AbiParam::new(types::I64); 6],
+        returns: vec![AbiParam::new(types::I64); 6],
+        call_conv: CallConv::SystemV,
+    }
+}
+
 /// Polkadot Virtual Machine IR
 pub struct IR {
     /// Functions in this program
@@ -63,16 +72,10 @@ pub struct Function {
 impl Function {
     /// Create a new function
     pub fn new(pc: u64) -> Self {
-        let signature = Signature {
-            params: vec![AbiParam::new(types::I64); 14],
-            returns: vec![AbiParam::new(types::I64); 14],
-            call_conv: CallConv::SystemV,
-        };
-
         Self {
             offset: pc..pc,
             blocks: vec![],
-            signature,
+            signature: self::sig(),
         }
     }
 }

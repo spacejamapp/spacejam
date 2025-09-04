@@ -40,6 +40,7 @@ impl Invocation for Compiler {
         let mut pvmc = JIT::host::<X>().expect("fix me later");
         let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
         let mut context = pvm::Context {
+            table: 0 as *const u8,
             registers: module.registers,
             gas: gas as i64,
             pc: pc as u64,
