@@ -23,10 +23,32 @@ impl Translator<'_> {
     /// Translate the main function
     ///
     /// We need to init all block parameters to our registers here.
-    pub fn translate_main(&mut self, _info: MemoryInfo) -> Result<()> {
+    ///
+    /// [ctx, memory, gas, [..registers]]
+    pub fn translate_main(&mut self, jump: &[u64], _info: MemoryInfo) -> Result<()> {
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
+
+        // init all registers
+        let params = self.builder.block_params(entry);
+        let [memory, gas] = [params[0], params[1]];
+        let registers = params[2..].to_vec();
+        (
+            self.pool.memory,
+            self.pool.gas,
+            self.pool.registers,
+            self.pool.dispatch,
+        ) = (
+            memory,
+            gas,
+            registers
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("failed to convert registers"))?,
+            -(jump.len() as i32),
+        );
+
+        // init the registers
         // self.builder.ins().return_call(dispatcher, &[]);
         Ok(())
     }
@@ -48,7 +70,7 @@ impl Translator<'_> {
         for (index, instr) in block.iter().enumerate() {
             if let Some(gas) = gas_map.get(&index) {
                 self.burn_gas(*gas as i64);
-                self.sync_gas();
+                self.store_gas();
             } else if index == last_index && gas != 0 {
                 self.burn_gas(gas as i64);
             }

@@ -480,12 +480,9 @@ impl Visitor for Translator<'_> {
         _range: &Range<usize>,
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
-        self.sync_params();
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
-        let inst = self
-            .builder
-            .ins()
-            .call(self.host["call"], &[index, self.pool.ctx]);
+        let ctx = self.ctx();
+        let inst = self.builder.ins().call(self.host["call"], &[index, ctx]);
         let result = self.builder.inst_results(inst)[0];
 
         // Check if the result is panic
@@ -508,7 +505,6 @@ impl Visitor for Translator<'_> {
         let target_pc = range.end as u64;
         if let Some(&block) = self.blocks.get(&target_pc) {
             if self.need_sync(&target_pc) {
-                self.sync_params();
                 self.builder.ins().jump(block, &[]);
             } else {
                 self.builder.ins().jump(block, &[]);
@@ -525,7 +521,6 @@ impl Visitor for Translator<'_> {
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
         if self.need_sync(&target_pc) {
-            self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
             self.builder.ins().jump(target_block, &[]);
@@ -639,7 +634,6 @@ impl Visitor for Translator<'_> {
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
         if self.need_sync(&target_pc) {
-            self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
             self.builder.ins().jump(target_block, &[]);
@@ -1236,14 +1230,13 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        self.sync_registers();
-        let target = self.builder.ins().iconst(types::I8, reg0 as i64);
-        let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
+        let ctx = self.ctx();
+        let target = self.rget(reg0);
+        let increment = self.rget(reg1);
         let _inst = self
             .builder
             .ins()
-            .call(self.host["sbrk"], &[self.pool.ctx, target, increment]);
-        self.load_registers();
+            .call(self.host["sbrk"], &[ctx, target, increment]);
         Ok(())
     }
 

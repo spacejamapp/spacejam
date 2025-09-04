@@ -27,6 +27,7 @@ impl Compiler {
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
+        let blob = program.blob()?;
 
         // 1. create signatures
         //
@@ -51,7 +52,7 @@ impl Compiler {
         // 2. define the main function
         let mut registers = {
             let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
-            translator.translate_main(minfo.clone())?;
+            translator.translate_main(&blob.jump_table, minfo.clone())?;
             translator.pool
         };
         self.module.define_function(main, &mut self.context)?;
@@ -76,12 +77,12 @@ impl Compiler {
 
         // 4. finalize the compilation
         self.module.finalize_definitions()?;
-        let table = self.create_fun_table(&funcs)?;
+        let dispatch = self.create_fun_table(&funcs)?;
         Ok(Module {
             code: self.module.get_finalized_function(main),
             memory,
             registers: program.registers,
-            table,
+            dispatch,
         })
     }
 

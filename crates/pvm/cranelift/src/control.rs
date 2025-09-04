@@ -31,7 +31,7 @@ impl Translator<'_> {
         let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
         let args = vec![];
         if target_needs_sync || next_needs_sync {
-            self.sync_params();
+            // self.sync_params();
         }
 
         // switch the arguments based on the needs
@@ -57,7 +57,7 @@ impl Translator<'_> {
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, exit: Exit) {
-        self.sync_params();
+        // self.sync_params();
         let res = exit.value(&mut self.builder);
         self.builder.ins().return_(&[res]);
     }
@@ -111,7 +111,7 @@ impl Translator<'_> {
         // Valid jump block: calculate index and dispatch
         self.builder.switch_to_block(valid);
         {
-            self.sync_params();
+            // self.sync_params();
 
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);

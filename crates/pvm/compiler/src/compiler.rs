@@ -61,16 +61,15 @@ impl Invocation for Compiler {
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
-        pc: usize,
+        _pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
         let mut pvmc = Self::host::<X>().expect("fix me later");
         let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
-            table: 0 as *const u8,
+            dispatch: 0 as *const u8,
             registers: module.registers,
             gas: gas as i64,
-            pc: pc as u64,
             memory: module.memory.clone(),
             ctx: &mut ctx,
         };
@@ -81,7 +80,7 @@ impl Invocation for Compiler {
             output: Default::default(),
             reason,
             state: State {
-                pc: context.pc as usize,
+                pc: 0,
                 gas: context.gas,
                 registers: context.registers,
                 memory: context.memory.fill(&program.memory),

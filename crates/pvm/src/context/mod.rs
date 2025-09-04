@@ -20,17 +20,14 @@ mod state;
 /// Helper context that wraps the invocation arguments and the memory.
 #[repr(C)]
 pub struct Context<'ctx, X: Argument, M: MemoryLike> {
-    /// The jump table of the context
-    pub table: *const u8,
-
     /// The registers of the context
     pub registers: [u64; 13],
 
     /// The gas of the context
     pub gas: i64,
 
-    /// The program counter of the context
-    pub pc: u64,
+    /// The jump table of the context
+    pub dispatch: *const u8,
 
     /// The hosting memory
     pub memory: M,
