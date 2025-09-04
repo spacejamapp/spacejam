@@ -16,9 +16,6 @@ pub struct JIT {
     /// Cranelift JIT module builder
     pub module: JITModule,
 
-    /// Function builder context
-    pub bctx: FunctionBuilderContext,
-
     /// Cranelift codegen context
     pub ctx: Context,
 
@@ -33,7 +30,6 @@ impl JIT {
         host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
-            bctx: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
             artifact: Artifact::new()?,
@@ -46,7 +42,6 @@ impl JIT {
         host::symbols::<X>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
-            bctx: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
             artifact: Artifact::new()?,
@@ -68,7 +63,7 @@ impl JIT {
         hash: Option<OpaqueHash>,
     ) -> Result<crate::Module> {
         let memory = crate::Memory::new(&program.memory)?;
-        let id = self.clif(program, hash)?;
+        let id = self.translate(program, hash)?;
         let func = self.ctx.func.clone();
 
         // define the function
@@ -103,7 +98,7 @@ impl JIT {
     }
 
     /// Translate the program to CLIF
-    fn clif(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
+    pub fn translate(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<FuncId> {
         let host = self.declare_host_in_module()?;
         if let Some((fun, _)) = hash.and_then(|h| self.artifact.clif(h)) {
             self.ctx = Context::for_function(fun);
@@ -118,7 +113,8 @@ impl JIT {
         let id = self.module.declare_function(MAIN, Linkage::Export, &sig)?;
         let host = self.declare_host_in_func(host)?;
         self.ctx.func.signature = self.signature();
-        let mut trans = Translator::new(&mut self.ctx.func, &mut self.bctx)?;
+        let mut bctx = FunctionBuilderContext::new();
+        let mut trans = Translator::new(&mut self.ctx.func, &mut bctx)?;
         trans.host = host;
         trans.translate(program)?;
         trans.builder.finalize();
@@ -132,7 +128,7 @@ impl JIT {
     }
 
     /// Create a signature for the function
-    fn signature(&self) -> Signature {
+    pub fn signature(&self) -> Signature {
         let mut sig = self.module.make_signature();
         sig.params.push(AbiParam::new(types::I64));
         sig.returns.push(AbiParam::new(types::I64));

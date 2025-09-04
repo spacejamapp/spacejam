@@ -6,7 +6,7 @@ use cranelift_codegen::ir::{StackSlot, StackSlotData, StackSlotKind};
 
 impl Translator<'_> {
     /// Translate a regular PVM function (non-main)
-    pub fn translate_v2(&mut self, fun: ir::Function, stack: StackSlot) -> Result<()> {
+    pub fn translate_v2(&mut self, fun: &ir::Function, stack: StackSlot) -> Result<()> {
         self.pool.stack = stack;
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
@@ -23,7 +23,7 @@ impl Translator<'_> {
 
     /// Translate the dispatcher/main function
     /// Creates the shared stack and handles initial setup
-    pub fn translate_dispatcher_v2(&mut self, main: ir::Function) -> Result<StackSlot> {
+    pub fn translate_dispatcher_v2(&mut self, main: &ir::Function) -> Result<StackSlot> {
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);

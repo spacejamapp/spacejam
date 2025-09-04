@@ -8,6 +8,7 @@ pub use {
     memory::Memory,
     module::{Info, Module},
     pvm::MemoryLike,
+    translator::Translator,
     trap::TrapInfo,
 };
 
@@ -16,6 +17,7 @@ mod compiler;
 pub mod engine;
 pub mod host;
 mod jit;
+mod translate;
 pub mod memory;
 pub mod module;
 pub mod trap;
