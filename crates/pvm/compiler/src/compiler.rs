@@ -1,44 +1,66 @@
-//! Clean block-based JIT compiler for PVM programs
+//! Cranelift JIT backend
 
-use crate::{Module, JIT};
+use crate::{engine, host, Artifact};
 use anyhow::Result;
+use cranelift_codegen::Context;
+use cranelift_jit::JITModule;
+use cranelift_module::Module;
 use pvm::{
     parser,
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked, Program, State,
+    Argument, Invocation, Invoked, State,
 };
 
-/// PVM compiler
-pub struct Compiler;
+/// Cranelift JIT module builder
+pub struct Compiler {
+    /// Cranelift JIT module builder
+    pub module: JITModule,
+
+    /// Cranelift codegen context
+    pub ctx: Context,
+
+    /// Artifact
+    pub artifact: Artifact,
+}
 
 impl Compiler {
-    /// Compile entire program as a function
-    pub fn compile(&mut self, program: &Program) -> Result<Module> {
-        JIT::new()?.compile(program, None)
+    /// Create new JIT module builder
+    pub fn new() -> Result<Self> {
+        let mut builder = engine::compilation()?;
+        host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
+        let module = JITModule::new(builder);
+        Ok(Self {
+            ctx: module.make_context(),
+            module,
+            artifact: Artifact::new()?,
+        })
     }
 
-    /// Compile entire program as a function with cache
-    pub fn compile_with_cache<X: Argument>(
-        &mut self,
-        program: &Program,
-        hash: Option<OpaqueHash>,
-    ) -> Result<Module> {
-        JIT::host::<X>()?.compile(program, hash)
+    /// Create new JIT module builder for host functions
+    pub fn host<X: Argument>() -> Result<Self> {
+        let mut builder = engine::compilation()?;
+        host::symbols::<X>(&mut builder);
+        let module = JITModule::new(builder);
+        Ok(Self {
+            ctx: module.make_context(),
+            module,
+            artifact: Artifact::new()?,
+        })
     }
 }
 
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(
         mut ctx: X,
-        hash: OpaqueHash,
+        _hash: OpaqueHash,
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let mut pvmc = JIT::host::<X>().expect("fix me later");
-        let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
+        let mut pvmc = Self::host::<X>().expect("fix me later");
+        let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
             table: 0 as *const u8,
             registers: module.registers,

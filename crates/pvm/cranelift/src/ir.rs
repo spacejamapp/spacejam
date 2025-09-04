@@ -46,7 +46,7 @@ impl From<&ProgramBlob<'_>> for IR {
                     break;
                 };
 
-                function.blocks.push(block);
+                function.blocks.insert(pc as u64, block);
                 function.offset.end = reader.position as u64;
             }
 
@@ -63,7 +63,7 @@ pub struct Function {
     pub offset: Range<u64>,
 
     /// Blocks in this function
-    pub blocks: Vec<Vec<Offset<Instruction>>>,
+    pub blocks: BTreeMap<u64, Vec<Offset<Instruction>>>,
 
     /// Signature of this function
     pub signature: Signature,
@@ -74,7 +74,7 @@ impl Function {
     pub fn new(pc: u64) -> Self {
         Self {
             offset: pc..pc,
-            blocks: vec![],
+            blocks: BTreeMap::new(),
             signature: self::sig(),
         }
     }

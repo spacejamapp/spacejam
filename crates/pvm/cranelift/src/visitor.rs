@@ -487,7 +487,6 @@ impl Visitor for Translator<'_> {
             .ins()
             .call(self.host["call"], &[index, self.pool.ctx]);
         let result = self.builder.inst_results(inst)[0];
-        self.load_params();
 
         // Check if the result is panic
         let panic = self.builder.ins().iconst(types::I8, 1);
@@ -512,8 +511,7 @@ impl Visitor for Translator<'_> {
                 self.sync_params();
                 self.builder.ins().jump(block, &[]);
             } else {
-                let args = self.block_args();
-                self.builder.ins().jump(block, &args);
+                self.builder.ins().jump(block, &[]);
             }
         } else {
             self.burn_gas(-1);
@@ -530,8 +528,7 @@ impl Visitor for Translator<'_> {
             self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
-            let args = self.block_args();
-            self.builder.ins().jump(target_block, &args);
+            self.builder.ins().jump(target_block, &[]);
         }
         Ok(())
     }
@@ -645,8 +642,7 @@ impl Visitor for Translator<'_> {
             self.sync_params();
             self.builder.ins().jump(target_block, &[]);
         } else {
-            let args = self.block_args();
-            self.builder.ins().jump(target_block, &args);
+            self.builder.ins().jump(target_block, &[]);
         }
         Ok(())
     }

@@ -1,25 +1,33 @@
 //! Cranelift JIT backend
 
-use crate::{Module, JIT};
+use crate::{Compiler, Module};
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
-use cranelift_codegen::{ir::FuncRef, isa::CallConv, Context};
+use cranelift_codegen::{isa::CallConv, Context};
 use cranelift_module::{FuncId, Linkage, Module as _};
-use pvm::{MemoryInfo, Program};
+use pvm::{score::OpaqueHash, MemoryInfo, Program};
 use std::collections::BTreeMap;
 use translator::{ir, Translator};
 
 const MAIN: &str = "main";
 const DISPATCHER: &str = "dispatcher";
 
-impl JIT {
+impl Compiler {
+    /// Compile the program with cache
+    pub fn compile_with_cache(
+        &mut self,
+        program: &Program,
+        _hash: Option<OpaqueHash>,
+    ) -> Result<Module> {
+        self.compile(program)
+    }
+
     /// Declare functions for the program
-    pub fn compile_v2(&mut self, program: &Program) -> Result<Module> {
+    pub fn compile(&mut self, program: &Program) -> Result<Module> {
         let blob = program.blob()?;
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
-        let mut context = self.module.make_context();
 
         // 1. create signatures
         //
@@ -39,6 +47,7 @@ impl JIT {
         ];
 
         // 1. declare the main function
+        let mut context = self.module.make_context();
         let main = self
             .module
             .declare_function(MAIN, Linkage::Export, &main_sig)?;
@@ -56,14 +65,16 @@ impl JIT {
             .declare_func_in_func(dispatcher_id, &mut context.func);
 
         // 4. define the main function
-        self.translate_main(&mut context, dispatcher, minfo.clone())?;
+        let mut bctx = FunctionBuilderContext::new();
+        let mut translator = Translator::new(&[], &mut context.func, &mut bctx)?;
+        translator.translate_main(minfo.clone(), dispatcher)?;
         self.module.define_function(main, &mut context)?;
         context.clear();
 
         // 5. define all other functions
         for (id, func) in &funcs {
             context.func.signature = func.signature.clone();
-            self.translate_func(&mut context, dispatcher, func, minfo.clone())?;
+            self.translate_func(&mut context, func, minfo.clone())?;
             self.module.define_function(*id, &mut context)?;
             context.clear();
         }
@@ -91,14 +102,13 @@ impl JIT {
     fn translate_func(
         &mut self,
         context: &mut Context,
-        dispatcher: FuncRef,
         func: &ir::Function,
         info: MemoryInfo,
     ) -> Result<()> {
         let mut bctx = FunctionBuilderContext::new();
         context.func.signature = func.signature.clone();
-        let mut trans = Translator::new(&mut context.func, &mut bctx)?;
-        trans.translate_v2(dispatcher, func, info)?;
+        let mut trans = Translator::new(Default::default(), &mut context.func, &mut bctx)?;
+        trans.translate(func, info)?;
         Ok(())
     }
 
@@ -117,21 +127,8 @@ impl JIT {
     /// Translate the main function
     fn translate_dispatcher(&mut self, context: &mut Context) -> Result<()> {
         let mut bctx = FunctionBuilderContext::new();
-        let mut trans = Translator::new(&mut context.func, &mut bctx)?;
-        trans.translate_dispatcher_v2(0 as *const u8)?;
-        Ok(())
-    }
-
-    /// Translate the main function
-    fn translate_main(
-        &mut self,
-        ctx: &mut Context,
-        dispatcher: FuncRef,
-        info: MemoryInfo,
-    ) -> Result<()> {
-        let mut bctx = FunctionBuilderContext::new();
-        let mut trans = Translator::new(&mut ctx.func, &mut bctx)?;
-        trans.translate_main(info, dispatcher)?;
+        let mut trans = Translator::new(&[], &mut context.func, &mut bctx)?;
+        trans.translate_dispatcher(0 as *const u8)?;
         Ok(())
     }
 

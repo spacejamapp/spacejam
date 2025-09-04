@@ -1,6 +1,6 @@
 //! Control flow related interfaces
 
-use crate::{context::offsets, exit::Exit, Translator};
+use crate::{exit::Exit, register::offsets, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -9,7 +9,7 @@ const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 impl Translator<'_> {
     /// Check if the pc needs to sync
     pub fn need_sync(&self, pc: &u64) -> bool {
-        self.jump.contains(pc) || self.testing
+        self.jump.contains(pc)
     }
 
     /// burn gas (subtract from the gas counter using SSA)
@@ -54,7 +54,7 @@ impl Translator<'_> {
         let target_needs_sync = self.need_sync(&target_pc);
         let next_needs_sync = self.need_sync(&next_pc);
         let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
-        let args = self.block_args();
+        let args = vec![];
         if target_needs_sync || next_needs_sync {
             self.sync_params();
         }
@@ -142,8 +142,11 @@ impl Translator<'_> {
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-            let jump_index = self.builder.ins().ireduce(types::I32, jump_index);
-            self.builder.ins().br_table(jump_index, self.rt_jump_table);
+            let _jump_index = self.builder.ins().ireduce(types::I32, jump_index);
+
+            // TODO: use call indirect
+            //
+            // self.builder.ins().br_table(jump_index, self.rt_jump_table);
         }
 
         // Trap block: invalid jump target

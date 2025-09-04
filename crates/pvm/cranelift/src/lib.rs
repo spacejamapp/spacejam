@@ -2,21 +2,19 @@
 
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
+use cranelift_codegen::ir::{Block, FuncRef, Function};
 use std::collections::BTreeMap;
 pub use {
-    context::{offsets, Pool},
     exit::Exit,
+    register::{offsets, Registers},
 };
 
-mod context;
 mod control;
 mod exit;
 pub mod ir;
 mod math;
 mod memory;
 mod register;
-mod trans;
 mod translate;
 mod visitor;
 
@@ -31,23 +29,11 @@ pub struct Translator<'b> {
     /// The host call function
     pub host: BTreeMap<String, FuncRef>,
 
-    /// Map of functions by PC
-    pub funcs: BTreeMap<u64, FuncRef>,
-
-    /// The dispatcher function
-    dispatcher: FuncRef,
-
-    /// If the translator is used for testing
-    testing: bool,
-
     /// Jump table for dynamic jumps
     jump: Vec<u64>,
 
-    /// Runtime jump table for br_table instruction (cached)
-    rt_jump_table: JumpTable,
-
     /// The constants pool
-    pool: Pool,
+    pool: Registers,
 
     /// The memory info
     #[cfg(target_os = "macos")]
@@ -56,20 +42,43 @@ pub struct Translator<'b> {
 
 impl<'b> Translator<'b> {
     /// Create a new translator with PVM register variables and PC
-    pub fn new(func: &'b mut Function, ctx: &'b mut FunctionBuilderContext) -> Result<Self> {
-        let testing = std::env::var("PVM_TESTING").is_ok_and(|v| v == "true");
+    pub fn new(
+        blocks: &[u64],
+        func: &'b mut Function,
+        ctx: &'b mut FunctionBuilderContext,
+    ) -> Result<Self> {
+        let mut iblocks = BTreeMap::new();
+        let mut builder = FunctionBuilder::new(func, ctx);
+        for pc in blocks {
+            iblocks.insert(*pc, builder.create_block());
+        }
+
         Ok(Self {
             builder: FunctionBuilder::new(func, ctx),
-            blocks: BTreeMap::new(),
-            dispatcher: FuncRef::new(0),
+            blocks: iblocks,
             host: BTreeMap::new(),
-            funcs: BTreeMap::new(),
-            testing,
             jump: Vec::new(),
-            rt_jump_table: JumpTable::new(0),
-            pool: Pool::default(),
+            pool: Registers::default(),
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
+    }
+
+    /// Reset the translator for new functions
+    pub fn reset(
+        &mut self,
+        blocks: &[u64],
+        func: &'b mut Function,
+        ctx: &'b mut FunctionBuilderContext,
+    ) {
+        let mut iblocks = BTreeMap::new();
+        let mut builder = FunctionBuilder::new(func, ctx);
+        for pc in blocks {
+            iblocks.insert(*pc, builder.create_block());
+        }
+
+        self.blocks = iblocks;
+        self.builder = builder;
+        self.pool = Registers::default();
     }
 }
