@@ -7,9 +7,6 @@ use std::{collections::BTreeMap, ops::Range};
 
 /// Polkadot Virtual Machine IR
 pub struct IR {
-    /// Dispatcher function
-    pub main: Function,
-
     /// Functions in this program
     pub functions: BTreeMap<u64, Function>,
 }
@@ -17,7 +14,6 @@ pub struct IR {
 impl Default for IR {
     fn default() -> Self {
         Self {
-            main: Function::main(),
             functions: BTreeMap::new(),
         }
     }
@@ -27,19 +23,6 @@ impl From<&ProgramBlob<'_>> for IR {
     fn from(program: &ProgramBlob<'_>) -> Self {
         let mut ir = Self::default();
         let mut reader = program.reader();
-
-        // read main function
-        while !reader.eof() {
-            if let Ok(block) = reader.read_block() {
-                ir.main.blocks.push(block);
-                if program.jump_table.contains(&(reader.position as u64)) {
-                    ir.main.offset.end = reader.position as u64;
-                    break;
-                }
-            }
-        }
-
-        // read other functions
         for entry in &program.jump_table {
             let mut function = Function::new(*entry);
             reader.set_position(*entry as usize);
@@ -81,8 +64,8 @@ impl Function {
     /// Create a new function
     pub fn new(pc: u64) -> Self {
         let signature = Signature {
-            params: vec![AbiParam::new(types::I64)],
-            returns: vec![],
+            params: vec![AbiParam::new(types::I64); 14],
+            returns: vec![AbiParam::new(types::I64); 14],
             call_conv: CallConv::SystemV,
         };
 
@@ -91,12 +74,5 @@ impl Function {
             blocks: vec![],
             signature,
         }
-    }
-
-    /// Create a main function
-    pub fn main() -> Self {
-        let mut fun = Self::new(0);
-        fun.signature.returns = vec![AbiParam::new(types::I64)];
-        fun
     }
 }

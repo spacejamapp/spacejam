@@ -34,6 +34,9 @@ pub struct Translator<'b> {
     /// Map of functions by PC
     pub funcs: BTreeMap<u64, FuncRef>,
 
+    /// The dispatcher function
+    dispatcher: FuncRef,
+
     /// If the translator is used for testing
     testing: bool,
 
@@ -58,6 +61,7 @@ impl<'b> Translator<'b> {
         Ok(Self {
             builder: FunctionBuilder::new(func, ctx),
             blocks: BTreeMap::new(),
+            dispatcher: FuncRef::new(0),
             host: BTreeMap::new(),
             funcs: BTreeMap::new(),
             testing,
