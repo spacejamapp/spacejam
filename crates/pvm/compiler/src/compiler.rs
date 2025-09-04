@@ -2,9 +2,9 @@
 
 use crate::{engine, host, Artifact};
 use anyhow::Result;
+use cranelift::prelude::FunctionBuilderContext;
 use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
-use cranelift_module::Module;
 use pvm::{
     parser,
     score::{Gas, OpaqueHash},
@@ -16,11 +16,14 @@ pub struct Compiler {
     /// Cranelift JIT module builder
     pub module: JITModule,
 
-    /// Cranelift codegen context
-    pub ctx: Context,
-
     /// Artifact
     pub artifact: Artifact,
+
+    /// Cranelift context
+    pub context: Context,
+
+    /// Function builder context
+    pub ctx: FunctionBuilderContext,
 }
 
 impl Compiler {
@@ -30,9 +33,10 @@ impl Compiler {
         host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
-            ctx: module.make_context(),
             module,
             artifact: Artifact::new()?,
+            context: Context::new(),
+            ctx: FunctionBuilderContext::new(),
         })
     }
 
@@ -42,9 +46,10 @@ impl Compiler {
         host::symbols::<X>(&mut builder);
         let module = JITModule::new(builder);
         Ok(Self {
-            ctx: module.make_context(),
             module,
             artifact: Artifact::new()?,
+            context: Context::new(),
+            ctx: FunctionBuilderContext::new(),
         })
     }
 }

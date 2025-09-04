@@ -1,6 +1,6 @@
 //! Control flow related interfaces
 
-use crate::{exit::Exit, register::offsets, Translator};
+use crate::{exit::Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::*;
 
@@ -18,31 +18,6 @@ impl Translator<'_> {
     pub fn burn_gas(&mut self, amount: i64) {
         // Use SSA subtraction instead of memory load/store
         self.pool.gas = self.builder.ins().iadd_imm(self.pool.gas, amount);
-    }
-
-    /// get pc from the context
-    pub fn pc(&mut self) -> Value {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::PC_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.pool.ctx, offset);
-        self.builder
-            .ins()
-            .load(types::I64, MemFlags::trusted(), addr, 0)
-    }
-
-    /// set pc to the context
-    pub fn set_pc(&mut self, pc: u64) {
-        let offset = self
-            .builder
-            .ins()
-            .iconst(types::I64, offsets::PC_OFFSET as i64);
-        let addr = self.builder.ins().iadd(self.pool.ctx, offset);
-        let pc_val = self.builder.ins().iconst(types::I64, pc as i64);
-        self.builder
-            .ins()
-            .store(MemFlags::trusted(), pc_val, addr, 0);
     }
 
     /// generate branch instruction

@@ -29,11 +29,11 @@ pub struct Translator<'b> {
     /// The host call function
     pub host: BTreeMap<String, FuncRef>,
 
+    /// The constants pool
+    pub pool: Registers,
+
     /// Jump table for dynamic jumps
     jump: Vec<u64>,
-
-    /// The constants pool
-    pool: Registers,
 
     /// The memory info
     #[cfg(target_os = "macos")]

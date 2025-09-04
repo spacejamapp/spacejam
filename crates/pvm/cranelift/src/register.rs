@@ -11,29 +11,30 @@ pub mod offsets {
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = REGISTERS_SIZE;
 
-    /// Offset to PC field (after registers + gas)
-    pub const PC_OFFSET: i32 = REGISTERS_SIZE + 8;
+    /// Offset to func table pointer (after gas)
+    pub const FUNC_TABLE_OFFSET: i32 = GAS_OFFSET + 8;
 
-    /// Offset to memory pointer (after registers + PC + gas)
-    pub const MEMORY_PTR_OFFSET: i32 = PC_OFFSET + 8;
+    /// Offset to memory pointer (after registers + gas)
+    pub const MEMORY_PTR_OFFSET: i32 = FUNC_TABLE_OFFSET + 8;
 }
 
 /// Register manager
 ///
 /// Total 16 registers, we actually use memory as the base and then
 /// calculate the offsets back to the base.
+#[derive(Clone)]
 pub struct Registers {
-    /// The context pointer
-    pub ctx: Value,
-
-    /// The memory pointer
-    pub memory: Value,
-
     /// Register values (13 registers)
     pub registers: [Value; 13],
 
     /// Current gas value (SSA)
     pub gas: Value,
+
+    /// The context pointer
+    pub ctx: Value,
+
+    /// The memory pointer
+    pub memory: Value,
 }
 
 impl Default for Registers {

@@ -33,7 +33,7 @@ impl Compiler {
     ) -> Result<BTreeMap<String, FuncRef>> {
         let mut map = BTreeMap::new();
         for (name, id) in host {
-            let func = self.module.declare_func_in_func(id, &mut self.ctx.func);
+            let func = self.module.declare_func_in_func(id, &mut self.context.func);
             map.insert(name, func);
         }
         Ok(map)
