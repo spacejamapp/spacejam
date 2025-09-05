@@ -26,6 +26,12 @@ impl Compiler {
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
+        tracing::debug!(
+            "jump table({} = {}): {:?}",
+            blob.jump_table.len(),
+            format.functions.len(),
+            blob.jump_table
+        );
 
         // 1. declare all functions
         let (main, funcs) = {

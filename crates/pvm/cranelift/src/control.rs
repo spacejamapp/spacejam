@@ -16,9 +16,14 @@ impl Translator<'_> {
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
-        self.builder
-            .ins()
-            .brif(condition, target_block, &[], next_block, &[]);
+        let block_args = self.block_args();
+        self.builder.ins().brif(
+            condition,
+            target_block,
+            &block_args,
+            next_block,
+            &block_args,
+        );
         Ok(())
     }
 
@@ -78,17 +83,18 @@ impl Translator<'_> {
         // Valid jump block: calculate index and dispatch
         self.builder.switch_to_block(valid);
         {
-            // self.sync_params();
-
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-            let _jump_index = self.builder.ins().ireduce(types::I32, jump_index);
+            let call = self.dispatch(jump_index);
 
-            // TODO: use call indirect
-            //
-            // self.builder.ins().br_table(jump_index, self.rt_jump_table);
+            // Call the function
+            let sig_ref = self.builder.import_signature(crate::ir::sig(false));
+            let args = self.args();
+            let inst = self.builder.ins().call_indirect(sig_ref, call, &args);
+            let result = self.builder.inst_results(inst).to_vec();
+            self.builder.ins().return_(&result);
         }
 
         // Trap block: invalid jump target

@@ -2,6 +2,7 @@
 
 use crate::Translator;
 use cranelift::prelude::*;
+use cranelift_codegen::ir::BlockArg;
 
 /// Offsets to the memory base
 ///
@@ -60,13 +61,14 @@ impl Default for Registers {
 
 impl Translator<'_> {
     /// Load dispatch table pointer to register
-    pub fn dispatch(&mut self, index: Value, reg: &mut Value) {
-        *reg = self
+    pub fn dispatch(&mut self, index: Value) -> Value {
+        let mut target = self
             .builder
             .ins()
             .iadd_imm(self.pool.memory, -offsets::DISPATCH_OFFSET as i64);
         let offset = self.builder.ins().imul_imm(index, 8);
-        *reg = self.builder.ins().iadd(*reg, offset);
+        target = self.builder.ins().iadd(target, offset);
+        target
     }
 
     /// Load ctx pointer to register
@@ -121,6 +123,25 @@ impl Translator<'_> {
             self.pool.memory,
             -offsets::GAS_OFFSET as i32,
         );
+    }
+
+    /// Get function arguments
+    pub fn args(&self) -> Vec<Value> {
+        vec![self.pool.registers[..13].to_vec(), vec![self.pool.gas]].concat()
+    }
+
+    /// get block arguments
+    pub fn block_args(&self) -> Vec<BlockArg> {
+        self.args().iter().map(|v| BlockArg::Value(*v)).collect()
+    }
+
+    /// load block arguments
+    pub fn load_block_args(&mut self, block: Block) {
+        let args = self.builder.block_params(block);
+        for i in 0..13 {
+            self.pool.registers[i] = args[i];
+        }
+        self.pool.gas = args[13];
     }
 
     /// get register value

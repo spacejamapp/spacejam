@@ -504,7 +504,8 @@ impl Visitor for Translator<'_> {
     fn visit_fallthrough(&mut self, range: &Range<usize>) -> Result<(), Self::Error> {
         let target_pc = range.end as u64;
         if let Some(&block) = self.blocks.get(&target_pc) {
-            self.builder.ins().jump(block, &[]);
+            let block_args = self.block_args();
+            self.builder.ins().jump(block, &block_args);
         } else {
             self.burn_gas(-1);
             self.return_(Exit::ProgramNotTerminated);
@@ -512,11 +513,13 @@ impl Visitor for Translator<'_> {
 
         Ok(())
     }
+
     fn visit_jump(&mut self, format: format::O, range: &Range<usize>) -> Result<(), Self::Error> {
         let format::O { off0 } = format;
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        self.builder.ins().jump(target_block, &[]);
+        let block_args = self.block_args();
+        self.builder.ins().jump(target_block, &block_args);
         Ok(())
     }
 

@@ -2,7 +2,7 @@
 
 use crate::{ir, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC};
+use cranelift::prelude::{types, Block, InstBuilder, IntCC};
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
 use std::collections::BTreeMap;
@@ -16,14 +16,17 @@ impl Translator<'_> {
     ///
     /// NOTE: we don't have any arguments here since are in the main function.
     pub fn translate(&mut self, fun: &ir::Function, _info: MemoryInfo) -> Result<()> {
+        // create all blocks
         for pc in fun.blocks.keys() {
-            self.blocks.insert(*pc, self.builder.create_block());
+            let block = self.create_block();
+            self.blocks.insert(*pc, block);
         }
 
         // translate the all blocks
         for (pc, block) in self.blocks.clone() {
             let instructions = &fun.blocks[&pc];
             self.builder.switch_to_block(block);
+            self.load_block_args(block);
             self.translate_block(instructions)?;
         }
 
@@ -52,7 +55,7 @@ impl Translator<'_> {
 
         // create all blocks
         for pc in func.blocks.keys() {
-            let block = self.builder.create_block();
+            let block = self.create_block();
             self.blocks.insert(*pc, block);
         }
 
@@ -63,19 +66,28 @@ impl Translator<'_> {
             let refine = self.blocks[&REFINE_PC];
             let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
             let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);
-            let check_test = self.builder.create_block();
+            let check_test = self.create_block();
 
             // build the initial condition in the entry block
+            let block_args = self.block_args();
             let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
-            self.builder
-                .ins()
-                .brif(is_accumulate, accumulate, &[], check_test, &[]);
+            self.builder.ins().brif(
+                is_accumulate,
+                accumulate,
+                &block_args,
+                check_test,
+                &block_args,
+            );
             self.builder.seal_block(entry);
 
             // build the check test block
             self.builder.switch_to_block(check_test);
+            self.load_block_args(check_test);
+            let block_args = self.block_args();
             let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
-            self.builder.ins().brif(is_test, test, &[], refine, &[]);
+            self.builder
+                .ins()
+                .brif(is_test, test, &block_args, refine, &block_args);
             self.builder.seal_block(check_test);
         }
 
@@ -83,6 +95,7 @@ impl Translator<'_> {
         for (pc, block) in self.blocks.clone() {
             let instructions = &func.blocks[&pc];
             self.builder.switch_to_block(block);
+            self.load_block_args(block);
             self.translate_block(instructions)?;
         }
 
@@ -131,5 +144,13 @@ impl Translator<'_> {
         }
 
         Ok(())
+    }
+
+    fn create_block(&mut self) -> Block {
+        let block = self.builder.create_block();
+        for _ in 0..14 {
+            self.builder.append_block_param(block, types::I64);
+        }
+        block
     }
 }
