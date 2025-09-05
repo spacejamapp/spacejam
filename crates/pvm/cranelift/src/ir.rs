@@ -24,11 +24,13 @@ pub fn sig(main: bool) -> Signature {
             call_conv: CallConv::Fast,
         }
     } else {
-        Signature {
+        let mut sig = Signature {
             params: vec![AbiParam::new(types::I64); 15],
             returns,
             call_conv: CallConv::Fast,
-        }
+        };
+        sig.params[13] = AbiParam::special(types::I64, ArgumentPurpose::VMContext);
+        sig
     }
 }
 
