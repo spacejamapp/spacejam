@@ -27,8 +27,8 @@ impl Module {
             std::mem::transmute::<
                 *const u8,
                 fn(
-                    // memory
-                    *mut Memory,
+                    // vmctx
+                    *mut pvm::Context<'_, X, Memory>,
                     // pc
                     u8,
                     // gas
@@ -54,7 +54,7 @@ impl Module {
         ctx.registers = self.registers;
         let result = match trap::with(|| {
             func(
-                &mut ctx.memory,
+                ctx,
                 pc as u8,
                 ctx.gas.clone(),
                 ctx.registers[0],

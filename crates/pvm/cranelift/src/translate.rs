@@ -1,8 +1,8 @@
 //! Translator API V2
 
-use crate::{ir, Exit, Translator};
+use crate::{ir, offsets, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, Block, InstBuilder, IntCC};
+use cranelift::prelude::{types, Block, InstBuilder, IntCC, MemFlags};
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
 use std::collections::BTreeMap;
@@ -50,12 +50,19 @@ impl Translator<'_> {
 
         // init all registers from block parameters
         let params = self.builder.block_params(entry);
-        let [memory, pc, gas] = [params[0], params[1], params[2]];
-        (self.pool.memory, self.pool.gas) = (memory, gas);
+        let [vmctx, pc, gas] = [params[0], params[1], params[2]];
+        (self.pool.vmctx, self.pool.gas) = (vmctx, gas);
         self.pool.registers = [
             params[3], params[4], params[5], params[6], params[7], params[8], params[9],
             params[10], params[11], params[12], params[13], params[14], params[15],
         ];
+
+        self.pool.memory = self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            self.pool.vmctx,
+            offsets::MEMORY_OFFSET as i32,
+        );
 
         // create all blocks
         for pc in func.blocks.keys() {
@@ -153,7 +160,7 @@ impl Translator<'_> {
     /// Create block with block parameters defined
     pub fn create_block(&mut self) -> Block {
         let block = self.builder.create_block();
-        for _ in 0..15 {
+        for _ in 0..16 {
             self.builder.append_block_param(block, types::I64);
         }
         block

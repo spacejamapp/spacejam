@@ -28,9 +28,6 @@ pub mod offsets {
 
     /// Offset to memory field
     pub const MEMORY_OFFSET: i32 = DISPATCH_OFFSET + 8 * (pvm::MAX_FUNCTIONS as i32);
-
-    /// Offset to dispatch table
-    pub const DISPATCH_OFFSET_TO_MEMORY: i32 = 8 * (pvm::MAX_FUNCTIONS as i32);
 }
 
 /// Register manager
@@ -49,6 +46,9 @@ pub struct Registers {
 
     /// The memory pointer
     pub memory: Value,
+
+    /// The VM context pointer
+    pub vmctx: Value,
 }
 
 impl Default for Registers {
@@ -57,6 +57,7 @@ impl Default for Registers {
             memory: Value::new(0),
             registers: [Value::new(0); 13],
             gas: Value::new(0),
+            vmctx: Value::new(0),
         }
     }
 }
@@ -65,20 +66,13 @@ impl Translator<'_> {
     /// Load dispatch table pointer to register
     pub fn dispatch(&mut self, index: Value) -> Value {
         let offset = self.builder.ins().imul_imm(index, 8);
-        let dispatch = self.builder.ins().iadd(self.pool.memory, offset);
+        let dispatch = self.builder.ins().iadd(self.pool.vmctx, offset);
         self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
             dispatch,
-            -offsets::DISPATCH_OFFSET_TO_MEMORY as i32,
+            offsets::DISPATCH_OFFSET as i32,
         )
-    }
-
-    /// Load ctx pointer to register
-    pub fn ctx(&mut self) -> Value {
-        self.builder
-            .ins()
-            .iadd_imm(self.pool.memory, -offsets::MEMORY_OFFSET as i64)
     }
 
     /// Sync registers to memory
@@ -87,8 +81,8 @@ impl Translator<'_> {
             self.builder.ins().store(
                 MemFlags::trusted(),
                 self.pool.registers[i],
-                self.pool.memory,
-                i as i32 * 8 - offsets::MEMORY_OFFSET as i32,
+                self.pool.vmctx,
+                i as i32 * 8,
             );
         }
     }
@@ -98,8 +92,8 @@ impl Translator<'_> {
         self.builder.ins().store(
             MemFlags::trusted(),
             self.pool.gas,
-            self.pool.memory,
-            -offsets::GAS_OFFSET as i32,
+            self.pool.vmctx,
+            offsets::GAS_OFFSET as i32,
         );
     }
 
@@ -108,8 +102,8 @@ impl Translator<'_> {
         self.pool.gas = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
-            self.pool.memory,
-            -offsets::GAS_OFFSET as i32,
+            self.pool.vmctx,
+            offsets::GAS_OFFSET as i32,
         );
     }
 
@@ -117,7 +111,7 @@ impl Translator<'_> {
     pub fn args(&self) -> Vec<Value> {
         vec![
             self.pool.registers[..13].to_vec(),
-            vec![self.pool.memory, self.pool.gas],
+            vec![self.pool.vmctx, self.pool.memory, self.pool.gas],
         ]
         .concat()
     }
@@ -133,8 +127,9 @@ impl Translator<'_> {
         for i in 0..13 {
             self.pool.registers[i] = args[i];
         }
-        self.pool.memory = args[13];
-        self.pool.gas = args[14];
+        self.pool.vmctx = args[13];
+        self.pool.memory = args[14];
+        self.pool.gas = args[15];
     }
 
     /// get register value

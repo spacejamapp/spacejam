@@ -25,7 +25,7 @@ pub fn sig(main: bool) -> Signature {
         }
     } else {
         let mut sig = Signature {
-            params: vec![AbiParam::new(types::I64); 15],
+            params: vec![AbiParam::new(types::I64); 16],
             returns,
             call_conv: CallConv::Fast,
         };

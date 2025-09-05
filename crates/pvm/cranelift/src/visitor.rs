@@ -481,8 +481,10 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
-        let ctx = self.ctx();
-        let inst = self.builder.ins().call(self.host["call"], &[index, ctx]);
+        let inst = self
+            .builder
+            .ins()
+            .call(self.host["call"], &[index, self.pool.vmctx]);
         let result = self.builder.inst_results(inst)[0];
 
         // Check if the result is panic
@@ -628,7 +630,8 @@ impl Visitor for Translator<'_> {
         self.rset(reg0, imm_val);
         let target_pc = (range.start as i64 + off0 as i64) as u64;
         let target_block = self.blocks[&target_pc];
-        self.builder.ins().jump(target_block, &[]);
+        let block_args = self.block_args();
+        self.builder.ins().jump(target_block, &block_args);
         Ok(())
     }
 
@@ -1221,13 +1224,12 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let ctx = self.ctx();
         let target = self.rget(reg0);
         let increment = self.rget(reg1);
         let _inst = self
             .builder
             .ins()
-            .call(self.host["sbrk"], &[ctx, target, increment]);
+            .call(self.host["sbrk"], &[self.pool.vmctx, target, increment]);
         Ok(())
     }
 
