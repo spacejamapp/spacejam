@@ -32,6 +32,9 @@ pub const JUMP_ALIGNMENT_FACTOR: u32 = 2;
 /// The number of registers.
 pub const REGISTER_COUNT: usize = 13;
 
+/// The maximum number of functions.
+pub const MAX_FUNCTIONS: usize = 512;
+
 /// The PVM interface
 pub trait Pvm: Invocation {}
 

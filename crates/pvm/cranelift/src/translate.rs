@@ -25,15 +25,15 @@ impl Translator<'_> {
     /// We need to init all block parameters to our registers here.
     ///
     /// [ctx, memory, gas, [..registers]]
-    pub fn translate_main(&mut self, jump: &[u64], _info: MemoryInfo) -> Result<()> {
+    pub fn translate_main(&mut self, _func: &ir::Function, _info: MemoryInfo) -> Result<()> {
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
 
         // init all registers
         let params = self.builder.block_params(entry);
-        let [memory, gas] = [params[0], params[1]];
-        let registers = params[2..].to_vec();
+        let [pc, memory, gas] = [params[0], params[1], params[2]];
+        let registers = params[3..].to_vec();
         (
             self.pool.memory,
             self.pool.gas,
@@ -45,7 +45,7 @@ impl Translator<'_> {
             registers
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("failed to convert registers"))?,
-            -(jump.len() as i32),
+            -(pvm::MAX_FUNCTIONS as i32) * 8,
         );
 
         // init the registers

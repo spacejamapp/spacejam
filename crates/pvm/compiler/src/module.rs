@@ -13,7 +13,7 @@ pub struct Module {
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
     /// The function table for this module
-    pub dispatch: *const u8,
+    pub dispatch: [u64; pvm::MAX_FUNCTIONS],
 }
 
 impl Module {
@@ -48,7 +48,7 @@ impl Module {
         memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = pvm::Context {
-            dispatch: 0 as *const u8,
+            dispatch: self.dispatch,
             registers: *registers,
             gas: gas as i64,
             memory: self.memory.clone(),

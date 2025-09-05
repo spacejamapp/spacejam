@@ -27,7 +27,6 @@ impl Compiler {
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
-        let blob = program.blob()?;
 
         // 1. create signatures
         //
@@ -52,7 +51,7 @@ impl Compiler {
         // 2. define the main function
         let mut registers = {
             let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
-            translator.translate_main(&blob.jump_table, minfo.clone())?;
+            translator.translate_main(&format.main, minfo.clone())?;
             translator.pool
         };
         self.module.define_function(main, &mut self.context)?;
@@ -77,7 +76,7 @@ impl Compiler {
 
         // 4. finalize the compilation
         self.module.finalize_definitions()?;
-        let dispatch = self.create_fun_table(&funcs)?;
+        let dispatch = self.create_dispatch_table(&funcs)?;
         Ok(Module {
             code: self.module.get_finalized_function(main),
             memory,
@@ -87,15 +86,15 @@ impl Compiler {
     }
 
     /// create the function table
-    fn create_fun_table<'f>(
+    fn create_dispatch_table<'f>(
         &self,
         table: &BTreeMap<FuncId, &'f ir::Function>,
-    ) -> Result<*const u8> {
-        let mut fun = Vec::new();
-        for func in table.keys() {
-            fun.push(self.module.get_finalized_function(*func));
+    ) -> Result<[u64; pvm::MAX_FUNCTIONS]> {
+        let mut dispatch = [0; pvm::MAX_FUNCTIONS];
+        for (idx, func) in table.keys().enumerate() {
+            dispatch[idx] = self.module.get_finalized_function(*func) as u64;
         }
-        Ok(fun.as_ptr() as *const u8)
+        Ok(dispatch)
     }
 
     /// Declare all functions

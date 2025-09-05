@@ -3,13 +3,23 @@
 use crate::Translator;
 use cranelift::prelude::*;
 
-/// ExtendedContext memory layout offsets
+/// Offsets to the memory base
+///
+/// Context {
+///   registers: [u64; 13],
+///   gas: i64,
+///   dispatch: Box<[u64]>,
+///   memory: *mut u8,
+///   inner_ctx: *mut u8
+/// }
 pub mod offsets {
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = -8;
 
     /// Size of register array in bytes
-    pub const REGISTERS_OFFSET: i32 = -8 * (pvm::REGISTER_COUNT as i32) + GAS_OFFSET;
+    pub const REGISTERS_OFFSET: i32 = GAS_OFFSET - 8 * (pvm::REGISTER_COUNT as i32);
+
+    pub const DISPATCH_OFFSET: i32 = REGISTERS_OFFSET - 8 * (pvm::MAX_FUNCTIONS as i32);
 }
 
 /// Register manager
@@ -19,6 +29,8 @@ pub mod offsets {
 #[derive(Clone)]
 pub struct Registers {
     /// Register values (13 registers)
+    ///
+    /// [RA, SP, T0, T1, T2, S0, S1, A0, A1, A2, A3, A4, A5]
     pub registers: [Value; 13],
 
     /// Current gas value (SSA)
