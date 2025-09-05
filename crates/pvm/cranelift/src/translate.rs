@@ -2,18 +2,29 @@
 
 use crate::{ir, Exit, Translator};
 use anyhow::Result;
+use cranelift::prelude::{types, InstBuilder, IntCC};
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
 use std::collections::BTreeMap;
 
+const ACCUMULATE_PC: u64 = 5;
+const REFINE_PC: u64 = 0;
+const TEST_PC: u64 = 13;
+
 impl Translator<'_> {
     /// Translate a regular PVM function (non-main)
+    ///
+    /// NOTE: we don't have any arguments here since are in the main function.
     pub fn translate(&mut self, fun: &ir::Function, _info: MemoryInfo) -> Result<()> {
-        let entry = self.builder.create_block();
-        self.builder.append_block_params_for_function_params(entry);
-        self.builder.switch_to_block(entry);
-        for block in fun.blocks.values() {
-            self.translate_block(block)?;
+        for pc in fun.blocks.keys() {
+            self.blocks.insert(*pc, self.builder.create_block());
+        }
+
+        // translate the all blocks
+        for (pc, block) in self.blocks.clone() {
+            let instructions = &fun.blocks[&pc];
+            self.builder.switch_to_block(block);
+            self.translate_block(instructions)?;
         }
 
         self.builder.seal_all_blocks();
@@ -25,31 +36,60 @@ impl Translator<'_> {
     /// We need to init all block parameters to our registers here.
     ///
     /// [ctx, memory, gas, [..registers]]
-    pub fn translate_main(&mut self, _func: &ir::Function, _info: MemoryInfo) -> Result<()> {
+    pub fn translate_main(&mut self, func: &ir::Function, _info: MemoryInfo) -> Result<()> {
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
 
-        // init all registers
+        // init all registers from block parameters
         let params = self.builder.block_params(entry);
-        let [pc, memory, gas] = [params[0], params[1], params[2]];
+        let [pc, gas, memory] = [params[0], params[1], params[2]];
         let registers = params[3..].to_vec();
-        (
-            self.pool.memory,
-            self.pool.gas,
-            self.pool.registers,
-            self.pool.dispatch,
-        ) = (
+        (self.pool.memory, self.pool.gas, self.pool.registers) = (
             memory,
             gas,
             registers
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("failed to convert registers"))?,
-            -(pvm::MAX_FUNCTIONS as i32) * 8,
         );
 
-        // init the registers
-        // self.builder.ins().return_call(dispatcher, &[]);
+        // create all blocks
+        for pc in func.blocks.keys() {
+            let block = self.builder.create_block();
+            self.blocks.insert(*pc, block);
+        }
+
+        // Add the initial minimal dispatch logic in the entry block
+        {
+            let five = self.builder.ins().iconst(types::I8, ACCUMULATE_PC as i64);
+            let thirteen = self.builder.ins().iconst(types::I8, TEST_PC as i64);
+            let accumulate = self.blocks[&ACCUMULATE_PC];
+            let refine = self.blocks[&REFINE_PC];
+            let test = self.blocks[&TEST_PC];
+            let check_test = self.builder.create_block();
+
+            // build the initial condition in the entry block
+            let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
+            self.builder
+                .ins()
+                .brif(is_accumulate, accumulate, &[], check_test, &[]);
+            self.builder.seal_block(entry);
+
+            // build the check test block
+            self.builder.switch_to_block(check_test);
+            let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
+            self.builder.ins().brif(is_test, test, &[], refine, &[]);
+            self.builder.seal_block(check_test);
+        }
+
+        // now translate the rest of the blocks
+        for (pc, block) in self.blocks.clone() {
+            let instructions = &func.blocks[&pc];
+            self.builder.switch_to_block(block);
+            self.translate_block(instructions)?;
+        }
+
+        self.builder.seal_all_blocks();
         Ok(())
     }
 

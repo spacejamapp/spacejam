@@ -6,10 +6,10 @@ use parser::{reader::Offset, Instruction, ProgramBlob};
 use std::{collections::BTreeMap, ops::Range};
 
 /// Signature for the function
-pub fn sig() -> Signature {
+pub fn sig(input: usize, output: usize) -> Signature {
     Signature {
-        params: vec![],
-        returns: vec![],
+        params: vec![AbiParam::new(types::I64); input],
+        returns: vec![AbiParam::new(types::I64); output],
         call_conv: CallConv::Fast,
     }
 }
@@ -92,7 +92,7 @@ impl Function {
         Self {
             offset: pc..pc,
             blocks: BTreeMap::new(),
-            signature: sig(),
+            signature: sig(0, 0),
         }
     }
 

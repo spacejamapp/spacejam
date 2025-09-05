@@ -2,8 +2,7 @@
 
 use crate::{Compiler, Module};
 use anyhow::Result;
-use cranelift::prelude::{types, AbiParam, FunctionBuilderContext, Signature};
-use cranelift_codegen::isa::CallConv;
+use cranelift::prelude::FunctionBuilderContext;
 use cranelift_module::{FuncId, Linkage, Module as _};
 use pvm::{score::OpaqueHash, Program};
 use std::collections::BTreeMap;
@@ -29,14 +28,7 @@ impl Compiler {
         let minfo = program.memory.info.clone();
 
         // 1. create signatures
-        //
-        // - main function: [ctx, a0, a1, a2, a3, gas] -> [exit]
-        // - dispatcher function: [ctx, target, a0, a1, a2, gas] -> [ctx, a0, a1, a2, a3, gas]
-        let main_sig = Signature {
-            params: vec![AbiParam::new(types::I64); 6],
-            returns: vec![AbiParam::new(types::I64); 1],
-            call_conv: CallConv::Fast,
-        };
+        let main_sig = ir::sig(16, 14);
 
         // 1. declare all functions
         let (main, funcs) = {

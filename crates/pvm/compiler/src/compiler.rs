@@ -61,7 +61,7 @@ impl Invocation for Compiler {
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
-        _pc: usize,
+        pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
         let mut pvmc = Self::host::<X>().expect("fix me later");
@@ -74,7 +74,9 @@ impl Invocation for Compiler {
             ctx: &mut ctx,
         };
 
-        let reason = module.execute(&mut context).expect("fix me later");
+        let reason = module
+            .execute(&mut context, pc as u64)
+            .expect("fix me later");
         Invoked {
             gas: gas - (context.gas.max(0) as u64),
             output: Default::default(),

@@ -8,18 +8,24 @@ use cranelift::prelude::*;
 /// Context {
 ///   registers: [u64; 13],
 ///   gas: i64,
-///   dispatch: Box<[u64]>,
+///   dispatch: [u64; pvm::MAX_FUNCTIONS],
 ///   memory: *mut u8,
 ///   inner_ctx: *mut u8
 /// }
+///
+/// For calculating the offsets, we use the following formula:
+///
+/// dispatch_start = memory_ptr - DISPATCH_OFFSET
+/// gas_start = memory_ptr - GAS_OFFSET
+/// ctx_start = registers_start = memory_ptr - REGISTERS_OFFSET
 pub mod offsets {
+    pub const DISPATCH_OFFSET: i32 = 8 * (pvm::MAX_FUNCTIONS as i32);
+
     /// Offset to gas field (after registers)
-    pub const GAS_OFFSET: i32 = -8;
+    pub const GAS_OFFSET: i32 = DISPATCH_OFFSET + 8;
 
     /// Size of register array in bytes
-    pub const REGISTERS_OFFSET: i32 = GAS_OFFSET - 8 * (pvm::REGISTER_COUNT as i32);
-
-    pub const DISPATCH_OFFSET: i32 = REGISTERS_OFFSET - 8 * (pvm::MAX_FUNCTIONS as i32);
+    pub const REGISTERS_OFFSET: i32 = GAS_OFFSET + 8 * (pvm::REGISTER_COUNT as i32);
 }
 
 /// Register manager
@@ -38,11 +44,6 @@ pub struct Registers {
 
     /// The memory pointer
     pub memory: Value,
-
-    /// The dispatch table size in bits
-    ///
-    /// used for calculating the dispatch table address
-    pub dispatch: i32,
 }
 
 impl Default for Registers {
@@ -51,26 +52,26 @@ impl Default for Registers {
             memory: Value::new(0),
             registers: [Value::new(0); 13],
             gas: Value::new(0),
-            dispatch: 0,
         }
     }
 }
 
 impl Translator<'_> {
     /// Load dispatch table pointer to register
-    pub fn dispatch(&mut self, reg: &mut Value) {
+    pub fn dispatch(&mut self, index: Value, reg: &mut Value) {
         *reg = self
             .builder
             .ins()
-            .iadd_imm(self.pool.memory, self.pool.dispatch as i64);
+            .iadd_imm(self.pool.memory, -offsets::DISPATCH_OFFSET as i64);
+        let offset = self.builder.ins().imul_imm(index, 8);
+        *reg = self.builder.ins().iadd(*reg, offset);
     }
 
     /// Load ctx pointer to register
     pub fn ctx(&mut self) -> Value {
-        self.builder.ins().iadd_imm(
-            self.pool.memory,
-            (self.pool.dispatch + offsets::GAS_OFFSET) as i64,
-        )
+        self.builder
+            .ins()
+            .iadd_imm(self.pool.memory, -offsets::REGISTERS_OFFSET as i64)
     }
 
     /// load registers from the context
@@ -83,22 +84,19 @@ impl Translator<'_> {
                 types::I64,
                 MemFlags::trusted(),
                 self.pool.memory,
-                i as i32 * 8,
+                i as i32 * 8 - offsets::REGISTERS_OFFSET as i32,
             );
         }
     }
 
     /// Sync registers to memory
-    ///
-    /// TODO: fix the offsets, also, we don't need to sync all of
-    /// the registers
     pub fn sync_registers(&mut self) {
         for i in 0..13 {
             self.builder.ins().store(
                 MemFlags::trusted(),
                 self.pool.registers[i],
                 self.pool.memory,
-                i as i32 * 8,
+                i as i32 * 8 - offsets::REGISTERS_OFFSET as i32,
             );
         }
     }
@@ -109,7 +107,7 @@ impl Translator<'_> {
             MemFlags::trusted(),
             self.pool.gas,
             self.pool.memory,
-            -(self.pool.dispatch + offsets::GAS_OFFSET) as i32,
+            -offsets::GAS_OFFSET as i32,
         );
     }
 
@@ -119,7 +117,7 @@ impl Translator<'_> {
             types::I64,
             MemFlags::trusted(),
             self.pool.memory,
-            self.pool.dispatch + offsets::GAS_OFFSET as i32,
+            -offsets::GAS_OFFSET as i32,
         );
     }
 

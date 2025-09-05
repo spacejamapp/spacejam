@@ -7,11 +7,6 @@ use cranelift::prelude::*;
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
 impl Translator<'_> {
-    /// Check if the pc needs to sync
-    pub fn need_sync(&self, pc: &u64) -> bool {
-        self.jump.contains(pc)
-    }
-
     /// burn gas (subtract from the gas counter using SSA)
     ///
     /// TODO: handle OOG
@@ -24,42 +19,20 @@ impl Translator<'_> {
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
-
-        // Check if blocks expect parameters or load from memory
-        let target_needs_sync = self.need_sync(&target_pc);
-        let next_needs_sync = self.need_sync(&next_pc);
-        let empty_args: Vec<cranelift_codegen::ir::BlockArg> = vec![];
-        let args = vec![];
-        if target_needs_sync || next_needs_sync {
-            // self.sync_params();
-        }
-
-        // switch the arguments based on the needs
-        let (target_args, next_args) = {
-            let target_args = if target_needs_sync {
-                &empty_args[..]
-            } else {
-                &args[..]
-            };
-            let next_args = if next_needs_sync {
-                &empty_args[..]
-            } else {
-                &args[..]
-            };
-            (target_args, next_args)
-        };
-
         self.builder
             .ins()
-            .brif(condition, target_block, target_args, next_block, next_args);
+            .brif(condition, target_block, &[], next_block, &[]);
         Ok(())
     }
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, exit: Exit) {
-        // self.sync_params();
-        let res = exit.value(&mut self.builder);
-        self.builder.ins().return_(&[res]);
+        self.pool.registers[0] = exit.value(&mut self.builder);
+        self.builder.ins().return_(
+            &[[self.pool.gas].as_slice(), &self.pool.registers]
+                .concat()
+                .to_vec(),
+        );
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
