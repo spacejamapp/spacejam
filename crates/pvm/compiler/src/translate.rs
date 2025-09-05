@@ -30,7 +30,7 @@ impl Compiler {
         tracing::debug!(
             "jump table({} = {}): {:?}",
             blob.jump_table.len(),
-            format.functions.len(),
+            format.dfuncs.len(),
             blob.jump_table
         );
 
@@ -105,15 +105,13 @@ impl Compiler {
         format: &'a ir::IR,
     ) -> Result<BTreeMap<u64, (FuncId, &'a ir::Function)>> {
         let mut funcs = BTreeMap::new();
-        for (pc, func) in &format.functions {
+        for (pc, func) in &format.dfuncs {
             let id = self.module.declare_function(
                 format!("local_{pc}").as_str(),
                 Linkage::Local,
                 &func.signature,
             )?;
 
-            tracing::debug!("declare function local_{pc}: {}", id);
-            self.module.declare_func_in_func(id, &mut self.context.func);
             funcs.insert(*pc, (id, func));
         }
         Ok(funcs)

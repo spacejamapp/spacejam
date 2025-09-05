@@ -14,6 +14,8 @@ impl Translator<'_> {
 
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
+        tracing::debug!("branching to target_pc={target_pc} next_pc={next_pc}");
+        tracing::debug!("inner blocks={:?}", self.blocks.keys().collect::<Vec<_>>());
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
         let block_args = self.block_args();

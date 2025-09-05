@@ -40,14 +40,14 @@ pub struct IR {
     pub main: Function,
 
     /// Functions in this program
-    pub functions: BTreeMap<u64, Function>,
+    pub dfuncs: BTreeMap<u64, Function>,
 }
 
 impl Default for IR {
     fn default() -> Self {
         Self {
             main: Function::new(0, true),
-            functions: BTreeMap::new(),
+            dfuncs: BTreeMap::new(),
         }
     }
 }
@@ -89,7 +89,7 @@ impl From<&ProgramBlob<'_>> for IR {
                 function.offset.end = reader.position as u64;
             }
 
-            ir.functions.insert(*entry, function);
+            ir.dfuncs.insert(*entry, function);
         }
 
         ir
