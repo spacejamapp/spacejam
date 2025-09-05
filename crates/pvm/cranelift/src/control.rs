@@ -36,13 +36,14 @@ impl Translator<'_> {
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
     pub fn djump(&mut self, target: Value) -> Result<()> {
-        let halt_block = self.builder.create_block();
-        let check_valid = self.builder.create_block();
+        let halt_block = self.create_block();
+        let check_valid = self.create_block();
         let halt = self.builder.ins().iconst(types::I64, HALT_TARGET as i64);
         let is_halt = self.builder.ins().icmp(IntCC::Equal, target, halt);
+        let block_args = self.block_args();
         self.builder
             .ins()
-            .brif(is_halt, halt_block, &[], check_valid, &[]);
+            .brif(is_halt, halt_block, &block_args, check_valid, &block_args);
 
         // Halt block: return halt result
         self.builder.switch_to_block(halt_block);
@@ -53,8 +54,8 @@ impl Translator<'_> {
         // 2. address > table.len() * JUMP_ALIGNMENT_FACTOR (beyond table bounds)
         // 3. address % 2 != 0 (not aligned to 2-byte boundary)
         self.builder.switch_to_block(check_valid);
-        let valid = self.builder.create_block();
-        let trap = self.builder.create_block();
+        let valid = self.create_block();
+        let trap = self.create_block();
         let two = self.builder.ins().iconst(types::I64, 2);
         {
             // Check 1: address == 0
@@ -75,9 +76,12 @@ impl Translator<'_> {
             let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
 
             // Combine all invalid conditions with OR
+            let block_args = self.block_args();
             let invalid = self.builder.ins().bor(is_zero, exceeds_bounds);
             let invalid_jump = self.builder.ins().bor(invalid, is_misaligned);
-            self.builder.ins().brif(invalid_jump, trap, &[], valid, &[]);
+            self.builder
+                .ins()
+                .brif(invalid_jump, trap, &block_args, valid, &block_args);
         }
 
         // Valid jump block: calculate index and dispatch

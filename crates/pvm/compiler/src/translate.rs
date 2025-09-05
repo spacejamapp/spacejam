@@ -46,11 +46,12 @@ impl Compiler {
         // 2. define the main function
         let mut registers = {
             let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
+            translator.jump = blob.jump_table.clone();
             translator.translate_main(&format.main, minfo.clone())?;
             translator.pool
         };
         self.module.define_function(main, &mut self.context)?;
-        // println!("{}", &self.context.func.display());
+        println!("{}", &self.context.func.display());
         self.clear();
 
         // 3. define all other functions
@@ -63,10 +64,12 @@ impl Compiler {
                     &mut self.ctx,
                 )?;
                 translator.pool = registers;
+                translator.jump = blob.jump_table.clone();
                 translator.translate(func, minfo.clone())?;
                 registers = translator.pool;
             }
             self.module.define_function(*id, &mut self.context)?;
+            println!("{}", &self.context.func.display());
             self.clear();
         }
 

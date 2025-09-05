@@ -25,7 +25,7 @@ pub fn sig(main: bool) -> Signature {
         }
     } else {
         Signature {
-            params: vec![AbiParam::new(types::I64); 14],
+            params: vec![AbiParam::new(types::I64); 15],
             returns,
             call_conv: CallConv::Fast,
         }

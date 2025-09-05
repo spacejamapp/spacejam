@@ -13,12 +13,16 @@ const TEST_PC: u64 = 13;
 
 impl Translator<'_> {
     /// Translate a regular PVM function (non-main)
-    ///
-    /// NOTE: we don't have any arguments here since are in the main function.
     pub fn translate(&mut self, fun: &ir::Function, _info: MemoryInfo) -> Result<()> {
         // create all blocks
-        for pc in fun.blocks.keys() {
-            let block = self.create_block();
+        for (idx, pc) in fun.blocks.keys().enumerate() {
+            let block = if idx == 0 {
+                let block = self.builder.create_block();
+                self.builder.append_block_params_for_function_params(block);
+                block
+            } else {
+                self.create_block()
+            };
             self.blocks.insert(*pc, block);
         }
 
@@ -146,9 +150,10 @@ impl Translator<'_> {
         Ok(())
     }
 
-    fn create_block(&mut self) -> Block {
+    /// Create block with block parameters defined
+    pub fn create_block(&mut self) -> Block {
         let block = self.builder.create_block();
-        for _ in 0..14 {
+        for _ in 0..15 {
             self.builder.append_block_param(block, types::I64);
         }
         block

@@ -33,7 +33,7 @@ pub struct Translator<'b> {
     pub pool: Registers,
 
     /// Jump table for dynamic jumps
-    jump: Vec<u64>,
+    pub jump: Vec<u64>,
 
     /// The memory info
     #[cfg(target_os = "macos")]

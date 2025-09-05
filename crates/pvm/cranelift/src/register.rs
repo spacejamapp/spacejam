@@ -78,21 +78,6 @@ impl Translator<'_> {
             .iadd_imm(self.pool.memory, -offsets::MEMORY_OFFSET as i64)
     }
 
-    /// load registers from the context
-    ///
-    /// TODO: fix the offsets, also, we don't need to load all of
-    /// the registers
-    pub fn load_registers(&mut self) {
-        for i in 0..13 {
-            self.pool.registers[i] = self.builder.ins().load(
-                types::I64,
-                MemFlags::trusted(),
-                self.pool.memory,
-                i as i32 * 8 - offsets::MEMORY_OFFSET as i32,
-            );
-        }
-    }
-
     /// Sync registers to memory
     pub fn sync_registers(&mut self) {
         for i in 0..13 {
@@ -127,7 +112,11 @@ impl Translator<'_> {
 
     /// Get function arguments
     pub fn args(&self) -> Vec<Value> {
-        vec![self.pool.registers[..13].to_vec(), vec![self.pool.gas]].concat()
+        vec![
+            self.pool.registers[..13].to_vec(),
+            vec![self.pool.memory, self.pool.gas],
+        ]
+        .concat()
     }
 
     /// get block arguments
@@ -141,7 +130,8 @@ impl Translator<'_> {
         for i in 0..13 {
             self.pool.registers[i] = args[i];
         }
-        self.pool.gas = args[13];
+        self.pool.memory = args[13];
+        self.pool.gas = args[14];
     }
 
     /// get register value
