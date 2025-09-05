@@ -34,16 +34,15 @@ impl Compiler {
             blob.jump_table
         );
 
-        // 1. declare all functions
+        // 1. declare all dynamic functions
         let (main, funcs) = {
             let main =
                 self.module
                     .declare_function(MAIN, Linkage::Export, &format.main.signature)?;
             self.context.func.signature = format.main.signature.clone();
-            let funcs = self.declare(&format)?;
+            let funcs = self.declare_dynamic(&format)?;
             (main, funcs)
         };
-        tracing::debug!("main function id: {:?}", main);
 
         // 2. define the main function
         let mut registers = {
@@ -100,7 +99,7 @@ impl Compiler {
     }
 
     /// Declare all functions
-    fn declare<'a>(
+    fn declare_dynamic<'a>(
         &mut self,
         format: &'a ir::IR,
     ) -> Result<BTreeMap<u64, (FuncId, &'a ir::Function)>> {

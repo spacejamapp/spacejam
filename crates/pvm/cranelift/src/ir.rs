@@ -1,36 +1,16 @@
 //! the long waited IR
 
 use cranelift::prelude::{types, AbiParam, Signature};
-use cranelift_codegen::{ir::ArgumentPurpose, isa::CallConv};
+use cranelift_codegen::isa::CallConv;
 use parser::{reader::Offset, Instruction, ProgramBlob};
 use std::{collections::BTreeMap, ops::Range};
 
 /// Signature for the function
-pub fn sig(main: bool) -> Signature {
-    // [gas, registers]
-    let returns = vec![AbiParam::new(types::I64); 2];
-    if main {
-        Signature {
-            params: [
-                vec![
-                    AbiParam::special(types::I64, ArgumentPurpose::VMContext),
-                    AbiParam::new(types::I8),
-                    AbiParam::new(types::I64),
-                ],
-                vec![AbiParam::new(types::I64); 13],
-            ]
-            .concat(),
-            returns,
-            call_conv: CallConv::Fast,
-        }
-    } else {
-        let mut sig = Signature {
-            params: vec![AbiParam::new(types::I64); 16],
-            returns,
-            call_conv: CallConv::Fast,
-        };
-        sig.params[13] = AbiParam::special(types::I64, ArgumentPurpose::VMContext);
-        sig
+pub fn sig() -> Signature {
+    Signature {
+        params: vec![AbiParam::new(types::I64); 16],
+        returns: vec![AbiParam::new(types::I64); 2],
+        call_conv: CallConv::Fast,
     }
 }
 
@@ -46,7 +26,7 @@ pub struct IR {
 impl Default for IR {
     fn default() -> Self {
         Self {
-            main: Function::new(0, true),
+            main: Function::new(0),
             dfuncs: BTreeMap::new(),
         }
     }
@@ -72,7 +52,7 @@ impl From<&ProgramBlob<'_>> for IR {
 
         // read other functions
         for entry in &program.jump_table {
-            let mut function = Function::new(*entry, false);
+            let mut function = Function::new(*entry);
             reader.set_position(*entry as usize);
             while !reader.eof() {
                 let pc = reader.position;
@@ -110,11 +90,11 @@ pub struct Function {
 
 impl Function {
     /// Create a new function
-    pub fn new(pc: u64, main: bool) -> Self {
+    pub fn new(pc: u64) -> Self {
         Self {
             offset: pc..pc,
             blocks: BTreeMap::new(),
-            signature: sig(main),
+            signature: sig(),
         }
     }
 }

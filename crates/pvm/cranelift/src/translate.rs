@@ -72,8 +72,8 @@ impl Translator<'_> {
 
         // Add the initial minimal dispatch logic in the entry block
         {
-            let five = self.builder.ins().iconst(types::I8, ACCUMULATE_PC as i64);
-            let thirteen = self.builder.ins().iconst(types::I8, TEST_PC as i64);
+            let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
+            let thirteen = self.builder.ins().iconst(types::I64, TEST_PC as i64);
             let refine = self.blocks[&REFINE_PC];
             let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
             let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);

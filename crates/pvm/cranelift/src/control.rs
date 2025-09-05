@@ -96,7 +96,7 @@ impl Translator<'_> {
 
             // Call the function
             let call = self.dispatch(jump_index);
-            let sig_ref = self.builder.import_signature(crate::ir::sig(false));
+            let sig_ref = self.builder.import_signature(crate::ir::sig());
             let args = self.args();
             let inst = self.builder.ins().call_indirect(sig_ref, call, &args);
             let result = self.builder.inst_results(inst).to_vec();

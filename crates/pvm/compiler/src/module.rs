@@ -30,7 +30,7 @@ impl Module {
                     // vmctx
                     *mut pvm::Context<'_, X, Memory>,
                     // pc
-                    u8,
+                    u64,
                     // gas
                     i64,
                     // registers
@@ -55,7 +55,7 @@ impl Module {
         let result = match trap::with(|| {
             func(
                 ctx,
-                pc as u8,
+                pc as u64,
                 ctx.gas.clone(),
                 ctx.registers[0],
                 ctx.registers[1],
