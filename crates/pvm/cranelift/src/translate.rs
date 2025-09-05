@@ -43,15 +43,12 @@ impl Translator<'_> {
 
         // init all registers from block parameters
         let params = self.builder.block_params(entry);
-        let [pc, gas, memory] = [params[0], params[1], params[2]];
-        let registers = params[3..].to_vec();
-        (self.pool.memory, self.pool.gas, self.pool.registers) = (
-            memory,
-            gas,
-            registers
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("failed to convert registers"))?,
-        );
+        let [memory, pc, gas] = [params[0], params[1], params[2]];
+        (self.pool.memory, self.pool.gas) = (memory, gas);
+        self.pool.registers = [
+            params[3], params[4], params[5], params[6], params[7], params[8], params[9],
+            params[10], params[11], params[12], params[13], params[14], params[15],
+        ];
 
         // create all blocks
         for pc in func.blocks.keys() {
@@ -63,9 +60,9 @@ impl Translator<'_> {
         {
             let five = self.builder.ins().iconst(types::I8, ACCUMULATE_PC as i64);
             let thirteen = self.builder.ins().iconst(types::I8, TEST_PC as i64);
-            let accumulate = self.blocks[&ACCUMULATE_PC];
             let refine = self.blocks[&REFINE_PC];
-            let test = self.blocks[&TEST_PC];
+            let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
+            let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);
             let check_test = self.builder.create_block();
 
             // build the initial condition in the entry block
@@ -98,6 +95,7 @@ impl Translator<'_> {
         let mut gas_map = BTreeMap::new();
         let mut gas = 0;
         for (index, instr) in block.iter().enumerate() {
+            tracing::debug!("instr: {:?}", instr.value);
             if instr.value.is_memory_op() {
                 gas_map.insert(index, gas - 1);
                 gas = 0;

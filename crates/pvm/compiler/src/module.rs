@@ -27,54 +27,55 @@ impl Module {
             std::mem::transmute::<
                 *const u8,
                 fn(
-                    // pc
-                    *const u64,
-                    // gas
-                    *mut i64,
                     // memory
                     *mut Memory,
+                    // pc
+                    u8,
+                    // gas
+                    i64,
                     // registers
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                    *mut u64,
-                ) -> i64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                    u64,
+                ) -> (i64, i64),
             >(self.code)
         };
         ctx.dispatch = self.dispatch;
         ctx.registers = self.registers;
         let result = match trap::with(|| {
             func(
-                &pc,
-                &mut ctx.gas,
                 &mut ctx.memory,
-                &mut ctx.registers[0],
-                &mut ctx.registers[1],
-                &mut ctx.registers[2],
-                &mut ctx.registers[3],
-                &mut ctx.registers[4],
-                &mut ctx.registers[5],
-                &mut ctx.registers[6],
-                &mut ctx.registers[7],
-                &mut ctx.registers[8],
-                &mut ctx.registers[9],
-                &mut ctx.registers[10],
-                &mut ctx.registers[11],
-                &mut ctx.registers[12],
+                pc as u8,
+                ctx.gas.clone(),
+                ctx.registers[0],
+                ctx.registers[1],
+                ctx.registers[2],
+                ctx.registers[3],
+                ctx.registers[4],
+                ctx.registers[5],
+                ctx.registers[6],
+                ctx.registers[7],
+                ctx.registers[8],
+                ctx.registers[9],
+                ctx.registers[10],
+                ctx.registers[11],
+                ctx.registers[12],
             )
         }) {
-            Ok(r) => {
-                let reason = translator::Exit::to_reason(r);
-                tracing::debug!("exit code: {r}, reason: {reason:?}");
+            Ok((gas, code)) => {
+                let reason = translator::Exit::to_reason(code as i64);
+                tracing::debug!("exit code: {code}, reason: {reason:?}");
+                ctx.gas = gas;
                 reason
             }
             Err(info) => Reason::Fault {

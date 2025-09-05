@@ -19,13 +19,15 @@ use cranelift::prelude::*;
 /// gas_start = memory_ptr - GAS_OFFSET
 /// ctx_start = registers_start = memory_ptr - REGISTERS_OFFSET
 pub mod offsets {
-    pub const DISPATCH_OFFSET: i32 = 8 * (pvm::MAX_FUNCTIONS as i32);
 
     /// Offset to gas field (after registers)
-    pub const GAS_OFFSET: i32 = DISPATCH_OFFSET + 8;
+    pub const GAS_OFFSET: i32 = 8 * (pvm::REGISTER_COUNT as i32);
 
-    /// Size of register array in bytes
-    pub const REGISTERS_OFFSET: i32 = GAS_OFFSET + 8 * (pvm::REGISTER_COUNT as i32);
+    /// Offset to dispatch table
+    pub const DISPATCH_OFFSET: i32 = GAS_OFFSET + 8;
+
+    /// Offset to memory field
+    pub const MEMORY_OFFSET: i32 = DISPATCH_OFFSET + 8 * (pvm::MAX_FUNCTIONS as i32);
 }
 
 /// Register manager
@@ -71,7 +73,7 @@ impl Translator<'_> {
     pub fn ctx(&mut self) -> Value {
         self.builder
             .ins()
-            .iadd_imm(self.pool.memory, -offsets::REGISTERS_OFFSET as i64)
+            .iadd_imm(self.pool.memory, -offsets::MEMORY_OFFSET as i64)
     }
 
     /// load registers from the context
@@ -84,7 +86,7 @@ impl Translator<'_> {
                 types::I64,
                 MemFlags::trusted(),
                 self.pool.memory,
-                i as i32 * 8 - offsets::REGISTERS_OFFSET as i32,
+                i as i32 * 8 - offsets::MEMORY_OFFSET as i32,
             );
         }
     }
@@ -96,7 +98,7 @@ impl Translator<'_> {
                 MemFlags::trusted(),
                 self.pool.registers[i],
                 self.pool.memory,
-                i as i32 * 8 - offsets::REGISTERS_OFFSET as i32,
+                i as i32 * 8 - offsets::MEMORY_OFFSET as i32,
             );
         }
     }

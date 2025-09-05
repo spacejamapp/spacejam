@@ -8,10 +8,7 @@ const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 
 impl Translator<'_> {
     /// burn gas (subtract from the gas counter using SSA)
-    ///
-    /// TODO: handle OOG
     pub fn burn_gas(&mut self, amount: i64) {
-        // Use SSA subtraction instead of memory load/store
         self.pool.gas = self.builder.ins().iadd_imm(self.pool.gas, amount);
     }
 
@@ -27,12 +24,9 @@ impl Translator<'_> {
 
     /// Return with trap result and set PC to the trap instruction location
     pub fn return_(&mut self, exit: Exit) {
-        self.pool.registers[0] = exit.value(&mut self.builder);
-        self.builder.ins().return_(
-            &[[self.pool.gas].as_slice(), &self.pool.registers]
-                .concat()
-                .to_vec(),
-        );
+        self.sync_registers();
+        let exit = exit.value(&mut self.builder);
+        self.builder.ins().return_(&[self.pool.gas, exit]);
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation

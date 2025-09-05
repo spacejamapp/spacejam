@@ -27,15 +27,12 @@ impl Compiler {
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
 
-        // 1. create signatures
-        let main_sig = ir::sig(16, 14);
-
         // 1. declare all functions
         let (main, funcs) = {
-            let main = self
-                .module
-                .declare_function(MAIN, Linkage::Export, &main_sig)?;
-            self.context.func.signature = main_sig;
+            let main =
+                self.module
+                    .declare_function(MAIN, Linkage::Export, &format.main.signature)?;
+            self.context.func.signature = format.main.signature.clone();
             let funcs = self.declare(&format)?;
             (main, funcs)
         };
@@ -47,6 +44,7 @@ impl Compiler {
             translator.pool
         };
         self.module.define_function(main, &mut self.context)?;
+        // println!("{}", &self.context.func.display());
         self.clear();
 
         // 3. define all other functions
