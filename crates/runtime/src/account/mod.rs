@@ -272,11 +272,6 @@ impl<S: Storage> score::Account for Account<S> {
             removed = Some(old);
         }
 
-        tracing::debug!(
-            "removing from account {}, key: 0x{}",
-            self.index,
-            hex::encode(vkey)
-        );
         self.account.storage.remove(vkey.as_slice());
         removed
     }

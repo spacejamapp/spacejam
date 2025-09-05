@@ -6,6 +6,7 @@
 //! - embed execution result in step outputs.
 //! - calculate gas from step outputs.
 
+pub mod analyse;
 mod context;
 mod interp;
 mod invoke;
