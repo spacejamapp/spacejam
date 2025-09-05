@@ -91,9 +91,9 @@ impl Translator<'_> {
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
-            let call = self.dispatch(jump_index);
 
             // Call the function
+            let call = self.dispatch(jump_index);
             let sig_ref = self.builder.import_signature(crate::ir::sig(false));
             let args = self.args();
             let inst = self.builder.ins().call_indirect(sig_ref, call, &args);

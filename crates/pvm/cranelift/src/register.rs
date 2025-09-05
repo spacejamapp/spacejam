@@ -20,7 +20,6 @@ use cranelift_codegen::ir::BlockArg;
 /// gas_start = memory_ptr - GAS_OFFSET
 /// ctx_start = registers_start = memory_ptr - REGISTERS_OFFSET
 pub mod offsets {
-
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = 8 * (pvm::REGISTER_COUNT as i32);
 
@@ -29,6 +28,9 @@ pub mod offsets {
 
     /// Offset to memory field
     pub const MEMORY_OFFSET: i32 = DISPATCH_OFFSET + 8 * (pvm::MAX_FUNCTIONS as i32);
+
+    /// Offset to dispatch table
+    pub const DISPATCH_OFFSET_TO_MEMORY: i32 = 8 * (pvm::MAX_FUNCTIONS as i32);
 }
 
 /// Register manager
@@ -62,13 +64,14 @@ impl Default for Registers {
 impl Translator<'_> {
     /// Load dispatch table pointer to register
     pub fn dispatch(&mut self, index: Value) -> Value {
-        let mut target = self
-            .builder
-            .ins()
-            .iadd_imm(self.pool.memory, -offsets::DISPATCH_OFFSET as i64);
         let offset = self.builder.ins().imul_imm(index, 8);
-        target = self.builder.ins().iadd(target, offset);
-        target
+        let dispatch = self.builder.ins().iadd(self.pool.memory, offset);
+        self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            dispatch,
+            -offsets::DISPATCH_OFFSET_TO_MEMORY as i32,
+        )
     }
 
     /// Load ctx pointer to register
