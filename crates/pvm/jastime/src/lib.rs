@@ -41,10 +41,12 @@ impl Invocation for Jastime {
                 }
 
                 JASTIME_LOCKS.write().await.insert(hash);
-                let _ = Compiler.compile_with_cache::<()>(
-                    &parser::program::preimage(code, &args).expect("failed to preimage"),
-                    Some(hash),
-                );
+                let _ = Compiler::host::<()>()
+                    .expect("fix me later")
+                    .compile_with_cache(
+                        &parser::program::preimage(code, &args).expect("failed to preimage"),
+                        Some(hash),
+                    );
 
                 JASTIME_LOCKS.write().await.remove(&hash);
             });

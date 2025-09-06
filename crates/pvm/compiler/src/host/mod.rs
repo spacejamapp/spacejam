@@ -1,6 +1,6 @@
 //! Host call trampoline
 
-use crate::JIT;
+use crate::Compiler;
 pub use abi::*;
 use anyhow::Result;
 use cranelift::prelude::{types, AbiParam, Signature};
@@ -25,7 +25,7 @@ pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
     builder.symbol(MSET, abi::mset::<X> as *const u8);
 }
 
-impl JIT {
+impl Compiler {
     /// Declare the host functions
     pub fn declare_host_in_func(
         &mut self,
@@ -33,7 +33,7 @@ impl JIT {
     ) -> Result<BTreeMap<String, FuncRef>> {
         let mut map = BTreeMap::new();
         for (name, id) in host {
-            let func = self.module.declare_func_in_func(id, &mut self.ctx.func);
+            let func = self.module.declare_func_in_func(id, &mut self.context.func);
             map.insert(name, func);
         }
         Ok(map)

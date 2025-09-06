@@ -26,11 +26,11 @@ impl Context {
         ctx: &'ctx mut X,
     ) -> pvm::Context<'ctx, X, &'ctx mut parser::Memory> {
         pvm::Context {
-            ctx,
-            memory: &mut self.memory,
-            pc: 0,
             registers: self.registers,
             gas: self.gas,
+            dispatch: [0; pvm::MAX_FUNCTIONS],
+            memory: &mut self.memory,
+            ctx,
         }
     }
 }

@@ -110,7 +110,6 @@ impl Memory {
         if len == 0 {
             return Ok(Vec::new());
         }
-        tracing::debug!("reading bytes from memory at address={addr} len={len}");
         let mut result = Vec::new();
         let mut ptr = addr;
         let mut remaining = len;
@@ -147,7 +146,6 @@ impl Memory {
         }
 
         // validate all pages are accessible and writable
-        tracing::debug!("writing bytes to memory at address={addr} data={:?}", bytes);
         let mut ptr = addr;
         let mut remaining = bytes.len();
         while remaining > 0 {

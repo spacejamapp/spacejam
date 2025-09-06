@@ -228,7 +228,7 @@ pub trait Invocation {
                 service
             );
         } else {
-            tracing::debug!(
+            tracing::trace!(
                 "PVM execution continued for service {}, reason: {:?}",
                 service,
                 result.reason
