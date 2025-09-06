@@ -75,8 +75,8 @@ fn test_ret() {
         builder.seal_block(entry);
     }
 
-    let data = 42;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 42u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 42);
 }
 
@@ -156,26 +156,26 @@ fn test_jump_table() {
     }
 
     // Test index 0 -> should return 10
-    let data = 0;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 0u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 10);
 
     // Test index 1 -> should return 20
-    let data = 1;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 1u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 20);
 
     // Test index 2 -> should return 30
-    let data = 2;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 2u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 30);
 
     // Test index >= 3 -> should return 40 (default)
-    let data = 3;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 3u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 40);
 
-    let data = 100;
-    let result = exec(program, data as *const u32).expect("failed to execute program");
+    let data = 100u32;
+    let result = exec(program, &data as *const u32).expect("failed to execute program");
     assert_eq!(result, 40);
 }

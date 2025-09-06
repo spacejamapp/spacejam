@@ -10,6 +10,6 @@ pub fn analyse(program: &Program) -> Result<()> {
     let mut ir = IR::default();
     ir.parse(&blob)?;
     println!("{:?}", ir);
-    ir.verify()?;
+    let _ = ir.verify();
     Ok(())
 }

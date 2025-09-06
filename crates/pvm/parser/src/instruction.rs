@@ -154,31 +154,51 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchGeUImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchGeUImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::BranchGtSImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchGtSImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::BranchGtUImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchGtUImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::BranchLeSImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchLeSImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::BranchLeUImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchLeUImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
@@ -190,7 +210,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchLtSImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchLtSImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
@@ -202,7 +226,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchLtUImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchLtUImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
@@ -214,7 +242,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchNeImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchNeImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
@@ -226,7 +258,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::CmovIzImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::CmovIzImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -238,7 +274,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::CmovNzImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::CmovNzImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -280,7 +320,7 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::Ecalli(format::I { imm0 }) => InstructionInfo {
+            Instruction::Ecalli(format::I { imm0: _ }) => InstructionInfo {
                 ty: InstructionType::StaticJump(range.start as u64),
                 range,
                 input: vec![],
@@ -298,7 +338,7 @@ impl Instruction {
                 input: vec![],
                 output: vec![],
             },
-            Instruction::JumpInd(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::JumpInd(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::DynamicJump,
                 range,
                 input: vec![*reg0],
@@ -316,37 +356,41 @@ impl Instruction {
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadI8(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadI8(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadI16(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadI16(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadI32(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadI32(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadImm(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadImm(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadImm64(format::REI { reg0, eimm0 }) => InstructionInfo {
+            Instruction::LoadImm64(format::REI { reg0, eimm0: _ }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadImmJump(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::LoadImmJump(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Call((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![],
@@ -355,75 +399,103 @@ impl Instruction {
             Instruction::LoadImmJumpInd(format::RRII {
                 reg0,
                 reg1,
-                imm0,
-                imm1,
+                imm0: _,
+                imm1: _,
             }) => InstructionInfo {
                 ty: InstructionType::DynamicJump,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndI8(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndI8(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndU8(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndU8(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndU16(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndU16(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndI16(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndI16(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndU32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndU32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndI32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndI32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadIndU64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::LoadIndU64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::LoadU8(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadU8(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadU16(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadU16(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadU32(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadU32(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![*reg0],
             },
-            Instruction::LoadU64(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::LoadU64(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
@@ -471,13 +543,21 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::MulImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::MulImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::MulImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::MulImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -501,13 +581,21 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::NegAddImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::NegAddImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::NegAddImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::NegAddImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -519,7 +607,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::OrImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::OrImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -579,13 +671,21 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::RotR32Imm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::RotR32Imm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::RotR32ImmAlt(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::RotR32ImmAlt(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -597,13 +697,21 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::RotR64Imm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::RotR64Imm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::RotR64ImmAlt(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::RotR64ImmAlt(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -615,25 +723,41 @@ impl Instruction {
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SetGtSImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SetGtSImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SetGtUImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SetGtUImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SetLtSImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SetLtSImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SetLtUImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SetLtUImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -663,25 +787,41 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::SharRImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SharRImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SharRImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SharRImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SharRImmAlt32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SharRImmAlt32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::SharRImmAlt64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::SharRImmAlt64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -699,25 +839,41 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::ShloLImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloLImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloLImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloLImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloLImmAlt32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloLImmAlt32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloLImmAlt64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloLImmAlt64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -735,25 +891,41 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::ShloRImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloRImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloRImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloRImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloRImmAlt32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloRImmAlt32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::ShloRImmAlt64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::ShloRImmAlt64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -771,97 +943,129 @@ impl Instruction {
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::StoreU8(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::StoreU8(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreU16(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::StoreU16(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreU32(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::StoreU32(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreU64(format::RI { reg0, imm0 }) => InstructionInfo {
+            Instruction::StoreU64(format::RI { reg0, imm0: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreImmU8(format::II { imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmU8(format::II { imm0: _, imm1: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![],
             },
-            Instruction::StoreImmU16(format::II { imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmU16(format::II { imm0: _, imm1: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![],
             },
-            Instruction::StoreImmU32(format::II { imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmU32(format::II { imm0: _, imm1: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![],
             },
-            Instruction::StoreImmU64(format::II { imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmU64(format::II { imm0: _, imm1: _ }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![],
                 output: vec![],
             },
-            Instruction::StoreImmIndU8(format::RII { reg0, imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmIndU8(format::RII {
+                reg0,
+                imm0: _,
+                imm1: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreImmIndU16(format::RII { reg0, imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmIndU16(format::RII {
+                reg0,
+                imm0: _,
+                imm1: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreImmIndU32(format::RII { reg0, imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmIndU32(format::RII {
+                reg0,
+                imm0: _,
+                imm1: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreImmIndU64(format::RII { reg0, imm0, imm1 }) => InstructionInfo {
+            Instruction::StoreImmIndU64(format::RII {
+                reg0,
+                imm0: _,
+                imm1: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0],
                 output: vec![],
             },
-            Instruction::StoreIndU8(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::StoreIndU8(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::StoreIndU16(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::StoreIndU16(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::StoreIndU32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::StoreIndU32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::StoreIndU64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::StoreIndU64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::Memory,
                 range,
                 input: vec![*reg0, *reg1],
@@ -909,7 +1113,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::XorImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::XorImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],

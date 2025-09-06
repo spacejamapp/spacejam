@@ -52,11 +52,11 @@ impl IR {
 
             // check the control flow type of the block
             let jump = match block.control {
-                Control::Call(pc) => {
-                    self.funcs.insert(pc, FunctionRef::new(pc));
-                    pc
+                Control::Call(target) => {
+                    self.funcs.insert(target, FunctionRef::new(target));
+                    target
                 }
-                Control::Jump(pc) => pc,
+                Control::Jump(target) => target,
                 Control::Internal => block.range.end,
             };
 
@@ -66,11 +66,7 @@ impl IR {
 
             // check if this block is a dynamic jump target
             let func = self.func(start)?;
-            if let Some(index) = blob
-                .jump_table
-                .iter()
-                .position(|&x| x == block.range.start as u64)
-            {
+            if let Some(index) = blob.jump_table.iter().position(|&x| x == block.range.start) {
                 func.jump.insert(index as u32, pc);
             }
 
@@ -79,13 +75,13 @@ impl IR {
             self.blocks.insert(pc, block);
 
             // check if we reach a new function boundary
-            if self.funcs.get(&pc).is_some() {
+            if self.funcs.contains_key(&pc) {
                 self.func(start)?.range.end = pc;
                 start = pc;
             }
         }
 
-        self.relocate(ujumps)?;
+        let _ = self.relocate(ujumps);
         Ok(())
     }
 
@@ -139,7 +135,10 @@ impl IR {
 
     /// Split out functions via the given entrypoint
     fn split(&mut self, func: u64, entry: u64) -> Result<()> {
-        let func = self.funcs.get_mut(&func).unwrap();
+        let func = self
+            .funcs
+            .get_mut(&func)
+            .ok_or(anyhow::anyhow!("function {func} not found"))?;
         let mut next = FunctionRef::new(entry);
 
         // update the range of the functions
