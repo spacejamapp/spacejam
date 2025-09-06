@@ -44,7 +44,7 @@ impl IR {
         self.parse_exports(&mut reader)?;
 
         // undiscovered jump targets and start position of a function
-        let mut ujumps = BTreeSet::new();
+        let mut ujumps = BTreeMap::new();
         let mut start = reader.position as u64;
         let mut reached = 0;
         while !reader.eof() {
@@ -61,7 +61,7 @@ impl IR {
             };
 
             if !self.funcs.contains_key(&jump) {
-                ujumps.insert(jump);
+                ujumps.insert(block.range.start, jump);
             }
 
             // check if this block is a dynamic jump target
@@ -85,7 +85,7 @@ impl IR {
         }
 
         println!("reached {reached} jump table entires");
-        // let _ = self.relocate(ujumps);
+        let _ = self.relocate(ujumps);
         Ok(())
     }
 
@@ -118,22 +118,33 @@ impl IR {
     }
 
     /// Handle the undiscovered jump targets
-    fn relocate(&mut self, ujumps: BTreeSet<u64>) -> Result<()> {
-        for jump in ujumps {
-            let funcs = self
-                .funcs
-                .values()
-                .map(|f| f.range.clone())
-                .collect::<Vec<_>>();
+    fn relocate(&mut self, ujumps: BTreeMap<u64, u64>) -> Result<()> {
+        let mut to_split: BTreeSet<u64> = Default::default();
+        let funcs = self
+            .funcs
+            .values()
+            .map(|f| f.range.clone())
+            .collect::<Vec<_>>();
 
-            for func in funcs {
-                if !func.contains(&jump) {
+        for (from, to) in ujumps {
+            if self.funcs.contains_key(&to) {
+                continue;
+            }
+
+            for func in &funcs {
+                if !func.contains(&from) {
                     continue;
                 }
 
-                self.split(func.start, jump)?;
+                if func.contains(&to) {
+                    break;
+                }
+
+                to_split.insert(to);
             }
         }
+
+        println!("to split({}): {:?}", to_split.len(), to_split);
         Ok(())
     }
 
@@ -143,15 +154,16 @@ impl IR {
             .funcs
             .get_mut(&func)
             .ok_or(anyhow::anyhow!("function {func} not found"))?;
-        let mut next = FunctionRef::new(entry);
 
         // update the range of the functions
+        let mut next = FunctionRef::new(entry);
         next.range.end = func.range.end;
         func.range.end = entry;
 
         // scale the blocks and the jump table
         (func.jump, next.jump) = func.jump.iter().partition(|(_, pc)| **pc < entry);
         (func.blocks, next.blocks) = func.blocks.iter().partition(|&pc| *pc < entry);
+        self.funcs.insert(entry, next);
         Ok(())
     }
 
