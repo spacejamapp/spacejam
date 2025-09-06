@@ -2,7 +2,7 @@
 
 use crate::{reader::Offset, Instruction, ProgramBlob, Reader};
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 pub use {
     block::{Block, Control},
     func::{Export, Function, FunctionRef},
@@ -43,58 +43,52 @@ impl IR {
         let mut reader = blob.reader();
         self.parse_exports(&mut reader)?;
 
-        // undiscovered jump targets and start position of a function
+        // unresolved jump targets and start position of a function
         let mut ujumps = BTreeMap::new();
-        let mut start = reader.position as u64;
-        let mut reached = 0;
         while !reader.eof() {
             let block = reader.read_block_ir()?;
-            let jump = match block.control {
+            match block.control {
                 Control::Call(target) => {
-                    if !self.funcs.contains_key(&target) {
-                        self.funcs.insert(target, FunctionRef::new(target));
-                    }
-                    target
+                    self.funcs.insert(target, FunctionRef::new(target));
                 }
-                Control::Jump(target) => target,
-                Control::Internal => block.range.end,
+                Control::Jump(target) => {
+                    ujumps.insert(block.range.start, target);
+                }
+                Control::Internal => {
+                    ujumps.insert(block.range.start, block.range.end);
+                }
             };
-
-            if !self.funcs.contains_key(&jump) {
-                ujumps.insert(block.range.start, jump);
-            }
-
-            // check if this block is a dynamic jump target
-            let func = self.func(start)?;
-            if let Some(index) = blob.jump_table.iter().position(|&x| x == block.range.start) {
-                let exists = func.jump.insert(index as u32, block.range.start);
-                if exists.is_some() {
-                    anyhow::bail!("jump table index already exists!");
-                }
-                reached += 1;
-            }
-
-            // check if we reach a new function boundary
-            func.blocks.insert(block.range.start);
-            if self.funcs.contains_key(&block.range.end) {
-                self.func(start)?.range.end = block.range.end;
-                start = block.range.end;
-            }
 
             self.blocks.insert(block.range.start, block);
         }
 
-        println!("reached {reached} jump table entires");
-        let _ = self.relocate(ujumps);
-        Ok(())
+        self.parse_functions(&blob.jump_table)?;
+        self.relocate(ujumps)
     }
 
     /// Verify if the IR is valid
-    pub fn verify(&self) -> Result<()> {
+    pub fn verify(&self, table: &[u64]) -> Result<()> {
+        // check all jump table entries are in the IR
+        let jsize = self
+            .funcs
+            .values()
+            .map(|func| func.jump.len())
+            .collect::<Vec<_>>()
+            .iter()
+            .sum::<usize>();
+        if jsize != table.len() {
+            anyhow::bail!("jump table length mismatch: {jsize} != {}", table.len());
+        }
+
+        // check all jumps are resolved
+        //
+        // 1. jump to local function
+        // 2. jump to a function
         for (func_pc, func) in &self.funcs {
             for block_pc in &func.blocks {
                 let Some(block) = self.blocks.get(block_pc) else {
-                    anyhow::bail!("block {func_pc}:{block_pc} not found");
+                    eprintln!("block {func_pc}:{block_pc} not found");
+                    continue;
                 };
 
                 let reachable = block.reachable();
@@ -110,7 +104,7 @@ impl IR {
                     continue;
                 }
 
-                anyhow::bail!("unresolved jump target {reachable} for block {func_pc}:{block_pc}");
+                eprintln!("unresolved jump target {reachable} for block {func_pc}:{block_pc}, blocks count: {}", func.blocks.len());
             }
         }
 
@@ -119,8 +113,7 @@ impl IR {
 
     /// Handle the undiscovered jump targets
     fn relocate(&mut self, ujumps: BTreeMap<u64, u64>) -> Result<()> {
-        let mut to_split: BTreeSet<u64> = Default::default();
-        let funcs = self
+        let mut funcs = self
             .funcs
             .values()
             .map(|f| f.range.clone())
@@ -131,6 +124,7 @@ impl IR {
                 continue;
             }
 
+            let mut to_split = None;
             for func in &funcs {
                 if !func.contains(&from) {
                     continue;
@@ -140,11 +134,32 @@ impl IR {
                     break;
                 }
 
-                to_split.insert(to);
+                to_split = Some(to);
+                break;
             }
+
+            let Some(to_split) = to_split else {
+                continue;
+            };
+
+            // if we captured a splitting point, find the correct
+            // function and split it
+            for func in &funcs {
+                if func.contains(&to_split) {
+                    self.split(func.start, to_split)?;
+                    break;
+                }
+            }
+
+            // now we need to update funcs to apply this change
+            // to other splitting points
+            funcs = self
+                .funcs
+                .values()
+                .map(|f| f.range.clone())
+                .collect::<Vec<_>>();
         }
 
-        println!("to split({}): {:?}", to_split.len(), to_split);
         Ok(())
     }
 
@@ -167,28 +182,65 @@ impl IR {
         Ok(())
     }
 
-    /// Get a function from program counter
-    fn func(&mut self, pc: u64) -> Result<&mut FunctionRef> {
-        self.funcs
-            .get_mut(&pc)
-            .ok_or(anyhow::anyhow!("function {pc} not found"))
+    /// Parse the functions from blocks
+    fn parse_functions(&mut self, table: &[u64]) -> Result<()> {
+        let mut blocks = 0;
+        let funcs = self.funcs.clone().into_iter().collect::<Vec<_>>();
+        for (idx, (_, func)) in self.funcs.iter_mut().enumerate() {
+            func.range.end = if let Some((_, next)) = funcs.get(idx + 1) {
+                next.range.start
+            } else if let Some((_, last)) = self.blocks.iter().last() {
+                last.range.end
+            } else {
+                anyhow::bail!("no blocks found for function {}", func.range.start);
+            };
+
+            // update the blocks of the function
+            for (_, block) in self.blocks.iter().skip(blocks) {
+                if block.range.start >= func.range.end {
+                    break;
+                }
+
+                if let Some(idx) = table.iter().position(|pc| *pc == block.range.start) {
+                    func.jump.insert(idx as u32, block.range.start);
+                }
+
+                func.blocks.insert(block.range.start);
+                blocks += 1;
+            }
+        }
+
+        Ok(())
     }
 
     fn parse_exports(&mut self, reader: &mut Reader<'_>) -> Result<()> {
-        while let Ok(Offset {
-            range,
-            value: Instruction::Jump(fmt),
-        }) = reader.read()
-        {
-            self.exports.insert(range.start as u64, vec![]);
+        while let Ok(instr) = reader.read() {
+            let Offset {
+                range,
+                value: Instruction::Jump(fmt),
+            } = instr
+            else {
+                reader.position = instr.range.start;
+                break;
+            };
+
+            let instr = Instruction::Jump(fmt);
+            let info = instr.info(range.clone());
             let target = (fmt.off0 as i64 + range.start as i64) as u64;
             self.funcs.insert(target, FunctionRef::new(target));
+            self.exports.insert(range.start as u64, vec![]);
+            self.blocks.insert(
+                range.start as u64,
+                Block {
+                    range: range.start as u64..range.end as u64,
+                    control: Control::Jump(target),
+                    input: info.input.iter().cloned().collect(),
+                    output: info.output.iter().cloned().collect(),
+                    code: vec![(instr, info)],
+                },
+            );
         }
 
-        self.funcs.insert(
-            reader.position as u64,
-            FunctionRef::new(reader.position as u64),
-        );
         Ok(())
     }
 }
