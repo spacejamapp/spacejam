@@ -2,8 +2,7 @@
 
 use crate::{reader::Offset, Instruction, ProgramBlob, Reader};
 use anyhow::Result;
-use std::collections::BTreeMap;
-
+use std::collections::{BTreeMap, BTreeSet};
 pub use {
     block::{Block, Control},
     func::{Export, Function, FunctionRef},
@@ -44,13 +43,25 @@ impl IR {
         let mut reader = blob.reader();
         self.parse_exports(&mut reader)?;
 
-        // start position of a function
+        // undiscovered jump targets and start position of a function
+        let mut ujumps = BTreeSet::new();
         let mut start = reader.position as u64;
         while !reader.eof() {
             let pc = reader.position as u64;
             let block = reader.read_block_ir()?;
-            if let Control::Call(pc) = block.control {
-                self.funcs.insert(pc, FunctionRef::new(pc));
+
+            // check the control flow type of the block
+            let jump = match block.control {
+                Control::Call(pc) => {
+                    self.funcs.insert(pc, FunctionRef::new(pc));
+                    pc
+                }
+                Control::Jump(pc) => pc,
+                Control::Internal => block.range.end,
+            };
+
+            if !self.funcs.contains_key(&jump) {
+                ujumps.insert(jump);
             }
 
             // check if this block is a dynamic jump target
@@ -74,6 +85,70 @@ impl IR {
             }
         }
 
+        self.relocate(ujumps)?;
+        Ok(())
+    }
+
+    /// Verify if the IR is valid
+    pub fn verify(&self) -> Result<()> {
+        for (func_pc, func) in &self.funcs {
+            for block_pc in &func.blocks {
+                let Some(block) = self.blocks.get(block_pc) else {
+                    anyhow::bail!("block {func_pc}:{block_pc} not found");
+                };
+
+                let reachable = block.reachable();
+                if self.funcs.contains_key(&reachable) {
+                    continue;
+                }
+
+                if func.range.contains(&reachable) {
+                    continue;
+                }
+
+                if func.jump.values().any(|pc| *pc == reachable) {
+                    continue;
+                }
+
+                anyhow::bail!("unresolved jump target {reachable} for block {func_pc}:{block_pc}");
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle the undiscovered jump targets
+    fn relocate(&mut self, ujumps: BTreeSet<u64>) -> Result<()> {
+        for jump in ujumps {
+            let funcs = self
+                .funcs
+                .values()
+                .map(|f| f.range.clone())
+                .collect::<Vec<_>>();
+
+            for func in funcs {
+                if !func.contains(&jump) {
+                    continue;
+                }
+
+                self.split(func.start, jump)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Split out functions via the given entrypoint
+    fn split(&mut self, func: u64, entry: u64) -> Result<()> {
+        let func = self.funcs.get_mut(&func).unwrap();
+        let mut next = FunctionRef::new(entry);
+
+        // update the range of the functions
+        next.range.end = func.range.end;
+        func.range.end = entry;
+
+        // scale the blocks and the jump table
+        (func.jump, next.jump) = func.jump.iter().partition(|(_, pc)| **pc <= entry);
+        (func.blocks, next.blocks) = func.blocks.iter().partition(|&pc| *pc <= entry);
         Ok(())
     }
 
@@ -91,7 +166,7 @@ impl IR {
         }) = reader.read()
         {
             self.exports.insert(range.start as u64, vec![]);
-            let target = (fmt.imm0 as i64 + range.start as i64) as u64;
+            let target = (fmt.off0 as i64 + range.start as i64) as u64;
             self.funcs.insert(target, FunctionRef::new(target));
         }
 

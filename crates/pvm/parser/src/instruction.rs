@@ -1,6 +1,6 @@
 //! The PVM instructions.
 
-use crate::format;
+use crate::format::{self, *};
 use core::ops::Range;
 
 include!(concat!(env!("OUT_DIR"), "/instruction.rs"));
@@ -62,11 +62,11 @@ impl Instruction {
     /// Get the information about the instruction
     pub fn info(&self, range: Range<usize>) -> InstructionInfo {
         match self {
-            Instruction::Add32(format::II { imm0, imm1 }) => InstructionInfo {
+            Instruction::Add32(format::RRR { reg0, reg1, reg2 }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
-                input: vec![],
-                output: vec![],
+                input: vec![*reg0, *reg1],
+                output: vec![*reg2],
             },
             Instruction::Add64(format::RRR { reg0, reg1, reg2 }) => InstructionInfo {
                 ty: InstructionType::General,
@@ -74,13 +74,21 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::AddImm32(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::AddImm32(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
             },
-            Instruction::AddImm64(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::AddImm64(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -92,7 +100,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![*reg2],
             },
-            Instruction::AndImm(format::RRI { reg0, reg1, imm0 }) => InstructionInfo {
+            Instruction::AndImm(format::RRI {
+                reg0,
+                reg1,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::General,
                 range,
                 input: vec![*reg1],
@@ -110,7 +122,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchEqImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchEqImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
@@ -122,7 +138,11 @@ impl Instruction {
                 input: vec![*reg0, *reg1],
                 output: vec![],
             },
-            Instruction::BranchGeSImm(format::RIO { reg0, off0, imm0 }) => InstructionInfo {
+            Instruction::BranchGeSImm(format::RIO {
+                reg0,
+                off0,
+                imm0: _,
+            }) => InstructionInfo {
                 ty: InstructionType::StaticJump((range.start as i64 + *off0 as i64) as u64),
                 range,
                 input: vec![*reg0],
