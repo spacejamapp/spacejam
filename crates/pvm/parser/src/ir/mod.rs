@@ -46,14 +46,14 @@ impl IR {
         // undiscovered jump targets and start position of a function
         let mut ujumps = BTreeSet::new();
         let mut start = reader.position as u64;
+        let mut reached = 0;
         while !reader.eof() {
-            let pc = reader.position as u64;
             let block = reader.read_block_ir()?;
-
-            // check the control flow type of the block
             let jump = match block.control {
                 Control::Call(target) => {
-                    self.funcs.insert(target, FunctionRef::new(target));
+                    if !self.funcs.contains_key(&target) {
+                        self.funcs.insert(target, FunctionRef::new(target));
+                    }
                     target
                 }
                 Control::Jump(target) => target,
@@ -67,21 +67,25 @@ impl IR {
             // check if this block is a dynamic jump target
             let func = self.func(start)?;
             if let Some(index) = blob.jump_table.iter().position(|&x| x == block.range.start) {
-                func.jump.insert(index as u32, pc);
+                let exists = func.jump.insert(index as u32, block.range.start);
+                if exists.is_some() {
+                    anyhow::bail!("jump table index already exists!");
+                }
+                reached += 1;
             }
-
-            // insert the block to function
-            func.blocks.insert(pc);
-            self.blocks.insert(pc, block);
 
             // check if we reach a new function boundary
-            if self.funcs.contains_key(&pc) {
-                self.func(start)?.range.end = pc;
-                start = pc;
+            func.blocks.insert(block.range.start);
+            if self.funcs.contains_key(&block.range.end) {
+                self.func(start)?.range.end = block.range.end;
+                start = block.range.end;
             }
+
+            self.blocks.insert(block.range.start, block);
         }
 
-        let _ = self.relocate(ujumps);
+        println!("reached {reached} jump table entires");
+        // let _ = self.relocate(ujumps);
         Ok(())
     }
 
@@ -146,8 +150,8 @@ impl IR {
         func.range.end = entry;
 
         // scale the blocks and the jump table
-        (func.jump, next.jump) = func.jump.iter().partition(|(_, pc)| **pc <= entry);
-        (func.blocks, next.blocks) = func.blocks.iter().partition(|&pc| *pc <= entry);
+        (func.jump, next.jump) = func.jump.iter().partition(|(_, pc)| **pc < entry);
+        (func.blocks, next.blocks) = func.blocks.iter().partition(|&pc| *pc < entry);
         Ok(())
     }
 
@@ -155,7 +159,7 @@ impl IR {
     fn func(&mut self, pc: u64) -> Result<&mut FunctionRef> {
         self.funcs
             .get_mut(&pc)
-            .ok_or(anyhow::anyhow!("function not found"))
+            .ok_or(anyhow::anyhow!("function {pc} not found"))
     }
 
     fn parse_exports(&mut self, reader: &mut Reader<'_>) -> Result<()> {
@@ -169,8 +173,10 @@ impl IR {
             self.funcs.insert(target, FunctionRef::new(target));
         }
 
-        self.funcs
-            .insert(reader.position as u64, FunctionRef::default());
+        self.funcs.insert(
+            reader.position as u64,
+            FunctionRef::new(reader.position as u64),
+        );
         Ok(())
     }
 }
