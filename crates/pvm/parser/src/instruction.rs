@@ -6,15 +6,17 @@ use core::ops::Range;
 include!(concat!(env!("OUT_DIR"), "/instruction.rs"));
 
 /// Information about the instruction
+#[derive(Debug, Clone, Default, Copy)]
 pub enum InstructionType {
     /// General operations
+    #[default]
     General,
 
     /// Function call operations
     Call(u64),
 
     /// Dynamic jump operations
-    DynamicJump(u64),
+    DynamicJump,
 
     /// Static jump operations
     StaticJump(u64),
@@ -24,12 +26,13 @@ pub enum InstructionType {
 }
 
 /// Information about the instruction
+#[derive(Debug, Clone, Default)]
 pub struct InstructionInfo {
     /// The type of the instruction
     pub ty: InstructionType,
 
     /// The range of the instruction
-    pub range: Range<u64>,
+    pub range: Range<usize>,
 
     /// Input registers
     pub input: Vec<u8>,
@@ -44,7 +47,7 @@ impl InstructionInfo {
         matches!(
             self.ty,
             InstructionType::StaticJump(_)
-                | InstructionType::DynamicJump(_)
+                | InstructionType::DynamicJump
                 | InstructionType::Call(_)
         )
     }
@@ -57,7 +60,7 @@ impl InstructionInfo {
 
 impl Instruction {
     /// Get the information about the instruction
-    pub fn info(&self, range: Range<u64>) -> InstructionInfo {
+    pub fn info(&self, range: Range<usize>) -> InstructionInfo {
         match self {
             Instruction::Add32(format::II { imm0, imm1 }) => InstructionInfo {
                 ty: InstructionType::General,
@@ -258,13 +261,13 @@ impl Instruction {
                 output: vec![*reg2],
             },
             Instruction::Ecalli(format::I { imm0 }) => InstructionInfo {
-                ty: InstructionType::StaticJump(range.start),
+                ty: InstructionType::StaticJump(range.start as u64),
                 range,
                 input: vec![],
                 output: vec![],
             },
             Instruction::Fallthrough => InstructionInfo {
-                ty: InstructionType::StaticJump(range.end),
+                ty: InstructionType::StaticJump(range.end as u64),
                 range,
                 input: vec![],
                 output: vec![],
@@ -276,7 +279,7 @@ impl Instruction {
                 output: vec![],
             },
             Instruction::JumpInd(format::RI { reg0, imm0 }) => InstructionInfo {
-                ty: InstructionType::StaticJump(range.start),
+                ty: InstructionType::DynamicJump,
                 range,
                 input: vec![*reg0],
                 output: vec![],
@@ -335,7 +338,7 @@ impl Instruction {
                 imm0,
                 imm1,
             }) => InstructionInfo {
-                ty: InstructionType::StaticJump(range.start),
+                ty: InstructionType::DynamicJump,
                 range,
                 input: vec![*reg1],
                 output: vec![*reg0],
@@ -857,7 +860,7 @@ impl Instruction {
                 output: vec![*reg2],
             },
             Instruction::Trap => InstructionInfo {
-                ty: InstructionType::StaticJump(range.end),
+                ty: InstructionType::StaticJump(range.end as u64),
                 range,
                 input: vec![],
                 output: vec![],

@@ -1,6 +1,6 @@
 //! Code block in a function
 
-use crate::Instruction;
+use crate::{instruction::InstructionInfo, Instruction};
 use core::ops::Range;
 use std::collections::BTreeSet;
 
@@ -11,7 +11,7 @@ pub struct Block {
     pub range: Range<u64>,
 
     /// The instructions in the block
-    pub code: Vec<Instruction>,
+    pub code: Vec<(Instruction, InstructionInfo)>,
 
     /// The input registers of this block
     pub input: BTreeSet<u8>,
@@ -28,7 +28,8 @@ impl Block {
     pub fn reachable(&self) -> u64 {
         match self.control {
             Control::Internal => self.range.end,
-            Control::External(pc) => pc,
+            Control::Call(pc) => pc,
+            Control::Jump(pc) => pc,
         }
     }
 }
@@ -40,6 +41,9 @@ pub enum Control {
     #[default]
     Internal,
 
+    /// Jump to a program counter
+    Jump(u64),
+
     /// External control flow
-    External(u64),
+    Call(u64),
 }

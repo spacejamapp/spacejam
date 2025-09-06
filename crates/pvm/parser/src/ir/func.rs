@@ -2,7 +2,7 @@
 
 use crate::ir::Block;
 use core::ops::Range;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Jastime function
 #[derive(Debug, Clone, Default)]
@@ -27,7 +27,21 @@ pub struct FunctionRef {
     pub jump: BTreeMap<u32, u64>,
 
     /// The blocks in the function
-    pub blocks: BTreeMap<u64, u64>,
+    pub blocks: BTreeSet<u64>,
+}
+
+impl FunctionRef {
+    /// Create a new function reference
+    pub fn new(pc: u64) -> Self {
+        let mut blocks = BTreeSet::new();
+        blocks.insert(pc);
+
+        Self {
+            range: pc..pc,
+            jump: BTreeMap::new(),
+            blocks,
+        }
+    }
 }
 
 /// Export info
