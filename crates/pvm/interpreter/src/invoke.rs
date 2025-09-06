@@ -24,7 +24,7 @@ impl Interpreter {
         };
         let blob = program.blob()?;
         interp.table = blob.jump_table.to_vec();
-        // crate::analyse::analyse(program)?;
+        crate::analyse::analyse(program)?;
 
         // interpret the program
         let mut reader = blob.reader().with_position(pc);
