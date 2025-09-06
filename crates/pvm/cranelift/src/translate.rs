@@ -61,7 +61,7 @@ impl Translator<'_> {
             types::I64,
             MemFlags::trusted(),
             self.pool.vmctx,
-            offsets::MEMORY_OFFSET as i32,
+            offsets::MEMORY_OFFSET,
         );
 
         // create all blocks

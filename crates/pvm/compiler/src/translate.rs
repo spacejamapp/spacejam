@@ -87,9 +87,9 @@ impl Compiler {
     }
 
     /// create the function table
-    fn create_dispatch_table<'f>(
+    fn create_dispatch_table(
         &self,
-        table: &BTreeMap<u64, (FuncId, &'f ir::Function)>,
+        table: &BTreeMap<u64, (FuncId, &'_ ir::Function)>,
     ) -> Result<[u64; pvm::MAX_FUNCTIONS]> {
         let mut dispatch = [0; pvm::MAX_FUNCTIONS];
         for (idx, (id, _func)) in table.values().enumerate() {

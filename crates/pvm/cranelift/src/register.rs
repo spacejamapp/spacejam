@@ -71,7 +71,7 @@ impl Translator<'_> {
             types::I64,
             MemFlags::trusted(),
             dispatch,
-            offsets::DISPATCH_OFFSET as i32,
+            offsets::DISPATCH_OFFSET,
         )
     }
 
@@ -93,7 +93,7 @@ impl Translator<'_> {
             MemFlags::trusted(),
             self.pool.gas,
             self.pool.vmctx,
-            offsets::GAS_OFFSET as i32,
+            offsets::GAS_OFFSET,
         );
     }
 
@@ -103,13 +103,13 @@ impl Translator<'_> {
             types::I64,
             MemFlags::trusted(),
             self.pool.vmctx,
-            offsets::GAS_OFFSET as i32,
+            offsets::GAS_OFFSET,
         );
     }
 
     /// Get function arguments
     pub fn args(&self) -> Vec<Value> {
-        vec![
+        [
             self.pool.registers[..13].to_vec(),
             vec![self.pool.vmctx, self.pool.memory, self.pool.gas],
         ]
@@ -124,9 +124,7 @@ impl Translator<'_> {
     /// load block arguments
     pub fn load_block_args(&mut self, block: Block) {
         let args = self.builder.block_params(block);
-        for i in 0..13 {
-            self.pool.registers[i] = args[i];
-        }
+        self.pool.registers.copy_from_slice(&args[..13]);
         self.pool.vmctx = args[13];
         self.pool.memory = args[14];
         self.pool.gas = args[15];

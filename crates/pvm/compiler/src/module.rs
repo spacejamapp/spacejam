@@ -55,8 +55,8 @@ impl Module {
         let result = match trap::with(|| {
             func(
                 ctx,
-                pc as u64,
-                ctx.gas.clone(),
+                pc,
+                ctx.gas,
                 ctx.registers[0],
                 ctx.registers[1],
                 ctx.registers[2],
@@ -73,7 +73,7 @@ impl Module {
             )
         }) {
             Ok((gas, code)) => {
-                let reason = translator::Exit::to_reason(code as i64);
+                let reason = translator::Exit::to_reason(code);
                 tracing::debug!("exit code: {code}, reason: {reason:?}");
                 ctx.gas = gas;
                 reason
