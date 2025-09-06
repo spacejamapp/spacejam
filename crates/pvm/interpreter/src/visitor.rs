@@ -14,7 +14,6 @@ impl Visitor for Interpreter {
     fn visit_add_32(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;
         let value = (self.rget(reg0) as u32).wrapping_add(self.rget(reg1) as u32) as u64;
-
         self.rset(reg2, value.sign_ext32());
         Ok(())
     }

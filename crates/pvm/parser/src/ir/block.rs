@@ -5,6 +5,7 @@ use core::ops::Range;
 use std::collections::BTreeSet;
 
 /// A code block in a function
+#[derive(Debug, Clone, Default)]
 pub struct Block {
     /// The range of the block
     pub range: Range<u64>,
@@ -24,7 +25,7 @@ pub struct Block {
 
 impl Block {
     /// Get the reachable program counter
-    pub fn reach(&self) -> u64 {
+    pub fn reachable(&self) -> u64 {
         match self.control {
             Control::Internal => self.range.end,
             Control::External(pc) => pc,
@@ -33,8 +34,10 @@ impl Block {
 }
 
 /// Control flow info
+#[derive(Debug, Clone, Default)]
 pub enum Control {
     /// Internal control flow
+    #[default]
     Internal,
 
     /// External control flow
