@@ -9,9 +9,9 @@ impl IR {
     ///
     /// 1. resolve all knwon jumps
     /// 2. resolve multi sources jumps
+    /// 3. resolve dynamic library functions
     pub fn resolve(&mut self, mut ujumps: BTreeMap<u64, Vec<u64>>) -> Result<()> {
         ujumps.retain(|target, _src| !self.funcs.contains_key(target));
-
         let mut size = ujumps.len();
         loop {
             self.resolve_internal(&mut ujumps)?;

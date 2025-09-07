@@ -29,6 +29,8 @@ pub struct IR {
 
 impl IR {
     /// Get an export from entry program counter
+    ///
+    /// Experimental feature
     pub fn export(&self, entry: u64) -> Option<Export> {
         let mut export = Export {
             entry,
@@ -36,28 +38,30 @@ impl IR {
             funcs: BTreeMap::new(),
         };
 
-        // 1. Collect reachable functions from main function
-        let mut visited = BTreeSet::new();
-        let mut queue = Vec::new();
-        for (_, block) in &export.main.blocks {
-            let reachable_pc = block.reachable();
-            if self.funcs.contains_key(&reachable_pc) && visited.insert(reachable_pc) {
-                queue.push(reachable_pc);
-            }
-        }
-
-        // 2. Process queue until no more functions are found
-        while let Some(func_pc) = queue.pop() {
-            if let Some(func) = self.function(func_pc) {
-                for (_, block) in &func.blocks {
-                    let reachable = block.reachable();
-                    if self.funcs.contains_key(&reachable) && visited.insert(reachable) {
-                        queue.push(reachable);
-                    }
+        // collect the dynamic library functions
+        let known = self
+            .funcs
+            .iter()
+            .filter_map(|(_, fref)| {
+                if fref.jump.is_empty() {
+                    None
+                } else {
+                    Some(fref.blocks.clone())
                 }
-                export.funcs.insert(func_pc, func);
-            }
-        }
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+
+        // collect the dynamic library functions
+        export.funcs = self.search(&known, &[], true).ok()?;
+        export.funcs.extend(
+            self.search(
+                &export.main.blocks.keys().cloned().collect::<Vec<_>>(),
+                &known,
+                false,
+            )
+            .ok()?,
+        );
 
         Some(export)
     }
@@ -75,14 +79,15 @@ impl IR {
     }
 
     /// Get a function from program counter
-    pub fn function(&self, entry: u64) -> Option<Function> {
+    pub fn function(&self, entry: u64) -> Option<(Function, bool)> {
         let funcref = self.funcs.get(&entry)?;
+        let is_dyn = !funcref.jump.is_empty();
         let mut func = funcref.func();
         for block in &funcref.blocks {
             func.blocks.insert(*block, self.blocks.get(block)?.clone());
         }
 
-        Some(func)
+        Some((func, is_dyn))
     }
 
     /// Parse the IR from a program blob
@@ -117,6 +122,47 @@ impl IR {
 
         self.parse_functions(&blob.jump_table)?;
         self.resolve(ujumps)
+    }
+
+    /// Search the functions from the blocks
+    pub fn search(
+        &self,
+        blocks: &[u64],
+        known: &[u64],
+        is_dyn: bool,
+    ) -> Result<BTreeMap<u64, Function>> {
+        let mut funcs = BTreeMap::new();
+        // 1. Collect reachable functions from main function
+        let mut visited = BTreeSet::from_iter(known.iter().cloned());
+        let mut queue = Vec::new();
+        for block in blocks {
+            let block = self
+                .blocks
+                .get(block)
+                .ok_or(anyhow::anyhow!("block {block} not found"))?;
+            let reachable_pc = block.reachable();
+            if self.funcs.contains_key(&reachable_pc) && visited.insert(reachable_pc) {
+                queue.push(reachable_pc);
+            }
+        }
+
+        // 2. Process queue until no more functions are found
+        while let Some(func_pc) = queue.pop() {
+            if let Some((func, is_dyn_local)) = self.function(func_pc) {
+                if !is_dyn && is_dyn_local {
+                    continue;
+                }
+
+                for block in func.blocks.values() {
+                    let reachable = block.reachable();
+                    if self.funcs.contains_key(&reachable) && visited.insert(reachable) {
+                        queue.push(reachable);
+                    }
+                }
+                funcs.insert(func_pc, func);
+            }
+        }
+        Ok(funcs)
     }
 
     /// Parse the functions from blocks
