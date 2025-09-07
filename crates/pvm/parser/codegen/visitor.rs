@@ -15,7 +15,7 @@ pub struct VisitorTrait {
     pub impl_visit_arms: Vec<Arm>,
 
     /// Dispatch information.
-    pub dispatch: Vec<(Ident, Format, Ident)>,
+    pub dispatch: Vec<(Format, Ident)>,
 }
 
 impl VisitorTrait {
@@ -27,7 +27,7 @@ impl VisitorTrait {
         );
         let name = opcode.name.clone();
         self.dispatch
-            .push((opcodei.clone(), format.clone(), fun.clone()));
+            .push((format.clone(), fun.clone()));
 
         // Generate the visit functions
         if let Some(format) = &format.ident {
@@ -66,19 +66,19 @@ impl core::fmt::Display for VisitorTrait {
             }
         });
 
-        // Generate dispatch table entries
+        // Generate dispatch table entries - zero-match using calculated format size
         let dispatch_table: Vec<_> = self
             .dispatch
             .iter()
-            .map(|(variant, format, visit_fn)| {
-                if format.ident.is_some() {
+            .map(|(format, visit_fn)| {
+                if let Some(format_type) = &format.ident {
                     quote! {
                         |visitor, instruction, range| {
-                            if let Instruction::#variant(fmt) = instruction {
-                                visitor.#visit_fn(fmt, range)
-                            } else {
-                                unsafe { core::hint::unreachable_unchecked() }
-                            }
+                            let format_data = unsafe {
+                                let layout_ptr = &instruction as *const Instruction as *const (u8, #format_type);
+                                (*layout_ptr).1
+                            };
+                            visitor.#visit_fn(format_data, range)
                         }
                     }
                 } else {
