@@ -27,6 +27,7 @@ impl Interpreter {
 
         // interpret the program
         let mut reader = blob.reader().with_position(pc);
+        let mut count = 0;
         loop {
             let block = reader.read_block()?;
             if block.is_empty() {
@@ -43,6 +44,7 @@ impl Interpreter {
                 interp.pc = instr.range.start;
                 match interp.step(&instr) {
                     Reason::Continue => {
+                        count += 1;
                         if let Some(target) = interp.jump.take() {
                             interp.pc = target;
                             reader.set_position(target);
@@ -52,6 +54,7 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
+                        println!("step count: {count} call {call}");
                         let mut context = interp.context.ctx(&mut ctx);
                         let reason = host::call(call, &mut context);
                         interp.context.registers = context.registers;
@@ -60,6 +63,8 @@ impl Interpreter {
                         }
                     }
                     reason => {
+                        count += 1;
+                        println!("total count: {count}");
                         return Ok(interp.result(ctx, initial_gas, reason));
                     }
                 }
@@ -68,6 +73,7 @@ impl Interpreter {
 
         interp.pc = reader.position;
         interp.burn(1);
+
         Ok(interp.result(
             ctx,
             initial_gas,

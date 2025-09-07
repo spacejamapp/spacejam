@@ -67,14 +67,15 @@ worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 # polkajam dependencies
 bounded-collections = { version = "0.3.2", default-features = false }
 jam-types = { version = "0.1.22", default-features = false }
-jam-codec = "0.1.0"
+jam-codec = { version = "0.1.0", features = ["derive", "max-encoded-len"] }
 jam-pvm-build = "0.1.22"
 jam-pvm-builder = "0.1.22"
 jam-pvm-common = { version = "0.1.22", default-features = false }
 jam-program-blob = "0.1.22"
-polkavm-linker = "0.24.0"
-polkavm-derive = "0.24.0"
-polkavm-common = "0.24.0"
+polkavm = "0.29.0"
+polkavm-linker = "0.29.0"
+polkavm-derive = "0.29.0"
+polkavm-common = "0.29.0"
 podec = { version = "0.1.0", package = "jam-codec", default-features = false, features = [
     "derive",
 ] }

@@ -13,6 +13,7 @@ pub fn gas(ctx: &impl Argument) -> Result<u64> {
 
 // (ΩY) fetch the on chain parameters
 pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
+    // println!("======== fetch: {} {} {} {} {} {} {} {} {} {} {} {} {}", ctx.rget(0), ctx.rget(1), ctx.rget(2), ctx.rget(3), ctx.rget(4), ctx.rget(5), ctx.rget(6), ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10), ctx.rget(11), ctx.rget(12));
     let kind = ctx.rget(10);
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
@@ -37,6 +38,8 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩL) account lookup
 pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
+    // println!("======== lookup: {} {} {} {} {} {} {} {} {} {} {} {} {}", ctx.rget(0), ctx.rget(1), ctx.rget(2), ctx.rget(3), ctx.rget(4), ctx.rget(5), ctx.rget(6), ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10), ctx.rget(11), ctx.rget(12));
+
     let [acc, address, target, from, to] = [
         ctx.rget(7),
         ctx.rget(8),
@@ -69,6 +72,8 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
 
 /// (ΩR) storage lookup
 pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
+    // println!("======== read: {} {} {} {} {} {} {} {} {} {} {} {} {}", ctx.rget(0), ctx.rget(1), ctx.rget(2), ctx.rget(3), ctx.rget(4), ctx.rget(5), ctx.rget(6), ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10), ctx.rget(11), ctx.rget(12));
+
     // get the key
     let [acc, ko, kz, o] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let key = ctx.read(ko as u32, kz as u32)?;
@@ -96,6 +101,8 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩW) storage write
 pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
+    // println!("======== write: {} {} {} {} {} {} {} {} {} {} {} {} {}", ctx.rget(0), ctx.rget(1), ctx.rget(2), ctx.rget(3), ctx.rget(4), ctx.rget(5), ctx.rget(6), ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10), ctx.rget(11), ctx.rget(12));
+
     // extract arguments from registers
     let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let value = ctx.read(vo as u32, vz as u32)?;
@@ -128,6 +135,8 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩI) fetch account info
 pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
+    // println!("======== info: {} {} {} {} {} {} {} {} {} {} {} {} {}", ctx.rget(0), ctx.rget(1), ctx.rget(2), ctx.rget(3), ctx.rget(4), ctx.rget(5), ctx.rget(6), ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10), ctx.rget(11), ctx.rget(12));
+
     let [acc, output, from, to] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);

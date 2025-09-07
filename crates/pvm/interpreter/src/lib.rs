@@ -13,6 +13,9 @@ mod pvmi;
 mod result;
 mod visitor;
 
+/// only for bench
+mod polkavmi;
+
 pub use parser::{Memory, Reader, Register, PAGE_SIZE};
 use pvm::{Reason, State};
 pub use {
