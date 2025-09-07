@@ -12,23 +12,21 @@ impl IR {
     pub fn resolve(&mut self, mut ujumps: BTreeMap<u64, Vec<u64>>) -> Result<()> {
         ujumps.retain(|target, _src| !self.funcs.contains_key(target));
 
-        // resolve jumps recursively
         let mut size = ujumps.len();
         loop {
-            self.resolve_multi(&mut ujumps)?;
-            if ujumps.len() == size {
+            self.resolve_internal(&mut ujumps)?;
+            let rest = ujumps.len();
+            if rest == size {
                 break;
             }
-
-            size = ujumps.len();
+            size = rest;
         }
 
-        eprintln!("ujumps: {:?}", ujumps);
         Ok(())
     }
 
-    /// resolve multi-sources jumps
-    pub fn resolve_multi(&mut self, ujumps: &mut BTreeMap<u64, Vec<u64>>) -> Result<()> {
+    /// resolve internal jumps
+    pub fn resolve_internal(&mut self, ujumps: &mut BTreeMap<u64, Vec<u64>>) -> Result<()> {
         let jumps = ujumps.clone();
         for (to, from) in jumps {
             let source = from
@@ -92,7 +90,10 @@ impl IR {
                 };
 
                 if let Control::Jump(target) = block.control {
-                    if func.blocks.contains(&target) {
+                    if func.range.contains(&target)
+                        || func.range.end == target
+                        || self.funcs.contains_key(&target)
+                    {
                         continue;
                     }
 

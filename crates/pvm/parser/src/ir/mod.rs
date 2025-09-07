@@ -2,7 +2,7 @@
 
 use crate::{reader::Offset, Instruction, ProgramBlob, Reader};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 pub use {
     block::{Block, Control},
     func::{Export, Function, FunctionRef},
@@ -18,7 +18,7 @@ mod verifier;
 #[derive(Debug, Clone, Default)]
 pub struct IR {
     /// The exports of the program
-    pub exports: BTreeMap<u64, Vec<u64>>,
+    pub exports: BTreeMap<u64, u64>,
 
     /// The functions of the program
     pub funcs: BTreeMap<u64, FunctionRef>,
@@ -29,15 +29,60 @@ pub struct IR {
 
 impl IR {
     /// Get an export from entry program counter
-    pub fn export(&self, _entry: u64) -> Option<Export> {
-        None
+    pub fn export(&self, entry: u64) -> Option<Export> {
+        let mut export = Export {
+            entry,
+            main: self.func_at(entry)?,
+            funcs: BTreeMap::new(),
+        };
+
+        // 1. Collect reachable functions from main function
+        let mut visited = BTreeSet::new();
+        let mut queue = Vec::new();
+        for (_, block) in &export.main.blocks {
+            let reachable_pc = block.reachable();
+            if self.funcs.contains_key(&reachable_pc) && visited.insert(reachable_pc) {
+                queue.push(reachable_pc);
+            }
+        }
+
+        // 2. Process queue until no more functions are found
+        while let Some(func_pc) = queue.pop() {
+            if let Some(func) = self.function(func_pc) {
+                for (_, block) in &func.blocks {
+                    let reachable = block.reachable();
+                    if self.funcs.contains_key(&reachable) && visited.insert(reachable) {
+                        queue.push(reachable);
+                    }
+                }
+                export.funcs.insert(func_pc, func);
+            }
+        }
+
+        Some(export)
+    }
+
+    /// Get a function at a block
+    pub fn func_at(&self, entry: u64) -> Option<Function> {
+        let block = self.blocks.get(&entry)?;
+        let func = Function {
+            range: block.range.clone(),
+            jump: BTreeMap::new(),
+            blocks: BTreeMap::from([(entry, block.clone())]),
+        };
+
+        Some(func)
     }
 
     /// Get a function from program counter
-    ///
-    /// or mb we just need a interfaces like functions?
-    pub fn function(&self, _entry: u64) -> Option<Function> {
-        None
+    pub fn function(&self, entry: u64) -> Option<Function> {
+        let funcref = self.funcs.get(&entry)?;
+        let mut func = funcref.func();
+        for block in &funcref.blocks {
+            func.blocks.insert(*block, self.blocks.get(block)?.clone());
+        }
+
+        Some(func)
     }
 
     /// Parse the IR from a program blob
@@ -120,7 +165,7 @@ impl IR {
             let info = instr.info(range.clone());
             let target = (fmt.off0 as i64 + range.start as i64) as u64;
             self.funcs.insert(target, FunctionRef::new(target));
-            self.exports.insert(range.start as u64, vec![]);
+            self.exports.insert(range.start as u64, target);
             self.blocks.insert(
                 range.start as u64,
                 Block {

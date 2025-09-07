@@ -31,6 +31,17 @@ pub struct FunctionRef {
 }
 
 impl FunctionRef {
+    /// Init an function from a function reference
+    pub fn func(&self) -> Function {
+        Function {
+            range: self.range.clone(),
+            jump: self.jump.clone(),
+            blocks: Default::default(),
+        }
+    }
+}
+
+impl FunctionRef {
     /// Create a new function reference
     pub fn new(pc: u64) -> Self {
         let mut blocks = BTreeSet::new();
@@ -50,6 +61,9 @@ pub struct Export {
     /// The entry program counter of the function
     pub entry: u64,
 
+    /// The main function of the export
+    pub main: Function,
+
     /// The function in the export
-    pub funcs: Vec<u64>,
+    pub funcs: BTreeMap<u64, Function>,
 }
