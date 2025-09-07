@@ -109,11 +109,7 @@ impl Translator<'_> {
 
     /// Get function arguments
     pub fn args(&self) -> Vec<Value> {
-        [
-            self.pool.registers[..13].to_vec(),
-            vec![self.pool.vmctx, self.pool.memory, self.pool.gas],
-        ]
-        .concat()
+        [self.pool.registers[..13].to_vec(), vec![self.pool.gas]].concat()
     }
 
     /// get block arguments
@@ -125,9 +121,7 @@ impl Translator<'_> {
     pub fn load_block_args(&mut self, block: Block) {
         let args = self.builder.block_params(block);
         self.pool.registers.copy_from_slice(&args[..13]);
-        self.pool.vmctx = args[13];
-        self.pool.memory = args[14];
-        self.pool.gas = args[15];
+        self.pool.gas = args[13];
     }
 
     /// load stack arguments
@@ -138,18 +132,10 @@ impl Translator<'_> {
                     .ins()
                     .stack_load(types::I64, self.stack, i as i32 * 8);
         }
-        self.pool.vmctx = self
-            .builder
-            .ins()
-            .stack_load(types::I64, self.stack, 13 * 8);
-        self.pool.memory = self
-            .builder
-            .ins()
-            .stack_load(types::I64, self.stack, 14 * 8);
         self.pool.gas = self
             .builder
             .ins()
-            .stack_load(types::I64, self.stack, 15 * 8);
+            .stack_load(types::I64, self.stack, 13 * 8);
     }
 
     /// store stack arguments
@@ -161,13 +147,7 @@ impl Translator<'_> {
         }
         self.builder
             .ins()
-            .stack_store(self.pool.vmctx, self.stack, 13 * 8);
-        self.builder
-            .ins()
-            .stack_store(self.pool.memory, self.stack, 14 * 8);
-        self.builder
-            .ins()
-            .stack_store(self.pool.gas, self.stack, 15 * 8);
+            .stack_store(self.pool.gas, self.stack, 13 * 8);
     }
 
     /// get register value

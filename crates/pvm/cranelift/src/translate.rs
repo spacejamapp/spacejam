@@ -2,7 +2,8 @@
 
 use crate::{ir, offsets, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, Block, InstBuilder, IntCC, MemFlags};
+use cranelift::prelude::{types, Block, InstBuilder, IntCC, JumpTableData, MemFlags};
+use cranelift_codegen::ir::BlockCall;
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
 use std::collections::BTreeMap;
@@ -70,6 +71,8 @@ impl Translator<'_> {
             self.blocks.insert(*pc, block);
         }
 
+        self.create_jump_table()?;
+        self.builder.switch_to_block(entry);
         // Add the initial minimal dispatch logic in the entry block
         {
             let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
@@ -160,9 +163,45 @@ impl Translator<'_> {
     /// Create block with block parameters defined
     pub fn create_block(&mut self) -> Block {
         let block = self.builder.create_block();
-        for _ in 0..16 {
+        for _ in 0..14 {
             self.builder.append_block_param(block, types::I64);
         }
         block
+    }
+
+    /// Create jump table
+    pub fn create_jump_table(&mut self) -> Result<()> {
+        if self.jump.is_empty() {
+            return Ok(());
+        }
+
+        // Generate the runtime jump table for djump instructions
+        let block_args = self.block_args();
+        let trap = self.builder.create_block();
+        let default = BlockCall::new(
+            trap,
+            block_args.clone(),
+            &mut self.builder.func.dfg.value_lists,
+        );
+
+        // Create block calls pointing directly to target blocks (no adapters needed)
+        let mut calls = Vec::with_capacity(self.jump.len());
+        for &jump_pc in &self.jump {
+            let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
+            let call = BlockCall::new(
+                target,
+                block_args.clone(),
+                &mut self.builder.func.dfg.value_lists,
+            );
+            calls.push(call);
+        }
+
+        // Create and cache the jump table
+        let jt_data = JumpTableData::new(default, &calls);
+        self.rt_jump_table = self.builder.create_jump_table(jt_data);
+        self.builder.switch_to_block(trap);
+        self.return_(Exit::InvalidJumpTarget);
+        self.builder.seal_block(trap);
+        Ok(())
     }
 }
