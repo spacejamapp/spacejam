@@ -49,6 +49,9 @@ pub struct Registers {
 
     /// The VM context pointer
     pub vmctx: Value,
+
+    /// The registers variables
+    pub rars: [Variable; 14],
 }
 
 impl Default for Registers {
@@ -58,6 +61,7 @@ impl Default for Registers {
             registers: [Value::new(0); 13],
             gas: Value::new(0),
             vmctx: Value::new(0),
+            rars: [Variable::new(0); 14],
         }
     }
 }
@@ -158,5 +162,22 @@ impl Translator<'_> {
     /// set register value
     pub fn rset(&mut self, reg: u8, value: Value) {
         self.pool.registers[reg as usize] = value;
+    }
+
+    /// define registers
+    pub fn def_regs(&mut self) {
+        for i in 0..13 {
+            self.builder
+                .def_var(self.pool.rars[i], self.pool.registers[i]);
+        }
+        self.builder.def_var(self.pool.rars[13], self.pool.gas);
+    }
+
+    /// load registers
+    pub fn load_regs(&mut self) {
+        for i in 0..13 {
+            self.pool.registers[i] = self.builder.use_var(self.pool.rars[i]);
+        }
+        self.pool.gas = self.builder.use_var(self.pool.rars[13]);
     }
 }

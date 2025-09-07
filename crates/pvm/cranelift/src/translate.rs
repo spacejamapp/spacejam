@@ -65,6 +65,11 @@ impl Translator<'_> {
             offsets::MEMORY_OFFSET,
         );
 
+        for i in 0..13 {
+            self.pool.rars[i] = self.builder.declare_var(types::I64);
+        }
+        self.pool.rars[13] = self.builder.declare_var(types::I64);
+
         // create all blocks
         for pc in func.blocks.keys() {
             let block = self.create_block();
@@ -110,6 +115,11 @@ impl Translator<'_> {
             let instructions = &func.blocks[&pc];
             self.builder.switch_to_block(block);
             self.load_block_args(block);
+
+            // load registers if the block is a jump target
+            if self.jump.contains(&pc) {
+                self.load_regs();
+            }
             self.translate_block(instructions)?;
         }
 
@@ -171,13 +181,9 @@ impl Translator<'_> {
 
     /// Create jump table
     pub fn create_jump_table(&mut self) -> Result<()> {
-        if self.jump.is_empty() {
-            return Ok(());
-        }
-
         // Generate the runtime jump table for djump instructions
         let block_args = self.block_args();
-        let trap = self.builder.create_block();
+        let trap = self.create_block();
         let default = BlockCall::new(
             trap,
             block_args.clone(),

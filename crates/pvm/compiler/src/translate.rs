@@ -27,12 +27,6 @@ impl Compiler {
         let format = ir::IR::from(&blob);
         let memory = crate::Memory::new(&program.memory)?;
         let minfo = program.memory.info.clone();
-        tracing::debug!(
-            "jump table({} = {}): {:?}",
-            blob.jump_table.len(),
-            format.dfuncs.len(),
-            blob.jump_table
-        );
 
         // 1. declare all dynamic functions
         let (main, funcs) = {
@@ -55,7 +49,9 @@ impl Compiler {
             translator.pool
         };
         self.module.define_function(main, &mut self.context)?;
-        println!("{}", &self.context.func.display());
+        if std::env::var("SHOW_CLIF").is_ok() {
+            println!("{}", &self.context.func.display());
+        }
         self.clear();
 
         // 3. define all other functions

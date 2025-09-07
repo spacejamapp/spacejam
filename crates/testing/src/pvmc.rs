@@ -82,8 +82,8 @@ impl Runner {
         let final_memory = to_test_memory(&result.memory);
         assert_eq!(result.reason.to_string(), output.expected_status);
         assert_eq!(result.registers.to_vec(), output.expected_regs);
-        assert_eq!(result.gas, output.expected_gas as u64);
         assert_eq!(final_memory, output.expected_memory);
+        assert_eq!(result.gas, output.expected_gas as u64);
         Ok(())
     }
 }

@@ -14,8 +14,6 @@ impl Translator<'_> {
 
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
-        tracing::debug!("branching to target_pc={target_pc} next_pc={next_pc}");
-        tracing::debug!("inner blocks={:?}", self.blocks.keys().collect::<Vec<_>>());
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
         let block_args = self.block_args();
@@ -92,10 +90,10 @@ impl Translator<'_> {
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
-            let _jump_index = self.builder.ins().isub(addr_div_2, one);
-
-            // Call the function
-            self.return_(Exit::InvalidJumpTarget)
+            let jump_index = self.builder.ins().isub(addr_div_2, one);
+            let jump_index = self.builder.ins().ireduce(types::I32, jump_index);
+            self.def_regs();
+            self.builder.ins().br_table(jump_index, self.rt_jump_table);
         }
 
         // Trap block: invalid jump target
