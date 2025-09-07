@@ -81,13 +81,14 @@ impl Interpreter {
 
     /// Step a single instruction.
     pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
-        let gas = match instr.value {
-            Instruction::Ecalli(format::I { imm0: call }) => match call {
+        let gas = if let Instruction::Ecalli(format::I { imm0: call }) = instr.value {
+            match call {
                 20 => 11 + self.rget(9),
                 100 => 1,
                 _ => 11,
-            },
-            _ => 1,
+            }
+        } else {
+            1
         };
 
         self.burn(gas);
@@ -95,7 +96,7 @@ impl Interpreter {
             return Reason::OOG;
         }
 
-        let stepped = self.visit(instr.value, &instr.range);
+        let stepped = self.dispatch(instr.value, &instr.range);
         if let Err(e) = stepped {
             e.into()
         } else {

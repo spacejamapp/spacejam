@@ -3,7 +3,7 @@
 use super::format::Opcode;
 use heck::ToSnakeCase;
 use proc_macro2::Span;
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use syn::{parse_quote, Arm, Ident, ItemTrait};
 
 /// The visitor trait.
@@ -13,6 +13,9 @@ pub struct VisitorTrait {
 
     /// The implementation arms.
     pub impl_visit_arms: Vec<Arm>,
+
+    /// Dispatch information.
+    pub dispatch: Vec<(Ident, Option<Ident>, Ident)>,
 }
 
 impl VisitorTrait {
@@ -23,7 +26,10 @@ impl VisitorTrait {
             Span::call_site(),
         );
         let name = opcode.name.clone();
+        self.dispatch
+            .push((opcodei.clone(), format.clone(), fun.clone()));
 
+        // Generate the visit functions
         if let Some(format) = format {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
@@ -51,13 +57,53 @@ impl core::fmt::Display for VisitorTrait {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut item = self.item.clone();
         let impl_visit_arms = self.impl_visit_arms.clone();
-
         item.items.push(parse_quote! {
             /// Visits an instruction.
             fn visit(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
                 match instruction {
                     #(#impl_visit_arms)*
                 }
+            }
+        });
+
+        // Generate dispatch table entries
+        let dispatch_table: Vec<_> = self
+            .dispatch
+            .iter()
+            .map(|(variant, format, visit_fn)| {
+                if format.is_some() {
+                    quote! {
+                        |visitor, instruction, range| {
+                            if let Instruction::#variant(fmt) = instruction {
+                                visitor.#visit_fn(fmt, range)
+                            } else {
+                                unsafe { core::hint::unreachable_unchecked() }
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        |visitor, _instruction, range| visitor.#visit_fn(range)
+                    }
+                }
+            })
+            .collect();
+
+        let table_len = dispatch_table.len();
+        item.items.push(parse_quote! {
+            /// Dispatch table for visitor pattern
+            #[allow(clippy::type_complexity)]
+            const DISPATCH_TABLE: [fn(&mut Self, Instruction, &core::ops::Range<usize>) -> Result<(), Self::Error>; #table_len] = [
+                #(#dispatch_table,)*
+            ];
+        });
+
+        // Generate the dispatch function
+        item.items.push(parse_quote! {
+            #[inline(always)]
+            fn dispatch(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
+                let idx = unsafe { *((&instruction) as *const Instruction as *const u8) as usize };
+                (Self::DISPATCH_TABLE[idx])(self, instruction, range)
             }
         });
 
@@ -79,6 +125,7 @@ impl Default for VisitorTrait {
         Self {
             item,
             impl_visit_arms: vec![],
+            dispatch: vec![],
         }
     }
 }
