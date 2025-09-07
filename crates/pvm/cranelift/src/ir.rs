@@ -43,33 +43,7 @@ impl From<&ProgramBlob<'_>> for IR {
             if let Ok(block) = reader.read_block() {
                 ir.main.blocks.insert(target, block);
                 target = reader.position as u64;
-                if program.jump_table.contains(&(reader.position as u64)) {
-                    ir.main.offset.end = reader.position as u64;
-                    break;
-                }
             }
-        }
-
-        // read other functions
-        for entry in &program.jump_table {
-            let mut function = Function::new(*entry);
-            reader.set_position(*entry as usize);
-            while !reader.eof() {
-                let pc = reader.position;
-                if pc != *entry as usize && program.jump_table.contains(&(reader.position as u64)) {
-                    function.offset.end = reader.position as u64;
-                    break;
-                }
-
-                let Ok(block) = reader.read_block() else {
-                    break;
-                };
-
-                function.blocks.insert(pc as u64, block);
-                function.offset.end = reader.position as u64;
-            }
-
-            ir.dfuncs.insert(*entry, function);
         }
 
         ir
