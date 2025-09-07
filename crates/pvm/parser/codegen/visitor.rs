@@ -26,15 +26,14 @@ impl VisitorTrait {
             Span::call_site(),
         );
         let name = opcode.name.clone();
-        self.dispatch
-            .push((format.clone(), fun.clone()));
+        self.dispatch.push((format.clone(), fun.clone()));
 
         // Generate the visit functions
         if let Some(format) = &format.ident {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
                 fn #fun(&mut self, _format: #format, _range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
-                    Self::default()
+                    Self::visit_default()
                 }
             });
 
@@ -44,7 +43,7 @@ impl VisitorTrait {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
                 fn #fun(&mut self, _range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
-                    Self::default()
+                    Self::visit_default()
                 }
             });
             self.impl_visit_arms
@@ -124,7 +123,7 @@ impl Default for VisitorTrait {
                 type Output;
 
                 /// The default handler for unknown instructions.
-                fn default() -> Result<Self::Output, Self::Error> {
+                fn visit_default() -> Result<Self::Output, Self::Error> {
                     unimplemented!("implement `default` for adapting the unknown instruction")
                 }
             }
