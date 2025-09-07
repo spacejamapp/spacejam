@@ -124,6 +124,35 @@ impl IR {
         self.resolve(ujumps)
     }
 
+    /// Parse everything in one big function
+    pub fn parse_one(&mut self, blob: &ProgramBlob<'_>, pc: u64) -> Result<()> {
+        let mut reader = blob.reader();
+        self.parse_exports(&mut reader)?;
+        let start = reader.position;
+
+        // read all blocks
+        let mut blocks = BTreeSet::new();
+        while !reader.eof() {
+            let block = reader.read_block_ir()?;
+            blocks.insert(block.range.start);
+            self.blocks.insert(block.range.start, block);
+        }
+
+        let func = FunctionRef {
+            range: start as u64..reader.position as u64,
+            jump: blob
+                .jump_table
+                .iter()
+                .enumerate()
+                .map(|(idx, pc)| (idx as u32, *pc))
+                .collect(),
+            blocks,
+        };
+
+        self.funcs.insert(pc, func);
+        Ok(())
+    }
+
     /// Search the functions from the blocks
     pub fn search(
         &self,
