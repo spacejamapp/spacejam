@@ -1,6 +1,6 @@
 //! The visitor for the PVM parser.
 
-use super::format::Opcode;
+use super::format::{Format, Opcode};
 use heck::ToSnakeCase;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
@@ -15,12 +15,12 @@ pub struct VisitorTrait {
     pub impl_visit_arms: Vec<Arm>,
 
     /// Dispatch information.
-    pub dispatch: Vec<(Ident, Option<Ident>, Ident)>,
+    pub dispatch: Vec<(Ident, Format, Ident)>,
 }
 
 impl VisitorTrait {
     /// Emits a new visitor trait.
-    pub fn emit(&mut self, format: &Option<Ident>, opcode: &Opcode, opcodei: &Ident) {
+    pub fn emit(&mut self, format: &Format, opcode: &Opcode, opcodei: &Ident) {
         let fun = Ident::new(
             &format!("visit_{}", opcode.name.to_snake_case()),
             Span::call_site(),
@@ -30,7 +30,7 @@ impl VisitorTrait {
             .push((opcodei.clone(), format.clone(), fun.clone()));
 
         // Generate the visit functions
-        if let Some(format) = format {
+        if let Some(format) = &format.ident {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
                 fn #fun(&mut self, _format: #format, _range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
@@ -71,7 +71,7 @@ impl core::fmt::Display for VisitorTrait {
             .dispatch
             .iter()
             .map(|(variant, format, visit_fn)| {
-                if format.is_some() {
+                if format.ident.is_some() {
                     quote! {
                         |visitor, instruction, range| {
                             if let Instruction::#variant(fmt) = instruction {
