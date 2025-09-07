@@ -92,15 +92,10 @@ impl Translator<'_> {
             // Calculate jump table index: (address / 2) - 1
             let addr_div_2 = self.builder.ins().udiv(target, two);
             let one = self.builder.ins().iconst(types::I64, 1);
-            let jump_index = self.builder.ins().isub(addr_div_2, one);
+            let _jump_index = self.builder.ins().isub(addr_div_2, one);
 
             // Call the function
-            let call = self.dispatch(jump_index);
-            let sig_ref = self.builder.import_signature(crate::ir::sig());
-            let args = self.args();
-            let inst = self.builder.ins().call_indirect(sig_ref, call, &args);
-            let result = self.builder.inst_results(inst).to_vec();
-            self.builder.ins().return_(&result);
+            self.return_(Exit::InvalidJumpTarget)
         }
 
         // Trap block: invalid jump target

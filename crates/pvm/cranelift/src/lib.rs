@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function};
+use cranelift_codegen::ir::{Block, FuncRef, Function, StackSlot};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
@@ -35,6 +35,9 @@ pub struct Translator<'b> {
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,
 
+    /// Stack slot for dynamic jumps
+    pub stack: StackSlot,
+
     /// The memory info
     #[cfg(target_os = "macos")]
     pub memory: pvm::MemoryInfo,
@@ -59,6 +62,7 @@ impl<'b> Translator<'b> {
             host: BTreeMap::new(),
             jump: Vec::new(),
             pool: Registers::default(),
+            stack: StackSlot::from_u32(0),
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })

@@ -130,6 +130,46 @@ impl Translator<'_> {
         self.pool.gas = args[15];
     }
 
+    /// load stack arguments
+    pub fn load_stack(&mut self) {
+        for i in 0..13 {
+            self.pool.registers[i] =
+                self.builder
+                    .ins()
+                    .stack_load(types::I64, self.stack, i as i32 * 8);
+        }
+        self.pool.vmctx = self
+            .builder
+            .ins()
+            .stack_load(types::I64, self.stack, 13 * 8);
+        self.pool.memory = self
+            .builder
+            .ins()
+            .stack_load(types::I64, self.stack, 14 * 8);
+        self.pool.gas = self
+            .builder
+            .ins()
+            .stack_load(types::I64, self.stack, 15 * 8);
+    }
+
+    /// store stack arguments
+    pub fn store_stack(&mut self) {
+        for i in 0..13 {
+            self.builder
+                .ins()
+                .stack_store(self.pool.registers[i], self.stack, i as i32 * 8);
+        }
+        self.builder
+            .ins()
+            .stack_store(self.pool.vmctx, self.stack, 13 * 8);
+        self.builder
+            .ins()
+            .stack_store(self.pool.memory, self.stack, 14 * 8);
+        self.builder
+            .ins()
+            .stack_store(self.pool.gas, self.stack, 15 * 8);
+    }
+
     /// get register value
     pub fn rget(&mut self, reg: u8) -> Value {
         self.pool.registers[reg as usize]

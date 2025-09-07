@@ -2,7 +2,7 @@
 
 use crate::{Compiler, Module};
 use anyhow::Result;
-use cranelift::prelude::FunctionBuilderContext;
+use cranelift::prelude::{FunctionBuilderContext, StackSlotData, StackSlotKind};
 use cranelift_codegen::ir::UserFuncName;
 use cranelift_module::{FuncId, Linkage, Module as _};
 use pvm::{score::OpaqueHash, Program};
@@ -48,6 +48,9 @@ impl Compiler {
         let mut registers = {
             let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
             translator.jump = blob.jump_table.clone();
+            translator.stack = translator
+                .builder
+                .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 0));
             translator.translate_main(&format.main, minfo.clone())?;
             translator.pool
         };
