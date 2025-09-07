@@ -33,8 +33,8 @@ impl VisitorTrait {
         if let Some(format) = &format.ident {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
-                fn #fun(&mut self, _format: #format, _range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
-                    unimplemented!(concat!("visit_", #name, " not implemented"))
+                fn #fun(&mut self, _format: #format, _range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
+                    Self::default()
                 }
             });
 
@@ -43,8 +43,8 @@ impl VisitorTrait {
         } else {
             self.item.items.push(parse_quote! {
                 #[doc = concat!("Visits an ", #name, " instruction.")]
-                fn #fun(&mut self, _range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
-                    unimplemented!(concat!("visit_", #name, " not implemented"))
+                fn #fun(&mut self, _range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
+                    Self::default()
                 }
             });
             self.impl_visit_arms
@@ -59,7 +59,7 @@ impl core::fmt::Display for VisitorTrait {
         let impl_visit_arms = self.impl_visit_arms.clone();
         item.items.push(parse_quote! {
             /// Visits an instruction.
-            fn visit(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
+            fn visit(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
                 match instruction {
                     #(#impl_visit_arms)*
                 }
@@ -93,7 +93,7 @@ impl core::fmt::Display for VisitorTrait {
         item.items.push(parse_quote! {
             /// Dispatch table for visitor pattern
             #[allow(clippy::type_complexity)]
-            const DISPATCH_TABLE: [fn(&mut Self, Instruction, &core::ops::Range<usize>) -> Result<(), Self::Error>; #table_len] = [
+            const DISPATCH_TABLE: [fn(&mut Self, Instruction, &core::ops::Range<usize>) -> Result<Self::Output, Self::Error>; #table_len] = [
                 #(#dispatch_table,)*
             ];
         });
@@ -101,7 +101,7 @@ impl core::fmt::Display for VisitorTrait {
         // Generate the dispatch function
         item.items.push(parse_quote! {
             #[inline(always)]
-            fn dispatch(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<(), Self::Error> {
+            fn dispatch(&mut self, instruction: Instruction, range: &core::ops::Range<usize>) -> Result<Self::Output, Self::Error> {
                 let idx = unsafe { *((&instruction) as *const Instruction as *const u8) as usize };
                 (Self::DISPATCH_TABLE[idx])(self, instruction, range)
             }
@@ -117,8 +117,16 @@ impl Default for VisitorTrait {
         let item = parse_quote! {
             /// The PVM instruction visitor.
             pub trait Visitor {
+                /// The error type.
                 type Error;
 
+                /// The output type.
+                type Output;
+
+                /// The default handler for unknown instructions.
+                fn default() -> Result<Self::Output, Self::Error> {
+                    unimplemented!("implement `default` for adapting the unknown instruction")
+                }
             }
         };
 
