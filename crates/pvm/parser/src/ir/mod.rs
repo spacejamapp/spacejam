@@ -11,6 +11,8 @@ pub use {
 mod block;
 mod func;
 mod reader;
+mod resolver;
+mod verifier;
 
 /// Jastime IR
 #[derive(Debug, Clone, Default)]
@@ -52,10 +54,16 @@ impl IR {
                     self.funcs.insert(target, FunctionRef::new(target));
                 }
                 Control::Jump(target) => {
-                    ujumps.insert(block.range.start, target);
+                    ujumps
+                        .entry(target)
+                        .or_insert(vec![])
+                        .push(block.range.start);
                 }
                 Control::Internal => {
-                    ujumps.insert(block.range.start, block.range.end);
+                    /*  ujumps
+                    .entry(block.range.end)
+                    .or_insert(vec![])
+                    .push(block.range.start); */
                 }
             };
 
@@ -63,123 +71,7 @@ impl IR {
         }
 
         self.parse_functions(&blob.jump_table)?;
-        self.relocate(ujumps)
-    }
-
-    /// Verify if the IR is valid
-    pub fn verify(&self, table: &[u64]) -> Result<()> {
-        // check all jump table entries are in the IR
-        let jsize = self
-            .funcs
-            .values()
-            .map(|func| func.jump.len())
-            .collect::<Vec<_>>()
-            .iter()
-            .sum::<usize>();
-        if jsize != table.len() {
-            anyhow::bail!("jump table length mismatch: {jsize} != {}", table.len());
-        }
-
-        // check all jumps are resolved
-        //
-        // 1. jump to local function
-        // 2. jump to a function
-        for (func_pc, func) in &self.funcs {
-            for block_pc in &func.blocks {
-                let Some(block) = self.blocks.get(block_pc) else {
-                    eprintln!("block {func_pc}:{block_pc} not found");
-                    continue;
-                };
-
-                let reachable = block.reachable();
-                if self.funcs.contains_key(&reachable) {
-                    continue;
-                }
-
-                if func.range.contains(&reachable) {
-                    continue;
-                }
-
-                if func.jump.values().any(|pc| *pc == reachable) {
-                    continue;
-                }
-
-                eprintln!("unresolved jump target {reachable} for block {func_pc}:{block_pc}, blocks count: {}", func.blocks.len());
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Handle the undiscovered jump targets
-    fn relocate(&mut self, ujumps: BTreeMap<u64, u64>) -> Result<()> {
-        let mut funcs = self
-            .funcs
-            .values()
-            .map(|f| f.range.clone())
-            .collect::<Vec<_>>();
-
-        for (from, to) in ujumps {
-            if self.funcs.contains_key(&to) {
-                continue;
-            }
-
-            let mut to_split = None;
-            for func in &funcs {
-                if !func.contains(&from) {
-                    continue;
-                }
-
-                if func.contains(&to) {
-                    break;
-                }
-
-                to_split = Some(to);
-                break;
-            }
-
-            let Some(to_split) = to_split else {
-                continue;
-            };
-
-            // if we captured a splitting point, find the correct
-            // function and split it
-            for func in &funcs {
-                if func.contains(&to_split) {
-                    self.split(func.start, to_split)?;
-                    break;
-                }
-            }
-
-            // now we need to update funcs to apply this change
-            // to other splitting points
-            funcs = self
-                .funcs
-                .values()
-                .map(|f| f.range.clone())
-                .collect::<Vec<_>>();
-        }
-
-        Ok(())
-    }
-
-    /// Split out functions via the given entrypoint
-    fn split(&mut self, func: u64, entry: u64) -> Result<()> {
-        let func = self
-            .funcs
-            .get_mut(&func)
-            .ok_or(anyhow::anyhow!("function {func} not found"))?;
-
-        // update the range of the functions
-        let mut next = FunctionRef::new(entry);
-        next.range.end = func.range.end;
-        func.range.end = entry;
-
-        // scale the blocks and the jump table
-        (func.jump, next.jump) = func.jump.iter().partition(|(_, pc)| **pc < entry);
-        (func.blocks, next.blocks) = func.blocks.iter().partition(|&pc| *pc < entry);
-        self.funcs.insert(entry, next);
-        Ok(())
+        self.resolve(ujumps)
     }
 
     /// Parse the functions from blocks

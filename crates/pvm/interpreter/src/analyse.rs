@@ -13,9 +13,10 @@ pub fn analyse(program: &Program) -> Result<()> {
     println!("total functions: {}", ir.funcs.len());
     for (entry, func) in &ir.funcs {
         println!(
-            "function:{entry}({:?}): {} blocks",
+            "function:{entry}({:?}): blocks={} jumps={}",
             func.range,
-            func.blocks.len()
+            func.blocks.len(),
+            func.jump.len()
         );
     }
 

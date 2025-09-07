@@ -35,7 +35,7 @@ impl Block {
 }
 
 /// Control flow info
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Control {
     /// Internal control flow
     #[default]
