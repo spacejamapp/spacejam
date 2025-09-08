@@ -9,21 +9,18 @@ const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;
 impl Translator<'_> {
     /// burn gas (subtract from the gas counter using SSA)
     pub fn burn_gas(&mut self, amount: i64) {
-        self.pool.gas = self.builder.ins().iadd_imm(self.pool.gas, amount);
+        let mut gas = self.builder.use_var(self.pool.gas);
+        gas = self.builder.ins().iadd_imm(gas, amount);
+        self.builder.def_var(self.pool.gas, gas);
     }
 
     /// generate branch instruction
     pub fn branch(&mut self, condition: Value, target_pc: u64, next_pc: u64) -> Result<()> {
         let target_block = self.blocks[&target_pc];
         let next_block = self.blocks[&next_pc];
-        let block_args = self.block_args();
-        self.builder.ins().brif(
-            condition,
-            target_block,
-            &block_args,
-            next_block,
-            &block_args,
-        );
+        self.builder
+            .ins()
+            .brif(condition, target_block, &[], next_block, &[]);
         Ok(())
     }
 
@@ -31,19 +28,19 @@ impl Translator<'_> {
     pub fn return_(&mut self, exit: Exit) {
         self.sync_registers();
         let exit = exit.value(&mut self.builder);
-        self.builder.ins().return_(&[self.pool.gas, exit]);
+        let gas = self.builder.use_var(self.pool.gas);
+        self.builder.ins().return_(&[gas, exit]);
     }
 
     /// Handle indirect jump - generate runtime dispatch with proper validation
     pub fn djump(&mut self, target: Value) -> Result<()> {
-        let halt_block = self.create_block();
-        let check_valid = self.create_block();
+        let halt_block = self.builder.create_block();
+        let check_valid = self.builder.create_block();
         let halt = self.builder.ins().iconst(types::I64, HALT_TARGET as i64);
         let is_halt = self.builder.ins().icmp(IntCC::Equal, target, halt);
-        let block_args = self.block_args();
         self.builder
             .ins()
-            .brif(is_halt, halt_block, &block_args, check_valid, &block_args);
+            .brif(is_halt, halt_block, &[], check_valid, &[]);
 
         // Halt block: return halt result
         self.builder.switch_to_block(halt_block);
@@ -54,8 +51,8 @@ impl Translator<'_> {
         // 2. address > table.len() * JUMP_ALIGNMENT_FACTOR (beyond table bounds)
         // 3. address % 2 != 0 (not aligned to 2-byte boundary)
         self.builder.switch_to_block(check_valid);
-        let valid = self.create_block();
-        let trap = self.create_block();
+        let valid = self.builder.create_block();
+        let trap = self.builder.create_block();
         let two = self.builder.ins().iconst(types::I64, 2);
         {
             // Check 1: address == 0
@@ -76,12 +73,9 @@ impl Translator<'_> {
             let is_misaligned = self.builder.ins().icmp(IntCC::NotEqual, remainder, zero);
 
             // Combine all invalid conditions with OR
-            let block_args = self.block_args();
             let invalid = self.builder.ins().bor(is_zero, exceeds_bounds);
             let invalid_jump = self.builder.ins().bor(invalid, is_misaligned);
-            self.builder
-                .ins()
-                .brif(invalid_jump, trap, &block_args, valid, &block_args);
+            self.builder.ins().brif(invalid_jump, trap, &[], valid, &[]);
         }
 
         // Valid jump block: calculate index and dispatch
@@ -92,7 +86,6 @@ impl Translator<'_> {
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
             let jump_index = self.builder.ins().ireduce(types::I32, jump_index);
-            self.def_regs();
             self.builder.ins().br_table(jump_index, self.rt_jump_table);
         }
 

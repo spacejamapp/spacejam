@@ -2,7 +2,7 @@
 
 use crate::{ir, offsets, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, Block, InstBuilder, IntCC, JumpTableData, MemFlags};
+use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
 use cranelift_codegen::ir::BlockCall;
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
@@ -22,7 +22,7 @@ impl Translator<'_> {
                 self.builder.append_block_params_for_function_params(block);
                 block
             } else {
-                self.create_block()
+                self.builder.create_block()
             };
             self.blocks.insert(*pc, block);
         }
@@ -31,7 +31,6 @@ impl Translator<'_> {
         for (pc, block) in self.blocks.clone() {
             let instructions = &fun.blocks[&pc];
             self.builder.switch_to_block(block);
-            self.load_block_args(block);
             self.translate_block(instructions)?;
         }
 
@@ -50,29 +49,28 @@ impl Translator<'_> {
         self.builder.switch_to_block(entry);
 
         // init all registers from block parameters
-        let params = self.builder.block_params(entry);
+        let params = self.builder.block_params(entry).to_vec();
         let [vmctx, pc, gas] = [params[0], params[1], params[2]];
-        (self.pool.vmctx, self.pool.gas) = (vmctx, gas);
-        self.pool.registers = [
-            params[3], params[4], params[5], params[6], params[7], params[8], params[9],
-            params[10], params[11], params[12], params[13], params[14], params[15],
-        ];
-
+        self.pool.vmctx = vmctx;
         self.pool.memory = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
-            self.pool.vmctx,
+            vmctx,
             offsets::MEMORY_OFFSET,
         );
 
+        // init all variables
+        self.pool.gas = self.builder.declare_var(types::I64);
+        self.builder.def_var(self.pool.gas, gas);
         for i in 0..13 {
-            self.pool.rars[i] = self.builder.declare_var(types::I64);
+            let reg = self.builder.declare_var(types::I64);
+            self.pool.registers[i] = reg;
+            self.builder.def_var(reg, params[i + 3]);
         }
-        self.pool.rars[13] = self.builder.declare_var(types::I64);
 
         // create all blocks
         for pc in func.blocks.keys() {
-            let block = self.create_block();
+            let block = self.builder.create_block();
             self.blocks.insert(*pc, block);
         }
 
@@ -85,28 +83,19 @@ impl Translator<'_> {
             let refine = self.blocks[&REFINE_PC];
             let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
             let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);
-            let check_test = self.create_block();
+            let check_test = self.builder.create_block();
 
             // build the initial condition in the entry block
-            let block_args = self.block_args();
             let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
-            self.builder.ins().brif(
-                is_accumulate,
-                accumulate,
-                &block_args,
-                check_test,
-                &block_args,
-            );
+            self.builder
+                .ins()
+                .brif(is_accumulate, accumulate, &[], check_test, &[]);
             self.builder.seal_block(entry);
 
             // build the check test block
             self.builder.switch_to_block(check_test);
-            self.load_block_args(check_test);
-            let block_args = self.block_args();
             let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
-            self.builder
-                .ins()
-                .brif(is_test, test, &block_args, refine, &block_args);
+            self.builder.ins().brif(is_test, test, &[], refine, &[]);
             self.builder.seal_block(check_test);
         }
 
@@ -114,12 +103,6 @@ impl Translator<'_> {
         for (pc, block) in self.blocks.clone() {
             let instructions = &func.blocks[&pc];
             self.builder.switch_to_block(block);
-            self.load_block_args(block);
-
-            // load registers if the block is a jump target
-            if self.jump.contains(&pc) {
-                self.load_regs();
-            }
             self.translate_block(instructions)?;
         }
 
@@ -170,23 +153,13 @@ impl Translator<'_> {
         Ok(())
     }
 
-    /// Create block with block parameters defined
-    pub fn create_block(&mut self) -> Block {
-        let block = self.builder.create_block();
-        for _ in 0..14 {
-            self.builder.append_block_param(block, types::I64);
-        }
-        block
-    }
-
     /// Create jump table
     pub fn create_jump_table(&mut self) -> Result<()> {
         // Generate the runtime jump table for djump instructions
-        let block_args = self.block_args();
-        let trap = self.create_block();
+        let trap = self.builder.create_block();
         let default = BlockCall::new(
             trap,
-            block_args.clone(),
+            std::iter::empty(),
             &mut self.builder.func.dfg.value_lists,
         );
 
@@ -196,7 +169,7 @@ impl Translator<'_> {
             let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
             let call = BlockCall::new(
                 target,
-                block_args.clone(),
+                std::iter::empty(),
                 &mut self.builder.func.dfg.value_lists,
             );
             calls.push(call);
