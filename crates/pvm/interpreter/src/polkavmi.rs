@@ -31,7 +31,7 @@ pub fn invoke<X: Argument>(
     parts.code_and_jump_table = jam_blob.code_blob.into();
     parts.is_64_bit = true;
 
-    let blob = ProgramBlob::from_parts(parts)?;
+    let blob = ProgramBlob::from_parts(parts).unwrap();
 
     // Use the same workflow as polkavm examples
     let config = Config::from_env().unwrap_or_else(|_| Config::default());
@@ -55,8 +55,22 @@ pub fn invoke<X: Argument>(
     let reg_sp = instance.module().memory_map().stack_address_high();
     instance.set_reg(Reg::SP, reg_sp as u64);
 
+    // let reg_sl = instance.module().memory_map().stack_address_low();
+    // let reg_hs = instance.module().memory_map().heap_base();
+    // let ror = instance.module().memory_map().ro_data_range();
+    // let rwr = instance.module().memory_map().rw_data_range();
+    // let sr = instance.module().memory_map().stack_range();
+    // let ar = instance.module().memory_map().aux_data_range();
+    // let hb = instance.module().memory_map().heap_base();
+    // let hs = instance.module().memory_map().max_heap_size();
+    // s: MemoryInfo { read: 65536..78616, write: 196608..208896,
+    // heap: 208896..4278050816, stack: 4278050816..4278059008, args: 4278124544..4278128640 }
+    // p: Mmeory:        65536..81920  196608..208896
+    // 208896-4294705152                4294828032..4294836224  4294901760..4294901760
+    // println!("Mmeory: {:?} {:?} {:?} {:?} {}-{}", ror, rwr, sr, ar, hb, hb + hs);
+
     // Write args to memory
-    let args_start = reg_sp - args.len() as u32 - 1;
+    let args_start = instance.module().memory_map().stack_address_low();
     instance.write_memory(args_start, args)?;
     instance.set_reg(Reg::A0, args_start as u64);
     instance.set_reg(Reg::A1, args.len() as u64);
@@ -65,6 +79,9 @@ pub fn invoke<X: Argument>(
     let mut reason = Reason::Halt;
     let mut total_call_gas = 0;
     let mut count = 0;
+
+    // registers: [4294901760, 4278059008, 0, 0, 0, 0, 0, 4278124544, 3, 0, 0, 0, 0]
+    // registers: [4294901760, 4294836224, 0, 0, 0, 0, 0, 4294836220, 3, 0, 0, 0, 0]
 
     loop {
         let interrupt_kind = instance.run()?;
@@ -105,7 +122,7 @@ pub fn invoke<X: Argument>(
             }
             InterruptKind::Ecalli(num) => {
                 count -= 1;
-                println!("step count: {count} call {num}");
+                println!("step count: {count} call {num} pc {}", instance.program_counter().unwrap());
                 // Handle host call directly with polkavm
                 let call_gas = match num {
                     100 => 1,
@@ -148,7 +165,7 @@ pub fn invoke<X: Argument>(
 
     println!("polkavm gas: {polkavm_gas_used}, count: {count}, call gas: {total_call_gas}");
 
-    let gas_used = count + total_call_gas + 84; // FIXME 84?
+    let gas_used = count + total_call_gas;
 
     // Extract register state
     let mut registers = [0u64; 13];

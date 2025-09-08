@@ -54,7 +54,7 @@ impl Interpreter {
                         continue;
                     }
                     Reason::HostCall(call) => {
-                        println!("step count: {count} call {call}");
+                        println!("step count: {count} call {call} pc {}", interp.pc);
                         let mut context = interp.context.ctx(&mut ctx);
                         let reason = host::call(call, &mut context);
                         interp.context.registers = context.registers;

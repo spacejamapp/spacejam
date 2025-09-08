@@ -88,7 +88,6 @@ impl Interpreter {
                     100 => 1,
                     _ => 11,
                 };
-                println!("call: {}", gas);
                 gas
             },
             _ => 1,
