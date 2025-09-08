@@ -46,8 +46,13 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         memory: memory.clone(),
         registers,
     };
-    let result =
-        pvmi::Interpreter::invoke(&program, (), input.initial_gas, input.initial_pc as usize)?;
+    let result = pvmi::Interpreter::invoke(
+        &program,
+        Default::default(),
+        (),
+        input.initial_gas,
+        input.initial_pc as usize,
+    )?;
 
     assert_eq!(result.reason.to_string(), output.expected_status);
     assert_eq!(result.state.pc, output.expected_pc);

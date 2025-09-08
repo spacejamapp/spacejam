@@ -1,13 +1,46 @@
 //! Invocation APIs of the interpreter
 
-use crate::{Context, Interpreter};
+use crate::{
+    pvmi::{self, ParsedProgram},
+    Context, Interpreter,
+};
 use anyhow::Result;
-use pvm::{host, score::Gas, Argument, Invoked, Program, Reason};
+use pvm::{
+    host,
+    score::{Gas, OpaqueHash},
+    Argument, Invoked, Program, Reason,
+};
 
 impl Interpreter {
     /// Invoke a program with the given context
     pub fn invoke<X: Argument>(
         program: &Program,
+        hash: OpaqueHash,
+        ctx: X,
+        gas: Gas,
+        pc: usize,
+    ) -> Result<Invoked<X>> {
+        let blob = program.blob()?;
+        let mut reader = blob.reader().with_position(pc);
+        let mut parsed = vec![None; reader.buffer.len()];
+        while let Ok(instr) = reader.read() {
+            parsed[instr.range.start] = Some(instr.clone());
+        }
+
+        let parsed = ParsedProgram {
+            program: parsed,
+            registers: program.registers,
+            memory: program.memory.clone(),
+            table: blob.jump_table.to_vec(),
+        };
+
+        pvmi::set(hash, parsed.clone());
+        Self::invoke_parsed(parsed, ctx, gas, pc)
+    }
+
+    /// Invoke a program with the given context
+    pub fn invoke_parsed<X: Argument>(
+        program: ParsedProgram,
         mut ctx: X,
         gas: Gas,
         pc: usize,
@@ -20,18 +53,12 @@ impl Interpreter {
                 memory: program.memory.clone(),
             },
             pc,
+            table: program.table,
             ..Default::default()
         };
-        let blob = program.blob()?;
-        interp.table = blob.jump_table.to_vec();
-
-        let mut reader = blob.reader().with_position(pc);
-        let mut program = vec![None; reader.buffer.len()];
-        while let Ok(instr) = reader.read() {
-            program[instr.range.start] = Some(instr.clone());
-        }
 
         // interpret the program
+        let program = program.program;
         loop {
             let Some(Some(instr)) = program.get(interp.pc) else {
                 break;
@@ -62,7 +89,6 @@ impl Interpreter {
             }
         }
 
-        interp.pc = reader.position;
         interp.burn(1);
         Ok(interp.result(
             ctx,
