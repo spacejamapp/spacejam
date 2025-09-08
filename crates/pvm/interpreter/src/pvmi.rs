@@ -1,7 +1,7 @@
 //! PVM interface implementation
 
 use crate::Interpreter;
-use parser::{program, reader::Offset, Instruction, Memory};
+use parser::{program, reader::Offset, Instruction};
 use pvm::{
     score::{Gas, OpaqueHash},
     Argument, Invocation, Invoked,
@@ -40,8 +40,6 @@ pub struct ParsedProgram {
     pub program: Vec<Option<Offset<Instruction>>>,
     /// The registers of the program.
     pub registers: [u64; 13],
-    /// The memory of the program.
-    pub memory: Memory,
     /// The jump table of the program.
     pub table: Vec<u64>,
 }
@@ -57,7 +55,8 @@ impl Invocation for Interpreter {
     ) -> Invoked<X> {
         let program = program::preimage(code, &args).expect("failed to preimage");
         if let Some(parsed) = self::get(hash) {
-            return Self::invoke_parsed(parsed, ctx, gas, pc).expect("fix me later");
+            return Self::invoke_parsed(parsed, program.memory, ctx, gas, pc)
+                .expect("fix me later");
         }
 
         Self::invoke(&program, hash, ctx, gas, pc).expect("fix me later")
