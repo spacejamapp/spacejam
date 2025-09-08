@@ -21,7 +21,7 @@ impl Interpreter {
         pc: usize,
     ) -> Result<Invoked<X>> {
         let blob = program.blob()?;
-        let mut reader = blob.reader().with_position(pc);
+        let mut reader = blob.reader();
         let mut parsed = vec![None; reader.buffer.len()];
         while let Ok(instr) = reader.read() {
             parsed[instr.range.start] = Some(instr.clone());
