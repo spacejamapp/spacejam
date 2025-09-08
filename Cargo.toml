@@ -21,7 +21,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2021"
-version = "0.0.9"
+version = "0.0.10"
 homepage = "https://github.com/spacejamapp/spacejam"
 repository = "https://github.com/spacejamapp/spacejam"
 license = "GPL-3.0"

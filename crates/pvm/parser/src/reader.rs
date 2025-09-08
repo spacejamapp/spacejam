@@ -44,7 +44,10 @@ impl<'r> Reader<'r> {
 
     /// Read an opcode.
     pub fn read_opcode(&mut self) -> Result<Opcode> {
-        let opcode = Opcode::try_from(self.buffer[self.position])?;
+        let opcode = Opcode::try_from(*self.buffer.get(self.position).ok_or(anyhow::anyhow!(
+            "position {} not found in buffer",
+            self.position
+        ))?)?;
         self.position += 1;
         Ok(opcode)
     }
