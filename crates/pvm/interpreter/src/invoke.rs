@@ -65,7 +65,7 @@ impl Interpreter {
             };
 
             interp.pc = instr.range.start;
-            match interp.step(&instr) {
+            match interp.step(instr) {
                 Reason::Continue => {
                     if let Some(target) = interp.jump.take() {
                         interp.pc = target;

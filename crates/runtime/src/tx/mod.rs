@@ -174,15 +174,11 @@ pub async fn simulate_with_state<Vm: Pvm>(
         }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
-        if !available.is_empty() {
-            reports = self::assurance::reports(block.header.slot, &available, reports.clone());
-        }
+        reports = self::assurance::reports(block.header.slot, &available, reports.clone());
 
         // (ρ') Update availability assignments based on guarantees (11.43)
-        //
-        // NOTE: can not skip bcz None should be written to the state as well.
-        reports = guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-        state.reports = reports;
+        state.reports =
+            guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
         (available, assurances)
     };
 
