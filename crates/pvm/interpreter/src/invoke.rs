@@ -25,10 +25,15 @@ impl Interpreter {
         let blob = program.blob()?;
         interp.table = blob.jump_table.to_vec();
 
-        // interpret the program
         let mut reader = blob.reader().with_position(pc);
+        let mut program = vec![None; reader.buffer.len()];
+        while let Ok(instr) = reader.read() {
+            program[instr.range.start] = Some(instr.clone());
+        }
+
+        // interpret the program
         loop {
-            let Ok(instr) = reader.read() else {
+            let Some(Some(instr)) = program.get(interp.pc) else {
                 break;
             };
 
@@ -37,10 +42,10 @@ impl Interpreter {
                 Reason::Continue => {
                     if let Some(target) = interp.jump.take() {
                         interp.pc = target;
-                        reader.set_position(target);
+                        continue;
                     }
 
-                    continue;
+                    interp.pc = instr.range.end;
                 }
                 Reason::HostCall(call) => {
                     let mut context = interp.context.ctx(&mut ctx);
@@ -49,6 +54,7 @@ impl Interpreter {
                     if reason != Reason::Continue {
                         return Ok(interp.result(ctx, initial_gas, reason));
                     }
+                    interp.pc = instr.range.end;
                 }
                 reason => {
                     return Ok(interp.result(ctx, initial_gas, reason));
