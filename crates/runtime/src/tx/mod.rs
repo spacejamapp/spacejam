@@ -95,6 +95,9 @@ pub async fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+    if new_epoch && block.header.epoch_mark.is_none() {
+        anyhow::bail!("epoch mark is required");
+    }
 
     // handle marks in the block
     if let Some(tickets_mark) = block.header.tickets_mark {
@@ -251,9 +254,14 @@ pub async fn simulate_with_state<Vm: Pvm>(
 
     // Round 4 computation
     {
-        state
+        if let Some(parent) = state
             .recent_blocks
-            .complete_state_root(block.header.parent_state_root)?;
+            .complete_state_root(block.header.parent_state_root)?
+        {
+            if parent != block.header.parent {
+                anyhow::bail!("Parent mismatch");
+            }
+        }
 
         // (p of β') Report the work packages
         let (mut reported, mut reporters) = (vec![], vec![]);
