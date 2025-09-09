@@ -51,16 +51,17 @@ pub struct MemoryDb {
 
 impl KVStorage for MemoryDb {
     fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        let Commit { update, removal } = commit;
         let mut data = self
             .data
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
 
-        for (key, value) in commit.iset() {
-            data.insert(key.to_vec(), value.clone());
+        for (key, value) in update.into_iter() {
+            data.insert(key.to_vec(), value);
         }
 
-        for key in commit.iremoval() {
+        for key in removal.iter() {
             data.remove(key.as_ref());
         }
 
@@ -83,6 +84,24 @@ impl KVStorage for MemoryDb {
             .read()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
         Ok(data.get(key.as_ref()).cloned())
+    }
+
+    fn batch_read(&self, _column: Column, keys: Vec<Vec<u8>>) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let data = self
+            .data
+            .read()
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
+
+        Ok(keys
+            .into_iter()
+            .map(|key| {
+                let value = data
+                    .get::<Vec<u8>>(key.as_ref())
+                    .cloned()
+                    .unwrap_or_default();
+                (key, value)
+            })
+            .collect::<Vec<_>>())
     }
 
     fn iter(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
