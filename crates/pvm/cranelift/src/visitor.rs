@@ -8,6 +8,7 @@ use parser::{format, Visitor};
 
 impl Visitor for Translator<'_> {
     type Error = anyhow::Error;
+    type Output = ();
 
     fn visit_add_32(
         &mut self,

@@ -105,11 +105,10 @@ impl Translator<'_> {
         let inst = self
             .builder
             .ins()
-            .call(self.host["mget"], &[self.pool.ctx, address, clen]);
+            .call(self.host["mget"], &[self.pool.vmctx, address, clen]);
         let value = self.builder.inst_results(inst)[0];
 
         // Reload registers and gas from memory after host call
-        self.load_registers();
         if length != 8 {
             self.builder.ins().ireduce(ty, value)
         } else {
@@ -131,14 +130,14 @@ impl Translator<'_> {
         };
         self.builder
             .ins()
-            .call(self.host["mset"], &[self.pool.ctx, address, value, clen]);
+            .call(self.host["mset"], &[self.pool.vmctx, address, value, clen]);
 
         // Reload registers and gas from memory after host call
         for i in 0..13 {
             self.pool.registers[i] = self.builder.ins().load(
                 types::I64,
                 MemFlags::trusted(),
-                self.pool.ctx,
+                self.pool.vmctx,
                 i as i32 * 8,
             );
         }
