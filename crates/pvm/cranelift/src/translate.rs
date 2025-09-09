@@ -101,16 +101,14 @@ impl Translator<'_> {
         }
 
         // now translate the rest of the blocks
+        self.build_macros();
         for (pc, block) in self.blocks.clone() {
             let instructions = &func.blocks[&pc];
             self.builder.switch_to_block(block);
             self.translate_block(instructions)?;
         }
 
-        // Fill the trap block if it was created
-        self.builder.switch_to_block(self.trap);
-        self.return_(Exit::InvalidJumpTarget);
-        self.builder.seal_block(self.trap);
+        // seal all blocks
         self.builder.seal_all_blocks();
         Ok(())
     }
@@ -162,7 +160,7 @@ impl Translator<'_> {
     pub fn create_jump_table(&mut self) -> Result<()> {
         // Generate the runtime jump table for djump instructions
         let default = BlockCall::new(
-            self.trap,
+            self.masm.trap,
             std::iter::empty(),
             &mut self.builder.func.dfg.value_lists,
         );
@@ -170,7 +168,7 @@ impl Translator<'_> {
         // Create block calls pointing directly to target blocks (no adapters needed)
         let mut calls = Vec::with_capacity(self.jump.len());
         for &jump_pc in &self.jump {
-            let target = self.blocks.get(&jump_pc).copied().unwrap_or(self.trap);
+            let target = self.blocks.get(&jump_pc).copied().unwrap_or(self.masm.trap);
             let call = BlockCall::new(
                 target,
                 std::iter::empty(),

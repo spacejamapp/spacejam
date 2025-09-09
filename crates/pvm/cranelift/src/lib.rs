@@ -1,9 +1,11 @@
 //! PVM Compiler - A Cranelift-based compiler for the Polkadot Virtual Machine
 
+use crate::masm::MacroBlocks;
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable, StackSlot};
 use std::collections::BTreeMap;
+
 pub use {
     exit::Exit,
     register::{offsets, Registers},
@@ -12,6 +14,7 @@ pub use {
 mod control;
 mod exit;
 pub mod ir;
+mod masm;
 mod math;
 mod memory;
 mod register;
@@ -41,8 +44,8 @@ pub struct Translator<'b> {
     /// The runtime jump table
     pub rt_jump_table: JumpTable,
 
-    /// The trap block for invalid jump targets
-    pub trap: Block,
+    /// The macro blocks
+    pub masm: MacroBlocks,
 
     /// The memory info
     #[cfg(target_os = "macos")]
@@ -62,16 +65,15 @@ impl<'b> Translator<'b> {
             iblocks.insert(*pc, builder.create_block());
         }
 
-        let trap = builder.create_block();
         Ok(Self {
-            builder,
             blocks: iblocks,
             host: BTreeMap::new(),
             jump: Vec::new(),
             pool: Registers::default(),
             stack: StackSlot::from_u32(0),
             rt_jump_table: JumpTable::new(0),
-            trap,
+            masm: MacroBlocks::new(&mut builder),
+            builder,
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
@@ -91,8 +93,8 @@ impl<'b> Translator<'b> {
         }
 
         self.blocks = iblocks;
-        self.builder = builder;
-        self.trap = self.builder.create_block();
+        self.masm = MacroBlocks::new(&mut builder);
         self.pool = Registers::default();
+        self.builder = builder;
     }
 }
