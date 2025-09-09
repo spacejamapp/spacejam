@@ -6,10 +6,11 @@
 //! - embed execution result in step outputs.
 //! - calculate gas from step outputs.
 
+pub mod analyse;
 mod context;
 mod interp;
 mod invoke;
-mod pvmi;
+pub(crate) mod pvmi;
 mod result;
 mod visitor;
 

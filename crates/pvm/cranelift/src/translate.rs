@@ -1,175 +1,146 @@
-//! translation utils
+//! Translator API V2
 
-use crate::{Exit, Translator};
+use crate::{ir, offsets, Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData};
-use cranelift_codegen::ir::{self, BlockArg, BlockCall};
-use parser::{reader::Offset, Instruction, Visitor};
-use pvm::Program;
+use cranelift::prelude::{types, Block, InstBuilder, IntCC, MemFlags};
+use parser::{reader::Offset, Instruction};
+use pvm::{MemoryInfo, Visitor};
 use std::collections::BTreeMap;
 
-type Block = Vec<Offset<Instruction>>;
+const ACCUMULATE_PC: u64 = 5;
+const REFINE_PC: u64 = 0;
+const TEST_PC: u64 = 13;
 
 impl Translator<'_> {
-    /// Translate entire program
-    pub fn translate(&mut self, program: &Program) -> Result<()> {
-        let entry = self.builder.create_block();
-        self.builder.append_block_params_for_function_params(entry);
-
-        // analyze blocks
-        let blocks = self.analyze(&program.code)?;
-        self.translate_dispatcher(program, entry)?;
-        for (pc, block) in &blocks {
-            let cblock = self.blocks[pc];
-            self.builder.switch_to_block(cblock);
-            if self.need_sync(pc) {
-                self.load_params();
+    /// Translate a regular PVM function (non-main)
+    pub fn translate(&mut self, fun: &ir::Function, _info: MemoryInfo) -> Result<()> {
+        // create all blocks
+        for (idx, pc) in fun.blocks.keys().enumerate() {
+            let block = if idx == 0 {
+                let block = self.builder.create_block();
+                self.builder.append_block_params_for_function_params(block);
+                block
             } else {
-                // Parameter-based: receive registers + gas via block parameters (14 total)
-                let params = (0..14)
-                    .map(|_| self.builder.append_block_param(cblock, types::I64))
-                    .collect::<Vec<_>>();
-                self.params(&params);
-            }
-            self.translate_block(block)?;
+                self.create_block()
+            };
+            self.blocks.insert(*pc, block);
+        }
+
+        // translate the all blocks
+        for (pc, block) in self.blocks.clone() {
+            let instructions = &fun.blocks[&pc];
+            self.builder.switch_to_block(block);
+            self.load_block_args(block);
+            self.translate_block(instructions)?;
         }
 
         self.builder.seal_all_blocks();
         Ok(())
     }
 
-    /// discovers all basic blocks
-    fn analyze(&mut self, program: &[u8]) -> Result<BTreeMap<u64, Block>> {
-        let blob = parser::program::deblob(program)?;
-        self.jump = blob.jump_table.clone();
-        let mut reader = blob.reader();
-        let mut blocks = BTreeMap::new();
-        while !reader.eof() {
-            let block_start = reader.position;
-            let instructions = reader.read_block()?;
-            if instructions.is_empty() {
-                break;
-            }
-
-            blocks.insert(block_start as u64, instructions);
-            self.blocks
-                .insert(block_start as u64, self.builder.create_block());
-        }
-
-        Ok(blocks)
-    }
-
-    /// translate the dispatcher
-    fn translate_dispatcher(&mut self, program: &Program, entry: ir::Block) -> Result<()> {
-        let ctx_ptr = self.builder.block_params(entry)[0];
+    /// Translate the main function
+    ///
+    /// We need to init all block parameters to our registers here.
+    ///
+    /// [ctx, memory, gas, [..registers]]
+    pub fn translate_main(&mut self, func: &ir::Function, _info: MemoryInfo) -> Result<()> {
+        let entry = self.builder.create_block();
+        self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
-        self.init_context(program, ctx_ptr);
 
-        // Generate the runtime jump table for djump instructions
-        let trap = self.builder.create_block();
-        let default_block = BlockCall::new(
-            trap,
-            std::iter::empty(),
-            &mut self.builder.func.dfg.value_lists,
+        // init all registers from block parameters
+        let params = self.builder.block_params(entry);
+        let [vmctx, pc, gas] = [params[0], params[1], params[2]];
+        (self.pool.vmctx, self.pool.gas) = (vmctx, gas);
+        self.pool.registers = [
+            params[3], params[4], params[5], params[6], params[7], params[8], params[9],
+            params[10], params[11], params[12], params[13], params[14], params[15],
+        ];
+
+        self.pool.memory = self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            self.pool.vmctx,
+            offsets::MEMORY_OFFSET,
         );
 
-        // Create block calls pointing directly to target blocks (no adapters needed)
-        let mut block_calls = Vec::with_capacity(self.jump.len());
-        for &jump_pc in &self.jump {
-            let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
-            let block_call = BlockCall::new(
-                target,
-                std::iter::empty(),
-                &mut self.builder.func.dfg.value_lists,
-            );
-            block_calls.push(block_call);
+        // create all blocks
+        for pc in func.blocks.keys() {
+            let block = self.create_block();
+            self.blocks.insert(*pc, block);
         }
 
-        // Create and cache the jump table
-        let jt_data = JumpTableData::new(default_block, &block_calls);
-        self.rt_jump_table = self.builder.create_jump_table(jt_data);
-        self.builder.switch_to_block(trap);
-        self.return_(Exit::InvalidJumpTarget);
-        self.builder.seal_block(trap);
-        self.translate_entry(entry, trap)?;
-        Ok(())
-    }
-
-    /// Handle the entry point
-    ///
-    /// - 5 for accumulate programs
-    /// - 13 for testing
-    /// - 0 for general programs
-    fn translate_entry(&mut self, entry: ir::Block, trap: ir::Block) -> Result<()> {
-        self.builder.switch_to_block(entry);
-        let pc = self.pc();
-
-        // Check for pc == 5 (accumulate)
-        let five = self.builder.ins().iconst(types::I64, 5);
-        let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
-        let accumulate = self.blocks.get(&5).copied().unwrap_or(trap);
-
-        // Check for pc == 13 (testing)
-        let thirteen = self.builder.ins().iconst(types::I64, 13);
-        let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
-        let test = self.blocks.get(&13).copied().unwrap_or(trap);
-
-        // Default to block 0 (general)
-        let general = self.blocks.get(&0).copied().unwrap_or(trap);
-
-        // construct the arguments for the blocks (registers + gas)
-        self.load_params();
-        let args = self.args();
-        let empty_args: Vec<BlockArg> = vec![];
-        let [accumulate_args, test_args, general_args] = [accumulate, test, general].map(|b| {
-            // The entry blocks will never be jump targets.
-            if b == trap || self.testing {
-                &empty_args[..]
-            } else {
-                &args[..]
-            }
-        });
-
-        // Branch: if pc == 5 goto accumulate, else check for pc == 13
-        let check_test = self.builder.create_block();
+        // Add the initial minimal dispatch logic in the entry block
         {
-            for _ in 0..14 {
-                self.builder.append_block_param(check_test, types::I64);
-            }
+            let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
+            let thirteen = self.builder.ins().iconst(types::I64, TEST_PC as i64);
+            let refine = self.blocks[&REFINE_PC];
+            let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
+            let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);
+            let check_test = self.create_block();
 
+            // build the initial condition in the entry block
+            let block_args = self.block_args();
+            let is_accumulate = self.builder.ins().icmp(IntCC::Equal, pc, five);
             self.builder.ins().brif(
                 is_accumulate,
                 accumulate,
-                accumulate_args,
+                &block_args,
                 check_test,
-                &args,
+                &block_args,
             );
-        }
+            self.builder.seal_block(entry);
 
-        // Branch: if pc == 13 goto test, else goto general
-        {
+            // build the check test block
             self.builder.switch_to_block(check_test);
-            let check_test_params = (0..14)
-                .map(|i| self.builder.block_params(check_test)[i])
-                .collect::<Vec<_>>();
-            self.params(&check_test_params);
+            self.load_block_args(check_test);
+            let block_args = self.block_args();
+            let is_test = self.builder.ins().icmp(IntCC::Equal, pc, thirteen);
             self.builder
                 .ins()
-                .brif(is_test, test, test_args, general, general_args);
+                .brif(is_test, test, &block_args, refine, &block_args);
             self.builder.seal_block(check_test);
-            self.builder.seal_block(entry);
         }
+
+        // now translate the rest of the blocks
+        for (pc, block) in self.blocks.clone() {
+            let instructions = &func.blocks[&pc];
+            self.builder.switch_to_block(block);
+            self.load_block_args(block);
+            self.translate_block(instructions)?;
+        }
+
+        self.builder.seal_all_blocks();
         Ok(())
     }
 
     /// translate a block and check termination
-    fn translate_block(&mut self, block: &Block) -> Result<()> {
-        for instruction in block {
-            self.burn_gas(-1);
-            if let Err(e) = self.visit(instruction.value, &instruction.range) {
+    pub fn translate_block(&mut self, block: &[Offset<Instruction>]) -> Result<()> {
+        let mut gas_map = BTreeMap::new();
+        let mut gas = 0;
+        for (index, instr) in block.iter().enumerate() {
+            tracing::debug!("instr: {:?}", instr.value);
+            if instr.value.is_memory_op() {
+                gas_map.insert(index, gas - 1);
+                gas = 0;
+            } else {
+                gas -= 1;
+            }
+        }
+
+        let last_index = block.len() - 1;
+        for (index, instr) in block.iter().enumerate() {
+            if let Some(gas) = gas_map.get(&index) {
+                self.burn_gas(*gas as i64);
+                self.store_gas();
+            } else if index == last_index && gas != 0 {
+                self.burn_gas(gas as i64);
+            }
+
+            if let Err(e) = self.visit(instr.value, &instr.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",
-                    instruction.range.start,
+                    instr.range.start,
                     e
                 );
             }
@@ -184,5 +155,14 @@ impl Translator<'_> {
         }
 
         Ok(())
+    }
+
+    /// Create block with block parameters defined
+    pub fn create_block(&mut self) -> Block {
+        let block = self.builder.create_block();
+        for _ in 0..16 {
+            self.builder.append_block_param(block, types::I64);
+        }
+        block
     }
 }

@@ -1,7 +1,7 @@
 //! PolkaVM program interpreter
 
 use crate::{Error, Interpreter};
-use parser::{format, reader::Offset, Instruction, Visitor};
+use parser::{reader::Offset, Instruction, Visitor};
 use pvm::{Argument, Invoked, Reason};
 
 impl Interpreter {
@@ -81,24 +81,17 @@ impl Interpreter {
 
     /// Step a single instruction.
     pub fn step(&mut self, instr: &Offset<Instruction>) -> Reason {
-        let gas = match instr.value {
-            Instruction::Ecalli(format::I { imm0: call }) => {
-                let gas = match call {
-                    20 => 11 + self.rget(9),
-                    100 => 1,
-                    _ => 11,
-                };
-                gas
-            },
-            _ => 1,
-        };
+        let gas = self
+            .context
+            .dispatch(instr.value, &instr.range)
+            .unwrap_or(1);
 
         self.burn(gas);
         if self.context.gas < 0 {
             return Reason::OOG;
         }
 
-        let stepped = self.visit(instr.value, &instr.range);
+        let stepped = self.dispatch(instr.value, &instr.range);
         if let Err(e) = stepped {
             e.into()
         } else {

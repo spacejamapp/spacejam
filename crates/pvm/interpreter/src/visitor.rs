@@ -10,6 +10,7 @@ use pvm::{Argument, Value};
 
 impl Visitor for Interpreter {
     type Error = crate::Error;
+    type Output = ();
 
     fn visit_add_32(&mut self, format: format::RRR, _range: &Range<usize>) -> Result<()> {
         let format::RRR { reg0, reg1, reg2 } = format;

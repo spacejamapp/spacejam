@@ -2,7 +2,6 @@
 
 use crate::Memory;
 use anyhow::Result;
-use codec::JamCodec;
 
 pub use {
     blob::{deblob, ProgramBlob},
@@ -19,8 +18,8 @@ mod standard;
 /// Convert a preimage blob to a program.
 pub fn preimage(blob: Vec<u8>, args: &[u8]) -> anyhow::Result<Program> {
     let preimage = PreimageBlob::from_bytes(&blob)?;
-    let metadata = ConventionalMetadata::decode(&preimage.metadata)?;
-    tracing::debug!("metadata: {metadata:?}");
+    /*     let metadata = ConventionalMetadata::decode(&preimage.metadata)?;
+    tracing::debug!("metadata: {metadata:?}"); */
     preimage.blob.init(args)
 }
 

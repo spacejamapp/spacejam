@@ -26,8 +26,8 @@ pub struct Context<'ctx, X: Argument, M: MemoryLike> {
     /// The gas of the context
     pub gas: i64,
 
-    /// The program counter of the context
-    pub pc: u64,
+    /// The jump table of the context
+    pub dispatch: [u64; crate::MAX_FUNCTIONS],
 
     /// The hosting memory
     pub memory: M,

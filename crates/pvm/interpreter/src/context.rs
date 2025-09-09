@@ -1,9 +1,12 @@
 //! Context of the interpreter
 
+use std::ops::Range;
+
 use crate::Interpreter;
+use parser::format;
 use pvm::{
     score::{service::ServiceAccount, Account, Gas},
-    Argument,
+    Argument, Visitor,
 };
 
 /// Context of the interpreter
@@ -26,12 +29,34 @@ impl Context {
         ctx: &'ctx mut X,
     ) -> pvm::Context<'ctx, X, &'ctx mut parser::Memory> {
         pvm::Context {
-            ctx,
-            memory: &mut self.memory,
-            pc: 0,
             registers: self.registers,
             gas: self.gas,
+            dispatch: [0; pvm::MAX_FUNCTIONS],
+            memory: &mut self.memory,
+            ctx,
         }
+    }
+}
+
+impl Visitor for Context {
+    type Error = anyhow::Error;
+    type Output = u64;
+
+    fn visit_ecalli(
+        &mut self,
+        format: format::I,
+        _range: &Range<usize>,
+    ) -> Result<Self::Output, Self::Error> {
+        let format::I { imm0: call } = format;
+        Ok(match call {
+            20 => 11 + self.registers[9],
+            100 => 1,
+            _ => 11,
+        })
+    }
+
+    fn visit_default() -> Result<Self::Output, Self::Error> {
+        Ok(1)
     }
 }
 

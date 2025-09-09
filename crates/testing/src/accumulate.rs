@@ -19,7 +19,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     let accounts = input.pre_state.accounts();
 
     // run the accumulate function
-    let mut accumulation = tx::guarantee::accumulate::<jastime::Compiler, _>(
+    let mut accumulation = tx::guarantee::accumulate::<jastime::Interpreter, _>(
         input.input.slot,
         input.pre_state.slot,
         input.input.reports,

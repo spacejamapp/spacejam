@@ -9,6 +9,7 @@ pub struct Logger;
 
 impl Visitor for Logger {
     type Error = anyhow::Error;
+    type Output = ();
 
     fn visit_add_imm_32(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;

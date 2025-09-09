@@ -83,8 +83,6 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
-    tracing::debug!("reading from account {}", account.index());
-
     // get the storage value
     let Some(value) = account.read(&key) else {
         return Ok(Exit::None as u64);

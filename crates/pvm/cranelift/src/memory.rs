@@ -7,7 +7,6 @@ use cranelift::prelude::*;
 impl Translator<'_> {
     /// Memory get with immediate offset
     pub fn mget(&mut self, address: Value, offset: i64, ty: types::Type) -> Value {
-        self.sync_gas();
         let offset = self.builder.ins().iadd_imm(address, offset);
         let maddr = self.builder.ins().iadd(self.pool.memory, offset);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
@@ -15,14 +14,12 @@ impl Translator<'_> {
 
     /// Memory get with immediate address - optimized for constant addresses
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
-        self.sync_gas();
         let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
     /// Memory set with immediate offset
     pub fn mset(&mut self, address: Value, offset: i64, value: Value) {
-        self.sync_gas();
         let offset = self.builder.ins().iadd_imm(address, offset);
         let maddr = self.builder.ins().iadd(self.pool.memory, offset);
         self.builder
@@ -32,7 +29,6 @@ impl Translator<'_> {
 
     /// Memory set with immediate address - optimized for constant addresses  
     pub fn mset_imm(&mut self, address: i64, value: Value) {
-        self.sync_gas();
         let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
         self.builder
             .ins()
@@ -41,7 +37,6 @@ impl Translator<'_> {
 
     /// Store immediate value at immediate address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
-        self.sync_gas();
         let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
         let value = self.builder.ins().iconst(ty, value);
         let write_value =
@@ -60,14 +55,12 @@ impl Translator<'_> {
 impl Translator<'_> {
     /// Memory get with immediate offset
     pub fn mget(&mut self, address: Value, offset: i64, ty: types::Type) -> Value {
-        self.sync_gas();
         let address = self.builder.ins().iadd_imm(address, offset);
         self.mload(ty, address)
     }
 
     /// Memory get with immediate address - optimized for constant addresses
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
-        self.sync_gas();
         let maddr = self.maddr(address);
         let maddr = self.builder.ins().iadd_imm(self.pool.memory, maddr);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
@@ -75,14 +68,12 @@ impl Translator<'_> {
 
     /// Memory set with immediate offset
     pub fn mset(&mut self, address: Value, offset: i64, value: Value) {
-        self.sync_gas();
         let address = self.builder.ins().iadd_imm(address, offset);
         self.mstore(address, value)
     }
 
     /// Memory set with immediate address - optimized for constant addresses  
     pub fn mset_imm(&mut self, address: i64, value: Value) {
-        self.sync_gas();
         let maddr = self.maddr(address);
         self.builder
             .ins()
@@ -91,7 +82,6 @@ impl Translator<'_> {
 
     /// Store immediate value at immediate address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
-        self.sync_gas();
         let maddr = self.maddr(address);
         let value = self.builder.ins().iconst(ty, value);
         self.builder
@@ -115,11 +105,10 @@ impl Translator<'_> {
         let inst = self
             .builder
             .ins()
-            .call(self.host["mget"], &[self.pool.ctx, address, clen]);
+            .call(self.host["mget"], &[self.pool.vmctx, address, clen]);
         let value = self.builder.inst_results(inst)[0];
 
         // Reload registers and gas from memory after host call
-        self.load_registers();
         if length != 8 {
             self.builder.ins().ireduce(ty, value)
         } else {
@@ -141,14 +130,14 @@ impl Translator<'_> {
         };
         self.builder
             .ins()
-            .call(self.host["mset"], &[self.pool.ctx, address, value, clen]);
+            .call(self.host["mset"], &[self.pool.vmctx, address, value, clen]);
 
         // Reload registers and gas from memory after host call
         for i in 0..13 {
             self.pool.registers[i] = self.builder.ins().load(
                 types::I64,
                 MemFlags::trusted(),
-                self.pool.ctx,
+                self.pool.vmctx,
                 i as i32 * 8,
             );
         }

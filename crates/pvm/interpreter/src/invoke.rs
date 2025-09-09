@@ -1,13 +1,46 @@
 //! Invocation APIs of the interpreter
 
-use crate::{Context, Interpreter};
+use crate::{
+    pvmi::{self, ParsedProgram},
+    Context, Interpreter,
+};
 use anyhow::Result;
-use pvm::{host, score::Gas, Argument, Invoked, Program, Reason};
+use pvm::{
+    host,
+    score::{Gas, OpaqueHash},
+    Argument, Invoked, Program, Reason,
+};
 
 impl Interpreter {
     /// Invoke a program with the given context
     pub fn invoke<X: Argument>(
         program: &Program,
+        hash: OpaqueHash,
+        ctx: X,
+        gas: Gas,
+        pc: usize,
+    ) -> Result<Invoked<X>> {
+        let blob = program.blob()?;
+        let mut reader = blob.reader();
+        let mut parsed = vec![None; reader.buffer.len()];
+        while let Ok(instr) = reader.read() {
+            parsed[instr.range.start] = Some(instr.clone());
+        }
+
+        let parsed = ParsedProgram {
+            program: parsed,
+            registers: program.registers,
+            memory: program.memory.clone(),
+            table: blob.jump_table.to_vec(),
+        };
+
+        pvmi::set(hash, parsed.clone());
+        Self::invoke_parsed(parsed, ctx, gas, pc)
+    }
+
+    /// Invoke a program with the given context
+    pub fn invoke_parsed<X: Argument>(
+        program: ParsedProgram,
         mut ctx: X,
         gas: Gas,
         pc: usize,
@@ -20,58 +53,42 @@ impl Interpreter {
                 memory: program.memory.clone(),
             },
             pc,
+            table: program.table,
             ..Default::default()
         };
-        let blob = program.blob()?;
-        interp.table = blob.jump_table.to_vec();
 
         // interpret the program
-        let mut reader = blob.reader().with_position(pc);
-        let mut count = 0;
+        let program = program.program;
         loop {
-            let block = reader.read_block()?;
-            if block.is_empty() {
+            let Some(Some(instr)) = program.get(interp.pc) else {
                 break;
-            }
+            };
 
-            tracing::trace!(
-                "pos={:<6} gas={:<6} regs={:?}",
-                interp.pc,
-                interp.context.gas,
-                interp.context.registers
-            );
-            for instr in block {
-                interp.pc = instr.range.start;
-                match interp.step(&instr) {
-                    Reason::Continue => {
-                        count += 1;
-                        if let Some(target) = interp.jump.take() {
-                            interp.pc = target;
-                            reader.set_position(target);
-                            break;
-                        }
-
+            interp.pc = instr.range.start;
+            match interp.step(instr) {
+                Reason::Continue => {
+                    if let Some(target) = interp.jump.take() {
+                        interp.pc = target;
                         continue;
                     }
-                    Reason::HostCall(call) => {
-                        println!("step count: {count} call {call} pc {}", interp.pc);
-                        let mut context = interp.context.ctx(&mut ctx);
-                        let reason = host::call(call, &mut context);
-                        interp.context.registers = context.registers;
-                        if reason != Reason::Continue {
-                            return Ok(interp.result(ctx, initial_gas, reason));
-                        }
-                    }
-                    reason => {
-                        count += 1;
-                        println!("total count: {count}");
+
+                    interp.pc = instr.range.end;
+                }
+                Reason::HostCall(call) => {
+                    let mut context = interp.context.ctx(&mut ctx);
+                    let reason = host::call(call, &mut context);
+                    interp.context.registers = context.registers;
+                    if reason != Reason::Continue {
                         return Ok(interp.result(ctx, initial_gas, reason));
                     }
+                    interp.pc = instr.range.end;
+                }
+                reason => {
+                    return Ok(interp.result(ctx, initial_gas, reason));
                 }
             }
         }
 
-        interp.pc = reader.position;
         interp.burn(1);
 
         Ok(interp.result(
