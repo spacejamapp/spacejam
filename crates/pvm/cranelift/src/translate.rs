@@ -74,8 +74,9 @@ impl Translator<'_> {
             self.blocks.insert(*pc, block);
         }
 
+        // Create jump table first before adding instructions to entry block
         self.create_jump_table()?;
-        self.builder.switch_to_block(entry);
+
         // Add the initial minimal dispatch logic in the entry block
         {
             let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
@@ -106,6 +107,10 @@ impl Translator<'_> {
             self.translate_block(instructions)?;
         }
 
+        // Fill the trap block if it was created
+        self.builder.switch_to_block(self.trap);
+        self.return_(Exit::InvalidJumpTarget);
+        self.builder.seal_block(self.trap);
         self.builder.seal_all_blocks();
         Ok(())
     }
@@ -156,9 +161,8 @@ impl Translator<'_> {
     /// Create jump table
     pub fn create_jump_table(&mut self) -> Result<()> {
         // Generate the runtime jump table for djump instructions
-        let trap = self.builder.create_block();
         let default = BlockCall::new(
-            trap,
+            self.trap,
             std::iter::empty(),
             &mut self.builder.func.dfg.value_lists,
         );
@@ -166,7 +170,7 @@ impl Translator<'_> {
         // Create block calls pointing directly to target blocks (no adapters needed)
         let mut calls = Vec::with_capacity(self.jump.len());
         for &jump_pc in &self.jump {
-            let target = self.blocks.get(&jump_pc).copied().unwrap_or(trap);
+            let target = self.blocks.get(&jump_pc).copied().unwrap_or(self.trap);
             let call = BlockCall::new(
                 target,
                 std::iter::empty(),
@@ -178,9 +182,6 @@ impl Translator<'_> {
         // Create and cache the jump table
         let jt_data = JumpTableData::new(default, &calls);
         self.rt_jump_table = self.builder.create_jump_table(jt_data);
-        self.builder.switch_to_block(trap);
-        self.return_(Exit::InvalidJumpTarget);
-        self.builder.seal_block(trap);
         Ok(())
     }
 }

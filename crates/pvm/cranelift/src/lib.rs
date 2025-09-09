@@ -41,6 +41,9 @@ pub struct Translator<'b> {
     /// The runtime jump table
     pub rt_jump_table: JumpTable,
 
+    /// The trap block for invalid jump targets
+    pub trap: Block,
+
     /// The memory info
     #[cfg(target_os = "macos")]
     pub memory: pvm::MemoryInfo,
@@ -59,14 +62,16 @@ impl<'b> Translator<'b> {
             iblocks.insert(*pc, builder.create_block());
         }
 
+        let trap = builder.create_block();
         Ok(Self {
-            builder: FunctionBuilder::new(func, ctx),
+            builder,
             blocks: iblocks,
             host: BTreeMap::new(),
             jump: Vec::new(),
             pool: Registers::default(),
             stack: StackSlot::from_u32(0),
             rt_jump_table: JumpTable::new(0),
+            trap,
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
@@ -87,6 +92,7 @@ impl<'b> Translator<'b> {
 
         self.blocks = iblocks;
         self.builder = builder;
+        self.trap = self.builder.create_block();
         self.pool = Registers::default();
     }
 }
