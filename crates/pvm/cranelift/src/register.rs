@@ -109,13 +109,15 @@ impl Translator<'_> {
     }
 
     /// Load gas from memory into SSA value
-    pub fn load_gas(&mut self) -> Value {
-        self.builder.ins().load(
+    pub fn load_gas(&mut self) {
+        let gas = self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
             self.pool.vmctx,
             offsets::GAS_OFFSET,
-        )
+        );
+
+        self.builder.def_var(self.pool.gas, gas);
     }
 
     /// get register value

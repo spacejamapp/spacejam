@@ -47,7 +47,7 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     };
 
     // Convert numeric level to log::Level
-    tracing::trace!(target = target, level = level, "{message}");
+    tracing::debug!(target = target, level = level, "{message}");
     /* match level {
         0 => tracing::error!(target = target, "{message}"),
         1 => tracing::warn!(target = target, "{message}"),

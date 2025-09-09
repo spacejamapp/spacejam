@@ -9,11 +9,14 @@ use pvm::{Argument, MemoryLike};
 pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
     let gas = match index {
-        100 => 0,
         20 => (10 + context.registers[9]) as i64,
+        100 => 0,
         _ => 10,
     };
 
+    if gas != 0 {
+        tracing::info!("current gas: {} charge gas: {}", context.gas, gas);
+    }
     context.burn(gas as u64);
     if context.gas < 0 {
         return 4;

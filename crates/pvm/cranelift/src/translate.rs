@@ -6,7 +6,7 @@ use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
 use cranelift_codegen::ir::BlockCall;
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
-use std::collections::BTreeMap;
+// use std::collections::BTreeMap;
 
 const ACCUMULATE_PC: u64 = 5;
 const REFINE_PC: u64 = 0;
@@ -115,27 +115,28 @@ impl Translator<'_> {
 
     /// translate a block and check termination
     pub fn translate_block(&mut self, block: &[Offset<Instruction>]) -> Result<()> {
-        let mut gas_map = BTreeMap::new();
+        /* let mut gas_map = BTreeMap::new();
         let mut gas = 0;
         for (index, instr) in block.iter().enumerate() {
-            // tracing::debug!("instr: {:?}", instr.value);
             if instr.value.is_memory_op() {
                 gas_map.insert(index, gas - 1);
                 gas = 0;
             } else {
                 gas -= 1;
             }
-        }
+        } */
 
-        let last_index = block.len() - 1;
-        for (index, instr) in block.iter().enumerate() {
-            if let Some(gas) = gas_map.get(&index) {
+        // let last_index = block.len() - 1;
+        for (_index, instr) in block.iter().enumerate() {
+            /* if let Some(gas) = gas_map.get(&index) {
                 self.burn_gas(*gas as i64);
                 self.store_gas();
             } else if index == last_index && gas != 0 {
                 self.burn_gas(gas as i64);
-            }
+            } */
 
+            self.burn_gas(-1);
+            self.store_gas();
             if let Err(e) = self.visit(instr.value, &instr.range) {
                 tracing::warn!(
                     "Instruction translation failed at PC {}: {}",

@@ -3,6 +3,7 @@
 use crate::{trap, Memory};
 use anyhow::Result;
 use pvm::{Argument, Reason};
+use std::time::Instant;
 
 /// Module with compiled code
 pub struct Module {
@@ -52,6 +53,7 @@ impl Module {
         };
         ctx.dispatch = self.dispatch;
         ctx.registers = self.registers;
+        let now = Instant::now();
         let result = match trap::with(|| {
             func(
                 ctx,
@@ -82,7 +84,7 @@ impl Module {
                 page: info.address as u32 / pvm::PAGE_SIZE as u32,
             },
         };
-
+        tracing::info!("execution time: {:?}", now.elapsed());
         Ok(result)
     }
 

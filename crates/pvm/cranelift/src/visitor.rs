@@ -482,6 +482,7 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
+        self.store_gas();
         self.sync_registers();
         let inst = self
             .builder
@@ -489,6 +490,7 @@ impl Visitor for Translator<'_> {
             .call(self.host["call"], &[index, self.pool.vmctx]);
         let result = self.builder.inst_results(inst)[0];
         self.load_registers();
+        self.load_gas();
 
         // Check if the result is panic
         let panic = self.builder.ins().iconst(types::I8, 1);
