@@ -72,11 +72,12 @@ impl Invocation for Interpreter {
             res
         } else {
             let program = program::preimage(code, &args).expect("failed to preimage");
-            if let Some(parsed) = self::get(hash) {
-                return Self::invoke_parsed(parsed, ctx, gas, pc).expect("fix me later");
-            }
+            let res = if let Some(parsed) = self::get(hash) {
+                Self::invoke_parsed(parsed, ctx, gas, pc).expect("fix me later")
+            } else {
+                Self::invoke(&program, hash, ctx, gas, pc).expect("fix me later")
+            };
 
-            let res = Self::invoke(&program, hash, ctx, gas, pc).expect("fix me later");
             println!(
                 "Space VM TIME: {:?}, gas: {}, output: {}",
                 now.elapsed(),

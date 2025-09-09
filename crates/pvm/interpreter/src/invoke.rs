@@ -90,7 +90,6 @@ impl Interpreter {
         }
 
         interp.burn(1);
-
         Ok(interp.result(
             ctx,
             initial_gas,
