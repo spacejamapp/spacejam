@@ -8,20 +8,32 @@ impl Translator<'_> {
     /// Memory get with immediate offset
     pub fn mget(&mut self, address: Value, offset: i64, ty: types::Type) -> Value {
         let offset = self.builder.ins().iadd_imm(address, offset);
-        let maddr = self.builder.ins().iadd(self.pool.memory, offset);
+        let maddr = self
+            .context
+            .builder
+            .ins()
+            .iadd(self.context.pool.memory, offset);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
     /// Memory get with immediate address - optimized for constant addresses
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
-        let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
+        let maddr = self
+            .context
+            .builder
+            .ins()
+            .iadd_imm(self.context.pool.memory, address);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
     /// Memory set with immediate offset
     pub fn mset(&mut self, address: Value, offset: i64, value: Value) {
         let offset = self.builder.ins().iadd_imm(address, offset);
-        let maddr = self.builder.ins().iadd(self.pool.memory, offset);
+        let maddr = self
+            .context
+            .builder
+            .ins()
+            .iadd(self.context.pool.memory, offset);
         self.builder
             .ins()
             .store(MemFlags::trusted(), value, maddr, 0);
@@ -29,7 +41,11 @@ impl Translator<'_> {
 
     /// Memory set with immediate address - optimized for constant addresses  
     pub fn mset_imm(&mut self, address: i64, value: Value) {
-        let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
+        let maddr = self
+            .context
+            .builder
+            .ins()
+            .iadd_imm(self.context.pool.memory, address);
         self.builder
             .ins()
             .store(MemFlags::trusted(), value, maddr, 0);
@@ -37,7 +53,11 @@ impl Translator<'_> {
 
     /// Store immediate value at immediate address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
-        let maddr = self.builder.ins().iadd_imm(self.pool.memory, address);
+        let maddr = self
+            .context
+            .builder
+            .ins()
+            .iadd_imm(self.context.pool.memory, address);
         let value = self.builder.ins().iconst(ty, value);
         let write_value =
             if ty.bits() < 64 && self.builder.func.dfg.value_type(value).bits() > ty.bits() {

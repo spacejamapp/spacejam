@@ -61,7 +61,7 @@ impl Translator<'_> {
 
         // init all variables
         self.pool.gas = self.builder.declare_var(types::I64);
-        self.builder.def_var(self.pool.gas, gas);
+        self.context.builder.def_var(self.context.pool.gas, gas);
         for i in 0..13 {
             let reg = self.builder.declare_var(types::I64);
             self.pool.registers[i] = reg;
@@ -135,21 +135,15 @@ impl Translator<'_> {
                 self.burn_gas(gas as i64);
             } */
 
-            self.burn_gas(-1);
+            self.context.burn_gas(instr)?;
             self.store_gas();
-            if let Err(e) = self.visit(instr.value, &instr.range) {
-                tracing::warn!(
-                    "Instruction translation failed at PC {}: {}",
-                    instr.range.start,
-                    e
-                );
-            }
+            self.visit(instr.value, &instr.range)?;
         }
 
         // handle block termination with native CLIF control flow
         if let Some(last) = block.last() {
             if !last.value.is_termination() {
-                self.burn_gas(-1);
+                self.context.burn_gas_imm(-1)?;
                 self.return_(Exit::ProgramNotTerminated);
             }
         }
@@ -173,7 +167,7 @@ impl Translator<'_> {
             let call = BlockCall::new(
                 target,
                 std::iter::empty(),
-                &mut self.builder.func.dfg.value_lists,
+                &mut self.context.builder.func.dfg.value_lists,
             );
             calls.push(call);
         }

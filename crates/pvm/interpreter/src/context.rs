@@ -55,7 +55,7 @@ impl Visitor for Context {
         })
     }
 
-    fn visit_default() -> Result<Self::Output, Self::Error> {
+    fn visit_default(&mut self) -> Result<Self::Output, Self::Error> {
         Ok(1)
     }
 }

@@ -482,15 +482,14 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
-        self.store_gas();
         self.sync_registers();
         let inst = self
+            .context
             .builder
             .ins()
-            .call(self.host["call"], &[index, self.pool.vmctx]);
+            .call(self.host["call"], &[index, self.context.pool.vmctx]);
         let result = self.builder.inst_results(inst)[0];
         self.load_registers();
-        self.load_gas();
 
         // Check if the result is panic
         let panic = self.builder.ins().iconst(types::I8, 1);
@@ -513,7 +512,7 @@ impl Visitor for Translator<'_> {
         if let Some(&block) = self.blocks.get(&target_pc) {
             self.builder.ins().jump(block, &[]);
         } else {
-            self.burn_gas(-1);
+            self.context.burn_gas_imm(-1)?;
             self.return_(Exit::ProgramNotTerminated);
         }
 
@@ -1228,10 +1227,10 @@ impl Visitor for Translator<'_> {
         let format::RR { reg0, reg1 } = format;
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
-        let _inst = self
-            .builder
-            .ins()
-            .call(self.host["sbrk"], &[self.pool.vmctx, target, increment]);
+        let _inst = self.context.builder.ins().call(
+            self.host["sbrk"],
+            &[self.context.pool.vmctx, target, increment],
+        );
         Ok(())
     }
 

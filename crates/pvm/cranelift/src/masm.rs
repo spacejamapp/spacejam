@@ -37,13 +37,14 @@ impl Translator<'_> {
 
     /// Seal the trap block
     fn build_trap(&mut self) {
-        self.builder.switch_to_block(self.masm.trap);
+        let trap = self.masm.trap;
+        self.builder.switch_to_block(trap);
         self.return_(Exit::InvalidJumpTarget);
     }
 
     /// Seal the djump block
     fn build_djump(&mut self) {
-        self.builder.switch_to_block(self.masm.djump);
+        self.context.builder.switch_to_block(self.masm.djump);
         let target = self.builder.block_params(self.masm.djump)[0];
         let halt_block = self.builder.create_block();
         let check_valid = self.builder.create_block();
@@ -85,7 +86,8 @@ impl Translator<'_> {
             // Combine all invalid conditions with OR
             let invalid = self.builder.ins().bor(is_zero, exceeds_bounds);
             let invalid_jump = self.builder.ins().bor(invalid, is_misaligned);
-            self.builder
+            self.context
+                .builder
                 .ins()
                 .brif(invalid_jump, self.masm.trap, &[], valid, &[]);
         }
@@ -98,7 +100,10 @@ impl Translator<'_> {
             let one = self.builder.ins().iconst(types::I64, 1);
             let jump_index = self.builder.ins().isub(addr_div_2, one);
             let jump_index = self.builder.ins().ireduce(types::I32, jump_index);
-            self.builder.ins().br_table(jump_index, self.rt_jump_table);
+            self.context
+                .builder
+                .ins()
+                .br_table(jump_index, self.rt_jump_table);
         }
 
         // Seal all created blocks

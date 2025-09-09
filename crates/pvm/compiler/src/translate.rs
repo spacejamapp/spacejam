@@ -51,7 +51,7 @@ impl Compiler {
                 .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 0));
             translator.host = host;
             translator.translate_main(&format.main, minfo.clone())?;
-            translator.pool
+            translator.context.pool
         };
         self.module.define_function(main, &mut self.context)?;
         if std::env::var("SHOW_CLIF").is_ok() {
@@ -72,7 +72,7 @@ impl Compiler {
                 translator.pool = registers;
                 translator.jump = blob.jump_table.clone();
                 translator.translate(func, minfo.clone())?;
-                registers = translator.pool;
+                registers = translator.context.pool;
             }
             self.module.define_function(*id, &mut self.context)?;
             println!("{}", &self.context.func.display());

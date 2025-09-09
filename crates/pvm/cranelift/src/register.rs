@@ -65,7 +65,11 @@ impl Translator<'_> {
     /// Load dispatch table pointer to register
     pub fn dispatch(&mut self, index: Value) -> Value {
         let offset = self.builder.ins().imul_imm(index, 8);
-        let dispatch = self.builder.ins().iadd(self.pool.vmctx, offset);
+        let dispatch = self
+            .context
+            .builder
+            .ins()
+            .iadd(self.context.pool.vmctx, offset);
         self.builder.ins().load(
             types::I64,
             MemFlags::trusted(),
@@ -77,57 +81,53 @@ impl Translator<'_> {
     /// Sync registers to memory
     pub fn sync_registers(&mut self) {
         for i in 0..13 {
-            let reg = self.builder.use_var(self.pool.registers[i]);
-            self.builder
-                .ins()
-                .store(MemFlags::trusted(), reg, self.pool.vmctx, i as i32 * 8);
+            let reg = self.context.builder.use_var(self.context.pool.registers[i]);
+            self.context.builder.ins().store(
+                MemFlags::trusted(),
+                reg,
+                self.context.pool.vmctx,
+                i as i32 * 8,
+            );
         }
     }
 
     /// Load registers from memory
     pub fn load_registers(&mut self) {
         for i in 0..13 {
-            let reg = self.builder.ins().load(
+            let reg = self.context.builder.ins().load(
                 types::I64,
                 MemFlags::trusted(),
-                self.pool.vmctx,
+                self.context.pool.vmctx,
                 i as i32 * 8,
             );
-            self.builder.def_var(self.pool.registers[i], reg);
+            self.context
+                .builder
+                .def_var(self.context.pool.registers[i], reg);
         }
     }
 
     /// Sync gas to memory
     pub fn store_gas(&mut self) {
-        let gas = self.builder.use_var(self.pool.gas);
-        self.builder.ins().store(
+        let gas = self.context.builder.use_var(self.context.pool.gas);
+        self.context.builder.ins().store(
             MemFlags::trusted(),
             gas,
-            self.pool.vmctx,
+            self.context.pool.vmctx,
             offsets::GAS_OFFSET,
         );
-    }
-
-    /// Load gas from memory into SSA value
-    pub fn load_gas(&mut self) {
-        let gas = self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            self.pool.vmctx,
-            offsets::GAS_OFFSET,
-        );
-
-        self.builder.def_var(self.pool.gas, gas);
     }
 
     /// get register value
     pub fn rget(&mut self, reg: u8) -> Value {
-        self.builder.use_var(self.pool.registers[reg as usize])
+        self.context
+            .builder
+            .use_var(self.context.pool.registers[reg as usize])
     }
 
     /// set register value
     pub fn rset(&mut self, reg: u8, value: Value) {
-        self.builder
+        self.context
+            .builder
             .def_var(self.pool.registers[reg as usize], value);
     }
 }
