@@ -20,6 +20,7 @@ impl MacroBlocks {
     pub fn new(builder: &mut FunctionBuilder) -> Self {
         let djump = builder.create_block();
         builder.append_block_param(djump, types::I64);
+
         Self {
             trap: builder.create_block(),
             djump,
@@ -32,8 +33,6 @@ impl Translator<'_> {
     pub fn build_macros(&mut self) {
         self.build_trap();
         self.build_djump();
-        // self.builder.seal_block(self.masm.djump);
-        // self.builder.seal_block(self.masm.trap);
     }
 
     /// Seal the trap block

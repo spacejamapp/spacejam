@@ -38,6 +38,10 @@ impl Compiler {
             (main, funcs)
         };
 
+        // 2. declare all host functions
+        let host = self.declare_host_in_module()?;
+        let host = self.declare_host_in_func(host)?;
+
         // 2. define the main function
         let mut registers = {
             let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
@@ -45,6 +49,7 @@ impl Compiler {
             translator.stack = translator
                 .builder
                 .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 0));
+            translator.host = host;
             translator.translate_main(&format.main, minfo.clone())?;
             translator.pool
         };

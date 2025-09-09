@@ -118,7 +118,7 @@ impl Translator<'_> {
         let mut gas_map = BTreeMap::new();
         let mut gas = 0;
         for (index, instr) in block.iter().enumerate() {
-            tracing::debug!("instr: {:?}", instr.value);
+            // tracing::debug!("instr: {:?}", instr.value);
             if instr.value.is_memory_op() {
                 gas_map.insert(index, gas - 1);
                 gas = 0;

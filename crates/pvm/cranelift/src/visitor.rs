@@ -481,11 +481,13 @@ impl Visitor for Translator<'_> {
     ) -> Result<(), Self::Error> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
+        self.sync_registers();
         let inst = self
             .builder
             .ins()
             .call(self.host["call"], &[index, self.pool.vmctx]);
         let result = self.builder.inst_results(inst)[0];
+        self.load_registers();
 
         // Check if the result is panic
         let panic = self.builder.ins().iconst(types::I8, 1);
@@ -1221,8 +1223,8 @@ impl Visitor for Translator<'_> {
 
     fn visit_sbrk(&mut self, format: format::RR, _range: &Range<usize>) -> Result<(), Self::Error> {
         let format::RR { reg0, reg1 } = format;
-        let target = self.rget(reg0);
-        let increment = self.rget(reg1);
+        let target = self.builder.ins().iconst(types::I8, reg0 as i64);
+        let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
         let _inst = self
             .builder
             .ins()

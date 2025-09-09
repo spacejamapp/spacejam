@@ -84,6 +84,19 @@ impl Translator<'_> {
         }
     }
 
+    /// Load registers from memory
+    pub fn load_registers(&mut self) {
+        for i in 0..13 {
+            let reg = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.pool.vmctx,
+                i as i32 * 8,
+            );
+            self.builder.def_var(self.pool.registers[i], reg);
+        }
+    }
+
     /// Sync gas to memory
     pub fn store_gas(&mut self) {
         let gas = self.builder.use_var(self.pool.gas);
