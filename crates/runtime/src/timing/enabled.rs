@@ -120,7 +120,7 @@ thread_local! {
 impl Profiler for DefaultProfiler {
     fn start(&self, pass: Pass) -> Box<DefaultTimingToken> {
         let prev = CURRENT_PASS.with(|p| p.replace(pass));
-        tracing::trace!("timing: Starting {pass}, (during {prev})");
+        // tracing::trace!("timing: Starting {pass}, (during {prev})");
         Box::new(DefaultTimingToken {
             start: Instant::now(),
             pass,
@@ -146,7 +146,7 @@ pub struct DefaultTimingToken {
 impl Drop for DefaultTimingToken {
     fn drop(&mut self) {
         let duration = self.start.elapsed();
-        tracing::trace!("timing: Ending {}: {}ms", self.pass, duration.as_millis());
+        // tracing::trace!("timing: Ending {}: {}ms", self.pass, duration.as_millis());
         let old_cur = CURRENT_PASS.with(|p| p.replace(self.prev));
         debug_assert_eq!(self.pass, old_cur, "Timing tokens dropped out of order");
         PASS_TIME.with(|rc| {

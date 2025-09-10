@@ -53,7 +53,6 @@ impl Translator<'_> {
         // Fused zero and overflow checks
         let zero_64 = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor, zero_64);
-
         let min_val_64 = self.builder.ins().iconst(types::I64, i64::MIN);
         let neg_one_64 = self.builder.ins().iconst(types::I64, -1);
         let is_min = self.builder.ins().icmp(IntCC::Equal, dividend, min_val_64);
@@ -83,7 +82,6 @@ impl Translator<'_> {
         // Fused zero check and safe division
         let zero_32 = self.builder.ins().iconst(types::I32, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero_32);
-
         let one_32 = self.builder.ins().iconst(types::I32, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
         let result_32 = self.builder.ins().udiv(dividend_32, safe_divisor);
@@ -96,10 +94,8 @@ impl Translator<'_> {
 
     /// Safe unsigned 64-bit division - optimized for low register pressure
     pub fn safe_div_u64(&mut self, dividend: Value, divisor: Value) -> Value {
-        // Fused zero check and safe division
         let zero_64 = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor, zero_64);
-
         let one_64 = self.builder.ins().iconst(types::I64, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor);
         let result = self.builder.ins().udiv(dividend, safe_divisor);
@@ -117,7 +113,6 @@ impl Translator<'_> {
         // Fused zero and overflow checks
         let zero_32 = self.builder.ins().iconst(types::I32, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero_32);
-
         let min_val_32 = self.builder.ins().iconst(types::I32, i32::MIN as i64);
         let neg_one_32 = self.builder.ins().iconst(types::I32, -1);
         let is_min = self
@@ -151,7 +146,6 @@ impl Translator<'_> {
         // Fused zero and overflow checks
         let zero_64 = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor, zero_64);
-
         let min_val_64 = self.builder.ins().iconst(types::I64, i64::MIN);
         let neg_one_64 = self.builder.ins().iconst(types::I64, -1);
         let is_min = self.builder.ins().icmp(IntCC::Equal, dividend, min_val_64);
@@ -179,7 +173,6 @@ impl Translator<'_> {
         // Fused zero check and safe remainder
         let zero_32 = self.builder.ins().iconst(types::I32, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor_32, zero_32);
-
         let one_32 = self.builder.ins().iconst(types::I32, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_32, divisor_32);
         let result_32 = self.builder.ins().urem(dividend_32, safe_divisor);
@@ -195,7 +188,6 @@ impl Translator<'_> {
         // Fused zero check and safe remainder
         let zero_64 = self.builder.ins().iconst(types::I64, 0);
         let is_zero = self.builder.ins().icmp(IntCC::Equal, divisor, zero_64);
-
         let one_64 = self.builder.ins().iconst(types::I64, 1);
         let safe_divisor = self.builder.ins().select(is_zero, one_64, divisor);
         let result = self.builder.ins().urem(dividend, safe_divisor);

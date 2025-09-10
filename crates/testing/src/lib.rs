@@ -12,7 +12,7 @@ pub mod disputes;
 pub mod erasure;
 pub mod history;
 pub mod preimage;
-// pub mod pvmc;
+pub mod pvmc;
 pub mod pvmi;
 pub mod reports;
 pub mod safrole;

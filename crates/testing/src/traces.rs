@@ -67,7 +67,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     assert_eq!(state_root, input.pre_state.state_root);
 
     // 2. verify the state transition
-    let use_compiler = std::env::var("JASTIME").is_ok_and(|v| v == "true");
+    let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     let mut pkeys = Vec::new();
     runtime::timing::setup();
     let state = memdb.state()?;
@@ -89,9 +89,9 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
         },
         async {
             if use_compiler {
-                tx::simulate_with_state::<jastime::Jastime>(&mut block2, state, memdb.clone()).await
+                tx::simulate_with_state::<spacevm::SpaceVM>(&mut block2, state, memdb.clone()).await
             } else {
-                tx::simulate_with_state::<jastime::Interpreter>(&mut block2, state, memdb.clone())
+                tx::simulate_with_state::<spacevm::Interpreter>(&mut block2, state, memdb.clone())
                     .await
             }
         },

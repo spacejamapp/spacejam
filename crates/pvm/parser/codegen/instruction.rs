@@ -1,7 +1,6 @@
+use super::Format;
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Ident, ItemEnum, ItemImpl, Variant};
-
-use super::Format;
 
 /// The codegen for the instruction enum.
 pub struct InstructionEnum {
@@ -105,7 +104,7 @@ impl Default for InstructionEnum {
     fn default() -> Self {
         let item = parse_quote! {
             /// The PVM instruction enum.
-            #[derive(Clone, Copy, PartialEq, Eq)]
+            #[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
             pub enum Instruction {}
         };
 

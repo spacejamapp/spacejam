@@ -85,6 +85,7 @@ impl Interpreter {
             .context
             .dispatch(instr.value, &instr.range)
             .unwrap_or(1);
+
         self.burn(gas);
         if self.context.gas < 0 {
             return Reason::OOG;
