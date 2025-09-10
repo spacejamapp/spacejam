@@ -1,10 +1,8 @@
 //! Cranelift JIT backend
 
-use std::time::Instant;
-
 use crate::{Compiler, Module};
 use anyhow::Result;
-use cranelift::prelude::{types, AbiParam, Signature, StackSlotData, StackSlotKind};
+use cranelift::prelude::{types, AbiParam, Signature};
 use cranelift_codegen::{control::ControlPlane, ir::Function, isa::CallConv, Context};
 use cranelift_module::{Linkage, Module as _, ModuleReloc};
 use pvm::{score::OpaqueHash, Program};
@@ -24,7 +22,6 @@ impl Compiler {
 
     /// Declare functions for the program
     pub fn compile(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<Module> {
-        let instant = Instant::now();
         let memory = crate::Memory::new(&program.memory)?;
         let signature = Signature {
             params: vec![AbiParam::new(types::I64); 16],
@@ -40,7 +37,7 @@ impl Compiler {
         };
 
         // compile the program with cache
-        let func = self.translate(program, hash)?;
+        let (func, confirmed) = self.translate(program, hash)?;
         let isa = self.module.isa();
         let mut cpanel = ControlPlane::default();
         let (compiled, hits) = self
@@ -55,14 +52,16 @@ impl Compiler {
             .iter()
             .map(|r| ModuleReloc::from_mach_reloc(r, &func, main))
             .collect::<Vec<_>>();
+
         self.module
             .define_function_bytes(main, 1, compiled.code_buffer(), &relocs)?;
         self.module.finalize_definitions()?;
-        if let Some(hash) = hash.and_then(|h| hits.then_some(h)) {
-            self.artifact.put(hash, &func, true)?;
+        if !confirmed {
+            if let Some(hash) = hash.and_then(|h| hits.then_some(h)) {
+                self.artifact.put(hash, &func, true)?;
+            }
         }
 
-        println!("compile time: {:?}", instant.elapsed());
         Ok(Module {
             code: self.module.get_finalized_function(main),
             memory,
@@ -71,13 +70,17 @@ impl Compiler {
     }
 
     /// Translate the program to CLIF
-    fn translate(&mut self, program: &Program, hash: Option<OpaqueHash>) -> Result<Function> {
+    fn translate(
+        &mut self,
+        program: &Program,
+        hash: Option<OpaqueHash>,
+    ) -> Result<(Function, bool)> {
         let host = self.declare_host_in_module()?;
-        if let Some(Some((func, _hits))) =
+        if let Some(Some((func, confirmed))) =
             hash.and_then(|hash| self.artifact.hits(hash).then_some(self.artifact.clif(hash)))
         {
             self.context = Context::for_function(func.clone());
-            return Ok(func);
+            return Ok((func, confirmed));
         }
 
         let blob = program.blob()?;
@@ -86,14 +89,11 @@ impl Compiler {
         let minfo = program.memory.info.clone();
         let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
         translator.jump = blob.jump_table.clone();
-        translator.stack = translator
-            .builder
-            .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 0));
         translator.host = host;
         translator.translate(code, minfo.clone())?;
         if let Some(hash) = hash {
             self.artifact.put(hash, &self.context.func, false)?;
         }
-        Ok(self.context.func.clone())
+        Ok((self.context.func.clone(), false))
     }
 }

@@ -10,7 +10,7 @@ use crate::masm::MacroBlocks;
 use anyhow::Result;
 use context::Context;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable, StackSlot};
+use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
@@ -40,9 +40,6 @@ pub struct Translator<'b> {
 
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,
-
-    /// Stack slot for dynamic jumps
-    pub stack: StackSlot,
 
     /// The runtime jump table
     pub rt_jump_table: JumpTable,
@@ -78,7 +75,6 @@ impl<'b> Translator<'b> {
             blocks: iblocks,
             host: BTreeMap::new(),
             jump: Vec::new(),
-            stack: StackSlot::from_u32(0),
             rt_jump_table: JumpTable::new(0),
             masm,
             context,
