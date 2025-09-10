@@ -5,7 +5,7 @@ use cranelift_codegen::{incremental_cache::CacheKvStore, ir::Function};
 use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
 
 /// Cache directory for the compiled modules
-pub static JASTIME_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+pub static SPACEVM_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 /// Artifact for the compiled modules
 pub struct Artifact {
@@ -16,7 +16,7 @@ pub struct Artifact {
 impl Artifact {
     /// Create new artifact
     pub fn new() -> Result<Self> {
-        let dir = JASTIME_CACHE_DIR.get_or_init(|| {
+        let dir = SPACEVM_CACHE_DIR.get_or_init(|| {
             let dir = dirs::data_dir()
                 .unwrap_or_default()
                 .join("spacejam")
