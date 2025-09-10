@@ -89,9 +89,9 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
         },
         async {
             if use_compiler {
-                tx::simulate_with_state::<jastime::Jastime>(&mut block2, state, memdb.clone()).await
+                tx::simulate_with_state::<spacevm::SpaceVM>(&mut block2, state, memdb.clone()).await
             } else {
-                tx::simulate_with_state::<jastime::Interpreter>(&mut block2, state, memdb.clone())
+                tx::simulate_with_state::<spacevm::Interpreter>(&mut block2, state, memdb.clone())
                     .await
             }
         },

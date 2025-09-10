@@ -64,7 +64,7 @@ impl Invocation for Compiler {
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let mut pvmc = Self::host::<X>().expect("fix me later");
+        let pvmc = Self::host::<X>().expect("fix me later");
         let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
         let mut context = pvm::Context {
             registers: module.registers,

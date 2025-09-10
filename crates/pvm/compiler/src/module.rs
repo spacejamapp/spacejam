@@ -2,20 +2,25 @@
 
 use crate::{trap, Memory};
 use anyhow::Result;
+use cranelift_jit::JITModule;
+use cranelift_module::FuncId;
 use pvm::{Argument, Reason};
 use std::time::Instant;
 
 /// Module with compiled code
 pub struct Module {
     /// Code of the module
-    pub object: Vec<u8>,
-    /// The function composed by cranelift IR
-    pub fun: *const u8,
+    pub jit: JITModule,
+    /// The main function of the module
+    pub main: FuncId,
     /// The virtual memory for this module
     pub memory: Memory,
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
 }
+
+unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
 
 impl Module {
     /// Execute compiled function
@@ -49,7 +54,7 @@ impl Module {
                     u64,
                     u64,
                 ) -> (i64, i64),
-            >(self.fun)
+            >(self.jit.get_finalized_function(self.main))
         };
         ctx.registers = self.registers;
         let now = Instant::now();

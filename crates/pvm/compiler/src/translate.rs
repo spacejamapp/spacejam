@@ -12,16 +12,12 @@ const MAIN: &str = "main";
 
 impl Compiler {
     /// Compile the program with cache
-    pub fn compile_with_cache(
-        &mut self,
-        program: &Program,
-        hash: Option<OpaqueHash>,
-    ) -> Result<Module> {
+    pub fn compile_with_cache(self, program: &Program, hash: Option<OpaqueHash>) -> Result<Module> {
         self.compile(program, hash)
     }
 
     /// Declare functions for the program
-    pub fn compile(&mut self, program: &Program, _hash: Option<OpaqueHash>) -> Result<Module> {
+    pub fn compile(mut self, program: &Program, _hash: Option<OpaqueHash>) -> Result<Module> {
         let memory = crate::Memory::new(&program.memory)?;
         let signature = Signature {
             params: vec![AbiParam::new(types::I64); 16],
@@ -59,8 +55,8 @@ impl Compiler {
         compiled.buffer.data();
 
         Ok(Module {
-            object: Default::default(),
-            fun: self.module.get_finalized_function(main),
+            jit: self.module,
+            main,
             memory,
             registers: program.registers,
         })

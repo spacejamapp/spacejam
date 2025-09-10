@@ -61,17 +61,9 @@ impl Translator<'_> {
         {
             let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
             let thirteen = self.builder.ins().iconst(types::I64, TEST_PC as i64);
-            let refine = self
-                .blocks
-                .get(&REFINE_PC)
-                .unwrap_or(&self.masm.trap)
-                .clone();
-            let accumulate = self
-                .blocks
-                .get(&ACCUMULATE_PC)
-                .unwrap_or(&self.masm.trap)
-                .clone();
-            let test = self.blocks.get(&TEST_PC).unwrap_or(&self.masm.trap).clone();
+            let refine = *self.blocks.get(&REFINE_PC).unwrap_or(&self.masm.trap);
+            let accumulate = *self.blocks.get(&ACCUMULATE_PC).unwrap_or(&self.masm.trap);
+            let test = *self.blocks.get(&TEST_PC).unwrap_or(&self.masm.trap);
             let check_test = self.builder.create_block();
 
             // build the initial condition in the entry block
@@ -93,7 +85,7 @@ impl Translator<'_> {
         for (pc, block) in self.blocks.clone() {
             let instructions = &func[&pc];
             self.builder.switch_to_block(block);
-            self.translate_block(&instructions)?;
+            self.translate_block(instructions)?;
         }
 
         // seal all blocks
@@ -117,7 +109,7 @@ impl Translator<'_> {
         } */
 
         // let last_index = block.len() - 1;
-        for (_index, instr) in block.iter().enumerate() {
+        for instr in block.iter() {
             /* if let Some(gas) = gas_map.get(&index) {
                 self.burn_gas(*gas as i64);
                 self.store_gas();

@@ -15,7 +15,7 @@ pub enum Fuzz {
 
         /// If use interpreter instead
         #[clap(short, long)]
-        compiler: bool,
+        interp: bool,
     },
 
     /// Fuzz with a fuzzer
@@ -48,7 +48,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target { socket, compiler } => Target::serve(socket, *compiler).await,
+            Self::Target { socket, interp } => Target::serve(socket, *interp).await,
             Self::Fuzzer {
                 socket,
                 traces,

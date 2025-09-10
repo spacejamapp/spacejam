@@ -21,7 +21,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     // run the accumulate function
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     let mut accumulation = if use_compiler {
-        tx::guarantee::accumulate::<jastime::Compiler, _>(
+        tx::guarantee::accumulate::<spacevm::Compiler, _>(
             input.input.slot,
             input.pre_state.slot,
             input.input.reports,
@@ -34,7 +34,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         )
         .await?
     } else {
-        tx::guarantee::accumulate::<jastime::Interpreter, _>(
+        tx::guarantee::accumulate::<spacevm::Interpreter, _>(
             input.input.slot,
             input.pre_state.slot,
             input.input.reports,
