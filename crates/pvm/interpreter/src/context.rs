@@ -31,7 +31,6 @@ impl Context {
         pvm::Context {
             registers: self.registers,
             gas: self.gas,
-            dispatch: [0; pvm::MAX_FUNCTIONS],
             memory: &mut self.memory,
             ctx,
         }
@@ -55,7 +54,7 @@ impl Visitor for Context {
         })
     }
 
-    fn visit_default() -> Result<Self::Output, Self::Error> {
+    fn visit_default(&mut self) -> Result<Self::Output, Self::Error> {
         Ok(1)
     }
 }

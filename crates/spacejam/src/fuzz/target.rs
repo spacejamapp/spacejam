@@ -32,18 +32,18 @@ pub struct Target {
     imports: Vec<u32>,
 
     /// If use interpreter instead
-    compiler: bool,
+    interp: bool,
 }
 
 impl Target {
     /// Create a new target
-    pub fn new(stream: UnixStream, compiler: bool) -> Self {
+    pub fn new(stream: UnixStream, interp: bool) -> Self {
         runtime::timing::setup();
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
             imports: Vec::new(),
-            compiler,
+            interp,
         }
     }
 
@@ -142,15 +142,15 @@ impl Target {
                 .await?
             },
             async {
-                if self.compiler {
-                    tx::simulate_with_state::<jastime::Jastime>(
+                if self.interp {
+                    tx::simulate_with_state::<spacevm::Interpreter>(
                         &mut block,
                         state,
                         self.data.clone(),
                     )
                     .await
                 } else {
-                    tx::simulate_with_state::<jastime::Interpreter>(
+                    tx::simulate_with_state::<spacevm::SpaceVM>(
                         &mut block,
                         state,
                         self.data.clone(),

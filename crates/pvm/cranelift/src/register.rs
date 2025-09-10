@@ -2,7 +2,6 @@
 
 use crate::Translator;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::BlockArg;
 
 /// Offsets to the memory base
 ///
@@ -23,11 +22,8 @@ pub mod offsets {
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = 8 * (pvm::REGISTER_COUNT as i32);
 
-    /// Offset to dispatch table
-    pub const DISPATCH_OFFSET: i32 = GAS_OFFSET + 8;
-
     /// Offset to memory field
-    pub const MEMORY_OFFSET: i32 = DISPATCH_OFFSET + 8 * (pvm::MAX_FUNCTIONS as i32);
+    pub const MEMORY_OFFSET: i32 = GAS_OFFSET + 8;
 }
 
 /// Register manager
@@ -39,10 +35,10 @@ pub struct Registers {
     /// Register values (13 registers)
     ///
     /// [RA, SP, T0, T1, T2, S0, S1, A0, A1, A2, A3, A4, A5]
-    pub registers: [Value; 13],
+    pub registers: [Variable; 13],
 
     /// Current gas value (SSA)
-    pub gas: Value,
+    pub gas: Variable,
 
     /// The memory pointer
     pub memory: Value,
@@ -55,88 +51,64 @@ impl Default for Registers {
     fn default() -> Self {
         Self {
             memory: Value::new(0),
-            registers: [Value::new(0); 13],
-            gas: Value::new(0),
+            registers: [Variable::new(0); 13],
+            gas: Variable::new(0),
             vmctx: Value::new(0),
         }
     }
 }
 
 impl Translator<'_> {
-    /// Load dispatch table pointer to register
-    pub fn dispatch(&mut self, index: Value) -> Value {
-        let offset = self.builder.ins().imul_imm(index, 8);
-        let dispatch = self.builder.ins().iadd(self.pool.vmctx, offset);
-        self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            dispatch,
-            offsets::DISPATCH_OFFSET,
-        )
-    }
-
     /// Sync registers to memory
     pub fn sync_registers(&mut self) {
         for i in 0..13 {
-            self.builder.ins().store(
+            let reg = self.context.builder.use_var(self.context.pool.registers[i]);
+            self.context.builder.ins().store(
                 MemFlags::trusted(),
-                self.pool.registers[i],
-                self.pool.vmctx,
+                reg,
+                self.context.pool.vmctx,
                 i as i32 * 8,
             );
         }
     }
 
+    /// Load registers from memory
+    pub fn load_registers(&mut self) {
+        for i in 0..13 {
+            let reg = self.context.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                self.context.pool.vmctx,
+                i as i32 * 8,
+            );
+            self.context
+                .builder
+                .def_var(self.context.pool.registers[i], reg);
+        }
+    }
+
     /// Sync gas to memory
     pub fn store_gas(&mut self) {
-        self.builder.ins().store(
+        let gas = self.context.builder.use_var(self.context.pool.gas);
+        self.context.builder.ins().store(
             MemFlags::trusted(),
-            self.pool.gas,
-            self.pool.vmctx,
+            gas,
+            self.context.pool.vmctx,
             offsets::GAS_OFFSET,
         );
-    }
-
-    /// Load gas from memory into SSA value
-    pub fn load_gas(&mut self) {
-        self.pool.gas = self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            self.pool.vmctx,
-            offsets::GAS_OFFSET,
-        );
-    }
-
-    /// Get function arguments
-    pub fn args(&self) -> Vec<Value> {
-        [
-            self.pool.registers[..13].to_vec(),
-            vec![self.pool.vmctx, self.pool.memory, self.pool.gas],
-        ]
-        .concat()
-    }
-
-    /// get block arguments
-    pub fn block_args(&self) -> Vec<BlockArg> {
-        self.args().iter().map(|v| BlockArg::Value(*v)).collect()
-    }
-
-    /// load block arguments
-    pub fn load_block_args(&mut self, block: Block) {
-        let args = self.builder.block_params(block);
-        self.pool.registers.copy_from_slice(&args[..13]);
-        self.pool.vmctx = args[13];
-        self.pool.memory = args[14];
-        self.pool.gas = args[15];
     }
 
     /// get register value
     pub fn rget(&mut self, reg: u8) -> Value {
-        self.pool.registers[reg as usize]
+        self.context
+            .builder
+            .use_var(self.context.pool.registers[reg as usize])
     }
 
     /// set register value
     pub fn rset(&mut self, reg: u8, value: Value) {
-        self.pool.registers[reg as usize] = value;
+        self.context
+            .builder
+            .def_var(self.pool.registers[reg as usize], value);
     }
 }

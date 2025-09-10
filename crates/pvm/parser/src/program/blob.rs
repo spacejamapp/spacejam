@@ -1,9 +1,14 @@
 //! Program blob.
+//!
+//! TODO: correct the usage of bitmask.
 
-use crate::reader::Reader;
+use crate::{
+    reader::{Offset, Reader},
+    Instruction,
+};
 use anyhow::Result;
 use codec::{compact::Numeric, io, Reader as _};
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 /// The code section.
 ///
@@ -34,6 +39,40 @@ impl ProgramBlob<'_> {
     /// Get the reader.
     pub fn reader(&self) -> Reader<'_> {
         Reader::new(&self.instructions, &self.bitmask)
+    }
+
+    /// Read all instructions.
+    pub fn read_all(&self) -> Result<BTreeMap<u64, Offset<Instruction>>> {
+        let mut reader = self.reader();
+        let mut instructions = BTreeMap::new();
+        while let Ok(instr) = reader.read() {
+            instructions.insert(instr.range.start as u64, instr);
+        }
+        Ok(instructions)
+    }
+
+    /// Read all blocks.
+    ///
+    /// TODO: use the bitmask or the introduce dispatch method for this.
+    pub fn read_blocks(&self) -> Result<BTreeMap<u64, Vec<Offset<Instruction>>>> {
+        let mut reader = self.reader();
+        let mut blocks = BTreeMap::new();
+        let mut block = Vec::new();
+        let mut start = 0;
+        while let Ok(instr) = reader.read() {
+            let is_termination = instr.value.is_termination();
+            block.push(instr);
+            if is_termination {
+                blocks.insert(start, block);
+                block = Vec::new();
+                start = reader.position as u64;
+            }
+        }
+
+        if !block.is_empty() {
+            blocks.insert(start, block);
+        }
+        Ok(blocks)
     }
 }
 

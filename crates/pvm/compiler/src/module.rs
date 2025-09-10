@@ -2,19 +2,25 @@
 
 use crate::{trap, Memory};
 use anyhow::Result;
+use cranelift_jit::JITModule;
+use cranelift_module::FuncId;
 use pvm::{Argument, Reason};
+use std::time::Instant;
 
 /// Module with compiled code
 pub struct Module {
-    /// The function composed by cranelift IR
-    pub code: *const u8,
+    /// Code of the module
+    pub jit: JITModule,
+    /// The main function of the module
+    pub main: FuncId,
     /// The virtual memory for this module
     pub memory: Memory,
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
-    /// The function table for this module
-    pub dispatch: [u64; pvm::MAX_FUNCTIONS],
 }
+
+unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
 
 impl Module {
     /// Execute compiled function
@@ -48,10 +54,10 @@ impl Module {
                     u64,
                     u64,
                 ) -> (i64, i64),
-            >(self.code)
+            >(self.jit.get_finalized_function(self.main))
         };
-        ctx.dispatch = self.dispatch;
         ctx.registers = self.registers;
+        let now = Instant::now();
         let result = match trap::with(|| {
             func(
                 ctx,
@@ -82,7 +88,7 @@ impl Module {
                 page: info.address as u32 / pvm::PAGE_SIZE as u32,
             },
         };
-
+        tracing::info!("execution time: {:?}", now.elapsed());
         Ok(result)
     }
 
@@ -97,7 +103,6 @@ impl Module {
         memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = pvm::Context {
-            dispatch: self.dispatch,
             registers: *registers,
             gas: gas as i64,
             memory: self.memory.clone(),

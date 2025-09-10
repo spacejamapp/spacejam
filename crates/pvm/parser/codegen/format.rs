@@ -47,7 +47,7 @@ impl Formats {
         let description = &format.description;
         let item: ItemStruct = parse_quote! {
             #[doc = #description]
-            #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+            #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
             pub struct #name {
                 #(#fields),*
             }

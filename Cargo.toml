@@ -10,7 +10,7 @@ members = [
     "crates/pvm/compiler",
     "crates/pvm/cranelift",
     "crates/pvm/interpreter",
-    "crates/pvm/jastime",
+    "crates/pvm/spacevm",
     "crates/pvm/parser",
     "crates/pvm/testing",
     "crates/testing/spec",
@@ -60,7 +60,7 @@ spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
-jastime = { path = "crates/pvm/jastime", package = "jastime" }
+spacevm = { path = "crates/pvm/spacevm", package = "spacevm" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 
