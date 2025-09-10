@@ -248,7 +248,7 @@ mod types {
                     .storage
                     .iter()
                     .map(|(k, v)| ServiceStorage {
-                        key: k.storage(),
+                        key: k.storage(), // use raw key
                         value: v.clone(),
                     })
                     .collect(),

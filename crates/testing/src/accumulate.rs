@@ -16,7 +16,7 @@ include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
 pub async fn run(test: &specjam::Test) -> Result<()> {
     let input = TestInput::from_json(&test.input)?;
     let output = TestOutput::from_json(&test.output)?;
-    let accounts = input.pre_state.accounts();
+    let saccounts = input.pre_state.to_service_accounts();
 
     // run the accumulate function
     let mut accumulation = tx::guarantee::accumulate::<jastime::Interpreter, _>(
@@ -27,7 +27,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         &input.pre_state.accumulated,
         &input.pre_state.privileges.into(),
         &Default::default(),
-        accounts.clone(),
+        saccounts,
         Default::default(),
     )
     .await?;
@@ -48,7 +48,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             output.post_state.accounts[idx].data.service.total
         );
     }
-    assert_eq!(accounts, output.post_state.haccounts());
+    assert_eq!(accounts, output.post_state.accounts);
     assert_eq!(accumulation.privileges, output.post_state.privileges.into());
     Ok(())
 }
@@ -118,8 +118,8 @@ mod types {
         let mut items = Vec::new();
         let accounts = accumulation.accounts.accounts();
         for (id, account) in accounts.iter() {
-            let account = account.account();
-            let ikey = AccountInnerKey::Preimage(*id, account.info.code);
+            let account = account.account(); // ServiceAccount
+            let ikey = AccountInnerKey::Preimage(account.index, account.info.code);
             if account.preimage.contains_key(&ikey) {
                 items.push(ServiceItem {
                     id: *id,
@@ -131,14 +131,15 @@ mod types {
 
             for other in accounts.values() {
                 let other = other.account();
-                if other.info.code != account.info.code || !other.preimage.contains_key(&ikey) {
+                let oikey = AccountInnerKey::Preimage(other.index, other.info.code);
+                if other.info.code != account.info.code || !other.preimage.contains_key(&oikey) {
                     continue;
                 }
 
                 let mut account = account.clone();
-                let blob = other.preimage.get(&ikey).cloned().unwrap_or_default();
+                let blob = other.preimage.get(&oikey).cloned().unwrap_or_default();
                 account.lookup.insert(
-                    AccountInnerKey::Lookup(*id, account.info.code, blob.len() as u32),
+                    AccountInnerKey::Lookup(account.index, account.info.code, blob.len() as u32),
                     Default::default(),
                 );
                 account.preimage.insert(ikey.clone(), blob);
@@ -187,25 +188,12 @@ mod types {
     }
 
     impl State {
-        /// Get the accounts
-        pub fn accounts(&self) -> BTreeMap<u32, ServiceAccount> {
-            self.haccounts()
+        /// Convert to service accounts
+        pub fn to_service_accounts(&self) -> BTreeMap<u32, ServiceAccount> {
+            self.accounts
                 .iter()
                 .map(|item| (item.id, item.clone().into()))
                 .collect()
-        }
-
-        /// Get the accounts with hashed storage keys
-        pub fn haccounts(&self) -> Vec<ServiceItem> {
-            let mut services = self.accounts.clone();
-            services.iter_mut().for_each(|item| {
-                let index = item.id;
-                item.data.storage.iter_mut().for_each(|storage| {
-                    storage.key = account::storage(index, &storage.key).to_vec();
-                });
-            });
-
-            services
         }
 
         /// Get the statistics
