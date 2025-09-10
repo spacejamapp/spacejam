@@ -18,14 +18,6 @@ where
     Key: Ord + std::fmt::Debug + Serialize + DeserializeOwned,
     Value: Serialize + DeserializeOwned,
 {
-    /// The default of the commit
-    pub fn default() -> Self {
-        Self {
-            update: BTreeMap::new(),
-            removal: BTreeSet::new(),
-        }
-    }
-
     /// The length of the commit
     pub fn len(&self) -> usize {
         self.update.len() + self.removal.len()
@@ -98,6 +90,15 @@ where
         commit.update.extend(updates);
         commit.removal.extend(removals);
         commit
+    }
+}
+
+impl<K: Ord, V> Default for Commit<K, V> {
+    fn default() -> Commit<K, V> {
+        Commit {
+            update: BTreeMap::new(),
+            removal: BTreeSet::new(),
+        }
     }
 }
 

@@ -2,14 +2,12 @@
 
 use crate::Jam;
 use anyhow::Result;
-use podec::Encode;
 use pvm::{Accumulated, Invocation, Reason};
 use pvmi::Interpreter;
 use score::{
     service::{Privileges, ServiceAccount, WorkExecResult, WorkPackage, WorkReport},
-    state::account,
     vm::AccumulateState,
-    ServiceId,
+    AccountInnerKey, ServiceId,
 };
 use std::collections::BTreeMap;
 use worker::{Guarantor, InMemoryDataLake};
@@ -44,8 +42,9 @@ impl ExecutionInfo {
     /// Get a storage of an account
     pub fn get_storage<V: podec::Decode>(&self, service: ServiceId, key: &[u8]) -> Option<V> {
         let account = self.accounts.get(&service)?;
-        let key = account::storage(service, &key.encode());
-        let encoded = account.storage.get(key.as_ref())?;
+        let encoded = account
+            .storage
+            .get(&AccountInnerKey::Storage(service, key.to_vec()))?;
         V::decode(&mut &encoded[..]).ok()
     }
 }

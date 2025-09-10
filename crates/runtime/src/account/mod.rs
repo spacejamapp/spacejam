@@ -52,7 +52,7 @@ impl<S: Storage> Account<S> {
         if self.account.storage.contains_key(key) {
             self.account.storage.get(key).cloned()
         } else {
-            self.state.state_get(&key.trie()).ok().flatten()
+            self.state.state_get(key.trie()).ok().flatten()
         }
     }
 
@@ -168,7 +168,7 @@ impl<S: Storage> CoreAccount for Account<S> {
             return None;
         }
 
-        if let Some(lookup) = self.state.state_get(&ikey.trie()).ok().flatten() {
+        if let Some(lookup) = self.state.state_get(ikey.trie()).ok().flatten() {
             let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
             self.account.lookup.insert(ikey, lookup.clone());
             Some(lookup)
@@ -179,7 +179,7 @@ impl<S: Storage> CoreAccount for Account<S> {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let ikey = AccountInnerKey::Lookup(self.index, hash, len);
-        let exists = self.state.state_get(&ikey.trie()).ok().flatten().is_some();
+        let exists = self.state.state_get(ikey.trie()).ok().flatten().is_some();
         self.account.lookup.insert(ikey.clone(), lookup.clone());
 
         self.updates.removal.remove(&ikey);
@@ -199,7 +199,7 @@ impl<S: Storage> CoreAccount for Account<S> {
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let ikey = AccountInnerKey::Lookup(self.index, hash, len);
         self.account.lookup.remove(&ikey);
-        if self.state.state_get(&ikey.trie()).ok().flatten().is_some() {
+        if self.state.state_get(ikey.trie()).ok().flatten().is_some() {
             self.updates.remove(ikey);
             self.set_total(self.total() - 81 - len as u64);
             self.set_items(self.items() - 2);
@@ -212,7 +212,7 @@ impl<S: Storage> CoreAccount for Account<S> {
             .preimage
             .get(&ikey)
             .cloned()
-            .or_else(|| self.state.state_get(&ikey.trie()).ok().flatten())
+            .or_else(|| self.state.state_get(ikey.trie()).ok().flatten())
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {

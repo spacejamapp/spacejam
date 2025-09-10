@@ -33,7 +33,7 @@ impl AccountInnerKey {
         match self {
             AccountInnerKey::Lookup(_, hash, _) => *hash,
             AccountInnerKey::Preimage(_, hash) => *hash,
-            _ => panic!("Nerver here"),
+            _ => panic!("Never here"),
         }
     }
 
@@ -41,7 +41,7 @@ impl AccountInnerKey {
     pub fn storage(&self) -> Vec<u8> {
         match self {
             AccountInnerKey::Storage(_, key) => key.to_vec(),
-            _ => panic!("Nerver here"),
+            _ => panic!("Never here"),
         }
     }
 

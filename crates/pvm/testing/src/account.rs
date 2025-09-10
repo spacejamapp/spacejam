@@ -1,7 +1,7 @@
 //! Service account builder
 
 use crate::Jam;
-use score::{service::ServiceAccount, state::account, Account, OpaqueHash, ServiceId};
+use score::{service::ServiceAccount, Account, AccountInnerKey, OpaqueHash, ServiceId};
 
 impl Jam {
     /// Add a service account
@@ -25,8 +25,9 @@ impl Jam {
     /// Get a storage of an account
     pub fn get_storage<V: podec::Decode>(&self, service: ServiceId, key: &[u8]) -> Option<V> {
         let account = self.chain.accounts.get(&service)?;
-        let key = account::storage(service, key);
-        let encoded = account.storage.get(key.as_ref())?;
+        let encoded = account
+            .storage
+            .get(&AccountInnerKey::Storage(service, key.to_vec()))?;
         V::decode(&mut &encoded[..]).ok()
     }
 
