@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 impl IR {
     /// Resolve the control flow
     ///
-    /// 1. resolve all knwon jumps
+    /// 1. resolve all known jumps
     /// 2. resolve multi sources jumps
     /// 3. resolve dynamic library functions
     pub fn resolve(&mut self, mut ujumps: BTreeMap<u64, Vec<u64>>) -> Result<()> {
