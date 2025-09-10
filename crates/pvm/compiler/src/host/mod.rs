@@ -14,6 +14,7 @@ pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";
 pub const MGET: &str = "mget";
 pub const MSET: &str = "mset";
+pub const LOG: &str = "log";
 
 mod abi;
 
@@ -23,6 +24,7 @@ pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
     builder.symbol(SBRK, abi::sbrk::<X> as *const u8);
     builder.symbol(MGET, abi::mget::<X> as *const u8);
     builder.symbol(MSET, abi::mset::<X> as *const u8);
+    builder.symbol(LOG, abi::log as *const u8);
 }
 
 impl Compiler {
@@ -79,6 +81,14 @@ impl Compiler {
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I64));
             sig.params.push(AbiParam::new(types::I8));
+            sig
+        });
+        map.insert(LOG.to_string(), {
+            let mut sig = self.module.make_signature();
+            sig.params.push(AbiParam::new(types::I32));
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I64));
+            sig.params.push(AbiParam::new(types::I64));
             sig
         });
         map

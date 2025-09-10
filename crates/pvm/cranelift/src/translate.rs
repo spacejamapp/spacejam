@@ -6,7 +6,6 @@ use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
 use cranelift_codegen::ir::BlockCall;
 use parser::{reader::Offset, Instruction};
 use pvm::{MemoryInfo, Visitor};
-// use std::collections::BTreeMap;
 
 const ACCUMULATE_PC: u64 = 5;
 const REFINE_PC: u64 = 0;
@@ -114,6 +113,8 @@ impl Translator<'_> {
     }
 
     /// translate a block and check termination
+    ///
+    /// TODO: introduce the gas map in context
     pub fn translate_block(&mut self, block: &[Offset<Instruction>]) -> Result<()> {
         /* let mut gas_map = BTreeMap::new();
         let mut gas = 0;

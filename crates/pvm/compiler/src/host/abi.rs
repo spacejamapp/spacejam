@@ -2,13 +2,23 @@
 
 use pvm::{Argument, MemoryLike};
 
+/// debug logging function
+pub extern "C" fn log(idx: u32, gas: u64, reg7: u64, reg8: u64) {
+    tracing::info!(
+        "instruction {} gas: {} reg7: {} reg8: {}",
+        idx,
+        gas,
+        reg7,
+        reg8
+    );
+}
+
 /// Host function trampoline
 ///
 /// This function is called from JIT-compiled code to invoke host functions.
 /// It casts the raw context pointer and delegates to [pvm::host::call]
 pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
-    tracing::debug!("current gas: {}", context.gas);
     if context.gas < 0 {
         return 4;
     }

@@ -5,6 +5,13 @@ use core::ops::Range;
 
 include!(concat!(env!("OUT_DIR"), "/instruction.rs"));
 
+impl Instruction {
+    /// Get the index of the instruction
+    pub fn idx(&self) -> usize {
+        unsafe { *((self) as *const Instruction as *const u8) as usize }
+    }
+}
+
 /// Information about the instruction
 #[derive(Debug, Clone, Default, Copy)]
 pub enum InstructionType {

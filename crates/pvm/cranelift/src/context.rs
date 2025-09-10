@@ -70,7 +70,7 @@ impl Visitor for Context<'_> {
                 gas = self.builder.ins().iadd_imm(gas, -11);
                 self.builder.ins().isub(gas, reg9)
             }
-            100 => gas,
+            100 => self.builder.ins().iadd_imm(gas, -1),
             _ => self.builder.ins().iadd_imm(gas, -11),
         };
 

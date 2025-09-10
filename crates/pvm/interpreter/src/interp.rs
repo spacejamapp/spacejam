@@ -87,9 +87,6 @@ impl Interpreter {
             .unwrap_or(1);
 
         self.burn(gas);
-        if gas != 1 {
-            tracing::info!("current gas: {}", self.context.gas);
-        }
         if self.context.gas < 0 {
             return Reason::OOG;
         }

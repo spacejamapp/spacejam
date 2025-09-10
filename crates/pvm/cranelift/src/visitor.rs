@@ -1227,10 +1227,12 @@ impl Visitor for Translator<'_> {
         let format::RR { reg0, reg1 } = format;
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
+        self.sync_registers();
         let _inst = self.context.builder.ins().call(
             self.host["sbrk"],
             &[self.context.pool.vmctx, target, increment],
         );
+        self.load_registers();
         Ok(())
     }
 
