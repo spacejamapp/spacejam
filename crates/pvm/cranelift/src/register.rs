@@ -22,11 +22,8 @@ pub mod offsets {
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = 8 * (pvm::REGISTER_COUNT as i32);
 
-    /// Offset to dispatch table
-    pub const DISPATCH_OFFSET: i32 = GAS_OFFSET + 8;
-
     /// Offset to memory field
-    pub const MEMORY_OFFSET: i32 = DISPATCH_OFFSET + 8 * (pvm::MAX_FUNCTIONS as i32);
+    pub const MEMORY_OFFSET: i32 = GAS_OFFSET + 8;
 }
 
 /// Register manager
@@ -62,22 +59,6 @@ impl Default for Registers {
 }
 
 impl Translator<'_> {
-    /// Load dispatch table pointer to register
-    pub fn dispatch(&mut self, index: Value) -> Value {
-        let offset = self.builder.ins().imul_imm(index, 8);
-        let dispatch = self
-            .context
-            .builder
-            .ins()
-            .iadd(self.context.pool.vmctx, offset);
-        self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            dispatch,
-            offsets::DISPATCH_OFFSET,
-        )
-    }
-
     /// Sync registers to memory
     pub fn sync_registers(&mut self) {
         for i in 0..13 {

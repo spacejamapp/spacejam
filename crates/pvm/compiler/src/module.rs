@@ -13,8 +13,6 @@ pub struct Module {
     pub memory: Memory,
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
-    /// The function table for this module
-    pub dispatch: [u64; pvm::MAX_FUNCTIONS],
 }
 
 impl Module {
@@ -51,7 +49,6 @@ impl Module {
                 ) -> (i64, i64),
             >(self.code)
         };
-        ctx.dispatch = self.dispatch;
         ctx.registers = self.registers;
         let now = Instant::now();
         let result = match trap::with(|| {
@@ -99,7 +96,6 @@ impl Module {
         memory: pvm::Memory,
     ) -> Result<Info> {
         let mut context = pvm::Context {
-            dispatch: self.dispatch,
             registers: *registers,
             gas: gas as i64,
             memory: self.memory.clone(),

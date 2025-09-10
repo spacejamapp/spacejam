@@ -31,7 +31,6 @@ impl Context {
         pvm::Context {
             registers: self.registers,
             gas: self.gas,
-            dispatch: [0; pvm::MAX_FUNCTIONS],
             memory: &mut self.memory,
             ctx,
         }

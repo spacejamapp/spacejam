@@ -1,6 +1,8 @@
 //! Translator API V2
 
-use crate::{ir, offsets, Exit, Translator};
+use std::collections::BTreeMap;
+
+use crate::{offsets, Exit, Translator};
 use anyhow::Result;
 use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
 use cranelift_codegen::ir::BlockCall;
@@ -12,37 +14,16 @@ const REFINE_PC: u64 = 0;
 const TEST_PC: u64 = 13;
 
 impl Translator<'_> {
-    /// Translate a regular PVM function (non-main)
-    pub fn translate(&mut self, fun: &ir::Function, _info: MemoryInfo) -> Result<()> {
-        // create all blocks
-        for (idx, pc) in fun.blocks.keys().enumerate() {
-            let block = if idx == 0 {
-                let block = self.builder.create_block();
-                self.builder.append_block_params_for_function_params(block);
-                block
-            } else {
-                self.builder.create_block()
-            };
-            self.blocks.insert(*pc, block);
-        }
-
-        // translate the all blocks
-        for (pc, block) in self.blocks.clone() {
-            let instructions = &fun.blocks[&pc];
-            self.builder.switch_to_block(block);
-            self.translate_block(instructions)?;
-        }
-
-        self.builder.seal_all_blocks();
-        Ok(())
-    }
-
     /// Translate the main function
     ///
     /// We need to init all block parameters to our registers here.
     ///
     /// [ctx, memory, gas, [..registers]]
-    pub fn translate_main(&mut self, func: &ir::Function, _info: MemoryInfo) -> Result<()> {
+    pub fn translate(
+        &mut self,
+        func: BTreeMap<u64, Vec<Offset<Instruction>>>,
+        _info: MemoryInfo,
+    ) -> Result<()> {
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
@@ -68,7 +49,7 @@ impl Translator<'_> {
         }
 
         // create all blocks
-        for pc in func.blocks.keys() {
+        for pc in func.keys() {
             let block = self.builder.create_block();
             self.blocks.insert(*pc, block);
         }
@@ -80,9 +61,17 @@ impl Translator<'_> {
         {
             let five = self.builder.ins().iconst(types::I64, ACCUMULATE_PC as i64);
             let thirteen = self.builder.ins().iconst(types::I64, TEST_PC as i64);
-            let refine = self.blocks[&REFINE_PC];
-            let accumulate = self.blocks.get(&ACCUMULATE_PC).cloned().unwrap_or(refine);
-            let test = self.blocks.get(&TEST_PC).cloned().unwrap_or(refine);
+            let refine = self
+                .blocks
+                .get(&REFINE_PC)
+                .unwrap_or(&self.masm.trap)
+                .clone();
+            let accumulate = self
+                .blocks
+                .get(&ACCUMULATE_PC)
+                .unwrap_or(&self.masm.trap)
+                .clone();
+            let test = self.blocks.get(&TEST_PC).unwrap_or(&self.masm.trap).clone();
             let check_test = self.builder.create_block();
 
             // build the initial condition in the entry block
@@ -102,9 +91,9 @@ impl Translator<'_> {
         // now translate the rest of the blocks
         self.build_macros();
         for (pc, block) in self.blocks.clone() {
-            let instructions = &func.blocks[&pc];
+            let instructions = &func[&pc];
             self.builder.switch_to_block(block);
-            self.translate_block(instructions)?;
+            self.translate_block(&instructions)?;
         }
 
         // seal all blocks

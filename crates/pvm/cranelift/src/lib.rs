@@ -1,4 +1,10 @@
 //! PVM Compiler - A Cranelift-based compiler for the Polkadot Virtual Machine
+//!
+//! TODOs:
+//!
+//! - make registers as parameters on interacting with host functions
+//! - introduce gas map in context
+//! - try if doing boundary check locally can speed up the execution
 
 use crate::masm::MacroBlocks;
 use anyhow::Result;
@@ -14,7 +20,6 @@ pub use {
 mod context;
 mod control;
 mod exit;
-pub mod ir;
 mod masm;
 mod math;
 mod memory;
