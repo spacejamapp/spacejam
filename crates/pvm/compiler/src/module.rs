@@ -7,8 +7,10 @@ use std::time::Instant;
 
 /// Module with compiled code
 pub struct Module {
+    /// Code of the module
+    pub object: Vec<u8>,
     /// The function composed by cranelift IR
-    pub code: *const u8,
+    pub fun: *const u8,
     /// The virtual memory for this module
     pub memory: Memory,
     /// The registers for this module
@@ -47,7 +49,7 @@ impl Module {
                     u64,
                     u64,
                 ) -> (i64, i64),
-            >(self.code)
+            >(self.fun)
         };
         ctx.registers = self.registers;
         let now = Instant::now();

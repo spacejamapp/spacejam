@@ -26,10 +26,10 @@ impl Invocation for Jastime {
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
-        let artifact = Artifact::new().expect("failed to create artifact");
-        if artifact.hits(hash) {
+        // let artifact = Artifact::new().expect("failed to create artifact");
+        /*  if artifact.hits(hash) {
             return Compiler::invoke2(ctx, hash, code, args, gas, pc);
-        }
+        } */
 
         // lock the compilation
         {

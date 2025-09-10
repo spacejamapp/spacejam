@@ -1,7 +1,7 @@
 //! Cache for the compiled modules
 
 use anyhow::Result;
-use cranelift_codegen::{incremental_cache::CacheKvStore, ir::Function};
+use cranelift_codegen::incremental_cache::CacheKvStore;
 use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
 
 /// Cache directory for the compiled modules
@@ -20,7 +20,7 @@ impl Artifact {
             let dir = dirs::data_dir()
                 .unwrap_or_default()
                 .join("spacejam")
-                .join("jastime");
+                .join("spacevm");
             Some(dir)
         });
 
@@ -30,37 +30,7 @@ impl Artifact {
             .clone();
 
         fs::create_dir_all(dir.join("artifacts"))?;
-        fs::create_dir_all(dir.join("clif"))?;
         Ok(Self { dir })
-    }
-
-    /// Check if the cache hits
-    pub fn hits(&self, key: [u8; 32]) -> bool {
-        if let Some((_, confirmed)) = self.clif(key) {
-            return confirmed;
-        }
-
-        false
-    }
-
-    /// Get the path to the CLIF artifacts
-    pub fn clif(&self, key: [u8; 32]) -> Option<(Function, bool)> {
-        let path = self.dir.join("clif").join(hex::encode(key));
-        if !path.exists() {
-            return None;
-        }
-
-        let serialized = fs::read(path).ok()?;
-        postcard::from_bytes(&serialized).ok()
-    }
-
-    /// Put the CLIF artifact
-    pub fn put(&self, key: [u8; 32], function: &Function, confirmed: bool) -> Result<()> {
-        let key = hex::encode(key);
-        let path = self.dir.join("clif").join(&key);
-        let serialized = postcard::to_allocvec(&(function, confirmed))?;
-        fs::write(path, serialized)?;
-        Ok(())
     }
 }
 
