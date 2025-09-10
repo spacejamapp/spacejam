@@ -1,7 +1,7 @@
 //! Core of SpaceJam
 
 pub use {
-    account::{Account, Accounts},
+    account::{Account, AccountInnerKey, Accounts},
     block::Block,
     extrinsic::Extrinsic,
     params::Parameters,

@@ -107,7 +107,7 @@ mod types {
             AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
             ServiceInfoJson,
         },
-        Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, CORES_COUNT,
+        AccountInnerKey, Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, CORES_COUNT,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
@@ -239,7 +239,7 @@ mod types {
                     .preimage
                     .iter()
                     .map(|(k, v)| ServicePreimage {
-                        hash: *k,
+                        hash: k.hash(),
                         // TODO: find a better solution for doing this.
                         blob: v.to_vec(),
                     })
@@ -248,7 +248,7 @@ mod types {
                     .storage
                     .iter()
                     .map(|(k, v)| ServiceStorage {
-                        key: k.to_vec(),
+                        key: k.storage(),
                         value: v.clone(),
                     })
                     .collect(),
@@ -262,18 +262,22 @@ mod types {
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
                 lookup.insert(
-                    (preimage.hash, preimage.blob.len() as u32),
+                    AccountInnerKey::Lookup(item.id, preimage.hash, preimage.blob.len() as u32),
                     Default::default(),
                 );
             }
 
             ServiceAccount {
                 index: item.id,
-                storage: data.storage.into_iter().map(|s| (s.key, s.value)).collect(),
+                storage: data
+                    .storage
+                    .into_iter()
+                    .map(|s| (AccountInnerKey::Storage(item.id, s.key), s.value))
+                    .collect(),
                 preimage: data
                     .preimages
                     .into_iter()
-                    .map(|p| (p.hash, p.blob))
+                    .map(|p| (AccountInnerKey::Preimage(item.id, p.hash), p.blob))
                     .collect(),
                 lookup,
                 info: data.service,

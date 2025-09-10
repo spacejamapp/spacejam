@@ -6,8 +6,7 @@ use pvm::score::Gas;
 pub use registry::Accounts;
 use score::{
     service::{ServiceAccount, ServiceInfo},
-    state::account,
-    TrieKey,
+    Account as CoreAccount, AccountInnerKey, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -31,7 +30,7 @@ pub struct Account<S: Storage> {
     account: ServiceAccount,
 
     /// The operations of the account
-    ops: Commit<TrieKey, Vec<u8>>,
+    updates: Commit<AccountInnerKey, Vec<u8>>,
 }
 
 impl<S: Storage> Account<S> {
@@ -44,32 +43,40 @@ impl<S: Storage> Account<S> {
             index,
             info: account.info.clone(),
             account,
-            ops: Commit::default(),
+            updates: Commit::default(),
         })
     }
 
     /// Read storage via storage key
-    pub fn hread(&self, key: TrieKey) -> Option<Vec<u8>> {
-        if self.account.storage.contains_key(key.as_slice()) {
-            self.account.storage.get(key.as_slice()).cloned()
+    pub fn hread(&self, key: &AccountInnerKey) -> Option<Vec<u8>> {
+        if self.account.storage.contains_key(key) {
+            self.account.storage.get(key).cloned()
         } else {
-            self.state.state_get(key).ok().flatten()
+            self.state.state_get(&key.trie()).ok().flatten()
         }
     }
 
     /// Inherit from another account
-    pub fn inherit(storage: Arc<S>, index: u32, account: impl score::Account) -> Self {
+    pub fn inherit(storage: Arc<S>, index: u32, account: impl CoreAccount) -> Self {
+        let new_info = account.info();
+        let new_account = account.account();
+        let (update, removal) = account.updates();
+        let new_update: BTreeMap<_, _> = update
+            .into_iter()
+            .map(|(k, v)| (k.inherit(index), v))
+            .collect();
+        let new_removal: BTreeSet<_> = removal.into_iter().map(|k| k.inherit(index)).collect();
         Self {
             state: storage,
             index,
-            info: account.info(),
-            account: account.account(),
-            ops: account.ops().into(),
+            info: new_info,
+            account: new_account,
+            updates: (new_update, new_removal).into(),
         }
     }
 }
 
-impl<S: Storage> score::Account for Account<S> {
+impl<S: Storage> CoreAccount for Account<S> {
     fn index(&self) -> u32 {
         self.index
     }
@@ -151,20 +158,19 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
-        if let Some(lookup) = self.account.lookup.get(&(hash, len)) {
+        let ikey = AccountInnerKey::Lookup(self.index, hash, len);
+        if let Some(lookup) = self.account.lookup.get(&ikey) {
             return Some(lookup.clone());
         }
 
-        let key = account::lookup(self.index, len, hash);
-
         // Check if this key is marked for removal in the current transaction
-        if self.ops.removal.contains(&key) {
+        if self.updates.removal.contains(&ikey) {
             return None;
         }
 
-        if let Some(lookup) = self.state.state_get(key).ok().flatten() {
+        if let Some(lookup) = self.state.state_get(&ikey.trie()).ok().flatten() {
             let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
-            self.account.lookup.insert((hash, len), lookup.clone());
+            self.account.lookup.insert(ikey, lookup.clone());
             Some(lookup)
         } else {
             None
@@ -172,12 +178,13 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
-        let key = account::lookup(self.index, len, hash);
-        let exists = self.state.state_get(key).ok().flatten().is_some();
-        self.account.lookup.insert((hash, len), lookup.clone());
-        self.ops.removal.remove(&key);
+        let ikey = AccountInnerKey::Lookup(self.index, hash, len);
+        let exists = self.state.state_get(&ikey.trie()).ok().flatten().is_some();
+        self.account.lookup.insert(ikey.clone(), lookup.clone());
+
+        self.updates.removal.remove(&ikey);
         let encoded = codec::encode(&lookup).expect("lookup is valid");
-        self.ops.set(key, encoded);
+        self.updates.set(ikey, encoded);
 
         // Only update footprint if this is a new lookup entry:
         //
@@ -190,52 +197,51 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
-        let key = account::lookup(self.index, len, hash);
-        if self.state.state_get(key).ok().flatten().is_some() {
-            self.ops.remove(key);
+        let ikey = AccountInnerKey::Lookup(self.index, hash, len);
+        self.account.lookup.remove(&ikey);
+        if self.state.state_get(&ikey.trie()).ok().flatten().is_some() {
+            self.updates.remove(ikey);
             self.set_total(self.total() - 81 - len as u64);
             self.set_items(self.items() - 2);
         }
-
-        self.account.lookup.remove(&(hash, len));
     }
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
-        let key = account::preimage(self.index, hash);
+        let ikey = AccountInnerKey::Preimage(self.index, hash);
         self.account
             .preimage
-            .get(&hash)
+            .get(&ikey)
             .cloned()
-            .or_else(|| self.state.state_get(key).ok().flatten())
+            .or_else(|| self.state.state_get(&ikey.trie()).ok().flatten())
     }
 
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>) {
-        let key = account::preimage(self.index, hash);
-        self.ops.set(key, preimage.clone());
-        self.account.preimage.insert(hash, preimage);
+        let ikey = AccountInnerKey::Preimage(self.index, hash);
+        self.account.preimage.insert(ikey.clone(), preimage.clone());
+        self.updates.set(ikey, preimage);
     }
 
     fn remove_preimage(&mut self, hash: [u8; 32]) {
-        let key = account::preimage(self.index, hash);
-        self.ops.update.remove(&key);
-        self.ops.removal.insert(key);
-        self.account.preimage.remove(&hash);
+        let ikey = AccountInnerKey::Preimage(self.index, hash);
+        self.account.preimage.remove(&ikey);
+        self.updates.update.remove(&ikey);
+        self.updates.remove(ikey);
     }
 
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let key = account::storage(self.index, key);
-        if self.ops.removal.contains(&key) {
+        let ikey = AccountInnerKey::Storage(self.index, key.to_vec());
+        if self.updates.removal.contains(&ikey) {
             return None;
         }
 
-        self.hread(key)
+        self.hread(&ikey)
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let vkey = account::storage(self.index, key);
+        let ikey = AccountInnerKey::Storage(self.index, key.to_vec());
         let mut previous = None;
-        if let Some(old) = self.hread(vkey) {
-            if self.ops.removal.contains(&vkey) {
+        if let Some(old) = self.hread(&ikey) {
+            if self.updates.removal.contains(&ikey) {
                 self.set_items(self.items() + 1);
                 self.set_total(self.total() + 34 + key.len() as u64 + value.len() as u64);
             } else {
@@ -249,30 +255,30 @@ impl<S: Storage> score::Account for Account<S> {
         }
 
         // update storage
-        self.ops.removal.remove(&vkey);
-        self.ops.set(vkey, value.clone());
+        self.updates.removal.remove(&ikey);
+        self.updates.set(ikey.clone(), value.clone());
         self.account
             .storage
-            .insert(vkey.to_vec(), value)
+            .insert(ikey.clone(), value)
             .or(previous);
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let vkey = account::storage(self.index, key);
-        if self.ops.removal.contains(&vkey) {
+        let ikey = AccountInnerKey::Storage(self.index, key.to_vec());
+        if self.updates.removal.contains(&ikey) {
             return None;
         }
 
         // update total
         let mut removed = None;
-        if let Some(old) = self.hread(vkey) {
+        if let Some(old) = self.hread(&ikey) {
             self.set_total(self.total() - 34 - key.len() as u64 - old.len() as u64);
             self.set_items(self.items() - 1);
-            self.ops.removal.insert(vkey);
+            self.updates.remove(ikey.clone());
             removed = Some(old);
         }
 
-        self.account.storage.remove(vkey.as_slice());
+        self.account.storage.remove(&ikey);
         removed
     }
 
@@ -281,21 +287,38 @@ impl<S: Storage> score::Account for Account<S> {
     }
 
     fn updated(&self) -> bool {
-        !self.ops.update.is_empty()
-            || !self.ops.removal.is_empty()
-            || self.info != self.account.info
+        !self.updates.is_empty() || self.info != self.account.info
+    }
+
+    fn updates(
+        mut self,
+    ) -> (
+        BTreeMap<AccountInnerKey, Vec<u8>>,
+        BTreeSet<AccountInnerKey>,
+    ) {
+        if self.info != self.account.info {
+            self.updates.set(
+                AccountInnerKey::Info(self.index),
+                codec::encode(&self.account.state()).expect("data is valid"),
+            );
+        }
+        let Commit { update, removal } = self.updates;
+
+        (update, removal)
     }
 
     fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
         if self.info != self.account.info {
-            self.ops.set(
-                account::info(self.index),
+            self.updates.set(
+                AccountInnerKey::Info(self.index),
                 codec::encode(&self.account.state()).expect("data is valid"),
             );
         }
-        let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();
+
+        let Commit { update, removal } = self.updates;
+        let removals: BTreeSet<TrieKey> = removal.into_iter().map(|k| k.trie()).collect();
         let updates: BTreeMap<TrieKey, Vec<u8>> =
-            self.ops.updates().map(|(k, v)| (k, v.clone())).collect();
+            update.into_iter().map(|(k, v)| (k.trie(), v)).collect();
 
         (updates, removals)
     }
@@ -308,7 +331,7 @@ impl<S: Storage> Clone for Account<S> {
             index: self.index,
             info: self.info.clone(),
             account: self.account.clone(),
-            ops: self.ops.clone(),
+            updates: self.updates.clone(),
         }
     }
 }

@@ -107,7 +107,7 @@ mod types {
         state::account,
         statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
         vm::Accumulation,
-        Account, Accounts, Entropy, Gas, ServiceId, TimeSlot,
+        Account, AccountInnerKey, Accounts, Entropy, Gas, ServiceId, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
@@ -119,7 +119,8 @@ mod types {
         let accounts = accumulation.accounts.accounts();
         for (id, account) in accounts.iter() {
             let account = account.account();
-            if account.preimage.contains_key(&account.info.code) {
+            let ikey = AccountInnerKey::Preimage(*id, account.info.code);
+            if account.preimage.contains_key(&ikey) {
                 items.push(ServiceItem {
                     id: *id,
                     data: (&account).into(),
@@ -130,22 +131,17 @@ mod types {
 
             for other in accounts.values() {
                 let other = other.account();
-                if other.info.code != account.info.code
-                    || !other.preimage.contains_key(&account.info.code)
-                {
+                if other.info.code != account.info.code || !other.preimage.contains_key(&ikey) {
                     continue;
                 }
 
                 let mut account = account.clone();
-                let blob = other
-                    .preimage
-                    .get(&account.info.code)
-                    .cloned()
-                    .unwrap_or_default();
-                account
-                    .lookup
-                    .insert((account.info.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.info.code, blob);
+                let blob = other.preimage.get(&ikey).cloned().unwrap_or_default();
+                account.lookup.insert(
+                    AccountInnerKey::Lookup(*id, account.info.code, blob.len() as u32),
+                    Default::default(),
+                );
+                account.preimage.insert(ikey.clone(), blob);
 
                 let mut item: ServiceItem = ServiceItem {
                     id: *id,

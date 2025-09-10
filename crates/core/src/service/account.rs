@@ -1,6 +1,6 @@
 //! Service account types
 
-use crate::{service::GasLimit, Gas, OpaqueHash, TimeSlot};
+use crate::{account::AccountInnerKey, service::GasLimit, Gas, OpaqueHash, TimeSlot};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -13,13 +13,13 @@ pub struct ServiceAccount {
     pub index: u32,
 
     /// storage of the service account (s)
-    pub storage: BTreeMap<Vec<u8>, Vec<u8>>,
+    pub storage: BTreeMap<AccountInnerKey, Vec<u8>>,
 
     /// The preimage of the service account (p)
-    pub preimage: BTreeMap<OpaqueHash, Vec<u8>>,
+    pub preimage: BTreeMap<AccountInnerKey, Vec<u8>>,
 
     /// Preimage lookup dictionary (l)
-    pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
+    pub lookup: BTreeMap<AccountInnerKey, Vec<TimeSlot>>,
 
     /// The info of the service account
     #[json(nested)]
@@ -135,18 +135,13 @@ mod crypto_impl {
             let mut keys = BTreeSet::new();
             keys.insert(account::info(index));
             for (key, _) in self.storage.iter() {
-                keys.insert(key.to_vec().try_into().map_err(|_| {
-                    anyhow::anyhow!(
-                        "invalid storage key, expected 31 bytes got {} bytes",
-                        key.len()
-                    )
-                })?);
+                keys.insert(key.trie());
             }
             for (key, _) in self.preimage.iter() {
-                keys.insert(account::preimage(index, *key));
+                keys.insert(key.trie());
             }
-            for ((key, lookup), _) in self.lookup.iter() {
-                keys.insert(account::lookup(index, *lookup, *key));
+            for (key, _) in self.lookup.iter() {
+                keys.insert(key.trie());
             }
             Ok(keys.into_iter())
         }

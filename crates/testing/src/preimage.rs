@@ -64,7 +64,7 @@ pub struct Test {
 pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
     let mut accounts = BTreeMap::new();
     for acc in accs {
-        accounts.insert(acc.id, acc.data.into());
+        accounts.insert(acc.id, acc.data.into_service_account(acc.id));
     }
     accounts
 }
@@ -74,7 +74,7 @@ mod types {
     use score::{
         extrinsic::{Preimage, PreimageJson},
         service::ServiceAccount,
-        OpaqueHash,
+        AccountInnerKey, OpaqueHash,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
@@ -126,19 +126,19 @@ mod types {
         pub lookup_meta: Vec<History>,
     }
 
-    impl From<AccountInfo> for ServiceAccount {
-        fn from(info: AccountInfo) -> Self {
+    impl AccountInfo {
+        pub fn into_service_account(self, index: u32) -> ServiceAccount {
             let mut account = ServiceAccount::default();
-            for preimage in info.preimages {
-                account.preimage.insert(preimage.hash, preimage.blob);
+            for preimage in self.preimages {
+                let ikey = AccountInnerKey::Preimage(index, preimage.hash);
+                account.preimage.insert(ikey, preimage.blob);
             }
 
-            for lookup in info.lookup_meta {
+            for lookup in self.lookup_meta {
                 let mut slots = [0; 3];
                 slots[..lookup.value.len()].copy_from_slice(&lookup.value);
-                account
-                    .lookup
-                    .insert((lookup.key.hash, lookup.key.length), slots.to_vec());
+                let ikey = AccountInnerKey::Lookup(index, lookup.key.hash, lookup.key.length);
+                account.lookup.insert(ikey, slots.to_vec());
             }
 
             account

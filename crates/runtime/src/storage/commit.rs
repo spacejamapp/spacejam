@@ -4,7 +4,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A commit of storage
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Commit<Key: Ord, Value> {
     /// The set of the commit
     pub update: BTreeMap<Key, Value>,
@@ -18,6 +18,14 @@ where
     Key: Ord + std::fmt::Debug + Serialize + DeserializeOwned,
     Value: Serialize + DeserializeOwned,
 {
+    /// The default of the commit
+    pub fn default() -> Self {
+        Self {
+            update: BTreeMap::new(),
+            removal: BTreeSet::new(),
+        }
+    }
+
     /// The length of the commit
     pub fn len(&self) -> usize {
         self.update.len() + self.removal.len()
@@ -82,8 +90,8 @@ impl<K, U, V, R> From<(U, R)> for Commit<K, V>
 where
     U: IntoIterator<Item = (K, V)>,
     R: IntoIterator<Item = K>,
-    K: Ord + Clone + Default,
-    V: Clone + Default,
+    K: Ord + std::fmt::Debug + Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
 {
     fn from((updates, removals): (U, R)) -> Self {
         let mut commit = Commit::default();
