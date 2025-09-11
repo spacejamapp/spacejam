@@ -95,7 +95,19 @@ pub async fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    if new_epoch && block.header.epoch_mark.is_none() {
+
+    // TODO: move this logic to the header validation
+    if let Some(epoch_mark) = &block.header.epoch_mark {
+        if epoch_mark.validators.iter().any(|v| {
+            !state
+                .safrole
+                .validators
+                .iter()
+                .any(|nv| nv.bandersnatch == v.bandersnatch && nv.ed25519 == v.ed25519)
+        }) {
+            anyhow::bail!("next validators mismatch");
+        }
+    } else if new_epoch {
         anyhow::bail!("epoch mark is required");
     }
 
