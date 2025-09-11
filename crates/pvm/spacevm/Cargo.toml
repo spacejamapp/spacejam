@@ -1,5 +1,5 @@
 [package]
-name = "jastime"
+name = "spacevm"
 version.workspace = true
 edition.workspace = true
 
@@ -8,3 +8,4 @@ pvm.workspace = true
 pvmc.workspace = true
 pvmi.workspace = true
 tokio.workspace = true
+tracing.workspace = true

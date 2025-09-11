@@ -19,18 +19,34 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     let saccounts = input.pre_state.to_service_accounts();
 
     // run the accumulate function
-    let mut accumulation = tx::guarantee::accumulate::<jastime::Interpreter, _>(
-        input.input.slot,
-        input.pre_state.slot,
-        input.input.reports,
-        &input.pre_state.ready_queue,
-        &input.pre_state.accumulated,
-        &input.pre_state.privileges.into(),
-        &Default::default(),
-        saccounts,
-        Default::default(),
-    )
-    .await?;
+    let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
+    let mut accumulation = if use_compiler {
+        tx::guarantee::accumulate::<spacevm::Compiler, _>(
+            input.input.slot,
+            input.pre_state.slot,
+            input.input.reports,
+            &input.pre_state.ready_queue,
+            &input.pre_state.accumulated,
+            &input.pre_state.privileges.into(),
+            &Default::default(),
+            saccounts,
+            Default::default(),
+        )
+        .await?
+    } else {
+        tx::guarantee::accumulate::<spacevm::Interpreter, _>(
+            input.input.slot,
+            input.pre_state.slot,
+            input.input.reports,
+            &input.pre_state.ready_queue,
+            &input.pre_state.accumulated,
+            &input.pre_state.privileges.into(),
+            &Default::default(),
+            saccounts,
+            Default::default(),
+        )
+        .await?
+    };
     accumulation.root = Default::default();
 
     // convert the accounts to the service items

@@ -1,17 +1,26 @@
 //! PVM Compiler - A Cranelift-based compiler for the Polkadot Virtual Machine
+//!
+//! TODOs:
+//!
+//! - make registers as parameters on interacting with host functions
+//! - introduce gas map in context
+//! - try if doing boundary check locally can speed up the execution
 
+use crate::masm::MacroBlocks;
 use anyhow::Result;
+use context::Context;
 use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function};
+use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
     register::{offsets, Registers},
 };
 
+mod context;
 mod control;
 mod exit;
-pub mod ir;
+mod masm;
 mod math;
 mod memory;
 mod register;
@@ -20,8 +29,8 @@ mod visitor;
 
 /// PVM-to-Cranelift translator for block-based JIT compilation
 pub struct Translator<'b> {
-    /// Cranelift function builder
-    pub builder: FunctionBuilder<'b>,
+    /// The context of the translator
+    pub context: Context<'b>,
 
     /// Map of blocks by start PC
     pub blocks: BTreeMap<u64, Block>,
@@ -29,11 +38,14 @@ pub struct Translator<'b> {
     /// The host call function
     pub host: BTreeMap<String, FuncRef>,
 
-    /// The constants pool
-    pub pool: Registers,
-
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,
+
+    /// The runtime jump table
+    pub rt_jump_table: JumpTable,
+
+    /// The macro blocks
+    pub masm: MacroBlocks,
 
     /// The memory info
     #[cfg(target_os = "macos")]
@@ -53,12 +65,19 @@ impl<'b> Translator<'b> {
             iblocks.insert(*pc, builder.create_block());
         }
 
+        let masm = MacroBlocks::new(&mut builder);
+        let context = Context {
+            pool: Registers::default(),
+            builder,
+        };
+
         Ok(Self {
-            builder: FunctionBuilder::new(func, ctx),
             blocks: iblocks,
             host: BTreeMap::new(),
             jump: Vec::new(),
-            pool: Registers::default(),
+            rt_jump_table: JumpTable::new(0),
+            masm,
+            context,
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
@@ -78,7 +97,8 @@ impl<'b> Translator<'b> {
         }
 
         self.blocks = iblocks;
-        self.builder = builder;
+        self.masm = MacroBlocks::new(&mut builder);
         self.pool = Registers::default();
+        self.builder = builder;
     }
 }

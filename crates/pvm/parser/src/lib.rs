@@ -11,6 +11,7 @@ pub use {
 
 pub mod format;
 pub mod instruction;
+pub mod ir;
 mod memory;
 pub mod opcode;
 pub mod program;

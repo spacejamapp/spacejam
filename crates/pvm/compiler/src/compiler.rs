@@ -57,17 +57,16 @@ impl Compiler {
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(
         mut ctx: X,
-        _hash: OpaqueHash,
+        hash: OpaqueHash,
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let mut pvmc = Self::host::<X>().expect("fix me later");
-        let module = pvmc.compile(&program).expect("fix me later");
+        let pvmc = Self::host::<X>().expect("fix me later");
+        let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
         let mut context = pvm::Context {
-            dispatch: module.dispatch,
             registers: module.registers,
             gas: gas as i64,
             memory: module.memory.clone(),
