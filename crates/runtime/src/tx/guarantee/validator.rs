@@ -288,7 +288,6 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let (validators, assignments) = if gslot / ROTATION_PERIOD as u32
             == slot / ROTATION_PERIOD as u32
         {
-            tracing::trace!("report in the same rotation, using current validators");
             let assignments = assignments::core(slot, self.state.entropy[2]);
             (self.state.validators.current, assignments)
         } else {
