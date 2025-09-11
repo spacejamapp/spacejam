@@ -80,6 +80,24 @@ impl Entry {
         })
     }
 
+    /// Build entry from the jam-conformance repo
+    pub fn seq(repo: &str) -> Result<Self> {
+        let mut files = Vec::new();
+        for entry in fs::read_dir(Path::new(repo))? {
+            let path = entry?.path();
+            if path.is_file() && path.extension().unwrap_or_default() == "json" {
+                files.push(path);
+            }
+        }
+
+        Ok(Self {
+            section: Section::Trace(Trace::Fuzz),
+            scale: None,
+            files,
+            current: 0,
+        })
+    }
+
     /// Get the number of test vectors
     pub fn count(&self) -> usize {
         self.files.len()
@@ -107,7 +125,8 @@ impl Entry {
                     .unwrap_or_default()
                     == name
             })
-            .ok_or_else(|| anyhow::anyhow!("test not found"))?;
+            .ok_or_else(|| anyhow::anyhow!("test {name} not found"))?;
+        eprintln!("parsing {:?}", path);
         self.parse(path)
     }
 

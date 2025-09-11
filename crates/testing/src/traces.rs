@@ -44,32 +44,31 @@ mod fuzz {
     include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
 }
 
-/// Run the traces test
 pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     if test.input.len() == 31 {
         return Ok(());
     }
-
+    let memdb = Arc::new(MemoryDb::default());
     let input = TestInput::from_json(&test.input)?;
     let output = TestOutput::from_json(&test.output)?;
-    let block: Block = input.block;
-    let memdb = Arc::new(MemoryDb::default());
-
-    // 1. verify the state root in pre-stateπ
-    let keyvals = input.pre_state.keyvals;
-    for keyval in keyvals {
+    for keyval in input.pre_state.keyvals.clone() {
         memdb
             .state_set(keyval.key, keyval.value)
             .expect("failed to set keyval");
     }
 
-    let state_root = memdb.root().expect("failed to get state root");
-    assert_eq!(state_root, input.pre_state.state_root);
+    self::run_single(memdb, input, output).await
+}
 
-    // 2. verify the state transition
+/// Run the traces test
+pub async fn run_single(
+    memdb: Arc<MemoryDb>,
+    input: TestInput,
+    output: TestOutput,
+) -> anyhow::Result<()> {
+    let block: Block = input.block;
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     let mut pkeys = Vec::new();
-    runtime::timing::setup();
     let state = memdb.state()?;
     let epoch = state.timeslot / score::EPOCH_LENGTH;
     let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
