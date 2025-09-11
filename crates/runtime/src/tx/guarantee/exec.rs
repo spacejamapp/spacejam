@@ -82,7 +82,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results = {
+    let mut results = if services.len() > 1 {
         let mut pool = tokio::task::JoinSet::new();
         for service in services.iter().cloned() {
             let context = context.clone();
@@ -99,6 +99,10 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             results.insert(service, result);
         }
         results
+    } else {
+        let service = services.iter().next().expect("should not fail");
+        let result = self::once::<V, R>(context.clone(), &reports, &table, *service, timeslot);
+        BTreeMap::from([(*service, result)])
     };
 
     // Update the state of accounts

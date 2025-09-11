@@ -195,7 +195,7 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
     }
 
     // Create function with proper name
-    let test_name_ident = Ident::new(&format!("test_{}", test_name), Span::call_site());
+    let test_name_ident = Ident::new(&format!("test_{test_name}"), Span::call_site());
     let mut testfn: ItemFn = parse_quote! {
         #[tokio::test]
         async fn #test_name_ident() {
