@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used)]
 
 // If you update this, you should also update the toolchain installed by .github/workflows/rust.yml
-const TOOLCHAIN: &str = "nightly-2024-11-01";
+const TOOLCHAIN: &str = "1.86.0";
 
 use crate::manifest;
 use codec::Encode;

@@ -1,18 +1,37 @@
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress};
+use ark_vrf::suites::bandersnatch::{PcsParams, RingProofParams};
 use std::{io::Result, path::Path, process::Command};
 
 const REPO: &str = "https://github.com/davxy/bandersnatch-vrfs-spec.git";
 const INTO: &str = "bandersnatch-vrfs-spec";
+const RING_SIZE: usize = 6;
 
 fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
+
     let into = Path::new(INTO);
-    if into.exists() {
-        return Ok(());
+    if !into.exists() {
+        Command::new("git").args(["clone", REPO, INTO]).status()?;
+        Command::new("git")
+            .args(["checkout", "cc99f5c"])
+            .current_dir(into)
+            .status()?;
     }
 
-    Command::new("git").args(["clone", REPO, INTO]).status()?;
-    Command::new("git")
-        .args(["checkout", "cc99f5c"])
-        .current_dir(into)
-        .status()?;
+    let buf =
+        std::fs::read("bandersnatch-vrfs-spec/assets/example/data/zcash-srs-2-11-uncompressed.bin")
+            .expect("Failed to read srs file");
+    let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &buf[..])
+        .expect("Failed to deserialize SRS parameters");
+    let res = RingProofParams::from_pcs_params(RING_SIZE, pcs_params)
+        .expect("Failed to create ring context");
+    let mut bytes = vec![];
+    let _ = res.serialize_with_mode(&mut bytes, Compress::No);
+    std::fs::write(
+        "bandersnatch-vrfs-spec/assets/example/data/size-6-with-zcash-srs.bin",
+        bytes,
+    )
+    .expect("Failed to create params serialize file");
+
     Ok(())
 }
