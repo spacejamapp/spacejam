@@ -6,10 +6,10 @@ use pvm::score::Gas;
 pub use registry::Accounts;
 use score::{
     service::{ServiceAccount, ServiceInfo},
-    Account as CoreAccount, AccountInnerKey, TrieKey,
+    Account as CoreAccount, AccountInnerKey,
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
 };
 
@@ -31,6 +31,9 @@ pub struct Account<S: Storage> {
 
     /// The operations of the account
     updates: Commit<AccountInnerKey, Vec<u8>>,
+
+    /// The store cache
+    cache: HashMap<AccountInnerKey, Option<Vec<u8>>>,
 }
 
 impl<S: Storage> Account<S> {
@@ -44,15 +47,20 @@ impl<S: Storage> Account<S> {
             info: account.info.clone(),
             account,
             updates: Commit::default(),
+            cache: HashMap::new(),
         })
     }
 
     /// Read storage via storage key
-    pub fn hread(&self, key: &AccountInnerKey) -> Option<Vec<u8>> {
+    pub fn hread(&mut self, key: &AccountInnerKey) -> Option<Vec<u8>> {
         if self.account.storage.contains_key(key) {
             self.account.storage.get(key).cloned()
+        } else if let Some(value) = self.cache.get(key) {
+            value.clone()
         } else {
-            self.state.state_get(key.trie()).ok().flatten()
+            let v = self.state.state_get(key.trie()).ok().flatten();
+            self.cache.insert(key.clone(), v.clone());
+            v
         }
     }
 
@@ -72,6 +80,7 @@ impl<S: Storage> Account<S> {
             info: new_info,
             account: new_account,
             updates: (new_update, new_removal).into(),
+            cache: HashMap::new(),
         }
     }
 }
@@ -306,22 +315,6 @@ impl<S: Storage> CoreAccount for Account<S> {
 
         (update, removal)
     }
-
-    fn ops(mut self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
-        if self.info != self.account.info {
-            self.updates.set(
-                AccountInnerKey::Info(self.index),
-                codec::encode(&self.account.state()).expect("data is valid"),
-            );
-        }
-
-        let Commit { update, removal } = self.updates;
-        let removals: BTreeSet<TrieKey> = removal.into_iter().map(|k| k.trie()).collect();
-        let updates: BTreeMap<TrieKey, Vec<u8>> =
-            update.into_iter().map(|(k, v)| (k.trie(), v)).collect();
-
-        (updates, removals)
-    }
 }
 
 impl<S: Storage> Clone for Account<S> {
@@ -332,6 +325,7 @@ impl<S: Storage> Clone for Account<S> {
             info: self.info.clone(),
             account: self.account.clone(),
             updates: self.updates.clone(),
+            cache: self.cache.clone(),
         }
     }
 }

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Account inner storage key
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Debug, Serialize, Deserialize, Hash)]
 pub enum AccountInnerKey {
     Lookup(u32, [u8; 32], u32),
     Preimage(u32, [u8; 32]),
@@ -184,9 +184,6 @@ pub trait Account: Clone {
         BTreeMap<AccountInnerKey, Vec<u8>>,
         BTreeSet<AccountInnerKey>,
     );
-
-    /// Get the operations of the account with trie key
-    fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>);
 }
 
 impl Account for ServiceAccount {
@@ -356,26 +353,6 @@ impl Account for ServiceAccount {
         for (key, slots) in self.lookup.iter() {
             let encoded_lookup = codec::encode(slots).expect("lookup is valid");
             updates.insert(key.clone(), encoded_lookup);
-        }
-
-        // FIXME why not preimage & storage
-
-        (updates, removals)
-    }
-
-    fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>) {
-        let mut updates = BTreeMap::new();
-        let removals = BTreeSet::new();
-
-        // Ensure the account info is written to storage
-        let info_key = crate::state::account::info(self.index);
-        let encoded_info = codec::encode(&self.info).expect("service info is valid");
-        updates.insert(info_key, encoded_info);
-
-        // Ensure the lookup is written to storage
-        for (key, slots) in self.lookup.iter() {
-            let encoded_lookup = codec::encode(slots).expect("lookup is valid");
-            updates.insert(key.trie(), encoded_lookup);
         }
 
         // FIXME why not preimage & storage

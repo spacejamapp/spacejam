@@ -6,6 +6,7 @@ use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     sync::Arc,
 };
+use tokio::task::JoinSet;
 
 /// Account registry with cached state
 pub struct Accounts<S: Storage> {
@@ -81,13 +82,31 @@ impl<S: Storage> score::Accounts for Accounts<S> {
         self.removed.clone()
     }
 
-    fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {
+    async fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {
         let mut updates = Vec::new();
         let mut removals = Vec::new();
+
+        let mut all_updates = Vec::new();
+        let mut all_removals = Vec::new();
         for (_, account) in self.accounts {
-            let (lupdates, lremovals) = account.ops();
-            updates.extend(lupdates);
-            removals.extend(lremovals);
+            let (aupdates, aremovals) = account.updates();
+            all_updates.extend(aupdates);
+            all_removals.extend(aremovals);
+        }
+
+        let mut set_updates: JoinSet<_> = all_updates
+            .into_iter()
+            .map(|(k, v)| async move { (k.trie(), v) })
+            .collect();
+        let mut set_removals: JoinSet<_> = all_removals
+            .into_iter()
+            .map(|k| async move { k.trie() })
+            .collect();
+        while let Some(result) = set_updates.join_next().await {
+            updates.push(result.unwrap_or_default());
+        }
+        while let Some(result) = set_removals.join_next().await {
+            removals.push(result.unwrap_or_default());
         }
 
         for index in self.removed {

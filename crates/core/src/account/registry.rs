@@ -42,7 +42,9 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     }
 
     /// Get the diff of the accounts
-    fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
+    fn diff(
+        self,
+    ) -> impl std::future::Future<Output = (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>)> + Send;
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {
@@ -74,7 +76,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
         self
     }
 
-    fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>) {
+    async fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>) {
         unimplemented!("account diff not implemented")
     }
 }
