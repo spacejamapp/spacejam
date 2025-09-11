@@ -95,6 +95,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
+    let slot_phase = block.header.slot % score::EPOCH_LENGTH;
 
     // TODO: move this logic to the header validation
     if let Some(epoch_mark) = &block.header.epoch_mark {
@@ -111,6 +112,8 @@ pub async fn simulate_with_state<Vm: Pvm>(
         anyhow::bail!("epoch mark is required");
     }
 
+    // TODO: move this logic to the header validation
+    //
     // handle marks in the block
     if let Some(tickets_mark) = block.header.tickets_mark {
         for ticket in tickets_mark {
@@ -118,6 +121,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
             }
         }
+    } else if slot_phase == score::TICKET_SUBMISSION_PERIOD
+        && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+    {
+        anyhow::bail!("invalid tickets mark");
     }
 
     // The first round computation
