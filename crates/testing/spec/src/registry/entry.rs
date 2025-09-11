@@ -20,6 +20,9 @@ pub struct Entry {
     /// The directory of the test vector
     pub files: Vec<PathBuf>,
 
+    /// The base directory of the test vector
+    pub base: PathBuf,
+
     /// The current index of the test vector
     pub current: usize,
 }
@@ -40,7 +43,7 @@ impl Entry {
         }
 
         let mut files = Vec::new();
-        for entry in fs::read_dir(dir)? {
+        for entry in fs::read_dir(&dir)? {
             let path = entry?.path();
             if path.is_file() && path.extension().unwrap_or_default() == "json" {
                 files.push(path);
@@ -48,6 +51,7 @@ impl Entry {
         }
 
         Ok(Self {
+            base: dir,
             section,
             scale,
             files,
@@ -58,6 +62,7 @@ impl Entry {
     /// Build entry from the jam-conformance repo
     pub fn fuzz(repo: &str) -> Result<Self> {
         let mut files = Vec::new();
+        let base = PathBuf::from(repo);
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
             if path.is_file() {
@@ -73,6 +78,7 @@ impl Entry {
         }
 
         Ok(Self {
+            base,
             section: Section::Trace(Trace::Fuzz),
             scale: None,
             files,
@@ -83,6 +89,7 @@ impl Entry {
     /// Build entry from the jam-conformance repo
     pub fn seq(repo: &str) -> Result<Self> {
         let mut files = Vec::new();
+        let base = PathBuf::from(repo);
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
             if path.is_file() && path.extension().unwrap_or_default() == "json" {
@@ -91,6 +98,7 @@ impl Entry {
         }
 
         Ok(Self {
+            base,
             section: Section::Trace(Trace::Fuzz),
             scale: None,
             files,
@@ -114,20 +122,8 @@ impl Entry {
 
     /// Get a test vector by name
     pub fn test(&self, name: &str) -> Result<Test> {
-        let path = self
-            .files
-            .iter()
-            .find(|path| {
-                let path = path.with_extension("");
-                path.file_name()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or_default()
-                    == name
-            })
-            .ok_or_else(|| anyhow::anyhow!("test {name} not found"))?;
-        eprintln!("parsing {:?}", path);
-        self.parse(path)
+        let path = self.base.join(format!("{name}.json"));
+        self.parse(&path)
     }
 
     /// Parse a test vector from a file

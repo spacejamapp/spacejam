@@ -52,6 +52,7 @@ impl Fuzzer {
             UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;
 
         let entry = Entry {
+            base: Default::default(),
             section: Section::Trace(Trace::Any),
             scale: None,
             files: vec![test.to_path_buf()],
