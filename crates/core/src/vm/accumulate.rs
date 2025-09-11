@@ -175,7 +175,7 @@ impl<R: Accounts> Accumulated<R> {
             })
             .collect::<Vec<_>>();
 
-        crypto::merkle::kroot(&leaves)
+        crypto::merkle::kroot(leaves)
     }
 }
 

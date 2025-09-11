@@ -8,26 +8,22 @@ use std::collections::HashMap;
 const MAX_MERKLE_PROOF_DEPTH: u32 = 16;
 
 /// Compute the root of a Merkle tree from chunks using Blake2b.
-pub fn broot(chunks: &[Vec<u8>]) -> [u8; 32] {
+pub fn broot(chunks: Vec<Vec<u8>>) -> [u8; 32] {
     root(chunks, blake2b)
 }
 
 /// Compute the root of a Merkle tree from chunks using Keccak.
-pub fn kroot(chunks: &[Vec<u8>]) -> [u8; 32] {
+pub fn kroot(chunks: Vec<Vec<u8>>) -> [u8; 32] {
     root(chunks, crate::keccak)
 }
 
 /// Compute the root of a Merkle tree from chunks.
-pub fn root(chunks: &[Vec<u8>], hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
-    let leaves = chunks
-        .iter()
-        .map(|chunk| hash(chunk))
-        .collect::<Vec<[u8; 32]>>();
-    hroot(&leaves, hash)
+pub fn root(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
+    hroot(leaves, hash)
 }
 
 /// Compute the root of a Merkle tree from hashes.
-pub fn hroot(hashes: &[[u8; 32]], hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
+pub fn hroot(hashes: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
     if hashes.is_empty() {
         return [0u8; 32];
     }
@@ -37,21 +33,30 @@ pub fn hroot(hashes: &[[u8; 32]], hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
 }
 
 /// Compute the Merkle tree.
-pub fn tree(leaves: Vec<[u8; 32]>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<[u8; 32]>> {
+pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<[u8; 32]>> {
     let depth = leaves.len().ilog2() as usize + 1;
     let mut tree = vec![vec![]; depth];
-    tree[0] = leaves;
+    tree[0] = leaves.iter().map(|leaf| hash(leaf.as_slice())).collect();
 
     for i in 1..depth {
         let len = 2usize.pow((depth - 1 - i) as u32);
         tree[i].resize(len, Default::default());
-
         let mut path = Vec::new();
         for j in 0..len {
-            let prev = tree[i - 1].clone();
+            let prev = if i == 1 {
+                leaves
+                    .iter()
+                    .map(|leaf| leaf.as_slice())
+                    .collect::<Vec<&[u8]>>()
+            } else {
+                tree[i - 1]
+                    .iter()
+                    .map(|leaf| leaf.as_slice())
+                    .collect::<Vec<&[u8]>>()
+            };
             let left = prev[2 * j];
             let right = prev[2 * j + 1];
-            path.push(hash(&[left, right].concat()));
+            path.push(hash(&[b"node", left, right].concat()));
         }
         tree[i] = path;
     }
@@ -62,7 +67,7 @@ pub fn tree(leaves: Vec<[u8; 32]>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<[u8; 
 /// Binary Merkle Tree
 pub struct MerkleTree {
     root: [u8; 32],
-    proofs: HashMap<[u8; 32], MerkleProof>,
+    proofs: HashMap<Vec<u8>, MerkleProof>,
 }
 
 impl MerkleTree {
@@ -72,17 +77,13 @@ impl MerkleTree {
     }
 
     /// Get the proof for a given leaf.
-    pub fn proof(&self, leaf: [u8; 32]) -> Option<MerkleProof> {
-        self.proofs.get(&leaf).cloned()
+    pub fn proof(&self, leaf: &[u8]) -> Option<MerkleProof> {
+        self.proofs.get(leaf).cloned()
     }
 }
 
 impl From<Vec<Vec<u8>>> for MerkleTree {
-    fn from(chunks: Vec<Vec<u8>>) -> Self {
-        let mut leaves = chunks
-            .into_iter()
-            .map(|chunk| blake2b(&chunk))
-            .collect::<Vec<[u8; 32]>>();
+    fn from(mut leaves: Vec<Vec<u8>>) -> Self {
         leaves.resize(leaves.len().next_power_of_two(), Default::default());
 
         let tree = tree(leaves.clone(), blake2b);
@@ -102,11 +103,11 @@ impl From<Vec<Vec<u8>>> for MerkleTree {
                 } else {
                     path.push(layer[index - 1]);
                 }
-                index /= 2;
+                index = index.div_ceil(2);
             }
 
             proofs.insert(
-                leaf,
+                leaf.clone(),
                 MerkleProof {
                     root,
                     leaf,
@@ -124,7 +125,7 @@ impl From<Vec<Vec<u8>>> for MerkleTree {
 #[derive(Clone)]
 pub struct MerkleProof {
     pub root: [u8; 32],
-    pub leaf: [u8; 32],
+    pub leaf: Vec<u8>,
     pub index: u16,
     pub proof: Vec<[u8; 32]>,
 }
@@ -132,17 +133,33 @@ pub struct MerkleProof {
 impl MerkleProof {
     /// Verify the proof.
     pub fn verify(&self) -> bool {
-        let (mb_root, _) = self.proof.iter().fold((self.leaf, 0), |(acc, i), hash| {
-            let (left, right) = if get_bit(self.index, i) {
-                (*hash, acc)
-            } else {
-                (acc, *hash)
-            };
-            (blake2b(&[left, right].concat()), i + 1)
-        });
-
         let index_bits = (MAX_MERKLE_PROOF_DEPTH - self.index.leading_zeros()) as usize;
-        index_bits <= self.proof.len() && self.root == mb_root
+        if index_bits > self.proof.len() {
+            return false;
+        }
+
+        // TODO: zero copy
+        let (mb_root, _) = self
+            .proof
+            .iter()
+            .fold((self.leaf.clone(), 0), |(acc, i), hash| {
+                let hash = hash.to_vec();
+                let (left, right) = if get_bit(self.index, i) {
+                    (hash, acc.clone())
+                } else {
+                    (acc.clone(), hash)
+                };
+                (
+                    blake2b(&[b"node", left.as_slice(), right.as_slice()].concat()).to_vec(),
+                    i + 1,
+                )
+            });
+
+        if mb_root.len() != 32 {
+            self.root == blake2b(&mb_root)
+        } else {
+            self.root.to_vec() == mb_root
+        }
     }
 }
 
@@ -158,7 +175,7 @@ fn verify_proof() {
         let tree = MerkleTree::from(chunks.clone());
         for (i, chunk) in chunks.into_iter().enumerate().take(len) {
             let proof = tree
-                .proof(blake2b(&chunk))
+                .proof(&chunk)
                 .unwrap_or_else(|| panic!("Proof not found, chunks: {len}"));
             assert!(proof.verify(), "chunk index: {i}/{len}");
         }
