@@ -20,25 +20,6 @@ pub struct Processor {
 }
 
 impl Processor {
-    /// Create a new processor
-    pub fn new() -> Self {
-        let _ = tracing_subscriber::fmt::Subscriber::builder()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .without_time()
-            .with_ansi(false)
-            .with_thread_names(false)
-            .with_file(false)
-            // .with_level(false)
-            .with_target(false)
-            .try_init();
-
-        Self {
-            memdb: Arc::new(MemoryDb::default()),
-            init: false,
-            history: BTreeMap::new(),
-        }
-    }
-
     /// Process a test
     pub async fn process(&mut self, test: Test) -> Result<()> {
         let input = TestInput::from_json(&test.input)?;
@@ -61,5 +42,25 @@ impl Processor {
         traces::run_single(self.memdb.clone(), input, output).await?;
         self.history.insert(slot, self.memdb.deep_clone());
         Ok(())
+    }
+}
+
+impl Default for Processor {
+    fn default() -> Self {
+        let _ = tracing_subscriber::fmt::Subscriber::builder()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .without_time()
+            .with_ansi(false)
+            .with_thread_names(false)
+            .with_file(false)
+            // .with_level(false)
+            .with_target(false)
+            .try_init();
+
+        Self {
+            memdb: Arc::new(MemoryDb::default()),
+            init: false,
+            history: BTreeMap::new(),
+        }
     }
 }

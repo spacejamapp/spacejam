@@ -199,7 +199,7 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
     let mut testfn: ItemFn = parse_quote! {
         #[tokio::test]
         async fn #test_name_ident() {
-            let mut processor = Processor::new();
+            let mut processor = Processor::default();
         }
     };
 

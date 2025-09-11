@@ -64,6 +64,7 @@ mod crypto_impl {
                     state_root: OpaqueHash::default(),
                     reported,
                 };
+
                 self.history.push(new_block.clone());
                 return;
             };

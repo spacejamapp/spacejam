@@ -33,9 +33,10 @@ impl<'de> Deserializer<'de> {
     pub fn next_bytes(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.index + len > self.input.len() {
             return Err(anyhow::anyhow!(
-                "failed to get the next bytes: EOF: index: {}, len: {}",
+                "failed to get the next bytes: EOF: index: {}, len: {}, buffer length: {}",
                 self.index,
-                len
+                len,
+                self.input.len()
             )
             .into());
         }

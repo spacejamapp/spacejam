@@ -131,6 +131,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
+    tracing::debug!("info: {:?}", account.info());
     let Ok(info) = account.info().host() else {
         crate::bail!("failed to encode account info");
     };
@@ -138,9 +139,8 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
     // Get memory write parameters from registers
     let total_len = info.len() as u64;
     let (from, to) = (from.min(total_len) as usize, to.min(total_len) as usize);
-    let length = to - from;
-    if length > 0 {
-        ctx.write(output as u32, &info[from..(from + length)])?;
+    if to > from {
+        ctx.write(output as u32, &info[from..to])?;
     }
 
     // Return total length of encoded data

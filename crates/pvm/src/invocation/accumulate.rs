@@ -116,12 +116,6 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.transfer.push(transfer);
     }
 
-    fn update(&mut self, account: ServiceId) {
-        if let Some(account) = self.x.context.accounts.get(account) {
-            account.set_update(self.timeslot);
-        }
-    }
-
     fn upsert(&mut self, id: ServiceId, account: impl Account) {
         self.x.context.accounts.upsert(id, account);
     }

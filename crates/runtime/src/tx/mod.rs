@@ -285,6 +285,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
         // (p of β') Report the work packages
         let (mut reported, mut reporters) = (vec![], vec![]);
         if !block.extrinsic.guarantees.is_empty() {
+            // {
             (reported, reporters) = {
                 let _guard = timing::guarantees();
                 guarantee::report(

@@ -16,11 +16,11 @@ pub mod pvmc;
 pub mod pvmi;
 pub mod reports;
 pub mod safrole;
+pub mod seq;
 pub mod shuffle;
 pub mod statistics;
 pub mod traces;
 pub mod trie;
-pub mod seq;
 
 /// The `Runner` struct which is used to run the tests.
 pub struct Runner;
