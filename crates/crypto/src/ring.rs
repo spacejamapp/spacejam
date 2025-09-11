@@ -4,10 +4,7 @@
 use crate::vrf;
 use ark_ec::AffineRepr;
 use ark_serialize::CanonicalDeserialize;
-use ark_vrf::{
-    suites::bandersnatch::{PcsParams, RingProofParams},
-    Public,
-};
+use ark_vrf::{suites::bandersnatch::RingProofParams, Public};
 use once_cell::sync::Lazy;
 
 /// Number of keys in the ring.
@@ -17,12 +14,10 @@ pub const RING_SIZE: usize = 6;
 
 /// "Static" ring context data
 pub static RING_CTX: Lazy<RingProofParams> = Lazy::new(|| {
-    let buf = include_bytes!(
-        "../bandersnatch-vrfs-spec/assets/example/data/zcash-srs-2-11-uncompressed.bin"
-    );
-    let pcs_params = PcsParams::deserialize_uncompressed_unchecked(&mut &buf[..])
-        .expect("Failed to deserialize SRS parameters");
-    RingProofParams::from_pcs_params(RING_SIZE, pcs_params).expect("Failed to create ring context")
+    let buf =
+        include_bytes!("../bandersnatch-vrfs-spec/assets/example/data/size-6-with-zcash-srs.bin");
+    RingProofParams::deserialize_uncompressed_unchecked(&mut &buf[..])
+        .expect("Failed to deserialize SRS parameters")
 });
 
 /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
