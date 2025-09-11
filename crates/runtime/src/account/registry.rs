@@ -83,9 +83,6 @@ impl<S: Storage> score::Accounts for Accounts<S> {
     }
 
     async fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {
-        let mut updates = Vec::new();
-        let mut removals = Vec::new();
-
         let mut all_updates = Vec::new();
         let mut all_removals = Vec::new();
         for (_, account) in self.accounts {
@@ -94,20 +91,16 @@ impl<S: Storage> score::Accounts for Accounts<S> {
             all_removals.extend(aremovals);
         }
 
-        let mut set_updates: JoinSet<_> = all_updates
+        let set_updates: JoinSet<_> = all_updates
             .into_iter()
             .map(|(k, v)| async move { (k.trie(), v) })
             .collect();
-        let mut set_removals: JoinSet<_> = all_removals
+        let set_removals: JoinSet<_> = all_removals
             .into_iter()
             .map(|k| async move { k.trie() })
             .collect();
-        while let Some(result) = set_updates.join_next().await {
-            updates.push(result.unwrap_or_default());
-        }
-        while let Some(result) = set_removals.join_next().await {
-            removals.push(result.unwrap_or_default());
-        }
+        let updates = set_updates.join_all().await;
+        let mut removals = set_removals.join_all().await;
 
         for index in self.removed {
             let keys = self.storage.account_keys(index).unwrap_or_default();
