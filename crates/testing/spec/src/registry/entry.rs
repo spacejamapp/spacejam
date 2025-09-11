@@ -79,7 +79,7 @@ impl Entry {
 
         Ok(Self {
             base,
-            section: Section::Trace(Trace::Fuzz),
+            section: Section::Trace(Trace::Any),
             scale: None,
             files,
             current: 0,
@@ -99,7 +99,7 @@ impl Entry {
 
         Ok(Self {
             base,
-            section: Section::Trace(Trace::Fuzz),
+            section: Section::Trace(Trace::Any),
             scale: None,
             files,
             current: 0,
@@ -139,7 +139,7 @@ impl Entry {
             Section::Trie => self.parse_trie(path),
             Section::Trace(trace) => {
                 let mut parsed = self.parse_trace(path)?;
-                if trace == Trace::Fuzz {
+                if trace == Trace::Any {
                     let prev_name = Self::file_name(path)?;
                     let parent = Self::file_name(
                         path.parent()

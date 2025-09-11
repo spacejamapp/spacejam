@@ -10,6 +10,8 @@ use std::{
 };
 use syn::{parse_quote, Ident, ItemFn};
 
+const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
+
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.0");
@@ -79,21 +81,10 @@ fn main() -> Result<()> {
         registry.trace(Trace::StorageLight)?,
         &out_dir.join("traces_storage_light.rs"),
     )?;
-    build_tests(
-        registry.trace(Trace::Fuzz)?,
-        &out_dir.join("traces_local_fuzz.rs"),
-    )?;
-    build_fuzz_tests(
-        "../../res/jam-conformance/fuzz-reports/0.7.0/traces",
-        &out_dir.join("traces_fuzz.rs"),
-    )?;
+    build_fuzz_tests(REPORTS, &out_dir.join("traces_fuzz.rs"))?;
 
     // build all sequential tests
-    build_all_seq_test(
-        "../../res/jam-test-vectors/traces/fallback",
-        &out_dir.join("traces_seq.rs"),
-    )?;
-
+    build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
     Ok(())
 }
 
@@ -170,26 +161,34 @@ fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
 }
 
 /// Builds all sequential tests
-fn build_all_seq_test(path: &str, out: &Path) -> Result<()> {
-    let item = build_seq_test(path)?;
-    fs::write(out, quote::quote!(#item).to_token_stream().to_string())?;
+fn build_all_seq_test(out: &Path) -> Result<()> {
+    let mut items = Vec::new();
+    let mut traces = Vec::new();
+
+    // build the traces tests
+    for entry in fs::read_dir("../../res/jam-test-vectors/traces")? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            traces.push(build_seq_test(path.to_str().unwrap())?);
+        }
+    }
+
+    items.extend(traces);
+    fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
     Ok(())
 }
 
 /// Builds the sequential tests
 fn build_seq_test(entry: &str) -> Result<ItemFn> {
     let fentry = Entry::seq(entry)?;
-    let mut test_name = "".to_string();
+    let test_name = Path::new(entry).file_name().unwrap().to_str().unwrap();
     let mut tests = BTreeSet::<String>::new();
 
     // build the tests and get test name first
     for test in fentry.into_iter() {
-        let names = test.name.split('_').collect::<Vec<_>>();
-        if test_name.is_empty() {
-            test_name = names[0].to_string();
-        }
-
-        let fname = names[1].to_string();
+        let names = test.name.split('_').collect::<Vec<&str>>();
+        let fname = names.last().unwrap().to_string();
         if fname.contains("genesis") {
             continue;
         }
