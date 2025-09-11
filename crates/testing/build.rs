@@ -11,6 +11,7 @@ use std::{
 use syn::{parse_quote, Ident, ItemFn};
 
 const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
+const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
@@ -163,18 +164,16 @@ fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
 /// Builds all sequential tests
 fn build_all_seq_test(out: &Path) -> Result<()> {
     let mut items = Vec::new();
-    let mut traces = Vec::new();
-
-    // build the traces tests
-    for entry in fs::read_dir("../../res/jam-test-vectors/traces")? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            traces.push(build_seq_test(path.to_str().unwrap())?);
+    for entry in [REPORTS, TRACES] {
+        for entry in fs::read_dir(entry)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                items.push(build_seq_test(path.to_str().unwrap())?);
+            }
         }
     }
 
-    items.extend(traces);
     fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
     Ok(())
 }
