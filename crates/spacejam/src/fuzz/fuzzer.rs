@@ -187,6 +187,7 @@ impl Fuzzer {
         let set_state = Initialize {
             header: input.block.header.clone(),
             state: state.clone(),
+            ancestry: vec![],
         };
 
         // verify the state root

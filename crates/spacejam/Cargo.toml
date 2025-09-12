@@ -46,6 +46,11 @@ tracing-subscriber = { workspace = true, optional = true, features = [
 [dev-dependencies]
 temp-dir.workspace = true
 
+[build-dependencies]
+syn.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+
 [features]
 bin = ["node"]
 cmd = [

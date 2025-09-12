@@ -7,10 +7,12 @@ const TINY_DEV_SPEC: &str = "https://gist.githubusercontent.com/clearloop/52b9d5
 fn main() {
     println!("cargo:rerun-if-changed=src/chain/spec.rs");
     println!("cargo:rerun-if-changed=build.rs");
+
     let root = std::path::PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
     );
 
+    fuzz::generate(&root).expect("failed to generate fuzz tests");
     let dev = root.join("spec/dev");
     let target = dev.join("spec.json");
     if target.exists() {
@@ -26,4 +28,50 @@ fn main() {
         ])
         .output()
         .expect("failed to download tiny spec");
+}
+
+mod fuzz {
+    use proc_macro2::Span;
+    use quote::quote;
+    use std::{env, fs, path::Path};
+    use syn::{Ident, ItemFn, LitStr, parse_quote};
+
+    /// Generate the fuzz tests
+    pub fn generate(root: &Path) -> std::io::Result<()> {
+        let srouce = root.join("../../res/jam-conformance/fuzz-proto/examples/v1");
+        let mut tests: Vec<ItemFn> = Vec::new();
+        println!("reading from {srouce:?}");
+        for entry in fs::read_dir(srouce)? {
+            let entry = entry?;
+            let path = entry.path();
+            let ext = path.extension().expect("failed to get extension");
+            if ext != "bin" {
+                continue;
+            }
+
+            let fpath = path.with_extension("");
+            let fname = fpath
+                .file_name()
+                .expect("failed to get file name")
+                .to_str()
+                .expect("failed to convert file name to str");
+
+            let test = Ident::new(&format!("test_{fname}"), Span::call_site());
+            let bytes = LitStr::new(&path.to_string_lossy().to_string(), Span::call_site());
+            tests.push(parse_quote! {
+                #[test]
+                fn #test() {
+                    let bytes = include_bytes!(#bytes);
+                    let message: Message = codec::decode(bytes).unwrap();
+                    assert_eq!(codec::encode(&message).unwrap(), bytes);
+                }
+            });
+        }
+
+        let out_dir = env::var("OUT_DIR").expect("OUT_DIR must be set");
+        let out = Path::new(&out_dir).join("fuzz.rs");
+        println!("writing to {out:?}");
+        fs::write(out, quote! { #(#tests)* }.to_string())?;
+        Ok(())
+    }
 }

@@ -1,6 +1,6 @@
 //! Fuzz messages
 
-use score::{Block, OpaqueHash, TrieKey, block::Header};
+use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -136,4 +136,18 @@ pub struct Initialize {
 
     /// The state of the peer
     pub state: Vec<KeyValue>,
+
+    /// The ancestry of the peer
+    pub ancestry: Vec<Head>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Head {
+    /// The slot of the head
+    #[serde(rename = "slot")]
+    pub slot: TimeSlot,
+
+    /// The hash of the head
+    #[serde(rename = "header-hash")]
+    pub hash: OpaqueHash,
 }
