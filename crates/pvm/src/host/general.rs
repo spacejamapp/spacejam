@@ -94,7 +94,6 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩW) storage write
 pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
-    // extract arguments from registers
     let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let value = ctx.read(vo as u32, vz as u32)?;
     let key = ctx.read(ko as u32, kz as u32)?;
@@ -131,7 +130,6 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
-    tracing::debug!("info: {:?}", account.info());
     let Ok(info) = account.info().host() else {
         crate::bail!("failed to encode account info");
     };

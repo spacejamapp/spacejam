@@ -99,6 +99,15 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
     }
 
+    /* let mut results = {
+        let mut results = BTreeMap::new();
+        for service in services.iter().cloned() {
+            let result = self::once::<V, R>(context.clone(), reports, table, service, timeslot);
+            results.insert(service, result);
+        }
+        results
+    }; */
+
     // Execute each service exactly once using Δ₁ (once function)
     let mut results = if services.len() > 1 {
         let mut pool = tokio::task::JoinSet::new();

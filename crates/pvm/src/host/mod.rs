@@ -15,7 +15,6 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         return Reason::Continue;
     }
 
-    // tracing::debug!("host call: {}", call);
     /* if call != 100 {
         tracing::debug!("host call: {}", call);
     } */
