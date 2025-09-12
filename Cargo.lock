@@ -394,12 +394,13 @@ dependencies = [
 [[package]]
 name = "ark-vrf"
 version = "0.1.0"
-source = "git+https://github.com/sunhuachuang/ark-vrf#ceaeab3226668017f390bb604475600a8f7114ee"
+source = "git+https://github.com/sunhuachuang/ark-vrf#e0a4039ff2ade030e65549143b4ccc99b7271927"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "digest",
@@ -696,9 +697,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.36"
+version = "1.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5252b3d2648e5eedbc1a6f501e3c795e07025c1e93bbf8bbdd6eef7f447a6d54"
+checksum = "65193589c6404eb80b450d618eaf9a2cafaaafd57ecce47370519ef674a7bd44"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -3369,7 +3370,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.103.4",
+ "rustls-webpki 0.103.5",
  "subtle",
  "zeroize",
 ]
@@ -3410,7 +3411,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-platform-verifier-android",
- "rustls-webpki 0.103.4",
+ "rustls-webpki 0.103.5",
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
@@ -3431,7 +3432,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-platform-verifier-android",
- "rustls-webpki 0.103.4",
+ "rustls-webpki 0.103.5",
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 1.0.2",
@@ -3457,9 +3458,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.4"
+version = "0.103.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a17884ae0c1b773f1ccd2bd4a8c72f16da897310a98b0e84bf349ad5ead92fc"
+checksum = "b5a37813727b78798e53c2bec3f5e8fe12a6d6f8389bf9ca7802add4c9905ad8"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -4492,7 +4493,7 @@ dependencies = [
 [[package]]
 name = "w3f-plonk-common"
 version = "0.0.2"
-source = "git+https://github.com/sunhuachuang/ring-proof#2c143ea32758dda407f820a96b120024dcbce896"
+source = "git+https://github.com/sunhuachuang/ring-proof#34c38f0d0010e404e4c78a0f6a179331b1fc5cc9"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4508,7 +4509,7 @@ dependencies = [
 [[package]]
 name = "w3f-ring-proof"
 version = "0.0.2"
-source = "git+https://github.com/sunhuachuang/ring-proof#2c143ea32758dda407f820a96b120024dcbce896"
+source = "git+https://github.com/sunhuachuang/ring-proof#34c38f0d0010e404e4c78a0f6a179331b1fc5cc9"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
