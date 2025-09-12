@@ -4,10 +4,10 @@ use crate::fuzz::{
     self, StreamExt,
     message::{KeyValue, Message, PeerInfo, SetState},
 };
-use anyhow::Context;
+use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx,
+    tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash, safrole::ValidatorIter};
 use std::{
@@ -175,6 +175,7 @@ impl Target {
         }
 
         self.data.commit(Column::State, commit)?;
+        self.init_state();
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
         Ok(())
@@ -202,6 +203,14 @@ impl Target {
     pub fn state_root(&mut self, _root: OpaqueHash) -> anyhow::Result<()> {
         anyhow::bail!("Received message state root which is not supported");
     }
+
+    /// Initialize the target
+    ///
+    /// TODO: pre-compile programs
+    fn init_state(&self) {
+        let data = self.data.clone();
+        let _ = tokio::task::spawn_blocking(move || init_verifier(data));
+    }
 }
 
 impl Deref for Target {
@@ -216,4 +225,13 @@ impl DerefMut for Target {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.stream
     }
+}
+
+/// Initialize the verifier
+fn init_verifier(data: Arc<MemoryDb>) -> Result<()> {
+    let safrole = data.safrole()?;
+    let timeslot = data.timeslot()?;
+    let epoch = timeslot / score::EPOCH_LENGTH;
+    let _ = lazy::verifier(epoch, &safrole.validators.bandersnatch());
+    Ok(())
 }

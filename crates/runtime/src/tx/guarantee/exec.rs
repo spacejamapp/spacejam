@@ -38,28 +38,16 @@ pub async fn outer<V: Pvm, R: Accounts>(
         let mut index = 0;
         for (i, report) in reports.iter().enumerate() {
             let report_gas: Gas = report.results.iter().map(|r| r.accumulate_gas).sum();
-            if cumulative_gas + report_gas <= gas_limit {
-                cumulative_gas += report_gas;
-                index = i + 1;
-                continue;
+            if cumulative_gas + report_gas > gas_limit {
+                break;
             }
 
-            break;
+            cumulative_gas += report_gas;
+            index = i + 1;
         }
 
         if index == 0 {
-            // WORKAROUND:
-            //
-            // post set updates, need to check if we need to post update
-            // all accounts instead of in the middle of the parallel accumulation.
-            //
-            // currently have bugs doing it in the middle.
-            for svc in updates {
-                if let Some(account) = accumulated.context.accounts.get(svc) {
-                    account.set_update(timeslot);
-                }
-            }
-            return accumulated;
+            break;
         }
 
         let step = self::parallel::<V, R>(
@@ -81,6 +69,20 @@ pub async fn outer<V: Pvm, R: Accounts>(
             *accumulated.gas.entry(*service).or_insert(0) += gas;
         }
     }
+
+    // WORKAROUND:
+    //
+    // post set updates, need to check if we need to post update
+    // all accounts instead of in the middle of the parallel accumulation.
+    //
+    // currently have bugs doing it in the middle.
+    for svc in updates {
+        if let Some(account) = accumulated.context.accounts.get(svc) {
+            account.set_update(timeslot);
+        }
+    }
+
+    accumulated
 }
 
 /// (Δ*) parallel accumulation
@@ -98,6 +100,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
     }
 
+    // NOTE: this is for debugging usage
     /* let mut results = {
         let mut results = BTreeMap::new();
         for service in services.iter().cloned() {

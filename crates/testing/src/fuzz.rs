@@ -8,6 +8,7 @@ use specjam::Test;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
+    time::Instant,
 };
 
 include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
