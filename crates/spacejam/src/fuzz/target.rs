@@ -1,8 +1,8 @@
 //! The unix stream for fuzzing
 
 use crate::fuzz::{
-    self, StreamExt, init,
-    message::{KeyValue, Message, PeerInfo, SetState},
+    StreamExt, init,
+    message::{KeyValue, Message, PeerInfo, SetState, Version},
 };
 use anyhow::{Context, Result};
 use runtime::{
@@ -100,17 +100,12 @@ impl Target {
 
     /// Received info request
     pub fn info(&mut self, info: PeerInfo) -> anyhow::Result<()> {
-        let this = PeerInfo {
-            name: "spacejam".into(),
-            version: fuzz::VERSION,
-            protocol: fuzz::PROTOCOL_VERSION,
-        };
-
-        if info.protocol != fuzz::PROTOCOL_VERSION {
+        let this = PeerInfo::default();
+        if info.jam_version != Version::PROTOCOL {
             anyhow::bail!(
                 "protocol version mismatched, remote: {:?}, local: {:?}",
-                info.protocol,
-                this.protocol
+                info.jam_version,
+                this.jam_version
             );
         }
 
@@ -210,7 +205,9 @@ impl Target {
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
         if self.interp {
-            init::verifier(data.clone()).await?;
+            tokio::spawn(async move {
+                let _ = init::verifier(data.clone()).await;
+            });
         } else {
             let _ = tokio::try_join!(init::verifier(data.clone()), init::programs(data.clone()))?;
         }

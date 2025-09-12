@@ -56,14 +56,32 @@ impl Display for Message {
 /// The peer information
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeerInfo {
-    /// The name of the peer
-    pub name: String,
+    /// The version of fuzzing
+    pub fuzz_version: u8,
+
+    /// The features of fuzzing
+    pub fuzz_features: u32,
 
     /// The version of the peer
-    pub version: Version,
+    pub jam_version: Version,
 
     /// The protocol version of the peer
-    pub protocol: Version,
+    pub app_version: Version,
+
+    /// The name of the peer
+    pub app_name: String,
+}
+
+impl Default for PeerInfo {
+    fn default() -> Self {
+        Self {
+            fuzz_version: 1,
+            fuzz_features: 2,
+            jam_version: Version::SPACEJAM,
+            app_version: Version::PROTOCOL,
+            app_name: "spacejam".to_string(),
+        }
+    }
 }
 
 /// The version of the peer
@@ -77,6 +95,22 @@ pub struct Version {
 
     /// The patch version of the peer
     pub patch: u8,
+}
+
+impl Version {
+    /// The binary version of spacejam
+    pub const SPACEJAM: Version = Version {
+        major: 0,
+        minor: 0,
+        patch: 10,
+    };
+
+    /// The protocol version of spacejam
+    pub const PROTOCOL: Version = Version {
+        major: 0,
+        minor: 7,
+        patch: 0,
+    };
 }
 
 /// A key-value pair

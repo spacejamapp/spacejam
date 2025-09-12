@@ -1,8 +1,8 @@
 //! Fuzzer related implementations
 
 use crate::fuzz::{
-    PROTOCOL_VERSION, StreamExt, VERSION,
-    message::{KeyValue, Message, PeerInfo, SetState},
+    StreamExt,
+    message::{KeyValue, Message, PeerInfo, SetState, Version},
 };
 use anyhow::{Context, Result};
 use score::OpaqueHash;
@@ -139,7 +139,9 @@ impl Fuzzer {
         };
 
         fs::create_dir_all(&self.report)?;
-        let output = self.report.join(format!("{}-{name}.json", self.info.name));
+        let output = self
+            .report
+            .join(format!("{}-{name}.json", self.info.app_name));
         fs::write(
             &output,
             serde_json::to_string_pretty(&json!({
@@ -157,12 +159,7 @@ impl Fuzzer {
 
     /// Send the peer info
     pub fn peer_info(stream: &mut UnixStream) -> Result<PeerInfo> {
-        let info = PeerInfo {
-            name: "spacejam".into(),
-            version: VERSION,
-            protocol: PROTOCOL_VERSION,
-        };
-
+        let info = PeerInfo::default();
         stream.write_message(Message::Info(info))?;
 
         // receive the remote peer info
@@ -173,10 +170,11 @@ impl Fuzzer {
 
         // check the remote peer info
         tracing::info!("Received peer info: {received:?}");
-        if received.protocol != PROTOCOL_VERSION {
+        if received.jam_version != Version::PROTOCOL {
             anyhow::bail!(
-                "Expected protocol: {PROTOCOL_VERSION:?}, got {:?}",
-                received.protocol
+                "Expected protocol: {:?}, got {:?}",
+                Version::PROTOCOL,
+                received.jam_version
             );
         }
 

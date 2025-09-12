@@ -1,6 +1,6 @@
 //! Fuzz related implementations
 
-use crate::fuzz::message::{Message, Version};
+use crate::fuzz::message::Message;
 use anyhow::{Context, Result};
 use std::{
     io::{Read, Write},
@@ -12,20 +12,6 @@ pub mod init;
 pub mod message;
 pub mod target;
 pub mod trace;
-
-/// The binary version of spacejam
-pub const VERSION: Version = Version {
-    major: 0,
-    minor: 0,
-    patch: 10,
-};
-
-/// The protocol version of spacejam
-pub const PROTOCOL_VERSION: Version = Version {
-    major: 0,
-    minor: 7,
-    patch: 0,
-};
 
 /// Extension methods for streams
 pub trait StreamExt {
