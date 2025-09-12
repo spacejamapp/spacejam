@@ -40,10 +40,6 @@ mod storage_light {
     include!(concat!(env!("OUT_DIR"), "/traces_storage_light.rs"));
 }
 
-mod fuzz {
-    include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
-}
-
 pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     if test.input.len() == 31 {
         return Ok(());

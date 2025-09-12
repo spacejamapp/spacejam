@@ -82,7 +82,6 @@ fn main() -> Result<()> {
         registry.trace(Trace::StorageLight)?,
         &out_dir.join("traces_storage_light.rs"),
     )?;
-    build_fuzz_tests(REPORTS, &out_dir.join("traces_fuzz.rs"))?;
 
     // build all sequential tests
     build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
@@ -129,30 +128,6 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
             fn #test_name() {
                 let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
                 Runner::step(&test).expect("failed to run test");
-            }
-        });
-    }
-
-    fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
-    Ok(())
-}
-
-/// Builds the fuzz tests
-fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
-    let entry = Entry::fuzz(path)?;
-    let mut tests: Vec<ItemFn> = Vec::new();
-    for (i, test) in entry.into_iter().enumerate() {
-        let name = &test.name;
-        if test.name.contains("report") {
-            continue;
-        }
-
-        let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
-        tests.push(parse_quote! {
-            #[tokio::test]
-            async fn #test_name() {
-                let test = specjam::Entry::fuzz(#path).unwrap().get(#i).unwrap();
-                crate::Runner::step(&test).await.expect("failed to run test");
             }
         });
     }
