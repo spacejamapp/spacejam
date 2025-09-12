@@ -5,8 +5,8 @@ use pvm::{
     score::{Gas, OpaqueHash},
     Argument, Invocation, Invoked, State,
 };
-use pvmc::Module;
 pub use pvmc::{Artifact, Compiler};
+use pvmc::{Memory, Module};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
@@ -35,10 +35,11 @@ impl Invocation for SpaceVM {
     ) -> Invoked<X> {
         if let Ok(None) = SPACEVM_LOCKS.read().map(|lock| lock.get(&hash).cloned()) {
             if let Ok(Some(module)) = SPACEVM_MODULES.read().map(|lock| lock.get(&hash).cloned()) {
+                let program = parser::program::preimage(code, &args).expect("failed to preimage");
                 let mut context = pvm::Context {
                     registers: module.registers,
                     gas: gas as i64,
-                    memory: module.memory.clone(),
+                    memory: Memory::new(&program.memory).expect("failed to create memory"),
                     ctx: &mut ctx,
                 };
 
@@ -69,7 +70,7 @@ impl Invocation for SpaceVM {
                     locks.insert(hash, ());
                 }
 
-                match Compiler::host::<()>()
+                match Compiler::host::<X>()
                     .expect("fix me later")
                     .compile_with_cache(
                         &parser::program::preimage(code, &args).expect("failed to preimage"),

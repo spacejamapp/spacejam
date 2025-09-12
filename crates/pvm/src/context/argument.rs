@@ -9,7 +9,7 @@ use score::{
 };
 
 /// Dynamic arguments for host calls
-pub trait Argument {
+pub trait Argument: Send + Sync {
     /// Supported host calls
     const SUPPORTED_CALLS: &[u32];
 

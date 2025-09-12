@@ -158,3 +158,6 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.memory.set_heap_ptr(heap_ptr);
     }
 }
+
+unsafe impl<X: Argument, M: MemoryLike> Send for Context<'_, X, M> {}
+unsafe impl<X: Argument, M: MemoryLike> Sync for Context<'_, X, M> {}
