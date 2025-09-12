@@ -4,12 +4,13 @@ use crate::{Scale, Section, Test, Trace};
 use anyhow::Result;
 use serde_json::Value;
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
 
 /// A test vector registry entry
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Entry {
     /// The section of the test vector
     pub section: Section,
@@ -18,7 +19,7 @@ pub struct Entry {
     pub scale: Option<Scale>,
 
     /// The directory of the test vector
-    pub files: Vec<PathBuf>,
+    pub files: BTreeSet<PathBuf>,
 
     /// The base directory of the test vector
     pub base: PathBuf,
@@ -42,11 +43,11 @@ impl Entry {
             return Err(anyhow::anyhow!("directory {dir:?} does not exist"));
         }
 
-        let mut files = Vec::new();
+        let mut files = BTreeSet::new();
         for entry in fs::read_dir(&dir)? {
             let path = entry?.path();
             if path.is_file() && path.extension().unwrap_or_default() == "json" {
-                files.push(path);
+                files.insert(path);
             }
         }
 
@@ -61,7 +62,7 @@ impl Entry {
 
     /// Build entry from the jam-conformance repo
     pub fn fuzz(repo: &str) -> Result<Self> {
-        let mut files = Vec::new();
+        let mut files = BTreeSet::new();
         let base = PathBuf::from(repo);
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
@@ -72,7 +73,7 @@ impl Entry {
             for entry in fs::read_dir(path)? {
                 let path = entry?.path();
                 if path.is_file() && path.extension().unwrap_or_default() == "json" {
-                    files.push(path);
+                    files.insert(path);
                 }
             }
         }
@@ -88,12 +89,12 @@ impl Entry {
 
     /// Build entry from the jam-conformance repo
     pub fn seq(repo: &str) -> Result<Self> {
-        let mut files = Vec::new();
+        let mut files = BTreeSet::new();
         let base = PathBuf::from(repo);
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
             if path.is_file() && path.extension().unwrap_or_default() == "json" {
-                files.push(path);
+                files.insert(path);
             }
         }
 
@@ -115,7 +116,8 @@ impl Entry {
     pub fn get(&self, index: usize) -> Result<Test> {
         let path = self
             .files
-            .get(index)
+            .iter()
+            .nth(index)
             .ok_or_else(|| anyhow::anyhow!("index out of bounds"))?;
         self.parse(path)
     }
@@ -345,7 +347,7 @@ impl Iterator for Entry {
     type Item = Test;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let path = self.files.get(self.current)?;
+        let path = self.files.iter().nth(self.current)?;
         let test = self.parse(path).ok()?;
         self.current += 1;
         Some(test)

@@ -9,14 +9,14 @@ use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
-use score::{Block, OpaqueHash, safrole::ValidatorIter};
+use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
 use std::{
+    collections::{BTreeMap, HashMap},
     fs,
     ops::{Deref, DerefMut},
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
     sync::Arc,
-    time::Instant,
 };
 
 /// A fuzz target
@@ -27,8 +27,8 @@ pub struct Target {
     /// The database used in fuzzing
     data: Arc<MemoryDb>,
 
-    /// The import time for each block
-    imports: Vec<u32>,
+    /// The history of the state
+    history: BTreeMap<TimeSlot, HashMap<Vec<u8>, Vec<u8>>>,
 
     /// If use interpreter instead
     interp: bool,
@@ -41,7 +41,7 @@ impl Target {
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
-            imports: Vec::new(),
+            history: BTreeMap::new(),
             interp,
         }
     }
@@ -65,9 +65,8 @@ impl Target {
     pub async fn run(stream: UnixStream, interp: bool) -> Result<()> {
         let mut target = Target::new(stream, interp);
         loop {
-            let Ok(message) = target.read_message().inspect_err(|e| {
-                tracing::warn!("No more bytes from the stream: {e}!",);
-            }) else {
+            let Ok(message) = target.read_message() else {
+                tracing::info!("Disconnected from the fuzzer");
                 return Ok(());
             };
 
@@ -114,10 +113,15 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
-        let timer = Instant::now();
         let state = self.data.state()?;
         let epoch = state.timeslot / score::EPOCH_LENGTH;
         let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
+        if block.header.slot == state.timeslot
+            && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
+        {
+            tracing::warn!("Fallback state to the previous slot");
+            self.data.reset(prev.clone());
+        }
 
         let entropy = state.entropy;
         let safrole = state.safrole.clone();
@@ -153,7 +157,13 @@ impl Target {
         );
 
         self.data.commit(Column::State, diff?.1)?;
-        self.imports.push(timer.elapsed().as_millis() as u32);
+        {
+            self.history
+                .insert(block.header.slot, self.data.deep_clone());
+            if self.history.len() > 6 {
+                self.history.pop_first();
+            }
+        }
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
         Ok(())

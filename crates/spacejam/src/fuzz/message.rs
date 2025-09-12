@@ -82,8 +82,8 @@ impl Default for PeerInfo {
         Self {
             fuzz_version: 1,
             fuzz_features: 2,
-            jam_version: Version::SPACEJAM,
-            app_version: Version::PROTOCOL,
+            jam_version: Version::PROTOCOL,
+            app_version: Version::SPACEJAM,
             app_name: "spacejam".to_string(),
         }
     }

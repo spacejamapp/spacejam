@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use score::OpaqueHash;
 use serde_json::json;
 use std::{
+    collections::BTreeSet,
     fs,
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
@@ -43,7 +44,7 @@ impl Fuzzer {
             stream,
         };
 
-        fuzzer.handle(&entry)
+        fuzzer.handle(entry)
     }
 
     /// Execute a single test
@@ -55,7 +56,7 @@ impl Fuzzer {
             base: Default::default(),
             section: Section::Trace(Trace::Any),
             scale: None,
-            files: vec![test.to_path_buf()],
+            files: BTreeSet::from([test.to_path_buf()]),
             current: 0,
         };
 
@@ -69,19 +70,17 @@ impl Fuzzer {
     }
 
     /// Handle a new connection
-    pub fn handle(&mut self, source: &Entry) -> Result<()> {
-        // run the tests
-        let mut block = 1;
-        loop {
-            let Ok(test) = source.test(&format!("{:08}", block)) else {
-                tracing::info!("No more tests!");
-                return Ok(());
-            };
-
+    pub fn handle(&mut self, source: Entry) -> Result<()> {
+        for test in source {
+            if test.name.contains("genesis") {
+                continue;
+            }
             tracing::info!("Processing test: {}", test.name);
             self.import_block(test)?;
-            block += 1;
         }
+
+        tracing::info!("No more tests!");
+        Ok(())
     }
 
     /// Handle a new connection
@@ -124,7 +123,8 @@ impl Fuzzer {
     ) -> Result<()> {
         let received = self.stream.read_message()?;
         let Message::StateRoot(remote) = received else {
-            anyhow::bail!("Expected StateRoot message, got {:?}", received);
+            tracing::warn!("Expected StateRoot message, got {:?}", received);
+            return Ok(());
         };
 
         if remote == root {

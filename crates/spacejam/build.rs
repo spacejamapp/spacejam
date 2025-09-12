@@ -57,7 +57,7 @@ mod fuzz {
                 .expect("failed to convert file name to str");
 
             let test = Ident::new(&format!("test_{fname}"), Span::call_site());
-            let bytes = LitStr::new(&path.to_string_lossy().to_string(), Span::call_site());
+            let bytes = LitStr::new(path.to_string_lossy().as_ref(), Span::call_site());
             tests.push(parse_quote! {
                 #[test]
                 fn #test() {
