@@ -11,22 +11,22 @@ use spacejson::Json;
 /// Represents the specification of a work package.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
 pub struct WorkPackageSpec {
-    /// The hash
+    /// (p) The hash
     #[json(hex)]
     pub hash: WorkPackageHash,
 
-    /// The length of the erasure bundle
+    /// (l) The length of the erasure bundle
     pub length: u32,
 
-    /// The erasure root
+    /// (u) The erasure root
     #[json(hex)]
     pub erasure_root: ErasureRoot,
 
-    /// The exports root
+    /// (e) The exports root (segment root)
     #[json(hex)]
     pub exports_root: ExportsRoot,
 
-    /// The exports count
+    /// (n) The exports count
     pub exports_count: u16,
 }
 

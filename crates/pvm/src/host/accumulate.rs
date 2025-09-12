@@ -22,17 +22,6 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
         ctx.rget(11), // n: count of always_acc entries
     ];
 
-    // Check if current service is the blessed service
-    let privileges = ctx.privileges();
-    if ctx.service() != privileges.bless {
-        return Ok(Exit::Huh as u64);
-    }
-
-    // Check if bless and designate are valid service IDs
-    if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
-        return Ok(Exit::Who as u64);
-    }
-
     // Read assign array from memory
     let assign = {
         let size = 4 * score::CORES_COUNT as u32;
@@ -58,6 +47,17 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
             ]);
             always_acc.insert(service_id, gas_allowance);
         }
+    }
+
+    // Check if current service is the blessed service
+    let privileges = ctx.privileges();
+    if ctx.service() != privileges.bless {
+        return Ok(Exit::Huh as u64);
+    }
+
+    // Check if bless and designate are valid service IDs
+    if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
+        return Ok(Exit::Who as u64);
     }
 
     // Update privileges: tuple{m, 𝐚, v, 𝐳}

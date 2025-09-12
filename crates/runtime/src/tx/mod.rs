@@ -95,10 +95,25 @@ pub async fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    if new_epoch && block.header.epoch_mark.is_none() {
+    let slot_phase = block.header.slot % score::EPOCH_LENGTH;
+
+    // TODO: move this logic to the header validation
+    if let Some(epoch_mark) = &block.header.epoch_mark {
+        if epoch_mark.validators.iter().any(|v| {
+            !state
+                .safrole
+                .validators
+                .iter()
+                .any(|nv| nv.bandersnatch == v.bandersnatch && nv.ed25519 == v.ed25519)
+        }) {
+            anyhow::bail!("next validators mismatch");
+        }
+    } else if new_epoch {
         anyhow::bail!("epoch mark is required");
     }
 
+    // TODO: move this logic to the header validation
+    //
     // handle marks in the block
     if let Some(tickets_mark) = block.header.tickets_mark {
         for ticket in tickets_mark {
@@ -106,6 +121,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
             }
         }
+    } else if slot_phase == score::TICKET_SUBMISSION_PERIOD
+        && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+    {
+        anyhow::bail!("invalid tickets mark");
     }
 
     // The first round computation
@@ -266,6 +285,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
         // (p of β') Report the work packages
         let (mut reported, mut reporters) = (vec![], vec![]);
         if !block.extrinsic.guarantees.is_empty() {
+            // {
             (reported, reporters) = {
                 let _guard = timing::guarantees();
                 guarantee::report(

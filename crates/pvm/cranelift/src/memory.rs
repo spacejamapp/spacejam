@@ -82,7 +82,8 @@ impl Translator<'_> {
     /// Memory get with immediate address - optimized for constant addresses
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
         let maddr = self.maddr(address);
-        let maddr = self.builder.ins().iadd_imm(self.pool.memory, maddr);
+        let memory = self.context.pool.memory;
+        let maddr = self.builder.ins().iadd_imm(memory, maddr);
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
@@ -95,18 +96,20 @@ impl Translator<'_> {
     /// Memory set with immediate address - optimized for constant addresses  
     pub fn mset_imm(&mut self, address: i64, value: Value) {
         let maddr = self.maddr(address);
+        let memory = self.context.pool.memory;
         self.builder
             .ins()
-            .store(MemFlags::trusted(), value, self.pool.memory, maddr as i32);
+            .store(MemFlags::trusted(), value, memory, maddr as i32);
     }
 
     /// Store immediate value at immediate address
     pub fn mset_iimm(&mut self, address: i64, value: i64, ty: types::Type) {
         let maddr = self.maddr(address);
         let value = self.builder.ins().iconst(ty, value);
+        let memory = self.context.pool.memory;
         self.builder
             .ins()
-            .store(MemFlags::trusted(), value, self.pool.memory, maddr as i32);
+            .store(MemFlags::trusted(), value, memory, maddr as i32);
     }
 
     /// Memory load abi
@@ -122,10 +125,9 @@ impl Translator<'_> {
         // Sync registers and gas to memory for host call
         self.sync_registers();
         let clen = self.builder.ins().iconst(types::I8, length);
-        let inst = self
-            .builder
-            .ins()
-            .call(self.host["mget"], &[self.pool.vmctx, address, clen]);
+        let vmctx = self.context.pool.vmctx;
+        let mget = self.host["mget"];
+        let inst = self.builder.ins().call(mget, &[vmctx, address, clen]);
         let value = self.builder.inst_results(inst)[0];
 
         // Reload registers and gas from memory after host call
@@ -148,18 +150,23 @@ impl Translator<'_> {
             8 => value,
             _ => panic!("invalid value length"),
         };
+        let mset = self.host["mset"];
+        let vmctx = self.context.pool.vmctx;
         self.builder
             .ins()
-            .call(self.host["mset"], &[self.pool.vmctx, address, value, clen]);
+            .call(mset, &[vmctx, address, value, clen]);
 
         // Reload registers and gas from memory after host call
         for i in 0..13 {
-            self.pool.registers[i] = self.builder.ins().load(
+            let reg = self.context.builder.ins().load(
                 types::I64,
                 MemFlags::trusted(),
-                self.pool.vmctx,
+                vmctx,
                 i as i32 * 8,
             );
+            self.context
+                .builder
+                .def_var(self.context.pool.registers[i], reg);
         }
     }
 

@@ -61,8 +61,7 @@ impl JustificationPath {
             return Ok(None);
         }
 
-        let shard_hash = crypto::blake2b(&shards[shard_index as usize]);
-        let Some(proof) = merkle_tree.proof(shard_hash) else {
+        let Some(proof) = merkle_tree.proof(&shards[shard_index as usize]) else {
             return Ok(None);
         };
 

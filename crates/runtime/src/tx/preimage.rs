@@ -34,7 +34,10 @@ pub fn accounts(
         };
 
         let blob_len = preimage.blob.len() as u32;
-        let slots = account.lookup(hash, blob_len).unwrap_or_default();
+        let Some(slots) = account.lookup(hash, blob_len) else {
+            anyhow::bail!("Preimage lookup failed");
+        };
+
         if account.preimage(hash).is_some() {
             anyhow::bail!("Preimage already exists");
         }

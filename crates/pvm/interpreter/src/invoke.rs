@@ -8,7 +8,7 @@ use anyhow::Result;
 use pvm::{
     host,
     score::{Gas, OpaqueHash},
-    Argument, Invoked, Program, Reason,
+    Argument, Invoked, Memory, Program, Reason,
 };
 
 impl Interpreter {
@@ -30,17 +30,17 @@ impl Interpreter {
         let parsed = ParsedProgram {
             program: parsed,
             registers: program.registers,
-            memory: program.memory.clone(),
             table: blob.jump_table.to_vec(),
         };
 
         pvmi::set(hash, parsed.clone());
-        Self::invoke_parsed(parsed, ctx, gas, pc)
+        Self::invoke_parsed(parsed, program.memory.clone(), ctx, gas, pc)
     }
 
     /// Invoke a program with the given context
     pub fn invoke_parsed<X: Argument>(
         program: ParsedProgram,
+        memory: Memory,
         mut ctx: X,
         gas: Gas,
         pc: usize,
@@ -50,7 +50,7 @@ impl Interpreter {
             context: Context {
                 gas: gas as i64,
                 registers: program.registers,
-                memory: program.memory.clone(),
+                memory,
             },
             pc,
             table: program.table,

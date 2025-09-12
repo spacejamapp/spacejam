@@ -62,7 +62,6 @@ impl FromStr for Section {
             "traces/preimages_light" => Ok(Section::Trace(Trace::PreimagesLight)),
             "traces/storage" => Ok(Section::Trace(Trace::Storage)),
             "traces/storage_light" => Ok(Section::Trace(Trace::StorageLight)),
-            "traces/fuzz" => Ok(Section::Trace(Trace::Fuzz)),
             _ => Err(anyhow::anyhow!("Invalid section {s}")),
         }
     }
@@ -92,7 +91,6 @@ impl AsRef<str> for Section {
                 Trace::Safrole => "traces/safrole",
                 Trace::Storage => "traces/storage",
                 Trace::StorageLight => "traces/storage_light",
-                Trace::Fuzz => "traces/fuzz",
                 Trace::Any => ".",
             },
         }
@@ -120,8 +118,6 @@ pub enum Trace {
     Storage,
     /// The storage traces light
     StorageLight,
-    /// The fuzz traces
-    Fuzz,
     /// Any trace
     Any,
 }

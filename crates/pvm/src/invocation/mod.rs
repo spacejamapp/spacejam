@@ -200,13 +200,13 @@ pub trait Invocation {
         // (O)  the accumulation operands
         operands: Vec<Operand>,
     ) -> Accumulated<R> {
-        let Some(code) = context.code(service) else {
-            tracing::warn!("no code found for service: {}", service);
+        let Some(code_hash) = context.code_hash(service) else {
+            tracing::warn!("no code hash found for service: {}", service);
             return Accumulated::new(context);
         };
 
-        let Some(code_hash) = context.code_hash(service) else {
-            tracing::warn!("no code hash found for service: {}", service);
+        let Some(code) = context.code(service) else {
+            tracing::warn!("no code found for service: {}", service);
             return Accumulated::new(context);
         };
 

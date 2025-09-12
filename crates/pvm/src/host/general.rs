@@ -94,7 +94,6 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩW) storage write
 pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
-    // extract arguments from registers
     let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let value = ctx.read(vo as u32, vz as u32)?;
     let key = ctx.read(ko as u32, kz as u32)?;
@@ -138,9 +137,8 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
     // Get memory write parameters from registers
     let total_len = info.len() as u64;
     let (from, to) = (from.min(total_len) as usize, to.min(total_len) as usize);
-    let length = to - from;
-    if length > 0 {
-        ctx.write(output as u32, &info[from..(from + length)])?;
+    if to > from {
+        ctx.write(output as u32, &info[from..to])?;
     }
 
     // Return total length of encoded data

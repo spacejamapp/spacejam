@@ -3,11 +3,15 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use specjam::{Entry, Registry, Scale, Trace};
 use std::{
+    collections::BTreeSet,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
 use syn::{parse_quote, Ident, ItemFn};
+
+const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
+const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
@@ -78,17 +82,9 @@ fn main() -> Result<()> {
         registry.trace(Trace::StorageLight)?,
         &out_dir.join("traces_storage_light.rs"),
     )?;
-    build_tests(
-        registry.trace(Trace::Fuzz)?,
-        &out_dir.join("traces_local_fuzz.rs"),
-    )?;
 
-    // fuzz tests
-    build_fuzz_tests(
-        "../../res/jam-conformance/fuzz-reports/0.7.0/traces",
-        &out_dir.join("traces_fuzz.rs"),
-    )?;
-
+    // build all sequential tests
+    build_all_seq_test(&out_dir.join("traces_fuzz.rs"))?;
     Ok(())
 }
 
@@ -103,7 +99,6 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
-
         tests.push(parse_quote! {
             #[tokio::test]
             async fn #test_name() {
@@ -114,7 +109,6 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     }
 
     fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
-
     Ok(())
 }
 
@@ -129,7 +123,6 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
     for (i, test) in entry.into_iter().enumerate() {
         let name = &test.name;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
-
         tests.push(parse_quote! {
             #[test]
             fn #test_name() {
@@ -140,33 +133,58 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
     }
 
     fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
-
     Ok(())
 }
 
-/// Builds the fuzz tests
-fn build_fuzz_tests(path: &str, out: &Path) -> Result<()> {
-    let entry = Entry::fuzz(path)?;
-    let mut tests: Vec<ItemFn> = Vec::new();
-    for (i, test) in entry.into_iter().enumerate() {
-        let name = &test.name;
-        if test.name.contains("report") {
+/// Builds all sequential tests
+fn build_all_seq_test(out: &Path) -> Result<()> {
+    let mut items = Vec::new();
+    for entry in [REPORTS, TRACES] {
+        for entry in fs::read_dir(entry)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                items.push(build_seq_test(path.to_str().unwrap())?);
+            }
+        }
+    }
+
+    fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
+    Ok(())
+}
+
+/// Builds the sequential tests
+fn build_seq_test(entry: &str) -> Result<ItemFn> {
+    let fentry = Entry::seq(entry)?;
+    let test_name = Path::new(entry).file_name().unwrap().to_str().unwrap();
+    let mut tests = BTreeSet::<String>::new();
+
+    // build the tests and get test name first
+    for test in fentry.into_iter() {
+        let names = test.name.split('_').collect::<Vec<&str>>();
+        let fname = names.last().unwrap().to_string();
+        if fname.contains("genesis") {
             continue;
         }
+        tests.insert(fname);
+    }
 
-        let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
+    // Create function with proper name
+    let test_name_ident = Ident::new(&format!("test_{test_name}"), Span::call_site());
+    let mut testfn: ItemFn = parse_quote! {
+        #[tokio::test]
+        async fn #test_name_ident() {
+            let mut processor = Processor::default();
+        }
+    };
 
-        tests.push(parse_quote! {
-            #[tokio::test]
-            async fn #test_name() {
-                let test = specjam::Entry::fuzz(#path).unwrap().get(#i).unwrap();
-                crate::Runner::step(&test).await.expect("failed to run test");
-            }
+    for fname in tests {
+        testfn.block.stmts.push(parse_quote! {
+            processor.process(specjam::Entry::seq(#entry).unwrap().test(#fname).unwrap()).await.unwrap();
         });
     }
 
-    fs::write(out, quote::quote!(#(#tests)*).to_token_stream().to_string())?;
-    Ok(())
+    Ok(testfn)
 }
 
 fn try_download(workspace: &Path) -> Result<()> {

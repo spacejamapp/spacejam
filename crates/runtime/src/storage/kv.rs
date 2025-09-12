@@ -49,6 +49,19 @@ pub struct MemoryDb {
     data: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
+impl MemoryDb {
+    /// Deep clone the memory database
+    pub fn deep_clone(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.data.read().unwrap().clone()
+    }
+
+    /// Reset the memory database
+    pub fn reset(&self, data: HashMap<Vec<u8>, Vec<u8>>) {
+        let mut curr = self.data.write().unwrap();
+        *curr = data;
+    }
+}
+
 impl KVStorage for MemoryDb {
     fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut data = self

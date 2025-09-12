@@ -172,7 +172,7 @@ pub trait DataLake: Send + Sync {
             })
             .collect();
 
-        let erasure_root = crypto::merkle::root(&leaves, crypto::blake2b);
+        let erasure_root = crypto::merkle::root(leaves, crypto::blake2b);
 
         // 4. Store shards for later retrieval
         let bundle_shard_count = bundle_chunks.len();

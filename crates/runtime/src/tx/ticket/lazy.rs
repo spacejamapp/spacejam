@@ -6,22 +6,22 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, LazyLock},
 };
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
-static LAZY_RING: LazyLock<RwLock<BTreeMap<u32, Arc<Verifier>>>> =
-    LazyLock::new(|| RwLock::new(BTreeMap::new()));
+static LAZY_RING: LazyLock<Mutex<BTreeMap<u32, Arc<Verifier>>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
 
 /// Only cache last CACHED epochs
 const CACHED: usize = 6;
 
 /// Clear all cached data
 pub async fn clear() {
-    LAZY_RING.write().await.clear();
+    LAZY_RING.lock().await.clear();
 }
 
 /// Check if the lazy cache is empty
 pub async fn is_empty() -> bool {
-    LAZY_RING.read().await.is_empty()
+    LAZY_RING.lock().await.is_empty()
 }
 
 /// Accept drawn validators after accumulation
@@ -41,7 +41,7 @@ pub async fn commitment(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Bandersn
 pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
     // check if we have the verifier for the epoch
     {
-        let lazy_verifier = LAZY_RING.read().await;
+        let lazy_verifier = LAZY_RING.lock().await;
         if let Some(verifier) = lazy_verifier.get(&epoch) {
             return verifier.clone();
         }
@@ -49,7 +49,7 @@ pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifi
 
     // find if we have the same drawn validators at an epoch
     {
-        let mut lazy_verifier = LAZY_RING.write().await;
+        let mut lazy_verifier = LAZY_RING.lock().await;
         for verifier in lazy_verifier.clone().values() {
             if verifier.ring() != *drawn {
                 continue;
@@ -61,6 +61,7 @@ pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifi
     }
 
     // create a new verifier
+    let mut lazy_verifier = LAZY_RING.lock().await;
     let drawn = drawn.clone();
     let verifier = Arc::new(
         tokio::task::spawn_blocking(move || crypto::ring::verifier(&drawn))
@@ -69,7 +70,6 @@ pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifi
     );
 
     // Reacquire write lock to insert the result
-    let mut lazy_verifier = LAZY_RING.write().await;
     lazy_verifier.insert(epoch, verifier.clone());
     if lazy_verifier.len() > CACHED {
         lazy_verifier.pop_first();

@@ -31,6 +31,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
     gas_table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
 ) -> Accumulated<R> {
+    let mut updates = BTreeSet::new();
     let mut accumulated = Accumulated::new(context);
     loop {
         let mut cumulative_gas = 0;
@@ -40,10 +41,24 @@ pub async fn outer<V: Pvm, R: Accounts>(
             if cumulative_gas + report_gas <= gas_limit {
                 cumulative_gas += report_gas;
                 index = i + 1;
+                continue;
             }
+
+            break;
         }
 
         if index == 0 {
+            // WORKAROUND:
+            //
+            // post set updates, need to check if we need to post update
+            // all accounts instead of in the middle of the parallel accumulation.
+            //
+            // currently have bugs doing it in the middle.
+            for svc in updates {
+                if let Some(account) = accumulated.context.accounts.get(svc) {
+                    account.set_update(timeslot);
+                }
+            }
             return accumulated;
         }
 
@@ -52,6 +67,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
             &reports[..index],
             gas_table,
             timeslot,
+            &mut updates,
         )
         .await;
 
@@ -73,7 +89,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
+    updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
+    tracing::debug!("parallel accumulation: {:?}", reports.len());
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
         for result in &report.results {
@@ -81,8 +99,17 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
     }
 
+    /* let mut results = {
+        let mut results = BTreeMap::new();
+        for service in services.iter().cloned() {
+            let result = self::once::<V, R>(context.clone(), reports, table, service, timeslot);
+            results.insert(service, result);
+        }
+        results
+    }; */
+
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results = {
+    let mut results = if services.len() > 1 {
         let mut pool = tokio::task::JoinSet::new();
         for service in services.iter().cloned() {
             let context = context.clone();
@@ -99,49 +126,11 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             results.insert(service, result);
         }
         results
+    } else {
+        let service = services.iter().next().expect("should not fail");
+        let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
+        BTreeMap::from([(*service, result)])
     };
-
-    // Update the state of accounts
-    let mut removed = BTreeSet::new();
-    let mut gas = BTreeMap::new();
-    let mut transfers = vec![];
-    let mut pairings = BTreeMap::new();
-    let services = context.accounts.services();
-    for (service_id, result) in results.iter_mut() {
-        let lsvc = result.context.accounts.services();
-        let accounts = result.context.accounts.accounts();
-        for (id, account) in accounts.iter() {
-            if account.creation() == timeslot || id == service_id {
-                let mut account = account.clone();
-                if id == service_id {
-                    account.set_update(timeslot);
-                }
-
-                context.accounts.upsert(*id, account);
-            }
-        }
-
-        for removed in result.context.accounts.removed() {
-            context.accounts.remove(removed);
-        }
-
-        for account_id in &services {
-            if !lsvc.contains(account_id) {
-                removed.insert(account_id);
-            }
-        }
-
-        transfers.extend(result.transfers.clone());
-        gas.insert(*service_id, result.gas);
-        if let Some(hash) = result.hash {
-            pairings.insert(*service_id, hash);
-        }
-    }
-
-    // Remove accounts that were removed by any service
-    for account_id in removed {
-        context.accounts.remove(*account_id);
-    }
 
     // Extract privilege service results from the already-executed results
     if let Some(result) = results.get(&context.privileges.bless) {
@@ -157,6 +146,33 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
         if let Some(result) = results.get(assign_service) {
             context.authorization[core_index] = result.context.authorization[core_index].clone();
+        }
+    }
+
+    // Update the state of accounts
+    let mut gas = BTreeMap::new();
+    let mut transfers = vec![];
+    let mut pairings = BTreeMap::new();
+    for (service_id, result) in results.iter_mut() {
+        let accounts = result.context.accounts.accounts();
+        for (id, account) in accounts.iter() {
+            if account.creation() == timeslot || id == service_id {
+                if id == service_id {
+                    updates.insert(*id);
+                }
+
+                context.accounts.upsert(*id, account.clone());
+            }
+        }
+
+        for removed in result.context.accounts.removed() {
+            context.accounts.remove(removed);
+        }
+
+        transfers.extend(result.transfers.clone());
+        gas.insert(*service_id, result.gas);
+        if let Some(hash) = result.hash {
+            pairings.insert(*service_id, hash);
         }
     }
 
