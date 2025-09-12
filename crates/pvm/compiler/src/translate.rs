@@ -18,7 +18,6 @@ impl Compiler {
 
     /// Declare functions for the program
     pub fn compile(mut self, program: &Program, _hash: Option<OpaqueHash>) -> Result<Module> {
-        let memory = crate::Memory::new(&program.memory)?;
         let signature = Signature {
             params: vec![AbiParam::new(types::I64); 16],
             returns: vec![AbiParam::new(types::I64); 2],
@@ -57,7 +56,6 @@ impl Compiler {
         Ok(Module {
             jit: self.module,
             main,
-            memory,
             registers: program.registers,
         })
     }

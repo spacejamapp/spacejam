@@ -13,8 +13,6 @@ pub struct Module {
     pub jit: JITModule,
     /// The main function of the module
     pub main: FuncId,
-    /// The virtual memory for this module
-    pub memory: Memory,
     /// The registers for this module
     pub registers: [u64; pvm::REGISTER_COUNT],
 }
@@ -105,7 +103,7 @@ impl Module {
         let mut context = pvm::Context {
             registers: *registers,
             gas: gas as i64,
-            memory: self.memory.clone(),
+            memory: Memory::new(&memory).expect("failed to create memory"),
             ctx: &mut (),
         };
 

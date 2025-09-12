@@ -1,6 +1,6 @@
 //! Cranelift JIT backend
 
-use crate::{Artifact, engine, host};
+use crate::{Artifact, Memory, engine, host};
 use anyhow::Result;
 use cranelift::prelude::FunctionBuilderContext;
 use cranelift_codegen::Context;
@@ -68,7 +68,7 @@ impl Invocation for Compiler {
         let mut context = pvm::Context {
             registers: module.registers,
             gas: gas as i64,
-            memory: module.memory.clone(),
+            memory: Memory::new(&program.memory).expect("failed to create memory"),
             ctx: &mut ctx,
         };
 

@@ -47,6 +47,7 @@ impl Invocation for SpaceVM {
             let reason = module
                 .execute(&mut context, pc as u64)
                 .expect("fix me later");
+
             // TODO: find a solution to do this without the trap handler
             let output = pvmc::trap::with(|| context.acc_output()).unwrap_or_default();
             return Invoked {
@@ -67,7 +68,7 @@ impl Invocation for SpaceVM {
         {
             let code = code.clone();
             let args = args.clone();
-            tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash));
+            tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash, true));
         }
 
         // fallback to the interpreter
@@ -76,7 +77,12 @@ impl Invocation for SpaceVM {
 }
 
 /// Compile a program
-pub fn compile<X: Argument>(code: Vec<u8>, args: Vec<u8>, hash: OpaqueHash) -> Result<()> {
+pub fn compile<X: Argument>(
+    code: Vec<u8>,
+    args: Vec<u8>,
+    hash: OpaqueHash,
+    memcache: bool,
+) -> Result<()> {
     if let Ok(mut locks) = SPACEVM_LOCKS.write() {
         locks.insert(hash, ());
     }
@@ -88,7 +94,9 @@ pub fn compile<X: Argument>(code: Vec<u8>, args: Vec<u8>, hash: OpaqueHash) -> R
             Some(hash),
         ) {
         Ok(module) => {
-            if let Ok(mut locks) = SPACEVM_MODULES.write() {
+            if let Ok(mut locks) = SPACEVM_MODULES.write()
+                && memcache
+            {
                 locks.insert(hash, Arc::new(module));
             }
         }

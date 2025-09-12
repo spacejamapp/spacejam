@@ -10,10 +10,7 @@ use score::{
     Accounts as _,
     state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
 };
-use spacevm::{
-    Memory,
-    pvm::{Context, invocation::Accumulate},
-};
+use spacevm::{Memory, pvm::Context};
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
@@ -46,13 +43,14 @@ pub async fn programs(data: Arc<MemoryDb>) -> Result<()> {
                 continue;
             };
 
+            // compile for twice to pass the confirmation
             if let Some(blob) = accounts.blob(service) {
+                let blob_1 = blob.clone();
                 queue.spawn_blocking(move || {
-                    spacevm::compile::<Context<'_, Accumulate<Accounts<MemoryDb>>, Memory>>(
-                        blob,
-                        vec![],
-                        hash,
-                    )
+                    spacevm::compile::<Context<'static, (), Memory>>(blob_1, vec![], hash, false)
+                });
+                queue.spawn_blocking(move || {
+                    spacevm::compile::<Context<'static, (), Memory>>(blob, vec![], hash, false)
                 });
             }
         }
