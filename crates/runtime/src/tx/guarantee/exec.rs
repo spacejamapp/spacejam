@@ -91,7 +91,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     timeslot: TimeSlot,
     updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
-    tracing::debug!("parallel accumulation: {:?}", reports.len());
     let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
     for report in reports {
         for result in &report.results {

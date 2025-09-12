@@ -88,7 +88,7 @@ impl Module {
                 page: info.address as u32 / pvm::PAGE_SIZE as u32,
             },
         };
-        tracing::info!("execution time: {:?}", now.elapsed());
+        tracing::debug!("PVM execution time: {:?}", now.elapsed());
         Ok(result)
     }
 

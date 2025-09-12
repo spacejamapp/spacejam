@@ -46,9 +46,11 @@ impl Invocation for SpaceVM {
                 let reason = module
                     .execute(&mut context, pc as u64)
                     .expect("fix me later");
+                // TODO: find a solution to do this without the trap handler
+                let output = pvmc::trap::with(|| context.acc_output()).unwrap_or_default();
                 return Invoked {
                     gas: gas - (context.gas.max(0) as u64),
-                    output: Default::default(),
+                    output,
                     reason,
                     state: State {
                         pc: 0,
