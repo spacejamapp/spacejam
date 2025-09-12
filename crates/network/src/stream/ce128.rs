@@ -1,8 +1,8 @@
 //! Block request stream.
 
-use crate::{stream::ext::Write, Connection, Network};
+use crate::{Connection, Network, stream::ext::Write};
 use quinn::{RecvStream, SendStream};
-use runtime::{chain::Direction, Lookup};
+use runtime::{Lookup, chain::Direction};
 use score::OpaqueHash;
 use serde::{Deserialize, Serialize};
 

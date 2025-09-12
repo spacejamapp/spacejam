@@ -1,17 +1,18 @@
 //! chain of blocks.
 
 use crate::{
+    Storage,
     chain::Grid,
     storage::{Branch, Column, Commit, KVStorage, StateStorage},
-    tx, Storage,
+    tx,
 };
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
+    Block, TimeSlot, TrieKey,
     block::{Head, Header},
     extrinsic::{TicketBody, TicketsOrKeys},
     safrole::ValidatorIter,
-    Block, TimeSlot, TrieKey,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -265,11 +266,10 @@ impl<S: Storage> Fork<S> {
                 anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
             })?;
 
-        if let Some(ticket) = ticket {
-            if ticket.id != output {
+        if let Some(ticket) = ticket
+            && ticket.id != output {
                 anyhow::bail!("header seal mismatched");
             }
-        }
 
         // verify entropy source
         let extracted_vrf_output = crypto::vrf::ietf_output(header.seal)?;

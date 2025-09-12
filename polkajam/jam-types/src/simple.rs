@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use super::Authorizer;
-use crate::{chain_params, opaque, FixedVec};
+use crate::{FixedVec, chain_params, opaque};
 use bounded_collections::Get;
 use codec::{Decode, Encode};
 use core::sync::atomic::Ordering::Relaxed;

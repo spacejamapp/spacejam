@@ -1,7 +1,7 @@
 //! authorizations test
 
 use runtime::tx;
-use score::{extrinsic::ReportGuarantee, CoreIndex, OpaqueHash, State};
+use score::{CoreIndex, OpaqueHash, State, extrinsic::ReportGuarantee};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

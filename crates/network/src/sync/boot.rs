@@ -1,15 +1,15 @@
 //! Bootstrap the network if bootnode is specified.
 
 use crate::{
+    Network,
     stream::{
         ce128,
         ext::{Read, Write},
     },
-    Network,
 };
 use anyhow::Context;
 use quinn::{Connection, VarInt};
-use runtime::{chain::Direction, Handshake};
+use runtime::{Handshake, chain::Direction};
 use score::Block;
 use std::time::Duration;
 

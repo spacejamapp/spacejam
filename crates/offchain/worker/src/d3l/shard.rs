@@ -2,7 +2,7 @@
 
 use crate::d3l::BundleShardJustification;
 use anyhow::Result;
-use erasure::{decode_sync, encode_sync, Config};
+use erasure::{Config, decode_sync, encode_sync};
 use score::SEGMENT_SIZE;
 
 /// A shard of a work report

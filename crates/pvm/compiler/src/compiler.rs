@@ -1,14 +1,13 @@
 //! Cranelift JIT backend
 
-use crate::{engine, host, Artifact};
+use crate::{Artifact, engine, host};
 use anyhow::Result;
 use cranelift::prelude::FunctionBuilderContext;
 use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
 use pvm::{
-    parser,
+    Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked, State,
 };
 
 /// Cranelift JIT module builder

@@ -2,11 +2,11 @@
 
 pub use error::{Error, Result};
 use score::{
+    CORES_COUNT, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
+    WORK_REPORT_TIMEOUT_PERIOD,
     extrinsic::AvailAssurance,
     safrole::ValidatorData,
     service::{AvailabilityAssignments, WorkReport},
-    OpaqueHash, TimeSlot, CORES_COUNT, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
-    WORK_REPORT_TIMEOUT_PERIOD,
 };
 use std::collections::HashSet;
 
@@ -19,13 +19,12 @@ pub fn reports(
     mut reports: AvailabilityAssignments,
 ) -> AvailabilityAssignments {
     for mb_report in reports.iter_mut() {
-        if let Some(report) = mb_report {
-            if available.contains(&report.report)
-                || slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD
+        if let Some(report) = mb_report
+            && (available.contains(&report.report)
+                || slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD)
             {
                 *mb_report = None;
             }
-        }
     }
 
     reports
@@ -45,23 +44,21 @@ pub fn available(
 
     // Check for stale reports
     for (core_idx, assignment) in reports.iter().enumerate() {
-        if let Some(assignment) = assignment {
-            if slot >= assignment.timeout + WORK_REPORT_TIMEOUT_PERIOD {
+        if let Some(assignment) = assignment
+            && slot >= assignment.timeout + WORK_REPORT_TIMEOUT_PERIOD {
                 stale_reports.insert(core_idx);
                 continue;
             }
-        }
     }
 
     // Check for engaged reports
     let mut assuror = None;
     for assurance in assurances.iter() {
         self::verify_assurance(validators, assurance, parent)?;
-        if let Some(last) = assuror {
-            if assurance.validator_index <= last {
+        if let Some(last) = assuror
+            && assurance.validator_index <= last {
                 return Err(Error::NotSortedOrUniqueAssurers);
             }
-        }
         assuror = Some(assurance.validator_index);
 
         // Count assurances per core
@@ -85,11 +82,10 @@ pub fn available(
     // Check which cores reached 2/3 majority
     let mut available = Vec::new();
     for (core_idx, &assurance_count) in core_assurance_counts.iter().enumerate() {
-        if assurance_count >= VALIDATORS_SUPER_MAJORITY as u32 {
-            if let Some(assignment) = &reports[core_idx] {
+        if assurance_count >= VALIDATORS_SUPER_MAJORITY as u32
+            && let Some(assignment) = &reports[core_idx] {
                 available.push(assignment.report.clone());
             }
-        }
     }
 
     Ok((available, core_assurance_counts))

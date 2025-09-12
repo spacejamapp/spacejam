@@ -1,12 +1,12 @@
 //! Report types
 
 use crate::{
+    CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
     service::{
         RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
         WorkResultJson,
     },
     vm::Operand,
-    CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
 };
 use anyhow;
 use serde::{Deserialize, Serialize};

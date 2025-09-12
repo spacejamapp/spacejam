@@ -14,7 +14,7 @@ use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
-    register::{offsets, Registers},
+    register::{Registers, offsets},
 };
 
 mod context;

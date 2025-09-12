@@ -1,9 +1,9 @@
 //! Debug utilities for the state root.
 
 use crate::{
+    Storage,
     chain::Fork,
     storage::{Archive, StateStorage, SyncStorage},
-    Storage,
 };
 use score::{Block, OpaqueHash};
 use serde_json::json;

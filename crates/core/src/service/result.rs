@@ -1,8 +1,8 @@
 //! Work result types
 
 use crate::{
-    service::{RefineLoad, RefineLoadJson},
     Gas, OpaqueHash, ServiceId,
+    service::{RefineLoad, RefineLoadJson},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

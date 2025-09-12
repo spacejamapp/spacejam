@@ -3,6 +3,8 @@
 use error::{Error, Result};
 use pvm::Pvm;
 use score::{
+    Account, Accounts, CORES_COUNT, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId,
+    TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     safrole::ValidatorsData,
     service::{
@@ -10,8 +12,6 @@ use score::{
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
     vm::{AccumulateState, Accumulation, DeferredTransfer},
-    Account, Accounts, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
-    CORES_COUNT,
 };
 use std::collections::BTreeMap;
 
@@ -180,11 +180,10 @@ pub fn reports(
             return Err(Error::BadCoreIndex);
         }
 
-        if let Some(Some(assignment)) = prev.get(core_index) {
-            if slot <= assignment.timeout + 1 {
+        if let Some(Some(assignment)) = prev.get(core_index)
+            && slot <= assignment.timeout + 1 {
                 return Err(Error::CoreEngaged);
             }
-        }
 
         next[core_index] = Some(AvailabilityAssignment {
             report: guarantee.report.clone(),

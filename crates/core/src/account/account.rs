@@ -1,8 +1,8 @@
 //! Account abstraction
 
 use crate::{
-    service::{ServiceAccount, ServiceInfo},
     Gas, OpaqueHash, TrieKey,
+    service::{ServiceAccount, ServiceInfo},
 };
 use std::collections::{BTreeMap, BTreeSet};
 

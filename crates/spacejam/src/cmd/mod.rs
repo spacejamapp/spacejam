@@ -1,8 +1,8 @@
 //! Command line interface for spacejam
 
 use crate::{
-    node::{spec::RuntimeSpecSelf, Builder},
     Development,
+    node::{Builder, spec::RuntimeSpecSelf},
 };
 use clap::{ArgAction, CommandFactory, Parser};
 use tracing_subscriber::EnvFilter;

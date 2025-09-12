@@ -5,10 +5,10 @@
 use super::dispute;
 pub use error::{Error, Result};
 use score::{
+    EPOCH_LENGTH, Ed25519Public, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
     extrinsic::dispute::{Culprit, DisputesExtrinsic, DisputesRecords, Fault, Verdict},
     safrole::{ValidatorIter, ValidatorsData},
     service::AvailabilityAssignments,
-    Ed25519Public, OpaqueHash, TimeSlot, EPOCH_LENGTH, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
 };
 use std::collections::{BTreeMap, HashSet};
 
@@ -192,11 +192,10 @@ fn culprits(
             return Err(Error::OffenderAlreadyReported);
         }
 
-        if let Some(last_culprit) = last_culprit {
-            if culprit < last_culprit {
+        if let Some(last_culprit) = last_culprit
+            && culprit < last_culprit {
                 return Err(Error::CulpritsNotSortedUnique);
             }
-        }
 
         last_culprit = Some(culprit);
         if bad.contains(&culprit.target) {
@@ -249,11 +248,10 @@ fn faults(
             return Err(Error::BadSignature);
         }
 
-        if let Some(last_fault) = last_fault {
-            if fault < last_fault {
+        if let Some(last_fault) = last_fault
+            && fault < last_fault {
                 return Err(Error::FaultsNotSortedUnique);
             }
-        }
 
         last_fault = Some(fault);
 

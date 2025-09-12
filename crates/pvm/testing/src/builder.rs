@@ -3,8 +3,8 @@
 use crate::Jam;
 use anyhow::Result;
 use score::{
-    service::{WorkItem, WorkPackage},
     ServiceId,
+    service::{WorkItem, WorkPackage},
 };
 
 impl Jam {

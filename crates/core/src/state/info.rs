@@ -1,6 +1,6 @@
 //! State information
 
-use crate::{state::key, OpaqueHash, TrieKey};
+use crate::{OpaqueHash, TrieKey, state::key};
 
 /// State key like interface
 pub trait StateKeyLike {

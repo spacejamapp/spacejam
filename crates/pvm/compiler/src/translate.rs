@@ -2,10 +2,10 @@
 
 use crate::{Compiler, Module};
 use anyhow::Result;
-use cranelift::prelude::{types, AbiParam, Signature};
+use cranelift::prelude::{AbiParam, Signature, types};
 use cranelift_codegen::{control::ControlPlane, ir::Function, isa::CallConv};
 use cranelift_module::{Linkage, Module as _, ModuleReloc};
-use pvm::{score::OpaqueHash, Program};
+use pvm::{Program, score::OpaqueHash};
 use translator::Translator;
 
 const MAIN: &str = "main";

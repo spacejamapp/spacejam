@@ -58,11 +58,10 @@ impl<C: runtime::Config> Validating<C> {
                     tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
                     match runtime.chain_mut().await.import(&block).await {
                         Ok(imported) => {
-                            if imported.imported() {
-                                if let Err(e) = runtime.announce(block.header.clone()).await {
+                            if imported.imported()
+                                && let Err(e) = runtime.announce(block.header.clone()).await {
                                     tracing::error!("Failed to announce block: {:?}", e);
                                 }
-                            }
                         }
                         Err(e) => tracing::warn!("Failed to import block: {:?}", e),
                     }

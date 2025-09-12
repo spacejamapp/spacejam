@@ -1,10 +1,10 @@
 //! Statistics tests
 
 use score::{
+    TimeSlot, ValidatorIndex,
     extrinsic::{Extrinsic, ExtrinsicJson},
     safrole::{ValidatorDataJson, ValidatorsData},
     statistic::{Statistics, StatisticsJson},
-    TimeSlot, ValidatorIndex,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

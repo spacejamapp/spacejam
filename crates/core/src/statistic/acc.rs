@@ -1,9 +1,9 @@
 //! Accumulation statistics
 
 use crate::{
+    Gas,
     account::Accounts,
     vm::{Accumulated, DeferredTransfer},
-    Gas,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

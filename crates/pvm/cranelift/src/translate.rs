@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::{offsets, Exit, Translator};
+use crate::{Exit, Translator, offsets};
 use anyhow::Result;
-use cranelift::prelude::{types, InstBuilder, IntCC, JumpTableData, MemFlags};
+use cranelift::prelude::{InstBuilder, IntCC, JumpTableData, MemFlags, types};
 use cranelift_codegen::ir::BlockCall;
-use parser::{reader::Offset, Instruction};
+use parser::{Instruction, reader::Offset};
 use pvm::{MemoryInfo, Visitor};
 
 const ACCUMULATE_PC: u64 = 5;
@@ -123,11 +123,11 @@ impl Translator<'_> {
         }
 
         // handle block termination with native CLIF control flow
-        if let Some(last) = block.last() {
-            if !last.value.is_termination() {
-                self.context.burn_gas_imm(-1)?;
-                self.return_(Exit::ProgramNotTerminated);
-            }
+        if let Some(last) = block.last()
+            && !last.value.is_termination()
+        {
+            self.context.burn_gas_imm(-1)?;
+            self.return_(Exit::ProgramNotTerminated);
         }
 
         Ok(())

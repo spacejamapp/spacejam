@@ -122,15 +122,18 @@ where
 
     // Take the ownership of the closure
     let f_ptr = payload as *mut F;
-    let boxed_f = Box::from_raw(f_ptr);
+    let boxed_f = unsafe { Box::from_raw(f_ptr) };
     let f = *boxed_f;
 
     // Execute the closure
     let result = f();
     RESULT_STORAGE.with(|storage| {
         let result_ptr = storage.get() as *mut Option<T>;
+
         if !result_ptr.is_null() {
-            *result_ptr = Some(result);
+            unsafe {
+                *result_ptr = Some(result);
+            }
         }
     });
 

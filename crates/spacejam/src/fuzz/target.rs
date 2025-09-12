@@ -1,16 +1,15 @@
 //! The unix stream for fuzzing
 
 use crate::fuzz::{
-    self,
+    self, StreamExt,
     message::{KeyValue, Message, PeerInfo, SetState},
-    StreamExt,
 };
 use anyhow::Context;
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx,
 };
-use score::{safrole::ValidatorIter, Block, OpaqueHash};
+use score::{Block, OpaqueHash, safrole::ValidatorIter};
 use std::{
     fs,
     ops::{Deref, DerefMut},

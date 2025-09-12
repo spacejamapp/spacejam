@@ -3,15 +3,15 @@
 use crate::{peer::PeerId, transport::Verifier};
 use crypto::ed25519;
 use quinn::{
-    crypto::rustls::{QuicClientConfig, QuicServerConfig},
     Endpoint,
+    crypto::rustls::{QuicClientConfig, QuicServerConfig},
 };
 use rcgen::CertificateParams;
 use rustls::{
+    SignatureScheme,
     crypto::{CryptoProvider, WebPkiSupportedAlgorithms},
     pki_types::PrivatePkcs8KeyDer,
     sign::{CertifiedKey, SingleCertAndKey},
-    SignatureScheme,
 };
 use std::{
     net::{Ipv4Addr, SocketAddr},

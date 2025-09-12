@@ -1,8 +1,8 @@
 //! Guarantee types
 
 use crate::{
-    service::{WorkReport, WorkReportJson},
     Ed25519Signature, TimeSlot, ValidatorIndex,
+    service::{WorkReport, WorkReportJson},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

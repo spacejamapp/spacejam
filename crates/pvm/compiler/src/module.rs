@@ -1,6 +1,6 @@
 //! Compiled function metadata
 
-use crate::{trap, Memory};
+use crate::{Memory, trap};
 use anyhow::Result;
 use cranelift_jit::JITModule;
 use cranelift_module::FuncId;

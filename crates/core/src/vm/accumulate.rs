@@ -1,14 +1,14 @@
 //! Primitives for the accumulate invocation
 
 use crate::{
+    EntropyBuffer, OpaqueHash,
     account::Accounts,
     safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue},
     statistic::ServiceActivityRecord,
     vm::DeferredTransfer,
-    EntropyBuffer, OpaqueHash,
 };
-use crate::{service::WorkExecResult, Gas, ServiceId};
+use crate::{Gas, ServiceId, service::WorkExecResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

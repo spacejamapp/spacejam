@@ -1,7 +1,7 @@
 //! Lazy verifier
 
 use crypto::vrf::Verifier;
-use score::{safrole::ValidatorData, BandersnatchPublic, BandersnatchRingCommitment};
+use score::{BandersnatchPublic, BandersnatchRingCommitment, safrole::ValidatorData};
 use std::{
     collections::BTreeMap,
     sync::{Arc, LazyLock},

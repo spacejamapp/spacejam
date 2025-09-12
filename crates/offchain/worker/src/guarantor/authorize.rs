@@ -3,8 +3,8 @@
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    service::{WorkExecResult, WorkPackage},
     Accounts,
+    service::{WorkExecResult, WorkPackage},
 };
 
 /// Authorize the work package

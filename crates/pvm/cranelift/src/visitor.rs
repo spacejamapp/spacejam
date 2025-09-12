@@ -4,7 +4,7 @@ use crate::Exit;
 use crate::Translator;
 use core::ops::Range;
 use cranelift::prelude::*;
-use parser::{format, Visitor};
+use parser::{Visitor, format};
 
 impl Visitor for Translator<'_> {
     type Error = anyhow::Error;

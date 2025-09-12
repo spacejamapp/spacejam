@@ -1,9 +1,8 @@
 //! Jastime - JAM virtual machine
 
 use pvm::{
-    parser,
+    Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked, State,
 };
 pub use pvmc::{Artifact, Compiler};
 use pvmc::{Memory, Module};
@@ -33,8 +32,8 @@ impl Invocation for SpaceVM {
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
-        if let Ok(None) = SPACEVM_LOCKS.read().map(|lock| lock.get(&hash).cloned()) {
-            if let Ok(Some(module)) = SPACEVM_MODULES.read().map(|lock| lock.get(&hash).cloned()) {
+        if let Ok(None) = SPACEVM_LOCKS.read().map(|lock| lock.get(&hash).cloned())
+            && let Ok(Some(module)) = SPACEVM_MODULES.read().map(|lock| lock.get(&hash).cloned()) {
                 let program = parser::program::preimage(code, &args).expect("failed to preimage");
                 let mut context = pvm::Context {
                     registers: module.registers,
@@ -61,7 +60,6 @@ impl Invocation for SpaceVM {
                     data: ctx,
                 };
             }
-        }
 
         // lock the compilation
         {

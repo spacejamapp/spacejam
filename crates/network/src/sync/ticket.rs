@@ -1,9 +1,9 @@
 //! Broadcast events
 
 use crate::{
+    Connection, Network,
     peer::PeerId,
     stream::{ce131, ce132},
-    Connection, Network,
 };
 use anyhow::Context;
 use score::extrinsic::{Ticket, TicketEnvelope};

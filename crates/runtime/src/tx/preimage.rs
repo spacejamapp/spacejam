@@ -1,7 +1,7 @@
 //! Preimage handler
 
 use anyhow::Result;
-use score::{extrinsic::PreimagesExtrinsic, Account, Accounts, TimeSlot};
+use score::{Account, Accounts, TimeSlot, extrinsic::PreimagesExtrinsic};
 
 /// (δ') handle preimage extrinsic
 ///
@@ -19,11 +19,10 @@ pub fn accounts(
 ) -> Result<impl Accounts> {
     let mut requester = None;
     for preimage in preimages {
-        if let Some(exist) = requester {
-            if preimage.requester < exist {
+        if let Some(exist) = requester
+            && preimage.requester < exist {
                 anyhow::bail!("Preimages are not ordered");
             }
-        }
 
         requester = Some(preimage.requester);
         let hash = crypto::blake2b(&preimage.blob);

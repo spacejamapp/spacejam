@@ -4,7 +4,7 @@ use crate::{Exit, Registers, Translator};
 use anyhow::Result;
 use cranelift::prelude::{InstBuilder, IntCC, Value};
 use cranelift_frontend::FunctionBuilder;
-use parser::{format, reader::Offset, Instruction};
+use parser::{Instruction, format, reader::Offset};
 use pvm::Visitor;
 use std::ops::{Deref, DerefMut, Range};
 

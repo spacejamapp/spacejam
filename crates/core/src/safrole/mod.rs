@@ -1,9 +1,9 @@
 //! Safrole types
 
 use crate::{
+    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
     block::header::{EValidator, EpochMark, TicketsMark},
     extrinsic::{TicketBody, TicketBodyJson, TicketsAccumulator, TicketsOrKeys, TicketsOrKeysJson},
-    BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

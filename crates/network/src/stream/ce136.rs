@@ -2,7 +2,7 @@
 
 use crate::Network;
 use quinn::{RecvStream, SendStream};
-use score::{service::WorkReport, OpaqueHash};
+use score::{OpaqueHash, service::WorkReport};
 
 /// Send a work report request.
 #[allow(unused)]

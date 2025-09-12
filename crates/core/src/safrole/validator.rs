@@ -36,11 +36,7 @@ impl Validators {
 
     /// (κ') Returns the validators for the current epoch.
     pub fn current(&self, new_epoch: bool, next: &ValidatorsData) -> ValidatorsData {
-        if new_epoch {
-            *next
-        } else {
-            self.current
-        }
+        if new_epoch { *next } else { self.current }
     }
 }
 

@@ -5,7 +5,7 @@ pub use {
     block::Block,
     extrinsic::Extrinsic,
     params::Parameters,
-    state::{key::StorageKeyEncode, State},
+    state::{State, key::StorageKeyEncode},
 };
 
 mod account;

@@ -35,14 +35,14 @@ impl LocalValidator {
     /// Create a new local validator.
     pub fn random() -> Self {
         let mut rng = rand::thread_rng();
-        let seed: [u8; 32] = rng.gen();
+        let seed: [u8; 32] = rng.r#gen();
         seed.into()
     }
 
     /// Create a random seed.
     pub fn random_seed() -> [u8; 32] {
         let mut rng = rand::thread_rng();
-        let seed: [u8; 32] = rng.gen();
+        let seed: [u8; 32] = rng.r#gen();
         seed
     }
 }

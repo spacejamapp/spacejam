@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-use syn::{parse_quote, Ident, ItemFn};
+use syn::{Ident, ItemFn, parse_quote};
 
 const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";

@@ -2,7 +2,7 @@
 
 use crate::{
     chain::{ParsedSpec, Spec},
-    node::{spec, SpaceJam},
+    node::{SpaceJam, spec},
 };
 use network::Network;
 use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};

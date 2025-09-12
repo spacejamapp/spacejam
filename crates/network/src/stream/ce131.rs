@@ -1,8 +1,8 @@
 //! Safrole ticket distribution stream (first step).
 
 use crate::{
-    stream::ext::{Read, Write},
     Network,
+    stream::ext::{Read, Write},
 };
 use quinn::{RecvStream, SendStream};
 use score::{block, extrinsic::TicketEnvelope};
@@ -33,11 +33,11 @@ impl<C: runtime::Config> Network<C> {
         if request.epoch != current_epoch + 1 && request.epoch != current_epoch {
             send.finish()?; // Finish stream before error
             anyhow::bail!(
-                    "received invalid ticket: epoch mismatch: {} != {} (current) or {} (next), rejecting out-of-epoch ticket",
-                    request.epoch,
-                    current_epoch,
-                    current_epoch + 1
-                );
+                "received invalid ticket: epoch mismatch: {} != {} (current) or {} (next), rejecting out-of-epoch ticket",
+                request.epoch,
+                current_epoch,
+                current_epoch + 1
+            );
         }
 
         let attempt = request.ticket.attempt;

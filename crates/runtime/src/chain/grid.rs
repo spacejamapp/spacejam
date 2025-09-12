@@ -1,7 +1,7 @@
 //! Network grid for chains which is used for authoring blocks.
 
 use crate::Storage;
-use score::{safrole::ValidatorsData, Ed25519Public, VALIDATORS_COUNT};
+use score::{Ed25519Public, VALIDATORS_COUNT, safrole::ValidatorsData};
 use std::collections::HashSet;
 
 /// The grid of the network.

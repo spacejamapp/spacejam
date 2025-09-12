@@ -8,7 +8,7 @@ use quinn::crypto::rustls::HandshakeData;
 use runtime::Handshake;
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
-use webpki::{types::CertificateDer, EndEntityCert};
+use webpki::{EndEntityCert, types::CertificateDer};
 
 /// Peer connection.
 #[derive(Debug, Clone)]

@@ -1,11 +1,11 @@
 //! Safrole ticket distribution stream (second step).
 
 use crate::{
+    Network,
     stream::{
         ce131,
         ext::{Read, Write},
     },
-    Network,
 };
 pub use ce131::Request;
 use quinn::{RecvStream, SendStream};

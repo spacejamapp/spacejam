@@ -1,8 +1,8 @@
 //! Fuzzer related implementations
 
 use crate::fuzz::{
+    PROTOCOL_VERSION, StreamExt, VERSION,
     message::{KeyValue, Message, PeerInfo, SetState},
-    StreamExt, PROTOCOL_VERSION, VERSION,
 };
 use anyhow::{Context, Result};
 use score::OpaqueHash;
@@ -12,7 +12,7 @@ use std::{
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
 };
-use testing::{traces, Entry, Section, Test, Trace};
+use testing::{Entry, Section, Test, Trace, traces};
 
 /// The fuzzer
 pub struct Fuzzer {

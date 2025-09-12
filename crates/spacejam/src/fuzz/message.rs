@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use score::{block::Header, Block, OpaqueHash, TrieKey};
+use score::{Block, OpaqueHash, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
 
 /// Messages used in the unix socket communication
