@@ -85,7 +85,6 @@ impl Fuzzer {
 
     /// Handle a new connection
     pub fn handle_single(&mut self, source: &Entry) -> Result<()> {
-        // run the tests
         let test = source.get(0).context("No test found")?;
         let input = traces::TestInput::from_json(&test.input)?;
         self.init_state(&input, &test.name)?;

@@ -217,13 +217,14 @@ impl Target {
     /// Initialize the target
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        if self.interp {
+        let _ = init::verifier(data).await;
+        /* if self.interp {
             tokio::spawn(async move {
                 let _ = init::verifier(data.clone()).await;
             });
         } else {
             let _ = tokio::try_join!(init::verifier(data.clone()), init::programs(data.clone()))?;
-        }
+        } */
         Ok(())
     }
 }
