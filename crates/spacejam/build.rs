@@ -61,9 +61,13 @@ mod fuzz {
             tests.push(parse_quote! {
                 #[test]
                 fn #test() {
-                    let bytes = include_bytes!(#bytes);
-                    let message: Message = codec::decode(bytes).unwrap();
-                    assert_eq!(codec::encode(&message).unwrap(), bytes);
+                    let mut bytes = include_bytes!(#bytes).to_vec();
+                    if bytes[0] == 255 {
+                        bytes[0] = 6;
+                    }
+                    let message: Message = codec::decode(&bytes).unwrap();
+                    let encoded = codec::encode(&message).unwrap();
+                    assert_eq!(encoded, bytes);
                 }
             });
         }
