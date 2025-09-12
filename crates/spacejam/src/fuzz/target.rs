@@ -2,7 +2,7 @@
 
 use crate::fuzz::{
     StreamExt, init,
-    message::{KeyValue, Message, PeerInfo, SetState, Version},
+    message::{Initialize, KeyValue, Message, PeerInfo, Version},
 };
 use anyhow::{Context, Result};
 use runtime::{
@@ -84,17 +84,15 @@ impl Target {
             Message::ImportBlock(block) => {
                 if let Err(e) = self.import_block(block).await {
                     tracing::warn!("failed to import block: {e}");
-                    let root = self.data.root()?;
-                    self.write_message(Message::StateRoot(root))
-                } else {
-                    // tracing::debug!("\n{}", runtime::timing::take_current());
-                    Ok(())
+                    self.write_message(Message::Error(e.to_string()))?;
                 }
+                Ok(())
             }
-            Message::SetState(state) => self.set_state(state).await,
+            Message::Initialize(state) => self.set_state(state).await,
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),
             Message::StateRoot(hash) => self.state_root(hash),
+            Message::Error(error) => self.error(error),
         }
     }
 
@@ -162,8 +160,8 @@ impl Target {
     }
 
     /// Received set state request
-    #[tracing::instrument(skip_all, name = "set_state")]
-    pub async fn set_state(&mut self, state: SetState) -> Result<()> {
+    #[tracing::instrument(skip_all, name = "initialize")]
+    pub async fn set_state(&mut self, state: Initialize) -> Result<()> {
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);
@@ -199,6 +197,11 @@ impl Target {
     /// Handle the state root request
     pub fn state_root(&mut self, _root: OpaqueHash) -> Result<()> {
         anyhow::bail!("Received message state root which is not supported");
+    }
+
+    /// Handle the state root request
+    pub fn error(&mut self, _error: String) -> Result<()> {
+        anyhow::bail!("Received message error which is not supported");
     }
 
     /// Initialize the target

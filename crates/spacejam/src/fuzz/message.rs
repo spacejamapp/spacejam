@@ -1,36 +1,40 @@
 //! Fuzz messages
 
-use std::fmt::Display;
-
 use score::{Block, OpaqueHash, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// Messages used in the unix socket communication
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Message {
     /// The peer information
     #[serde(rename = "peer-info")]
-    Info(PeerInfo),
-
-    /// The block data
-    #[serde(rename = "import-block")]
-    ImportBlock(Block),
+    Info(PeerInfo) = 0,
 
     /// The set state
-    #[serde(rename = "set-state")]
-    SetState(SetState),
-
-    /// The get state
-    #[serde(rename = "get-state")]
-    GetState(OpaqueHash),
-
-    /// The state of the peer
-    #[serde(rename = "state")]
-    State(Vec<KeyValue>),
+    #[serde(rename = "initialize")]
+    Initialize(Initialize) = 1,
 
     /// The root of the state
     #[serde(rename = "state-root")]
-    StateRoot(OpaqueHash),
+    StateRoot(OpaqueHash) = 2,
+
+    /// The block data
+    #[serde(rename = "import-block")]
+    ImportBlock(Block) = 3,
+
+    /// The get state
+    #[serde(rename = "get-state")]
+    GetState(OpaqueHash) = 4,
+
+    /// The state of the peer
+    #[serde(rename = "state")]
+    State(Vec<KeyValue>) = 5,
+
+    /// The error message
+    #[serde(rename = "error")]
+    Error(String) = 255,
 }
 
 impl Display for Message {
@@ -45,10 +49,11 @@ impl Display for Message {
                     hex::encode(block.header.hash().unwrap())
                 )
             }
-            Self::SetState(state) => write!(f, "SetState(len={})", state.state.len()),
+            Self::Initialize(state) => write!(f, "Initialize(len={})", state.state.len()),
             Self::GetState(hash) => write!(f, "GetState(hash=0x{})", hex::encode(hash)),
             Self::State(state) => write!(f, "State(len={})", state.len()),
             Self::StateRoot(root) => write!(f, "StateRoot(0x{})", hex::encode(root)),
+            Self::Error(error) => write!(f, "Error({})", error),
         }
     }
 }
@@ -125,7 +130,7 @@ pub struct KeyValue {
 
 /// Set the state of the peer
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SetState {
+pub struct Initialize {
     /// The header of the block
     pub header: Header,
 

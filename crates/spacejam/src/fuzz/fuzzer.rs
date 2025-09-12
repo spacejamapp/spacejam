@@ -2,7 +2,7 @@
 
 use crate::fuzz::{
     StreamExt,
-    message::{KeyValue, Message, PeerInfo, SetState, Version},
+    message::{Initialize, KeyValue, Message, PeerInfo, Version},
 };
 use anyhow::{Context, Result};
 use score::OpaqueHash;
@@ -184,13 +184,13 @@ impl Fuzzer {
     /// initialize state
     pub fn init_state(&mut self, input: &traces::TestInput, name: &str) -> Result<()> {
         let state = Self::to_keyvals(input.pre_state.keyvals.clone());
-        let set_state = SetState {
+        let set_state = Initialize {
             header: input.block.header.clone(),
             state: state.clone(),
         };
 
         // verify the state root
-        self.stream.write_message(Message::SetState(set_state))?;
+        self.stream.write_message(Message::Initialize(set_state))?;
         self.verify_root(
             input.pre_state.state_root,
             name,
