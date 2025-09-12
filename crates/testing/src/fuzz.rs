@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 
-include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
+include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
 
 /// The processor for sequential test vectors
 pub struct Processor {

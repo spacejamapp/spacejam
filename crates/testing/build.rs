@@ -84,7 +84,7 @@ fn main() -> Result<()> {
     )?;
 
     // build all sequential tests
-    build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
+    build_all_seq_test(&out_dir.join("traces_fuzz.rs"))?;
     Ok(())
 }
 
