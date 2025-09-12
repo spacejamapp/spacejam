@@ -277,9 +277,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
         if let Some(parent) = state
             .recent_blocks
             .complete_state_root(block.header.parent_state_root)?
-            && parent != block.header.parent {
-                anyhow::bail!("Parent mismatch");
-            }
+            && parent != block.header.parent
+        {
+            anyhow::bail!("Parent mismatch");
+        }
 
         // (p of β') Report the work packages
         let (mut reported, mut reporters) = (vec![], vec![]);

@@ -65,10 +65,11 @@ impl<'a, C: Config> Author<'a, C> {
         // 1. check generating tickets
         let finalized = self.runtime.finalized().await;
         if ticket::generate(slot, best.slot, finalized.slot)
-            && let Some(ticket) = self.ticket(best.slot).await? {
-                self.tickets.push(ticket.id);
-                next.1 = Some(ticket);
-            }
+            && let Some(ticket) = self.ticket(best.slot).await?
+        {
+            self.tickets.push(ticket.id);
+            next.1 = Some(ticket);
+        }
 
         // 2. check authoring blocks
         if self.slots.contains(&slot) {

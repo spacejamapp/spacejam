@@ -1,13 +1,13 @@
 //! The unix stream for fuzzing
 
 use crate::fuzz::{
-    self, StreamExt,
+    self, StreamExt, init,
     message::{KeyValue, Message, PeerInfo, SetState},
 };
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, ticket::lazy},
+    tx,
 };
 use score::{Block, OpaqueHash, safrole::ValidatorIter};
 use std::{
@@ -47,7 +47,7 @@ impl Target {
     }
 
     /// Run the target
-    pub async fn serve(socket: &Path, interp: bool) -> anyhow::Result<()> {
+    pub async fn serve(socket: &Path, interp: bool) -> Result<()> {
         fs::remove_file(socket).ok();
         let listener = UnixListener::bind(socket)
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
@@ -62,7 +62,7 @@ impl Target {
     }
 
     /// Handle a new connection
-    pub async fn run(stream: UnixStream, interp: bool) -> anyhow::Result<()> {
+    pub async fn run(stream: UnixStream, interp: bool) -> Result<()> {
         let mut target = Target::new(stream, interp);
         loop {
             let Ok(message) = target.read_message().inspect_err(|e| {
@@ -78,7 +78,7 @@ impl Target {
     }
 
     /// Handle a incoming message
-    pub async fn handle(&mut self, message: Message) -> anyhow::Result<()> {
+    pub async fn handle(&mut self, message: Message) -> Result<()> {
         match message {
             Message::Info(info) => self.info(info),
             Message::ImportBlock(block) => {
@@ -91,7 +91,7 @@ impl Target {
                     Ok(())
                 }
             }
-            Message::SetState(state) => self.set_state(state),
+            Message::SetState(state) => self.set_state(state).await,
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),
             Message::StateRoot(hash) => self.state_root(hash),
@@ -168,21 +168,23 @@ impl Target {
 
     /// Received set state request
     #[tracing::instrument(skip_all, name = "set_state")]
-    pub fn set_state(&mut self, state: SetState) -> anyhow::Result<()> {
+    pub async fn set_state(&mut self, state: SetState) -> Result<()> {
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);
         }
 
         self.data.commit(Column::State, commit)?;
-        self.init_state();
+        if let Err(e) = self.init_state().await {
+            tracing::warn!("failed to initialize state: {e}");
+        }
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
         Ok(())
     }
 
     /// Received get state request
-    pub fn get_state(&mut self, _hash: OpaqueHash) -> anyhow::Result<()> {
+    pub fn get_state(&mut self, _hash: OpaqueHash) -> Result<()> {
         let mut state = Vec::new();
         for pair in self.data.iter(Column::State)? {
             let (vkey, value) = pair?;
@@ -195,21 +197,24 @@ impl Target {
     }
 
     /// Handle the state request
-    pub fn state(&mut self, _state: Vec<KeyValue>) -> anyhow::Result<()> {
+    pub fn state(&mut self, _state: Vec<KeyValue>) -> Result<()> {
         anyhow::bail!("Received message state which is not supported");
     }
 
     /// Handle the state root request
-    pub fn state_root(&mut self, _root: OpaqueHash) -> anyhow::Result<()> {
+    pub fn state_root(&mut self, _root: OpaqueHash) -> Result<()> {
         anyhow::bail!("Received message state root which is not supported");
     }
 
     /// Initialize the target
-    ///
-    /// TODO: pre-compile programs
-    fn init_state(&self) {
+    async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        let _ = tokio::task::spawn_blocking(move || init_verifier(data));
+        if self.interp {
+            init::verifier(data.clone()).await?;
+        } else {
+            let _ = tokio::try_join!(init::verifier(data.clone()), init::programs(data.clone()))?;
+        }
+        Ok(())
     }
 }
 
@@ -225,13 +230,4 @@ impl DerefMut for Target {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.stream
     }
-}
-
-/// Initialize the verifier
-fn init_verifier(data: Arc<MemoryDb>) -> Result<()> {
-    let safrole = data.safrole()?;
-    let timeslot = data.timeslot()?;
-    let epoch = timeslot / score::EPOCH_LENGTH;
-    let _ = lazy::verifier(epoch, &safrole.validators.bandersnatch());
-    Ok(())
 }

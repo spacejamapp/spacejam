@@ -20,9 +20,10 @@ pub fn accounts(
     let mut requester = None;
     for preimage in preimages {
         if let Some(exist) = requester
-            && preimage.requester < exist {
-                anyhow::bail!("Preimages are not ordered");
-            }
+            && preimage.requester < exist
+        {
+            anyhow::bail!("Preimages are not ordered");
+        }
 
         requester = Some(preimage.requester);
         let hash = crypto::blake2b(&preimage.blob);

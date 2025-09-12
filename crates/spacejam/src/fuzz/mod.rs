@@ -8,6 +8,7 @@ use std::{
 };
 
 pub mod fuzzer;
+pub mod init;
 pub mod message;
 pub mod target;
 pub mod trace;

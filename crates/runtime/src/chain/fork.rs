@@ -267,9 +267,10 @@ impl<S: Storage> Fork<S> {
             })?;
 
         if let Some(ticket) = ticket
-            && ticket.id != output {
-                anyhow::bail!("header seal mismatched");
-            }
+            && ticket.id != output
+        {
+            anyhow::bail!("header seal mismatched");
+        }
 
         // verify entropy source
         let extracted_vrf_output = crypto::vrf::ietf_output(header.seal)?;

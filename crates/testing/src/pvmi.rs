@@ -147,12 +147,13 @@ pub fn to_test_memory(memory: &pvm::Memory) -> Vec<Memory> {
 
         // Handle remaining data at end of page
         if !data.is_empty()
-            && let Some(addr) = current_addr {
-                result.push(Memory {
-                    address: addr,
-                    contents: data,
-                });
-            }
+            && let Some(addr) = current_addr
+        {
+            result.push(Memory {
+                address: addr,
+                contents: data,
+            });
+        }
     }
 
     result

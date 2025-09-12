@@ -196,9 +196,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             }
 
             if let Some(last) = guarantor
-                && validator_index <= last {
-                    return Err(Error::NotSortedOrUniqueGuarantors);
-                }
+                && validator_index <= last
+            {
+                return Err(Error::NotSortedOrUniqueGuarantors);
+            }
 
             let Some(key) = guarantors.get(&validator_index) else {
                 return Err(Error::WrongAssignment);

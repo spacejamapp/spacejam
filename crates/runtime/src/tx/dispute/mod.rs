@@ -193,9 +193,10 @@ fn culprits(
         }
 
         if let Some(last_culprit) = last_culprit
-            && culprit < last_culprit {
-                return Err(Error::CulpritsNotSortedUnique);
-            }
+            && culprit < last_culprit
+        {
+            return Err(Error::CulpritsNotSortedUnique);
+        }
 
         last_culprit = Some(culprit);
         if bad.contains(&culprit.target) {
@@ -249,9 +250,10 @@ fn faults(
         }
 
         if let Some(last_fault) = last_fault
-            && fault < last_fault {
-                return Err(Error::FaultsNotSortedUnique);
-            }
+            && fault < last_fault
+        {
+            return Err(Error::FaultsNotSortedUnique);
+        }
 
         last_fault = Some(fault);
 

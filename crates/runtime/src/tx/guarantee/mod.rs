@@ -181,9 +181,10 @@ pub fn reports(
         }
 
         if let Some(Some(assignment)) = prev.get(core_index)
-            && slot <= assignment.timeout + 1 {
-                return Err(Error::CoreEngaged);
-            }
+            && slot <= assignment.timeout + 1
+        {
+            return Err(Error::CoreEngaged);
+        }
 
         next[core_index] = Some(AvailabilityAssignment {
             report: guarantee.report.clone(),

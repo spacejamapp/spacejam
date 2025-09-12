@@ -22,9 +22,9 @@ pub fn reports(
         if let Some(report) = mb_report
             && (available.contains(&report.report)
                 || slot >= report.timeout + WORK_REPORT_TIMEOUT_PERIOD)
-            {
-                *mb_report = None;
-            }
+        {
+            *mb_report = None;
+        }
     }
 
     reports
@@ -45,10 +45,11 @@ pub fn available(
     // Check for stale reports
     for (core_idx, assignment) in reports.iter().enumerate() {
         if let Some(assignment) = assignment
-            && slot >= assignment.timeout + WORK_REPORT_TIMEOUT_PERIOD {
-                stale_reports.insert(core_idx);
-                continue;
-            }
+            && slot >= assignment.timeout + WORK_REPORT_TIMEOUT_PERIOD
+        {
+            stale_reports.insert(core_idx);
+            continue;
+        }
     }
 
     // Check for engaged reports
@@ -56,9 +57,10 @@ pub fn available(
     for assurance in assurances.iter() {
         self::verify_assurance(validators, assurance, parent)?;
         if let Some(last) = assuror
-            && assurance.validator_index <= last {
-                return Err(Error::NotSortedOrUniqueAssurers);
-            }
+            && assurance.validator_index <= last
+        {
+            return Err(Error::NotSortedOrUniqueAssurers);
+        }
         assuror = Some(assurance.validator_index);
 
         // Count assurances per core
@@ -83,9 +85,10 @@ pub fn available(
     let mut available = Vec::new();
     for (core_idx, &assurance_count) in core_assurance_counts.iter().enumerate() {
         if assurance_count >= VALIDATORS_SUPER_MAJORITY as u32
-            && let Some(assignment) = &reports[core_idx] {
-                available.push(assignment.report.clone());
-            }
+            && let Some(assignment) = &reports[core_idx]
+        {
+            available.push(assignment.report.clone());
+        }
     }
 
     Ok((available, core_assurance_counts))
