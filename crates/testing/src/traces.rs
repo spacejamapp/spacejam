@@ -75,12 +75,10 @@ pub async fn run_single(
         runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
     let result = tokio::try_join!(
         async {
-            tokio::task::spawn_blocking(move || {
-                block
-                    .header
-                    .validate(new_epoch, entropy, &safrole, verifier)
-            })
-            .await?
+            block
+                .header
+                .validate(new_epoch, entropy, &safrole, verifier)
+                .await
         },
         async {
             if use_compiler {

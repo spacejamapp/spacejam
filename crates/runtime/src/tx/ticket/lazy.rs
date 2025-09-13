@@ -40,22 +40,28 @@ pub async fn commitment(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Bandersn
 /// Get the verifier of the next validators at an epoch
 pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
     // check if we have the verifier for the epoch
-    let mut lazy_verifier = LAZY_RING.lock().await;
-    if let Some(verifier) = lazy_verifier.get(&epoch) {
-        return verifier.clone();
+    {
+        let lazy_verifier = LAZY_RING.lock().await;
+        if let Some(verifier) = lazy_verifier.get(&epoch) {
+            return verifier.clone();
+        }
     }
 
     // find if we have the same drawn validators at an epoch
-    for verifier in lazy_verifier.clone().values() {
-        if verifier.ring() != *drawn {
-            continue;
-        }
+    {
+        let mut lazy_verifier = LAZY_RING.lock().await;
+        for verifier in lazy_verifier.clone().values() {
+            if verifier.ring() != *drawn {
+                continue;
+            }
 
-        lazy_verifier.insert(epoch, verifier.clone());
-        return verifier.clone();
+            lazy_verifier.insert(epoch, verifier.clone());
+            return verifier.clone();
+        }
     }
 
     // create a new verifier
+    let mut lazy_verifier = LAZY_RING.lock().await;
     let drawn = drawn.clone();
     let verifier = Arc::new(crypto::ring::verifier(&drawn));
     lazy_verifier.insert(epoch, verifier.clone());

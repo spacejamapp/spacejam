@@ -3754,6 +3754,7 @@ dependencies = [
  "serde_json",
  "spacejam-crypto",
  "spacejson",
+ "tokio",
  "tracing",
 ]
 
