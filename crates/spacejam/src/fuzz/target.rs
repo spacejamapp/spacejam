@@ -208,7 +208,6 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        let now = std::time::Instant::now();
         if self.interp {
             let _ = init::verifier(data).await?;
         } else {
@@ -219,7 +218,6 @@ impl Target {
             let (_, _) = (vr?, pr?);
         }
 
-        println!("total in {:?}", now.elapsed());
         Ok(())
     }
 }
