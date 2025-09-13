@@ -4,7 +4,7 @@ use crate::Compiler;
 pub use abi::*;
 use anyhow::Result;
 use cranelift::prelude::{AbiParam, Signature, types};
-use cranelift_codegen::ir::FuncRef;
+use cranelift_codegen::ir::{FuncRef, Function};
 use cranelift_jit::JITBuilder;
 use cranelift_module::{FuncId, Linkage, Module};
 use pvm::Argument;
@@ -30,10 +30,11 @@ impl Compiler {
     pub fn declare_host_in_func(
         &mut self,
         host: BTreeMap<String, FuncId>,
+        func: &mut Function,
     ) -> Result<BTreeMap<String, FuncRef>> {
         let mut map = BTreeMap::new();
         for (name, id) in host {
-            let func = self.module.declare_func_in_func(id, &mut self.context.func);
+            let func = self.module.declare_func_in_func(id, func);
             map.insert(name, func);
         }
         Ok(map)

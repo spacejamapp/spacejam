@@ -17,5 +17,6 @@ pub mod engine;
 pub mod host;
 pub mod memory;
 pub mod module;
+pub mod object;
 mod translate;
 pub mod trap;

@@ -2,8 +2,8 @@
 
 use crate::{Compiler, Module};
 use anyhow::Result;
-use cranelift::prelude::{AbiParam, Signature, types};
-use cranelift_codegen::{control::ControlPlane, ir::Function, isa::CallConv};
+use cranelift::prelude::{AbiParam, FunctionBuilderContext, Signature, types};
+use cranelift_codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv};
 use cranelift_module::{Linkage, Module as _, ModuleReloc};
 use pvm::{Program, score::OpaqueHash};
 use translator::Translator;
@@ -23,20 +23,20 @@ impl Compiler {
             returns: vec![AbiParam::new(types::I64); 2],
             call_conv: CallConv::Fast,
         };
+        let mut ctx = self.module.make_context();
         let main = {
             let main = self
                 .module
                 .declare_function(MAIN, Linkage::Export, &signature)?;
-            self.context.func.signature = signature.clone();
+            ctx.func.signature = signature.clone();
             main
         };
 
         // compile the program with cache
-        let func = self.translate(program)?;
+        let func = self.translate(&mut ctx, program)?;
         let isa = self.module.isa();
         let mut cpanel = ControlPlane::default();
-        let (compiled, _hits) = self
-            .context
+        let (compiled, _hits) = ctx
             .compile_with_cache(isa, &mut self.artifact, &mut cpanel)
             .map_err(|e| anyhow::anyhow!("failed to compile program: {:?}", e))?;
 
@@ -61,16 +61,17 @@ impl Compiler {
     }
 
     /// Translate the program to CLIF
-    fn translate(&mut self, program: &Program) -> Result<Function> {
+    fn translate(&mut self, ctx: &mut Context, program: &Program) -> Result<Function> {
         let host = self.declare_host_in_module()?;
         let blob = program.blob()?;
         let code = blob.read_blocks()?;
-        let host = self.declare_host_in_func(host)?;
+        let host = self.declare_host_in_func(host, &mut ctx.func)?;
         let minfo = program.memory.info.clone();
-        let mut translator = Translator::new(&[], &mut self.context.func, &mut self.ctx)?;
+        let mut bctx = FunctionBuilderContext::new();
+        let mut translator = Translator::new(&[], &mut ctx.func, &mut bctx)?;
         translator.jump = blob.jump_table.clone();
         translator.host = host;
         translator.translate(code, minfo.clone())?;
-        Ok(self.context.func.clone())
+        Ok(ctx.func.clone())
     }
 }

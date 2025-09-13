@@ -2,8 +2,6 @@
 
 use crate::{Artifact, Memory, engine, host};
 use anyhow::Result;
-use cranelift::prelude::FunctionBuilderContext;
-use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
 use pvm::{
     Argument, Invocation, Invoked, State, parser,
@@ -17,12 +15,6 @@ pub struct Compiler {
 
     /// Artifact
     pub artifact: Artifact,
-
-    /// Cranelift context
-    pub context: Context,
-
-    /// Function builder context
-    pub ctx: FunctionBuilderContext,
 }
 
 impl Compiler {
@@ -34,8 +26,6 @@ impl Compiler {
         Ok(Self {
             module,
             artifact: Artifact::new()?,
-            context: Context::new(),
-            ctx: FunctionBuilderContext::new(),
         })
     }
 
@@ -47,8 +37,6 @@ impl Compiler {
         Ok(Self {
             module,
             artifact: Artifact::new()?,
-            context: Context::new(),
-            ctx: FunctionBuilderContext::new(),
         })
     }
 }

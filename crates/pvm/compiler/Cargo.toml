@@ -18,6 +18,7 @@ cranelift-codegen = { workspace = true, features = [
 cranelift-native.workspace = true
 cranelift-jit.workspace = true
 cranelift-module.workspace = true
+cranelift-object.workspace = true
 tracing.workspace = true
 libc.workspace = true
 
