@@ -40,36 +40,24 @@ pub async fn commitment(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Bandersn
 /// Get the verifier of the next validators at an epoch
 pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
     // check if we have the verifier for the epoch
-    {
-        let lazy_verifier = LAZY_RING.lock().await;
-        if let Some(verifier) = lazy_verifier.get(&epoch) {
-            return verifier.clone();
-        }
+    let mut lazy_verifier = LAZY_RING.lock().await;
+    if let Some(verifier) = lazy_verifier.get(&epoch) {
+        return verifier.clone();
     }
 
     // find if we have the same drawn validators at an epoch
-    {
-        let mut lazy_verifier = LAZY_RING.lock().await;
-        for verifier in lazy_verifier.clone().values() {
-            if verifier.ring() != *drawn {
-                continue;
-            }
-
-            lazy_verifier.insert(epoch, verifier.clone());
-            return verifier.clone();
+    for verifier in lazy_verifier.clone().values() {
+        if verifier.ring() != *drawn {
+            continue;
         }
+
+        lazy_verifier.insert(epoch, verifier.clone());
+        return verifier.clone();
     }
 
     // create a new verifier
-    let mut lazy_verifier = LAZY_RING.lock().await;
     let drawn = drawn.clone();
-    let verifier = Arc::new(
-        tokio::task::spawn_blocking(move || crypto::ring::verifier(&drawn))
-            .await
-            .expect("Failed to create verifier"),
-    );
-
-    // Reacquire write lock to insert the result
+    let verifier = Arc::new(crypto::ring::verifier(&drawn));
     lazy_verifier.insert(epoch, verifier.clone());
     if lazy_verifier.len() > CACHED {
         lazy_verifier.pop_first();
