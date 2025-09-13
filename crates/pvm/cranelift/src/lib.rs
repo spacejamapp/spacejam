@@ -20,7 +20,6 @@ pub use {
 mod context;
 mod control;
 mod exit;
-pub mod host;
 mod masm;
 mod math;
 mod memory;

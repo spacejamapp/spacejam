@@ -45,9 +45,6 @@ pub struct Pool {
 
     /// The VM context pointer
     pub vmctx: Value,
-
-    /// The host call addresses
-    pub call: Call,
 }
 
 impl Default for Pool {
@@ -57,26 +54,6 @@ impl Default for Pool {
             registers: [Variable::new(0); pvm::REGISTER_COUNT],
             gas: Variable::new(0),
             vmctx: Value::new(0),
-            call: Call::default(),
-        }
-    }
-}
-
-/// Host call addresses
-#[derive(Clone)]
-pub struct Call {
-    /// The general host call ptr
-    pub ecalli: Value,
-
-    /// The sbrk host call ptr
-    pub sbrk: Value,
-}
-
-impl Default for Call {
-    fn default() -> Self {
-        Self {
-            ecalli: Value::new(0),
-            sbrk: Value::new(0),
         }
     }
 }
@@ -86,9 +63,9 @@ impl Translator<'_> {
     ///
     /// NOTE: ignore the costs of the initial memory loads otherwise
     /// we'll have ugly function signatures.
-    pub fn init_pool(&mut self, entry: Block) -> Value {
+    pub fn init_pool(&mut self, entry: Block, registers: [u64; pvm::REGISTER_COUNT]) -> Value {
         let params = self.builder.block_params(entry).to_vec();
-        let [table, vmctx, pc] = [params[0], params[1], params[2]];
+        let [vmctx, pc] = [params[0], params[1]];
         self.pool.vmctx = vmctx;
         self.pool.memory = self.builder.ins().load(
             types::I64,
@@ -110,32 +87,11 @@ impl Translator<'_> {
         }
 
         // init registers
-        for i in 0..pvm::REGISTER_COUNT {
+        for (i, reg) in registers.iter().enumerate() {
             let var = self.builder.declare_var(types::I64);
-            let val = self
-                .builder
-                .ins()
-                .load(types::I64, MemFlags::trusted(), vmctx, i as i32 * 8);
+            let val = self.builder.ins().iconst(types::I64, *reg as i64);
             self.builder.def_var(var, val);
             self.pool.registers[i] = var;
-        }
-
-        // init call
-        {
-            // let table = self
-            //     .builder
-            //     .ins()
-            //     .load(types::I64, MemFlags::trusted(), table, 0);
-            self.pool.call = Call {
-                ecalli: self
-                    .builder
-                    .ins()
-                    .load(types::I64, MemFlags::trusted(), table, 0),
-                sbrk: self
-                    .builder
-                    .ins()
-                    .load(types::I64, MemFlags::trusted(), table, 8),
-            };
         }
 
         pc

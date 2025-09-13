@@ -19,7 +19,7 @@ impl Compiler {
     /// Declare functions for the program
     pub fn compile(mut self, program: &Program, _hash: Option<OpaqueHash>) -> Result<Module> {
         let signature = Signature {
-            params: vec![AbiParam::new(types::I64); 3],
+            params: vec![AbiParam::new(types::I64); 2],
             returns: vec![AbiParam::new(types::I64); 2],
             call_conv: CallConv::Fast,
         };
@@ -56,7 +56,6 @@ impl Compiler {
         Ok(Module {
             jit: self.module,
             main,
-            registers: program.registers,
         })
     }
 
@@ -71,7 +70,7 @@ impl Compiler {
         let mut translator = Translator::new(&[], &mut ctx.func, &mut bctx)?;
         translator.jump = blob.jump_table.clone();
         translator.host = host;
-        translator.translate(code, minfo.clone())?;
+        translator.translate(program.registers, code, minfo.clone())?;
         if std::env::var("DUMP_CLIF").is_ok() {
             println!("{}", &ctx.func);
         }

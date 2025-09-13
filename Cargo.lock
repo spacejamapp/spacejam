@@ -3937,6 +3937,7 @@ name = "spacevm"
 version = "0.0.11"
 dependencies = [
  "anyhow",
+ "hex",
  "pvm",
  "pvmc",
  "pvmi",

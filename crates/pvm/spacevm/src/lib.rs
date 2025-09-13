@@ -38,7 +38,7 @@ impl Invocation for SpaceVM {
         {
             let program = parser::program::preimage(code, &args).expect("failed to preimage");
             let mut context = pvm::Context {
-                registers: module.registers,
+                registers: program.registers,
                 gas: gas as i64,
                 memory: Memory::new(&program.memory).expect("failed to create memory"),
                 ctx: &mut ctx,
@@ -66,9 +66,13 @@ impl Invocation for SpaceVM {
 
         // lock the compilation
         {
-            let code = code.clone();
-            let args = args.clone();
-            tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash, true));
+            if let Ok(locks) = SPACEVM_LOCKS.read()
+                && !locks.contains_key(&hash)
+            {
+                let code = code.clone();
+                let args = args.clone();
+                tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash, true));
+            }
         }
 
         // fallback to the interpreter

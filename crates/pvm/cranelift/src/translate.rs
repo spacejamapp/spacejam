@@ -21,6 +21,7 @@ impl Translator<'_> {
     /// [ctx, memory, gas, [..registers]]
     pub fn translate(
         &mut self,
+        registers: [u64; pvm::REGISTER_COUNT],
         func: BTreeMap<u64, Vec<Offset<Instruction>>>,
         _info: MemoryInfo,
     ) -> Result<()> {
@@ -29,7 +30,7 @@ impl Translator<'_> {
         self.builder.switch_to_block(entry);
 
         // init all registers and blocks
-        let pc = self.init_pool(entry);
+        let pc = self.init_pool(entry, registers);
         for pc in func.keys() {
             let block = self.builder.create_block();
             self.blocks.insert(*pc, block);

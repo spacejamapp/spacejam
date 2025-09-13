@@ -54,7 +54,7 @@ impl Invocation for Compiler {
         let pvmc = Self::host::<X>().expect("fix me later");
         let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
         let mut context = pvm::Context {
-            registers: module.registers,
+            registers: program.registers,
             gas: gas as i64,
             memory: Memory::new(&program.memory).expect("failed to create memory"),
             ctx: &mut ctx,

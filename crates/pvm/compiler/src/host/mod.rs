@@ -9,7 +9,6 @@ use cranelift_jit::JITBuilder;
 use cranelift_module::{FuncId, Linkage, Module};
 use pvm::Argument;
 use std::collections::BTreeMap;
-pub use translator::host as sig;
 
 pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";
@@ -17,6 +16,7 @@ pub const MGET: &str = "mget";
 pub const MSET: &str = "mset";
 
 mod abi;
+mod sig;
 
 /// Register host call symbols
 pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
