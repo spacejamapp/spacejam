@@ -1,6 +1,6 @@
 //! Fuzz related implementations
 
-use crate::fuzz::message::{Message, Version};
+use crate::fuzz::message::Message;
 use anyhow::{Context, Result};
 use std::{
     io::{Read, Write},
@@ -8,23 +8,10 @@ use std::{
 };
 
 pub mod fuzzer;
+pub mod init;
 pub mod message;
 pub mod target;
 pub mod trace;
-
-/// The binary version of spacejam
-pub const VERSION: Version = Version {
-    major: 0,
-    minor: 0,
-    patch: 10,
-};
-
-/// The protocol version of spacejam
-pub const PROTOCOL_VERSION: Version = Version {
-    major: 0,
-    minor: 7,
-    patch: 0,
-};
 
 /// Extension methods for streams
 pub trait StreamExt {
@@ -45,6 +32,10 @@ impl StreamExt for UnixStream {
         // decode the message from the stream
         let mut bytes = vec![0; length];
         self.read_exact(&mut bytes)?;
+        if bytes[0] == 255 {
+            bytes[0] = 6;
+        }
+
         let message =
             codec::decode(&bytes).context(format!("failed to decode message: length={length}"))?;
         tracing::debug!("message(length): {message}");
@@ -53,8 +44,11 @@ impl StreamExt for UnixStream {
 
     #[tracing::instrument(skip_all, name = "write", parent = None)]
     fn write_message(&mut self, message: Message) -> Result<()> {
-        let bytes = codec::encode(&message)?;
+        let mut bytes = codec::encode(&message)?;
         let length = bytes.len() as u32;
+        if bytes[0] == 6 {
+            bytes[0] = 255;
+        }
 
         tracing::debug!("message({length}): {message}");
         self.write_all(&[length.to_le_bytes().to_vec(), bytes].concat())?;

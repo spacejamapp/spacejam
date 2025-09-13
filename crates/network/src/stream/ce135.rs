@@ -2,7 +2,7 @@
 
 use crate::Network;
 use quinn::{RecvStream, SendStream};
-use score::{service::WorkReport, Ed25519Signature};
+use score::{Ed25519Signature, service::WorkReport};
 use serde::{Deserialize, Serialize};
 
 impl<C: runtime::Config> Network<C> {

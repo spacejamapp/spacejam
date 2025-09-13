@@ -9,7 +9,7 @@ publish = true
 description = "JAM protocol datatypes for interoperation between node internals, services and authorizers"
 
 [dependencies]
-codec = { package = "jam-codec", version = "0.1.0", default-features = false }
+codec = { package = "jam-codec", version = "0.1.1", default-features = false }
 bounded-collections = { workspace = true, default-features = false, features = [
     "jam-codec",
 ] }

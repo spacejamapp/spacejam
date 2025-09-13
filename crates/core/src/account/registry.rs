@@ -1,6 +1,6 @@
 //! Account registry
 
-use crate::{account::Account, service::ServiceAccount, OpaqueHash, ServiceId, TrieKey};
+use crate::{OpaqueHash, ServiceId, TrieKey, account::Account, service::ServiceAccount};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Account registry

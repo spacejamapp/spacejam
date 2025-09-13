@@ -2,12 +2,12 @@
 
 pub use error::{Error, Result};
 use score::{
+    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
     extrinsic::{
-        ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
         TicketsAccumulator,
+        ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
     },
     safrole::{Safrole, ValidatorData, ValidatorIter, Validators, ValidatorsData},
-    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
 };
 
 pub mod error;
@@ -154,10 +154,8 @@ pub fn sealing_key_series(
         && prev_slot_phase >= score::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == score::EPOCH_LENGTH as usize
     {
-        tracing::info!("use safrole keys");
         next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
-        tracing::info!("use fallback keys");
         next = TicketsOrKeys::fallback(
             curr_validators.iter().map(|v| v.bandersnatch).collect(),
             entropy[2],

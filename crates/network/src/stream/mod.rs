@@ -2,7 +2,7 @@
 //!
 //! Functional handlers for streams.
 
-use crate::{peer::PeerId, Network};
+use crate::{Network, peer::PeerId};
 use quinn::{RecvStream, SendStream};
 
 pub mod ce128;
@@ -66,7 +66,7 @@ impl<C: runtime::Config> Network<C> {
 
 pub mod ext {
     use quinn::{RecvStream, SendStream};
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Serialize, de::DeserializeOwned};
 
     #[allow(unused)]
     /// Write extension trait for `SendStream`

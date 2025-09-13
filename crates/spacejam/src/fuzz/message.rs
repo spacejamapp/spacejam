@@ -1,36 +1,40 @@
 //! Fuzz messages
 
-use std::fmt::Display;
-
-use score::{block::Header, Block, OpaqueHash, TrieKey};
+use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// Messages used in the unix socket communication
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Message {
     /// The peer information
     #[serde(rename = "peer-info")]
-    Info(PeerInfo),
-
-    /// The block data
-    #[serde(rename = "import-block")]
-    ImportBlock(Block),
+    Info(PeerInfo) = 0,
 
     /// The set state
-    #[serde(rename = "set-state")]
-    SetState(SetState),
-
-    /// The get state
-    #[serde(rename = "get-state")]
-    GetState(OpaqueHash),
-
-    /// The state of the peer
-    #[serde(rename = "state")]
-    State(Vec<KeyValue>),
+    #[serde(rename = "initialize")]
+    Initialize(Initialize) = 1,
 
     /// The root of the state
     #[serde(rename = "state-root")]
-    StateRoot(OpaqueHash),
+    StateRoot(OpaqueHash) = 2,
+
+    /// The block data
+    #[serde(rename = "import-block")]
+    ImportBlock(Block) = 3,
+
+    /// The get state
+    #[serde(rename = "get-state")]
+    GetState(OpaqueHash) = 4,
+
+    /// The state of the peer
+    #[serde(rename = "state")]
+    State(Vec<KeyValue>) = 5,
+
+    /// The error message
+    #[serde(rename = "error")]
+    Error(String) = 255,
 }
 
 impl Display for Message {
@@ -45,10 +49,11 @@ impl Display for Message {
                     hex::encode(block.header.hash().unwrap())
                 )
             }
-            Self::SetState(state) => write!(f, "SetState(len={})", state.state.len()),
+            Self::Initialize(state) => write!(f, "Initialize(len={})", state.state.len()),
             Self::GetState(hash) => write!(f, "GetState(hash=0x{})", hex::encode(hash)),
             Self::State(state) => write!(f, "State(len={})", state.len()),
             Self::StateRoot(root) => write!(f, "StateRoot(0x{})", hex::encode(root)),
+            Self::Error(error) => write!(f, "Error({})", error),
         }
     }
 }
@@ -56,14 +61,32 @@ impl Display for Message {
 /// The peer information
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeerInfo {
-    /// The name of the peer
-    pub name: String,
+    /// The version of fuzzing
+    pub fuzz_version: u8,
+
+    /// The features of fuzzing
+    pub fuzz_features: u32,
 
     /// The version of the peer
-    pub version: Version,
+    pub jam_version: Version,
 
     /// The protocol version of the peer
-    pub protocol: Version,
+    pub app_version: Version,
+
+    /// The name of the peer
+    pub app_name: String,
+}
+
+impl Default for PeerInfo {
+    fn default() -> Self {
+        Self {
+            fuzz_version: 1,
+            fuzz_features: 2,
+            jam_version: Version::PROTOCOL,
+            app_version: Version::SPACEJAM,
+            app_name: "spacejam".to_string(),
+        }
+    }
 }
 
 /// The version of the peer
@@ -79,6 +102,22 @@ pub struct Version {
     pub patch: u8,
 }
 
+impl Version {
+    /// The binary version of spacejam
+    pub const SPACEJAM: Version = Version {
+        major: 0,
+        minor: 0,
+        patch: 11,
+    };
+
+    /// The protocol version of spacejam
+    pub const PROTOCOL: Version = Version {
+        major: 0,
+        minor: 7,
+        patch: 0,
+    };
+}
+
 /// A key-value pair
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyValue {
@@ -91,10 +130,24 @@ pub struct KeyValue {
 
 /// Set the state of the peer
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SetState {
+pub struct Initialize {
     /// The header of the block
     pub header: Header,
 
     /// The state of the peer
     pub state: Vec<KeyValue>,
+
+    /// The ancestry of the peer
+    pub ancestry: Vec<Head>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Head {
+    /// The slot of the head
+    #[serde(rename = "slot")]
+    pub slot: TimeSlot,
+
+    /// The hash of the head
+    #[serde(rename = "header-hash")]
+    pub hash: OpaqueHash,
 }

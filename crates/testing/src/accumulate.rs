@@ -3,8 +3,8 @@
 use anyhow::Result;
 use runtime::tx;
 use score::{
-    service::{WorkReport, WorkReportJson},
     OpaqueHash, TimeSlot,
+    service::{WorkReport, WorkReportJson},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -119,11 +119,11 @@ pub struct TestOutput {
 mod types {
     use crate::reports::{ServiceItem, ServiceItemJson};
     use score::{
+        Account, Accounts, Entropy, Gas, ServiceId, TimeSlot,
         service::{AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount},
         state::account,
         statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
         vm::Accumulation,
-        Account, Accounts, Entropy, Gas, ServiceId, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;

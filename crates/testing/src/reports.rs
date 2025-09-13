@@ -5,10 +5,10 @@ use runtime::tx::{
     guarantee::error::{Error, Result},
 };
 use score::{
+    Block, Ed25519Public, OpaqueHash, TimeSlot,
     block::{History, HistoryJson},
     extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    Block, Ed25519Public, OpaqueHash, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};
@@ -101,13 +101,13 @@ pub struct Output {
 
 mod types {
     use score::{
+        CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId,
         block::{History, HistoryJson},
         safrole::{ValidatorDataJson, ValidatorsData},
         service::{
             AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
             ServiceInfoJson,
         },
-        Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, CORES_COUNT,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;

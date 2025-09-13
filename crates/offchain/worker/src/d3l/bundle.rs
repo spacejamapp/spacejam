@@ -1,7 +1,7 @@
 //! Work package bundle
 
 use crate::d3l::Justification;
-use score::{service::WorkPackage, OpaqueHash};
+use score::{OpaqueHash, service::WorkPackage};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

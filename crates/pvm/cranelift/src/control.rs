@@ -1,6 +1,6 @@
 //! Control flow related interfaces
 
-use crate::{exit::Exit, Translator};
+use crate::{Translator, exit::Exit};
 use anyhow::Result;
 use cranelift::prelude::*;
 use cranelift_codegen::ir::BlockArg;

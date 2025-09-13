@@ -1,14 +1,14 @@
 //! Block sync implementation
 
 use crate::{
+    Network,
     peer::Connection,
     stream::{ce128, ext::Read},
-    Network,
 };
 use runtime::chain::Direction;
 use score::{
-    block::{Head, Header},
     Block,
+    block::{Head, Header},
 };
 
 impl<C: runtime::Config> Network<C> {

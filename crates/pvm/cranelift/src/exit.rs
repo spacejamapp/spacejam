@@ -1,6 +1,6 @@
 //! Exit codes
 
-use cranelift::prelude::{types, FunctionBuilder, InstBuilder, Value};
+use cranelift::prelude::{FunctionBuilder, InstBuilder, Value, types};
 use pvm::Reason;
 
 /// Exit codes

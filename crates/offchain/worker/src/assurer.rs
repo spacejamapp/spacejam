@@ -1,8 +1,8 @@
 //! Assurer abstraction
 
-use crate::{d3l::Justification, DataLake};
+use crate::{DataLake, d3l::Justification};
 use anyhow::Result;
-use score::{service::WorkReport, OpaqueHash, Segment};
+use score::{OpaqueHash, Segment, service::WorkReport};
 
 /// Assurer abstraction
 #[allow(async_fn_in_trait)]

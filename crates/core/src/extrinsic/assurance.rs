@@ -1,6 +1,6 @@
 //! Extrinsic assurance
 
-use crate::{Ed25519Signature, OpaqueHash, ValidatorIndex, AVAIL_BITFIELD_BYTES, CORES_COUNT};
+use crate::{AVAIL_BITFIELD_BYTES, CORES_COUNT, Ed25519Signature, OpaqueHash, ValidatorIndex};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

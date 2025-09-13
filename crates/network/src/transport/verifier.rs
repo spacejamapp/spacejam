@@ -2,11 +2,11 @@
 
 use crate::peer::PeerId;
 use rustls::{
+    DigitallySignedStruct, DistinguishedName, SignatureScheme,
     client::danger::HandshakeSignatureValid,
     client::danger::{ServerCertVerified, ServerCertVerifier},
     pki_types::{CertificateDer, UnixTime},
     server::danger::{ClientCertVerified, ClientCertVerifier},
-    DigitallySignedStruct, DistinguishedName, SignatureScheme,
 };
 use webpki::{EndEntityCert, KeyUsage};
 

@@ -1,9 +1,9 @@
 //! This module contains the block and its related structures.
 
 use crate::{
+    Entropy, OpaqueHash, TimeSlot,
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    Entropy, OpaqueHash, TimeSlot,
 };
 use header::{EValidator, EpochMark};
 use serde::{Deserialize, Serialize};

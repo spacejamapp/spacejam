@@ -1,18 +1,18 @@
 //! Authoring service
 
-use crate::{chain::Fork, tx, Config, Runtime, Validator};
+use crate::{Config, Runtime, Validator, chain::Fork, tx};
 use anyhow::Context;
 use score::{
-    block::{Block, BlockInfo},
-    extrinsic::{ticket, Ticket, TicketBody, TicketEnvelope, TicketsOrKeys},
-    safrole::{Safrole, ValidatorIter},
     BandersnatchPublic, EntropyBuffer, OpaqueHash, TimeSlot,
+    block::{Block, BlockInfo},
+    extrinsic::{Ticket, TicketBody, TicketEnvelope, TicketsOrKeys, ticket},
+    safrole::{Safrole, ValidatorIter},
 };
 use std::{
     ops::Deref,
     sync::{
-        atomic::{AtomicU8, Ordering},
         Arc,
+        atomic::{AtomicU8, Ordering},
     },
 };
 
@@ -64,11 +64,11 @@ impl<'a, C: Config> Author<'a, C> {
 
         // 1. check generating tickets
         let finalized = self.runtime.finalized().await;
-        if ticket::generate(slot, best.slot, finalized.slot) {
-            if let Some(ticket) = self.ticket(best.slot).await? {
-                self.tickets.push(ticket.id);
-                next.1 = Some(ticket);
-            }
+        if ticket::generate(slot, best.slot, finalized.slot)
+            && let Some(ticket) = self.ticket(best.slot).await?
+        {
+            self.tickets.push(ticket.id);
+            next.1 = Some(ticket);
         }
 
         // 2. check authoring blocks

@@ -99,7 +99,7 @@ impl Default for Parameters {
 #[cfg(feature = "shuffle")]
 pub mod assignments {
     use crate::{
-        CoreIndex, Entropy, EntropyBuffer, TimeSlot, CORES_COUNT, EPOCH_LENGTH, ROTATION_PERIOD,
+        CORES_COUNT, CoreIndex, EPOCH_LENGTH, Entropy, EntropyBuffer, ROTATION_PERIOD, TimeSlot,
         VALIDATORS_COUNT,
     };
 

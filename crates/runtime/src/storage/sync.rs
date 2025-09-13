@@ -3,9 +3,9 @@
 use crate::storage::{ArchiveStorage, Column, KVStorage};
 use anyhow::Result;
 use score::{
+    Block, OpaqueHash,
     block::{Head, Header},
     extrinsic::TicketsOrKeys,
-    Block, OpaqueHash,
 };
 
 /// Sync storage

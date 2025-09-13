@@ -1,6 +1,6 @@
 //! Command line interface for testnet.
 
-use crate::{log::Stream, Message, Network, Testnet};
+use crate::{Message, Network, Testnet, log::Stream};
 use clap::Parser;
 use colored::Colorize;
 use std::{fs, path::PathBuf, sync::mpsc};

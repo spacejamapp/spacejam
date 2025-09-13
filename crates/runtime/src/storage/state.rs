@@ -4,13 +4,13 @@ use crate::storage::{Column, KVStorage};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
+    CORES_COUNT, EPOCH_LENGTH, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, TrieKey,
     block::BlockInfo,
     extrinsic::DisputesRecords,
     safrole::{Safrole, ValidatorsData},
     service::{AvailabilityAssignments, Privileges, ServiceAccount, ServiceInfo, WorkReport},
-    state::{account, key, State, StateKeyLike},
+    state::{State, StateKeyLike, account, key},
     statistic::Statistics,
-    EntropyBuffer, OpaqueHash, ServiceId, TimeSlot, TrieKey, CORES_COUNT, EPOCH_LENGTH,
 };
 
 /// Storage of the state of SpaceJam

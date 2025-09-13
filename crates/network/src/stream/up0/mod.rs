@@ -1,9 +1,9 @@
 //! Block announcement stream.
 
 use crate::{
+    Connection, Network,
     peer::PeerId,
     stream::ext::{Read, Write},
-    Connection, Network,
 };
 use anyhow::Context;
 use quinn::{RecvStream, SendStream};

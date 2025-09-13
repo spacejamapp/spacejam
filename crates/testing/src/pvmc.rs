@@ -1,6 +1,6 @@
 //! PVM Compiler test vectors
 
-use crate::pvmi::{to_test_memory, TestInput, TestOutput};
+use crate::pvmi::{TestInput, TestOutput, to_test_memory};
 use anyhow::Result;
 use pvmc::Compiler;
 use serde::{Deserialize, Serialize};

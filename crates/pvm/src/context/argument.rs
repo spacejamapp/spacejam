@@ -9,7 +9,7 @@ use score::{
 };
 
 /// Dynamic arguments for host calls
-pub trait Argument {
+pub trait Argument: Send + Sync {
     /// Supported host calls
     const SUPPORTED_CALLS: &[u32];
 
@@ -18,6 +18,13 @@ pub trait Argument {
 
     /// Get an account by account id
     fn account(&mut self, id: u64) -> Result<&mut impl Account>;
+
+    /// Get the output of the accumulation
+    fn acc_output(&mut self) -> Vec<u8> {
+        let ptr = self.rget(7) as u32;
+        let len = self.rget(8) as u32;
+        self.read(ptr, len).unwrap_or_default()
+    }
 
     /// Burn the input gas
     fn burn(&mut self, gas: Gas) {

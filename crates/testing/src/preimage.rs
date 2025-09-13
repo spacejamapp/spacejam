@@ -1,7 +1,7 @@
 //! Preimage tests
 
 use runtime::tx;
-use score::{service::ServiceAccount, Account, Accounts};
+use score::{Account, Accounts, service::ServiceAccount};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
@@ -72,9 +72,9 @@ pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
 // TODO: clean types later
 mod types {
     use score::{
+        OpaqueHash,
         extrinsic::{Preimage, PreimageJson},
         service::ServiceAccount,
-        OpaqueHash,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;

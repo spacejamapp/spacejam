@@ -1,9 +1,9 @@
 //! Verification utilities for tickets
 
-use crate::tx::ticket::{lazy, Error};
+use crate::tx::ticket::{Error, lazy};
 use score::{
-    extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
     BandersnatchPublic, OpaqueHash,
+    extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
 };
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::task::JoinSet;

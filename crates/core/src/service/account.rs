@@ -1,6 +1,6 @@
 //! Service account types
 
-use crate::{service::GasLimit, Gas, OpaqueHash, TimeSlot};
+use crate::{Gas, OpaqueHash, TimeSlot, service::GasLimit};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -126,7 +126,7 @@ impl ServiceInfo {
 #[cfg(feature = "blake2")]
 mod crypto_impl {
     use super::*;
-    use crate::{state::account, TrieKey};
+    use crate::{TrieKey, state::account};
     use std::collections::BTreeSet;
 
     impl ServiceAccount {

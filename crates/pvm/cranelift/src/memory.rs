@@ -16,7 +16,7 @@ impl Translator<'_> {
         self.builder.ins().load(ty, MemFlags::trusted(), maddr, 0)
     }
 
-    /// Memory get with immediate address - optimized for constant addresses
+    /// Memory get with immediate address
     pub fn mget_imm(&mut self, address: i64, ty: types::Type) -> Value {
         let maddr = self
             .context
@@ -39,7 +39,7 @@ impl Translator<'_> {
             .store(MemFlags::trusted(), value, maddr, 0);
     }
 
-    /// Memory set with immediate address - optimized for constant addresses  
+    /// Memory set with immediate address
     pub fn mset_imm(&mut self, address: i64, value: Value) {
         let maddr = self
             .context

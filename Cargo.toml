@@ -20,8 +20,8 @@ members = [
 resolver = "1"
 
 [workspace.package]
-edition = "2021"
-version = "0.0.10"
+edition = "2024"
+version = "0.0.11"
 homepage = "https://github.com/spacejamapp/spacejam"
 repository = "https://github.com/spacejamapp/spacejam"
 license = "GPL-3.0"
@@ -67,7 +67,7 @@ worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 # polkajam dependencies
 bounded-collections = { version = "0.3.2", default-features = false }
 jam-types = { version = "0.1.22", default-features = false }
-jam-codec = "0.1.0"
+jam-codec = "0.1.1"
 jam-pvm-build = "0.1.22"
 jam-pvm-builder = "0.1.22"
 jam-pvm-common = { version = "0.1.22", default-features = false }
@@ -75,65 +75,65 @@ jam-program-blob = "0.1.22"
 polkavm-linker = "0.24.0"
 polkavm-derive = "0.24.0"
 polkavm-common = "0.24.0"
-podec = { version = "0.1.0", package = "jam-codec", default-features = false, features = [
+podec = { version = "0.1.1", package = "jam-codec", default-features = false, features = [
     "derive",
 ] }
 
 # crates.io
-anyhow = "1.0.93"
+anyhow = "1.0.99"
 ark-bls12-381 = "0.5.0"
 ark-ec = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
-async-trait = "0.1.88"
-bindgen = "0.69"
+async-trait = "0.1.89"
+bindgen = "0.72"
 blake2 = "0.10.6"
-cc = "1.0"
-clap = "4.5.23"
+cc = "1.2"
+clap = "4.5.47"
 colored = "3.0.0"
-cranelift = "0.123.1"
-cranelift-codegen = "0.123.1"
-cranelift-frontend = "0.123.1"
-cranelift-native = "0.123.1"
-cranelift-jit = "0.123.1"
-cranelift-module = "0.123.1"
+cranelift = "0.123.2"
+cranelift-codegen = "0.123.2"
+cranelift-frontend = "0.123.2"
+cranelift-native = "0.123.2"
+cranelift-jit = "0.123.2"
+cranelift-module = "0.123.2"
 dirs = "6.0.0"
-ed25519-dalek = "2.1.1"
+ed25519-dalek = "2.2.0"
 etc = "0.1.20"
 git2 = "0.19.0"
 heck = "0.5.0"
 hex = "0.4.3"
-hyper = "1.6"
-hyper-util = "0.1.11"
-jobserver = "0.1.33"
+hyper = "1.7"
+hyper-util = "0.1.16"
+jobserver = "0.1.34"
 jsonrpsee = "0.24.9"
 libc = "0.2"
-log = "0.4.27"
-once_cell = "1.20.2"
+log = "0.4.28"
+once_cell = "1.21.3"
 paste = "1.0.15"
-parity-db = "0.5.1"
+parity-db = "0.5.4"
 postcard = "1.1.3"
-proc-macro2 = "1.0.92"
+proc-macro2 = "1.0.101"
 prometheus = { version = "0.23.1", package = "prometheus-client" }
-quinn = "0.11.6"
-quote = "1.0.33"
+quinn = "0.11.9"
+quote = "1.0.40"
 rand = "0.8.5"
 rand_xoshiro = "0.6.0"
 rcgen = "0.13.2"
 reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
 ring = { package = "w3f-ring-proof", version = "0.0.2", default-features = false }
-rustls = "0.23.23"
+rustls = "0.23.31"
 rustls-webpki = "0.102.8"
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
-syn = "2.0.90"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+syn = "2.0.106"
 sysinfo = "0.36.1"
 temp-dir = "0.1.16"
-time = "0.3.41"
+time = "0.3.43"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-tokio = { version = "1.42.0", features = [
+tokio = { version = "1.47.1", features = [
     "rt",
     "rt-multi-thread",
     "sync",
@@ -144,9 +144,9 @@ tokio = { version = "1.42.0", features = [
     "io-util",
 ] }
 tokio-stream = "0.1.17"
-toml = { version = "0.8.19", features = ["parse"] }
+toml = { version = "0.8.23", features = ["parse"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", default-features = false, features = [
+tracing-subscriber = { version = "0.3.20", default-features = false, features = [
     "env-filter",
     "fmt",
     "ansi",
@@ -154,7 +154,7 @@ tracing-subscriber = { version = "0.3.19", default-features = false, features = 
 ] }
 trait-variant = "0.1.2"
 uint = "0.10.0"
-w3f-bls = "0.1.8"
+w3f-bls = "0.1.9"
 x509-parser = "0.17.0"
 
 [patch.crates-io]

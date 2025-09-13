@@ -3,8 +3,8 @@
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
 use crate::{
-    extrinsic::*, BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash,
-    OpaqueHash, StateRoot, TimeSlot, ValidatorIndex,
+    BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash, OpaqueHash,
+    StateRoot, TimeSlot, ValidatorIndex, extrinsic::*,
 };
 
 use serde::{Deserialize, Serialize};
@@ -155,10 +155,10 @@ impl Header {
                 anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
             })?;
 
-        if let Some(ticket) = ticket {
-            if ticket.id != output {
-                anyhow::bail!("header seal mismatched");
-            }
+        if let Some(ticket) = ticket
+            && ticket.id != output
+        {
+            anyhow::bail!("header seal mismatched");
         }
 
         // verify entropy source

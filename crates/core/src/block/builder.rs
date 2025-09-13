@@ -1,6 +1,6 @@
 //! Block builder
 
-use crate::{block::BlockInfo, Block, TimeSlot};
+use crate::{Block, TimeSlot, block::BlockInfo};
 use std::ops::{Deref, DerefMut};
 
 /// Block builder

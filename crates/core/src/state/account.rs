@@ -1,7 +1,7 @@
 //! Account state
 
-use crate::state::key::{self, StorageKeyEncode};
 use crate::TrieKey;
+use crate::state::key::{self, StorageKeyEncode};
 
 /// C(255, s) - The service account state ((s -> a) δ)
 pub fn info(service: u32) -> TrieKey {

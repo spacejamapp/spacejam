@@ -1,13 +1,14 @@
 //! Block sync validation
 
 use crate::{
+    Storage,
     account::Accounts,
     storage::{Column, Commit},
-    timing, Storage,
+    timing,
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{safrole::ValidatorIter, state::key, Accounts as _, Block, TrieKey};
+use score::{Accounts as _, Block, TrieKey, safrole::ValidatorIter, state::key};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task::JoinSet;
@@ -276,10 +277,9 @@ pub async fn simulate_with_state<Vm: Pvm>(
         if let Some(parent) = state
             .recent_blocks
             .complete_state_root(block.header.parent_state_root)?
+            && parent != block.header.parent
         {
-            if parent != block.header.parent {
-                anyhow::bail!("Parent mismatch");
-            }
+            anyhow::bail!("Parent mismatch");
         }
 
         // (p of β') Report the work packages

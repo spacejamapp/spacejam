@@ -1,6 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
+    CORES_COUNT, EntropyBuffer, OpaqueHash, TimeSlot,
     block::{History, HistoryJson},
     extrinsic::{DisputesRecords, DisputesRecordsJson},
     safrole::{Safrole, SafroleJson, Validators, ValidatorsJson},
@@ -9,7 +10,6 @@ use crate::{
         PrivilegesJson, ReadyQueue, ReadyReportJson, ServiceAccount,
     },
     statistic::{Statistics, StatisticsJson},
-    EntropyBuffer, OpaqueHash, TimeSlot, CORES_COUNT,
 };
 pub use info::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use serde::{Deserialize, Serialize};

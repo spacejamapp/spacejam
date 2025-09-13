@@ -1,13 +1,13 @@
 //! Branch of state
 
 use crate::{
-    storage::{Column, Commit, KVStorage, StateStorage},
     Storage,
+    storage::{Column, Commit, KVStorage, StateStorage},
 };
 use anyhow::Result;
-use score::{state::StateKeyLike, TrieKey};
+use score::{TrieKey, state::StateKeyLike};
 use std::{
-    collections::{btree_map::IntoIter, BTreeMap},
+    collections::{BTreeMap, btree_map::IntoIter},
     sync::{Arc, RwLock},
 };
 

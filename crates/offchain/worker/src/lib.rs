@@ -4,7 +4,7 @@
 pub use {
     assurer::Assurer,
     auditor::Auditor,
-    d3l::{bundle::WorkPackageBundle, DataLake, InMemoryDataLake},
+    d3l::{DataLake, InMemoryDataLake, bundle::WorkPackageBundle},
     guarantor::Guarantor,
 };
 

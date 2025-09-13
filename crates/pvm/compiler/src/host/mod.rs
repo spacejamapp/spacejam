@@ -3,7 +3,7 @@
 use crate::Compiler;
 pub use abi::*;
 use anyhow::Result;
-use cranelift::prelude::{types, AbiParam, Signature};
+use cranelift::prelude::{AbiParam, Signature, types};
 use cranelift_codegen::ir::FuncRef;
 use cranelift_jit::JITBuilder;
 use cranelift_module::{FuncId, Linkage, Module};

@@ -90,12 +90,12 @@ pub mod is_authorized {
 #[cfg(any(feature = "service", doc))]
 pub mod refine {
     pub use super::host_calls::{
-        export, export_slice, expunge, foreign_historical_lookup as foreign_lookup,
+        Fetch, export, export_slice, expunge, foreign_historical_lookup as foreign_lookup,
         foreign_historical_lookup_into as foreign_lookup_into, gas, historical_lookup as lookup,
         historical_lookup_into as lookup_into, import, invoke,
         is_foreign_historical_available as is_foreign_available,
         is_historical_available as is_available, machine, peek, peek_into, peek_value, poke,
-        poke_value, void, zero, Fetch,
+        poke_value, void, zero,
     };
 }
 
@@ -103,11 +103,11 @@ pub mod refine {
 #[cfg(any(feature = "service", doc))]
 pub mod accumulate {
     pub use super::host_calls::{
-        assign, bless, checkpoint, create_service, designate, eject, foreign_lookup,
-        foreign_lookup_into, forget, gas, get, get_foreign, get_foreign_storage, get_storage,
-        is_available, is_foreign_available, lookup, lookup_into, my_info, provide, query, remove,
-        remove_storage, service_info, set, set_storage, solicit, transfer, upgrade, yield_hash,
-        zombify, ForgetImplication, LookupRequestStatus,
+        ForgetImplication, LookupRequestStatus, assign, bless, checkpoint, create_service,
+        designate, eject, foreign_lookup, foreign_lookup_into, forget, gas, get, get_foreign,
+        get_foreign_storage, get_storage, is_available, is_foreign_available, lookup, lookup_into,
+        my_info, provide, query, remove, remove_storage, service_info, set, set_storage, solicit,
+        transfer, upgrade, yield_hash, zombify,
     };
 }
 

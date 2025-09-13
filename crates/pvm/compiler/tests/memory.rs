@@ -1,6 +1,6 @@
 //! Tests for the Memory module
 
-use pvmc::{trap, Memory, MemoryLike};
+use pvmc::{Memory, MemoryLike, trap};
 
 const INIT_VALUE: u8 = 1;
 const REGION_SIZE: usize = pvm::PAGE_SIZE as usize;

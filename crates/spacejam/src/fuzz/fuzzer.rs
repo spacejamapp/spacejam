@@ -1,18 +1,19 @@
 //! Fuzzer related implementations
 
 use crate::fuzz::{
-    message::{KeyValue, Message, PeerInfo, SetState},
-    StreamExt, PROTOCOL_VERSION, VERSION,
+    StreamExt,
+    message::{Initialize, KeyValue, Message, PeerInfo, Version},
 };
 use anyhow::{Context, Result};
 use score::OpaqueHash;
 use serde_json::json;
 use std::{
+    collections::BTreeSet,
     fs,
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
 };
-use testing::{traces, Entry, Section, Test, Trace};
+use testing::{Entry, Section, Test, Trace, traces};
 
 /// The fuzzer
 pub struct Fuzzer {
@@ -43,7 +44,7 @@ impl Fuzzer {
             stream,
         };
 
-        fuzzer.handle(&entry)
+        fuzzer.handle(entry)
     }
 
     /// Execute a single test
@@ -55,7 +56,7 @@ impl Fuzzer {
             base: Default::default(),
             section: Section::Trace(Trace::Any),
             scale: None,
-            files: vec![test.to_path_buf()],
+            files: BTreeSet::from([test.to_path_buf()]),
             current: 0,
         };
 
@@ -69,24 +70,21 @@ impl Fuzzer {
     }
 
     /// Handle a new connection
-    pub fn handle(&mut self, source: &Entry) -> Result<()> {
-        // run the tests
-        let mut block = 1;
-        loop {
-            let Ok(test) = source.test(&format!("{:08}", block)) else {
-                tracing::info!("No more tests!");
-                return Ok(());
-            };
-
+    pub fn handle(&mut self, source: Entry) -> Result<()> {
+        for test in source {
+            if test.name.contains("genesis") {
+                continue;
+            }
             tracing::info!("Processing test: {}", test.name);
             self.import_block(test)?;
-            block += 1;
         }
+
+        tracing::info!("No more tests!");
+        Ok(())
     }
 
     /// Handle a new connection
     pub fn handle_single(&mut self, source: &Entry) -> Result<()> {
-        // run the tests
         let test = source.get(0).context("No test found")?;
         let input = traces::TestInput::from_json(&test.input)?;
         self.init_state(&input, &test.name)?;
@@ -124,7 +122,8 @@ impl Fuzzer {
     ) -> Result<()> {
         let received = self.stream.read_message()?;
         let Message::StateRoot(remote) = received else {
-            anyhow::bail!("Expected StateRoot message, got {:?}", received);
+            tracing::warn!("Expected StateRoot message, got {:?}", received);
+            return Ok(());
         };
 
         if remote == root {
@@ -139,7 +138,9 @@ impl Fuzzer {
         };
 
         fs::create_dir_all(&self.report)?;
-        let output = self.report.join(format!("{}-{name}.json", self.info.name));
+        let output = self
+            .report
+            .join(format!("{}-{name}.json", self.info.app_name));
         fs::write(
             &output,
             serde_json::to_string_pretty(&json!({
@@ -157,12 +158,7 @@ impl Fuzzer {
 
     /// Send the peer info
     pub fn peer_info(stream: &mut UnixStream) -> Result<PeerInfo> {
-        let info = PeerInfo {
-            name: "spacejam".into(),
-            version: VERSION,
-            protocol: PROTOCOL_VERSION,
-        };
-
+        let info = PeerInfo::default();
         stream.write_message(Message::Info(info))?;
 
         // receive the remote peer info
@@ -173,10 +169,11 @@ impl Fuzzer {
 
         // check the remote peer info
         tracing::info!("Received peer info: {received:?}");
-        if received.protocol != PROTOCOL_VERSION {
+        if received.jam_version != Version::PROTOCOL {
             anyhow::bail!(
-                "Expected protocol: {PROTOCOL_VERSION:?}, got {:?}",
-                received.protocol
+                "Expected protocol: {:?}, got {:?}",
+                Version::PROTOCOL,
+                received.jam_version
             );
         }
 
@@ -186,13 +183,14 @@ impl Fuzzer {
     /// initialize state
     pub fn init_state(&mut self, input: &traces::TestInput, name: &str) -> Result<()> {
         let state = Self::to_keyvals(input.pre_state.keyvals.clone());
-        let set_state = SetState {
+        let set_state = Initialize {
             header: input.block.header.clone(),
             state: state.clone(),
+            ancestry: vec![],
         };
 
         // verify the state root
-        self.stream.write_message(Message::SetState(set_state))?;
+        self.stream.write_message(Message::Initialize(set_state))?;
         self.verify_root(
             input.pre_state.state_root,
             name,

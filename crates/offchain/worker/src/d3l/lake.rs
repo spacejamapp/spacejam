@@ -1,11 +1,11 @@
 //! Data lake provider trait and implementations
 
-use crate::d3l::{shard, BundleShardJustification, PageProof, SegmentShardJustification};
 use crate::WorkPackageBundle;
+use crate::d3l::{BundleShardJustification, PageProof, SegmentShardJustification, shard};
 use anyhow::Result;
 use score::{
-    service::{WorkPackageSpec, WorkReport},
     OpaqueHash, Segment, WorkPackageHash,
+    service::{WorkPackageSpec, WorkReport},
 };
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;

@@ -3,7 +3,7 @@
 //! Maintain the known leaves of the chain (descendants of the latest
 //! finalized block with no known children).
 
-use crate::{peer::Connection, stream::ext::Write, Network};
+use crate::{Network, peer::Connection, stream::ext::Write};
 use anyhow::Result;
 use quinn::{RecvStream, SendStream};
 use runtime::chain::Direction;

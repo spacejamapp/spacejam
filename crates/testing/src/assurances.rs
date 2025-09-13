@@ -74,12 +74,12 @@ pub struct TestOutput {
 
 mod types {
     use score::{
+        HeaderHash, TimeSlot,
         extrinsic::{AssurancesExtrinsic, AvailAssuranceJson},
         safrole::{ValidatorDataJson, ValidatorsData},
         service::{
             AvailabilityAssignmentJson, AvailabilityAssignments, WorkReport, WorkReportJson,
         },
-        HeaderHash, TimeSlot,
     };
     use serde::{Deserialize, Serialize};
     use spacejson::Json;

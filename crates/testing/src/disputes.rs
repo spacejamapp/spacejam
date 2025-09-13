@@ -3,12 +3,12 @@
 use core::result::Result;
 use runtime::tx::{self, dispute::error::Error};
 use score::{
+    Ed25519Public, TimeSlot,
     extrinsic::dispute::{
         DisputesExtrinsic, DisputesExtrinsicJson, DisputesRecords, DisputesRecordsJson,
     },
     safrole::{ValidatorDataJson, ValidatorsData},
     service::{AvailabilityAssignmentJson, AvailabilityAssignments},
-    Ed25519Public, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::{Json, ResultJson};

@@ -1,7 +1,7 @@
 //! Enabled timing utilities for SpaceJam
 #![cfg(feature = "timing")]
 
-use super::{DefaultProfiler, Pass, Profiler, DESCRIPTIONS, NUM_PASSES};
+use super::{DESCRIPTIONS, DefaultProfiler, NUM_PASSES, Pass, Profiler};
 use std::{
     boxed::Box,
     cell::{Cell, RefCell},

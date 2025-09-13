@@ -1,7 +1,7 @@
 //! Macro blocks
 
 use crate::{Exit, Translator};
-use cranelift::prelude::{types, Block, InstBuilder, IntCC};
+use cranelift::prelude::{Block, InstBuilder, IntCC, types};
 use cranelift_frontend::FunctionBuilder;
 
 const HALT_TARGET: u64 = (u32::MAX - u16::MAX as u32) as u64;

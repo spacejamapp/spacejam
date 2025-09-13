@@ -1,14 +1,13 @@
 //! Cranelift JIT backend
 
-use crate::{engine, host, Artifact};
+use crate::{Artifact, Memory, engine, host};
 use anyhow::Result;
 use cranelift::prelude::FunctionBuilderContext;
 use cranelift_codegen::Context;
 use cranelift_jit::JITModule;
 use pvm::{
-    parser,
+    Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked, State,
 };
 
 /// Cranelift JIT module builder
@@ -69,7 +68,7 @@ impl Invocation for Compiler {
         let mut context = pvm::Context {
             registers: module.registers,
             gas: gas as i64,
-            memory: module.memory.clone(),
+            memory: Memory::new(&program.memory).expect("failed to create memory"),
             ctx: &mut ctx,
         };
 

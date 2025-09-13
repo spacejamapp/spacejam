@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::storage::{Column, Commit, KVStorage};
 use anyhow::Result;
-use score::{state::StateKeyLike, OpaqueHash, TrieKey};
+use score::{OpaqueHash, TrieKey, state::StateKeyLike};
 
 /// The archived storage
 pub trait ArchiveStorage: KVStorage + Send + Sync + 'static {

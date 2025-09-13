@@ -6,10 +6,10 @@ use podec::Encode;
 use pvm::{Accumulated, Invocation, Reason};
 use pvmi::Interpreter;
 use score::{
+    ServiceId,
     service::{Privileges, ServiceAccount, WorkExecResult, WorkPackage, WorkReport},
     state::account,
     vm::AccumulateState,
-    ServiceId,
 };
 use std::collections::BTreeMap;
 use worker::{Guarantor, InMemoryDataLake};

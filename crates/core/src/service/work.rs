@@ -1,8 +1,8 @@
 //! Work package related stuffs
 
 use crate::{
-    service::{PackageValidation, RefineContext, RefineContextJson},
     ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
+    service::{PackageValidation, RefineContext, RefineContextJson},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use score::{
+    OpaqueHash,
     block::{History, HistoryJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
-    OpaqueHash,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;

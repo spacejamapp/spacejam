@@ -1,10 +1,10 @@
 //! Chain environment
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use score::{
+    EntropyBuffer, OpaqueHash, ServiceId,
     block::Head,
     service::{RefineContext, ServiceAccount},
-    EntropyBuffer, OpaqueHash, ServiceId,
 };
 use std::collections::BTreeMap;
 

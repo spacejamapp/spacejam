@@ -3,13 +3,13 @@
 use peer::PeerId;
 use quinn::{Endpoint, VarInt};
 use runtime::{Runtime, Validator};
-use score::{block::Header, OpaqueHash};
+use score::{OpaqueHash, block::Header};
 use std::{
     collections::{HashMap, HashSet},
     ops::Deref,
     sync::Arc,
 };
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{RwLock, broadcast};
 pub use {
     config::Config,
     peer::{Address, Connection},

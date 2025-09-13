@@ -4,11 +4,11 @@ use anyhow::{Context, Result};
 use codec::JamCodec;
 use paste::paste;
 use score::{
-    block::{header::Header, Block},
+    block::{Block, header::Header},
     extrinsic::Extrinsic,
     extrinsic::{
-        dispute::DisputesExtrinsic, ticket::TicketEnvelope, AvailAssurance, Preimage,
-        ReportGuarantee,
+        AvailAssurance, Preimage, ReportGuarantee, dispute::DisputesExtrinsic,
+        ticket::TicketEnvelope,
     },
     service::{RefineContext, WorkItem, WorkPackage, WorkReport, WorkResult},
 };
