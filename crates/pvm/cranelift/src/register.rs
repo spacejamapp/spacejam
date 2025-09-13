@@ -59,6 +59,47 @@ impl Default for Registers {
 }
 
 impl Translator<'_> {
+    /// Init all registers
+    ///
+    /// NOTE: ignore the costs of the initial memory loads otherwise
+    /// we'll have ugly function signatures.
+    pub fn init_registers(&mut self, entry: Block) -> Value {
+        let params = self.builder.block_params(entry).to_vec();
+        let [vmctx, pc] = [params[0], params[1]];
+        self.pool.vmctx = vmctx;
+        self.pool.memory = self.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            vmctx,
+            offsets::MEMORY_OFFSET,
+        );
+
+        // init gas
+        {
+            self.pool.gas = self.builder.declare_var(types::I64);
+            let gas = self.builder.ins().load(
+                types::I64,
+                MemFlags::trusted(),
+                vmctx,
+                offsets::GAS_OFFSET,
+            );
+            self.context.builder.def_var(self.context.pool.gas, gas);
+        }
+
+        // init registers
+        for i in 0..13 {
+            let var = self.builder.declare_var(types::I64);
+            let val = self
+                .builder
+                .ins()
+                .load(types::I64, MemFlags::trusted(), vmctx, i as i32 * 8);
+            self.builder.def_var(var, val);
+            self.pool.registers[i] = var;
+        }
+
+        pc
+    }
+
     /// Sync registers to memory
     pub fn sync_registers(&mut self) {
         for i in 0..13 {

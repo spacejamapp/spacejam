@@ -5,7 +5,6 @@ use anyhow::Result;
 use cranelift_jit::JITModule;
 use cranelift_module::FuncId;
 use pvm::{Argument, Reason};
-use std::time::Instant;
 
 /// Module with compiled code
 pub struct Module {
@@ -28,54 +27,12 @@ impl Module {
         pc: u64,
     ) -> Result<Reason> {
         let func = unsafe {
-            std::mem::transmute::<
-                *const u8,
-                fn(
-                    // vmctx
-                    *mut pvm::Context<'_, X, Memory>,
-                    // pc
-                    u64,
-                    // gas
-                    i64,
-                    // registers
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                    u64,
-                ) -> (i64, i64),
-            >(self.jit.get_finalized_function(self.main))
+            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>, u64) -> (i64, i64)>(
+                self.jit.get_finalized_function(self.main),
+            )
         };
         ctx.registers = self.registers;
-        let now = Instant::now();
-        let result = match trap::with(|| {
-            func(
-                ctx,
-                pc,
-                ctx.gas,
-                ctx.registers[0],
-                ctx.registers[1],
-                ctx.registers[2],
-                ctx.registers[3],
-                ctx.registers[4],
-                ctx.registers[5],
-                ctx.registers[6],
-                ctx.registers[7],
-                ctx.registers[8],
-                ctx.registers[9],
-                ctx.registers[10],
-                ctx.registers[11],
-                ctx.registers[12],
-            )
-        }) {
+        let result = match trap::with(|| func(ctx, pc)) {
             Ok((gas, code)) => {
                 let reason = translator::Exit::to_reason(code);
                 tracing::debug!("exit code: {code}, reason: {reason:?}");
@@ -86,7 +43,6 @@ impl Module {
                 page: info.address as u32 / pvm::PAGE_SIZE as u32,
             },
         };
-        tracing::debug!("PVM execution time: {:?}", now.elapsed());
         Ok(result)
     }
 

@@ -3,7 +3,7 @@
 use crate::Compiler;
 pub use abi::*;
 use anyhow::Result;
-use cranelift::prelude::{AbiParam, Signature, types};
+use cranelift::prelude::Signature;
 use cranelift_codegen::ir::{FuncRef, Function};
 use cranelift_jit::JITBuilder;
 use cranelift_module::{FuncId, Linkage, Module};
@@ -16,6 +16,7 @@ pub const MGET: &str = "mget";
 pub const MSET: &str = "mset";
 
 mod abi;
+mod sig;
 
 /// Register host call symbols
 pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
@@ -52,36 +53,10 @@ impl Compiler {
 
     fn host_calls(&self) -> BTreeMap<String, Signature> {
         let mut map = BTreeMap::new();
-        map.insert(CALL.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.returns.push(AbiParam::new(types::I8));
-            sig
-        });
-        map.insert(SBRK.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.params.push(AbiParam::new(types::I8));
-            sig
-        });
-        map.insert(MGET.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.returns.push(AbiParam::new(types::I64));
-            sig
-        });
-        map.insert(MSET.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig
-        });
+        map.insert(CALL.to_string(), sig::CALL.clone());
+        map.insert(SBRK.to_string(), sig::SBRK.clone());
+        map.insert(MGET.to_string(), sig::MGET.clone());
+        map.insert(MSET.to_string(), sig::MSET.clone());
         map
     }
 }

@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Exit, Translator, offsets};
+use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{InstBuilder, IntCC, JumpTableData, MemFlags, types};
+use cranelift::prelude::{InstBuilder, IntCC, JumpTableData, types};
 use cranelift_codegen::ir::BlockCall;
 use parser::{Instruction, reader::Offset};
 use pvm::{MemoryInfo, Visitor};
@@ -28,27 +28,8 @@ impl Translator<'_> {
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
 
-        // init all registers from block parameters
-        let params = self.builder.block_params(entry).to_vec();
-        let [vmctx, pc, gas] = [params[0], params[1], params[2]];
-        self.pool.vmctx = vmctx;
-        self.pool.memory = self.builder.ins().load(
-            types::I64,
-            MemFlags::trusted(),
-            vmctx,
-            offsets::MEMORY_OFFSET,
-        );
-
-        // init all variables
-        self.pool.gas = self.builder.declare_var(types::I64);
-        self.context.builder.def_var(self.context.pool.gas, gas);
-        for i in 0..13 {
-            let reg = self.builder.declare_var(types::I64);
-            self.pool.registers[i] = reg;
-            self.builder.def_var(reg, params[i + 3]);
-        }
-
-        // create all blocks
+        // init all registers and blocks
+        let pc = self.init_registers(entry);
         for pc in func.keys() {
             let block = self.builder.create_block();
             self.blocks.insert(*pc, block);
