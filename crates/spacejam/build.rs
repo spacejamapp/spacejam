@@ -33,15 +33,15 @@ fn main() {
 mod fuzz {
     use proc_macro2::Span;
     use quote::quote;
-    use std::{env, fs, path::Path};
+    use std::{env, fs, path::Path, process::Command};
     use syn::{Ident, ItemFn, LitStr, parse_quote};
 
     /// Generate the fuzz tests
     pub fn generate(root: &Path) -> std::io::Result<()> {
-        let srouce = root.join("../../res/jam-conformance/fuzz-proto/examples/v1");
+        self::try_download(&root.join("../../"))?;
+        let source = root.join("../../res/jam-conformance/fuzz-proto/examples/v1");
         let mut tests: Vec<ItemFn> = Vec::new();
-        println!("reading from {srouce:?}");
-        for entry in fs::read_dir(srouce)? {
+        for entry in fs::read_dir(source)? {
             let entry = entry?;
             let path = entry.path();
             let ext = path.extension().expect("failed to get extension");
@@ -76,6 +76,23 @@ mod fuzz {
         let out = Path::new(&out_dir).join("fuzz.rs");
         println!("writing to {out:?}");
         fs::write(out, quote! { #(#tests)* }.to_string())?;
+        Ok(())
+    }
+
+    fn try_download(workspace: &Path) -> std::io::Result<()> {
+        if !workspace.join("res/jam-conformance").exists() {
+            Command::new("git")
+                .args([
+                    "clone",
+                    "https://github.com/spacejamapp/jam-conformance",
+                    "res/jam-conformance",
+                    "--depth",
+                    "1",
+                ])
+                .current_dir(workspace)
+                .output()?;
+        }
+
         Ok(())
     }
 }
