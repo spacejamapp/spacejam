@@ -5,7 +5,7 @@ use cranelift_codegen::isa::CallConv;
 use std::sync::LazyLock;
 
 /// The signature of the general host call
-pub static CALL: LazyLock<Signature> = LazyLock::new(|| Signature {
+pub static ECALLI: LazyLock<Signature> = LazyLock::new(|| Signature {
     params: vec![AbiParam::new(types::I32), AbiParam::new(types::I64)],
     returns: vec![AbiParam::new(types::I8)],
     call_conv: CallConv::Fast,

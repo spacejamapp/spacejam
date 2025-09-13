@@ -6,6 +6,9 @@ use cranelift_jit::JITModule;
 use cranelift_module::FuncId;
 use pvm::{Argument, Reason};
 
+/// The signature of the main function
+type MainSig<X> = fn(*const u8, *mut pvm::Context<'_, X, Memory>, u64) -> (i64, i64);
+
 /// Module with compiled code
 pub struct Module {
     /// Code of the module
@@ -27,12 +30,11 @@ impl Module {
         pc: u64,
     ) -> Result<Reason> {
         let func = unsafe {
-            std::mem::transmute::<*const u8, fn(*mut pvm::Context<'_, X, Memory>, u64) -> (i64, i64)>(
-                self.jit.get_finalized_function(self.main),
-            )
+            std::mem::transmute::<*const u8, MainSig<X>>(self.jit.get_finalized_function(self.main))
         };
         ctx.registers = self.registers;
-        let result = match trap::with(|| func(ctx, pc)) {
+        let table = crate::host::table::<X>();
+        let result = match trap::with(|| func(table, ctx, pc)) {
             Ok((gas, code)) => {
                 let reason = translator::Exit::to_reason(code);
                 tracing::debug!("exit code: {code}, reason: {reason:?}");

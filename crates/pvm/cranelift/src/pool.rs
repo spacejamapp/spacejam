@@ -31,11 +31,11 @@ pub mod offsets {
 /// Total 16 registers, we actually use memory as the base and then
 /// calculate the offsets back to the base.
 #[derive(Clone)]
-pub struct Registers {
+pub struct Pool {
     /// Register values (13 registers)
     ///
     /// [RA, SP, T0, T1, T2, S0, S1, A0, A1, A2, A3, A4, A5]
-    pub registers: [Variable; 13],
+    pub registers: [Variable; pvm::REGISTER_COUNT],
 
     /// Current gas value (SSA)
     pub gas: Variable,
@@ -45,15 +45,38 @@ pub struct Registers {
 
     /// The VM context pointer
     pub vmctx: Value,
+
+    /// The host call addresses
+    pub call: Call,
 }
 
-impl Default for Registers {
+impl Default for Pool {
     fn default() -> Self {
         Self {
             memory: Value::new(0),
-            registers: [Variable::new(0); 13],
+            registers: [Variable::new(0); pvm::REGISTER_COUNT],
             gas: Variable::new(0),
             vmctx: Value::new(0),
+            call: Call::default(),
+        }
+    }
+}
+
+/// Host call addresses
+#[derive(Clone)]
+pub struct Call {
+    /// The general host call ptr
+    pub ecalli: Value,
+
+    /// The sbrk host call ptr
+    pub sbrk: Value,
+}
+
+impl Default for Call {
+    fn default() -> Self {
+        Self {
+            ecalli: Value::new(0),
+            sbrk: Value::new(0),
         }
     }
 }
@@ -63,9 +86,9 @@ impl Translator<'_> {
     ///
     /// NOTE: ignore the costs of the initial memory loads otherwise
     /// we'll have ugly function signatures.
-    pub fn init_registers(&mut self, entry: Block) -> Value {
+    pub fn init_pool(&mut self, entry: Block) -> Value {
         let params = self.builder.block_params(entry).to_vec();
-        let [vmctx, pc] = [params[0], params[1]];
+        let [table, vmctx, pc] = [params[0], params[1], params[2]];
         self.pool.vmctx = vmctx;
         self.pool.memory = self.builder.ins().load(
             types::I64,
@@ -87,7 +110,7 @@ impl Translator<'_> {
         }
 
         // init registers
-        for i in 0..13 {
+        for i in 0..pvm::REGISTER_COUNT {
             let var = self.builder.declare_var(types::I64);
             let val = self
                 .builder
@@ -95,6 +118,24 @@ impl Translator<'_> {
                 .load(types::I64, MemFlags::trusted(), vmctx, i as i32 * 8);
             self.builder.def_var(var, val);
             self.pool.registers[i] = var;
+        }
+
+        // init call
+        {
+            // let table = self
+            //     .builder
+            //     .ins()
+            //     .load(types::I64, MemFlags::trusted(), table, 0);
+            self.pool.call = Call {
+                ecalli: self
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 0),
+                sbrk: self
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 8),
+            };
         }
 
         pc

@@ -14,16 +14,17 @@ use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
-    register::{Registers, offsets},
+    pool::{Pool, offsets},
 };
 
 mod context;
 mod control;
 mod exit;
+pub mod host;
 mod masm;
 mod math;
 mod memory;
-mod register;
+mod pool;
 mod translate;
 mod visitor;
 
@@ -67,7 +68,7 @@ impl<'b> Translator<'b> {
 
         let masm = MacroBlocks::new(&mut builder);
         let context = Context {
-            pool: Registers::default(),
+            pool: Pool::default(),
             builder,
         };
 
@@ -81,24 +82,5 @@ impl<'b> Translator<'b> {
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
-    }
-
-    /// Reset the translator for new functions
-    pub fn reset(
-        &mut self,
-        blocks: &[u64],
-        func: &'b mut Function,
-        ctx: &'b mut FunctionBuilderContext,
-    ) {
-        let mut iblocks = BTreeMap::new();
-        let mut builder = FunctionBuilder::new(func, ctx);
-        for pc in blocks {
-            iblocks.insert(*pc, builder.create_block());
-        }
-
-        self.blocks = iblocks;
-        self.masm = MacroBlocks::new(&mut builder);
-        self.pool = Registers::default();
-        self.builder = builder;
     }
 }

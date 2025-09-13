@@ -6,7 +6,7 @@ use pvm::{Argument, MemoryLike};
 ///
 /// This function is called from JIT-compiled code to invoke host functions.
 /// It casts the raw context pointer and delegates to [pvm::host::call]
-pub extern "C" fn call<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
+pub extern "C" fn ecalli<X: Argument>(index: u32, ctx: *mut u8) -> u8 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
     if context.gas < 0 {
         return 4;

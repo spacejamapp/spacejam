@@ -483,6 +483,15 @@ impl Visitor for Translator<'_> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
         self.sync_registers();
+        // let sig = self
+        //     .context
+        //     .builder
+        //     .import_signature(crate::host::ECALLI.clone());
+        // let inst = self.context.builder.ins().call_indirect(
+        //     sig,
+        //     self.context.pool.call.ecalli,
+        //     &[index, self.context.pool.vmctx],
+        // );
         let inst = self
             .context
             .builder

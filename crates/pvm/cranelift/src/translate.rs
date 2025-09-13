@@ -29,7 +29,7 @@ impl Translator<'_> {
         self.builder.switch_to_block(entry);
 
         // init all registers and blocks
-        let pc = self.init_registers(entry);
+        let pc = self.init_pool(entry);
         for pc in func.keys() {
             let block = self.builder.create_block();
             self.blocks.insert(*pc, block);
