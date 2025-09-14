@@ -1,34 +1,13 @@
 //! Cranelift JIT backend
 
-use crate::{Artifact, Memory, engine, host};
-use anyhow::Result;
-use cranelift_jit::JITModule;
+use crate::{Memory, Module};
 use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
 
 /// Cranelift JIT module builder
-pub struct Compiler {
-    /// Cranelift JIT module builder
-    pub module: JITModule,
-
-    /// Artifact
-    pub artifact: Artifact,
-}
-
-impl Compiler {
-    /// Create new JIT module builder for host functions
-    pub fn new<X: Argument>() -> Result<Self> {
-        let mut builder = engine::compilation()?;
-        host::symbols::<X>(&mut builder);
-        let module = JITModule::new(builder);
-        Ok(Self {
-            module,
-            artifact: Artifact::new()?,
-        })
-    }
-}
+pub struct Compiler;
 
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(
@@ -40,7 +19,7 @@ impl Invocation for Compiler {
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let pvmc = Self::new::<X>().expect("fix me later");
+        let pvmc = Module::new::<X>().expect("fix me later");
         let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
             registers: program.registers,

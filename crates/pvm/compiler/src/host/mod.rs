@@ -1,6 +1,5 @@
 //! Host call trampoline
 
-use crate::Compiler;
 pub use abi::*;
 use anyhow::Result;
 use cranelift::prelude::Signature;
@@ -37,7 +36,7 @@ pub fn table<X: Argument>() -> *const u8 {
     table.as_ptr() as *const u8
 }
 
-impl Compiler {
+impl crate::Module {
     /// Declare the host functions
     pub fn declare_host_in_func(
         &mut self,

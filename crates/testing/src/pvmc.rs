@@ -2,7 +2,7 @@
 
 use crate::pvmi::{TestInput, TestOutput, to_test_memory};
 use anyhow::Result;
-use pvmc::Compiler;
+use pvmc::Module;
 use serde::{Deserialize, Serialize};
 use specjam::Test;
 use std::borrow::Cow;
@@ -64,7 +64,7 @@ impl Runner {
             }
         }
 
-        let module = Compiler::new::<()>()?.compile(&pvm::Program {
+        let module = Module::new::<()>()?.compile(&pvm::Program {
             code: input.program.to_vec(),
             registers: initial_registers,
             memory: memory.clone(),

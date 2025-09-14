@@ -1,13 +1,12 @@
 //! Preimage program blob.
 
-use crate::program::StandardProgramBlob;
+use crate::program::{ConventionalMetadata, StandardProgramBlob};
 use codec::{io, Reader};
-use std::vec::Vec;
 
 /// A JAM-specific program blob.
 pub struct PreimageBlob {
     /// the program metadata
-    pub metadata: Vec<u8>,
+    pub metadata: ConventionalMetadata,
 
     /// The standard program blob
     pub blob: StandardProgramBlob,
@@ -23,7 +22,7 @@ impl PreimageBlob {
             .ok_or_else(|| anyhow::anyhow!("EOF while reading metadata"))?;
         let blob = StandardProgramBlob::try_from(bytes)?;
         Ok(PreimageBlob {
-            metadata: metadata.to_vec(),
+            metadata: codec::decode(&metadata)?,
             blob,
         })
     }

@@ -1,19 +1,33 @@
-//! Cranelift JIT backend
+//! Compiled function metadata
 
-use crate::{Compiler, Module};
+use crate::{Artifact, Memory, engine, host, trap};
 use anyhow::Result;
 use cranelift::prelude::{AbiParam, FunctionBuilderContext, Signature, types};
 use cranelift_codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv};
+use cranelift_jit::JITModule;
+use cranelift_module::FuncId;
 use cranelift_module::{Linkage, Module as _, ModuleReloc};
-use pvm::Program;
+use pvm::{Argument, Program, Reason};
 use translator::Translator;
+
+/// The signature of the main function
+type MainSig<X> = fn(*mut pvm::Context<'_, X, Memory>, u64) -> (i64, i64);
+
+/// Module with compiled code
+pub struct Module {
+    /// Code of the module
+    pub module: JITModule,
+}
 
 const MAIN: &str = "main";
 
-impl Compiler {
-    /// Compile the program with cache
-    pub fn compile_with_cache(self, program: &Program) -> Result<Module> {
-        self.compile(program)
+impl Module {
+    /// Create new JIT module builder for host functions
+    pub fn new<X: Argument>() -> Result<Self> {
+        let mut builder = engine::compilation()?;
+        host::symbols::<X>(&mut builder);
+        let module = JITModule::new(builder);
+        Ok(Self { module })
     }
 
     /// Declare functions for the program
@@ -33,11 +47,12 @@ impl Compiler {
         };
 
         // compile the program with cache
+        let mut artifact = Artifact::new()?;
         let func = self.translate(&mut ctx, program)?;
         let isa = self.module.isa();
         let mut cpanel = ControlPlane::default();
         let (compiled, _hits) = ctx
-            .compile_with_cache(isa, &mut self.artifact, &mut cpanel)
+            .compile_with_cache(isa, &mut artifact, &mut cpanel)
             .map_err(|e| anyhow::anyhow!("failed to compile program: {:?}", e))?;
 
         // relocate the function
@@ -51,7 +66,7 @@ impl Compiler {
         self.module
             .define_function_bytes(main, 1, compiled.code_buffer(), &relocs)?;
         self.module.finalize_definitions()?;
-        Ok(Module { jit: self.module })
+        Ok(self)
     }
 
     /// Translate the program to CLIF
@@ -71,4 +86,31 @@ impl Compiler {
         }
         Ok(ctx.func.clone())
     }
+
+    /// Execute compiled function
+    pub fn execute<X: Argument>(
+        &self,
+        ctx: &mut pvm::Context<'_, X, Memory>,
+        pc: u64,
+    ) -> Result<Reason> {
+        let main = FuncId::from_u32(0);
+        let func = unsafe {
+            std::mem::transmute::<*const u8, MainSig<X>>(self.module.get_finalized_function(main))
+        };
+        let result = match trap::with(|| func(ctx, pc)) {
+            Ok((gas, code)) => {
+                let reason = translator::Exit::to_reason(code);
+                tracing::debug!("exit code: {code}, reason: {reason:?}");
+                ctx.gas = gas;
+                reason
+            }
+            Err(info) => Reason::Fault {
+                page: info.address as u32 / pvm::PAGE_SIZE as u32,
+            },
+        };
+        Ok(result)
+    }
 }
+
+unsafe impl Send for Module {}
+unsafe impl Sync for Module {}

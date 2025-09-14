@@ -95,8 +95,8 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match Compiler::new::<X>()?
-        .compile_with_cache(&parser::program::preimage(code, &args).expect("failed to preimage"))
+    match Module::new::<X>()?
+        .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {
             if let Ok(mut locks) = SPACEVM_MODULES.write()
