@@ -5,7 +5,7 @@ use anyhow::Result;
 use cranelift::prelude::Signature;
 use cranelift_codegen::ir::{FuncRef, Function};
 use cranelift_jit::JITBuilder;
-use cranelift_module::{FuncId, Linkage, Module};
+use cranelift_module::{FuncId, Linkage};
 use pvm::Argument;
 use std::collections::BTreeMap;
 
@@ -36,37 +36,37 @@ pub fn table<X: Argument>() -> *const u8 {
     table.as_ptr() as *const u8
 }
 
-impl crate::Module {
-    /// Declare the host functions
-    pub fn declare_host_in_func(
-        &mut self,
-        host: BTreeMap<String, FuncId>,
-        func: &mut Function,
-    ) -> Result<BTreeMap<String, FuncRef>> {
-        let mut map = BTreeMap::new();
-        for (name, id) in host {
-            let func = self.module.declare_func_in_func(id, func);
-            map.insert(name, func);
-        }
-        Ok(map)
+/// Declare the host functions
+pub fn declare_host_in_func(
+    module: &mut impl cranelift_module::Module,
+    host: BTreeMap<String, FuncId>,
+    func: &mut Function,
+) -> Result<BTreeMap<String, FuncRef>> {
+    let mut map = BTreeMap::new();
+    for (name, id) in host {
+        let func = module.declare_func_in_func(id, func);
+        map.insert(name, func);
     }
+    Ok(map)
+}
 
-    /// Declare the host functions in the module
-    pub fn declare_host_in_module(&mut self) -> Result<BTreeMap<String, FuncId>> {
-        let mut map = BTreeMap::new();
-        for (name, sig) in self.host_calls() {
-            let id = self.module.declare_function(&name, Linkage::Import, &sig)?;
-            map.insert(name, id);
-        }
-        Ok(map)
+/// Declare the host functions in the module
+pub fn declare_host_in_module(
+    module: &mut impl cranelift_module::Module,
+) -> Result<BTreeMap<String, FuncId>> {
+    let mut map = BTreeMap::new();
+    for (name, sig) in host_calls() {
+        let id = module.declare_function(&name, Linkage::Import, &sig)?;
+        map.insert(name, id);
     }
+    Ok(map)
+}
 
-    fn host_calls(&self) -> BTreeMap<String, Signature> {
-        let mut map = BTreeMap::new();
-        map.insert(CALL.to_string(), sig::ECALLI.clone());
-        map.insert(SBRK.to_string(), sig::SBRK.clone());
-        map.insert(MGET.to_string(), sig::MGET.clone());
-        map.insert(MSET.to_string(), sig::MSET.clone());
-        map
-    }
+fn host_calls() -> BTreeMap<String, Signature> {
+    let mut map = BTreeMap::new();
+    map.insert(CALL.to_string(), sig::ECALLI.clone());
+    map.insert(SBRK.to_string(), sig::SBRK.clone());
+    map.insert(MGET.to_string(), sig::MGET.clone());
+    map.insert(MSET.to_string(), sig::MSET.clone());
+    map
 }
