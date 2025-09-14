@@ -5,19 +5,19 @@ use anyhow::Result;
 use cranelift::prelude::{AbiParam, FunctionBuilderContext, Signature, types};
 use cranelift_codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv};
 use cranelift_module::{Linkage, Module as _, ModuleReloc};
-use pvm::{Program, score::OpaqueHash};
+use pvm::Program;
 use translator::Translator;
 
 const MAIN: &str = "main";
 
 impl Compiler {
     /// Compile the program with cache
-    pub fn compile_with_cache(self, program: &Program, hash: Option<OpaqueHash>) -> Result<Module> {
-        self.compile(program, hash)
+    pub fn compile_with_cache(self, program: &Program) -> Result<Module> {
+        self.compile(program)
     }
 
     /// Declare functions for the program
-    pub fn compile(mut self, program: &Program, _hash: Option<OpaqueHash>) -> Result<Module> {
+    pub fn compile(mut self, program: &Program) -> Result<Module> {
         let signature = Signature {
             params: vec![AbiParam::new(types::I64); 2],
             returns: vec![AbiParam::new(types::I64); 2],

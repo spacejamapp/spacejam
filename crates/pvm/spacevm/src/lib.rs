@@ -93,10 +93,8 @@ pub fn compile<X: Argument>(
 
     match Compiler::host::<X>()
         .expect("fix me later")
-        .compile_with_cache(
-            &parser::program::preimage(code, &args).expect("failed to preimage"),
-            Some(hash),
-        ) {
+        .compile_with_cache(&parser::program::preimage(code, &args).expect("failed to preimage"))
+    {
         Ok(module) => {
             if let Ok(mut locks) = SPACEVM_MODULES.write()
                 && memcache
