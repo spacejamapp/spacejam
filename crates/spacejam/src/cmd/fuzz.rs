@@ -32,6 +32,10 @@ pub enum Fuzz {
         #[clap(default_value = "reports", short, long)]
         report: PathBuf,
 
+        /// The directory for the compilation cache
+        #[clap(short, long)]
+        cache: Option<PathBuf>,
+
         /// The path to the exact input file
         #[clap(short, long)]
         exact: Option<PathBuf>,
@@ -53,8 +57,15 @@ impl Fuzz {
                 socket,
                 traces,
                 report,
+                cache,
                 exact,
             } => {
+                if let Some(cache) = cache
+                    && let Err(e) = spacevm::SPACEVM_CACHE_DIR.set(Some(cache.join("spacevm")))
+                {
+                    tracing::warn!("failed to specify cache directory: {e:?}");
+                }
+
                 if let Some(exact) = exact {
                     Fuzzer::execute(socket, exact, report)
                 } else {

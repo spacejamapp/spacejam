@@ -6,7 +6,7 @@ use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, Memory, Module};
+pub use pvmc::{Artifact, Compiler, Memory, Module, SPACEVM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
@@ -71,7 +71,11 @@ impl Invocation for SpaceVM {
             {
                 let code = code.clone();
                 let args = args.clone();
-                tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash, true));
+                tokio::task::spawn_blocking(move || {
+                    if let Err(e) = self::compile::<X>(code, args, hash, true) {
+                        tracing::warn!("failed to compile program: {e:?}");
+                    }
+                });
             }
         }
 
@@ -91,8 +95,7 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match Compiler::host::<X>()
-        .expect("fix me later")
+    match Compiler::host::<X>()?
         .compile_with_cache(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {
