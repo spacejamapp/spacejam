@@ -13,6 +13,10 @@ pub enum Fuzz {
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
 
+        /// The directory for the compilation cache
+        #[clap(short, long)]
+        cache: Option<PathBuf>,
+
         /// If use interpreter instead
         #[clap(short, long)]
         interp: bool,
@@ -32,10 +36,6 @@ pub enum Fuzz {
         #[clap(default_value = "reports", short, long)]
         report: PathBuf,
 
-        /// The directory for the compilation cache
-        #[clap(short, long)]
-        cache: Option<PathBuf>,
-
         /// The path to the exact input file
         #[clap(short, long)]
         exact: Option<PathBuf>,
@@ -52,13 +52,10 @@ impl Fuzz {
     /// Run the fuzz command
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target { socket, interp } => Target::serve(socket, *interp).await,
-            Self::Fuzzer {
+            Self::Target {
                 socket,
-                traces,
-                report,
+                interp,
                 cache,
-                exact,
             } => {
                 if let Some(cache) = cache
                     && let Err(e) = spacevm::SPACEVM_CACHE_DIR.set(Some(cache.join("spacevm")))
@@ -66,6 +63,14 @@ impl Fuzz {
                     tracing::warn!("failed to specify cache directory: {e:?}");
                 }
 
+                Target::serve(socket, *interp).await
+            }
+            Self::Fuzzer {
+                socket,
+                traces,
+                report,
+                exact,
+            } => {
                 if let Some(exact) = exact {
                     Fuzzer::execute(socket, exact, report)
                 } else {
