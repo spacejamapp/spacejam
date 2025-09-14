@@ -149,7 +149,7 @@ impl Header {
 
         // check the ticket seal
         let author_index = self.author_index;
-        let seal0 = self.seal.clone();
+        let seal0 = self.seal;
         let verifier0 = verifier.clone();
         let ts = tokio::task::spawn_blocking(move || {
             let output = verifier0
@@ -168,8 +168,8 @@ impl Header {
         });
 
         // verify entropy source
-        let seal = self.seal.clone();
-        let entropy_source = self.entropy_source.clone();
+        let seal = self.seal;
+        let entropy_source = self.entropy_source;
         let es = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
             let extracted_vrf_output = crypto::vrf::ietf_output(seal)?;
             let entropy_message = [&crate::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();

@@ -209,7 +209,7 @@ impl Target {
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
         if self.interp {
-            let _ = init::verifier(data).await?;
+            init::verifier(data).await?;
         } else {
             let (vr, pr) = tokio::try_join!(
                 tokio::spawn(init::verifier(data.clone())),
