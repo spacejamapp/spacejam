@@ -1,7 +1,7 @@
 //! Cache for the compiled modules
 
 use anyhow::Result;
-use cranelift_codegen::incremental_cache::CacheKvStore;
+use cranelift::codegen::incremental_cache::CacheKvStore;
 use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
 
 /// Cache directory for the compiled modules

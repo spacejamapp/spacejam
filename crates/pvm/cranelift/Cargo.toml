@@ -6,9 +6,6 @@ authors.workspace = true
 
 [dependencies]
 cranelift.workspace = true
-cranelift-codegen.workspace = true
-cranelift-frontend.workspace = true
-cranelift-native.workspace = true
 pvm.workspace = true
 pvm-parser.workspace = true
 anyhow.workspace = true

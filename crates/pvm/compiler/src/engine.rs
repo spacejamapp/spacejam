@@ -1,10 +1,10 @@
 //! SpaceJam PVM compiler engine
 
 use anyhow::Result;
-use cranelift::prelude::Configurable;
-use cranelift_codegen::settings;
-use cranelift_jit::JITBuilder;
-use cranelift_module::default_libcall_names;
+use cranelift::{
+    codegen::settings, jit::JITBuilder, module::default_libcall_names, native,
+    prelude::Configurable,
+};
 
 /// Sort of config for the compilation
 pub struct Engine;
@@ -24,7 +24,7 @@ impl Engine {
         builder.set("enable_pcc", "false")?;
 
         // Create the ISA builder and finish it with the flags
-        let isa_builder = cranelift_native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(builder))?;
         Ok(JITBuilder::with_isa(isa, default_libcall_names()))
     }
@@ -43,7 +43,7 @@ impl Engine {
         builder.set("enable_pcc", "false")?;
 
         // Create the ISA builder and finish it with the flags
-        let isa_builder = cranelift_native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(builder))?;
         Ok(JITBuilder::with_isa(isa, default_libcall_names()))
     }

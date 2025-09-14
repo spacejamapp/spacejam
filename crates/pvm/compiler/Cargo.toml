@@ -11,15 +11,8 @@ object.workspace = true
 postcard.workspace = true
 pvm.workspace = true
 translator.workspace = true
-cranelift.workspace = true
-cranelift-codegen = { workspace = true, features = [
-    "incremental-cache",
-    "serde",
-] }
-cranelift-native.workspace = true
-cranelift-jit.workspace = true
-cranelift-module.workspace = true
-cranelift-object.workspace = true
+cranelift = { workspace = true, features = ["native", "jit", "module"] }
+cranelift-codegen = { workspace = true, features = ["incremental-cache"] }
 tracing.workspace = true
 libc.workspace = true
 

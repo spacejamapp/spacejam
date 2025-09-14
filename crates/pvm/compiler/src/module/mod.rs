@@ -1,10 +1,12 @@
 //! Compiled function metadata
 
-use crate::{Artifact, Memory, host};
+use crate::{Artifact, host};
 use anyhow::Result;
-use cranelift::prelude::{AbiParam, FunctionBuilderContext, Signature, types};
-use cranelift_codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv};
-use cranelift_module::{Linkage, ModuleReloc};
+use cranelift::{
+    codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv},
+    module::{self, Linkage, ModuleReloc},
+    prelude::{AbiParam, FunctionBuilderContext, Signature, types},
+};
 pub use jit::JITModule;
 use pvm::{Argument, Program, Reason};
 use translator::Translator;
@@ -13,8 +15,9 @@ mod jit;
 mod object;
 
 /// The signature of the main function
-pub type MainSig<X> = fn(*mut pvm::Context<'_, X, Memory>, u64) -> (i64, i64);
+pub type MainSig<X> = fn(*mut X, u64) -> (i64, i64);
 
+/// The name of the main function
 pub const MAIN: &str = "main";
 
 /// A trait for module-like objects.
@@ -26,15 +29,11 @@ pub trait ModuleLike: Sized {
     fn compile(self, program: &Program) -> Result<Self>;
 
     /// Execute a program
-    fn execute<X: Argument>(
-        &self,
-        ctx: &mut pvm::Context<'_, X, Memory>,
-        pc: u64,
-    ) -> Result<Reason>;
+    fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason>;
 }
 
 /// Declare functions for the program
-pub fn compile(module: &mut impl cranelift_module::Module, program: &Program) -> Result<()> {
+pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()> {
     let signature = Signature {
         params: vec![AbiParam::new(types::I64); 2],
         returns: vec![AbiParam::new(types::I64); 2],
@@ -70,14 +69,13 @@ pub fn compile(module: &mut impl cranelift_module::Module, program: &Program) ->
 
 /// Translate the program to CLIF
 fn translate(
-    module: &mut impl cranelift_module::Module,
+    module: &mut impl module::Module,
     ctx: &mut Context,
     program: &Program,
 ) -> Result<Function> {
-    let host = host::declare_host_in_module(module)?;
+    let host = host::declare(module, &mut ctx.func)?;
     let blob = program.blob()?;
     let code = blob.read_blocks()?;
-    let host = host::declare_host_in_func(module, host, &mut ctx.func)?;
     let minfo = program.memory.info.clone();
     let mut bctx = FunctionBuilderContext::new();
     let mut translator = Translator::new(&[], &mut ctx.func, &mut bctx)?;

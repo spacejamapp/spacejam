@@ -2,8 +2,7 @@
 
 use crate::{Translator, exit::Exit};
 use anyhow::Result;
-use cranelift::prelude::*;
-use cranelift_codegen::ir::BlockArg;
+use cranelift::{codegen::ir::BlockArg, prelude::*};
 
 impl Translator<'_> {
     /// generate branch instruction

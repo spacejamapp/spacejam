@@ -2,8 +2,7 @@
 
 use crate::{Exit, Pool, Translator};
 use anyhow::Result;
-use cranelift::prelude::{InstBuilder, IntCC, Value};
-use cranelift_frontend::FunctionBuilder;
+use cranelift::prelude::{FunctionBuilder, InstBuilder, IntCC, Value};
 use parser::{Instruction, format, reader::Offset};
 use pvm::Visitor;
 use std::ops::{Deref, DerefMut, Range};

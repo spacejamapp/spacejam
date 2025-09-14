@@ -9,8 +9,10 @@
 use crate::masm::MacroBlocks;
 use anyhow::Result;
 use context::Context;
-use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
+use cranelift::{
+    codegen::ir::{Block, FuncRef, Function, JumpTable},
+    prelude::*,
+};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
@@ -36,7 +38,7 @@ pub struct Translator<'b> {
     pub blocks: BTreeMap<u64, Block>,
 
     /// The host call function
-    pub host: BTreeMap<String, FuncRef>,
+    pub host: BTreeMap<&'static str, FuncRef>,
 
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,

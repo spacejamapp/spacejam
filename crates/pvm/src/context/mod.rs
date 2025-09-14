@@ -62,6 +62,10 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.gas as u64
     }
 
+    fn set_gas(&mut self, gas: Gas) {
+        self.gas = gas as i64;
+    }
+
     fn index(&self) -> ServiceId {
         self.ctx.index()
     }

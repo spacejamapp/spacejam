@@ -1,13 +1,14 @@
 //! Translator API V2
 
-use std::collections::BTreeMap;
-
 use crate::{Exit, Translator};
 use anyhow::Result;
-use cranelift::prelude::{InstBuilder, IntCC, JumpTableData, types};
-use cranelift_codegen::ir::BlockCall;
+use cranelift::{
+    codegen::ir::BlockCall,
+    prelude::{InstBuilder, IntCC, JumpTableData, types},
+};
 use parser::{Instruction, reader::Offset};
 use pvm::{MemoryInfo, Visitor};
+use std::collections::BTreeMap;
 
 const ACCUMULATE_PC: u64 = 5;
 const REFINE_PC: u64 = 0;
