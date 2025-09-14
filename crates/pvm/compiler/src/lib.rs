@@ -6,7 +6,7 @@ pub use {
     cranelift_codegen::timing,
     engine::Engine,
     memory::Memory,
-    module::{JITModule, ModuleLike},
+    module::{JITModule, ModuleLike, ObjectModule},
     pvm::MemoryLike,
     translator::Translator,
     trap::TrapInfo,

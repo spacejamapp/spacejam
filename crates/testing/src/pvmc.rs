@@ -68,6 +68,7 @@ impl Runner {
             code: input.program.to_vec(),
             registers: initial_registers,
             memory: memory.clone(),
+            meta: Default::default(),
         })?;
 
         let mut ctx = pvm::Context {

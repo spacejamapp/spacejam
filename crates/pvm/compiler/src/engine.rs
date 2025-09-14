@@ -1,17 +1,15 @@
 //! SpaceJam PVM compiler engine
 
 use anyhow::Result;
-use cranelift::{
-    codegen::settings, jit::JITBuilder, module::default_libcall_names, native,
-    prelude::Configurable,
-};
+use cranelift::{codegen::settings, native, prelude::Configurable};
+use cranelift_codegen::isa::OwnedTargetIsa;
 
 /// Sort of config for the compilation
 pub struct Engine;
 
 impl Engine {
     /// Maximum number of compilation speed
-    pub fn compilation() -> Result<JITBuilder> {
+    pub fn compilation() -> Result<OwnedTargetIsa> {
         let mut builder = settings::builder();
         builder.set("opt_level", "none")?;
         builder.set("enable_verifier", "false")?;
@@ -26,11 +24,11 @@ impl Engine {
         // Create the ISA builder and finish it with the flags
         let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(builder))?;
-        Ok(JITBuilder::with_isa(isa, default_libcall_names()))
+        Ok(isa)
     }
 
     /// Maximum number of execution speed
-    pub fn speed() -> Result<JITBuilder> {
+    pub fn speed() -> Result<OwnedTargetIsa> {
         let mut builder = settings::builder();
         builder.set("opt_level", "speed")?;
         builder.set("enable_verifier", "false")?;
@@ -45,6 +43,6 @@ impl Engine {
         // Create the ISA builder and finish it with the flags
         let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
         let isa = isa_builder.finish(settings::Flags::new(builder))?;
-        Ok(JITBuilder::with_isa(isa, default_libcall_names()))
+        Ok(isa)
     }
 }

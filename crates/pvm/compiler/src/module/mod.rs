@@ -7,9 +7,9 @@ use cranelift::{
     module::{self, Linkage, ModuleReloc},
     prelude::{AbiParam, FunctionBuilderContext, Signature, types},
 };
-pub use jit::JITModule;
 use pvm::{Argument, Program, Reason};
 use translator::Translator;
+pub use {jit::JITModule, object::ObjectModule};
 
 mod jit;
 mod object;

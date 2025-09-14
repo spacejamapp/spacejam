@@ -6,7 +6,11 @@ use crate::{
     trap,
 };
 use anyhow::Result;
-use cranelift::{jit, module::FuncId};
+use cranelift::{
+    jit,
+    jit::JITBuilder,
+    module::{FuncId, default_libcall_names},
+};
 use pvm::{Argument, Program, Reason};
 
 /// JIT module
@@ -14,7 +18,8 @@ pub struct JITModule(jit::JITModule);
 
 impl ModuleLike for JITModule {
     fn new<X: Argument>() -> Result<Self> {
-        let mut builder = Engine::compilation()?;
+        let isa = Engine::compilation()?;
+        let mut builder = JITBuilder::with_isa(isa, default_libcall_names());
         host::symbols::<X>(&mut builder);
         let module = jit::JITModule::new(builder);
         Ok(Self(module))

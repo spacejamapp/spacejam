@@ -9,8 +9,23 @@ pub enum ConventionalMetadata {
     Info(CrateInfo),
 }
 
+impl ConventionalMetadata {
+    /// Get the name of the crate.
+    pub fn info(&self) -> &CrateInfo {
+        match self {
+            Self::Info(info) => info,
+        }
+    }
+}
+
+impl Default for ConventionalMetadata {
+    fn default() -> Self {
+        Self::Info(CrateInfo::default())
+    }
+}
+
 /// Information on a crate, useful for building conventional medata of type 0.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct CrateInfo {
     /// The name of the crate.
     pub name: String,
