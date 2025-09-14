@@ -64,7 +64,7 @@ impl Runner {
             }
         }
 
-        let module = Compiler::new()?.compile(&pvm::Program {
+        let module = Compiler::new::<()>()?.compile(&pvm::Program {
             code: input.program.to_vec(),
             registers: initial_registers,
             memory: memory.clone(),

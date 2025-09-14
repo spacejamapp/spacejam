@@ -18,19 +18,8 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    /// Create new JIT module builder
-    pub fn new() -> Result<Self> {
-        let mut builder = engine::compilation()?;
-        host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
-        let module = JITModule::new(builder);
-        Ok(Self {
-            module,
-            artifact: Artifact::new()?,
-        })
-    }
-
     /// Create new JIT module builder for host functions
-    pub fn host<X: Argument>() -> Result<Self> {
+    pub fn new<X: Argument>() -> Result<Self> {
         let mut builder = engine::compilation()?;
         host::symbols::<X>(&mut builder);
         let module = JITModule::new(builder);
@@ -51,7 +40,7 @@ impl Invocation for Compiler {
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let pvmc = Self::host::<X>().expect("fix me later");
+        let pvmc = Self::new::<X>().expect("fix me later");
         let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
             registers: program.registers,

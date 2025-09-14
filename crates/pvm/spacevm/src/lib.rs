@@ -95,7 +95,7 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match Compiler::host::<X>()?
+    match Compiler::new::<X>()?
         .compile_with_cache(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {

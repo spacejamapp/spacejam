@@ -51,8 +51,6 @@ impl Compiler {
         self.module
             .define_function_bytes(main, 1, compiled.code_buffer(), &relocs)?;
         self.module.finalize_definitions()?;
-        compiled.buffer.data();
-
         Ok(Module { jit: self.module })
     }
 
