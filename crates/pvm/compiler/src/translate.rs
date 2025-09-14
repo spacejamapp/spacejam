@@ -53,10 +53,7 @@ impl Compiler {
         self.module.finalize_definitions()?;
         compiled.buffer.data();
 
-        Ok(Module {
-            jit: self.module,
-            main,
-        })
+        Ok(Module { jit: self.module })
     }
 
     /// Translate the program to CLIF

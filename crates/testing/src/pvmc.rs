@@ -70,19 +70,22 @@ impl Runner {
             memory: memory.clone(),
         })?;
 
-        let result = module.invoke(
-            &initial_registers,
-            input.initial_pc as u64,
-            input.initial_gas as u64,
-            memory.clone(),
-        )?;
+        let mut ctx = pvm::Context {
+            registers: initial_registers,
+            gas: input.initial_gas as i64,
+            memory: spacevm::Memory::new(&memory).expect("failed to create memory"),
+            ctx: &mut (),
+        };
+
+        let reason = module.execute(&mut ctx, input.initial_pc as u64)?;
+        let memory = ctx.memory.fill(&memory);
 
         // assert_eq!(result.pc, output.expected_pc as u64);
-        let final_memory = to_test_memory(&result.memory);
-        assert_eq!(result.reason.to_string(), output.expected_status);
-        assert_eq!(result.registers.to_vec(), output.expected_regs);
+        let final_memory = to_test_memory(&memory);
+        assert_eq!(reason.to_string(), output.expected_status);
+        assert_eq!(ctx.registers.to_vec(), output.expected_regs);
         assert_eq!(final_memory, output.expected_memory);
-        assert_eq!(result.gas, output.expected_gas as u64);
+        assert_eq!(ctx.gas as u64, output.expected_gas);
         Ok(())
     }
 }

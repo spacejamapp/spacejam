@@ -5,7 +5,7 @@ pub use {
     compiler::Compiler,
     cranelift_codegen::timing,
     memory::Memory,
-    module::{Info, Module},
+    module::Module,
     pvm::MemoryLike,
     translator::Translator,
     trap::TrapInfo,
