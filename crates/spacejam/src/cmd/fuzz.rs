@@ -58,11 +58,10 @@ impl Fuzz {
                 cache,
             } => {
                 if let Some(cache) = cache
-                    && let Err(e) = spacevm::SPACEVM_CACHE_DIR.set(Some(cache.join("spacevm")))
+                    && let Ok(mut dir) = spacevm::SPACEVM_CACHE_DIR.try_lock()
                 {
-                    tracing::warn!("failed to specify cache directory: {e:?}");
+                    *dir = cache.clone();
                 }
-
                 Target::serve(socket, *interp).await
             }
             Self::Fuzzer {

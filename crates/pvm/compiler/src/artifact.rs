@@ -2,74 +2,72 @@
 
 use anyhow::Result;
 use cranelift::codegen::incremental_cache::CacheKvStore;
-use std::{borrow::Cow, fs, path::PathBuf, sync::OnceLock};
+use std::{
+    borrow::Cow,
+    fs,
+    path::PathBuf,
+    sync::{LazyLock, Mutex},
+};
 
 /// Cache directory for the compiled modules
-pub static SPACEVM_CACHE_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+pub static SPACEVM_CACHE_DIR: LazyLock<Mutex<PathBuf>> = LazyLock::new(|| {
+    Mutex::new(
+        dirs::data_dir()
+            .unwrap_or_default()
+            .join("spacejam")
+            .join("spacevm"),
+    )
+});
 
 /// Artifact for the compiled modules
-pub struct Artifact {
-    /// The base directory for the artifact
-    dir: PathBuf,
-}
+pub struct Artifact;
 
 impl Artifact {
-    /// Create new artifact
-    pub fn new() -> Result<Self> {
-        let dir = SPACEVM_CACHE_DIR.get_or_init(|| {
-            let dir = dirs::data_dir()
-                .unwrap_or_default()
-                .join("spacejam")
-                .join("spacevm");
-            Some(dir)
-        });
-
-        let dir = dir
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("cache dir not found"))?
+    /// Save the artifact to the cache
+    pub fn save(folder: &str, fname: &str, value: &[u8]) -> Result<()> {
+        let base = SPACEVM_CACHE_DIR
+            .try_lock()
+            .map_err(|e| anyhow::anyhow!("failed to lock cache directory: {e:?}"))?
             .clone();
 
-        fs::create_dir_all(dir.join("artifacts")).map_err(|e| {
-            anyhow::anyhow!("failed to create artifact directory at {dir:?}: {e:?}")
-        })?;
-        Ok(Self { dir })
-    }
+        let parent = base.join(folder);
+        if !parent.exists() {
+            fs::create_dir_all(&parent).map_err(|e| {
+                anyhow::anyhow!("failed to create cache directory at {parent:?}: {e:?}")
+            })?;
+        }
 
-    /// Save an object to the cache
-    pub fn save(&self, name: &str, value: &[u8]) -> Result<()> {
-        let target = self.dir.join(name);
+        let target = parent.join(fname);
         fs::write(&target, value)
-            .map_err(|e| anyhow::anyhow!("failed to save artifact to {target:?}: {e:?}"))?;
-
-        Ok(())
+            .map_err(|e| anyhow::anyhow!("failed to save artifact to {target:?}: {e:?}"))
     }
 
-    /// Load an object from the cache
-    pub fn load(&self, name: &str) -> Option<Vec<u8>> {
-        let target = self.dir.join(name);
-        fs::read(&target).ok()
+    /// Load the artifact from the cache
+    pub fn load(folder: &str, fname: &str) -> Result<Option<Vec<u8>>> {
+        let base = SPACEVM_CACHE_DIR
+            .lock()
+            .map_err(|e| anyhow::anyhow!("failed to lock cache directory: {e:?}"))?
+            .clone();
+        let parent = base.join(folder);
+        if !parent.exists() {
+            return Ok(None);
+        }
+
+        let target = parent.join(fname);
+        fs::read(&target)
+            .map_err(|e| anyhow::anyhow!("failed to read artifact from {target:?}: {e:?}"))
+            .map(Some)
     }
 }
 
 impl CacheKvStore for Artifact {
     fn get(&self, key: &[u8]) -> Option<Cow<'_, [u8]>> {
         let key = hex::encode(key);
-        let path = self.dir.join("artifacts").join(key);
-        if !path.exists() {
-            return None;
-        }
-
-        let serialized = fs::read(path).ok()?;
-        Some(Cow::Owned(serialized))
+        Self::load("artifacts", &key).ok()?.map(Cow::Owned)
     }
 
     fn insert(&mut self, key: &[u8], value: Vec<u8>) {
         let key = hex::encode(key);
-        let path = self.dir.join("artifacts").join(key);
-        if path.exists() {
-            return;
-        }
-
-        let _ = fs::write(path, value);
+        Self::save("artifacts", &key, &value).ok();
     }
 }

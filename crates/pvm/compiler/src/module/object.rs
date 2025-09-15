@@ -1,7 +1,7 @@
 //! Object module
 
 use crate::{
-    Engine, Executable,
+    Artifact, Engine, Executable,
     module::{self, ModuleLike},
 };
 use anyhow::Result;
@@ -15,7 +15,6 @@ use translator::Exit;
 /// Object module
 pub struct ObjectModule {
     module: Option<object::ObjectModule>,
-    object: Vec<u8>,
     exec: Executable,
 }
 
@@ -26,23 +25,26 @@ impl ModuleLike for ObjectModule {
         let module = object::ObjectModule::new(builder);
         Ok(Self {
             module: Some(module),
-            object: vec![],
             exec: Executable::default(),
         })
     }
 
     fn compile(mut self, program: &Program) -> Result<Self> {
+        let info = program.meta.info();
+        let name = format!("{}-{}.o", info.name, info.version);
+        if let Some(object) = Artifact::load("lib", &name)? {
+            self.exec.load::<()>(&object)?;
+            return Ok(self);
+        }
+
         let Some(mut module) = self.module.take() else {
             return Err(anyhow::anyhow!("module not found"));
         };
 
-        let artifact = module::compile(&mut module, program)?;
+        module::compile(&mut module, program)?;
         let object = module.finish().emit()?;
-        let info = program.meta.info();
-        let name = format!("{}-{}.o", info.name, info.version);
-        artifact.save(&name, &object)?;
+        Artifact::save("lib", &name, &object)?;
         self.exec.load::<()>(&object)?;
-        self.object = object;
         Ok(self)
     }
 

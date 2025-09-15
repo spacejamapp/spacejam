@@ -59,7 +59,7 @@ impl Executable {
 
     /// Check if the executable is loaded
     pub fn loaded(&self) -> bool {
-        self.memory != ptr::null_mut()
+        !self.memory.is_null()
     }
 
     /// Allocate pre-sized memory for the executable
@@ -72,7 +72,7 @@ impl Executable {
         }
 
         // Round up to page size
-        self.size = ((total_size + PAGE_SIZE - 1) / PAGE_SIZE * PAGE_SIZE) as usize;
+        self.size = total_size.div_ceil(PAGE_SIZE) as usize;
         self.memory = unsafe {
             libc::mmap(
                 ptr::null_mut(),
@@ -160,11 +160,11 @@ impl Executable {
 
         // add object symbols
         for symbol in obj.symbols() {
-            if symbol.address() != 0 {
-                if let Ok(name) = symbol.name() {
-                    self.symbols
-                        .insert(name.to_string(), symbol.address() as usize);
-                }
+            if symbol.address() != 0
+                && let Ok(name) = symbol.name()
+            {
+                self.symbols
+                    .insert(name.to_string(), symbol.address() as usize);
             }
         }
     }

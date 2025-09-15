@@ -34,7 +34,7 @@ pub fn declare(
 ) -> Result<BTreeMap<&'static str, FuncRef>> {
     let mut map = BTreeMap::new();
     for (name, sig) in self::host_calls() {
-        let id = module.declare_function(&name, Linkage::Import, &sig)?;
+        let id = module.declare_function(name, Linkage::Import, &sig)?;
         let funref = module.declare_func_in_func(id, func);
         map.insert(name, funref);
     }

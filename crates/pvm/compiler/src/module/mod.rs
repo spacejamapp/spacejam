@@ -33,7 +33,7 @@ pub trait ModuleLike: Sized {
 }
 
 /// Declare functions for the program
-pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<Artifact> {
+pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()> {
     let signature = Signature {
         params: vec![AbiParam::new(types::I64); 2],
         returns: vec![AbiParam::new(types::I64); 2],
@@ -47,12 +47,11 @@ pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<Ar
     };
 
     // compile the program with cache
-    let mut artifact = Artifact::new()?;
     let func = translate(module, &mut ctx, program)?;
     let isa = module.isa();
     let mut cpanel = ControlPlane::default();
     let (compiled, _hits) = ctx
-        .compile_with_cache(isa, &mut artifact, &mut cpanel)
+        .compile_with_cache(isa, &mut Artifact, &mut cpanel)
         .map_err(|e| anyhow::anyhow!("failed to compile program: {:?}", e))?;
 
     // relocate the function
@@ -64,7 +63,7 @@ pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<Ar
         .collect::<Vec<_>>();
 
     module.define_function_bytes(main, 1, compiled.code_buffer(), &relocs)?;
-    Ok(artifact)
+    Ok(())
 }
 
 /// Translate the program to CLIF
