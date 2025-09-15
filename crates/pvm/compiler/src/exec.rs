@@ -1,6 +1,5 @@
 //! Executable instance for the compiled object
 
-use crate::host;
 use anyhow::{Context, Result};
 use cranelift::object::object::{
     self, Architecture, Object, ObjectSection, ObjectSymbol, RelocationKind,
@@ -24,10 +23,13 @@ pub struct Executable {
 impl Executable {
     /// Get the address of the symbol
     pub fn get(&self, symbol: &str) -> Result<usize> {
-        self.symbols
+        let address = self
+            .symbols
             .get(symbol)
             .cloned()
-            .with_context(|| format!("Unresolved symbol: {}", symbol))
+            .with_context(|| format!("Unresolved symbol: {}", symbol))?;
+
+        Ok(self.memory as usize + address)
     }
 
     /// Load the executable into memory
@@ -39,7 +41,7 @@ impl Executable {
 
         // allocate pre-sized memory and load the object
         self.allocate_pre(&elf)?;
-        self.load_symbols::<X>(&elf);
+        self.load_symbols(&elf);
         self.load_sections(&elf)?;
 
         // make memory executable
@@ -72,12 +74,12 @@ impl Executable {
         }
 
         // Round up to page size
-        self.size = total_size.div_ceil(PAGE_SIZE) as usize;
+        self.size = (total_size.div_ceil(PAGE_SIZE) * PAGE_SIZE) as usize;
         self.memory = unsafe {
             libc::mmap(
                 ptr::null_mut(),
                 self.size,
-                libc::PROT_READ | libc::PROT_WRITE,
+                libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
                 libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
                 -1,
                 0,
@@ -94,17 +96,27 @@ impl Executable {
     /// Load sections into the executable
     fn load_sections<'d>(&mut self, obj: &object::File<'d>) -> Result<()> {
         for section in obj.sections() {
-            if section.size() > 0 {
-                let data = section.data()?;
-                let offset = section.address() as usize;
-                if offset + data.len() <= self.size {
-                    unsafe {
-                        ptr::copy_nonoverlapping(
-                            data.as_ptr(),
-                            self.memory.add(offset),
-                            data.len(),
-                        );
-                    }
+            if section.size() == 0 {
+                continue;
+            }
+
+            let data = section.data()?;
+            let offset = section.address() as usize;
+            let Ok(name) = section.name() else {
+                continue;
+            };
+
+            let should_load = match name {
+                ".text" | ".data" | ".rodata" | ".bss" => true,
+                ".symtab" | ".strtab" | ".shstrtab" => false,
+                _ if name.starts_with(".debug") => false,
+                _ if name.starts_with(".note") => false,
+                _ => true,
+            };
+
+            if should_load && offset + data.len() <= self.size {
+                unsafe {
+                    ptr::copy_nonoverlapping(data.as_ptr(), self.memory.add(offset), data.len());
                 }
             }
 
@@ -148,31 +160,20 @@ impl Executable {
     }
 
     /// Load the symbols into the executable
-    fn load_symbols<'d, X: Argument>(&mut self, obj: &object::File<'d>) {
-        self.symbols.insert(
-            host::CALL.to_string(),
-            host::ecalli::<pvm::Context<X, crate::Memory>> as usize,
-        );
-        self.symbols.insert(
-            host::SBRK.to_string(),
-            host::sbrk::<pvm::Context<X, crate::Memory>> as usize,
-        );
-        self.symbols.insert(
-            host::MGET.to_string(),
-            host::mget::<pvm::Context<X, crate::Memory>> as usize,
-        );
-        self.symbols.insert(
-            host::MSET.to_string(),
-            host::mset::<pvm::Context<X, crate::Memory>> as usize,
-        );
-
-        // add object symbols
+    fn load_symbols<'d>(&mut self, obj: &object::File<'d>) {
         for symbol in obj.symbols() {
-            if symbol.address() != 0
-                && let Ok(name) = symbol.name()
-            {
-                self.symbols
-                    .insert(name.to_string(), symbol.address() as usize);
+            if let Ok(name) = symbol.name() {
+                let section_offset = symbol.address() as usize;
+                let final_address = if let object::SymbolSection::Section(idx) = symbol.section() {
+                    obj.section_by_index(idx)
+                        .ok()
+                        .map(|s| s.address() as usize + section_offset)
+                        .unwrap_or(section_offset)
+                } else {
+                    section_offset
+                };
+
+                self.symbols.insert(name.to_string(), final_address);
             }
         }
     }

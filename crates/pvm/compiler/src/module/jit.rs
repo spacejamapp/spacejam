@@ -41,7 +41,15 @@ impl ModuleLike for JITModule {
                 self.0.get_finalized_function(main),
             )
         };
-        let result = match trap::with(|| func(ctx, pc, host::table::<X>())) {
+        let result = match trap::with(|| {
+            tracing::debug!(
+                "JIT: About to call main function with ctx={:p}, pc={}, table={:#x}",
+                ctx as *mut _,
+                pc,
+                host::table::<X>()
+            );
+            func(ctx, pc, host::table::<X>())
+        }) {
             Ok((gas, code)) => {
                 let reason = translator::Exit::to_reason(code);
                 tracing::debug!("exit code: {code}, reason: {reason:?}");

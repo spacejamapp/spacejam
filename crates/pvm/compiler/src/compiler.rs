@@ -1,6 +1,6 @@
 //! Cranelift JIT backend
 
-use crate::{JITModule, Memory, ModuleLike};
+use crate::{Memory, ModuleLike, ObjectModule};
 use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
@@ -19,7 +19,7 @@ impl Invocation for Compiler {
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let pvmc = <JITModule as ModuleLike>::new::<X>().expect("fix me later");
+        let pvmc = <ObjectModule as ModuleLike>::new::<X>().expect("fix me later");
         let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
             registers: program.registers,

@@ -21,7 +21,7 @@ mod abi;
 /// The table of host call symbols
 pub fn table<X: Argument>() -> i64 {
     unsafe {
-        if DISPATCH_TABLE[0] == std::ptr::null() {
+        if DISPATCH_TABLE[0].is_null() {
             DISPATCH_TABLE[0] = abi::ecalli::<X> as *const u8;
             DISPATCH_TABLE[1] = abi::sbrk::<X> as *const u8;
             DISPATCH_TABLE[2] = abi::mget::<X> as *const u8;
