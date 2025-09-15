@@ -1,23 +1,9 @@
 //! Translator context
 
 use crate::Translator;
-use cranelift::prelude::*;
+use cranelift::{codegen::ir::SigRef, prelude::*};
 
 /// Offsets to the memory base
-///
-/// Context {
-///   registers: [u64; 13],
-///   gas: i64,
-///   dispatch: [u64; pvm::MAX_FUNCTIONS],
-///   memory: *mut u8,
-///   inner_ctx: *mut u8
-/// }
-///
-/// For calculating the offsets, we use the following formula:
-///
-/// dispatch_start = memory_ptr - DISPATCH_OFFSET
-/// gas_start = memory_ptr - GAS_OFFSET
-/// ctx_start = registers_start = memory_ptr - REGISTERS_OFFSET
 pub mod offsets {
     /// Offset to gas field (after registers)
     pub const GAS_OFFSET: i32 = 8 * (pvm::REGISTER_COUNT as i32);
@@ -66,17 +52,17 @@ impl Default for Pool {
 #[derive(Clone)]
 pub struct Call {
     /// memory address of call ecalli
-    pub ecalli: Value,
+    pub ecalli: (SigRef, Value),
 
     /// memory address of call sbrk
-    pub sbrk: Value,
+    pub sbrk: (SigRef, Value),
 }
 
 impl Default for Call {
     fn default() -> Self {
         Self {
-            ecalli: Value::new(0),
-            sbrk: Value::new(0),
+            ecalli: (SigRef::new(0), Value::new(0)),
+            sbrk: (SigRef::new(0), Value::new(0)),
         }
     }
 }
@@ -117,13 +103,26 @@ impl Translator<'_> {
             self.pool.registers[i] = var;
         }
 
-        // init host calls
+        // init host calls - load function pointers from table
         {
-            self.pool.call.ecalli =
+            self.pool.call.ecalli = (
+                self.context
+                    .builder
+                    .import_signature(crate::host::ECALLI.clone()),
                 self.context
                     .builder
                     .ins()
-                    .load(types::I64, MemFlags::trusted(), table, 0);
+                    .load(types::I64, MemFlags::trusted(), table, 0),
+            );
+            self.pool.call.sbrk = (
+                self.context
+                    .builder
+                    .import_signature(crate::host::SBRK.clone()),
+                self.context
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 8),
+            );
         }
 
         pc

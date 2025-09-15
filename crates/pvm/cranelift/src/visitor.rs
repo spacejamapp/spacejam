@@ -483,20 +483,12 @@ impl Visitor for Translator<'_> {
         let format::I { imm0 } = format;
         let index = self.builder.ins().iconst(types::I32, imm0 as i64);
         self.sync_registers();
-        let sig = self
-            .context
-            .builder
-            .import_signature(crate::host::ECALLI.clone());
-        let inst = self.context.builder.ins().call_indirect(
-            sig,
-            self.context.pool.call.ecalli,
-            &[index, self.context.pool.vmctx],
-        );
-        // let inst = self
-        //     .context
-        //     .builder
-        //     .ins()
-        //     .call(self.host["call"], &[index, self.context.pool.vmctx]);
+        let (sig, call) = self.context.pool.call.ecalli;
+        let inst =
+            self.context
+                .builder
+                .ins()
+                .call_indirect(sig, call, &[index, self.context.pool.vmctx]);
         let result = self.builder.inst_results(inst)[0];
         self.load_registers();
 
@@ -1237,8 +1229,10 @@ impl Visitor for Translator<'_> {
         let target = self.builder.ins().iconst(types::I8, reg0 as i64);
         let increment = self.builder.ins().iconst(types::I8, reg1 as i64);
         self.sync_registers();
-        let _inst = self.context.builder.ins().call(
-            self.host["sbrk"],
+        let (sig, call) = self.context.pool.call.sbrk;
+        let _inst = self.context.builder.ins().call_indirect(
+            sig,
+            call,
             &[self.context.pool.vmctx, target, increment],
         );
         self.load_registers();

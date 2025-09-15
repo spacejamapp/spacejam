@@ -1,6 +1,6 @@
 //! Compiled function metadata
 
-use crate::{Artifact, host};
+use crate::Artifact;
 use anyhow::Result;
 use cranelift::{
     codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv},
@@ -15,7 +15,7 @@ mod jit;
 mod object;
 
 /// The signature of the main function
-pub type MainSig<X> = fn(*mut X, u64, i64) -> (i64, i64);
+pub type MainSig<X> = fn(*mut pvm::Context<'_, X, crate::Memory>, u64, i64) -> (i64, i64);
 
 /// The name of the main function
 pub const MAIN: &str = "main";
@@ -29,7 +29,11 @@ pub trait ModuleLike: Sized {
     fn compile(self, program: &Program) -> Result<Self>;
 
     /// Execute a program
-    fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason>;
+    fn execute<X: Argument>(
+        &self,
+        ctx: &mut pvm::Context<'_, X, crate::Memory>,
+        pc: u64,
+    ) -> Result<Reason>;
 }
 
 /// Declare functions for the program
@@ -47,7 +51,7 @@ pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()
     };
 
     // compile the program with cache
-    let func = translate(module, &mut ctx, program)?;
+    let func = translate(&mut ctx, program)?;
     let isa = module.isa();
     let mut cpanel = ControlPlane::default();
     let (compiled, _hits) = ctx
@@ -67,19 +71,13 @@ pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()
 }
 
 /// Translate the program to CLIF
-fn translate(
-    module: &mut impl module::Module,
-    ctx: &mut Context,
-    program: &Program,
-) -> Result<Function> {
-    let host = host::declare(module, &mut ctx.func)?;
+fn translate(ctx: &mut Context, program: &Program) -> Result<Function> {
     let blob = program.blob()?;
     let code = blob.read_blocks()?;
     let minfo = program.memory.info.clone();
     let mut bctx = FunctionBuilderContext::new();
     let mut translator = Translator::new(&[], &mut ctx.func, &mut bctx)?;
     translator.jump = blob.jump_table.clone();
-    translator.host = host;
     translator.translate(program.registers, code, minfo.clone())?;
     if std::env::var("DUMP_CLIF").is_ok() {
         println!("{}", &ctx.func);

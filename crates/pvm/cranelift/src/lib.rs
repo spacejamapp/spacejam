@@ -10,7 +10,7 @@ use crate::masm::MacroBlocks;
 use anyhow::Result;
 use context::Context;
 use cranelift::{
-    codegen::ir::{Block, FuncRef, Function, JumpTable},
+    codegen::ir::{Block, Function, JumpTable},
     prelude::*,
 };
 use std::collections::BTreeMap;
@@ -37,9 +37,6 @@ pub struct Translator<'b> {
 
     /// Map of blocks by start PC
     pub blocks: BTreeMap<u64, Block>,
-
-    /// The host call function
-    pub host: BTreeMap<&'static str, FuncRef>,
 
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,
@@ -76,7 +73,6 @@ impl<'b> Translator<'b> {
 
         Ok(Self {
             blocks: iblocks,
-            host: BTreeMap::new(),
             jump: Vec::new(),
             rt_jump_table: JumpTable::new(0),
             masm,

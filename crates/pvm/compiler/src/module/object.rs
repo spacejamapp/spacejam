@@ -48,7 +48,11 @@ impl ModuleLike for ObjectModule {
         Ok(self)
     }
 
-    fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason> {
+    fn execute<X: Argument>(
+        &self,
+        ctx: &mut pvm::Context<'_, X, crate::Memory>,
+        pc: u64,
+    ) -> Result<Reason> {
         let main = self.exec.get("main")?;
         let main_fn: super::MainSig<X> = unsafe { std::mem::transmute(main) };
         let (gas, exit_code) = main_fn(ctx, pc, host::table::<X>());

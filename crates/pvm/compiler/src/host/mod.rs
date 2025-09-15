@@ -1,62 +1,33 @@
 //! Host call trampoline
 
 pub use abi::*;
-use anyhow::Result;
-use cranelift::{
-    codegen::ir::{FuncRef, Function},
-    jit::JITBuilder,
-    module::{self, Linkage},
-    prelude::Signature,
-};
 use pvm::Argument;
-use std::collections::BTreeMap;
 pub use translator::host as sig;
 
+/// The dispatch table of host call symbols
+static mut DISPATCH_TABLE: [*const u8; 4] = [std::ptr::null(); 4];
+
+/// The name of the call function
 pub const CALL: &str = "call";
+/// The name of the sbrk function
 pub const SBRK: &str = "sbrk";
+/// The name of the mget function
 pub const MGET: &str = "mget";
+/// The name of the mset function
 pub const MSET: &str = "mset";
 
 mod abi;
 
 /// The table of host call symbols
 pub fn table<X: Argument>() -> i64 {
-    [
-        abi::ecalli::<X> as *const u8,
-        abi::sbrk::<X> as *const u8,
-        abi::mget::<X> as *const u8,
-        abi::mset::<X> as *const u8,
-    ]
-    .as_ptr() as i64
-}
-
-/// Register host call symbols
-pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
-    builder.symbol(CALL, abi::ecalli::<X> as *const u8);
-    builder.symbol(SBRK, abi::sbrk::<X> as *const u8);
-    builder.symbol(MGET, abi::mget::<X> as *const u8);
-    builder.symbol(MSET, abi::mset::<X> as *const u8);
-}
-
-/// Declare the host functions
-pub fn declare(
-    module: &mut impl module::Module,
-    func: &mut Function,
-) -> Result<BTreeMap<&'static str, FuncRef>> {
-    let mut map = BTreeMap::new();
-    for (name, sig) in self::host_calls() {
-        let id = module.declare_function(name, Linkage::Import, &sig)?;
-        let funref = module.declare_func_in_func(id, func);
-        map.insert(name, funref);
+    unsafe {
+        if DISPATCH_TABLE[0] == std::ptr::null() {
+            DISPATCH_TABLE[0] = abi::ecalli::<X> as *const u8;
+            DISPATCH_TABLE[1] = abi::sbrk::<X> as *const u8;
+            DISPATCH_TABLE[2] = abi::mget::<X> as *const u8;
+            DISPATCH_TABLE[3] = abi::mset::<X> as *const u8;
+        }
     }
-    Ok(map)
-}
 
-fn host_calls() -> BTreeMap<&'static str, Signature> {
-    let mut map = BTreeMap::new();
-    map.insert(CALL, sig::ECALLI.clone());
-    map.insert(SBRK, sig::SBRK.clone());
-    map.insert(MGET, sig::MGET.clone());
-    map.insert(MSET, sig::MSET.clone());
-    map
+    core::ptr::addr_of!(DISPATCH_TABLE) as i64
 }
