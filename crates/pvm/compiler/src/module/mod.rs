@@ -33,7 +33,7 @@ pub trait ModuleLike: Sized {
 }
 
 /// Declare functions for the program
-pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()> {
+pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<Artifact> {
     let signature = Signature {
         params: vec![AbiParam::new(types::I64); 2],
         returns: vec![AbiParam::new(types::I64); 2],
@@ -64,7 +64,7 @@ pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()
         .collect::<Vec<_>>();
 
     module.define_function_bytes(main, 1, compiled.code_buffer(), &relocs)?;
-    Ok(())
+    Ok(artifact)
 }
 
 /// Translate the program to CLIF

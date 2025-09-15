@@ -34,6 +34,21 @@ impl Artifact {
         })?;
         Ok(Self { dir })
     }
+
+    /// Save an object to the cache
+    pub fn save(&self, name: &str, value: &[u8]) -> Result<()> {
+        let target = self.dir.join(name);
+        fs::write(&target, value)
+            .map_err(|e| anyhow::anyhow!("failed to save artifact to {target:?}: {e:?}"))?;
+
+        Ok(())
+    }
+
+    /// Load an object from the cache
+    pub fn load(&self, name: &str) -> Option<Vec<u8>> {
+        let target = self.dir.join(name);
+        fs::read(&target).ok()
+    }
 }
 
 impl CacheKvStore for Artifact {

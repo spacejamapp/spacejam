@@ -7,7 +7,6 @@ edition.workspace = true
 anyhow.workspace = true
 dirs.workspace = true
 hex.workspace = true
-object.workspace = true
 postcard.workspace = true
 pvm.workspace = true
 translator.workspace = true

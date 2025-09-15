@@ -14,7 +14,7 @@ use pvm::{Argument, Program, Reason};
 /// Object module
 pub struct ObjectModule {
     module: Option<object::ObjectModule>,
-    object: Option<object::ObjectProduct>,
+    object: Vec<u8>,
 }
 
 impl ModuleLike for ObjectModule {
@@ -24,7 +24,7 @@ impl ModuleLike for ObjectModule {
         let module = object::ObjectModule::new(builder);
         Ok(Self {
             module: Some(module),
-            object: None,
+            object: vec![],
         })
     }
 
@@ -33,19 +33,16 @@ impl ModuleLike for ObjectModule {
             return Err(anyhow::anyhow!("module not found"));
         };
 
-        // compile the program
-        module::compile(&mut module, program)?;
-        let object = module.finish();
-        self.object = Some(object);
-
-        // TODO: cache the object
+        let artifact = module::compile(&mut module, program)?;
+        let object = module.finish().emit()?;
         let info = program.meta.info();
-        let _name = format!("{}-{}.o", info.name, info.version);
-
+        let name = format!("{}-{}.o", info.name, info.version);
+        artifact.save(&name, &object)?;
+        self.object = object;
         Ok(self)
     }
 
-    fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason> {
+    fn execute<X: Argument>(&self, _ctx: &mut X, _pc: u64) -> Result<Reason> {
         todo!()
     }
 }
