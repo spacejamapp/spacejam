@@ -1,7 +1,7 @@
 //! Object module
 
 use crate::{
-    Engine,
+    Engine, Executable,
     module::{self, ModuleLike},
 };
 use anyhow::Result;
@@ -10,11 +10,13 @@ use cranelift::{
     object::{self, ObjectBuilder},
 };
 use pvm::{Argument, Program, Reason};
+use translator::Exit;
 
 /// Object module
 pub struct ObjectModule {
     module: Option<object::ObjectModule>,
     object: Vec<u8>,
+    exec: Executable,
 }
 
 impl ModuleLike for ObjectModule {
@@ -25,6 +27,7 @@ impl ModuleLike for ObjectModule {
         Ok(Self {
             module: Some(module),
             object: vec![],
+            exec: Executable::default(),
         })
     }
 
@@ -38,11 +41,16 @@ impl ModuleLike for ObjectModule {
         let info = program.meta.info();
         let name = format!("{}-{}.o", info.name, info.version);
         artifact.save(&name, &object)?;
+        self.exec.load::<()>(&object)?;
         self.object = object;
         Ok(self)
     }
 
-    fn execute<X: Argument>(&self, _ctx: &mut X, _pc: u64) -> Result<Reason> {
-        todo!()
+    fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason> {
+        let main = self.exec.get("main")?;
+        let main_fn: super::MainSig<X> = unsafe { std::mem::transmute(main) };
+        let (gas, exit_code) = main_fn(ctx, pc);
+        ctx.set_gas(gas as u64);
+        Ok(Exit::to_reason(exit_code))
     }
 }

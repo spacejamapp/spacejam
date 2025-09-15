@@ -5,6 +5,7 @@ pub use {
     compiler::Compiler,
     cranelift_codegen::timing,
     engine::Engine,
+    exec::Executable,
     memory::Memory,
     module::{JITModule, ModuleLike, ObjectModule},
     pvm::MemoryLike,
@@ -15,6 +16,7 @@ pub use {
 mod artifact;
 mod compiler;
 pub mod engine;
+mod exec;
 pub mod host;
 pub mod memory;
 pub mod module;
