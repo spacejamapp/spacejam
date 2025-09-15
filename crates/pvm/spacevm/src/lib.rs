@@ -6,7 +6,7 @@ use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, ObjectModule, SPACEVM_CACHE_DIR};
+pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, ObjectModule, SPACEJAM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,

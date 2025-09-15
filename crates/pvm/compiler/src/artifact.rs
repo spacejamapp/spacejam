@@ -10,14 +10,8 @@ use std::{
 };
 
 /// Cache directory for the compiled modules
-pub static SPACEVM_CACHE_DIR: LazyLock<Mutex<PathBuf>> = LazyLock::new(|| {
-    Mutex::new(
-        dirs::data_dir()
-            .unwrap_or_default()
-            .join("spacejam")
-            .join("spacevm"),
-    )
-});
+pub static SPACEJAM_CACHE_DIR: LazyLock<Mutex<PathBuf>> =
+    LazyLock::new(|| Mutex::new(dirs::data_dir().unwrap_or_default().join("spacejam")));
 
 /// Artifact for the compiled modules
 pub struct Artifact;
@@ -25,7 +19,7 @@ pub struct Artifact;
 impl Artifact {
     /// Save the artifact to the cache
     pub fn save(folder: &str, fname: &str, value: &[u8]) -> Result<()> {
-        let base = SPACEVM_CACHE_DIR
+        let base = SPACEJAM_CACHE_DIR
             .try_lock()
             .map_err(|e| anyhow::anyhow!("failed to lock cache directory: {e:?}"))?
             .clone();
@@ -44,7 +38,7 @@ impl Artifact {
 
     /// Load the artifact from the cache
     pub fn load(folder: &str, fname: &str) -> Option<Vec<u8>> {
-        let base = SPACEVM_CACHE_DIR.lock().ok()?.clone();
+        let base = SPACEJAM_CACHE_DIR.lock().ok()?.clone();
         let parent = base.join(folder);
         if !parent.exists() {
             return None;

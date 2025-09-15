@@ -1,7 +1,7 @@
 //! SpaceJam PVM compiler
 
 pub use {
-    artifact::{Artifact, SPACEVM_CACHE_DIR},
+    artifact::{Artifact, SPACEJAM_CACHE_DIR},
     compiler::Compiler,
     cranelift_codegen::timing,
     engine::Engine,

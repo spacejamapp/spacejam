@@ -13,10 +13,6 @@ pub enum Fuzz {
         #[clap(default_value = "/tmp/jam_target.sock")]
         socket: PathBuf,
 
-        /// The directory for the compilation cache
-        #[clap(short, long)]
-        cache: Option<PathBuf>,
-
         /// If use interpreter instead
         #[clap(short, long)]
         interp: bool,
@@ -52,18 +48,7 @@ impl Fuzz {
     /// Run the fuzz command
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Target {
-                socket,
-                interp,
-                cache,
-            } => {
-                if let Some(cache) = cache
-                    && let Ok(mut dir) = spacevm::SPACEVM_CACHE_DIR.try_lock()
-                {
-                    *dir = cache.clone();
-                }
-                Target::serve(socket, *interp).await
-            }
+            Self::Target { socket, interp } => Target::serve(socket, *interp).await,
             Self::Fuzzer {
                 socket,
                 traces,
