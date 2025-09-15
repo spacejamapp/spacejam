@@ -1,6 +1,6 @@
 //! Compiled function metadata
 
-use crate::Artifact;
+use crate::{Artifact, host, trap};
 use anyhow::Result;
 use cranelift::{
     codegen::{Context, control::ControlPlane, ir::Function, isa::CallConv},
@@ -28,12 +28,30 @@ pub trait ModuleLike: Sized {
     /// Compile a program
     fn compile(self, program: &Program) -> Result<Self>;
 
+    /// Get the main function
+    fn main<X: Argument>(&self) -> Result<MainSig<X>>;
+
     /// Execute a program
     fn execute<X: Argument>(
         &self,
         ctx: &mut pvm::Context<'_, X, crate::Memory>,
         pc: u64,
-    ) -> Result<Reason>;
+    ) -> Result<Reason> {
+        let main_fn = self.main::<X>()?;
+        let result = match trap::with(|| main_fn(ctx, pc, host::table::<X>())) {
+            Ok((gas, code)) => {
+                let reason = translator::Exit::to_reason(code);
+                tracing::debug!("exit code: {code}, reason: {reason:?}");
+                ctx.set_gas(gas as u64);
+                reason
+            }
+            Err(info) => Reason::Fault {
+                page: info.address as u32 / pvm::PAGE_SIZE as u32,
+            },
+        };
+
+        Ok(result)
+    }
 }
 
 /// Declare functions for the program

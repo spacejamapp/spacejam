@@ -1,16 +1,15 @@
 //! Object module
 
 use crate::{
-    Artifact, Engine, Executable, host,
-    module::{self, ModuleLike},
+    Artifact, Engine, Executable,
+    module::{self, MainSig, ModuleLike},
 };
 use anyhow::Result;
 use cranelift::{
     module::default_libcall_names,
     object::{self, ObjectBuilder},
 };
-use pvm::{Argument, Program, Reason};
-use translator::Exit;
+use pvm::{Argument, Program};
 
 /// Object module
 pub struct ObjectModule {
@@ -53,16 +52,9 @@ impl ModuleLike for ObjectModule {
         Ok(self)
     }
 
-    fn execute<X: Argument>(
-        &self,
-        ctx: &mut pvm::Context<'_, X, crate::Memory>,
-        pc: u64,
-    ) -> Result<Reason> {
+    fn main<X: Argument>(&self) -> Result<MainSig<X>> {
         let main = self.exec.get("main")?;
-        let main_fn: super::MainSig<X> = unsafe { std::mem::transmute(main) };
-        let (gas, exit_code) = main_fn(ctx, pc, host::table::<X>());
-        ctx.set_gas(gas as u64);
-        Ok(Exit::to_reason(exit_code))
+        Ok(unsafe { std::mem::transmute::<usize, MainSig<X>>(main) })
     }
 }
 

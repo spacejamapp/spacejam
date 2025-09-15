@@ -1,9 +1,8 @@
 //! JIT module
 
 use crate::{
-    Engine, host,
-    module::{self, ModuleLike},
-    trap,
+    Engine,
+    module::{self, MainSig, ModuleLike},
 };
 use anyhow::Result;
 use cranelift::{
@@ -11,7 +10,7 @@ use cranelift::{
     jit::JITBuilder,
     module::{FuncId, default_libcall_names},
 };
-use pvm::{Argument, Program, Reason};
+use pvm::{Argument, Program};
 
 /// JIT module
 pub struct JITModule(jit::JITModule);
@@ -30,37 +29,14 @@ impl ModuleLike for JITModule {
         Ok(self)
     }
 
-    fn execute<X: Argument>(
-        &self,
-        ctx: &mut pvm::Context<'_, X, crate::Memory>,
-        pc: u64,
-    ) -> Result<Reason> {
+    fn main<X: Argument>(&self) -> Result<MainSig<X>> {
         let main = FuncId::from_u32(0);
         let func = unsafe {
             std::mem::transmute::<*const u8, module::MainSig<X>>(
                 self.0.get_finalized_function(main),
             )
         };
-        let result = match trap::with(|| {
-            tracing::debug!(
-                "JIT: About to call main function with ctx={:p}, pc={}, table={:#x}",
-                ctx as *mut _,
-                pc,
-                host::table::<X>()
-            );
-            func(ctx, pc, host::table::<X>())
-        }) {
-            Ok((gas, code)) => {
-                let reason = translator::Exit::to_reason(code);
-                tracing::debug!("exit code: {code}, reason: {reason:?}");
-                ctx.set_gas(gas as u64);
-                reason
-            }
-            Err(info) => Reason::Fault {
-                page: info.address as u32 / pvm::PAGE_SIZE as u32,
-            },
-        };
-        Ok(result)
+        Ok(func)
     }
 }
 
