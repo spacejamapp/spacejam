@@ -31,8 +31,13 @@ impl ModuleLike for ObjectModule {
 
     fn compile(mut self, program: &Program) -> Result<Self> {
         let info = program.meta.info();
-        let name = format!("{}-{}.o", info.name, info.version);
-        if let Some(object) = Artifact::load("lib", &name) {
+        let name = format!(
+            "{}-{}-{}.o",
+            info.name,
+            info.version,
+            &hex::encode(crypto::blake3(program.code.as_ref()))[..6]
+        );
+        if let Some(object) = Artifact::get("lib", &name) {
             self.exec.load::<()>(&object)?;
             return Ok(self);
         }
@@ -43,7 +48,7 @@ impl ModuleLike for ObjectModule {
 
         module::compile(&mut module, program)?;
         let object = module.finish().emit()?;
-        Artifact::save("lib", &name, &object)?;
+        Artifact::set("lib", &name, &object)?;
         self.exec.load::<()>(&object)?;
         Ok(self)
     }

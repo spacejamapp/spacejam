@@ -9,6 +9,7 @@ ark-ec = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
 ark-vrf = { workspace = true, optional = true }
 blake2 = { workspace = true, optional = true }
+blake3 = { workspace = true, optional = true }
 ed25519-dalek = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
@@ -21,6 +22,7 @@ tracing.workspace = true
 [features]
 default = []
 blake2 = ["dep:blake2"]
+blake3 = ["dep:blake3"]
 bls = ["w3f-bls"]
 ed25519 = ["anyhow", "ed25519-dalek"]
 keccak = ["tiny-keccak"]

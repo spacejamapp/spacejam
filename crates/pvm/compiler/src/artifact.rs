@@ -18,7 +18,7 @@ pub struct Artifact;
 
 impl Artifact {
     /// Save the artifact to the cache
-    pub fn save(folder: &str, fname: &str, value: &[u8]) -> Result<()> {
+    pub fn set(folder: &str, fname: &str, value: &[u8]) -> Result<()> {
         let base = SPACEJAM_CACHE_DIR
             .try_lock()
             .map_err(|e| anyhow::anyhow!("failed to lock cache directory: {e:?}"))?
@@ -32,12 +32,16 @@ impl Artifact {
         }
 
         let target = parent.join(fname);
+        if target.exists() {
+            return Ok(());
+        }
+
         fs::write(&target, value)
             .map_err(|e| anyhow::anyhow!("failed to save artifact to {target:?}: {e:?}"))
     }
 
     /// Load the artifact from the cache
-    pub fn load(folder: &str, fname: &str) -> Option<Vec<u8>> {
+    pub fn get(folder: &str, fname: &str) -> Option<Vec<u8>> {
         let base = SPACEJAM_CACHE_DIR.lock().ok()?.clone();
         let parent = base.join(folder);
         if !parent.exists() {
@@ -52,11 +56,11 @@ impl Artifact {
 impl CacheKvStore for Artifact {
     fn get(&self, key: &[u8]) -> Option<Cow<'_, [u8]>> {
         let key = hex::encode(key);
-        Self::load("artifacts", &key).map(Cow::Owned)
+        Self::get("artifacts", &key).map(Cow::Owned)
     }
 
     fn insert(&mut self, key: &[u8], value: Vec<u8>) {
         let key = hex::encode(key);
-        Self::save("artifacts", &key, &value).ok();
+        Self::set("artifacts", &key, &value).ok();
     }
 }

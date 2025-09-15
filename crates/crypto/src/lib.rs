@@ -17,6 +17,12 @@ pub fn blake2b(input: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
+#[cfg(feature = "blake3")]
+/// Compute the BLAKE3 256-bit hash of a given input.
+pub fn blake3(input: &[u8]) -> [u8; 32] {
+    blake3::hash(input).into()
+}
+
 #[cfg(feature = "keccak")]
 /// Compute the Keccak 256-bit hash of a given input.
 pub fn keccak(input: &[u8]) -> [u8; 32] {

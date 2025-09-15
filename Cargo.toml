@@ -90,6 +90,7 @@ ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
 async-trait = "0.1.89"
 bindgen = "0.72"
 blake2 = "0.10.6"
+blake3 = "1.8.2"
 cc = "1.2"
 clap = "4.5.47"
 colored = "3.0.0"

@@ -40,7 +40,11 @@ impl Processor {
             self.init = true;
         }
 
-        traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?;
+        if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
+            traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?;
+        } else {
+            traces::run_single::<spacevm::Interpreter>(self.memdb.clone(), input, output).await?;
+        }
         self.history.insert(slot, self.memdb.deep_clone());
         Ok(())
     }

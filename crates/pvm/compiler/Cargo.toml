@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+crypto = { workspace = true, features = ["blake3"] }
 dirs.workspace = true
 hex.workspace = true
 postcard.workspace = true
