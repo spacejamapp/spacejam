@@ -10,6 +10,7 @@ use cranelift::{
 };
 use pvm::Argument;
 use std::collections::BTreeMap;
+pub use translator::host as sig;
 
 pub const CALL: &str = "call";
 pub const SBRK: &str = "sbrk";
@@ -17,7 +18,17 @@ pub const MGET: &str = "mget";
 pub const MSET: &str = "mset";
 
 mod abi;
-mod sig;
+
+/// The table of host call symbols
+pub fn table<X: Argument>() -> i64 {
+    [
+        abi::ecalli::<X> as *const u8,
+        abi::sbrk::<X> as *const u8,
+        abi::mget::<X> as *const u8,
+        abi::mset::<X> as *const u8,
+    ]
+    .as_ptr() as i64
+}
 
 /// Register host call symbols
 pub fn symbols<X: Argument>(builder: &mut JITBuilder) {

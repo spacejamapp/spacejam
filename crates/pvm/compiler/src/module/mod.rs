@@ -15,7 +15,7 @@ mod jit;
 mod object;
 
 /// The signature of the main function
-pub type MainSig<X> = fn(*mut X, u64) -> (i64, i64);
+pub type MainSig<X> = fn(*mut X, u64, i64) -> (i64, i64);
 
 /// The name of the main function
 pub const MAIN: &str = "main";
@@ -35,7 +35,7 @@ pub trait ModuleLike: Sized {
 /// Declare functions for the program
 pub fn compile(module: &mut impl module::Module, program: &Program) -> Result<()> {
     let signature = Signature {
-        params: vec![AbiParam::new(types::I64); 2],
+        params: vec![AbiParam::new(types::I64); 3],
         returns: vec![AbiParam::new(types::I64); 2],
         call_conv: CallConv::Fast,
     };

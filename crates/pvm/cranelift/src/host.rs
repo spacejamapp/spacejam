@@ -1,7 +1,9 @@
 //! Host function signatures
 
-use cranelift::prelude::{AbiParam, Signature, types};
-use cranelift_codegen::isa::CallConv;
+use cranelift::{
+    codegen::isa::CallConv,
+    prelude::{AbiParam, Signature, types},
+};
 use std::sync::LazyLock;
 
 /// The signature of the general host call

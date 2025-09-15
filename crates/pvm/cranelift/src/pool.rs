@@ -45,6 +45,9 @@ pub struct Pool {
 
     /// The VM context pointer
     pub vmctx: Value,
+
+    /// Host call table
+    pub call: Call,
 }
 
 impl Default for Pool {
@@ -54,6 +57,26 @@ impl Default for Pool {
             registers: [Variable::new(0); pvm::REGISTER_COUNT],
             gas: Variable::new(0),
             vmctx: Value::new(0),
+            call: Call::default(),
+        }
+    }
+}
+
+/// Host call table
+#[derive(Clone)]
+pub struct Call {
+    /// memory address of call ecalli
+    pub ecalli: Value,
+
+    /// memory address of call sbrk
+    pub sbrk: Value,
+}
+
+impl Default for Call {
+    fn default() -> Self {
+        Self {
+            ecalli: Value::new(0),
+            sbrk: Value::new(0),
         }
     }
 }
@@ -65,7 +88,7 @@ impl Translator<'_> {
     /// we'll have ugly function signatures.
     pub fn init_pool(&mut self, entry: Block, registers: [u64; pvm::REGISTER_COUNT]) -> Value {
         let params = self.builder.block_params(entry).to_vec();
-        let [vmctx, pc] = [params[0], params[1]];
+        let [vmctx, pc, table] = [params[0], params[1], params[2]];
         self.pool.vmctx = vmctx;
         self.pool.memory = self.builder.ins().load(
             types::I64,
@@ -92,6 +115,15 @@ impl Translator<'_> {
             let val = self.builder.ins().iconst(types::I64, *reg as i64);
             self.builder.def_var(var, val);
             self.pool.registers[i] = var;
+        }
+
+        // init host calls
+        {
+            self.pool.call.ecalli =
+                self.context
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 0);
         }
 
         pc

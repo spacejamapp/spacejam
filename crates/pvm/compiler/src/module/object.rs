@@ -1,7 +1,7 @@
 //! Object module
 
 use crate::{
-    Artifact, Engine, Executable,
+    Artifact, Engine, Executable, host,
     module::{self, ModuleLike},
 };
 use anyhow::Result;
@@ -51,7 +51,7 @@ impl ModuleLike for ObjectModule {
     fn execute<X: Argument>(&self, ctx: &mut X, pc: u64) -> Result<Reason> {
         let main = self.exec.get("main")?;
         let main_fn: super::MainSig<X> = unsafe { std::mem::transmute(main) };
-        let (gas, exit_code) = main_fn(ctx, pc);
+        let (gas, exit_code) = main_fn(ctx, pc, host::table::<X>());
         ctx.set_gas(gas as u64);
         Ok(Exit::to_reason(exit_code))
     }

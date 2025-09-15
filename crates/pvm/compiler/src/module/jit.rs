@@ -38,7 +38,7 @@ impl ModuleLike for JITModule {
                 self.0.get_finalized_function(main),
             )
         };
-        let result = match trap::with(|| func(ctx, pc)) {
+        let result = match trap::with(|| func(ctx, pc, host::ecalli::<X> as *const u8 as i64)) {
             Ok((gas, code)) => {
                 let reason = translator::Exit::to_reason(code);
                 tracing::debug!("exit code: {code}, reason: {reason:?}");
