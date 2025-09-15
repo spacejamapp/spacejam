@@ -31,9 +31,10 @@ impl Invocation for Compiler {
         let reason = module
             .execute(&mut context, pc as u64)
             .expect("fix me later");
+        let output = crate::trap::with(|| context.acc_output()).unwrap_or_default();
         Invoked {
             gas: gas - (context.gas.max(0) as u64),
-            output: Default::default(),
+            output,
             reason,
             state: State {
                 pc: 0,

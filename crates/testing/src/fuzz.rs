@@ -40,7 +40,7 @@ impl Processor {
             self.init = true;
         }
 
-        traces::run_single(self.memdb.clone(), input, output).await?;
+        traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?;
         self.history.insert(slot, self.memdb.deep_clone());
         Ok(())
     }
