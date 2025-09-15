@@ -149,14 +149,22 @@ impl Executable {
 
     /// Load the symbols into the executable
     fn load_symbols<'d, X: Argument>(&mut self, obj: &object::File<'d>) {
-        self.symbols
-            .insert(host::CALL.to_string(), host::ecalli::<X> as usize);
-        self.symbols
-            .insert(host::SBRK.to_string(), host::sbrk::<X> as usize);
-        self.symbols
-            .insert(host::MGET.to_string(), host::mget::<X> as usize);
-        self.symbols
-            .insert(host::MSET.to_string(), host::mset::<X> as usize);
+        self.symbols.insert(
+            host::CALL.to_string(),
+            host::ecalli::<pvm::Context<X, crate::Memory>> as usize,
+        );
+        self.symbols.insert(
+            host::SBRK.to_string(),
+            host::sbrk::<pvm::Context<X, crate::Memory>> as usize,
+        );
+        self.symbols.insert(
+            host::MGET.to_string(),
+            host::mget::<pvm::Context<X, crate::Memory>> as usize,
+        );
+        self.symbols.insert(
+            host::MSET.to_string(),
+            host::mset::<pvm::Context<X, crate::Memory>> as usize,
+        );
 
         // add object symbols
         for symbol in obj.symbols() {

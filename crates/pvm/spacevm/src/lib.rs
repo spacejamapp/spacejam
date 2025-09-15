@@ -6,7 +6,7 @@ use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, JITModule, Memory, ModuleLike, SPACEVM_CACHE_DIR};
+pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, ObjectModule, SPACEVM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
@@ -14,14 +14,14 @@ use std::{
 };
 
 /// Locks for the Jastime compilation
-pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<JITModule>>>> =
+pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<ObjectModule>>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
 /// Locks for the Jastime compilation
 pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeMap<OpaqueHash, ()>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
-/// Jastime - JAM virtual machine
+/// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
 
 impl Invocation for SpaceVM {
@@ -95,7 +95,7 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match <JITModule as ModuleLike>::new::<X>()?
+    match <ObjectModule as ModuleLike>::new::<X>()?
         .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {

@@ -32,7 +32,7 @@ impl ModuleLike for ObjectModule {
     fn compile(mut self, program: &Program) -> Result<Self> {
         let info = program.meta.info();
         let name = format!("{}-{}.o", info.name, info.version);
-        if let Some(object) = Artifact::load("lib", &name)? {
+        if let Some(object) = Artifact::load("lib", &name) {
             self.exec.load::<()>(&object)?;
             return Ok(self);
         }
@@ -56,3 +56,6 @@ impl ModuleLike for ObjectModule {
         Ok(Exit::to_reason(exit_code))
     }
 }
+
+unsafe impl Send for ObjectModule {}
+unsafe impl Sync for ObjectModule {}
