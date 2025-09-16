@@ -126,8 +126,11 @@ impl Translator<'_> {
         self.sync_registers();
         let clen = self.builder.ins().iconst(types::I8, length);
         let vmctx = self.context.pool.vmctx;
-        let mget = self.host["mget"];
-        let inst = self.builder.ins().call(mget, &[vmctx, address, clen]);
+        let (sig, call) = self.context.pool.call.mget;
+        let inst = self
+            .builder
+            .ins()
+            .call_indirect(sig, call, &[vmctx, address, clen]);
         let value = self.builder.inst_results(inst)[0];
 
         // Reload registers and gas from memory after host call
@@ -150,11 +153,11 @@ impl Translator<'_> {
             8 => value,
             _ => panic!("invalid value length"),
         };
-        let mset = self.host["mset"];
+        let (sig, call) = self.context.pool.call.mset;
         let vmctx = self.context.pool.vmctx;
         self.builder
             .ins()
-            .call(mset, &[vmctx, address, value, clen]);
+            .call_indirect(sig, call, &[vmctx, address, value, clen]);
 
         // Reload registers and gas from memory after host call
         for i in 0..13 {
