@@ -30,22 +30,26 @@ impl Context<'_> {
                 .icmp_imm(IntCC::SignedLessThan, gas, amount),
             Gas::Value(amount) => self.builder.ins().icmp(IntCC::SignedLessThan, gas, amount),
         };
-        let then_block = self.builder.create_block();
-        let else_block = self.builder.create_block();
-        self.builder
-            .ins()
-            .brif(oog, then_block, &[], else_block, &[]);
-        self.builder.switch_to_block(then_block);
-        let exit = Exit::OOG.value(&mut self.builder);
-        self.builder.ins().return_(&[gas, exit]);
 
-        // burn the gas
-        self.builder.switch_to_block(else_block);
         gas = match to_burn {
             Gas::Imm(amount) => self.builder.ins().iadd_imm(gas, -amount),
             Gas::Value(amount) => self.builder.ins().isub(gas, amount),
         };
         self.builder.def_var(self.pool.gas, gas);
+
+        // returns OOG if out of gas
+        let then_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        self.builder
+            .ins()
+            .brif(oog, then_block, &[], else_block, &[]);
+
+        self.builder.switch_to_block(then_block);
+        let exit = Exit::OOG.value(&mut self.builder);
+        self.builder.ins().return_(&[gas, exit]);
+
+        // do nothing if not out of gas
+        self.builder.switch_to_block(else_block);
         Ok(())
     }
 
