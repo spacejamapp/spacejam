@@ -62,8 +62,11 @@ pub const MAX_DEPENDENCY_COUNT: u16 = 8;
 /// (K) The maximum number of tickets which may be submitted in a single extrinsic.
 pub const MAX_TICKETS_PER_EXTRINSIC: u16 = 16;
 
+// /// (L) The maximum age of a lookup anchor (24 hrs)
+// pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD as u32;
+
 /// (L) The maximum age of a lookup anchor (24 hrs)
-pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD as u32;
+pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24;
 
 /// (N) The number of ticket entries per validator
 pub const TICKET_ENTRIES_PER_VALIDATOR: u16 = 2;

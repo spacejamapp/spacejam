@@ -20,7 +20,7 @@ impl Parameters {
             max_work_items: 16,
             max_dependencies: 8,
             max_tickets_per_extrinsic: 3,
-            max_lookup_anchor_age: 14400,
+            max_lookup_anchor_age: 24,
             ticket_entries_per_validator: 3,
             auth_window: 8,
             slot_period: 6,
