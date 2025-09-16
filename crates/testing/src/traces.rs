@@ -109,7 +109,7 @@ pub async fn run_single<Vm: Pvm>(
         pkeys.push(key.clone());
         if value != result {
             tracing::error!(
-                "keyval mismatch: {info:?}: 0x{encoded}, expected: 0x{}, got: 0x{}",
+                "keyval mismatch: {info:?}: 0x{encoded}, expected vs got:\n0x{}\n0x{}",
                 hex::encode(&value),
                 hex::encode(&result)
             );
@@ -117,12 +117,12 @@ pub async fn run_single<Vm: Pvm>(
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }
 
-        /* if key == key::STATISTICS && value != result {
+        if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        } */
+        }
 
         if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
