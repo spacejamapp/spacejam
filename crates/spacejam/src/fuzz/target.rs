@@ -126,40 +126,30 @@ impl Target {
         let entropy = state.entropy;
         let safrole = state.safrole.clone();
         let header = block.header.clone();
-        let diff = tokio::try_join!(
-            async {
+        let data = self.data.clone();
+        let slot = block.header.slot;
+        let interp = self.interp;
+        let (vr, diff) = tokio::try_join!(
+            tokio::spawn(async move {
                 let verifier =
                     runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
                         .await;
-
-                tokio::task::spawn_blocking(move || {
-                    header.validate(new_epoch, entropy, &safrole, verifier)
-                })
-                .await?
-            },
-            async {
-                if self.interp {
-                    tx::simulate_with_state::<spacevm::Interpreter>(
-                        &mut block,
-                        state,
-                        self.data.clone(),
-                    )
+                header
+                    .validate(new_epoch, entropy, &safrole, verifier)
                     .await
+            }),
+            tokio::spawn(async move {
+                if interp {
+                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data).await
                 } else {
-                    tx::simulate_with_state::<spacevm::SpaceVM>(
-                        &mut block,
-                        state,
-                        self.data.clone(),
-                    )
-                    .await
+                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data).await
                 }
-            }
-        );
-
-        self.data.commit(Column::State, diff?.1)?;
+            }),
+        )?;
+        let (_, diff) = (vr?, diff?);
+        self.data.commit(Column::State, diff)?;
         {
-            self.history
-                .insert(block.header.slot, self.data.deep_clone());
+            self.history.insert(slot, self.data.deep_clone());
             if self.history.len() > 6 {
                 self.history.pop_first();
             }
@@ -215,16 +205,19 @@ impl Target {
     }
 
     /// Initialize the target
+    #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        // let _ = init::verifier(data).await;
         if self.interp {
-            tokio::spawn(async move {
-                let _ = init::verifier(data.clone()).await;
-            });
+            init::verifier(data).await?;
         } else {
-            let _ = tokio::try_join!(init::verifier(data.clone()), init::programs(data.clone()))?;
+            let (vr, pr) = tokio::try_join!(
+                tokio::spawn(init::verifier(data.clone())),
+                tokio::spawn(init::programs(data.clone()))
+            )?;
+            let (_, _) = (vr?, pr?);
         }
+
         Ok(())
     }
 }

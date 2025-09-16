@@ -45,6 +45,7 @@ impl StandardProgramBlob {
         registers[8] = args.len() as u64;
 
         Ok(Program {
+            meta: Default::default(),
             registers,
             memory: Memory::init(self, args),
             code: self.code_blob.to_vec(),

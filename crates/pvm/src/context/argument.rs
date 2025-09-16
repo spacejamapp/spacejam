@@ -51,6 +51,11 @@ pub trait Argument: Send + Sync {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
+    /// Set the gas
+    fn set_gas(&mut self, gas: Gas) {
+        unimplemented!("make sure your are invoking the accumulation interface: gas={gas}")
+    }
+
     /// Get the free index
     fn index(&self) -> ServiceId {
         unimplemented!("make sure your are invoking the accumulation interface")

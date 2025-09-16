@@ -1,5 +1,6 @@
 //! state transition traces
 
+use pvm::Pvm;
 use runtime::{
     storage::{Column, KVStorage, MemoryDb, StateStorage},
     tx,
@@ -53,17 +54,21 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
             .expect("failed to set keyval");
     }
 
-    self::run_single(memdb, input, output).await
+    let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
+    if use_compiler {
+        self::run_single::<spacevm::Compiler>(memdb, input, output).await
+    } else {
+        self::run_single::<spacevm::Interpreter>(memdb, input, output).await
+    }
 }
 
 /// Run the traces test
-pub async fn run_single(
+pub async fn run_single<Vm: Pvm>(
     memdb: Arc<MemoryDb>,
     input: TestInput,
     output: TestOutput,
 ) -> anyhow::Result<()> {
     let block: Block = input.block;
-    let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     let mut pkeys = Vec::new();
     let state = memdb.state()?;
     let epoch = state.timeslot / score::EPOCH_LENGTH;
@@ -75,21 +80,12 @@ pub async fn run_single(
         runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
     let result = tokio::try_join!(
         async {
-            tokio::task::spawn_blocking(move || {
-                block
-                    .header
-                    .validate(new_epoch, entropy, &safrole, verifier)
-            })
-            .await?
+            block
+                .header
+                .validate(new_epoch, entropy, &safrole, verifier)
+                .await
         },
-        async {
-            if use_compiler {
-                tx::simulate_with_state::<spacevm::SpaceVM>(&mut block2, state, memdb.clone()).await
-            } else {
-                tx::simulate_with_state::<spacevm::Interpreter>(&mut block2, state, memdb.clone())
-                    .await
-            }
-        },
+        async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
     );
 
     match result {

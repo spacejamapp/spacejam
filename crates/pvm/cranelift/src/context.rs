@@ -1,9 +1,8 @@
 //! Context of the translator
 
-use crate::{Exit, Registers, Translator};
+use crate::{Exit, Pool, Translator};
 use anyhow::Result;
-use cranelift::prelude::{InstBuilder, IntCC, Value};
-use cranelift_frontend::FunctionBuilder;
+use cranelift::prelude::{FunctionBuilder, InstBuilder, IntCC, Value};
 use parser::{Instruction, format, reader::Offset};
 use pvm::Visitor;
 use std::ops::{Deref, DerefMut, Range};
@@ -11,7 +10,7 @@ use std::ops::{Deref, DerefMut, Range};
 /// Context of the translator
 pub struct Context<'b> {
     /// The registers of the context
-    pub pool: Registers,
+    pub pool: Pool,
 
     /// The builder of the context
     pub builder: FunctionBuilder<'b>,

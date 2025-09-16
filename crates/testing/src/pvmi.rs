@@ -45,6 +45,7 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         code: input.program.to_vec(),
         memory: memory.clone(),
         registers,
+        meta: Default::default(),
     };
     let result = pvmi::Interpreter::invoke(
         &program,

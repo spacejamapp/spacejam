@@ -6,7 +6,7 @@ use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, Memory, Module};
+pub use pvmc::{Artifact, Compiler, JITModule, Memory, ModuleLike, SPACEJAM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
@@ -14,14 +14,14 @@ use std::{
 };
 
 /// Locks for the Jastime compilation
-pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<Module>>>> =
+pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<JITModule>>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
 /// Locks for the Jastime compilation
 pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeMap<OpaqueHash, ()>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
-/// Jastime - JAM virtual machine
+/// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
 
 impl Invocation for SpaceVM {
@@ -38,7 +38,7 @@ impl Invocation for SpaceVM {
         {
             let program = parser::program::preimage(code, &args).expect("failed to preimage");
             let mut context = pvm::Context {
-                registers: module.registers,
+                registers: program.registers,
                 gas: gas as i64,
                 memory: Memory::new(&program.memory).expect("failed to create memory"),
                 ctx: &mut ctx,
@@ -66,9 +66,17 @@ impl Invocation for SpaceVM {
 
         // lock the compilation
         {
-            let code = code.clone();
-            let args = args.clone();
-            tokio::task::spawn_blocking(move || self::compile::<X>(code, args, hash, true));
+            if let Ok(locks) = SPACEVM_LOCKS.read()
+                && !locks.contains_key(&hash)
+            {
+                let code = code.clone();
+                let args = args.clone();
+                tokio::task::spawn_blocking(move || {
+                    if let Err(e) = self::compile::<X>(code, args, hash, true) {
+                        tracing::warn!("failed to compile program: {e:?}");
+                    }
+                });
+            }
         }
 
         // fallback to the interpreter
@@ -87,12 +95,9 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match Compiler::host::<X>()
-        .expect("fix me later")
-        .compile_with_cache(
-            &parser::program::preimage(code, &args).expect("failed to preimage"),
-            Some(hash),
-        ) {
+    match <JITModule as ModuleLike>::new::<X>()?
+        .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
+    {
         Ok(module) => {
             if let Ok(mut locks) = SPACEVM_MODULES.write()
                 && memcache

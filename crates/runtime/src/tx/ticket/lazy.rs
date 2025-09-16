@@ -63,13 +63,7 @@ pub async fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifi
     // create a new verifier
     let mut lazy_verifier = LAZY_RING.lock().await;
     let drawn = drawn.clone();
-    let verifier = Arc::new(
-        tokio::task::spawn_blocking(move || crypto::ring::verifier(&drawn))
-            .await
-            .expect("Failed to create verifier"),
-    );
-
-    // Reacquire write lock to insert the result
+    let verifier = Arc::new(crypto::ring::verifier(&drawn));
     lazy_verifier.insert(epoch, verifier.clone());
     if lazy_verifier.len() > CACHED {
         lazy_verifier.pop_first();

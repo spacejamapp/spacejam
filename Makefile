@@ -10,6 +10,8 @@
 # make macos-amd64
 # make linux-arm64
 # make linux-amd64
+AWS_LC_SYS_C_STD := 11
+AWS_LC_SYS_CMAKE_BUILDER := 1
 
 # build all targets
 bundle: macos-arm64 macos-amd64 linux-amd64 linux-arm64 tar-all

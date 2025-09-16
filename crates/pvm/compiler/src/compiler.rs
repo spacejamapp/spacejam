@@ -1,72 +1,28 @@
 //! Cranelift JIT backend
 
-use crate::{Artifact, Memory, engine, host};
-use anyhow::Result;
-use cranelift::prelude::FunctionBuilderContext;
-use cranelift_codegen::Context;
-use cranelift_jit::JITModule;
+use crate::{Memory, ModuleLike};
 use pvm::{
     Argument, Invocation, Invoked, State, parser,
     score::{Gas, OpaqueHash},
 };
 
 /// Cranelift JIT module builder
-pub struct Compiler {
-    /// Cranelift JIT module builder
-    pub module: JITModule,
-
-    /// Artifact
-    pub artifact: Artifact,
-
-    /// Cranelift context
-    pub context: Context,
-
-    /// Function builder context
-    pub ctx: FunctionBuilderContext,
-}
-
-impl Compiler {
-    /// Create new JIT module builder
-    pub fn new() -> Result<Self> {
-        let mut builder = engine::compilation()?;
-        host::symbols::<pvm::Context<'_, (), crate::Memory>>(&mut builder);
-        let module = JITModule::new(builder);
-        Ok(Self {
-            module,
-            artifact: Artifact::new()?,
-            context: Context::new(),
-            ctx: FunctionBuilderContext::new(),
-        })
-    }
-
-    /// Create new JIT module builder for host functions
-    pub fn host<X: Argument>() -> Result<Self> {
-        let mut builder = engine::compilation()?;
-        host::symbols::<X>(&mut builder);
-        let module = JITModule::new(builder);
-        Ok(Self {
-            module,
-            artifact: Artifact::new()?,
-            context: Context::new(),
-            ctx: FunctionBuilderContext::new(),
-        })
-    }
-}
+pub struct Compiler;
 
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(
         mut ctx: X,
-        hash: OpaqueHash,
+        _hash: OpaqueHash,
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let pvmc = Self::host::<X>().expect("fix me later");
-        let module = pvmc.compile(&program, Some(hash)).expect("fix me later");
+        let pvmc = <crate::ObjectModule as ModuleLike>::new::<X>().expect("fix me later");
+        let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
-            registers: module.registers,
+            registers: program.registers,
             gas: gas as i64,
             memory: Memory::new(&program.memory).expect("failed to create memory"),
             ctx: &mut ctx,
@@ -75,9 +31,10 @@ impl Invocation for Compiler {
         let reason = module
             .execute(&mut context, pc as u64)
             .expect("fix me later");
+        let output = crate::trap::with(|| context.acc_output()).unwrap_or_default();
         Invoked {
             gas: gas - (context.gas.max(0) as u64),
-            output: Default::default(),
+            output,
             reason,
             state: State {
                 pc: 0,

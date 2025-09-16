@@ -9,21 +9,24 @@
 use crate::masm::MacroBlocks;
 use anyhow::Result;
 use context::Context;
-use cranelift::prelude::*;
-use cranelift_codegen::ir::{Block, FuncRef, Function, JumpTable};
+use cranelift::{
+    codegen::ir::{Block, Function, JumpTable},
+    prelude::*,
+};
 use std::collections::BTreeMap;
 pub use {
     exit::Exit,
-    register::{Registers, offsets},
+    pool::{Pool, offsets},
 };
 
 mod context;
 mod control;
 mod exit;
+pub mod host;
 mod masm;
 mod math;
 mod memory;
-mod register;
+mod pool;
 mod translate;
 mod visitor;
 
@@ -34,9 +37,6 @@ pub struct Translator<'b> {
 
     /// Map of blocks by start PC
     pub blocks: BTreeMap<u64, Block>,
-
-    /// The host call function
-    pub host: BTreeMap<String, FuncRef>,
 
     /// Jump table for dynamic jumps
     pub jump: Vec<u64>,
@@ -67,13 +67,12 @@ impl<'b> Translator<'b> {
 
         let masm = MacroBlocks::new(&mut builder);
         let context = Context {
-            pool: Registers::default(),
+            pool: Pool::default(),
             builder,
         };
 
         Ok(Self {
             blocks: iblocks,
-            host: BTreeMap::new(),
             jump: Vec::new(),
             rt_jump_table: JumpTable::new(0),
             masm,
@@ -81,24 +80,5 @@ impl<'b> Translator<'b> {
             #[cfg(target_os = "macos")]
             memory: pvm::MemoryInfo::default(),
         })
-    }
-
-    /// Reset the translator for new functions
-    pub fn reset(
-        &mut self,
-        blocks: &[u64],
-        func: &'b mut Function,
-        ctx: &'b mut FunctionBuilderContext,
-    ) {
-        let mut iblocks = BTreeMap::new();
-        let mut builder = FunctionBuilder::new(func, ctx);
-        for pc in blocks {
-            iblocks.insert(*pc, builder.create_block());
-        }
-
-        self.blocks = iblocks;
-        self.masm = MacroBlocks::new(&mut builder);
-        self.pool = Registers::default();
-        self.builder = builder;
     }
 }

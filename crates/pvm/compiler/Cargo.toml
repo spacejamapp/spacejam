@@ -5,19 +5,19 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+crypto = { workspace = true, features = ["blake3"] }
 dirs.workspace = true
 hex.workspace = true
 postcard.workspace = true
 pvm.workspace = true
 translator.workspace = true
-cranelift.workspace = true
-cranelift-codegen = { workspace = true, features = [
-    "incremental-cache",
-    "serde",
+cranelift = { workspace = true, features = [
+    "native",
+    "jit",
+    "module",
+    "object",
 ] }
-cranelift-native.workspace = true
-cranelift-jit.workspace = true
-cranelift-module.workspace = true
+cranelift-codegen = { workspace = true, features = ["incremental-cache"] }
 tracing.workspace = true
 libc.workspace = true
 

@@ -1,86 +1,33 @@
 //! Host call trampoline
 
-use crate::Compiler;
 pub use abi::*;
-use anyhow::Result;
-use cranelift::prelude::{AbiParam, Signature, types};
-use cranelift_codegen::ir::FuncRef;
-use cranelift_jit::JITBuilder;
-use cranelift_module::{FuncId, Linkage, Module};
 use pvm::Argument;
-use std::collections::BTreeMap;
+use std::sync::Once;
+pub use translator::host as sig;
 
+/// The dispatch table of host call symbols
+static mut DISPATCH_TABLE: [*const u8; 4] = [std::ptr::null(); 4];
+static INIT: Once = Once::new();
+
+/// The name of the call function
 pub const CALL: &str = "call";
+/// The name of the sbrk function
 pub const SBRK: &str = "sbrk";
+/// The name of the mget function
 pub const MGET: &str = "mget";
+/// The name of the mset function
 pub const MSET: &str = "mset";
 
 mod abi;
 
-/// Register host call symbols
-pub fn symbols<X: Argument>(builder: &mut JITBuilder) {
-    builder.symbol(CALL, abi::call::<X> as *const u8);
-    builder.symbol(SBRK, abi::sbrk::<X> as *const u8);
-    builder.symbol(MGET, abi::mget::<X> as *const u8);
-    builder.symbol(MSET, abi::mset::<X> as *const u8);
-}
+/// The table of host call symbols
+pub fn table<X: Argument>() -> i64 {
+    INIT.call_once(|| unsafe {
+        DISPATCH_TABLE[0] = abi::ecalli::<X> as *const u8;
+        DISPATCH_TABLE[1] = abi::sbrk::<X> as *const u8;
+        DISPATCH_TABLE[2] = abi::mget::<X> as *const u8;
+        DISPATCH_TABLE[3] = abi::mset::<X> as *const u8;
+    });
 
-impl Compiler {
-    /// Declare the host functions
-    pub fn declare_host_in_func(
-        &mut self,
-        host: BTreeMap<String, FuncId>,
-    ) -> Result<BTreeMap<String, FuncRef>> {
-        let mut map = BTreeMap::new();
-        for (name, id) in host {
-            let func = self.module.declare_func_in_func(id, &mut self.context.func);
-            map.insert(name, func);
-        }
-        Ok(map)
-    }
-
-    /// Declare the host functions in the module
-    pub fn declare_host_in_module(&mut self) -> Result<BTreeMap<String, FuncId>> {
-        let mut map = BTreeMap::new();
-        for (name, sig) in self.host_calls() {
-            let id = self.module.declare_function(&name, Linkage::Import, &sig)?;
-            map.insert(name, id);
-        }
-        Ok(map)
-    }
-
-    fn host_calls(&self) -> BTreeMap<String, Signature> {
-        let mut map = BTreeMap::new();
-        map.insert(CALL.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I32));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.returns.push(AbiParam::new(types::I8));
-            sig
-        });
-        map.insert(SBRK.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.params.push(AbiParam::new(types::I8));
-            sig
-        });
-        map.insert(MGET.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig.returns.push(AbiParam::new(types::I64));
-            sig
-        });
-        map.insert(MSET.to_string(), {
-            let mut sig = self.module.make_signature();
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I64));
-            sig.params.push(AbiParam::new(types::I8));
-            sig
-        });
-        map
-    }
+    core::ptr::addr_of!(DISPATCH_TABLE) as i64
 }

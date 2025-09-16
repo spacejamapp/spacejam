@@ -2,7 +2,6 @@
 
 use crate::Memory;
 use anyhow::Result;
-
 pub use {
     blob::{deblob, ProgramBlob},
     metadata::{ConventionalMetadata, CrateInfo},
@@ -18,13 +17,16 @@ mod standard;
 /// Convert a preimage blob to a program.
 pub fn preimage(blob: Vec<u8>, args: &[u8]) -> anyhow::Result<Program> {
     let preimage = PreimageBlob::from_bytes(&blob)?;
-    /*     let metadata = ConventionalMetadata::decode(&preimage.metadata)?;
-    tracing::debug!("metadata: {metadata:?}"); */
-    preimage.blob.init(args)
+    let mut program = preimage.blob.init(args)?;
+    program.meta = preimage.metadata;
+    Ok(program)
 }
 
 /// A PVM program.
 pub struct Program {
+    /// The program blob.
+    pub meta: ConventionalMetadata,
+
     /// The program code (c).
     pub code: Vec<u8>,
 

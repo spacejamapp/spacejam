@@ -1,11 +1,13 @@
 //! SpaceJam PVM compiler
 
 pub use {
-    artifact::{Artifact, SPACEVM_CACHE_DIR},
+    artifact::{Artifact, SPACEJAM_CACHE_DIR},
     compiler::Compiler,
     cranelift_codegen::timing,
+    engine::Engine,
+    exec::Executable,
     memory::Memory,
-    module::{Info, Module},
+    module::{JITModule, ModuleLike, ObjectModule},
     pvm::MemoryLike,
     translator::Translator,
     trap::TrapInfo,
@@ -14,8 +16,8 @@ pub use {
 mod artifact;
 mod compiler;
 pub mod engine;
+mod exec;
 pub mod host;
 pub mod memory;
 pub mod module;
-mod translate;
 pub mod trap;
