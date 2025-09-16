@@ -87,7 +87,7 @@ impl Target {
                 }
                 Ok(())
             }
-            Message::Initialize(state) => self.set_state(state).await,
+            Message::Initialize(state) => self.initialize(state).await,
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),
             Message::StateRoot(hash) => self.state_root(hash),
@@ -114,15 +114,21 @@ impl Target {
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
         let state = self.data.state()?;
-        let epoch = state.timeslot / score::EPOCH_LENGTH;
-        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
-        if block.header.slot == state.timeslot
+        /* tracing::debug!(
+            "importing block({})=0x{}, best block: {}",
+            block.header.slot,
+            hex::encode(block.header.hash().unwrap()),
+            state.timeslot
+        ); */
+        if block.header.slot <= state.timeslot
             && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
         {
-            tracing::warn!("Fallback state to the previous slot");
+            tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
             self.data.reset(prev.clone());
         }
 
+        let epoch = state.timeslot / score::EPOCH_LENGTH;
+        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
         let entropy = state.entropy;
         let safrole = state.safrole.clone();
         let header = block.header.clone();
@@ -161,13 +167,16 @@ impl Target {
 
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
-    pub async fn set_state(&mut self, state: Initialize) -> Result<()> {
+    pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);
         }
 
         self.data.commit(Column::State, commit)?;
+        let state = self.data.state()?;
+        let timeslot = state.timeslot;
+        self.history.insert(timeslot, self.data.deep_clone());
         if let Err(e) = self.init_state().await {
             tracing::warn!("failed to initialize state: {e}");
         }

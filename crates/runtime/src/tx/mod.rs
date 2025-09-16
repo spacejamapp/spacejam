@@ -279,7 +279,11 @@ pub async fn simulate_with_state<Vm: Pvm>(
             .complete_state_root(block.header.parent_state_root)?
             && parent != block.header.parent
         {
-            anyhow::bail!("Parent mismatch");
+            anyhow::bail!(
+                "Parent mismatch, expected: 0x{}, got: 0x{}",
+                hex::encode(parent),
+                hex::encode(block.header.parent),
+            );
         }
 
         // (p of β') Report the work packages
