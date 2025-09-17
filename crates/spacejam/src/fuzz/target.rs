@@ -53,13 +53,11 @@ impl Target {
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
         tracing::info!("Listening on {socket:?}");
 
-        // now clean the cache of the spacevm
-        {
+        for stream in listener.incoming() {
             if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
                 fs::remove_dir_all(&*cache).ok();
             }
-        }
-        for stream in listener.incoming() {
+
             let stream = stream.context("Failed to accept connection")?;
             Self::run(stream, interp).await?;
         }
@@ -219,14 +217,20 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
+        let timeslot = data.timeslot()?;
         if self.interp {
             init::verifier(data).await?;
         } else {
-            let (vr, pr) = tokio::try_join!(
+            let (threadv, threadp) = (
                 tokio::spawn(init::verifier(data.clone())),
-                tokio::spawn(init::programs(data.clone()))
-            )?;
-            let (_, _) = (vr?, pr?);
+                tokio::spawn(init::programs(data.clone())),
+            );
+
+            // blocking init only on large tests, e.g. starts from slot 0.
+            if timeslot == 0 {
+                let (vr, pr) = tokio::try_join!(threadv, threadp)?;
+                let (_, _) = (vr?, pr?);
+            }
         }
 
         Ok(())
