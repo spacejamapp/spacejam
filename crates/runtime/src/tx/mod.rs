@@ -314,7 +314,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
 
         // (δ') Update the accounts
         // if !block.extrinsic.preimages.is_empty() {
-        let _guard = timing::preimages();
+        // let _guard = timing::preimages();
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);

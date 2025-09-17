@@ -78,11 +78,12 @@ pub async fn run_single<Vm: Pvm>(
     let entropy = state.entropy;
     let verifier =
         runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
+    let validators = state.validators.current;
     let result = tokio::try_join!(
         async {
             block
                 .header
-                .validate(new_epoch, entropy, &safrole, verifier)
+                .validate(new_epoch, &validators, entropy, &safrole, verifier)
                 .await
         },
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },

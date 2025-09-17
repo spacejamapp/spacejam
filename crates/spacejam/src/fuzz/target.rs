@@ -130,13 +130,14 @@ impl Target {
         let data = self.data.clone();
         let slot = block.header.slot;
         let interp = self.interp;
+        let validators = state.validators.current;
         let (vr, diff) = tokio::try_join!(
             tokio::spawn(async move {
                 let verifier =
                     runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
                         .await;
                 header
-                    .validate(new_epoch, entropy, &safrole, verifier)
+                    .validate(new_epoch, &validators, entropy, &safrole, verifier)
                     .await
             }),
             tokio::spawn(async move {
