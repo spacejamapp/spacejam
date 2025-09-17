@@ -24,8 +24,9 @@ impl Translator<'_> {
         &mut self,
         registers: [u64; pvm::REGISTER_COUNT],
         func: BTreeMap<u64, Vec<Offset<Instruction>>>,
-        _info: MemoryInfo,
+        info: MemoryInfo,
     ) -> Result<()> {
+        self.memory = info;
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);

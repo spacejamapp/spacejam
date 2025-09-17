@@ -199,10 +199,13 @@ impl Translator<'_> {
         }
 
         // now the pointer is at the start of the args area
+        //
+        // FIXME: we don't set the limit of args end as a workaround
+        // of dynamic arguments for now, this could be dangerous in
+        // production environment, but we don't maintain node in macos
+        // don't we?
         ptr += self.memory.stack.len() as u32;
-        if start >= self.memory.args.start
-            && start < self.memory.args.start.max(self.memory.args.end)
-        {
+        if start >= self.memory.args.start {
             return (ptr + start - self.memory.args.start) as i64;
         }
 
