@@ -62,8 +62,17 @@ impl Memory {
             return vec![];
         }
 
-        let end = addr + len;
         let mut ptr = 0;
+        let Some(end) = addr.checked_add(len) else {
+            TrapInfo::fault(addr).raise();
+            return vec![];
+        };
+
+        if addr < self.info.read.start || end > self.info.args.end {
+            TrapInfo::fault(addr).raise();
+            return vec![];
+        }
+
         if addr >= self.info.read.start && end <= self.info.read.end {
             let start = (addr - self.info.read.start) as usize;
             return self.base[start..(start + len as usize)].to_vec();
@@ -78,6 +87,9 @@ impl Memory {
         ptr += self.info.write.len();
         if addr >= self.info.stack.start && end <= self.info.stack.end {
             let start = (addr - self.info.stack.start) as usize + ptr;
+            if start + len as usize > self.base.len() {
+                tracing::debug!("reading from {addr}, length={len}, end={end}");
+            }
             return self.base[start..(start + len as usize)].to_vec();
         }
 
@@ -116,8 +128,13 @@ impl Memory {
             return;
         }
 
-        let end = addr + data.len() as u32;
         let mut ptr = self.info.read.len();
+        let end = addr + data.len() as u32;
+        if addr < self.info.write.start || end > self.info.stack.end {
+            TrapInfo::fault(addr).raise();
+            return;
+        }
+
         if addr >= self.info.write.start && end <= self.info.write.end {
             let start = (addr - self.info.write.start) as usize + ptr;
             self.base[start..(start + data.len())].copy_from_slice(data);
@@ -134,7 +151,7 @@ impl Memory {
         // NOTE: for multiple regions, we only support (write + heap) atm.
         let mut addr = addr;
         let mut written = 0;
-        if addr < self.info.heap.start {
+        if addr < self.info.heap.start && addr >= self.info.write.start {
             let wstart = (addr - self.info.write.start + self.info.read.len() as u32) as usize;
             let wend = self.info.read.len() + self.info.write.len();
             let size = wend - wstart;

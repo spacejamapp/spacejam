@@ -51,8 +51,14 @@ impl Target {
         fs::remove_file(socket).ok();
         let listener = UnixListener::bind(socket)
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
-
         tracing::info!("Listening on {socket:?}");
+
+        // now clean the cache of the spacevm
+        {
+            if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
+                fs::remove_dir_all(&cache.clone()).ok();
+            }
+        }
         for stream in listener.incoming() {
             let stream = stream.context("Failed to accept connection")?;
             Self::run(stream, interp).await?;

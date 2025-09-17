@@ -6,6 +6,17 @@ use std::cell::Cell;
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 
+thread_local! {
+    /// Thread-local atomic pointer to jmp_buf
+    static JMP_BUF_PTR: AtomicPtr<libc::c_void> = const { AtomicPtr::new(ptr::null_mut()) };
+    /// Thread-local trap info storage
+    static TRAP_INFO: Cell<Option<TrapInfo>> = const { Cell::new(None) };
+    /// Thread-local result storage for passing results back from C
+    static RESULT_STORAGE: Cell<*mut libc::c_void> = const { Cell::new(ptr::null_mut()) };
+    /// Track whether signal handlers are installed for this thread
+    static HANDLERS_INSTALLED: Cell<bool> = const { Cell::new(false) };
+}
+
 include!(concat!(env!("OUT_DIR"), "/setjmp.rs"));
 
 /// Information about a trap that occurred
@@ -37,19 +48,8 @@ impl TrapInfo {
     }
 }
 
-thread_local! {
-    /// Thread-local atomic pointer to jmp_buf
-    static JMP_BUF_PTR: AtomicPtr<libc::c_void> = const { AtomicPtr::new(ptr::null_mut()) };
-    /// Thread-local trap info storage
-    static TRAP_INFO: Cell<Option<TrapInfo>> = const { Cell::new(None) };
-    /// Thread-local result storage for passing results back from C
-    static RESULT_STORAGE: Cell<*mut libc::c_void> = const { Cell::new(ptr::null_mut()) };
-    /// Track whether signal handlers are installed for this thread
-    static HANDLERS_INSTALLED: Cell<bool> = const { Cell::new(false) };
-}
-
 /// Execute a function with SIGSEGV trap protection
-pub fn with<F, T>(f: F) -> Result<T, TrapInfo>
+pub fn with<F, T>(fun: F) -> Result<T, TrapInfo>
 where
     F: FnOnce() -> T,
 {
@@ -76,7 +76,7 @@ where
     RESULT_STORAGE.with(|storage| storage.set(result_ptr));
     let success = unsafe {
         let mut jmp_buf_storage: *mut libc::c_void = ptr::null_mut();
-        let boxed_f = Box::new(f);
+        let boxed_f = Box::new(fun);
         let f_ptr = Box::into_raw(boxed_f) as *mut libc::c_void;
         setjmp_rs(
             &mut jmp_buf_storage as *mut *mut libc::c_void,
@@ -121,15 +121,14 @@ where
     });
 
     // Take the ownership of the closure
-    let f_ptr = payload as *mut F;
-    let boxed_f = unsafe { Box::from_raw(f_ptr) };
-    let f = *boxed_f;
+    let fun_ptr = payload as *mut F;
+    let boxed_f = unsafe { Box::from_raw(fun_ptr) };
+    let fun = *boxed_f;
 
     // Execute the closure
-    let result = f();
+    let result = fun();
     RESULT_STORAGE.with(|storage| {
         let result_ptr = storage.get() as *mut Option<T>;
-
         if !result_ptr.is_null() {
             unsafe {
                 *result_ptr = Some(result);
