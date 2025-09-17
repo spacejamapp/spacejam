@@ -56,7 +56,7 @@ impl Target {
         // now clean the cache of the spacevm
         {
             if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
-                fs::remove_dir_all(&cache.clone()).ok();
+                fs::remove_dir_all(&*cache).ok();
             }
         }
         for stream in listener.incoming() {

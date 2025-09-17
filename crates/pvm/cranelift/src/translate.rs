@@ -24,11 +24,11 @@ impl Translator<'_> {
         &mut self,
         registers: [u64; pvm::REGISTER_COUNT],
         func: BTreeMap<u64, Vec<Offset<Instruction>>>,
-        info: MemoryInfo,
+        _info: MemoryInfo,
     ) -> Result<()> {
         #[cfg(target_os = "macos")]
         {
-            self.memory = info;
+            self.memory = _info;
         }
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
