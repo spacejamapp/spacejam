@@ -97,8 +97,5 @@ fn translate(ctx: &mut Context, program: &Program) -> Result<Function> {
     let mut translator = Translator::new(&[], &mut ctx.func, &mut bctx)?;
     translator.jump = blob.jump_table.clone();
     translator.translate(program.registers, code, minfo.clone())?;
-    if std::env::var("DUMP_CLIF").is_ok() {
-        println!("{}", &ctx.func);
-    }
     Ok(ctx.func.clone())
 }

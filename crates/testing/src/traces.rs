@@ -78,11 +78,12 @@ pub async fn run_single<Vm: Pvm>(
     let entropy = state.entropy;
     let verifier =
         runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
+    let validators = state.validators.current;
     let result = tokio::try_join!(
         async {
             block
                 .header
-                .validate(new_epoch, entropy, &safrole, verifier)
+                .validate(new_epoch, &validators, entropy, &safrole, verifier)
                 .await
         },
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
@@ -109,7 +110,7 @@ pub async fn run_single<Vm: Pvm>(
         pkeys.push(key.clone());
         if value != result {
             tracing::error!(
-                "keyval mismatch: {info:?}: 0x{encoded}, expected: 0x{}, got: 0x{}",
+                "keyval mismatch: {info:?}: 0x{encoded}, expected vs got:\n0x{}\n0x{}",
                 hex::encode(&value),
                 hex::encode(&result)
             );
@@ -117,12 +118,12 @@ pub async fn run_single<Vm: Pvm>(
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }
 
-        /* if key == key::STATISTICS && value != result {
+        if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        } */
+        }
 
         if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;

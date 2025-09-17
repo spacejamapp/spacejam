@@ -56,6 +56,12 @@ pub struct Call {
 
     /// memory address of call sbrk
     pub sbrk: (SigRef, Value),
+
+    /// memory address of call mget
+    pub mget: (SigRef, Value),
+
+    /// memory address of call mset
+    pub mset: (SigRef, Value),
 }
 
 impl Default for Call {
@@ -63,6 +69,8 @@ impl Default for Call {
         Self {
             ecalli: (SigRef::new(0), Value::new(0)),
             sbrk: (SigRef::new(0), Value::new(0)),
+            mget: (SigRef::new(0), Value::new(0)),
+            mset: (SigRef::new(0), Value::new(0)),
         }
     }
 }
@@ -122,6 +130,24 @@ impl Translator<'_> {
                     .builder
                     .ins()
                     .load(types::I64, MemFlags::trusted(), table, 8),
+            );
+            self.pool.call.mget = (
+                self.context
+                    .builder
+                    .import_signature(crate::host::MGET.clone()),
+                self.context
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 16),
+            );
+            self.pool.call.mset = (
+                self.context
+                    .builder
+                    .import_signature(crate::host::MSET.clone()),
+                self.context
+                    .builder
+                    .ins()
+                    .load(types::I64, MemFlags::trusted(), table, 24),
             );
         }
 

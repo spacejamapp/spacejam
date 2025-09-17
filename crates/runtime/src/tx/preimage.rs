@@ -25,25 +25,25 @@ pub fn accounts(
             anyhow::bail!("Preimages are not ordered");
         }
 
-        requester = Some(preimage.requester);
-        let hash = crypto::blake2b(&preimage.blob);
-
         // Skip if account doesn't exist (disregard without prejudice)
+        requester = Some(preimage.requester);
         let Some(account) = accounts.get(preimage.requester) else {
             anyhow::bail!("Preimage for non-existent account");
         };
 
         let blob_len = preimage.blob.len() as u32;
+        let hash = crypto::blake2b(&preimage.blob);
+        tracing::debug!("lookup hash={} len={}", hex::encode(hash), blob_len);
         let Some(slots) = account.lookup(hash, blob_len) else {
             anyhow::bail!("Preimage lookup failed");
         };
 
-        if account.preimage(hash).is_some() {
-            anyhow::bail!("Preimage already exists");
-        }
-
         if !slots.is_empty() {
             anyhow::bail!("Preimage already has non-empty lookup slots");
+        }
+
+        if account.preimage(hash).is_some() {
+            anyhow::bail!("Preimage already exists");
         }
 
         // Set lookup slots to [τ'] (current time slot)

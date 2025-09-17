@@ -39,7 +39,7 @@ mod fuzz {
     /// Generate the fuzz tests
     pub fn generate(root: &Path) -> std::io::Result<()> {
         self::try_download(&root.join("../../"))?;
-        let source = root.join("../../res/jam-conformance/fuzz-proto/examples/v1");
+        let source = root.join("../../res/jam-conformance/fuzz-proto/examples/v1/forks");
         let mut tests: Vec<ItemFn> = Vec::new();
         for entry in fs::read_dir(source)? {
             let entry = entry?;

@@ -25,6 +25,9 @@ pub struct Fuzzer {
 
     /// The stream of the target
     stream: UnixStream,
+
+    /// If initialized the state
+    init: bool,
 }
 
 impl Fuzzer {
@@ -42,6 +45,7 @@ impl Fuzzer {
             info: Self::peer_info(&mut stream)?,
             report: report.to_path_buf(),
             stream,
+            init: false,
         };
 
         fuzzer.handle(entry)
@@ -64,6 +68,7 @@ impl Fuzzer {
             info: Self::peer_info(&mut stream)?,
             report: report.to_path_buf(),
             stream,
+            init: false,
         };
 
         fuzzer.handle_single(&entry)
@@ -95,8 +100,9 @@ impl Fuzzer {
     pub fn import_block(&mut self, test: Test) -> Result<()> {
         let input = traces::TestInput::from_json(&test.input)?;
         let output = traces::TestOutput::from_json(&test.output)?;
-        if input.block.header.slot == 1 {
+        if !self.init {
             self.init_state(&input, &test.name)?;
+            self.init = true;
         }
 
         // import block and verify
