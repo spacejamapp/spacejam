@@ -117,6 +117,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
     //
     // handle marks in the block
     if let Some(tickets_mark) = block.header.tickets_mark {
+        if slot_phase < score::TICKET_SUBMISSION_PERIOD {
+            anyhow::bail!("invalid tickets mark");
+        }
+
         for ticket in tickets_mark {
             if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
