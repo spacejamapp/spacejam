@@ -281,8 +281,8 @@ pub async fn simulate_with_state<Vm: Pvm>(
         {
             anyhow::bail!(
                 "Parent mismatch, expected: 0x{}, got: 0x{}",
-                hex::encode(parent),
                 hex::encode(block.header.parent),
+                hex::encode(parent),
             );
         }
 

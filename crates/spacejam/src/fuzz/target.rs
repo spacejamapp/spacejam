@@ -113,18 +113,13 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
-        let state = self.data.state()?;
-        /* tracing::debug!(
-            "importing block({})=0x{}, best block: {}",
-            block.header.slot,
-            hex::encode(block.header.hash().unwrap()),
-            state.timeslot
-        ); */
+        let mut state = self.data.state()?;
         if block.header.slot <= state.timeslot
             && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
         {
             tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
             self.data.reset(prev.clone());
+            state = self.data.state()?;
         }
 
         let epoch = state.timeslot / score::EPOCH_LENGTH;
