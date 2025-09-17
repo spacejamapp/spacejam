@@ -26,7 +26,10 @@ impl Translator<'_> {
         func: BTreeMap<u64, Vec<Offset<Instruction>>>,
         info: MemoryInfo,
     ) -> Result<()> {
-        self.memory = info;
+        #[cfg(target_os = "macos")]
+        {
+            self.memory = info;
+        }
         let entry = self.builder.create_block();
         self.builder.append_block_params_for_function_params(entry);
         self.builder.switch_to_block(entry);
