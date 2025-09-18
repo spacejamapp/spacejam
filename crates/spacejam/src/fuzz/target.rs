@@ -7,7 +7,7 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx,
+    tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
 use std::{
@@ -54,10 +54,6 @@ impl Target {
         tracing::info!("Listening on {socket:?}");
 
         for stream in listener.incoming() {
-            if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
-                fs::remove_dir_all(&*cache).ok();
-            }
-
             let stream = stream.context("Failed to accept connection")?;
             Self::run(stream, interp).await?;
         }
@@ -170,6 +166,7 @@ impl Target {
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
         self.history = Default::default();
         self.data = Arc::new(Default::default());
+        lazy::clear().await;
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);

@@ -55,10 +55,9 @@ impl Invocation for Interpreter {
     ) -> Invoked<X> {
         let program = program::preimage(code, &args).expect("failed to preimage");
         if let Some(parsed) = self::get(hash) {
-            return Self::invoke_parsed(parsed, program.memory, ctx, gas, pc)
-                .expect("fix me later");
+            return Self::invoke_parsed(parsed, program, ctx, gas, pc).expect("fix me later");
         }
 
-        Self::invoke(&program, hash, ctx, gas, pc).expect("fix me later")
+        Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")
     }
 }

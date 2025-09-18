@@ -51,7 +51,14 @@ impl Fuzzer {
             failures: Vec::new(),
         };
 
-        fuzzer.handle(entry)
+        fuzzer.handle(entry)?;
+        if !fuzzer.failures.is_empty() {
+            for (base, error) in fuzzer.failures {
+                tracing::error!("Failed to process {base:?}: {error}");
+            }
+        }
+
+        Ok(())
     }
 
     /// Run the fuzzer with traces
@@ -80,6 +87,7 @@ impl Fuzzer {
             failures: Vec::new(),
         };
 
+        let total = entires.len();
         for entry in entires {
             let entry = Entry::new(Section::Trace(Trace::Any), None, &entry).context(format!(
                 "Failed to parse traces folder, {entry:?}, should be the folder of traces, \n
@@ -90,11 +98,19 @@ impl Fuzzer {
             fuzzer.handle(entry)?;
         }
 
+        let failed = fuzzer.failures.len();
         if !fuzzer.failures.is_empty() {
             for (base, error) in fuzzer.failures {
                 tracing::error!("Failed to process {base:?}: {error}");
             }
         }
+
+        if failed > 0 {
+            anyhow::bail!("Failed to process {failed}/{total} tests");
+        } else {
+            tracing::info!("{total}/{total} passed!");
+        }
+
         Ok(())
     }
 
@@ -166,6 +182,7 @@ impl Fuzzer {
             &test.name,
             header.hash()?,
             Self::to_keyvals(output.post_state.keyvals.clone()),
+            output.post_state.state_root == input.pre_state.state_root,
         )?;
         Ok(())
     }
@@ -177,12 +194,16 @@ impl Fuzzer {
         name: &str,
         block: OpaqueHash,
         state: Vec<KeyValue>,
+        exp_err: bool,
     ) -> Result<()> {
         let received = self.stream.read_message()?;
         let mut error = None;
         let remote = if let Message::StateRoot(remote) = received {
             Some(remote)
         } else if let Message::Error(err) = received {
+            if exp_err {
+                return Ok(());
+            }
             error = Some(err.clone());
             None
         } else {
@@ -199,10 +220,6 @@ impl Fuzzer {
         let Message::State(received) = received else {
             anyhow::bail!("Expected State message, got {:?}", received);
         };
-
-        if received == state {
-            return Ok(());
-        }
 
         let Some(report) = &self.report else {
             return Ok(());
@@ -269,6 +286,7 @@ impl Fuzzer {
             name,
             input.block.header.hash()?,
             state,
+            false,
         )
     }
 
