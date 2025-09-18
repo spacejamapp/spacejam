@@ -216,7 +216,6 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        let timeslot = data.timeslot()?;
         if self.interp {
             init::verifier(data).await?;
         } else {
@@ -225,11 +224,8 @@ impl Target {
                 tokio::spawn(init::programs(data.clone())),
             );
 
-            // blocking init only on large tests, e.g. starts from slot 0.
-            if timeslot == 0 {
-                let (vr, pr) = tokio::try_join!(threadv, threadp)?;
-                let (_, _) = (vr?, pr?);
-            }
+            let (vr, pr) = tokio::try_join!(threadv, threadp)?;
+            let (_, _) = (vr?, pr?);
         }
 
         Ok(())

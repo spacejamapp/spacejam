@@ -51,6 +51,7 @@ impl Fuzzer {
             failures: Vec::new(),
         };
 
+        let now = std::time::Instant::now();
         fuzzer.handle(entry)?;
         if !fuzzer.failures.is_empty() {
             for (base, error) in fuzzer.failures {
@@ -58,6 +59,7 @@ impl Fuzzer {
             }
         }
 
+        tracing::info!("Finished! Time taken: {:?}", now.elapsed());
         Ok(())
     }
 
@@ -67,12 +69,12 @@ impl Fuzzer {
             anyhow::bail!("invalid traces folder, {entry:?}");
         }
 
-        let mut entires = Vec::new();
+        let mut entries = Vec::new();
         for entry in fs::read_dir(entry)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
-                entires.push(path);
+                entries.push(path);
             }
         }
 
@@ -87,8 +89,8 @@ impl Fuzzer {
             failures: Vec::new(),
         };
 
-        let total = entires.len();
-        for entry in entires {
+        let total = entries.len();
+        for entry in entries {
             let entry = Entry::new(Section::Trace(Trace::Any), None, &entry).context(format!(
                 "Failed to parse traces folder, {entry:?}, should be the folder of traces, \n
                 for example jam-test-vectors/traces/storage"
@@ -225,7 +227,7 @@ impl Fuzzer {
             return Ok(());
         };
 
-        fs::create_dir_all(&report)?;
+        fs::create_dir_all(report)?;
         let output = report.join(format!("{}-{name}.json", self.info.app_name));
         fs::write(
             &output,

@@ -38,8 +38,6 @@ pub fn get(hash: OpaqueHash) -> Option<ParsedProgram> {
 pub struct ParsedProgram {
     /// The parsed program.
     pub program: Vec<Option<Offset<Instruction>>>,
-    /// The registers of the program.
-    pub registers: [u64; 13],
     /// The jump table of the program.
     pub table: Vec<u64>,
 }

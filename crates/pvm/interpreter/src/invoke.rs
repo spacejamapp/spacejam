@@ -29,7 +29,6 @@ impl Interpreter {
 
         let parsed = ParsedProgram {
             program: parsed,
-            registers: program.registers,
             table: blob.jump_table.to_vec(),
         };
 
