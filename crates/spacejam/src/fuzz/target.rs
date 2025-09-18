@@ -168,6 +168,8 @@ impl Target {
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
+        self.history = Default::default();
+        self.data = Arc::new(Default::default());
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);

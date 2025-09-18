@@ -28,6 +28,10 @@ pub enum Fuzz {
         #[clap(default_value = "jam-test-vectors/traces/storage", short, long)]
         traces: PathBuf,
 
+        /// The path to the conformance folder
+        #[clap(short, long)]
+        conformance: Option<PathBuf>,
+
         /// The path to the report folder
         #[clap(default_value = "reports", short, long)]
         report: PathBuf,
@@ -52,11 +56,14 @@ impl Fuzz {
             Self::Fuzzer {
                 socket,
                 traces,
+                conformance,
                 report,
                 exact,
             } => {
                 if let Some(exact) = exact {
                     Fuzzer::execute(socket, exact, report)
+                } else if let Some(conformance) = conformance {
+                    Fuzzer::conformance(socket, conformance, report)
                 } else {
                     Fuzzer::run(socket, traces, report)
                 }
