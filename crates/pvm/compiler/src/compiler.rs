@@ -19,7 +19,7 @@ impl Invocation for Compiler {
         pc: usize,
     ) -> Invoked<X> {
         let program = parser::program::preimage(code, &args).expect("failed to preimage");
-        let pvmc = <crate::JITModule as ModuleLike>::new::<X>().expect("fix me later");
+        let pvmc = <crate::Module as ModuleLike>::new::<X>().expect("fix me later");
         let module = pvmc.compile(&program).expect("fix me later");
         let mut context = pvm::Context {
             registers: program.registers,

@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Locks for the Jastime compilation
-pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<pvmc::ObjectModule>>>> =
+pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<pvmc::Module>>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
 /// Locks for the Jastime compilation
@@ -95,7 +95,7 @@ pub fn compile<X: Argument>(
         locks.insert(hash, ());
     }
 
-    match <pvmc::ObjectModule as ModuleLike>::new::<X>()?
+    match <pvmc::Module as ModuleLike>::new::<X>()?
         .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {
