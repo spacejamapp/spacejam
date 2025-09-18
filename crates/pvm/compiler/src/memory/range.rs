@@ -68,7 +68,7 @@ impl Memory {
             return vec![];
         };
 
-        if addr < self.info.read.start || end > self.info.args.end {
+        if addr < self.info.read.start || (end > self.info.args.end && self.info.args.end != 0) {
             TrapInfo::fault(addr).raise();
             return vec![];
         }
@@ -87,9 +87,6 @@ impl Memory {
         ptr += self.info.write.len();
         if addr >= self.info.stack.start && end <= self.info.stack.end {
             let start = (addr - self.info.stack.start) as usize + ptr;
-            if start + len as usize > self.base.len() {
-                tracing::debug!("reading from {addr}, length={len}, end={end}");
-            }
             return self.base[start..(start + len as usize)].to_vec();
         }
 
@@ -130,7 +127,7 @@ impl Memory {
 
         let mut ptr = self.info.read.len();
         let end = addr + data.len() as u32;
-        if addr < self.info.write.start || end > self.info.stack.end {
+        if addr < self.info.write.start || (end > self.info.stack.end && self.info.stack.end != 0) {
             TrapInfo::fault(addr).raise();
             return;
         }
