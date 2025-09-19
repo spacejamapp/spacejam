@@ -8,7 +8,7 @@ use std::collections::HashSet;
 pub fn encode(mut data: Vec<u8>, config: Config) -> Result<Vec<Vec<u8>>> {
     let mut length = data.len();
     let piece = config.piece();
-    if length % piece != 0 {
+    if !length.is_multiple_of(piece) {
         data.extend(vec![0; piece - (length % piece)]);
         length = data.len();
     }
