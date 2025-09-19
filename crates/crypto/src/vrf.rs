@@ -80,7 +80,7 @@ impl KeyPair {
         let prover = Prover::new(
             pks.into_iter()
                 .map(|pk| {
-                    Public::deserialize_compressed(&mut pk.as_slice())
+                    Public::deserialize_compressed_unchecked(&mut pk.as_slice())
                         .map_err(|e| anyhow::anyhow!(e))
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -263,7 +263,7 @@ impl Verifier {
     ) -> anyhow::Result<[u8; 32]> {
         use ark_vrf::ring::Verifier as _;
 
-        let signature = RingVrfSignature::deserialize_compressed(signature)?;
+        let signature = RingVrfSignature::deserialize_compressed_unchecked(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
 
