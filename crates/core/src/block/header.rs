@@ -2,6 +2,8 @@
 
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
+#[cfg(feature = "vrf")]
+use crate::safrole::ValidatorsData;
 use crate::{
     BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash, OpaqueHash,
     StateRoot, TimeSlot, ValidatorIndex, extrinsic::*,
@@ -112,6 +114,7 @@ impl Header {
     pub async fn validate(
         &self,
         new_epoch: bool,
+        validators: &ValidatorsData,
         entropy: crate::EntropyBuffer,
         safrole: &crate::safrole::Safrole,
         verifier: std::sync::Arc<crypto::vrf::Verifier>,
@@ -132,6 +135,36 @@ impl Header {
             ticket = Some(tickets[slot]);
         } else if let TicketsOrKeys::Tickets(tickets) = safrole.series {
             ticket = Some(tickets[slot]);
+        }
+
+        // if in fallback, check the author index
+        //
+        // FIXME: this should be cached in production, embed this here for
+        // the workaround of the fuzz tests.
+        if ticket.is_none() {
+            use crate::safrole::ValidatorIter;
+            let keys = if new_epoch {
+                let TicketsOrKeys::Keys(keys) =
+                    TicketsOrKeys::fallback(validators.bandersnatch(), entropy_buffer[1])
+                else {
+                    anyhow::bail!("invalid series");
+                };
+                keys
+            } else {
+                let TicketsOrKeys::Keys(keys) = safrole.series else {
+                    anyhow::bail!("invalid series");
+                };
+                keys
+            };
+
+            let vals = if new_epoch {
+                safrole.validators.bandersnatch()
+            } else {
+                validators.bandersnatch()
+            };
+            if keys[slot] != vals[self.author_index as usize] {
+                anyhow::bail!("invalid block author");
+            }
         }
 
         // construct the message

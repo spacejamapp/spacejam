@@ -67,7 +67,7 @@ impl WorkReport {
 
             operands.push(Operand {
                 package: self.spec.hash,
-                exports_root: self.spec.erasure_root,
+                exports_root: self.spec.exports_root,
                 authorizer_hash: self.authorizer_hash,
                 auth_output: self.auth_output.clone(),
                 payload: work.payload_hash,

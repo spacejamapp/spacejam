@@ -334,6 +334,7 @@ pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // get the lookup
     let Some(mut lookup) = account.lookup(hash, z as u32) else {
+        tracing::debug!("inserting lookup hash={} len={}", hex::encode(hash), z);
         account.insert_lookup(hash, z as u32, vec![]);
         return Ok(Exit::Ok as u64);
     };

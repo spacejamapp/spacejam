@@ -117,6 +117,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
     //
     // handle marks in the block
     if let Some(tickets_mark) = block.header.tickets_mark {
+        if slot_phase < score::TICKET_SUBMISSION_PERIOD {
+            anyhow::bail!("invalid tickets mark");
+        }
+
         for ticket in tickets_mark {
             if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
@@ -279,7 +283,11 @@ pub async fn simulate_with_state<Vm: Pvm>(
             .complete_state_root(block.header.parent_state_root)?
             && parent != block.header.parent
         {
-            anyhow::bail!("Parent mismatch");
+            anyhow::bail!(
+                "Parent mismatch, expected: 0x{}, got: 0x{}",
+                hex::encode(block.header.parent),
+                hex::encode(parent),
+            );
         }
 
         // (p of β') Report the work packages
@@ -310,7 +318,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
 
         // (δ') Update the accounts
         // if !block.extrinsic.preimages.is_empty() {
-        let _guard = timing::preimages();
+        // let _guard = timing::preimages();
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);

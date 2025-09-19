@@ -93,7 +93,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     timeslot: TimeSlot,
     updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
-    let mut services: BTreeSet<ServiceId> = table.keys().cloned().collect();
+    let mut services: BTreeSet<ServiceId> = Default::default();
     for report in reports {
         for result in &report.results {
             services.insert(result.service_id);

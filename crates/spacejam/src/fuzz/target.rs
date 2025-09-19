@@ -51,9 +51,13 @@ impl Target {
         fs::remove_file(socket).ok();
         let listener = UnixListener::bind(socket)
             .context(format!("Failed to bind to the socket at {socket:?}"))?;
-
         tracing::info!("Listening on {socket:?}");
+
         for stream in listener.incoming() {
+            if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
+                fs::remove_dir_all(&*cache).ok();
+            }
+
             let stream = stream.context("Failed to accept connection")?;
             Self::run(stream, interp).await?;
         }
@@ -87,7 +91,7 @@ impl Target {
                 }
                 Ok(())
             }
-            Message::Initialize(state) => self.set_state(state).await,
+            Message::Initialize(state) => self.initialize(state).await,
             Message::GetState(hash) => self.get_state(hash),
             Message::State(state) => self.state(state),
             Message::StateRoot(hash) => self.state_root(hash),
@@ -113,29 +117,31 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
-        let state = self.data.state()?;
-        let epoch = state.timeslot / score::EPOCH_LENGTH;
-        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
-        if block.header.slot == state.timeslot
+        let mut state = self.data.state()?;
+        if block.header.slot <= state.timeslot
             && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
         {
-            tracing::warn!("Fallback state to the previous slot");
+            tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
             self.data.reset(prev.clone());
+            state = self.data.state()?;
         }
 
+        let epoch = state.timeslot / score::EPOCH_LENGTH;
+        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
         let entropy = state.entropy;
         let safrole = state.safrole.clone();
         let header = block.header.clone();
         let data = self.data.clone();
         let slot = block.header.slot;
         let interp = self.interp;
+        let validators = state.validators.current;
         let (vr, diff) = tokio::try_join!(
             tokio::spawn(async move {
                 let verifier =
                     runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
                         .await;
                 header
-                    .validate(new_epoch, entropy, &safrole, verifier)
+                    .validate(new_epoch, &validators, entropy, &safrole, verifier)
                     .await
             }),
             tokio::spawn(async move {
@@ -161,13 +167,16 @@ impl Target {
 
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
-    pub async fn set_state(&mut self, state: Initialize) -> Result<()> {
+    pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);
         }
 
         self.data.commit(Column::State, commit)?;
+        let state = self.data.state()?;
+        let timeslot = state.timeslot;
+        self.history.insert(timeslot, self.data.deep_clone());
         if let Err(e) = self.init_state().await {
             tracing::warn!("failed to initialize state: {e}");
         }
@@ -208,14 +217,20 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
+        let timeslot = data.timeslot()?;
         if self.interp {
             init::verifier(data).await?;
         } else {
-            let (vr, pr) = tokio::try_join!(
+            let (threadv, threadp) = (
                 tokio::spawn(init::verifier(data.clone())),
-                tokio::spawn(init::programs(data.clone()))
-            )?;
-            let (_, _) = (vr?, pr?);
+                tokio::spawn(init::programs(data.clone())),
+            );
+
+            // blocking init only on large tests, e.g. starts from slot 0.
+            if timeslot == 0 {
+                let (vr, pr) = tokio::try_join!(threadv, threadp)?;
+                let (_, _) = (vr?, pr?);
+            }
         }
 
         Ok(())
