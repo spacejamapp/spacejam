@@ -104,11 +104,12 @@ impl Translator<'_> {
         }
 
         // init registers
-        for (i, reg) in registers.iter().enumerate() {
-            let var = self.builder.declare_var(types::I64);
-            let val = self.builder.ins().iconst(types::I64, *reg as i64);
-            self.builder.def_var(var, val);
-            self.pool.registers[i] = var;
+        {
+            for (i, _reg) in registers.iter().enumerate() {
+                let var = self.builder.declare_var(types::I64);
+                self.pool.registers[i] = var;
+            }
+            self.load_registers();
         }
 
         // init host calls - load function pointers from table

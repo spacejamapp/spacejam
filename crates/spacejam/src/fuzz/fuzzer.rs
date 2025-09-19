@@ -21,13 +21,15 @@ pub struct Fuzzer {
     info: PeerInfo,
 
     /// The report directory
-    report: PathBuf,
+    report: Option<PathBuf>,
 
     /// The stream of the target
     stream: UnixStream,
 
     /// If initialized the state
     init: bool,
+
+    failures: Vec<(PathBuf, String)>,
 }
 
 impl Fuzzer {
@@ -43,12 +45,75 @@ impl Fuzzer {
             UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;
         let mut fuzzer = Self {
             info: Self::peer_info(&mut stream)?,
-            report: report.to_path_buf(),
+            report: Some(report.to_path_buf()),
             stream,
             init: false,
+            failures: Vec::new(),
         };
 
-        fuzzer.handle(entry)
+        let now = std::time::Instant::now();
+        fuzzer.handle(entry)?;
+        if !fuzzer.failures.is_empty() {
+            for (base, error) in fuzzer.failures {
+                tracing::error!("Failed to process {base:?}: {error}");
+            }
+        }
+
+        tracing::info!("Finished! Time taken: {:?}", now.elapsed());
+        Ok(())
+    }
+
+    /// Run the fuzzer with traces
+    pub fn conformance(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
+        if !entry.is_dir() {
+            anyhow::bail!("invalid traces folder, {entry:?}");
+        }
+
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(entry)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                entries.push(path);
+            }
+        }
+
+        // handle incoming connections
+        let mut stream =
+            UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;
+        let mut fuzzer = Self {
+            info: Self::peer_info(&mut stream)?,
+            report: Some(report.to_path_buf()),
+            stream,
+            init: false,
+            failures: Vec::new(),
+        };
+
+        let total = entries.len();
+        for entry in entries {
+            let entry = Entry::new(Section::Trace(Trace::Any), None, &entry).context(format!(
+                "Failed to parse traces folder, {entry:?}, should be the folder of traces, \n
+                for example jam-test-vectors/traces/storage"
+            ))?;
+            fuzzer.init = false;
+            tracing::info!("processing {:?} ...", entry.base);
+            fuzzer.handle(entry)?;
+        }
+
+        let failed = fuzzer.failures.len();
+        if !fuzzer.failures.is_empty() {
+            for (base, error) in fuzzer.failures {
+                tracing::error!("Failed to process {base:?}: {error}");
+            }
+        }
+
+        if failed > 0 {
+            anyhow::bail!("Failed to process {failed}/{total} tests");
+        } else {
+            tracing::info!("{total}/{total} passed!");
+        }
+
+        Ok(())
     }
 
     /// Execute a single test
@@ -66,9 +131,10 @@ impl Fuzzer {
 
         let mut fuzzer = Self {
             info: Self::peer_info(&mut stream)?,
-            report: report.to_path_buf(),
+            report: Some(report.to_path_buf()),
             stream,
             init: false,
+            failures: Vec::new(),
         };
 
         fuzzer.handle_single(&entry)
@@ -76,15 +142,19 @@ impl Fuzzer {
 
     /// Handle a new connection
     pub fn handle(&mut self, source: Entry) -> Result<()> {
+        let base = source.base.clone();
         for test in source {
             if test.name.contains("genesis") {
                 continue;
             }
-            tracing::info!("Processing test: {}", test.name);
-            self.import_block(test)?;
+            tracing::info!("\tProcessing test: {}", test.name);
+            if let Err(e) = self.import_block(test) {
+                self.failures.push((base.clone(), e.to_string()));
+                break;
+            }
         }
 
-        tracing::info!("No more tests!");
+        tracing::info!("\tdone!");
         Ok(())
     }
 
@@ -114,6 +184,7 @@ impl Fuzzer {
             &test.name,
             header.hash()?,
             Self::to_keyvals(output.post_state.keyvals.clone()),
+            output.post_state.state_root == input.pre_state.state_root,
         )?;
         Ok(())
     }
@@ -125,14 +196,23 @@ impl Fuzzer {
         name: &str,
         block: OpaqueHash,
         state: Vec<KeyValue>,
+        exp_err: bool,
     ) -> Result<()> {
         let received = self.stream.read_message()?;
-        let Message::StateRoot(remote) = received else {
-            tracing::warn!("Expected StateRoot message, got {:?}", received);
-            return Ok(());
+        let mut error = None;
+        let remote = if let Message::StateRoot(remote) = received {
+            Some(remote)
+        } else if let Message::Error(err) = received {
+            if exp_err {
+                return Ok(());
+            }
+            error = Some(err.clone());
+            None
+        } else {
+            anyhow::bail!("Expected StateRoot or Error message, got {:?}", received);
         };
 
-        if remote == root {
+        if remote == Some(root) {
             return Ok(());
         }
 
@@ -143,10 +223,12 @@ impl Fuzzer {
             anyhow::bail!("Expected State message, got {:?}", received);
         };
 
-        fs::create_dir_all(&self.report)?;
-        let output = self
-            .report
-            .join(format!("{}-{name}.json", self.info.app_name));
+        let Some(report) = &self.report else {
+            return Ok(());
+        };
+
+        fs::create_dir_all(report)?;
+        let output = report.join(format!("{}-{name}.json", self.info.app_name));
         fs::write(
             &output,
             serde_json::to_string_pretty(&json!({
@@ -155,10 +237,14 @@ impl Fuzzer {
             }))?,
         )?;
 
+        if let Some(error) = error {
+            anyhow::bail!("Got error message: {error}");
+        }
+
         anyhow::bail!(
             "Expected state root: 0x{}, got 0x{}, write the report to {output:?}",
             hex::encode(root),
-            hex::encode(remote)
+            hex::encode(remote.unwrap_or_default())
         );
     }
 
@@ -202,6 +288,7 @@ impl Fuzzer {
             name,
             input.block.header.hash()?,
             state,
+            false,
         )
     }
 

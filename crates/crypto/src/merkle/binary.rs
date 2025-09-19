@@ -207,7 +207,7 @@ impl MerkleProof {
             let current_data = &proof[0];
             let sibling_data = &proof[1];
 
-            let (left, right) = if current % 2 == 0 {
+            let (left, right) = if current.is_multiple_of(2) {
                 (current_data.as_slice(), sibling_data.as_slice())
             } else {
                 (sibling_data.as_slice(), current_data.as_slice())

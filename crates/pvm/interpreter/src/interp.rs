@@ -30,7 +30,7 @@ impl Interpreter {
 
         if address == 0
             || address > self.table.len() as u32 * pvm::JUMP_ALIGNMENT_FACTOR
-            || address % 2 != 0
+            || !address.is_multiple_of(2)
         {
             tracing::error!(
                 "invalid dynamic jump, address: {}, table len: {}",

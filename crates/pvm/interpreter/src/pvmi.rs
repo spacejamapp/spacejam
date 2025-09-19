@@ -38,8 +38,6 @@ pub fn get(hash: OpaqueHash) -> Option<ParsedProgram> {
 pub struct ParsedProgram {
     /// The parsed program.
     pub program: Vec<Option<Offset<Instruction>>>,
-    /// The registers of the program.
-    pub registers: [u64; 13],
     /// The jump table of the program.
     pub table: Vec<u64>,
 }
@@ -55,10 +53,9 @@ impl Invocation for Interpreter {
     ) -> Invoked<X> {
         let program = program::preimage(code, &args).expect("failed to preimage");
         if let Some(parsed) = self::get(hash) {
-            return Self::invoke_parsed(parsed, program.memory, ctx, gas, pc)
-                .expect("fix me later");
+            return Self::invoke_parsed(parsed, program, ctx, gas, pc).expect("fix me later");
         }
 
-        Self::invoke(&program, hash, ctx, gas, pc).expect("fix me later")
+        Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")
     }
 }

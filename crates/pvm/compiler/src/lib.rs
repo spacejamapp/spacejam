@@ -21,3 +21,9 @@ pub mod host;
 pub mod memory;
 pub mod module;
 pub mod trap;
+
+#[cfg(target_os = "macos")]
+pub type Module = crate::JITModule;
+
+#[cfg(not(target_os = "macos"))]
+pub type Module = crate::ObjectModule;

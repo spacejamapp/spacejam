@@ -7,7 +7,7 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx,
+    tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
 use std::{
@@ -54,10 +54,6 @@ impl Target {
         tracing::info!("Listening on {socket:?}");
 
         for stream in listener.incoming() {
-            if let Ok(cache) = spacevm::SPACEJAM_CACHE_DIR.lock() {
-                fs::remove_dir_all(&*cache).ok();
-            }
-
             let stream = stream.context("Failed to accept connection")?;
             Self::run(stream, interp).await?;
         }
@@ -168,6 +164,9 @@ impl Target {
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
+        self.history = Default::default();
+        self.data = Arc::new(Default::default());
+        lazy::clear().await;
         let mut commit = Commit::default();
         for KeyValue { key, value } in state.state.into_iter() {
             commit.set(key, value);
@@ -217,7 +216,6 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
-        let timeslot = data.timeslot()?;
         if self.interp {
             init::verifier(data).await?;
         } else {
@@ -226,11 +224,8 @@ impl Target {
                 tokio::spawn(init::programs(data.clone())),
             );
 
-            // blocking init only on large tests, e.g. starts from slot 0.
-            if timeslot == 0 {
-                let (vr, pr) = tokio::try_join!(threadv, threadp)?;
-                let (_, _) = (vr?, pr?);
-            }
+            let (vr, pr) = tokio::try_join!(threadv, threadp)?;
+            let (_, _) = (vr?, pr?);
         }
 
         Ok(())

@@ -48,7 +48,7 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         meta: Default::default(),
     };
     let result = pvmi::Interpreter::invoke(
-        &program,
+        program,
         Default::default(),
         (),
         input.initial_gas,

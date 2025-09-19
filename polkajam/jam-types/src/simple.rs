@@ -160,10 +160,10 @@ impl Parameters {
         }
     }
     pub fn validate(self) -> Result<(), &'static str> {
-        if self.basic_piece_len % 2 != 0 {
+        if !self.basic_piece_len.is_multiple_of(2) {
             return Err("`basic_piece_len` is not even");
         }
-        if SEGMENT_LEN % (self.basic_piece_len as usize) != 0 {
+        if !SEGMENT_LEN.is_multiple_of(self.basic_piece_len as usize) {
             return Err("`basic_piece_len` does not divide into `SEGMENT_LEN` (4,104)");
         }
         Ok(())

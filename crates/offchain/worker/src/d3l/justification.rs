@@ -80,7 +80,7 @@ impl JustificationPath {
         for justification in &self.path {
             match justification {
                 Justification::Hash(sibling_hash) => {
-                    current_hash = if index % 2 == 0 {
+                    current_hash = if index.is_multiple_of(2) {
                         crypto::blake2b(&[&current_hash[..], &sibling_hash[..]].concat())
                     } else {
                         crypto::blake2b(&[&sibling_hash[..], &current_hash[..]].concat())

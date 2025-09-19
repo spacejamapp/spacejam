@@ -132,7 +132,7 @@ impl Encoder {
     fn pad(&mut self, mut data: Vec<u8>) -> Vec<u8> {
         let mut length = data.len();
         let piece = self.config.piece();
-        if length % piece != 0 {
+        if !length.is_multiple_of(piece) {
             data.extend(vec![0; piece - (length % piece)]);
             length = data.len();
         }
