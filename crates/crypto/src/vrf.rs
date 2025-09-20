@@ -319,7 +319,7 @@ impl Verifier {
         let s_b = WNAF_CONTEXT.mul(GProjective::generator(), &s).into_affine();
         let c_y = WNAF_CONTEXT
             .mul_with_table::<GProjective>(table, &c)
-            .expect("table too small")
+            .ok_or(anyhow::anyhow!("table too small"))?
             .into_affine();
         let u = (s_b - c_y).into_affine();
         let s_h = input.0 * s;
