@@ -394,13 +394,13 @@ dependencies = [
 [[package]]
 name = "ark-vrf"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9501da18569b2afe0eb934fb7afd5a247d238b94116155af4dd068f319adfe6d"
+source = "git+https://github.com/sunhuachuang/ark-vrf#9cacedaa4cf6fd4d4f7a8ba0284f51fcf4b5bbca"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "digest",
@@ -4501,9 +4501,8 @@ dependencies = [
 
 [[package]]
 name = "w3f-pcs"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbe7a8d5c914b69392ab3b267f679a2e546fe29afaddce47981772ac71bd02e1"
+version = "0.0.3"
+source = "git+https://github.com/w3f/fflonk#26b6e2e15f7fa90eee97ebd039a4146a8dafc695"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4517,8 +4516,7 @@ dependencies = [
 [[package]]
 name = "w3f-plonk-common"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aca389e494fe08c5c108b512e2328309036ee1c0bc7bdfdb743fef54d448c8c"
+source = "git+https://github.com/sunhuachuang/ring-proof#1c5c2b9599a079b59d0f0b430c9130b9e91f1ddc"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4534,8 +4532,7 @@ dependencies = [
 [[package]]
 name = "w3f-ring-proof"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a639379402ad51504575dbd258740383291ac8147d3b15859bdf1ea48c677de"
+source = "git+https://github.com/sunhuachuang/ring-proof#1c5c2b9599a079b59d0f0b430c9130b9e91f1ddc"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",

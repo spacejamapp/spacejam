@@ -157,5 +157,5 @@ x509-parser = "0.17.0"
 [patch.crates-io]
 jam-types = { path = "polkajam/jam-types" }
 jam-pvm-common = { path = "polkajam/jam-pvm-common" }
-# w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
-# ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
+w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
+ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
