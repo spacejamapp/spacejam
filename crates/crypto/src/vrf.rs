@@ -11,12 +11,13 @@ use ark_ec::{scalar_mul::wnaf::WnafContext, CurveGroup, PrimeGroup};
 use ark_ed_on_bls12_381_bandersnatch::EdwardsProjective as GProjective;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_vrf::{
+    ring::RingVerifier,
     suites::bandersnatch::{self, BandersnatchSha512Ell2},
     Suite,
 };
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
 
-const WINDOW_SIZE: usize = 5;
+const WNAF_WINDOW: usize = 5;
 
 /// Get the VRF output hash.
 pub fn ietf_output(sig: [u8; 96]) -> Result<[u8; 32]> {
@@ -223,6 +224,7 @@ pub struct PreparedPublic {
 pub struct Verifier {
     pub commitment: RingCommitment,
     pub ring: Vec<Public>,
+    verifier: RingVerifier<BandersnatchSha512Ell2>,
     prepared: Vec<PreparedPublic>,
 }
 
@@ -232,7 +234,7 @@ impl Verifier {
         let pts: Vec<_> = ring.iter().map(|pk| pk.0).collect();
         let verifier_key = RING_CTX.verifier_key(&pts);
         let commitment = verifier_key.commitment();
-        let ctx = WnafContext::new(WINDOW_SIZE);
+        let ctx = WnafContext::new(WNAF_WINDOW);
         let prepared = ring
             .iter()
             .map(|pk| {
@@ -241,10 +243,13 @@ impl Verifier {
                 PreparedPublic { raw: *pk, table }
             })
             .collect();
+        let verifier_key = RING_CTX.verifier_key_from_commitment(commitment.clone());
+        let verifier = RING_CTX.verifier(verifier_key);
         Self {
             ring,
             commitment,
             prepared,
+            verifier,
         }
     }
 
@@ -286,9 +291,7 @@ impl Verifier {
         let signature = RingVrfSignature::deserialize_compressed_unchecked(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
-        let verifier_key = RING_CTX.verifier_key_from_commitment(self.commitment.clone());
-        let verifier = RING_CTX.verifier(verifier_key);
-        Public::verify(input, output, aux_data, &signature.proof, &verifier)
+        Public::verify(input, output, aux_data, &signature.proof, &self.verifier)
             .map_err(|e| anyhow::anyhow!("Ring signature verification failure: {:?}", e))?;
 
         // This truncated hash is the actual value used as ticket-id/score in JAM
@@ -311,7 +314,7 @@ impl Verifier {
 
         // extract the pre-computed data
         let PreparedPublic { raw: pk, table } = &self.prepared[signer_key_index];
-        let ctx = WnafContext::new(WINDOW_SIZE);
+        let ctx = WnafContext::new(WNAF_WINDOW);
 
         // scalar multiplications
         let s_b = ctx.mul(GProjective::generator(), &s).into_affine();
