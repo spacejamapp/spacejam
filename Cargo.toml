@@ -83,6 +83,7 @@ podec = { version = "0.1.1", package = "jam-codec", default-features = false, fe
 anyhow = "1.0.99"
 ark-bls12-381 = "0.5.0"
 ark-ec = { version = "0.5", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
