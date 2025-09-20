@@ -1,24 +1,31 @@
 //! Lazy verifier
 
 use crypto::vrf::Verifier;
-use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use score::{BandersnatchPublic, BandersnatchRingCommitment, safrole::ValidatorData};
-use std::sync::Arc;
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
-static LAZY_RING: Lazy<DashMap<u32, Arc<Verifier>>> = Lazy::new(DashMap::new);
+static LAZY_RING: Lazy<Mutex<BTreeMap<u32, Arc<Verifier>>>> =
+    Lazy::new(|| Mutex::new(BTreeMap::new()));
 
 /// Only cache last CACHED epochs
 const CACHED: usize = 6;
 
 /// Clear all cached data
 pub async fn clear() {
-    LAZY_RING.clear();
+    if let Ok(mut map) = LAZY_RING.lock() {
+        map.clear();
+    }
 }
 
 /// Check if the lazy cache is empty
 pub fn is_empty() -> bool {
-    LAZY_RING.is_empty()
+    if let Ok(map) = LAZY_RING.lock() {
+        map.is_empty()
+    } else {
+        false
+    }
 }
 
 /// Accept drawn validators after accumulation
@@ -36,24 +43,34 @@ pub fn commitment(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> BandersnatchRi
 
 /// Get the verifier of the next validators at an epoch
 pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
-    if let Some(entry) = LAZY_RING.get(&epoch) {
-        return entry.clone();
-    }
-
-    if let Some(entry) = LAZY_RING.iter().find(|e| e.value().ring() == *drawn) {
-        let v = entry.value().clone();
-        drop(entry);
-        LAZY_RING.insert(epoch, v.clone());
-        return v;
-    }
-
-    let verifier = Arc::new(crypto::ring::verifier(drawn));
-    LAZY_RING.insert(epoch, verifier.clone());
-    if LAZY_RING.len() > CACHED
-        && let Some(oldest) = LAZY_RING.iter().map(|e| *e.key()).min()
+    if let Some(v) = LAZY_RING
+        .lock()
+        .map(|map| map.get(&epoch).cloned())
+        .ok()
+        .flatten()
     {
-        LAZY_RING.remove(&oldest);
+        return v.clone();
     }
 
+    // same validator set already cached
+    {
+        if let Ok(mut map) = LAZY_RING.lock() {
+            if let Some(v) = map.values().find(|v| v.ring() == *drawn) {
+                let v = v.clone();
+                map.insert(epoch, v.clone());
+                return v;
+            }
+        }
+    }
+
+    // build new verifier
+    let verifier = Arc::new(crypto::ring::verifier(drawn));
+    let Ok(mut map) = LAZY_RING.lock() else {
+        panic!("failed to lock ring, fix me later");
+    };
+    map.insert(epoch, verifier.clone());
+    while map.len() > CACHED {
+        map.pop_first();
+    }
     verifier
 }
