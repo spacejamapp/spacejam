@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use score::{BandersnatchPublic, BandersnatchRingCommitment, safrole::ValidatorData};
 use std::sync::Arc;
 
-static LAZY_RING: Lazy<DashMap<u32, Arc<Verifier>>> = Lazy::new(|| DashMap::new());
+static LAZY_RING: Lazy<DashMap<u32, Arc<Verifier>>> = Lazy::new(DashMap::new);
 
 /// Only cache last CACHED epochs
 const CACHED: usize = 6;
@@ -49,11 +49,10 @@ pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
 
     let verifier = Arc::new(crypto::ring::verifier(drawn));
     LAZY_RING.insert(epoch, verifier.clone());
-
-    if LAZY_RING.len() > CACHED {
-        if let Some(oldest) = LAZY_RING.iter().map(|e| *e.key()).min() {
-            LAZY_RING.remove(&oldest);
-        }
+    if LAZY_RING.len() > CACHED
+        && let Some(oldest) = LAZY_RING.iter().map(|e| *e.key()).min()
+    {
+        LAZY_RING.remove(&oldest);
     }
 
     verifier
