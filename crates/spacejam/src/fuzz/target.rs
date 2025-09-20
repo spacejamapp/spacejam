@@ -134,8 +134,7 @@ impl Target {
         let (vr, diff) = tokio::try_join!(
             tokio::spawn(async move {
                 let verifier =
-                    runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch())
-                        .await;
+                    runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch());
                 header
                     .validate(new_epoch, &validators, entropy, &safrole, verifier)
                     .await

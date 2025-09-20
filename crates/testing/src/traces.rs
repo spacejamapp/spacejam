@@ -76,8 +76,7 @@ pub async fn run_single<Vm: Pvm>(
     let mut block2 = block.clone();
     let safrole = state.safrole.clone();
     let entropy = state.entropy;
-    let verifier =
-        runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch()).await;
+    let verifier = runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch());
     let validators = state.validators.current;
     let result = tokio::try_join!(
         async {

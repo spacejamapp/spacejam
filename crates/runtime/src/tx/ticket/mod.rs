@@ -86,7 +86,7 @@ pub async fn safrole(
     .await?;
 
     safrole.ring_commitment = if new_epoch {
-        self::ring_commitment(epoch, &next).await
+        self::ring_commitment(epoch, &next)
     } else {
         safrole.ring_commitment
     };
@@ -166,9 +166,6 @@ pub fn sealing_key_series(
 }
 
 /// (γ_z') Returns the bandersnatch ring commitment.
-pub async fn ring_commitment(
-    epoch: u32,
-    next: &Vec<BandersnatchPublic>,
-) -> BandersnatchRingCommitment {
-    lazy::commitment(epoch, next).await
+pub fn ring_commitment(epoch: u32, next: &Vec<BandersnatchPublic>) -> BandersnatchRingCommitment {
+    lazy::commitment(epoch, next)
 }
