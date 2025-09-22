@@ -16,4 +16,4 @@ spacejson.workspace = true
 
 [features]
 default = []
-blake2 = ["dep:blake2"]
+blake2 = ["dep:blake2", "jcore/blake2"]

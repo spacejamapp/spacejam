@@ -8,8 +8,10 @@ description = "SpaceJam shared types for the Jade framework"
 anyhow.workspace = true
 blake2 = { workspace = true, optional = true }
 codec.workspace = true
-hex.workspace = true
-tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
+
+[features]
+default = []
+blake2 = ["dep:blake2"]

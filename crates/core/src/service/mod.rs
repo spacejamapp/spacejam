@@ -5,26 +5,25 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
-    account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
-    refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
+    jcore::service::{
+        account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
+        refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
+        work::{
+            ExtrinsicSpec, ImportSpec, WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
+            WorkPackageSpec, WorkPackageSpecJson,
+        },
+    },
     report::{
         ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
         WorkReportJson,
     },
     result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
     validate::PackageValidation,
-    work::{
-        ExtrinsicSpec, ImportSpec, WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
-        WorkPackageSpec, WorkPackageSpecJson,
-    },
 };
 
-mod account;
-mod refine;
 mod report;
 mod result;
 mod validate;
-mod work;
 
 /// The ready queue (θ)
 pub type ReadyQueue = [Vec<ReadyReport>; crate::EPOCH_LENGTH as usize];
