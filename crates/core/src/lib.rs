@@ -3,13 +3,12 @@
 pub use {
     block::Block,
     extrinsic::Extrinsic,
-    params::Parameters,
+    jcore::{Parameters, params},
     state::{State, key::StorageKeyEncode},
 };
 
 pub mod block;
 pub mod extrinsic;
-pub mod params;
 pub mod safrole;
 pub mod service;
 pub mod state;
