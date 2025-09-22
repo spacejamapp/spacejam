@@ -17,7 +17,7 @@ pub fn process(attr: &syn::Attribute, field: &mut syn::Field, categories: &mut F
         let ty = attr
             .parse_args::<syn::Path>()
             .expect("invalid json attribute");
-        if let syn::Type::Path(ref path) = &field.ty {
+        if let syn::Type::Path(path) = &field.ty {
             if let Some(segment) = path.path.segments.last() {
                 if segment.ident == "BTreeMap" || segment.ident == "HashMap" {
                     categories
@@ -34,7 +34,7 @@ pub fn process(attr: &syn::Attribute, field: &mut syn::Field, categories: &mut F
         return true;
     };
 
-    let syn::Type::Path(ref path) = &field.ty else {
+    let syn::Type::Path(path) = &field.ty else {
         return false;
     };
     let Some(segment) = path.path.segments.last() else {

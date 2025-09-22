@@ -40,7 +40,7 @@ pub async fn validate(
     if ticket.is_none() {
         let keys = if new_epoch {
             let TicketsOrKeys::Keys(keys) =
-                crate::tx::fallback(validators.bandersnatch(), entropy_buffer[1])
+                TicketsOrKeys::fallback(validators.bandersnatch(), entropy_buffer[1])
             else {
                 anyhow::bail!("invalid series");
             };

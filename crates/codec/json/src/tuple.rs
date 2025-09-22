@@ -2,7 +2,7 @@
 
 use crate::Json;
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 
 impl<M: Serialize + DeserializeOwned + Debug, N: Serialize + DeserializeOwned + Debug, P, Q>

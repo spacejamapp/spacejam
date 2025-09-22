@@ -1,6 +1,6 @@
 use crate::Json;
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 impl<M: Serialize + DeserializeOwned, N> Json<Vec<M>> for Vec<N>
 where
@@ -40,7 +40,9 @@ macro_rules! impl_bytes {
     };
 }
 
-impl_bytes!(1, 2, 3, 4, 5, 6, 8, 12, 16, 17, 32, 64, 96, 128, 144, 256, 784);
+impl_bytes!(
+    1, 2, 3, 4, 5, 6, 8, 12, 16, 17, 32, 64, 96, 128, 144, 256, 784
+);
 
 macro_rules! impl_array {
     ($($len:expr),*) => {

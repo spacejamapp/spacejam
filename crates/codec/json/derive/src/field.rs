@@ -1,7 +1,7 @@
 //! Field processing for JSON derive macro
 
 use crate::{attr, util};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::Ident;
 
 /// Categorized field collections for JSON transformation

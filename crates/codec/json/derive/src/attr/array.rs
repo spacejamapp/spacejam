@@ -37,7 +37,7 @@ pub fn process(call: &syn::ExprCall, field: &mut syn::Field, categories: &mut Fi
 
 /// Check if field type is a map (BTreeMap or HashMap)
 fn is_map_type(field_ty: &syn::Type) -> bool {
-    let syn::Type::Path(ref path) = field_ty else {
+    let syn::Type::Path(path) = field_ty else {
         return false;
     };
     let Some(segment) = path.path.segments.last() else {

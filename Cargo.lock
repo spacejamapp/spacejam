@@ -3963,7 +3963,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson"
-version = "0.0.0"
+version = "0.0.12"
 dependencies = [
  "anyhow",
  "hex",
@@ -3974,7 +3974,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson-derive"
-version = "0.0.0"
+version = "0.0.12"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -6,7 +6,7 @@ description = "Extension for the core library for internal usages"
 
 [dependencies]
 anyhow.workspace = true
-score.workspace = true
+score = { workspace = true, features = ["blake2"] }
 codec.workspace = true
 crypto = { workspace = true, optional = true }
 tokio.workspace = true
