@@ -50,21 +50,6 @@ pub struct AccumulateState<R: Accounts> {
 }
 
 impl<R: Accounts> AccumulateState<R> {
-    /// (I) Generate a new index from provided environment
-    #[cfg(feature = "blake2")]
-    pub fn index(&mut self, service: ServiceId, timeslot: crate::TimeSlot) -> ServiceId {
-        let encoded = codec::encode(&IndexSalt {
-            service,
-            entropy: self.entropy[0],
-            timeslot,
-        })
-        .expect("failed to encode");
-        let hash = crypto::blake2b(&encoded);
-        let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
-        let index = (base % crate::CHECK_SALT) + (1 << 8);
-        self.accounts.check(index)
-    }
-
     /// Get the code hash of an account
     pub fn code_hash(&mut self, service: ServiceId) -> Option<OpaqueHash> {
         self.accounts.code_hash(service)

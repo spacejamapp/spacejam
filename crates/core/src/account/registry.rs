@@ -1,21 +1,10 @@
 //! Account registry
 
-use crate::{OpaqueHash, ServiceId, TrieKey, account::Account, service::ServiceAccount};
+use crate::{OpaqueHash, TrieKey, account::Account, service::ServiceAccount};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Account registry
 pub trait Accounts: Clone + Send + Sync + 'static {
-    /// Check and find a free account index
-    fn check(&mut self, mut index: ServiceId) -> ServiceId {
-        loop {
-            if self.get(index).is_none() {
-                return index;
-            }
-
-            index = ((index - (1 << 8) + 1) % crate::CHECK_SALT) + (1 << 8);
-        }
-    }
-
     /// Get the code of an account
     fn blob(&mut self, index: u32) -> Option<Vec<u8>>;
 

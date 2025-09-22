@@ -1,9 +1,8 @@
 //! Authorization related stuffs
 
-use pvm::score::Account;
-use score::{OpaqueHash, ServiceId, service::ServiceAccount};
-
 use crate::{AccountBuilder, Jam};
+use score::{OpaqueHash, ServiceId, service::ServiceAccount};
+use score_ext::AccountExt;
 
 /// Authorization related stuffs
 #[derive(Default)]

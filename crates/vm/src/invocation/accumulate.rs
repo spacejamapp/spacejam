@@ -7,6 +7,7 @@ use score::{
     vm::{AccumulateState, DeferredTransfer, Operand},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
+use score_ext::{vm, AccountsExt};
 
 /// Data used in accumulate related host calls
 pub struct Accumulate<R: Accounts> {
@@ -145,7 +146,7 @@ impl<R: Accounts> AccumulateContext<R> {
     pub fn new(mut context: AccumulateState<R>, service: ServiceId, timeslot: TimeSlot) -> Self {
         Self {
             service,
-            index: context.index(service, timeslot),
+            index: vm::index(&mut context, service, timeslot),
             context,
             transfer: Vec::new(),
             output: None,

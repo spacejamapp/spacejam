@@ -6,6 +6,7 @@ use score::{
     vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
     Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
+use score_ext::AccountExt;
 pub use {
     accumulate::{Accumulate, AccumulateContext, Accumulated},
     authorize::IsAuthorized,

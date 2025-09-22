@@ -2923,6 +2923,7 @@ dependencies = [
  "log",
  "pvm-parser",
  "spacejam-core",
+ "spacejam-core-ext",
  "spacejam-crypto",
  "tracing",
 ]
@@ -2953,6 +2954,7 @@ dependencies = [
  "pvm",
  "pvmi",
  "spacejam-core",
+ "spacejam-core-ext",
  "spacejam-worker",
  "tracing",
  "tracing-subscriber",
@@ -3783,6 +3785,15 @@ dependencies = [
  "spacejson",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "spacejam-core-ext"
+version = "0.0.12"
+dependencies = [
+ "jamcodec",
+ "spacejam-core",
+ "spacejam-crypto",
 ]
 
 [[package]]

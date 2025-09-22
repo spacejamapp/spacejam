@@ -71,21 +71,6 @@ pub trait Account: Clone {
     /// Get a lookup from the account
     fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
 
-    /// (Λ) lookup preimage in the recent histories
-    fn historical_lookup(&mut self, timeslot: u32, hash: [u8; 32]) -> Option<Vec<u8>> {
-        let preimage = self.preimage(hash)?;
-        let lookup = self.lookup(hash, preimage.len() as u32)?;
-        if (lookup.len() == 1 && timeslot >= lookup[0])
-            || (lookup.len() == 2 && timeslot >= lookup[0] && timeslot <= lookup[1])
-            || (lookup.len() == 3
-                && ((timeslot >= lookup[0] && timeslot < lookup[1]) || timeslot >= lookup[2]))
-        {
-            Some(preimage)
-        } else {
-            None
-        }
-    }
-
     /// Insert a lookup to the account
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>);
 
@@ -94,15 +79,6 @@ pub trait Account: Clone {
 
     /// Get a preimage from the account
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>>;
-
-    /// Add a preimage to the account
-    #[cfg(feature = "blake2")]
-    fn add_preimage(&mut self, preimage: Vec<u8>, timeslot: u32) -> OpaqueHash {
-        let hash = crypto::blake2b(&preimage);
-        self.insert_lookup(hash, preimage.len() as u32, vec![timeslot]);
-        self.insert_preimage(hash, preimage);
-        hash
-    }
 
     /// Insert a preimage to the account
     fn insert_preimage(&mut self, hash: [u8; 32], preimage: Vec<u8>);

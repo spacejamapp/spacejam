@@ -11,5 +11,6 @@ crypto = { workspace = true, features = ["blake2"] }
 hex.workspace = true
 log.workspace = true
 score = { workspace = true, features = ["blake2"] }
+score-ext = { workspace = true, features = ["blake2"] }
 tracing.workspace = true
 pvm-parser.workspace = true

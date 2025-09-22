@@ -2,6 +2,7 @@
 
 use crate::Jam;
 use score::{Account, OpaqueHash, ServiceId, service::ServiceAccount, state::account};
+use score_ext::AccountExt;
 
 impl Jam {
     /// Add a service account

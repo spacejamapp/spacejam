@@ -37,7 +37,7 @@ pub struct Extrinsic {
 }
 
 impl Extrinsic {
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "blake2")]
     /// Returns the hash of the extrinsic
     pub fn hash(&self) -> anyhow::Result<crate::OpaqueHash> {
         let encoded = codec::encode(&self)?;

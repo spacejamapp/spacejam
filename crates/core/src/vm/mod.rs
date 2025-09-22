@@ -2,7 +2,8 @@
 
 pub use {
     accumulate::{
-        AccumulateParams, AccumulateState, Accumulated, Accumulation, CommitmentMap, Operand,
+        AccumulateParams, AccumulateState, Accumulated, Accumulation, CommitmentMap, IndexSalt,
+        Operand,
     },
     refine::RefineParams,
     transfer::DeferredTransfer,
