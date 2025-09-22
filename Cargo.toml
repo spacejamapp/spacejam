@@ -83,6 +83,7 @@ podec = { version = "0.1.1", package = "jam-codec", default-features = false, fe
 anyhow = "1.0.99"
 ark-bls12-381 = "0.5.0"
 ark-ec = { version = "0.5", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
@@ -157,5 +158,5 @@ x509-parser = "0.17.0"
 [patch.crates-io]
 jam-types = { path = "polkajam/jam-types" }
 jam-pvm-common = { path = "polkajam/jam-pvm-common" }
-# w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
-# ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
+w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
+ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }

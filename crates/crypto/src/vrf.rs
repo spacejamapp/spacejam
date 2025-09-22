@@ -7,13 +7,21 @@
 
 use crate::ring::RING_CTX;
 use anyhow::Result;
+use ark_ec::{scalar_mul::wnaf::WnafContext, CurveGroup, PrimeGroup};
+use ark_ed_on_bls12_381_bandersnatch::EdwardsProjective as GProjective;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_vrf::suites::bandersnatch;
+use ark_vrf::{
+    ring::RingVerifier,
+    suites::bandersnatch::{self, BandersnatchSha512Ell2},
+    Suite,
+};
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
+
+const WNAF_WINDOW: usize = 5;
 
 /// Get the VRF output hash.
 pub fn ietf_output(sig: [u8; 96]) -> Result<[u8; 32]> {
-    let signature = IetfVrfSignature::deserialize_compressed(sig.as_ref())
+    let signature = IetfVrfSignature::deserialize_compressed_unchecked(sig.as_ref())
         .map_err(|e| anyhow::anyhow!("Failed to deserialize bandersnatch signature: {e}"))?;
     let output = signature.output;
     let output_hash = output.hash();
@@ -176,8 +184,6 @@ impl Prover {
 
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = self.secret.output(input);
-
-        // Backend currently requires the wrapped type (plain affine points)
         let pts: Vec<_> = self.ring.iter().map(|pk| pk.0).collect();
 
         // Proof construction
@@ -193,9 +199,6 @@ impl Prover {
     }
 
     /// Non-Anonymous VRF signature.
-    ///
-    /// Used for ticket claiming during block production.
-    /// Not used with Safrole test vectors.
     pub fn ietf_vrf_sign(&self, vrf_input_data: &[u8], aux_data: &[u8]) -> anyhow::Result<Vec<u8>> {
         use ark_vrf::ietf::Prover as _;
 
@@ -211,12 +214,18 @@ impl Prover {
     }
 }
 
+/// Pre-computed representation of a Bandersnatch public key
+pub struct PreparedPublic {
+    pub raw: Public,
+    pub table: Vec<GProjective>,
+}
+
 // Verifier actor.
-//
-// TODO: use life time to avoid cloning the ring.
 pub struct Verifier {
     pub commitment: RingCommitment,
     pub ring: Vec<Public>,
+    verifier: RingVerifier<BandersnatchSha512Ell2>,
+    prepared: Vec<PreparedPublic>,
 }
 
 impl Verifier {
@@ -225,7 +234,22 @@ impl Verifier {
         let pts: Vec<_> = ring.iter().map(|pk| pk.0).collect();
         let verifier_key = RING_CTX.verifier_key(&pts);
         let commitment = verifier_key.commitment();
-        Self { ring, commitment }
+        let prepared = ring
+            .iter()
+            .map(|pk| {
+                let proj = GProjective::from(pk.0);
+                let table = WnafContext::new(WNAF_WINDOW).table(proj);
+                PreparedPublic { raw: *pk, table }
+            })
+            .collect();
+        let verifier_key = RING_CTX.verifier_key_from_commitment(commitment.clone());
+        let verifier = RING_CTX.verifier(verifier_key);
+        Self {
+            ring,
+            commitment,
+            prepared,
+            verifier,
+        }
     }
 
     /// Calculates the ring commitment for a set of Bandersnatch keys as per formula 6.1.3
@@ -266,15 +290,7 @@ impl Verifier {
         let signature = RingVrfSignature::deserialize_compressed_unchecked(signature)?;
         let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
         let output = signature.output;
-
-        // The verifier key is reconstructed from the commitment and the constant
-        // verifier key component of the SRS in order to verify some proof.
-        // As an alternative we can construct the verifier key using the
-        // RingContext::verifier_key() method, but is more expensive.
-        // In other words, we prefer computing the commitment once, when the keyset changes.
-        let verifier_key = RING_CTX.verifier_key_from_commitment(self.commitment.clone());
-        let verifier = RING_CTX.verifier(verifier_key);
-        Public::verify(input, output, aux_data, &signature.proof, &verifier)
+        Public::verify(input, output, aux_data, &signature.proof, &self.verifier)
             .map_err(|e| anyhow::anyhow!("Ring signature verification failure: {:?}", e))?;
 
         // This truncated hash is the actual value used as ticket-id/score in JAM
@@ -283,11 +299,6 @@ impl Verifier {
     }
 
     /// Non-Anonymous VRF signature verification.
-    ///
-    /// Used for ticket claim verification during block import.
-    /// Not used with Safrole test vectors.
-    ///
-    /// On success returns the VRF output hash.
     pub fn ietf_vrf_verify(
         &self,
         input: &[u8],
@@ -295,20 +306,28 @@ impl Verifier {
         signature: &[u8],
         signer_key_index: usize,
     ) -> anyhow::Result<[u8; 32]> {
-        use ark_vrf::ietf::Verifier as _;
-
         let signature = IetfVrfSignature::deserialize_compressed(signature)?;
-        let input = Input::new(input).ok_or(anyhow::anyhow!("Invalid input"))?;
+        let IetfProof { c, s } = signature.proof;
         let output = signature.output;
+        let input = Input::new(input).ok_or(anyhow::anyhow!("Invalid input"))?;
 
-        let public = &self.ring[signer_key_index];
-        public
-            .verify(input, output, aux, &signature.proof)
-            .map_err(|e| anyhow::anyhow!("Ietf signature verification failure: {e:?}"))?;
+        // extract the pre-computed data
+        let PreparedPublic { raw: pk, table } = &self.prepared[signer_key_index];
+        let wnaf = WnafContext::new(WNAF_WINDOW);
+        let s_b = wnaf.mul(GProjective::generator(), &s);
+        let c_y = wnaf
+            .mul_with_table::<GProjective>(table, &c)
+            .ok_or(anyhow::anyhow!("table too small"))?;
+        let u = (s_b - c_y).into_affine();
+        let s_h = input.0 * s;
+        let c_o = output.0 * c;
+        let v = (s_h - c_o).into_affine();
+        anyhow::ensure!(
+            BandersnatchSha512Ell2::challenge(&[&pk.0, &input.0, &output.0, &u, &v], aux) == c,
+            "Ietf signature verification failure"
+        );
 
-        // This is the actual value used as ticket-id/score
-        // NOTE: as far as vrf_input_data is the same, this matches the one produced
-        // using the ring-vrf (regardless of aux_data).
+        // return the VRF output hash
         let vrf_output_hash: [u8; 32] = output.hash()[..32].try_into()?;
         Ok(vrf_output_hash)
     }

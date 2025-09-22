@@ -9,6 +9,7 @@ codec.workspace = true
 crypto = { workspace = true, features = ["vrf"] }
 erasure.workspace = true
 hex.workspace = true
+once_cell.workspace = true
 pvm.workspace = true
 score = { workspace = true, features = ["ed25519", "merkle", "shuffle", "vrf"] }
 serde.workspace = true
