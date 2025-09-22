@@ -1,14 +1,14 @@
 //! Core of SpaceJam
 
 pub use {
+    ::service::{Parameters, params, vm},
     block::Block,
     extrinsic::Extrinsic,
-    jcore::{Parameters, params, vm},
     state::{State, key::StorageKeyEncode},
 };
 
 #[cfg(feature = "blake2")]
-pub use jcore::blake2b;
+pub use ::service::blake2b;
 
 pub mod block;
 pub mod extrinsic;

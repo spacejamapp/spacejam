@@ -5,7 +5,7 @@
 
 pub use params::Parameters;
 
-pub mod ext;
+pub mod api;
 pub mod params;
 pub mod service;
 pub mod vm;

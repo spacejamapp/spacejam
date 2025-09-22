@@ -8,8 +8,8 @@ use crate::{
     },
 };
 use anyhow;
-use jcore::vm::Operand;
 use serde::{Deserialize, Serialize};
+use service::vm::Operand;
 use spacejson::Json;
 use std::collections::BTreeMap;
 

@@ -5,7 +5,7 @@ members = [
     "crates/codec/json",
     "crates/codec/json/derive",
     "crates/core/account",
-    "crates/core/jade",
+    "crates/core/service",
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/vm/cli",
@@ -46,7 +46,6 @@ codec = { path = "crates/codec", package = "jamcodec" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
-jcore = { path = "crates/core/jade", package = "jade-core" }
 network = { path = "crates/network", package = "spacejam-network" }
 offchain = { path = "crates/offchain", package = "spacejam-offchain" }
 pvm = { path = "crates/vm", package = "pvm" }
@@ -54,6 +53,7 @@ pvmi = { path = "crates/vm/interpreter" }
 pvmc = { path = "crates/vm/compiler" }
 pvm-parser = { path = "crates/vm/parser" }
 pvm-testing = { path = "crates/vm/testing" }
+service = { path = "crates/core/service", package = "spacejam-service" }
 translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }

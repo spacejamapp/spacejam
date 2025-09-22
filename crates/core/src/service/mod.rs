@@ -4,7 +4,11 @@ use crate::WorkPackageHash;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
-    jcore::service::{
+    report::{
+        ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
+        WorkReportJson,
+    },
+    service::service::{
         Privileges, PrivilegesJson,
         account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
         refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
@@ -13,10 +17,6 @@ pub use {
             ExtrinsicSpec, ImportSpec, WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
             WorkPackageSpec, WorkPackageSpecJson,
         },
-    },
-    report::{
-        ReadyReport, ReadyReportJson, ReportedWorkPackage, ReportedWorkPackageJson, WorkReport,
-        WorkReportJson,
     },
     validate::PackageValidation,
 };

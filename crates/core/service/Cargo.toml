@@ -1,5 +1,5 @@
 [package]
-name = "jade-core"
+name = "spacejam-service"
 version.workspace = true
 edition.workspace = true
 description = "SpaceJam shared types for the Jade framework"
