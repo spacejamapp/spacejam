@@ -314,11 +314,10 @@ impl Verifier {
         // extract the pre-computed data
         let PreparedPublic { raw: pk, table } = &self.prepared[signer_key_index];
         let wnaf = WnafContext::new(WNAF_WINDOW);
-        let s_b = wnaf.mul(GProjective::generator(), &s).into_affine();
+        let s_b = wnaf.mul(GProjective::generator(), &s);
         let c_y = wnaf
             .mul_with_table::<GProjective>(table, &c)
-            .ok_or(anyhow::anyhow!("table too small"))?
-            .into_affine();
+            .ok_or(anyhow::anyhow!("table too small"))?;
         let u = (s_b - c_y).into_affine();
         let s_h = input.0 * s;
         let c_o = output.0 * c;
