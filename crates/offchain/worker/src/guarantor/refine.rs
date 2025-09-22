@@ -6,9 +6,10 @@ use crate::{Guarantor, WorkPackageBundle};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    Accounts, CoreIndex, OpaqueHash, Segment, TimeSlot,
+    CoreIndex, OpaqueHash, Segment, TimeSlot,
     service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
 };
+use score_ext::Accounts;
 
 /// Refine the work package
 pub async fn refine<R: Accounts, VM: Pvm>(

@@ -2,7 +2,7 @@
 
 use crate::{AccountBuilder, Jam};
 use score::{OpaqueHash, ServiceId, service::ServiceAccount};
-use score_ext::AccountExt;
+use score_ext::Account;
 
 /// Authorization related stuffs
 #[derive(Default)]

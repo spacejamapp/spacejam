@@ -2,12 +2,13 @@
 
 use crate::{invocation::Argument, Reason, Result};
 use score::{
-    safrole::ValidatorData,
+    safrole::{ValidatorData, ValidatorsData},
     service::Privileges,
-    vm::{AccumulateState, DeferredTransfer, Operand},
-    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
+    vm::{DeferredTransfer, Operand},
+    EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use score_ext::{vm, AccountsExt};
+use score_ext::{Account, Accounts};
+use serde::{Deserialize, Serialize};
 
 /// Data used in accumulate related host calls
 pub struct Accumulate<R: Accounts> {
@@ -146,7 +147,7 @@ impl<R: Accounts> AccumulateContext<R> {
     pub fn new(mut context: AccumulateState<R>, service: ServiceId, timeslot: TimeSlot) -> Self {
         Self {
             service,
-            index: vm::index(&mut context, service, timeslot),
+            index: context.index(service, timeslot),
             context,
             transfer: Vec::new(),
             output: None,
@@ -182,6 +183,66 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 }
 
+/// The state context used in pvm accumulation
+#[derive(Clone)]
+pub struct AccumulateState<R> {
+    /// d (δ) The accounts
+    pub accounts: R,
+
+    /// i (ι) The upcoming validators
+    pub validators: ValidatorsData,
+
+    /// p (φ) The authorization queue
+    pub authorization: [Vec<OpaqueHash>; score::CORES_COUNT],
+
+    /// a (χ) The privileged service indices
+    pub privileges: Privileges,
+
+    /// (η) The entropy
+    pub entropy: EntropyBuffer,
+}
+
+impl<R: Accounts> AccumulateState<R> {
+    /// Get the code hash of an account
+    pub fn code_hash(&mut self, service: ServiceId) -> Option<OpaqueHash> {
+        self.accounts.code_hash(service)
+    }
+
+    /// Share preimages for the services in the state context
+    pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
+        self.accounts.blob(service)
+        // self.accounts.get(service)?.account().code().cloned()
+        // TODO: The logic below is correct, but we need to match
+        // the test vectors atm.
+        /* let hash = self.accounts.get(service)?.code();
+        for account in self.accounts.accounts().values() {
+            if account.code() != hash {
+                continue;
+            }
+
+            if let Some(code) = account.account().code() {
+                return Some(code.clone());
+            }
+        }
+
+        None */
+    }
+
+    /// (I) Generate a new index from provided environment
+    pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
+        let encoded = codec::encode(&IndexSalt {
+            service,
+            entropy: self.entropy[0],
+            timeslot,
+        })
+        .expect("failed to encode");
+        let hash = crypto::blake2b(&encoded);
+        let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
+        let index = (base % score::CHECK_SALT) + (1 << 8);
+        self.accounts.check(index)
+    }
+}
+
 /// The accumulate result of (ΨA)
 pub struct Accumulated<R: Accounts> {
     /// (o) The state context
@@ -211,4 +272,19 @@ impl<R: Accounts> Accumulated<R> {
             reason: Reason::Continue,
         }
     }
+}
+
+/// The salt for the index function
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IndexSalt {
+    /// (N_s)  the service id of the caller
+    #[serde(with = "codec::compact")]
+    pub service: u32,
+
+    /// (η) The entropy
+    pub entropy: [u8; 32],
+
+    /// (N_t)  timeslot for the current accumulation
+    #[serde(with = "codec::compact")]
+    pub timeslot: u32,
 }

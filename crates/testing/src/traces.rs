@@ -6,13 +6,14 @@ use runtime::{
     tx,
 };
 use score::{
-    Account, Accounts, EntropyBuffer, OpaqueHash,
+    EntropyBuffer, OpaqueHash,
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
+use score_ext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::{sync::Arc, time::Instant};

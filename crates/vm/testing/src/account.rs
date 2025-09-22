@@ -1,8 +1,8 @@
 //! Service account builder
 
 use crate::Jam;
-use score::{Account, OpaqueHash, ServiceId, service::ServiceAccount, state::account};
-use score_ext::AccountExt;
+use score::{OpaqueHash, ServiceId, service::ServiceAccount, state::account};
+use score_ext::Account;
 
 impl Jam {
     /// Add a service account

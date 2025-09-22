@@ -5,8 +5,9 @@ use score::{
     safrole::ValidatorData,
     service::Privileges,
     vm::{DeferredTransfer, Operand},
-    Account, Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
+    Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
+use score_ext::Account;
 pub use {
     argument::Argument,
     memory::MemoryLike,

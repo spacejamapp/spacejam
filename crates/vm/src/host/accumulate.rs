@@ -8,8 +8,8 @@ use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
-    Account,
 };
+use score_ext::Account;
 use std::collections::BTreeMap;
 
 /// (ΩB) bless

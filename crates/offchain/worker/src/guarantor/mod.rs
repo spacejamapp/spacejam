@@ -4,9 +4,10 @@ use crate::{DataLake, WorkPackageBundle, d3l::Shard};
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
-    Accounts, CoreIndex, OpaqueHash,
+    CoreIndex, OpaqueHash,
     service::{WorkPackage, WorkReport},
 };
+use score_ext::Accounts;
 use std::collections::BTreeMap;
 
 mod authorize;

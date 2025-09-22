@@ -1,7 +1,7 @@
 //! Testing library for the PVM
 
+pub use score::service::ServiceAccount as Account;
 use score::service::WorkItem;
-pub use score::{Account as AccountExt, service::ServiceAccount as Account};
 pub use {account::AccountBuilder, auth::Auth, chain::Chain, extrinsic::Extrinsic};
 
 mod account;

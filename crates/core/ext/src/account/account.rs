@@ -1,6 +1,6 @@
 //! Account abstraction
 
-use crate::{
+use score::{
     Gas, OpaqueHash, TrieKey,
     service::{ServiceAccount, ServiceInfo},
 };
@@ -105,6 +105,30 @@ pub trait Account: Clone {
 
     /// Get the operations of the account
     fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>);
+
+    /// (Λ) lookup preimage in the recent histories
+    fn historical_lookup(&mut self, timeslot: u32, hash: [u8; 32]) -> Option<Vec<u8>> {
+        let preimage = self.preimage(hash)?;
+        let lookup = self.lookup(hash, preimage.len() as u32)?;
+        if (lookup.len() == 1 && timeslot >= lookup[0])
+            || (lookup.len() == 2 && timeslot >= lookup[0] && timeslot <= lookup[1])
+            || (lookup.len() == 3
+                && ((timeslot >= lookup[0] && timeslot < lookup[1]) || timeslot >= lookup[2]))
+        {
+            Some(preimage)
+        } else {
+            None
+        }
+    }
+
+    /// Add a preimage to the account
+    #[cfg(feature = "blake2")]
+    fn add_preimage(&mut self, preimage: Vec<u8>, timeslot: u32) -> score::OpaqueHash {
+        let hash = crypto::blake2b(&preimage);
+        self.insert_lookup(hash, preimage.len() as u32, vec![timeslot]);
+        self.insert_preimage(hash, preimage);
+        hash
+    }
 }
 
 impl Account for ServiceAccount {
@@ -217,12 +241,12 @@ impl Account for ServiceAccount {
     }
 
     fn read(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let skey = crate::state::account::storage(self.index(), key);
+        let skey = score::state::account::storage(self.index(), key);
         self.storage.get(skey.as_slice()).cloned()
     }
 
     fn remove(&mut self, key: &[u8]) -> Option<Vec<u8>> {
-        let skey = crate::state::account::storage(self.index(), key);
+        let skey = score::state::account::storage(self.index(), key);
         let value = self.storage.remove(skey.as_slice())?;
         self.set_total(self.total() - 34 - key.len() as u64 - value.len() as u64);
         self.set_items(self.items() - 1);
@@ -230,7 +254,7 @@ impl Account for ServiceAccount {
     }
 
     fn write(&mut self, key: &[u8], value: Vec<u8>) {
-        let skey = crate::state::account::storage(self.index(), key);
+        let skey = score::state::account::storage(self.index(), key);
         if let Some(old) = self.storage.get(skey.as_slice()).map(|v| v.len() as u64) {
             self.set_total(self.total() + value.len() as u64 - old);
         } else {
@@ -250,13 +274,13 @@ impl Account for ServiceAccount {
         let removals = BTreeSet::new();
 
         // Ensure the account info is written to storage
-        let info_key = crate::state::account::info(self.index);
+        let info_key = score::state::account::info(self.index);
         let encoded_info = codec::encode(&self.info).expect("service info is valid");
         updates.insert(info_key, encoded_info);
 
         // Ensure the lookup is written to storage
         for ((hash, len), slots) in self.lookup.iter() {
-            let lookup_key = crate::state::account::lookup(self.index, *len, *hash);
+            let lookup_key = score::state::account::lookup(self.index, *len, *hash);
             let encoded_lookup = codec::encode(slots).expect("lookup is valid");
             updates.insert(lookup_key, encoded_lookup);
         }

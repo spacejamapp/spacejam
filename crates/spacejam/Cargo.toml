@@ -23,6 +23,7 @@ spacevm.workspace = true
 rand.workspace = true
 runtime.workspace = true
 score = { workspace = true }
+score-ext.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }

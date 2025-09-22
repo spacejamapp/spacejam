@@ -2,8 +2,9 @@
 
 use crate::{Guarantor, WorkPackageBundle, d3l::Justification};
 use anyhow::Result;
-use pvm::{Pvm, score::Accounts};
+use pvm::Pvm;
 use score::{OpaqueHash, service::WorkReport};
+use score_ext::Accounts;
 
 /// Auditor utilities for work-report verification
 #[allow(async_fn_in_trait)]

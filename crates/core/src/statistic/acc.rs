@@ -1,10 +1,6 @@
 //! Accumulation statistics
 
-use crate::{
-    Gas,
-    account::Accounts,
-    vm::{Accumulated, DeferredTransfer},
-};
+use crate::{Gas, vm::DeferredTransfer};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::HashSet;
@@ -25,25 +21,6 @@ pub struct AccumulationRecord {
     pub services_affected: usize,
     /// Number of accumulation commitments generated
     pub commitment_count: usize,
-}
-
-impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
-    fn from(accumulated: &Accumulated<R>) -> Self {
-        // FIXME: track the affected services
-        let affected_services: HashSet<_> = accumulated
-            .context
-            .accounts
-            .services()
-            .into_iter()
-            .collect();
-
-        AccumulationRecord {
-            work_reports_processed: accumulated.accumulated,
-            total_gas_used: accumulated.gas.values().sum(),
-            services_affected: affected_services.len(),
-            commitment_count: accumulated.pairings.len(),
-        }
-    }
 }
 
 /// (X) Statistics about deferred transfers

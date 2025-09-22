@@ -1,14 +1,12 @@
 //! Core of SpaceJam
 
 pub use {
-    account::{Account, Accounts},
     block::Block,
     extrinsic::Extrinsic,
     params::Parameters,
     state::{State, key::StorageKeyEncode},
 };
 
-mod account;
 pub mod block;
 pub mod extrinsic;
 pub mod params;

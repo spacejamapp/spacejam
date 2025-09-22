@@ -6,10 +6,8 @@ use runtime::{
     storage::{MemoryDb, StateStorage},
     tx::ticket::lazy,
 };
-use score::{
-    Accounts as _,
-    state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
-};
+use score::state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
+use score_ext::Accounts as _;
 use spacevm::{Memory, pvm::Context};
 use std::sync::Arc;
 use tokio::task::JoinSet;

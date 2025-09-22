@@ -2,13 +2,14 @@
 
 use crate::tx::guarantee::error::{Error, Result};
 use score::{
-    Account, Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
-    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
-    TimeSlot, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
+    CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT, MAX_WORK_REPORT_OUTPUT_SIZE,
+    OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State, TimeSlot, VALIDATORS_COUNT,
+    WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     params::assignments,
     service::{ReportedWorkPackage, WorkExecResult},
 };
+use score_ext::{Account, Accounts};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.

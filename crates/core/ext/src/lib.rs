@@ -1,6 +1,5 @@
 //! SpaceJam core library extensions
 
-pub use account::{AccountExt, AccountsExt};
+pub use account::{Account, Accounts};
 
 mod account;
-pub mod vm;

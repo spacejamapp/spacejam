@@ -17,6 +17,7 @@ pvmc.workspace = true
 runtime.workspace = true
 specjam.workspace = true
 score.workspace = true
+score-ext.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true

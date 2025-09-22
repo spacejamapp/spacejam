@@ -11,6 +11,7 @@ pub use {
     hook::Hook,
     pool::Pool,
     storage::Storage,
+    tx::guarantee::Accumulation,
     validator::Validator,
 };
 

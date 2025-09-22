@@ -1,12 +1,13 @@
 //! PVM invocation interface
 
 use crate::{Argument, Executed, Invoked, Reason};
+pub use accumulate::AccumulateState;
 use score::{
     service::{WorkExecResult, WorkPackage},
-    vm::{AccumulateParams, AccumulateState, DeferredTransfer, Operand, RefineParams},
-    Account, Accounts, Gas, OpaqueHash, ServiceId, TimeSlot,
+    vm::{AccumulateParams, DeferredTransfer, Operand, RefineParams},
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use score_ext::AccountExt;
+use score_ext::{Account, Accounts};
 pub use {
     accumulate::{Accumulate, AccumulateContext, Accumulated},
     authorize::IsAuthorized,

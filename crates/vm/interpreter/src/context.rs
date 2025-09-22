@@ -1,13 +1,12 @@
 //! Context of the interpreter
 
-use std::ops::Range;
-
 use crate::Interpreter;
 use parser::format;
 use pvm::{
-    score::{service::ServiceAccount, Account, Gas},
-    Argument, Visitor,
+    score::{service::ServiceAccount, Gas},
+    Account, Argument, Visitor,
 };
+use std::ops::Range;
 
 /// Context of the interpreter
 #[derive(Default)]

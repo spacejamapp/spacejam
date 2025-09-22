@@ -1,7 +1,8 @@
 //! Preimage tests
 
 use runtime::tx;
-use score::{Account, Accounts, service::ServiceAccount};
+use score::service::ServiceAccount;
+use score_ext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;

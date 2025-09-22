@@ -8,7 +8,8 @@ use crate::{
 };
 use anyhow::Result;
 use pvm::Pvm;
-use score::{Accounts as _, Block, TrieKey, safrole::ValidatorIter, state::key};
+use score::{Block, TrieKey, safrole::ValidatorIter, state::key};
+use score_ext::Accounts as _;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task::JoinSet;

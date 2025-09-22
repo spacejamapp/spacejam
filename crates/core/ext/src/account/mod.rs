@@ -1,4 +1,4 @@
-//! JAM account abstraction
+//! Account extensions
 
 pub use {account::Account, registry::Accounts};
 

@@ -1,6 +1,7 @@
 //! Account registry
 
-use crate::{OpaqueHash, TrieKey, account::Account, service::ServiceAccount};
+use crate::Account;
+use score::{OpaqueHash, ServiceId, TrieKey, service::ServiceAccount};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Account registry
@@ -32,6 +33,17 @@ pub trait Accounts: Clone + Send + Sync + 'static {
 
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
+
+    /// Check and find a free account index
+    fn check(&mut self, mut index: ServiceId) -> ServiceId {
+        loop {
+            if self.get(index).is_none() {
+                return index;
+            }
+
+            index = ((index - (1 << 8) + 1) % score::CHECK_SALT) + (1 << 8);
+        }
+    }
 }
 
 impl Accounts for BTreeMap<u32, ServiceAccount> {

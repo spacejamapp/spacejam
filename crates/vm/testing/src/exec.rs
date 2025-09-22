@@ -3,13 +3,12 @@
 use crate::Jam;
 use anyhow::Result;
 use podec::Encode;
-use pvm::{Accumulated, Invocation, Reason};
+use pvm::{AccumulateState, Accumulated, Invocation, Reason};
 use pvmi::Interpreter;
 use score::{
     ServiceId,
     service::{Privileges, ServiceAccount, WorkExecResult, WorkPackage, WorkReport},
     state::account,
-    vm::AccumulateState,
 };
 use std::collections::BTreeMap;
 use worker::{Guarantor, InMemoryDataLake};

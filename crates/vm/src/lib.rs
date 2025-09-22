@@ -5,10 +5,11 @@ pub use parser::{
 };
 pub use {
     context::{Argument, Context, Executed, Invoked, MemoryLike, State},
-    invocation::{AccumulateContext, Accumulated, Invocation},
+    invocation::{AccumulateContext, AccumulateState, Accumulated, Invocation},
     parser,
     result::{Reason, Result},
     score,
+    score_ext::Account,
     value::{as_i64, Value},
 };
 

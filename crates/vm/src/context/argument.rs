@@ -5,8 +5,9 @@ use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
     vm::{DeferredTransfer, Operand},
-    Account, Gas, OpaqueHash, ServiceId, TimeSlot,
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
+use score_ext::Account;
 
 /// Dynamic arguments for host calls
 pub trait Argument: Send + Sync {
