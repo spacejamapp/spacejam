@@ -2,7 +2,7 @@
 
 use crate::Argument;
 use score::service::ServiceAccount;
-use score_ext::Account;
+use scorext::Account;
 
 /// IsAuthorized invocation context
 #[derive(Debug, Clone)]

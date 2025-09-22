@@ -55,7 +55,7 @@ translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
-score-ext = { path = "crates/core/ext", package = "spacejam-core-ext" }
+scorext = { path = "crates/core/ext", package = "spacejam-core-ext" }
 serde-jam = { path = "crates/codec", package = "jamcodec" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }

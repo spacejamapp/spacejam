@@ -13,7 +13,7 @@ use score::{
     state::{StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::{sync::Arc, time::Instant};

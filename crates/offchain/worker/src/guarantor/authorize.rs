@@ -3,7 +3,7 @@
 use anyhow::Result;
 use pvm::Pvm;
 use score::service::{WorkExecResult, WorkPackage};
-use score_ext::Accounts;
+use scorext::Accounts;
 
 /// Authorize the work package
 pub fn authorize<R: Accounts, VM: Pvm>(

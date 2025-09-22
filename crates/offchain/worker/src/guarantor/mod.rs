@@ -7,7 +7,7 @@ use score::{
     CoreIndex, OpaqueHash,
     service::{WorkPackage, WorkReport},
 };
-use score_ext::Accounts;
+use scorext::Accounts;
 use std::collections::BTreeMap;
 
 mod authorize;

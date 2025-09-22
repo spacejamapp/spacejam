@@ -2,7 +2,7 @@
 
 use crate::{Argument, Executed};
 use score::ServiceId;
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 
 /// Refine host call arguments
 pub struct Refine<R: Accounts> {

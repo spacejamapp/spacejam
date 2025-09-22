@@ -7,7 +7,7 @@ use score::{
     vm::{DeferredTransfer, Operand},
     Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
-use score_ext::Account;
+use scorext::Account;
 pub use {
     argument::Argument,
     memory::MemoryLike,

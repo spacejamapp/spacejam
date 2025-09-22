@@ -2,7 +2,7 @@
 
 use crate::Argument;
 use score::{vm::Operand, Entropy, ServiceId};
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 
 /// Input data of general host functions
 #[derive(Debug, Clone)]

@@ -8,7 +8,7 @@ use score::{
     statistic::{AccumulationRecord, ServiceActivityRecord},
     vm::{CommitmentMap, DeferredTransfer},
 };
-use score_ext::Accounts;
+use scorext::Accounts;
 use std::collections::{BTreeMap, HashSet};
 
 /// The result of accumulation with PVM

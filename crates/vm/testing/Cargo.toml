@@ -16,6 +16,6 @@ podec.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
 score = { workspace = true, features = ["blake2"] }
-score-ext = { workspace = true, features = ["blake2"] }
+scorext = { workspace = true, features = ["blake2"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true

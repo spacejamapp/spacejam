@@ -5,7 +5,7 @@ use crate::{
     Argument, Result,
 };
 use score::Parameters;
-use score_ext::Account;
+use scorext::Account;
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {

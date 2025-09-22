@@ -7,7 +7,7 @@ use score::{
     vm::{DeferredTransfer, Operand},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use score_ext::Account;
+use scorext::Account;
 
 /// Dynamic arguments for host calls
 pub trait Argument: Send + Sync {

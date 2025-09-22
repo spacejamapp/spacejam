@@ -7,7 +7,7 @@ use score::{
     vm::{DeferredTransfer, Operand},
     EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 
 /// Data used in accumulate related host calls

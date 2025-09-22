@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use score::{TimeSlot, extrinsic::PreimagesExtrinsic};
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 
 /// (δ') handle preimage extrinsic
 ///

@@ -125,7 +125,7 @@ mod types {
         state::account,
         statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
     };
-    use score_ext::{Account, Accounts};
+    use scorext::{Account, Accounts};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
     use std::collections::BTreeMap;

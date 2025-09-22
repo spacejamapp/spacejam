@@ -9,7 +9,7 @@ pub use {
     parser,
     result::{Reason, Result},
     score,
-    score_ext::Account,
+    scorext::Account,
     value::{as_i64, Value},
 };
 

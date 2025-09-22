@@ -9,7 +9,7 @@ use score::{
     params::assignments,
     service::{ReportedWorkPackage, WorkExecResult},
 };
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.

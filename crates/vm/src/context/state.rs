@@ -2,7 +2,7 @@
 
 use crate::{invocation::Accumulate, Accumulated, Reason};
 use score::{service::WorkExecResult, Gas};
-use score_ext::Accounts;
+use scorext::Accounts;
 
 /// The execution state of programs.
 #[derive(Default, Clone)]

@@ -13,7 +13,7 @@ use score::{
     },
     vm::DeferredTransfer,
 };
-use score_ext::{Account, Accounts};
+use scorext::{Account, Accounts};
 use std::collections::BTreeMap;
 
 mod acc;

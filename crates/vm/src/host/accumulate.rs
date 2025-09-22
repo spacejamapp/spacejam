@@ -9,7 +9,7 @@ use score::{
     service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
 };
-use score_ext::Account;
+use scorext::Account;
 use std::collections::BTreeMap;
 
 /// (ΩB) bless

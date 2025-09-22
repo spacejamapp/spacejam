@@ -9,7 +9,7 @@ use score::{
     CoreIndex, OpaqueHash, Segment, TimeSlot,
     service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
 };
-use score_ext::Accounts;
+use scorext::Accounts;
 
 /// Refine the work package
 pub async fn refine<R: Accounts, VM: Pvm>(
