@@ -6,13 +6,13 @@ members = [
     "crates/codec/json/derive",
     "crates/offchain/worker",
     "crates/offchain/rpc",
-    "crates/pvm/cli",
-    "crates/pvm/compiler",
-    "crates/pvm/cranelift",
-    "crates/pvm/interpreter",
-    "crates/pvm/spacevm",
-    "crates/pvm/parser",
-    "crates/pvm/testing",
+    "crates/vm/cli",
+    "crates/vm/compiler",
+    "crates/vm/cranelift",
+    "crates/vm/interpreter",
+    "crates/vm/spacevm",
+    "crates/vm/parser",
+    "crates/vm/testing",
     "crates/testing/spec",
     "polkajam/*",
     "services/*",
@@ -40,17 +40,17 @@ strip = true
 
 [workspace.dependencies]
 codec = { path = "crates/codec", package = "jamcodec" }
-cjam = { path = "crates/pvm/cli", package = "cargo-jam" }
+cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
 network = { path = "crates/network", package = "spacejam-network" }
 offchain = { path = "crates/offchain", package = "spacejam-offchain" }
-pvm = { path = "crates/pvm", package = "pvm" }
-pvmi = { path = "crates/pvm/interpreter" }
-pvmc = { path = "crates/pvm/compiler" }
-pvm-parser = { path = "crates/pvm/parser" }
-pvm-testing = { path = "crates/pvm/testing" }
-translator = { path = "crates/pvm/cranelift", package = "cranelift-pvm" }
+pvm = { path = "crates/vm", package = "pvm" }
+pvmi = { path = "crates/vm/interpreter" }
+pvmc = { path = "crates/vm/compiler" }
+pvm-parser = { path = "crates/vm/parser" }
+pvm-testing = { path = "crates/vm/testing" }
+translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
@@ -60,7 +60,7 @@ spacejson = { path = "crates/codec/json", package = "spacejson" }
 spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
-spacevm = { path = "crates/pvm/spacevm", package = "spacevm" }
+spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 
