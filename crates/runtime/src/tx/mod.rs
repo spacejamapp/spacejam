@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 pub mod assurance;
+pub mod block;
 pub mod dispute;
 pub mod guarantee;
 pub mod preimage;
@@ -309,7 +310,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
         };
 
         // (β') Update the block history
-        scorext::block::history::import(
+        block::history::import(
             &mut state.recent_blocks,
             block.header.hash()?,
             root,

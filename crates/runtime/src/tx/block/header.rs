@@ -5,6 +5,7 @@ use score::{
     extrinsic::{TicketBody, TicketsOrKeys},
     safrole::{ValidatorIter, ValidatorsData},
 };
+use std::sync::Arc;
 
 /// Validate the header
 pub async fn validate(
@@ -13,7 +14,7 @@ pub async fn validate(
     validators: &ValidatorsData,
     entropy: score::EntropyBuffer,
     safrole: &score::safrole::Safrole,
-    verifier: std::sync::Arc<crypto::vrf::Verifier>,
+    verifier: Arc<crypto::vrf::Verifier>,
 ) -> anyhow::Result<()> {
     let slot = (header.slot % score::EPOCH_LENGTH) as usize;
     let entropy_buffer = entropy;

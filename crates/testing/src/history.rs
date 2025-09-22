@@ -1,12 +1,12 @@
 //! history test
 
 use anyhow::Result;
+use runtime::tx::block::history;
 use score::{
     OpaqueHash,
     block::{History, HistoryJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
 };
-use scorext::block::history;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

@@ -7,10 +7,9 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, ticket::lazy},
+    tx::{self, block::header, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
-use scorext::block::header;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
