@@ -3,7 +3,7 @@
 pub use {
     block::Block,
     extrinsic::Extrinsic,
-    jcore::{Parameters, params},
+    jcore::{Parameters, params, vm},
     state::{State, key::StorageKeyEncode},
 };
 
@@ -16,7 +16,6 @@ pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod vm;
 
 /// (B_I) The balance per item
 pub const BALANCE_PER_ITEM: u64 = 10;

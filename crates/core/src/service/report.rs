@@ -6,9 +6,9 @@ use crate::{
         RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
         WorkResultJson,
     },
-    vm::Operand,
 };
 use anyhow;
+use jcore::vm::Operand;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::BTreeMap;

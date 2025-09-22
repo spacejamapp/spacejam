@@ -2044,6 +2044,7 @@ version = "0.0.12"
 dependencies = [
  "anyhow",
  "blake2",
+ "hex",
  "jamcodec",
  "serde",
  "serde_json",

@@ -8,6 +8,7 @@ pub use params::Parameters;
 pub mod ext;
 pub mod params;
 pub mod service;
+pub mod vm;
 
 /// (B_I) The balance per item
 pub const BALANCE_PER_ITEM: u64 = 10;
@@ -58,6 +59,21 @@ pub type ExportsRoot = OpaqueHash;
 
 /// The type for an erasure root
 pub type ErasureRoot = OpaqueHash;
+
+/// The type for an entropy buffer
+pub type EntropyBuffer = [OpaqueHash; 4];
+
+/// The type for a validator metadata
+pub type ValidatorMetadata = [u8; 128];
+
+/// The type for a bandersnatch public key
+pub type BandersnatchPublic = [u8; 32];
+
+/// The type for an ed25519 public key
+pub type Ed25519Public = [u8; 32];
+
+/// The type for a bls public key
+pub type BlsPublic = [u8; 144];
 
 #[cfg(feature = "blake2")]
 /// Compute the BLAKE2b 256-bit hash of a given input.

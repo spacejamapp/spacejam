@@ -1,6 +1,7 @@
 //! Accumulation statistics
 
-use crate::{Gas, vm::DeferredTransfer};
+use crate::Gas;
+use jcore::vm::DeferredTransfer;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::collections::HashSet;

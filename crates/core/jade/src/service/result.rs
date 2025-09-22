@@ -34,8 +34,6 @@ pub struct WorkResult {
 }
 
 /// Represents the result of a work execution. (11.7)
-///
-/// TODO: need to fix the graypaper
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorkExecResult {
     Ok(Vec<u8>),

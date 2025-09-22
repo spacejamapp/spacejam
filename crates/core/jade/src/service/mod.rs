@@ -6,12 +6,14 @@ use spacejson::Json;
 use std::collections::BTreeMap;
 pub use {
     account::ServiceAccount,
-    refine::{RefineContext, RefineContextJson, RefineLoad},
+    refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
+    result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
     work::{ExtrinsicSpec, ImportSpec, WorkItem, WorkPackage, WorkPackageSpec},
 };
 
 pub mod account;
 pub mod refine;
+pub mod result;
 pub mod work;
 
 /// The privileged service indices (χ)
