@@ -16,11 +16,8 @@ use ark_vrf::{
     Suite,
 };
 pub use bandersnatch::{IetfProof, Input, Output, Public, RingProof, Secret};
-use once_cell::sync::Lazy;
 
 const WNAF_WINDOW: usize = 5;
-
-static WNAF_CONTEXT: Lazy<WnafContext> = Lazy::new(|| WnafContext::new(WNAF_WINDOW));
 
 /// Get the VRF output hash.
 pub fn ietf_output(sig: [u8; 96]) -> Result<[u8; 32]> {
@@ -241,7 +238,7 @@ impl Verifier {
             .iter()
             .map(|pk| {
                 let proj = GProjective::from(pk.0);
-                let table = WNAF_CONTEXT.table(proj);
+                let table = WnafContext::new(WNAF_WINDOW).table(proj);
                 PreparedPublic { raw: *pk, table }
             })
             .collect();
@@ -316,8 +313,9 @@ impl Verifier {
 
         // extract the pre-computed data
         let PreparedPublic { raw: pk, table } = &self.prepared[signer_key_index];
-        let s_b = WNAF_CONTEXT.mul(GProjective::generator(), &s).into_affine();
-        let c_y = WNAF_CONTEXT
+        let wnaf = WnafContext::new(WNAF_WINDOW);
+        let s_b = wnaf.mul(GProjective::generator(), &s).into_affine();
+        let c_y = wnaf
             .mul_with_table::<GProjective>(table, &c)
             .ok_or(anyhow::anyhow!("table too small"))?
             .into_affine();
