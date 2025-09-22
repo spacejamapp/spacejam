@@ -9,6 +9,7 @@ path = "bin/spacejam.rs"
 required-features = ["node"]
 
 [dependencies]
+account.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 clap = { workspace = true, features = ["derive", "env"], optional = true }
@@ -23,7 +24,6 @@ spacevm.workspace = true
 rand.workspace = true
 runtime.workspace = true
 score = { workspace = true }
-scorext.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }

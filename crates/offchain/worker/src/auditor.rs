@@ -1,10 +1,10 @@
 //! Auditor utilities for work-report verification
 
 use crate::{Guarantor, WorkPackageBundle, d3l::Justification};
+use account::Accounts;
 use anyhow::Result;
 use pvm::Pvm;
 use score::{OpaqueHash, service::WorkReport};
-use scorext::Accounts;
 
 /// Auditor utilities for work-report verification
 #[allow(async_fn_in_trait)]

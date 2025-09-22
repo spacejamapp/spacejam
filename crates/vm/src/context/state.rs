@@ -1,8 +1,8 @@
 //! Primitives for the general invocation
 
 use crate::{invocation::Accumulate, Accumulated, Reason};
+use account::Accounts;
 use score::{service::WorkExecResult, Gas};
-use scorext::Accounts;
 
 /// The execution state of programs.
 #[derive(Default, Clone)]

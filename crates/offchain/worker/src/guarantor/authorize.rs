@@ -1,9 +1,9 @@
 //! Authorize interface
 
+use account::Accounts;
 use anyhow::Result;
 use pvm::Pvm;
 use score::service::{WorkExecResult, WorkPackage};
-use scorext::Accounts;
 
 /// Authorize the work package
 pub fn authorize<R: Accounts, VM: Pvm>(

@@ -1,8 +1,8 @@
 //! Authorization related stuffs
 
 use crate::{AccountBuilder, Jam};
+use account::Account;
 use score::{OpaqueHash, ServiceId, service::ServiceAccount};
-use scorext::Account;
 
 /// Authorization related stuffs
 #[derive(Default)]

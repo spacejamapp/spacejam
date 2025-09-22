@@ -1,5 +1,6 @@
 //! Initialization helpers
 
+use account::Accounts as _;
 use anyhow::Result;
 use runtime::{
     Accounts,
@@ -7,7 +8,6 @@ use runtime::{
     tx::ticket::lazy,
 };
 use score::state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
-use scorext::Accounts as _;
 use spacevm::{Memory, pvm::Context};
 use std::sync::Arc;
 use tokio::task::JoinSet;

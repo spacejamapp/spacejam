@@ -1,5 +1,6 @@
 //! state transition traces
 
+use ::account::{Account, Accounts};
 use pvm::Pvm;
 use runtime::{
     storage::{Column, KVStorage, MemoryDb, StateStorage},
@@ -13,7 +14,6 @@ use score::{
     state::{StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
-use scorext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::{sync::Arc, time::Instant};

@@ -1,5 +1,6 @@
 //! Accumulation related types
 
+use account::Accounts;
 use pvm::AccumulateState;
 use score::{
     Gas, OpaqueHash, ServiceId,
@@ -8,7 +9,6 @@ use score::{
     statistic::{AccumulationRecord, ServiceActivityRecord},
     vm::{CommitmentMap, DeferredTransfer},
 };
-use scorext::Accounts;
 use std::collections::{BTreeMap, HashSet};
 
 /// The result of accumulation with PVM

@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+account = { workspace = true, features = [
+    "ed25519",
+    "merkle",
+    "shuffle",
+    "vrf",
+] }
 anyhow.workspace = true
 codec.workspace = true
 crypto = { workspace = true, features = ["vrf", "merkle"] }
@@ -12,12 +18,6 @@ hex.workspace = true
 once_cell.workspace = true
 pvm.workspace = true
 score.workspace = true
-scorext = { workspace = true, features = [
-    "ed25519",
-    "merkle",
-    "shuffle",
-    "vrf",
-] }
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true

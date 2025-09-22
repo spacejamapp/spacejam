@@ -4,12 +4,12 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Result,
 };
+use account::Account;
 use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
 };
-use scorext::Account;
 use std::collections::BTreeMap;
 
 /// (ΩB) bless

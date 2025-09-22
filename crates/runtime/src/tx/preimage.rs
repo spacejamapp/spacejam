@@ -1,8 +1,8 @@
 //! Preimage handler
 
+use account::{Account, Accounts};
 use anyhow::Result;
 use score::{TimeSlot, extrinsic::PreimagesExtrinsic};
-use scorext::{Account, Accounts};
 
 /// (δ') handle preimage extrinsic
 ///

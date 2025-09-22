@@ -1,13 +1,13 @@
 //! Guarantor abstraction
 
 use crate::{DataLake, WorkPackageBundle, d3l::Shard};
+use account::Accounts;
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
     CoreIndex, OpaqueHash,
     service::{WorkPackage, WorkReport},
 };
-use scorext::Accounts;
 use std::collections::BTreeMap;
 
 mod authorize;

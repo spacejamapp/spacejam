@@ -1,8 +1,8 @@
 //! IsAuthorized invocation context
 
 use crate::Argument;
+use account::Account;
 use score::service::ServiceAccount;
-use scorext::Account;
 
 /// IsAuthorized invocation context
 #[derive(Debug, Clone)]

@@ -1,5 +1,6 @@
 //! Argument for host calls
 
+use account::Account;
 use anyhow::Result;
 use score::{
     safrole::ValidatorData,
@@ -7,7 +8,6 @@ use score::{
     vm::{DeferredTransfer, Operand},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use scorext::Account;
 
 /// Dynamic arguments for host calls
 pub trait Argument: Send + Sync {

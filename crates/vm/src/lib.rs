@@ -4,12 +4,12 @@ pub use parser::{
     program::Program, Memory, MemoryInfo, Visitor, PAGE_SIZE, PVM_MEMORY_SIZE, ZONE_SIZE,
 };
 pub use {
+    account::Account,
     context::{Argument, Context, Executed, Invoked, MemoryLike, State},
     invocation::{AccumulateContext, AccumulateState, Accumulated, Invocation},
     parser,
     result::{Reason, Result},
     score,
-    scorext::Account,
     value::{as_i64, Value},
 };
 

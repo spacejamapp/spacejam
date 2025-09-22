@@ -1,5 +1,6 @@
 //! Invocation context of the interpreter
 
+use account::Account;
 use anyhow::Result;
 use score::{
     safrole::ValidatorData,
@@ -7,7 +8,6 @@ use score::{
     vm::{DeferredTransfer, Operand},
     Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
-use scorext::Account;
 pub use {
     argument::Argument,
     memory::MemoryLike,

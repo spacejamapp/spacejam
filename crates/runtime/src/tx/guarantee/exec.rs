@@ -1,9 +1,9 @@
 //! Execution of work reports
 
 use super::acc::Accumulated;
+use account::{Account, Accounts};
 use pvm::{AccumulateState, Pvm};
 use score::{Gas, ServiceId, TimeSlot, service::WorkReport};
-use scorext::{Account, Accounts};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// (Δ+) outer accumulation

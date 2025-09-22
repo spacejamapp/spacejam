@@ -1,5 +1,5 @@
 [package]
-name = "spacejam-core-ext"
+name = "spacejam-account"
 version.workspace = true
 edition.workspace = true
 description = "Extension for the core library for internal usages"

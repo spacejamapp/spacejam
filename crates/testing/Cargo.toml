@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+account.workspace = true
 anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true
@@ -17,7 +18,6 @@ pvmc.workspace = true
 runtime.workspace = true
 specjam.workspace = true
 score.workspace = true
-scorext.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true

@@ -4,7 +4,7 @@ members = [
     "crates/codec/erasure",
     "crates/codec/json",
     "crates/codec/json/derive",
-    "crates/core/ext",
+    "crates/core/account",
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/vm/cli",
@@ -40,6 +40,7 @@ overflow-checks = false
 strip = true
 
 [workspace.dependencies]
+account = { path = "crates/core/account", package = "spacejam-account" }
 codec = { path = "crates/codec", package = "jamcodec" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
@@ -55,7 +56,6 @@ translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
-scorext = { path = "crates/core/ext", package = "spacejam-core-ext" }
 serde-jam = { path = "crates/codec", package = "jamcodec" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
 spacejson = { path = "crates/codec/json", package = "spacejson" }

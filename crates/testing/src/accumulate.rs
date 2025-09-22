@@ -118,6 +118,7 @@ pub struct TestOutput {
 
 mod types {
     use crate::reports::{ServiceItem, ServiceItemJson};
+    use ::account::{Account, Accounts};
     use runtime::Accumulation;
     use score::{
         Entropy, Gas, ServiceId, TimeSlot,
@@ -125,7 +126,6 @@ mod types {
         state::account,
         statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
     };
-    use scorext::{Account, Accounts};
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
     use std::collections::BTreeMap;

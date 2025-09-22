@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use crate::{Guarantor, WorkPackageBundle};
+use account::Accounts;
 use anyhow::Result;
 use pvm::Pvm;
 use score::{
     CoreIndex, OpaqueHash, Segment, TimeSlot,
     service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
 };
-use scorext::Accounts;
 
 /// Refine the work package
 pub async fn refine<R: Accounts, VM: Pvm>(

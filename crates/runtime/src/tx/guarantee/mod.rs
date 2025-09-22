@@ -1,6 +1,7 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 pub use acc::Accumulation;
+use account::{Account, Accounts};
 use error::{Error, Result};
 use pvm::{AccumulateState, Pvm};
 use score::{
@@ -13,7 +14,6 @@ use score::{
     },
     vm::DeferredTransfer,
 };
-use scorext::{Account, Accounts};
 use std::collections::BTreeMap;
 
 mod acc;

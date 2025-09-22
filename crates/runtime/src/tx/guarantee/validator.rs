@@ -1,6 +1,7 @@
 //! Reporting validator
 
 use crate::tx::guarantee::error::{Error, Result};
+use account::{Account, Accounts};
 use score::{
     CORES_COUNT, CoreIndex, EPOCH_LENGTH, Ed25519Public, Entropy, MAX_DEPENDENCY_COUNT,
     MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
@@ -8,7 +9,6 @@ use score::{
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     service::{ReportedWorkPackage, WorkExecResult},
 };
-use scorext::{Account, Accounts};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Context of the reporting module.

@@ -4,8 +4,8 @@ use crate::{
     host::{Exit, ExitCode},
     Argument, Result,
 };
+use account::Account;
 use score::Parameters;
-use scorext::Account;
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {

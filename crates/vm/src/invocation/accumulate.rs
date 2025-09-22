@@ -1,13 +1,13 @@
 //! PolkaVM environment
 
 use crate::{invocation::Argument, Reason, Result};
+use account::{Account, Accounts};
 use score::{
     safrole::{ValidatorData, ValidatorsData},
     service::Privileges,
     vm::{DeferredTransfer, Operand},
     EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
-use scorext::{Account, Accounts};
 use serde::{Deserialize, Serialize};
 
 /// Data used in accumulate related host calls

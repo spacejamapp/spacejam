@@ -1,8 +1,8 @@
 //! Primitives for the refine invocation
 
 use crate::{Argument, Executed};
+use account::{Account, Accounts};
 use score::ServiceId;
-use scorext::{Account, Accounts};
 
 /// Refine host call arguments
 pub struct Refine<R: Accounts> {
