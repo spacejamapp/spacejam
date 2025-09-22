@@ -129,12 +129,12 @@ pub struct ExtrinsicSpec {
     pub len: u32,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "blake2")]
 impl WorkPackage {
     /// Compute the authorizer hash
     ///
     /// FIXME: shall we hash it after encoding?
     pub fn authorizer_hash(&self) -> OpaqueHash {
-        crypto::blake2b(&[self.auth_code_hash.as_ref(), &self.config].concat())
+        crate::blake2b(&[self.auth_code_hash.as_ref(), &self.config].concat())
     }
 }

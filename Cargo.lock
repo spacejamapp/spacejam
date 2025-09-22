@@ -3779,11 +3779,11 @@ name = "spacejam-core"
 version = "0.0.12"
 dependencies = [
  "anyhow",
+ "blake2",
  "hex",
  "jamcodec",
  "serde",
  "serde_json",
- "spacejam-crypto",
  "spacejson",
  "tokio",
  "tracing",
@@ -3793,9 +3793,11 @@ dependencies = [
 name = "spacejam-core-ext"
 version = "0.0.12"
 dependencies = [
+ "anyhow",
  "jamcodec",
  "spacejam-core",
  "spacejam-crypto",
+ "tokio",
 ]
 
 [[package]]

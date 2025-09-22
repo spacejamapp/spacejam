@@ -41,6 +41,6 @@ impl Extrinsic {
     /// Returns the hash of the extrinsic
     pub fn hash(&self) -> anyhow::Result<crate::OpaqueHash> {
         let encoded = codec::encode(&self)?;
-        Ok(crypto::blake2b(&encoded))
+        Ok(crate::blake2b(&encoded))
     }
 }

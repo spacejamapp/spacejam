@@ -13,7 +13,7 @@ use score::{
     state::{StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
 };
-use scorext::{Account, Accounts};
+use scorext::{Account, Accounts, block::header};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::{sync::Arc, time::Instant};
@@ -81,10 +81,15 @@ pub async fn run_single<Vm: Pvm>(
     let validators = state.validators.current;
     let result = tokio::try_join!(
         async {
-            block
-                .header
-                .validate(new_epoch, &validators, entropy, &safrole, verifier)
-                .await
+            header::validate(
+                &block.header,
+                new_epoch,
+                &validators,
+                entropy,
+                &safrole,
+                verifier,
+            )
+            .await
         },
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
     );

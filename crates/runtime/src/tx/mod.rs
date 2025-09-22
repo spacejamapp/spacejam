@@ -309,9 +309,12 @@ pub async fn simulate_with_state<Vm: Pvm>(
         };
 
         // (β') Update the block history
-        state
-            .recent_blocks
-            .import(block.header.hash()?, root, reported);
+        scorext::block::history::import(
+            &mut state.recent_blocks,
+            block.header.hash()?,
+            root,
+            reported,
+        );
 
         if !reporters.is_empty() {
             state

@@ -10,6 +10,7 @@ use runtime::{
     tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
+use scorext::block::header;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -135,9 +136,7 @@ impl Target {
             tokio::spawn(async move {
                 let verifier =
                     runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch());
-                header
-                    .validate(new_epoch, &validators, entropy, &safrole, verifier)
-                    .await
+                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier).await
             }),
             tokio::spawn(async move {
                 if interp {

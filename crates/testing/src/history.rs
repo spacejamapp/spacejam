@@ -6,6 +6,7 @@ use score::{
     block::{History, HistoryJson},
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
 };
+use scorext::block::history;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -17,7 +18,8 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let output = TestOutput::from_json(&test.output)?;
     let mut history = input.pre_state.beta.clone();
     history.complete_state_root(input.input.parent_state_root)?;
-    history.import(
+    history::import(
+        &mut history,
         input.input.header_hash,
         input.input.accumulate_root,
         input.input.work_packages.clone(),

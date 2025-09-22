@@ -92,31 +92,15 @@ pub trait ValidatorIter {
     fn ed25519(&self) -> Vec<Ed25519Public>;
 }
 
-impl ValidatorIter for ValidatorsData {
+impl<T> ValidatorIter for T
+where
+    T: AsRef<[ValidatorData]>,
+{
     fn bandersnatch(&self) -> Vec<BandersnatchPublic> {
-        self.iter().map(|v| v.bandersnatch).collect()
+        self.as_ref().iter().map(|v| v.bandersnatch).collect()
     }
 
     fn ed25519(&self) -> Vec<Ed25519Public> {
-        self.iter().map(|v| v.ed25519).collect()
-    }
-}
-
-#[cfg(feature = "ed25519")]
-mod crypto_impl {
-    use super::ValidatorData;
-
-    impl ValidatorData {
-        /// Verify the input assurance.
-        pub fn verify_assurance(
-            &self,
-            assurance: &crate::extrinsic::AvailAssurance,
-        ) -> anyhow::Result<()> {
-            crypto::ed25519::verify(
-                &assurance.singing_message(),
-                assurance.signature,
-                self.ed25519,
-            )
-        }
+        self.as_ref().iter().map(|v| v.ed25519).collect()
     }
 }

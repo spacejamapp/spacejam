@@ -11,7 +11,7 @@ erasure.workspace = true
 hex.workspace = true
 once_cell.workspace = true
 pvm.workspace = true
-score = { workspace = true, features = ["ed25519", "merkle", "shuffle", "vrf"] }
+score.workspace = true
 scorext = { workspace = true, features = [
     "ed25519",
     "merkle",

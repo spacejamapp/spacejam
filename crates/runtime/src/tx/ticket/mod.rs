@@ -156,10 +156,7 @@ pub fn sealing_key_series(
     {
         next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
     } else {
-        next = TicketsOrKeys::fallback(
-            curr_validators.iter().map(|v| v.bandersnatch).collect(),
-            entropy[2],
-        );
+        next = scorext::tx::fallback(curr_validators.bandersnatch(), entropy[2]);
     }
 
     next

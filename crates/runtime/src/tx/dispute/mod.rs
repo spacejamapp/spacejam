@@ -176,7 +176,9 @@ fn culprits(
             return Err(Error::BadGuarantorKey);
         }
 
-        if let Err(e) = culprit.verify() {
+        if let Err(e) =
+            crypto::ed25519::verify(&culprit.signature_message(), culprit.signature, culprit.key)
+        {
             tracing::warn!("Invalid signature in culprit: {e}");
             return Err(Error::BadSignature);
         }
@@ -244,7 +246,9 @@ fn faults(
             return Err(Error::OffenderAlreadyReported);
         }
 
-        if let Err(e) = fault.verify() {
+        if let Err(e) =
+            crypto::ed25519::verify(&fault.singing_message(), fault.signature, fault.key)
+        {
             tracing::warn!("Invalid signature in fault: {e}");
             return Err(Error::BadSignature);
         }

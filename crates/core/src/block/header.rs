@@ -2,8 +2,6 @@
 
 use crate::EPOCH_LENGTH;
 use crate::VALIDATORS_COUNT;
-#[cfg(feature = "vrf")]
-use crate::safrole::ValidatorsData;
 use crate::{
     BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash, OpaqueHash,
     StateRoot, TimeSlot, ValidatorIndex, extrinsic::*,
@@ -108,122 +106,6 @@ impl Default for Header {
     }
 }
 
-#[cfg(feature = "vrf")]
-impl Header {
-    /// Validate the header
-    pub async fn validate(
-        &self,
-        new_epoch: bool,
-        validators: &ValidatorsData,
-        entropy: crate::EntropyBuffer,
-        safrole: &crate::safrole::Safrole,
-        verifier: std::sync::Arc<crypto::vrf::Verifier>,
-    ) -> anyhow::Result<()> {
-        let slot = (self.slot % crate::EPOCH_LENGTH) as usize;
-        let entropy_buffer = entropy;
-        let mut ticket = None;
-        let entropy = if new_epoch {
-            entropy_buffer[2]
-        } else {
-            entropy_buffer[3]
-        };
-
-        // check the ticket mark
-        if new_epoch && safrole.accumulator.len() == crate::EPOCH_LENGTH as usize {
-            let mut tickets = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
-            tickets.copy_from_slice(&TicketBody::sequence(&safrole.accumulator));
-            ticket = Some(tickets[slot]);
-        } else if let TicketsOrKeys::Tickets(tickets) = safrole.series {
-            ticket = Some(tickets[slot]);
-        }
-
-        // if in fallback, check the author index
-        //
-        // FIXME: this should be cached in production, embed this here for
-        // the workaround of the fuzz tests.
-        if ticket.is_none() {
-            use crate::safrole::ValidatorIter;
-            let keys = if new_epoch {
-                let TicketsOrKeys::Keys(keys) =
-                    TicketsOrKeys::fallback(validators.bandersnatch(), entropy_buffer[1])
-                else {
-                    anyhow::bail!("invalid series");
-                };
-                keys
-            } else {
-                let TicketsOrKeys::Keys(keys) = safrole.series else {
-                    anyhow::bail!("invalid series");
-                };
-                keys
-            };
-
-            let vals = if new_epoch {
-                safrole.validators.bandersnatch()
-            } else {
-                validators.bandersnatch()
-            };
-            if keys[slot] != vals[self.author_index as usize] {
-                anyhow::bail!("invalid block author");
-            }
-        }
-
-        // construct the message
-        let encoded = codec::encode(&self)?;
-        let context = encoded[..encoded.len() - 96].to_vec();
-
-        // construct the context
-        let mut message = Vec::new();
-        if let Some(ticket) = ticket {
-            message = TicketBody::message(ticket.attempt, &entropy);
-        } else {
-            message.extend_from_slice(&crate::JAM_FALLBACK_SEAL);
-            message.extend_from_slice(&entropy);
-        }
-
-        // check the ticket seal
-        let author_index = self.author_index;
-        let seal0 = self.seal;
-        let verifier0 = verifier.clone();
-        let ts = tokio::task::spawn_blocking(move || {
-            let output = verifier0
-                .ietf_vrf_verify(&message, &context, &seal0, author_index as usize)
-                .map_err(|e| {
-                    anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
-                })?;
-
-            if let Some(ticket) = ticket
-                && ticket.id != output
-            {
-                anyhow::bail!("header seal mismatched");
-            }
-
-            Ok(())
-        });
-
-        // verify entropy source
-        let seal = self.seal;
-        let entropy_source = self.entropy_source;
-        let es = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-            let extracted_vrf_output = crypto::vrf::ietf_output(seal)?;
-            let entropy_message = [&crate::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
-            verifier
-                .ietf_vrf_verify(
-                    &entropy_message,
-                    &[],
-                    &entropy_source,
-                    author_index as usize,
-                )
-                .map(|_| ())
-                .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
-            Ok(())
-        });
-
-        let (ts, es) = tokio::try_join!(ts, es)?;
-        let (_, _) = (ts?, es?);
-        Ok(())
-    }
-}
-
 /// The head of the chain
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, Json)]
 pub struct Head {
@@ -247,14 +129,14 @@ impl PartialOrd for Head {
     }
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "blake2")]
 mod crypto_impl {
     use super::*;
 
     impl Header {
         /// Get the hash of the header
         pub fn hash(&self) -> anyhow::Result<HeaderHash> {
-            Ok(crypto::blake2b(&codec::encode(self)?))
+            Ok(crate::blake2b(&codec::encode(self)?))
         }
 
         /// Get the head of the header

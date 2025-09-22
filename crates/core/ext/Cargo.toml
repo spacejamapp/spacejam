@@ -5,9 +5,11 @@ edition.workspace = true
 description = "Extension for the core library for internal usages"
 
 [dependencies]
+anyhow.workspace = true
 score.workspace = true
-crypto = { workspace = true, optional = true }
 codec.workspace = true
+crypto = { workspace = true, optional = true }
+tokio.workspace = true
 
 [features]
 default = []

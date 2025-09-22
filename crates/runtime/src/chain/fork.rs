@@ -163,7 +163,7 @@ impl<S: Storage> Fork<S> {
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = scorext::tx::fallback(validators, entropy[1]);
             self.series.insert(epoch, series);
         }
 
@@ -194,7 +194,7 @@ impl<S: Storage> Fork<S> {
         } else {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = scorext::tx::fallback(validators, entropy[1]);
             Ok(series)
         }
     }
@@ -240,9 +240,7 @@ impl<S: Storage> Fork<S> {
         } else {
             self.state.current_validators()?
         }
-        .iter()
-        .map(|v| v.bandersnatch)
-        .collect::<Vec<_>>();
+        .bandersnatch();
 
         // construct the message
         let encoded = codec::encode(&header)?;

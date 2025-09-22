@@ -108,9 +108,12 @@ pub fn verify_assurance(
         return Err(Error::BadAttestationParent);
     }
 
-    if validators[assurance.validator_index as usize]
-        .verify_assurance(assurance)
-        .is_err()
+    if crypto::ed25519::verify(
+        &assurance.singing_message(),
+        assurance.signature,
+        validators[assurance.validator_index as usize].ed25519,
+    )
+    .is_err()
     {
         tracing::error!("bad signature for assurance: {:?}", assurance);
         return Err(Error::BadSignature);

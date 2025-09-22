@@ -6,9 +6,9 @@ use score::{
     OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State, TimeSlot, VALIDATORS_COUNT,
     WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    params::assignments,
     service::{ReportedWorkPackage, WorkExecResult},
 };
+use scorext::assignments;
 use scorext::{Account, Accounts};
 use std::collections::{BTreeMap, BTreeSet};
 

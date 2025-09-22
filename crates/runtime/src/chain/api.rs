@@ -156,7 +156,7 @@ impl<C: Config> Runtime<C> {
         } else {
             let validators = self.grid().await.next.bandersnatch();
             let entropy = self.entropy().await?;
-            Ok(TicketsOrKeys::fallback(validators, entropy[1]))
+            Ok(scorext::tx::fallback(validators, entropy[1]))
         }
     }
 
