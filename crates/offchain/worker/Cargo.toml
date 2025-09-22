@@ -9,6 +9,7 @@ path = "src/lib.rs"
 name = "worker"
 
 [dependencies]
+account.workspace = true
 anyhow.workspace = true
 codec.workspace = true
 crypto = { workspace = true, features = ["merkle"] }

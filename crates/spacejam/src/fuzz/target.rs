@@ -7,7 +7,7 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, ticket::lazy},
+    tx::{self, block::header, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
 use std::{
@@ -135,9 +135,7 @@ impl Target {
             tokio::spawn(async move {
                 let verifier =
                     runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch());
-                header
-                    .validate(new_epoch, &validators, entropy, &safrole, verifier)
-                    .await
+                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier).await
             }),
             tokio::spawn(async move {
                 if interp {

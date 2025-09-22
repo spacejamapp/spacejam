@@ -1,0 +1,17 @@
+[package]
+name = "pvm"
+version = "0.0.0"
+edition = "2021"
+description = "Polkadot Virtual Machine"
+
+[dependencies]
+account = { workspace = true, features = ["blake2"] }
+anyhow.workspace = true
+codec.workspace = true
+crypto = { workspace = true, features = ["blake2"] }
+hex.workspace = true
+log.workspace = true
+score = { workspace = true, features = ["blake2"] }
+serde.workspace = true
+tracing.workspace = true
+pvm-parser.workspace = true

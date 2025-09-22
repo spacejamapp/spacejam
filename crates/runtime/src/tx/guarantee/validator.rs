@@ -1,12 +1,12 @@
 //! Reporting validator
 
 use crate::tx::guarantee::error::{Error, Result};
+use account::{Account, Accounts};
 use score::{
-    Account, Accounts, CORES_COUNT, EPOCH_LENGTH, Ed25519Public, MAX_DEPENDENCY_COUNT,
+    CORES_COUNT, CoreIndex, EPOCH_LENGTH, Ed25519Public, Entropy, MAX_DEPENDENCY_COUNT,
     MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
     TimeSlot, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
-    params::assignments,
     service::{ReportedWorkPackage, WorkExecResult},
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -288,20 +288,16 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         let (validators, assignments) = if gslot / ROTATION_PERIOD as u32
             == slot / ROTATION_PERIOD as u32
         {
-            let assignments = assignments::core(slot, self.state.entropy[2]);
+            let assignments = self::permute(self.state.entropy[2], slot);
             (self.state.validators.current, assignments)
         } else {
-            let (entropy, validators) = if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH
-                == slot / EPOCH_LENGTH
-            {
-                tracing::trace!("last rotation in the same epoch, using current validators");
-                (self.state.entropy[2], self.state.validators.current)
-            } else {
-                tracing::trace!("last rotation in the previous epoch, using previous validators");
-                (self.state.entropy[3], self.state.validators.previous)
-            };
-            let assignments =
-                assignments::core(slot.saturating_sub(ROTATION_PERIOD as u32), entropy);
+            let (entropy, validators) =
+                if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
+                    (self.state.entropy[2], self.state.validators.current)
+                } else {
+                    (self.state.entropy[3], self.state.validators.previous)
+                };
+            let assignments = self::permute(entropy, slot.saturating_sub(ROTATION_PERIOD as u32));
             (validators, assignments)
         };
 
@@ -344,4 +340,39 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             || self.reported.contains(dep)
             || self.recent.iter().any(|r| r.hash == *dep)
     }
+}
+
+/// Permute function P(e, t) for guarantor assignments.
+///
+/// Returns the core assignments for all validators based on entropy and time.
+fn permute(entropy: Entropy, timeslot: TimeSlot) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+    let initial_assignments: Vec<u32> = (0..VALIDATORS_COUNT as u32)
+        .map(|i| (CORES_COUNT as u32 * i) / VALIDATORS_COUNT as u32)
+        .collect();
+    let shuffled = crypto::shuffle::eq331(&initial_assignments, entropy);
+
+    // Apply rotation and convert to CoreIndex
+    let rotation_offset = (timeslot % EPOCH_LENGTH) / ROTATION_PERIOD as u32;
+    self::rotate(
+        shuffled.into_iter().map(|x| x as CoreIndex).collect(),
+        rotation_offset,
+    )
+}
+
+/// Rotation function R for guarantor assignments.
+///
+/// Rotates core assignments by n positions.
+fn rotate(assignments: Vec<CoreIndex>, n: u32) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+    let rotated: Vec<CoreIndex> = assignments
+        .iter()
+        .map(|&x| ((x as u32 + n) % score::CORES_COUNT as u32) as CoreIndex)
+        .collect();
+
+    // Group validators by their assigned cores
+    let mut assignments: [Vec<u16>; score::CORES_COUNT] = Default::default();
+    for (validator_idx, &core_idx) in rotated.iter().enumerate() {
+        assignments[core_idx as usize].push(validator_idx as u16);
+    }
+
+    assignments
 }

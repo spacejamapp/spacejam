@@ -1,7 +1,7 @@
 use crate::field::{Fields, MapEntry};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Fields as SynFields, Ident, ItemStruct};
+use syn::{Fields as SynFields, Ident, ItemStruct, parse_macro_input};
 
 /// JSON derive macro - generates clean map-to-array conversions
 pub fn derive(input: TokenStream) -> TokenStream {

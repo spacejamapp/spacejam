@@ -141,20 +141,20 @@ pub enum TicketsOrKeys {
 }
 
 impl TicketsOrKeys {
-    #[cfg(feature = "crypto")]
-    /// Create a fallback series
+    /// Returns the fallback keys for the given ring and entropy.
+    #[cfg(feature = "blake2")]
     pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: OpaqueHash) -> Self {
         let mut keys = [BandersnatchPublic::default(); crate::EPOCH_LENGTH as usize];
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy.as_slice(), &i.to_le_bytes()].concat();
-            let hash = crypto::blake2b(&input);
+            let hash = crate::blake2b(&input);
             let mut bytes = [0u8; 4];
             bytes.copy_from_slice(&hash[0..4]);
             let index = u32::from_le_bytes(bytes) % (ring.len() as u32);
             keys[i as usize] = ring[index as usize];
         }
 
-        Self::Keys(keys)
+        TicketsOrKeys::Keys(keys)
     }
 }
 

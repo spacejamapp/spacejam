@@ -2922,6 +2922,8 @@ dependencies = [
  "jamcodec",
  "log",
  "pvm-parser",
+ "serde",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
  "tracing",
@@ -2952,6 +2954,7 @@ dependencies = [
  "jam-codec",
  "pvm",
  "pvmi",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-worker",
  "tracing",
@@ -3753,6 +3756,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-network",
@@ -3771,15 +3775,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacejam-account"
+version = "0.0.12"
+dependencies = [
+ "anyhow",
+ "jamcodec",
+ "spacejam-core",
+ "spacejam-crypto",
+ "tokio",
+]
+
+[[package]]
 name = "spacejam-core"
 version = "0.0.12"
 dependencies = [
  "anyhow",
+ "blake2",
  "hex",
  "jamcodec",
  "serde",
  "serde_json",
- "spacejam-crypto",
  "spacejson",
  "tokio",
  "tracing",
@@ -3881,6 +3896,7 @@ dependencies = [
  "pvm",
  "serde",
  "serde_json",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-erasure",
@@ -3904,6 +3920,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-erasure",
@@ -3936,6 +3953,7 @@ dependencies = [
  "jamcodec",
  "pvm",
  "serde",
+ "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
  "spacejam-erasure",
@@ -3945,7 +3963,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson"
-version = "0.0.0"
+version = "0.0.12"
 dependencies = [
  "anyhow",
  "hex",
@@ -3956,7 +3974,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson-derive"
-version = "0.0.0"
+version = "0.0.12"
 dependencies = [
  "proc-macro2",
  "quote",

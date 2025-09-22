@@ -240,9 +240,7 @@ impl<S: Storage> Fork<S> {
         } else {
             self.state.current_validators()?
         }
-        .iter()
-        .map(|v| v.bandersnatch)
-        .collect::<Vec<_>>();
+        .bandersnatch();
 
         // construct the message
         let encoded = codec::encode(&header)?;

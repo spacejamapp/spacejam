@@ -6,14 +6,16 @@ use crate::{
     storage::{Column, Commit},
     timing,
 };
+use account::Accounts as _;
 use anyhow::Result;
 use pvm::Pvm;
-use score::{Accounts as _, Block, TrieKey, safrole::ValidatorIter, state::key};
+use score::{Block, TrieKey, safrole::ValidatorIter, state::key};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
 pub mod assurance;
+pub mod block;
 pub mod dispute;
 pub mod guarantee;
 pub mod preimage;
@@ -308,9 +310,12 @@ pub async fn simulate_with_state<Vm: Pvm>(
         };
 
         // (β') Update the block history
-        state
-            .recent_blocks
-            .import(block.header.hash()?, root, reported);
+        block::history::import(
+            &mut state.recent_blocks,
+            block.header.hash()?,
+            root,
+            reported,
+        );
 
         if !reporters.is_empty() {
             state

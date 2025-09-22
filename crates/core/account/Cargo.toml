@@ -1,0 +1,20 @@
+[package]
+name = "spacejam-account"
+version.workspace = true
+edition.workspace = true
+description = "Extension for the core library for internal usages"
+
+[dependencies]
+anyhow.workspace = true
+score = { workspace = true, features = ["blake2"] }
+codec.workspace = true
+crypto = { workspace = true, optional = true }
+tokio.workspace = true
+
+[features]
+default = []
+ed25519 = ["crypto/ed25519"]
+merkle = ["crypto/merkle"]
+blake2 = ["crypto/blake2"]
+shuffle = ["crypto/shuffle"]
+vrf = ["crypto/vrf"]

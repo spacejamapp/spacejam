@@ -3,7 +3,7 @@
 //! Now using hex as the default encoding.
 use anyhow::Result;
 pub use result::ResultJson;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 pub use spacejson_derive::Json;
 
 mod array;

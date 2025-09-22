@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+account.workspace = true
 anyhow.workspace = true
 codec.workspace = true
 crypto.workspace = true

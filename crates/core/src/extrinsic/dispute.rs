@@ -138,22 +138,3 @@ impl DisputesExtrinsic {
         self.verdicts.is_empty() && self.culprits.is_empty() && self.faults.is_empty()
     }
 }
-
-#[cfg(feature = "ed25519")]
-mod crypto_impl {
-    use super::*;
-
-    impl Culprit {
-        /// Verifies the signature of the culprit.
-        pub fn verify(&self) -> anyhow::Result<()> {
-            crypto::ed25519::verify(&self.signature_message(), self.signature, self.key)
-        }
-    }
-
-    impl Fault {
-        /// Verifies the signature of the fault.
-        pub fn verify(&self) -> anyhow::Result<()> {
-            crypto::ed25519::verify(&self.singing_message(), self.signature, self.key)
-        }
-    }
-}

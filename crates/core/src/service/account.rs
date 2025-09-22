@@ -122,33 +122,3 @@ impl ServiceInfo {
             .saturating_sub(self.offset)
     }
 }
-
-#[cfg(feature = "blake2")]
-mod crypto_impl {
-    use super::*;
-    use crate::{TrieKey, state::account};
-    use std::collections::BTreeSet;
-
-    impl ServiceAccount {
-        /// Get all keys of the service account
-        pub fn keys(&self, index: u32) -> anyhow::Result<impl Iterator<Item = TrieKey>> {
-            let mut keys = BTreeSet::new();
-            keys.insert(account::info(index));
-            for (key, _) in self.storage.iter() {
-                keys.insert(key.to_vec().try_into().map_err(|_| {
-                    anyhow::anyhow!(
-                        "invalid storage key, expected 31 bytes got {} bytes",
-                        key.len()
-                    )
-                })?);
-            }
-            for (key, _) in self.preimage.iter() {
-                keys.insert(account::preimage(index, *key));
-            }
-            for ((key, lookup), _) in self.lookup.iter() {
-                keys.insert(account::lookup(index, *lookup, *key));
-            }
-            Ok(keys.into_iter())
-        }
-    }
-}

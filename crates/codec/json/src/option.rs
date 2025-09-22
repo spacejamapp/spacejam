@@ -1,6 +1,6 @@
 use crate::Json;
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 impl<M: Serialize + DeserializeOwned, N> Json<Option<M>> for Option<N>
 where

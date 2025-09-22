@@ -32,13 +32,13 @@ pub struct ReportGuarantee {
 }
 
 impl ReportGuarantee {
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "blake2")]
     /// Returns the message that was signed by the guarantors.
     pub fn signing_message(&self) -> anyhow::Result<Vec<u8>> {
         let mut message = vec![];
         message.extend_from_slice(&crate::JAM_GUARANTEE);
 
-        let hashed = crypto::blake2b(&codec::encode(&self.report)?);
+        let hashed = crate::blake2b(&codec::encode(&self.report)?);
         message.extend_from_slice(&hashed);
         Ok(message)
     }

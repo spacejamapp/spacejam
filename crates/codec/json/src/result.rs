@@ -1,6 +1,6 @@
 use crate::Json;
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 /// A JSON representation of a `Result`.
 #[derive(Serialize, Deserialize, Debug, Clone)]

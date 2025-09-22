@@ -1,0 +1,148 @@
+//! Accumulation related types
+
+use account::Accounts;
+use pvm::AccumulateState;
+use score::{
+    Gas, OpaqueHash, ServiceId,
+    safrole::ValidatorsData,
+    service::{AccumulatedQueue, Privileges, ReadyQueue},
+    statistic::{AccumulationRecord, ServiceActivityRecord},
+    vm::{CommitmentMap, DeferredTransfer},
+};
+use std::collections::{BTreeMap, HashSet};
+
+/// The result of accumulation with PVM
+///
+/// - N: the number of work-results accumulated.
+/// - U: A posterior state-context.
+/// - \[T\]: resultant deferred-transfers
+/// - B: accumulation-output pairings.
+/// - U: the total gas used
+#[derive(Clone)]
+pub struct Accumulated<R: Accounts> {
+    /// (i) the number of work-results accumulated.
+    pub accumulated: usize,
+
+    /// (o) A posterior state-context.
+    pub context: AccumulateState<R>,
+
+    /// (t) The resultant deferred-transfers
+    pub transfers: Vec<DeferredTransfer>,
+
+    /// (b) The accumulation-output pairings.
+    pub pairings: CommitmentMap,
+
+    /// (u) The total gas used
+    pub gas: BTreeMap<ServiceId, Gas>,
+}
+
+impl<R: Accounts> Accumulated<R> {
+    /// Create a new accumulated.
+    pub fn new(context: AccumulateState<R>) -> Self {
+        Self {
+            accumulated: 0,
+            context,
+            transfers: vec![],
+            pairings: BTreeMap::new(),
+            gas: BTreeMap::new(),
+        }
+    }
+
+    /// Get the service records
+    pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
+        let mut records = BTreeMap::new();
+
+        // Include all services that exist in accounts
+        for service_id in self.context.accounts.services() {
+            records.insert(service_id, ServiceActivityRecord::default());
+        }
+
+        // Update gas usage for services that actually executed
+        for (service, gas) in self.gas.iter() {
+            tracing::debug!("Service {} used {} gas during accumulation", service, gas);
+            if let Some(record) = records.get_mut(service) {
+                record.accumulate_gas_used = *gas;
+            } else {
+                // Service executed but doesn't exist in accounts (shouldn't happen)
+                records.insert(
+                    *service,
+                    ServiceActivityRecord {
+                        accumulate_gas_used: *gas,
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+        records
+    }
+
+    /// Get the accumulation root
+    ///
+    /// see also (7.7) in the graypaper
+    pub fn root(&self) -> OpaqueHash {
+        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
+        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
+
+        let leaves = sorted_pairs
+            .into_iter()
+            .map(|(service, commit)| {
+                let mut leaf = Vec::new();
+                leaf.extend_from_slice(&service.to_le_bytes());
+                leaf.extend_from_slice(commit);
+                leaf
+            })
+            .collect::<Vec<_>>();
+
+        crypto::merkle::kroot(leaves)
+    }
+}
+
+impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
+    fn from(accumulated: &Accumulated<R>) -> Self {
+        // FIXME: track the affected services
+        let affected_services: HashSet<_> = accumulated
+            .context
+            .accounts
+            .services()
+            .into_iter()
+            .collect();
+
+        AccumulationRecord {
+            work_reports_processed: accumulated.accumulated,
+            total_gas_used: accumulated.gas.values().sum(),
+            services_affected: affected_services.len(),
+            commitment_count: accumulated.pairings.len(),
+        }
+    }
+}
+
+/// The accumulation result used in the runtime
+pub struct Accumulation<R: Accounts> {
+    /// (r) The accumulate root
+    pub root: OpaqueHash,
+
+    /// (θ') The ready queue
+    pub ready_queue: ReadyQueue,
+
+    /// (ξ') The accumulated queue
+    pub accumulated_queue: AccumulatedQueue,
+
+    /// (δ‡) The accounts
+    pub accounts: R,
+
+    /// (χ') The privileges
+    pub privileges: Privileges,
+
+    /// (ι') The validators to be drawn
+    pub validators: ValidatorsData,
+
+    /// (πS') The service records
+    pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
+
+    /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
+    pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
+
+    /// (θ) The accumulation logs
+    pub logs: CommitmentMap,
+}

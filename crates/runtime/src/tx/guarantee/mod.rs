@@ -1,20 +1,22 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
+pub use acc::Accumulation;
+use account::{Account, Accounts};
 use error::{Error, Result};
-use pvm::Pvm;
+use pvm::{AccumulateState, Pvm};
 use score::{
-    Account, Accounts, CORES_COUNT, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId,
-    TimeSlot,
+    CORES_COUNT, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     safrole::ValidatorsData,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
-    vm::{AccumulateState, Accumulation, DeferredTransfer},
+    vm::DeferredTransfer,
 };
 use std::collections::BTreeMap;
 
+mod acc;
 pub mod error;
 mod exec;
 mod queue;

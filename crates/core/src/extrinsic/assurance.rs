@@ -33,15 +33,15 @@ impl AvailAssurance {
         bitsmap
     }
 
-    #[cfg(feature = "crypto")]
     /// Returns the message that was signed by the assurance.
     ///
     /// reference graypapar 11.2.1
+    #[cfg(feature = "blake2")]
     pub fn singing_message(&self) -> Vec<u8> {
         let mut message = vec![];
         message.extend_from_slice(&crate::JAM_AVAILABLE);
 
-        let hashed = crypto::blake2b(
+        let hashed = crate::blake2b(
             &codec::encode(&(self.anchor, self.bitfield)).expect("should never failed"),
         );
         message.extend_from_slice(&hashed);

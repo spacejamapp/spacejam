@@ -95,7 +95,7 @@ pub struct BlockInfo {
     pub reported: Vec<ReportedWorkPackage>,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "blake2")]
 mod crypto_impl {
     use super::*;
 
@@ -103,7 +103,7 @@ mod crypto_impl {
         /// Returns the hash of the block
         pub fn hash(&self) -> anyhow::Result<crate::HeaderHash> {
             let encoded = codec::encode(&self.header)?;
-            Ok(crypto::blake2b(&encoded))
+            Ok(crate::blake2b(&encoded))
         }
     }
 

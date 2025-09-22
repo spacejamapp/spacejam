@@ -8,18 +8,18 @@ pub fn info(service: u32) -> TrieKey {
     (255, service).key()
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "blake2")]
 /// compose general service data
 pub fn data(service: u32, prefix: [u8; 4], key: &[u8]) -> TrieKey {
     let mut hashed = prefix.to_vec();
     hashed.extend_from_slice(key);
-    let hash = crypto::blake2b(&hashed);
+    let hash = crate::blake2b(&hashed);
     (service, hash).key()
 }
 
-#[cfg(not(feature = "crypto"))]
+#[cfg(not(feature = "blake2"))]
 pub fn data(_service: u32, _prefix: [u8; 4], _key: &[u8]) -> TrieKey {
-    unimplemented!("please enable feature `crypto`")
+    unimplemented!("please enable feature `blake2`")
 }
 
 /// Service storage key construction

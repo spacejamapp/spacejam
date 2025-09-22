@@ -1,15 +1,13 @@
 //! Initialization helpers
 
+use account::Accounts as _;
 use anyhow::Result;
 use runtime::{
     Accounts,
     storage::{MemoryDb, StateStorage},
     tx::ticket::lazy,
 };
-use score::{
-    Accounts as _,
-    state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike},
-};
+use score::state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use spacevm::{Memory, pvm::Context};
 use std::sync::Arc;
 use tokio::task::JoinSet;

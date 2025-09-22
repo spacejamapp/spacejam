@@ -1,12 +1,13 @@
 //! state transition traces
 
+use ::account::{Account, Accounts};
 use pvm::Pvm;
 use runtime::{
     storage::{Column, KVStorage, MemoryDb, StateStorage},
-    tx,
+    tx::{self, block::header},
 };
 use score::{
-    Account, Accounts, EntropyBuffer, OpaqueHash,
+    EntropyBuffer, OpaqueHash,
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
@@ -80,10 +81,15 @@ pub async fn run_single<Vm: Pvm>(
     let validators = state.validators.current;
     let result = tokio::try_join!(
         async {
-            block
-                .header
-                .validate(new_epoch, &validators, entropy, &safrole, verifier)
-                .await
+            header::validate(
+                &block.header,
+                new_epoch,
+                &validators,
+                entropy,
+                &safrole,
+                verifier,
+            )
+            .await
         },
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
     );

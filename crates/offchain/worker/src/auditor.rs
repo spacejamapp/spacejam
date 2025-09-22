@@ -1,8 +1,9 @@
 //! Auditor utilities for work-report verification
 
 use crate::{Guarantor, WorkPackageBundle, d3l::Justification};
+use account::Accounts;
 use anyhow::Result;
-use pvm::{Pvm, score::Accounts};
+use pvm::Pvm;
 use score::{OpaqueHash, service::WorkReport};
 
 /// Auditor utilities for work-report verification

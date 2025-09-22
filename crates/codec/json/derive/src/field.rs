@@ -1,7 +1,7 @@
 //! Field processing for JSON derive macro
 
 use crate::{attr, util};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::Ident;
 
 /// Categorized field collections for JSON transformation
@@ -47,12 +47,11 @@ impl From<&mut syn::FieldsNamed> for Fields {
                     if attr.path().is_ident("json") {
                         return false;
                     }
-                    if attr.path().is_ident("serde") {
-                        if let Ok(expr) = attr.parse_args::<syn::Expr>() {
-                            if expr.to_token_stream().to_string().contains("with") {
-                                return false;
-                            }
-                        }
+                    if attr.path().is_ident("serde")
+                        && let Ok(expr) = attr.parse_args::<syn::Expr>()
+                        && expr.to_token_stream().to_string().contains("with")
+                    {
+                        return false;
                     }
                     true
                 });
@@ -63,14 +62,13 @@ impl From<&mut syn::FieldsNamed> for Fields {
             }
 
             // Handle [u8; N] fields automatically
-            if let syn::Type::Array(ref array_type) = field.ty {
-                if let syn::Type::Path(ref path_type) = *array_type.elem {
-                    if path_type.path.is_ident("u8") {
-                        categories.hex.push(field.ident.clone());
-                        field.ty = syn::parse_quote!(String);
-                        continue;
-                    }
-                }
+            if let syn::Type::Array(ref array_type) = field.ty
+                && let syn::Type::Path(ref path_type) = *array_type.elem
+                && path_type.path.is_ident("u8")
+            {
+                categories.hex.push(field.ident.clone());
+                field.ty = syn::parse_quote!(String);
+                continue;
             }
 
             categories.other.push(field.ident.clone());

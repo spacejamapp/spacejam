@@ -9,6 +9,7 @@ path = "bin/spacejam.rs"
 required-features = ["node"]
 
 [dependencies]
+account.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 clap = { workspace = true, features = ["derive", "env"], optional = true }
