@@ -1,6 +1,6 @@
 //! Writer for binary formats
 
-use crate::{compact::vlen, Vec};
+use crate::{Vec, compact::vlen};
 
 /// Writer for binary formats
 pub trait Writer {

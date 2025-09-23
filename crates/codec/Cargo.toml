@@ -2,6 +2,11 @@
 name = "serde-jam"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "JAM encoding with serde"
+documentation = "https://docs.rs/serde-jam"
 
 [dependencies]
 anyhow.workspace = true

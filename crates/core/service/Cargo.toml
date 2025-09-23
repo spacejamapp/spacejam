@@ -2,7 +2,13 @@
 name = "spacejam-service"
 version.workspace = true
 edition.workspace = true
-description = "SpaceJam shared types for the Jade framework"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Service types in SpaceJam"
+documentation = "https://docs.rs/spacejam-service"
+categories = ["No standard library", "Embedded development"]
+keywords = ["no-std"]
 
 [dependencies]
 anyhow.workspace = true

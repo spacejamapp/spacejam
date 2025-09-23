@@ -3,11 +3,19 @@
 use crate::String;
 use core::fmt::Display;
 
-/// Error type for JAMCodec
+/// Error type for serde-jam
 #[derive(Debug)]
 pub enum Error {
+    /// Any error from `anyhow`
     Anyhow(anyhow::Error),
-    InvalidLength { expected: usize, got: usize },
+    /// Invalid length
+    InvalidLength {
+        /// Expected length
+        expected: usize,
+        /// Got length
+        got: usize,
+    },
+    /// Invalid input
     InvalidInput(String),
 }
 
@@ -50,4 +58,5 @@ impl From<anyhow::Error> for Error {
     }
 }
 
+/// Result type for serde-jam
 pub type Result<T> = core::result::Result<T, Error>;

@@ -1,4 +1,4 @@
-//! SpaceVM sys library
+//! SpaceVM system interface
 
 use crate::abi::Buffer;
 use anyhow::Result;

@@ -1,6 +1,6 @@
 //! Reader for binary formats
 
-use crate::{compact::vlen, Cow};
+use crate::{Cow, compact::vlen};
 
 /// Reader for binary formats
 pub trait Reader {

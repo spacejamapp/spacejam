@@ -1,4 +1,4 @@
-//! Service types for SpaceJam
+//! Service types of SpaceJam
 
 use crate::{BTreeMap, Gas, ServiceId, Vec};
 use serde::{Deserialize, Serialize};

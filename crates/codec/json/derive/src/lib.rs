@@ -1,3 +1,6 @@
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
+
 use proc_macro::TokenStream;
 
 mod attr;

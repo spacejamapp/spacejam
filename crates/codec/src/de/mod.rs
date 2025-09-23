@@ -1,17 +1,18 @@
-//! JAMCodec deserialization implementation
+//! serde-jam deserialization implementation
 
-use crate::{compact::vlen, Error, Reader, Result};
+use crate::{Error, Reader, Result, compact::vlen};
 use serde::de::{self, Visitor};
 
 pub mod access;
 
-/// Deserializer for JAMCodec
+/// Deserializer for serde-jam
 pub struct Deserializer<'de> {
     pub(crate) input: &'de [u8],
     pub(crate) index: usize,
 }
 
 impl<'de> Deserializer<'de> {
+    /// Create a new deserializer
     pub fn new(input: &'de [u8]) -> Self {
         Self { input, index: 0 }
     }

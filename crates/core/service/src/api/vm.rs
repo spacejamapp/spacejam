@@ -18,34 +18,34 @@ pub type Accounts = BTreeMap<ServiceId, ServiceAccount>;
 /// Arguments for the authorize invocation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizeArgs {
-    // (p) the work package
+    /// (p) the work package
     pub package: WorkPackage,
-    // (c) The core index
+    /// (c) The core index
     pub core_idx: u16,
-    // (δ) accounts for historical lookup
+    /// (δ) accounts for historical lookup
     pub accounts: Accounts,
-    // (N_t) timeslot for the current operation
+    /// (N_t) timeslot for the current operation
     pub timeslot: TimeSlot,
 }
 
 /// Arguments for the refine invocation
 #[derive(Serialize, Deserialize)]
 pub struct RefineArgs {
-    // (c) the core index
+    /// (c) the core index
     pub core: u16,
-    // (i) the work item index
+    /// (i) the work item index
     pub index: usize,
-    // (p) the work package
+    /// (p) the work package
     pub package: WorkPackage,
-    // (r) the authorizer output
+    /// (r) the authorizer output
     pub auth_output: Vec<u8>,
-    // (ī) all work items' import segments
+    /// (ī) all work items' import segments
     pub all_imports: Vec<Vec<Segment>>,
-    // (ς) export segment offset
+    /// (ς) export segment offset
     pub export_offset: u16,
-    // (δ) accounts for historical lookup
+    /// (δ) accounts for historical lookup
     pub accounts: Accounts,
-    // (N_t) timeslot for the current operation
+    /// (N_t) timeslot for the current operation
     pub timeslot: TimeSlot,
 }
 
@@ -56,15 +56,15 @@ pub struct Segment(#[serde(with = "codec::bytes")] pub [u8; 4104]);
 /// Arguments for the accumulate invocation
 #[derive(Serialize, Deserialize)]
 pub struct AccumulateArgs {
-    // (U) The state context
+    /// (U) The state context
     pub context: AccumulateState,
-    // (N_t)  timeslot for the current accumulation
+    /// (N_t)  timeslot for the current accumulation
     pub timeslot: TimeSlot,
-    // (N_s)  the service id of the caller
+    /// (N_s)  the service id of the caller
     pub service: ServiceId,
-    // (N_g)  the gas limit for the current operation
+    /// (N_g)  the gas limit for the current operation
     pub gas: Gas,
-    // (O)  the accumulation operands
+    /// (O)  the accumulation operands
     pub operands: Vec<Operand>,
 }
 
@@ -109,13 +109,17 @@ pub struct Accumulated {
 /// Represents the ValidatorData structure from ASN.1
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Copy)]
 pub struct ValidatorData {
+    /// The bandersnatch public key
     #[json(hex)]
     pub bandersnatch: BandersnatchPublic,
+    /// The ed25519 public key
     #[json(hex)]
     pub ed25519: Ed25519Public,
+    /// The bls public key
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub bls: BlsPublic,
+    /// The metadata
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub metadata: ValidatorMetadata,
@@ -133,7 +137,10 @@ pub enum Reason {
     Panic(String),
 
     /// The invocation completed with a page fault.
-    Fault { page: u32 },
+    Fault {
+        /// The page number
+        page: u32,
+    },
 
     /// The status is unknown.
     HostCall(u32),

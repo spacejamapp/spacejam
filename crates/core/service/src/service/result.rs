@@ -38,6 +38,7 @@ pub struct WorkResult {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(C)]
 pub enum WorkExecResult {
+    /// The ok result
     Ok(Vec<u8>),
     /// ∞ denoting an out-of-gas error
     OutOfGas,
@@ -111,20 +112,27 @@ mod json {
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
-    // TODO: support enum in Json macro
+    /// TODO: support enum in Json macro
     #[derive(Debug, Clone, Serialize, Deserialize, Default)]
     pub struct WorkExecResultJson {
+        /// The ok result
         pub ok: Option<String>,
+        /// The out of gas result
         #[serde(default = "default_some_unit")]
         pub out_of_gas: Option<()>,
+        /// The panic result
         #[serde(default = "default_some_unit")]
         pub panic: Option<()>,
+        /// The invalid exports result
         #[serde(default = "default_some_unit")]
         pub invalid_exports: Option<()>,
+        /// The invalid digest result
         #[serde(default = "default_some_unit")]
         pub invalid_digest: Option<()>,
+        /// The bad code result
         #[serde(default = "default_some_unit")]
         pub bad_code: Option<()>,
+        /// The code oversize result
         #[serde(default = "default_some_unit")]
         pub code_oversize: Option<()>,
     }

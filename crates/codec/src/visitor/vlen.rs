@@ -3,7 +3,7 @@
 //! TODO: this visitor should be removed in the next optimization.
 
 #[cfg(feature = "std")]
-use crate::{compact::vlen, Vec};
+use crate::{Vec, compact::vlen};
 use core::fmt;
 use serde::de;
 

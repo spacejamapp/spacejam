@@ -1,6 +1,6 @@
 //! Fixed-size byte array visitor
 
-use crate::{format, Vec};
+use crate::{Vec, format};
 use core::fmt;
 use serde::de::{self, Error};
 
@@ -11,6 +11,7 @@ pub struct FixedBytesVisitor<T: TryFrom<Vec<u8>>> {
 }
 
 impl<T: TryFrom<Vec<u8>>> FixedBytesVisitor<T> {
+    /// Create a new fixed bytes visitor
     pub fn new() -> Self {
         Self {
             _marker: core::marker::PhantomData,

@@ -1,9 +1,9 @@
-//! JAMCodec serialization implementation
+//! serde-jam serialization implementation
 
-use crate::{compact::vlen, Error, Result, Vec};
+use crate::{Error, Result, Vec, compact::vlen};
 use serde::ser;
 
-/// Serializer for JAMCodec
+/// Serializer for serde-jam
 #[derive(Default)]
 pub struct Serializer {
     /// Output buffer

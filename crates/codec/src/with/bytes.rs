@@ -1,6 +1,6 @@
 //! Serialize and deserialize fixed byte array that larger than 32 bytes.
 
-use crate::{visitor::FixedBytesVisitor, Vec};
+use crate::{Vec, visitor::FixedBytesVisitor};
 use serde::{de, de::Error, ser, ser::SerializeSeq};
 
 /// Serialize fixed byte array that larger than 32 bytes.

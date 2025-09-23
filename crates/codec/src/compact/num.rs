@@ -1,10 +1,11 @@
 //! Number encoding and decoding
 
-use crate::{compact, vec, Vec};
+use crate::{Vec, compact, vec};
 use serde::Serialize;
 
-/// Trait for types that can be encoded and decoded using JAMCodec
+/// Trait for types that can be encoded and decoded using serde-jam
 pub trait Numeric: Sized + Default + Copy + Serialize {
+    /// The length of the numeric value in bytes
     const LENGTH: usize;
 
     /// Encode the value into a byte vector

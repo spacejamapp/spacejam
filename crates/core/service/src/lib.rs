@@ -1,8 +1,5 @@
-//! SpaceJam shared types for the Jade framework
-//!
-//! This library should be merged back to spacejam-core once
-//! we got open sourced.
-
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc;

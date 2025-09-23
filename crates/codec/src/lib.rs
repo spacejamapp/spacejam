@@ -1,4 +1,5 @@
-//! JAMCodec based on the parity scale codec
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]
@@ -23,8 +24,8 @@ mod ser;
 pub mod visitor;
 mod with;
 
-/// Trait for types that can be encoded and decoded using JAMCodec
-pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
+/// Trait for types that can be encoded and decoded using serde-jam
+pub trait Codec: serde::Serialize + serde::de::DeserializeOwned {
     /// Encode the value into a byte vector
     fn encode(&self) -> anyhow::Result<Vec<u8>> {
         encode(&self).map_err(Into::into)
@@ -36,7 +37,7 @@ pub trait JamCodec: serde::Serialize + serde::de::DeserializeOwned {
     }
 }
 
-impl<T: serde::Serialize + serde::de::DeserializeOwned> JamCodec for T {}
+impl<T: serde::Serialize + serde::de::DeserializeOwned> Codec for T {}
 
 /// Encode a value to a byte vector
 pub fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>> {

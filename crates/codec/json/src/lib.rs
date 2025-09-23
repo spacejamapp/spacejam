@@ -1,6 +1,5 @@
-//! JSON utilities
-//!
-//! Now using hex as the default encoding.
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]

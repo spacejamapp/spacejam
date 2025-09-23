@@ -1,6 +1,6 @@
 //! Serialize and deserialize fixed byte array that larger than 32 bytes.
 
-use crate::{visitor::VlenBytesVisitor, Numeric};
+use crate::{Numeric, visitor::VlenBytesVisitor};
 use serde::de::Error;
 
 /// Serialize compact number.
