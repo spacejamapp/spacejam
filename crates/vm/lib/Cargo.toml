@@ -1,0 +1,11 @@
+[package]
+name = "spacevm-lib"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+service.workspace = true
+spacevm.workspace = true

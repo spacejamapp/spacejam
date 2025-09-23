@@ -1,6 +1,6 @@
 //! Primitives for the refine invocation
 
-use crate::{Argument, Executed};
+use crate::Argument;
 use account::{Account, Accounts};
 use score::ServiceId;
 
@@ -43,21 +43,5 @@ impl<R: Accounts> Argument for Refine<R> {
         self.accounts
             .get(self.service)
             .ok_or(anyhow::anyhow!("Could not find account {}", self.service))
-    }
-}
-
-/// The result of refine invocation (ΨR)
-pub struct Refined {
-    /// The executed result
-    pub executed: Executed,
-
-    /// The imports
-    pub segments: Vec<[u8; score::SEGMENT_SIZE as usize]>,
-}
-
-impl Refined {
-    /// Create a new refined result
-    pub fn new(executed: Executed, segments: Vec<[u8; score::SEGMENT_SIZE as usize]>) -> Self {
-        Self { executed, segments }
     }
 }

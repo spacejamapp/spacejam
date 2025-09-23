@@ -1,9 +1,10 @@
 //! Virtual machine shared types
 
 use crate::{
-    BandersnatchPublic, BlsPublic, Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId, TimeSlot,
-    ValidatorMetadata,
+    BandersnatchPublic, BlsPublic, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId,
+    TimeSlot, ValidatorMetadata,
     service::{Privileges, ServiceAccount, WorkPackage},
+    vm::{DeferredTransfer, Operand},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -51,7 +52,18 @@ pub struct RefineArgs {
 
 /// Arguments for the accumulate invocation
 #[repr(C)]
-pub struct AccumulateArgs {}
+pub struct AccumulateArgs {
+    // (U) The state context
+    pub context: AccumulateState,
+    // (N_t)  timeslot for the current accumulation
+    pub timeslot: TimeSlot,
+    // (N_s)  the service id of the caller
+    pub service: ServiceId,
+    // (N_g)  the gas limit for the current operation
+    pub gas: Gas,
+    // (O)  the accumulation operands
+    pub operands: Vec<Operand>,
+}
 
 /// State for the accumulate invocation
 pub struct AccumulateState {
@@ -71,6 +83,24 @@ pub struct AccumulateState {
     pub entropy: EntropyBuffer,
 }
 
+/// The accumulated result
+pub struct Accumulated {
+    /// (o) The state context
+    pub context: AccumulateState,
+
+    /// (t) The timeslot for the current accumulation
+    pub transfers: Vec<DeferredTransfer>,
+
+    /// (b) The output hash of the accumulation
+    pub hash: Option<OpaqueHash>,
+
+    /// (u) The gas used
+    pub gas: Gas,
+
+    /// (_e) The reason for the accumulation
+    pub reason: Reason,
+}
+
 /// Represents the ValidatorData structure from ASN.1
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Copy)]
 pub struct ValidatorData {
@@ -84,4 +114,29 @@ pub struct ValidatorData {
     #[json(hex)]
     #[serde(with = "codec::bytes")]
     pub metadata: ValidatorMetadata,
+}
+
+/// The program exit reason.
+///
+/// As defined per the graypaper (A.2)
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
+pub enum Reason {
+    /// The program has halted.
+    Halt,
+
+    /// The program has panicked.
+    Panic(String),
+
+    /// The invocation completed with a page fault.
+    Fault { page: u32 },
+
+    /// The status is unknown.
+    HostCall(u32),
+
+    /// The program has run out of gas.
+    OOG,
+
+    /// The program is still running.
+    #[default]
+    Continue,
 }

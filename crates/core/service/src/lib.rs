@@ -30,6 +30,9 @@ pub const GAS_ACC: u64 = 10_000_000;
 /// should be no smaller than G_A * C + ∑ privileges
 pub const GAS_ALL_ACC: u64 = 20_000_000;
 
+/// (W_G) The size of a segment
+pub const SEGMENT_SIZE: usize = 4104;
+
 /// The gas type
 pub type Gas = u64;
 

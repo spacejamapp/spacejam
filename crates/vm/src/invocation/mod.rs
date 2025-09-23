@@ -4,7 +4,7 @@ use crate::{Argument, Executed, Invoked, Reason};
 use account::{Account, Accounts};
 pub use accumulate::AccumulateState;
 use score::{
-    service::{WorkExecResult, WorkPackage},
+    service::{Refined, WorkExecResult, WorkPackage},
     vm::{AccumulateParams, DeferredTransfer, Operand, RefineParams},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
@@ -12,7 +12,7 @@ pub use {
     accumulate::{Accumulate, AccumulateContext, Accumulated},
     authorize::IsAuthorized,
     general::General,
-    refine::{Refine, Refined},
+    refine::Refine,
     transfer::Transferred,
 };
 

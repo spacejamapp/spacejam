@@ -12,7 +12,9 @@ pub use {
         Privileges, PrivilegesJson,
         account::{ServiceAccount, ServiceInfo, ServiceInfoJson},
         refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
-        result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
+        result::{
+            Executed, Refined, WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson,
+        },
         work::{
             ExtrinsicSpec, ImportSpec, WorkItem, WorkItemJson, WorkPackage, WorkPackageJson,
             WorkPackageSpec, WorkPackageSpecJson,
