@@ -1,7 +1,7 @@
-//! 
+//! general errors
 
-use core::fmt::Display;
 use crate::String;
+use core::fmt::Display;
 
 /// Error type for JAMCodec
 #[derive(Debug)]

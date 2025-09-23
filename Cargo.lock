@@ -4007,12 +4007,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacevm-lib"
+name = "spacevm-sys"
 version = "0.0.12"
 dependencies = [
+ "anyhow",
  "serde-jam",
  "spacejam-service",
- "spacevm",
 ]
 
 [[package]]

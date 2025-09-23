@@ -10,5 +10,5 @@ serde = { workspace = true, features = ["alloc"] }
 spacejson-derive.workspace = true
 
 [features]
-default = []
+default = ["std"]
 std = ["anyhow/std", "hex/std", "serde/std"]

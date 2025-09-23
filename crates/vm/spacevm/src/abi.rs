@@ -1,10 +1,10 @@
 //! SpaceVM common library
 
-use service::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs};
-use spacevm::{
+use crate::{
     SpaceVM,
-    pvm::{AccumulateState, Invocation, Reason, score::safrole::ValidatorData},
+    pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData},
 };
+use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs};
 
 /// (ΨA): Accumulation invocation
 #[unsafe(no_mangle)]

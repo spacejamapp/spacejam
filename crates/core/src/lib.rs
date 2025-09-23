@@ -1,8 +1,9 @@
 //! Core of SpaceJam
 
 pub use {
-    ::service::{Parameters, params, vm},
+    ::service::{self as svc, Parameters, params, vm},
     block::Block,
+    codec,
     extrinsic::Extrinsic,
     state::{State, key::StorageKeyEncode},
 };

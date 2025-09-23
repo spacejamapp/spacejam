@@ -11,10 +11,10 @@ members = [
     "crates/vm/cli",
     "crates/vm/compiler",
     "crates/vm/cranelift",
-    "crates/vm/lib",
     "crates/vm/interpreter",
     "crates/vm/spacevm",
     "crates/vm/parser",
+    "crates/vm/sys",
     "crates/vm/testing",
     "crates/testing/spec",
     "polkajam/*",
@@ -165,3 +165,6 @@ jam-types = { path = "polkajam/jam-types" }
 jam-pvm-common = { path = "polkajam/jam-pvm-common" }
 w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
 ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
+
+[workspace.metadata.conta]
+packages = ["serde-jam", "spacejam-service", "spacejson"]

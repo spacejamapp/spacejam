@@ -1,12 +1,9 @@
 [package]
-name = "spacevm-lib"
+name = "spacevm-sys"
 version.workspace = true
 edition.workspace = true
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
+anyhow.workspace = true
 codec.workspace = true
 service.workspace = true
-spacevm.workspace = true
