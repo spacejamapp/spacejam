@@ -1,4 +1,7 @@
+//! 
+
 use core::fmt::Display;
+use crate::String;
 
 /// Error type for JAMCodec
 #[derive(Debug)]
@@ -20,8 +23,8 @@ impl core::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Anyhow(e) => e.source(),
             _ => None,

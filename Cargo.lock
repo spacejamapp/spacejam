@@ -1074,11 +1074,11 @@ version = "0.0.12"
 dependencies = [
  "anyhow",
  "cranelift",
- "jamcodec",
  "libc",
  "pvm",
  "pvm-parser",
  "serde",
+ "serde-jam",
  "tracing",
 ]
 
@@ -2110,14 +2110,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jamcodec"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "serde",
-]
-
-[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2919,10 +2911,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "hex",
- "jamcodec",
  "log",
  "pvm-parser",
  "serde",
+ "serde-jam",
  "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
@@ -2935,10 +2927,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "heck",
- "jamcodec",
  "proc-macro2",
  "quote",
  "serde",
+ "serde-jam",
  "syn 2.0.106",
  "toml",
  "tracing",
@@ -3562,6 +3554,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-jam"
+version = "0.0.12"
+dependencies = [
+ "anyhow",
+ "serde",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.225"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3749,12 +3749,12 @@ dependencies = [
  "clap",
  "dirs 6.0.0",
  "hex",
- "jamcodec",
  "parity-db",
  "proc-macro2",
  "quote",
  "rand 0.8.5",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejam-account",
  "spacejam-core",
@@ -3779,7 +3779,7 @@ name = "spacejam-account"
 version = "0.0.12"
 dependencies = [
  "anyhow",
- "jamcodec",
+ "serde-jam",
  "spacejam-core",
  "spacejam-crypto",
  "tokio",
@@ -3792,8 +3792,8 @@ dependencies = [
  "anyhow",
  "blake2",
  "hex",
- "jamcodec",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejam-service",
  "spacejson",
@@ -3841,12 +3841,12 @@ dependencies = [
  "anyhow",
  "clap",
  "hex",
- "jamcodec",
  "quinn",
  "rcgen",
  "rustls",
  "rustls-webpki 0.102.8",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejam-core",
  "spacejam-crypto",
@@ -3865,7 +3865,7 @@ dependencies = [
  "async-trait",
  "hyper",
  "hyper-util",
- "jamcodec",
+ "serde-jam",
  "spacejam-core",
  "spacejam-rpc",
  "spacejam-runtime",
@@ -3891,10 +3891,10 @@ version = "0.0.12"
 dependencies = [
  "anyhow",
  "hex",
- "jamcodec",
  "once_cell",
  "pvm",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejam-account",
  "spacejam-core",
@@ -3912,8 +3912,8 @@ dependencies = [
  "anyhow",
  "blake2",
  "hex",
- "jamcodec",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejson",
 ]
@@ -3924,7 +3924,6 @@ version = "0.0.12"
 dependencies = [
  "anyhow",
  "hex",
- "jamcodec",
  "paste",
  "proc-macro2",
  "pvm",
@@ -3932,6 +3931,7 @@ dependencies = [
  "pvmi",
  "quote",
  "serde",
+ "serde-jam",
  "serde_json",
  "spacejam-account",
  "spacejam-core",
@@ -3963,9 +3963,9 @@ name = "spacejam-worker"
 version = "0.0.12"
 dependencies = [
  "anyhow",
- "jamcodec",
  "pvm",
  "serde",
+ "serde-jam",
  "spacejam-account",
  "spacejam-core",
  "spacejam-crypto",
@@ -4011,7 +4011,7 @@ dependencies = [
 name = "spacevm-lib"
 version = "0.0.12"
 dependencies = [
- "jamcodec",
+ "serde-jam",
  "spacejam-service",
  "spacevm",
 ]

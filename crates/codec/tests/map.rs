@@ -14,7 +14,7 @@ fn test_map() {
         map: BTreeMap::from([(1, 2), (3, 4)]),
     };
 
-    let encoded = jamcodec::encode(&foo).unwrap();
-    let decoded = jamcodec::decode::<Foo>(&encoded).unwrap();
+    let encoded = serde_jam::encode(&foo).unwrap();
+    let decoded = serde_jam::decode::<Foo>(&encoded).unwrap();
     assert_eq!(foo, decoded);
 }

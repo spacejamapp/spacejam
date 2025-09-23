@@ -2,10 +2,10 @@
 //!
 //! TODO: this visitor should be removed in the next optimization.
 
+#[cfg(feature = "std")]
+use crate::{compact::vlen, Vec};
 use core::fmt;
 use serde::de;
-
-use crate::compact::vlen;
 
 /// Visitor for variable-length numbers.
 pub struct VlenBytesVisitor;
@@ -21,6 +21,7 @@ impl de::Visitor<'_> for VlenBytesVisitor {
         Ok(v)
     }
 
+    #[cfg(feature = "std")]
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E> {
         let (value, _) = vlen::decode_from(&v);
         Ok(value)

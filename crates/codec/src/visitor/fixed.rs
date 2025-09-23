@@ -1,5 +1,6 @@
 //! Fixed-size byte array visitor
 
+use crate::{format, Vec};
 use core::fmt;
 use serde::de::{self, Error};
 

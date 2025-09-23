@@ -1,6 +1,6 @@
 //! JAMCodec serialization implementation
 
-use crate::{compact::vlen, Error, Result};
+use crate::{compact::vlen, Error, Result, Vec};
 use serde::ser;
 
 /// Serializer for JAMCodec
@@ -233,7 +233,7 @@ impl ser::Serializer for &mut Serializer {
 
     fn collect_str<T>(self, _value: &T) -> Result<()>
     where
-        T: ?Sized + std::fmt::Display,
+        T: ?Sized + core::fmt::Display,
     {
         Err(anyhow::anyhow!("Str not supported").into())
     }

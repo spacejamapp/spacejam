@@ -1,5 +1,10 @@
 //! JAMCodec based on the parity scale codec
+#![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+pub(crate) use internal::*;
 pub use {
     compact::Numeric,
     de::Deserializer,
@@ -12,6 +17,7 @@ pub use {
 pub mod compact;
 mod de;
 mod error;
+mod internal;
 pub mod io;
 mod ser;
 pub mod visitor;

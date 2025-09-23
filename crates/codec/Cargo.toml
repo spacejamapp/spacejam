@@ -1,8 +1,12 @@
 [package]
-name = "jamcodec"
-version = "0.0.0"
-edition = "2021"
+name = "serde-jam"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-serde.workspace = true
+serde = { workspace = true, default-features = false, features = ["alloc"] }
+
+[features]
+default = ["std"]
+std = ["serde/std"]

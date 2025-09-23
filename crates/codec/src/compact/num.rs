@@ -1,6 +1,6 @@
 //! Number encoding and decoding
 
-use crate::compact;
+use crate::{compact, vec, Vec};
 use serde::Serialize;
 
 /// Trait for types that can be encoded and decoded using JAMCodec

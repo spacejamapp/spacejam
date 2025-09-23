@@ -1,6 +1,6 @@
 //! Length prefix encoding.
 
-use crate::compact::Numeric;
+use crate::{compact::Numeric, vec, Vec};
 
 /// The thresholds for the length prefix encoding.
 pub const THRESHOLDS: [(usize, u8, u8, u64, u64); 7] = [

@@ -7,14 +7,14 @@ use serde::de::Error;
 pub fn serialize<S: serde::ser::Serializer, T: Numeric>(
     value: &T,
     serializer: S,
-) -> std::result::Result<S::Ok, S::Error> {
+) -> core::result::Result<S::Ok, S::Error> {
     serializer.serialize_bytes(&value.compact_encode())
 }
 
 /// Deserialize compact number.
 pub fn deserialize<'de, D: serde::de::Deserializer<'de>, T: Numeric>(
     deserializer: D,
-) -> std::result::Result<T, D::Error> {
+) -> core::result::Result<T, D::Error> {
     if deserializer.is_human_readable() {
         // JSON: deserialize as regular integer
         match T::LENGTH {

@@ -18,7 +18,7 @@ impl PreimageBlob {
         let metadata_len = bytes
             .read_var()
             .ok_or_else(|| anyhow::anyhow!("EOF while reading metadata length"))?;
-        let metadata = io::read_cow(&mut bytes, metadata_len)
+        let metadata = io::read(&mut bytes, metadata_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading metadata"))?;
         let blob = StandardProgramBlob::try_from(bytes)?;
         Ok(PreimageBlob {
