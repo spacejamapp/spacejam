@@ -4008,6 +4008,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacevm-lib"
+version = "0.0.12"
+dependencies = [
+ "spacejam-service",
+ "spacevm",
+]
+
+[[package]]
 name = "specjam"
 version = "0.0.13"
 dependencies = [

@@ -11,6 +11,7 @@ members = [
     "crates/vm/cli",
     "crates/vm/compiler",
     "crates/vm/cranelift",
+    "crates/vm/lib",
     "crates/vm/interpreter",
     "crates/vm/spacevm",
     "crates/vm/parser",

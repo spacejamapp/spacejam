@@ -61,12 +61,28 @@ pub extern "C" fn accumulate(args: AccumulateArgs) -> Accumulated {
 
 /// (ΨR): Refine invocation
 #[unsafe(no_mangle)]
-pub extern "C" fn refine(_args: RefineArgs) -> Refined {
-    todo!()
+pub extern "C" fn refine(args: RefineArgs) -> Refined {
+    let mut args = args;
+    <SpaceVM as Invocation>::refine(
+        args.core,
+        args.index,
+        &args.package,
+        &args.auth_output,
+        &args.all_imports,
+        args.export_offset,
+        &mut args.accounts,
+        args.timeslot,
+    )
 }
 
 /// (ΨI): Is-Authorized invocation
 #[unsafe(no_mangle)]
-pub extern "C" fn authorize(_args: AuthorizeArgs) -> Executed {
-    todo!()
+pub extern "C" fn authorize(args: AuthorizeArgs) -> Executed {
+    let mut args = args;
+    <SpaceVM as Invocation>::is_authorized(
+        &args.package,
+        args.core_idx,
+        &mut args.accounts,
+        args.timeslot,
+    )
 }
