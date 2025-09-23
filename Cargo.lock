@@ -4011,6 +4011,7 @@ dependencies = [
 name = "spacevm-lib"
 version = "0.0.12"
 dependencies = [
+ "jamcodec",
  "spacejam-service",
  "spacevm",
 ]

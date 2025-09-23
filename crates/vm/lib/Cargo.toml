@@ -7,5 +7,6 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+codec.workspace = true
 service.workspace = true
 spacevm.workspace = true

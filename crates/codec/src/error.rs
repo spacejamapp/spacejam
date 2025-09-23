@@ -47,4 +47,4 @@ impl From<anyhow::Error> for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;

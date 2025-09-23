@@ -57,7 +57,7 @@ pub enum WorkExecResult {
 }
 
 /// The result of is-authorized invocation (ΨI)
-#[repr(C)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Executed {
     /// The output
     pub data: Vec<u8>,
@@ -82,20 +82,28 @@ impl Executed {
 }
 
 /// The result of refine invocation (ΨR)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Refined {
     /// The executed result
     pub executed: Executed,
 
     /// The imports
-    pub segments: Vec<[u8; crate::SEGMENT_SIZE]>,
+    pub segments: Vec<Segment>,
 }
 
 impl Refined {
     /// Create a new refined result
     pub fn new(executed: Executed, segments: Vec<[u8; crate::SEGMENT_SIZE]>) -> Self {
-        Self { executed, segments }
+        Self {
+            executed,
+            segments: segments.iter().map(|s| Segment(*s)).collect(),
+        }
     }
 }
+
+/// A segment of the import segments
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Segment(#[serde(with = "codec::bytes")] pub [u8; crate::SEGMENT_SIZE]);
 
 mod json {
     use super::WorkExecResult;

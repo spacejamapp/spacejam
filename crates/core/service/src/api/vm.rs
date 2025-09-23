@@ -17,7 +17,7 @@ pub type ValidatorsData = [ValidatorData; 6];
 pub type Accounts = BTreeMap<ServiceId, ServiceAccount>;
 
 /// Arguments for the authorize invocation
-#[repr(C)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizeArgs {
     // (p) the work package
     pub package: WorkPackage,
@@ -30,7 +30,7 @@ pub struct AuthorizeArgs {
 }
 
 /// Arguments for the refine invocation
-#[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct RefineArgs {
     // (c) the core index
     pub core: u16,
@@ -41,7 +41,7 @@ pub struct RefineArgs {
     // (r) the authorizer output
     pub auth_output: Vec<u8>,
     // (ī) all work items' import segments
-    pub all_imports: Vec<Vec<[u8; 4104]>>,
+    pub all_imports: Vec<Vec<Segment>>,
     // (ς) export segment offset
     pub export_offset: u16,
     // (δ) accounts for historical lookup
@@ -50,8 +50,12 @@ pub struct RefineArgs {
     pub timeslot: TimeSlot,
 }
 
+/// A segment of the import segments
+#[derive(Serialize, Deserialize)]
+pub struct Segment(#[serde(with = "codec::bytes")] pub [u8; 4104]);
+
 /// Arguments for the accumulate invocation
-#[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct AccumulateArgs {
     // (U) The state context
     pub context: AccumulateState,
@@ -66,6 +70,7 @@ pub struct AccumulateArgs {
 }
 
 /// State for the accumulate invocation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccumulateState {
     /// d (δ) The accounts
     pub accounts: Accounts,
@@ -84,6 +89,7 @@ pub struct AccumulateState {
 }
 
 /// The accumulated result
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Accumulated {
     /// (o) The state context
     pub context: AccumulateState,
@@ -119,7 +125,7 @@ pub struct ValidatorData {
 /// The program exit reason.
 ///
 /// As defined per the graypaper (A.2)
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Reason {
     /// The program has halted.
     Halt,
