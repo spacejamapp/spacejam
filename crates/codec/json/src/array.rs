@@ -1,4 +1,6 @@
-use crate::Json;
+//! Json implementation for array
+
+use crate::{Json, String, Vec, format};
 use anyhow::Result;
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -24,7 +26,7 @@ macro_rules! impl_bytes {
                 }
 
                 fn from_json(json: String) -> Result<Self> {
-                    let bytes = hex::decode(json.trim_start_matches("0x"))?;
+                    let bytes = hex::decode(json.trim_start_matches("0x")).map_err(|e| anyhow::anyhow!("failed to decode json string: {e:?}"))?;
                     let len = bytes.len();
 
                     bytes.try_into().map_err(|_| {

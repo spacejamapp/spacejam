@@ -14,5 +14,6 @@ serde_json.workspace = true
 spacejson.workspace = true
 
 [features]
-default = []
+default = ["std"]
+std = ["anyhow/std", "blake2?/std", "codec/std", "serde/std", "serde_json/std"]
 blake2 = ["dep:blake2"]
