@@ -1,10 +1,9 @@
 //! Service account types
 
-use crate::{Gas, OpaqueHash, TimeSlot, service::GasLimit};
+use crate::{BTreeMap, Gas, OpaqueHash, String, TimeSlot, Vec, service::GasLimit};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::BTreeMap;
 
 /// The service accounts (δ)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]

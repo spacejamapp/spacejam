@@ -1,14 +1,13 @@
 //! Virtual machine shared types
 
 use crate::{
-    BandersnatchPublic, BlsPublic, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId,
-    TimeSlot, ValidatorMetadata,
+    BTreeMap, BandersnatchPublic, BlsPublic, Ed25519Public, EntropyBuffer, Gas, OpaqueHash,
+    ServiceId, String, TimeSlot, ValidatorMetadata, Vec,
     service::{Privileges, ServiceAccount, WorkPackage},
     vm::{DeferredTransfer, Operand},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::BTreeMap;
 
 /// Data of validators
 pub type ValidatorsData = [ValidatorData; 6];

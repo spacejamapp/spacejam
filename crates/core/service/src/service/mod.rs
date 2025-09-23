@@ -1,9 +1,8 @@
 //! Service types for SpaceJam
 
-use crate::{Gas, ServiceId};
+use crate::{BTreeMap, Gas, ServiceId, Vec};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::collections::BTreeMap;
 pub use {
     account::ServiceAccount,
     refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},

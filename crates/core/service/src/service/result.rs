@@ -1,7 +1,7 @@
 //! Work result types
 
 use crate::{
-    Gas, OpaqueHash, ServiceId,
+    Gas, OpaqueHash, ServiceId, String, Vec,
     service::{RefineLoad, RefineLoadJson},
 };
 pub use json::WorkExecResultJson;
@@ -107,6 +107,7 @@ pub struct Segment(#[serde(with = "codec::bytes")] pub [u8; crate::SEGMENT_SIZE]
 
 mod json {
     use super::WorkExecResult;
+    use crate::String;
     use serde::{Deserialize, Serialize};
     use spacejson::Json;
 
@@ -168,9 +169,10 @@ mod json {
 
         fn from_json(json: WorkExecResultJson) -> anyhow::Result<Self> {
             if let Some(ok) = json.ok {
-                Ok(WorkExecResult::Ok(hex::decode(
-                    ok.trim_start_matches("0x"),
-                )?))
+                Ok(WorkExecResult::Ok(
+                    hex::decode(ok.trim_start_matches("0x"))
+                        .map_err(|e| anyhow::anyhow!("{e:?}"))?,
+                ))
             } else if json.out_of_gas.is_none() {
                 Ok(WorkExecResult::OutOfGas)
             } else if json.panic.is_none() {

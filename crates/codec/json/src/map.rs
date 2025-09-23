@@ -34,7 +34,7 @@ where
 #[cfg(feature = "std")]
 mod std_impl {
     use super::*;
-    use std::collections::HashMap;
+    use std::{collections::HashMap, hash::Hash};
 
     impl<K, V> Json<HashMap<K, V>> for HashMap<K, V>
     where

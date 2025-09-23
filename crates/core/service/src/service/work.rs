@@ -1,7 +1,7 @@
 //! Work package related stuffs
 
 use crate::{
-    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
+    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, String, Vec, WorkPackageHash,
     service::{RefineContext, RefineContextJson},
 };
 use serde::{Deserialize, Serialize};

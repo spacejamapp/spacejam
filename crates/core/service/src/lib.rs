@@ -3,6 +3,16 @@
 //! This library should be merged back to spacejam-core once
 //! we got open sourced.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(feature = "std")]
+pub(crate) use std::{collections::BTreeMap, string::String, vec::Vec};
+
+#[cfg(not(feature = "std"))]
+pub(crate) use alloc::{collections::BTreeMap, string::String, vec::Vec};
+
 pub use params::Parameters;
 
 pub mod api;

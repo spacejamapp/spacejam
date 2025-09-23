@@ -1,22 +1,10 @@
 //! Chain parameters
 
 use serde::{Deserialize, Serialize};
-use std::sync::{LazyLock, RwLock, RwLockReadGuard};
+#[cfg(feature = "std")]
+pub use std_impl::*;
 
 mod tiny;
-
-/// Parameters for the chain
-static PARAMS: LazyLock<RwLock<Parameters>> = LazyLock::new(|| RwLock::new(Parameters::tiny()));
-
-/// Get the parameters
-pub fn get() -> RwLockReadGuard<'static, Parameters> {
-    PARAMS.read().expect("Failed to read parameters")
-}
-
-/// Set new parameters
-pub fn set(params: Parameters) {
-    *PARAMS.write().expect("Failed to write parameters") = params;
-}
 
 /// Parameters for version 1
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,5 +80,24 @@ pub struct Parameters {
 impl Default for Parameters {
     fn default() -> Self {
         Self::tiny()
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impl {
+    use crate::Parameters;
+    use std::sync::{LazyLock, RwLock, RwLockReadGuard};
+
+    /// Parameters for the chain
+    static PARAMS: LazyLock<RwLock<Parameters>> = LazyLock::new(|| RwLock::new(Parameters::tiny()));
+
+    /// Get the parameters
+    pub fn get() -> RwLockReadGuard<'static, Parameters> {
+        PARAMS.read().expect("Failed to read parameters")
+    }
+
+    /// Set new parameters
+    pub fn set(params: Parameters) {
+        *PARAMS.write().expect("Failed to write parameters") = params;
     }
 }
