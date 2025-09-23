@@ -7,7 +7,7 @@ homepage.workspace = true
 repository.workspace = true
 description = "SpaceVM system interfaces"
 documentation = "https://docs.rs/spacevm-sys"
-categories = ["Embedded development", "External FFI bindings"]
+categories = ["embedded", "api-bindings"]
 keywords = ["pvm", "spacejam", "vm"]
 
 [dependencies]

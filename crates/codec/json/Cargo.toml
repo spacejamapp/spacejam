@@ -7,8 +7,8 @@ homepage.workspace = true
 repository.workspace = true
 description = "Derive JSON interfaces for types"
 documentation = "https://docs.rs/spacejson"
-categories = ["No standard library", "Encoding"]
-keywords = ["no-std", "json", "serde"]
+categories = ["no-std", "encoding"]
+keywords = ["json", "serde"]
 
 [dependencies]
 anyhow.workspace = true

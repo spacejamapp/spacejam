@@ -7,8 +7,8 @@ homepage.workspace = true
 repository.workspace = true
 description = "Service types in SpaceJam"
 documentation = "https://docs.rs/spacejam-service"
-categories = ["No standard library", "Embedded development"]
-keywords = ["no-std"]
+categories = ["no-std", "embedded"]
+keywords = ["pvm"]
 
 [dependencies]
 anyhow.workspace = true
