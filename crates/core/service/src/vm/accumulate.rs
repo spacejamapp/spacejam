@@ -1,9 +1,7 @@
 //! Primitives for the accumulate invocation
 
-use crate::OpaqueHash;
-use crate::{Gas, ServiceId, service::WorkExecResult};
+use crate::{BTreeMap, Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 /// The commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;

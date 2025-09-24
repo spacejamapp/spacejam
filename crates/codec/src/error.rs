@@ -1,10 +1,21 @@
+//! general errors
+
+use crate::String;
 use core::fmt::Display;
 
-/// Error type for JAMCodec
+/// Error type for serde-jam
 #[derive(Debug)]
 pub enum Error {
+    /// Any error from `anyhow`
     Anyhow(anyhow::Error),
-    InvalidLength { expected: usize, got: usize },
+    /// Invalid length
+    InvalidLength {
+        /// Expected length
+        expected: usize,
+        /// Got length
+        got: usize,
+    },
+    /// Invalid input
     InvalidInput(String),
 }
 
@@ -20,8 +31,8 @@ impl core::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Anyhow(e) => e.source(),
             _ => None,
@@ -47,4 +58,5 @@ impl From<anyhow::Error> for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+/// Result type for serde-jam
+pub type Result<T> = core::result::Result<T, Error>;

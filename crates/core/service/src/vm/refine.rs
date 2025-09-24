@@ -1,6 +1,6 @@
 //! Refine related types
 
-use crate::{OpaqueHash, ServiceId};
+use crate::{OpaqueHash, ServiceId, Vec};
 use serde::{Deserialize, Serialize};
 
 /// Refine parameters

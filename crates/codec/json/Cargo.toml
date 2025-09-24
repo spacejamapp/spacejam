@@ -2,12 +2,20 @@
 name = "spacejson"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Derive JSON interfaces for types"
+documentation = "https://docs.rs/spacejson"
+categories = ["no-std", "encoding"]
+keywords = ["json", "serde"]
 
 [dependencies]
 anyhow.workspace = true
-hex.workspace = true
-serde.workspace = true
+hex = { workspace = true, features = ["alloc"] }
+serde = { workspace = true, features = ["alloc"] }
 spacejson-derive.workspace = true
 
-[dev-dependencies]
-serde_json.workspace = true
+[features]
+default = ["std"]
+std = ["anyhow/std", "hex/std", "serde/std"]

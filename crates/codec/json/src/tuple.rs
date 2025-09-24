@@ -2,8 +2,8 @@
 
 use crate::Json;
 use anyhow::Result;
+use core::fmt::Debug;
 use serde::{Serialize, de::DeserializeOwned};
-use std::fmt::Debug;
 
 impl<M: Serialize + DeserializeOwned + Debug, N: Serialize + DeserializeOwned + Debug, P, Q>
     Json<(M, N)> for (P, Q)

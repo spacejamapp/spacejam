@@ -1,17 +1,18 @@
-//! JAMCodec deserialization implementation
+//! serde-jam deserialization implementation
 
-use crate::{compact::vlen, Error, Reader, Result};
+use crate::{Error, Reader, Result, compact::vlen};
 use serde::de::{self, Visitor};
 
 pub mod access;
 
-/// Deserializer for JAMCodec
+/// Deserializer for serde-jam
 pub struct Deserializer<'de> {
     pub(crate) input: &'de [u8],
     pub(crate) index: usize,
 }
 
 impl<'de> Deserializer<'de> {
+    /// Create a new deserializer
     pub fn new(input: &'de [u8]) -> Self {
         Self { input, index: 0 }
     }
@@ -188,7 +189,7 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
             .ok_or_else(|| anyhow::anyhow!("EOF while reading string length"))?
             as usize;
         let bytes = self.next_bytes(len)?;
-        let s = std::str::from_utf8(bytes).map_err(|_| anyhow::anyhow!("invalid utf-8"))?;
+        let s = core::str::from_utf8(bytes).map_err(|_| anyhow::anyhow!("invalid utf-8"))?;
         visitor.visit_borrowed_str(s)
     }
 

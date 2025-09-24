@@ -117,7 +117,7 @@ pub fn deblob(mut blob: &[u8]) -> Result<ProgramBlob<'_>> {
     let mut jump = vec![];
     if jump_table_entry_size > 0 {
         let length = jump_table_len * jump_table_entry_size as u32;
-        let table = io::read_cow(&mut blob, length)
+        let table = io::read(&mut blob, length)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading jump table"))?;
         jump = table
             .chunks(jump_table_entry_size as usize)
@@ -126,7 +126,7 @@ pub fn deblob(mut blob: &[u8]) -> Result<ProgramBlob<'_>> {
     }
 
     // E(c) decode the instruction data
-    let instructions = io::read_cow(&mut blob, instruction_len)
+    let instructions = io::read(&mut blob, instruction_len)
         .ok_or_else(|| anyhow::anyhow!("EOF while reading instruction data"))?;
 
     // check that the program blob is not empty
@@ -136,7 +136,7 @@ pub fn deblob(mut blob: &[u8]) -> Result<ProgramBlob<'_>> {
 
     // E(k) decode the bitmask
     let len = blob.len();
-    let bitmask = io::read_cow(&mut blob, len as u32)
+    let bitmask = io::read(&mut blob, len as u32)
         .ok_or_else(|| anyhow::anyhow!("EOF while reading bitmask"))?;
 
     // TODO: bitmask length check

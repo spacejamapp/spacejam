@@ -1,0 +1,32 @@
+[package]
+name = "spacejam-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Service types in SpaceJam"
+documentation = "https://docs.rs/spacejam-service"
+categories = ["no-std", "embedded"]
+keywords = ["pvm"]
+
+[dependencies]
+anyhow.workspace = true
+blake2 = { workspace = true, optional = true }
+codec.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["alloc"] }
+spacejson.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "anyhow/std",
+    "blake2?/std",
+    "codec/std",
+    "serde/std",
+    "serde_json/std",
+    "spacejson/std",
+]
+blake2 = ["dep:blake2"]

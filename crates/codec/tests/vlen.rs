@@ -1,6 +1,6 @@
-use jamcodec as codec;
-use jamcodec::compact::vlen;
 use serde::{Deserialize, Serialize};
+use serde_jam as codec;
+use serde_jam::compact::vlen;
 
 #[test]
 fn test_vlen() {

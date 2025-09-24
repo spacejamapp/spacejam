@@ -46,9 +46,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
         #json
 
         impl #name {
+            /// Deserialize the JSON string into the struct
             pub fn from_json(json: impl AsRef<str>) -> anyhow::Result<Self> {
                 Json::from_json(serde_json::from_str(json.as_ref())?)
             }
+
+            /// Deserialize the JSON string into a vector of structs
             pub fn load_json(json: impl AsRef<str>) -> anyhow::Result<Vec<Self>> {
                 Json::from_json(serde_json::from_str::<Vec<#json_name>>(json.as_ref())?)
             }

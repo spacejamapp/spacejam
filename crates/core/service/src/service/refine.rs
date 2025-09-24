@@ -1,6 +1,6 @@
 //! Refine types
 
-use crate::{BeefyRoot, OpaqueHash, StateRoot, TimeSlot};
+use crate::{BeefyRoot, OpaqueHash, StateRoot, String, TimeSlot, Vec};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 

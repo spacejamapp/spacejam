@@ -5,6 +5,7 @@ members = [
     "crates/codec/json",
     "crates/codec/json/derive",
     "crates/core/account",
+    "crates/core/service",
     "crates/offchain/worker",
     "crates/offchain/rpc",
     "crates/vm/cli",
@@ -23,8 +24,8 @@ resolver = "1"
 [workspace.package]
 edition = "2024"
 version = "0.0.12"
-homepage = "https://github.com/spacejamapp/spacejam"
-repository = "https://github.com/spacejamapp/spacejam"
+homepage = "https://spacejam.app"
+repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
 authors = ["clearloop <tianyi.gc@gmail.com>"]
 
@@ -41,7 +42,7 @@ strip = true
 
 [workspace.dependencies]
 account = { path = "crates/core/account", package = "spacejam-account" }
-codec = { path = "crates/codec", package = "jamcodec" }
+codec = { path = "crates/codec", package = "serde-jam", version = "0.0.12" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
@@ -52,17 +53,18 @@ pvmi = { path = "crates/vm/interpreter" }
 pvmc = { path = "crates/vm/compiler" }
 pvm-parser = { path = "crates/vm/parser" }
 pvm-testing = { path = "crates/vm/testing" }
+service = { path = "crates/core/service", package = "spacejam-service", version = "0.0.12" }
 translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
-serde-jam = { path = "crates/codec", package = "jamcodec" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
-spacejson = { path = "crates/codec/json", package = "spacejson" }
-spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
+spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.0.12" }
+spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.0.12" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
-testing = { path = "crates/testing", package = "spacejam-testing" }
 spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
+spacevm-sys = { path = "crates/vm/sys", package = "spacevm-sys", version = "0.0.12" }
+testing = { path = "crates/testing", package = "spacejam-testing" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 
@@ -82,7 +84,7 @@ podec = { version = "0.1.1", package = "jam-codec", default-features = false, fe
 ] }
 
 # crates.io
-anyhow = "1.0.99"
+anyhow = { version = "1.0.99", default-features = false }
 ark-bls12-381 = "0.5.0"
 ark-ec = { version = "0.5", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
@@ -92,7 +94,7 @@ ark-serialize = { version = "0.5", default-features = false }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
 async-trait = "0.1.89"
 bindgen = "0.72"
-blake2 = "0.10.6"
+blake2 = { version = "0.10.6", default-features = false }
 blake3 = "1.8.2"
 cc = "1.2"
 clap = "4.5.47"
@@ -104,7 +106,7 @@ ed25519-dalek = "2.2.0"
 etc = "0.1.20"
 git2 = "0.19.0"
 heck = "0.5.0"
-hex = "0.4.3"
+hex = { version = "0.4.3", default-features = false }
 hyper = "1.7"
 hyper-util = "0.1.16"
 jobserver = "0.1.34"
@@ -126,8 +128,8 @@ reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
 ring = { package = "w3f-ring-proof", version = "0.0.2", default-features = false }
 rustls = "0.23.31"
 rustls-webpki = "0.102.8"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.143"
+serde = { version = "1.0.219", features = ["derive"], default-features = false }
+serde_json = { version = "1.0.143", default-features = false }
 syn = "2.0.106"
 sysinfo = "0.36.1"
 temp-dir = "0.1.16"
@@ -162,3 +164,6 @@ jam-types = { path = "polkajam/jam-types" }
 jam-pvm-common = { path = "polkajam/jam-pvm-common" }
 w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
 ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
+
+[workspace.metadata.conta]
+packages = ["serde-jam", "spacejam-service", "spacejson"]

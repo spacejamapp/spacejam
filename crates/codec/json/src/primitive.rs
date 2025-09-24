@@ -1,4 +1,6 @@
-use crate::Json;
+//! primitive json conversions
+
+use crate::{Json, String};
 use anyhow::Result;
 
 macro_rules! impl_primitive {

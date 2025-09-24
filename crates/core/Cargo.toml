@@ -8,12 +8,12 @@ anyhow.workspace = true
 blake2 = { workspace = true, optional = true }
 codec.workspace = true
 hex.workspace = true
+service.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
-tokio.workspace = true
 
 [features]
 default = []
-blake2 = ["dep:blake2"]
+blake2 = ["dep:blake2", "service/blake2"]

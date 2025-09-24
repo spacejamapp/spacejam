@@ -5,6 +5,7 @@ pub use parser::{
 };
 pub use {
     account::Account,
+    codec,
     context::{Argument, Context, Executed, Invoked, MemoryLike, State},
     invocation::{AccumulateContext, AccumulateState, Accumulated, Invocation},
     parser,

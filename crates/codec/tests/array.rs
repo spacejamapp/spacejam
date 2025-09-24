@@ -1,8 +1,8 @@
 // Test array of fixed byte arrays and Vec<u8> serialization
 
-use jamcodec::bytes::array;
-use jamcodec::{decode, encode};
 use serde::{Deserialize, Serialize};
+use serde_jam::bytes::array;
+use serde_jam::{decode, encode};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Test {
@@ -15,8 +15,8 @@ fn codec() {
     let test = Test {
         data: vec![[0; 64], [1; 64]],
     };
-    let encoded = jamcodec::encode(&test).unwrap();
-    let decoded = jamcodec::decode::<Test>(&encoded).unwrap();
+    let encoded = serde_jam::encode(&test).unwrap();
+    let decoded = serde_jam::decode::<Test>(&encoded).unwrap();
     assert_eq!(test.data, decoded.data);
 }
 

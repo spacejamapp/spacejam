@@ -1,10 +1,9 @@
 //! Work package related stuffs
 
 use crate::{
-    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, WorkPackageHash,
-    service::{PackageValidation, RefineContext, RefineContextJson},
+    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, String, Vec, WorkPackageHash,
+    service::{RefineContext, RefineContextJson},
 };
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
@@ -58,15 +57,6 @@ pub struct WorkPackage {
     /// (w) The items
     #[json(nested)]
     pub items: Vec<WorkItem>,
-}
-
-impl WorkPackage {
-    /// Validate the work package according to Gray Paper specifications
-    pub fn validate(&self) -> Result<PackageValidation> {
-        let validation = PackageValidation::new(self);
-        validation.validate()?;
-        Ok(validation)
-    }
 }
 
 /// Represents an individual work item within a work package.

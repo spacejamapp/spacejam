@@ -3,6 +3,9 @@ name = "spacevm"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+crate-type = ["rlib", "staticlib"]
+
 [dependencies]
 anyhow.workspace = true
 hex.workspace = true

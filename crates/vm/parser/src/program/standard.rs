@@ -82,11 +82,11 @@ impl TryFrom<&[u8]> for StandardProgramBlob {
             .ok_or_else(|| anyhow::anyhow!("EOF while reading stack size"))?;
 
         // o - decode the read-only data
-        let ro_data = io::read_cow(&mut blob, ro_data_len)
+        let ro_data = io::read(&mut blob, ro_data_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading read-only data"))?;
 
         // w - decode the read-write data
-        let rw_data = io::read_cow(&mut blob, rw_data_len)
+        let rw_data = io::read(&mut blob, rw_data_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading read-write data"))?;
 
         // E₄(|c|) - decode the code length
@@ -95,7 +95,7 @@ impl TryFrom<&[u8]> for StandardProgramBlob {
             .ok_or_else(|| anyhow::anyhow!("EOF while reading code length"))?;
 
         // c - decode the code
-        let code_blob = io::read_cow(&mut blob, code_blob_len)
+        let code_blob = io::read(&mut blob, code_blob_len)
             .ok_or_else(|| anyhow::anyhow!("EOF while reading code"))?;
 
         Ok(Self {

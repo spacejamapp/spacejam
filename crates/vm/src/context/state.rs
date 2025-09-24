@@ -2,6 +2,7 @@
 
 use crate::{invocation::Accumulate, Accumulated, Reason};
 use account::Accounts;
+pub use score::service::Executed;
 use score::{service::WorkExecResult, Gas};
 
 /// The execution state of programs.
@@ -78,29 +79,5 @@ impl<R: Accounts> Invoked<Accumulate<R>> {
             }
             _ => self.data.y.to_result(self.gas, self.reason),
         }
-    }
-}
-
-/// The result of is-authorized invocation (ΨI)
-pub struct Executed {
-    /// The output
-    pub data: Vec<u8>,
-
-    /// The reason
-    pub exec: WorkExecResult,
-
-    /// The gas used
-    pub gas: Gas,
-}
-
-impl Executed {
-    /// Create a new executed result
-    pub fn new(data: Vec<u8>, exec: WorkExecResult, gas: Gas) -> Self {
-        Self { data, exec, gas }
-    }
-
-    /// Check if the execution is successful
-    pub fn is_ok(&self) -> bool {
-        matches!(self.exec, WorkExecResult::Ok(_))
     }
 }

@@ -1,6 +1,6 @@
 //! Primitives for the transfer invocation
 
-use crate::{Gas, ServiceId};
+use crate::{Gas, ServiceId, Vec};
 use serde::{Deserialize, Serialize};
 
 /// A deferred transfer item

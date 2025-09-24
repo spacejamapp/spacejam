@@ -1,20 +1,22 @@
 //! Core of SpaceJam
 
 pub use {
+    ::service::{self as svc, Parameters, params, vm},
     block::Block,
+    codec,
     extrinsic::Extrinsic,
-    params::Parameters,
     state::{State, key::StorageKeyEncode},
 };
 
+#[cfg(feature = "blake2")]
+pub use ::service::blake2b;
+
 pub mod block;
 pub mod extrinsic;
-pub mod params;
 pub mod safrole;
 pub mod service;
 pub mod state;
 pub mod statistic;
-pub mod vm;
 
 /// (B_I) The balance per item
 pub const BALANCE_PER_ITEM: u64 = 10;
@@ -294,13 +296,3 @@ pub type EntropyBuffer = [Entropy; 4];
 
 /// The type for a validator metadata
 pub type ValidatorMetadata = [u8; 128];
-
-#[cfg(feature = "blake2")]
-/// Compute the BLAKE2b 256-bit hash of a given input.
-pub fn blake2b(input: &[u8]) -> [u8; 32] {
-    use blake2::{Blake2b, Digest, digest::consts::U32};
-
-    let mut hasher = Blake2b::<U32>::new();
-    hasher.update(input);
-    hasher.finalize().into()
-}

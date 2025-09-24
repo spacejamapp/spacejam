@@ -3,7 +3,7 @@
 use account::Accounts;
 use anyhow::Result;
 use pvm::Pvm;
-use score::service::{WorkExecResult, WorkPackage};
+use score::service::{PackageValidation, WorkExecResult, WorkPackage};
 
 /// Authorize the work package
 pub fn authorize<R: Accounts, VM: Pvm>(
@@ -12,7 +12,8 @@ pub fn authorize<R: Accounts, VM: Pvm>(
     accounts: &mut R,
 ) -> Result<(Vec<u8>, u64)> {
     // TODO: remove the package validation instance
-    let _validation = work.validate()?;
+    let _validation = PackageValidation::new(work);
+    _validation.validate()?;
 
     // execute is-authorized invocation (Ψ_I)
     let auth_result = VM::is_authorized(work, core_idx, accounts, work.context.lookup_anchor_slot);

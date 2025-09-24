@@ -167,5 +167,5 @@ pub async fn refine_single<R: Accounts, VM: Pvm>(
         },
     };
 
-    Ok((work_result, refined.segments))
+    Ok((work_result, refined.segments.iter().map(|s| s.0).collect()))
 }

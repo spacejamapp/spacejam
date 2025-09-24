@@ -1,7 +1,6 @@
 //! Reader for binary formats
 
-use crate::compact::vlen;
-use std::borrow::Cow;
+use crate::{Cow, compact::vlen};
 
 /// Reader for binary formats
 pub trait Reader {
@@ -70,9 +69,9 @@ impl Reader for &[u8] {
 }
 
 /// Read a borrowed slice of bytes from the reader.
-pub fn read_cow<'a>(bytes: &mut &'a [u8], length: u32) -> Option<Cow<'a, [u8]>> {
+pub fn read<'a>(bytes: &mut &'a [u8], length: u32) -> Option<Cow<'a, [u8]>> {
     let length = length as usize;
-    let cow = bytes.get(..length)?;
+    let slice = bytes.get(..length)?;
     *bytes = &bytes[length..];
-    Some(Cow::Borrowed(cow))
+    Some(Cow::Borrowed(slice))
 }

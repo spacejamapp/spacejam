@@ -1,7 +1,7 @@
 //! Codec tests
 
 use anyhow::{Context, Result};
-use codec::JamCodec;
+use codec::Codec;
 use paste::paste;
 use score::{
     block::{Block, header::Header},
