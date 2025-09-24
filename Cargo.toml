@@ -14,7 +14,6 @@ members = [
     "crates/vm/interpreter",
     "crates/vm/spacevm",
     "crates/vm/parser",
-    "crates/vm/sys",
     "crates/vm/testing",
     "crates/testing/spec",
     "polkajam/*",
