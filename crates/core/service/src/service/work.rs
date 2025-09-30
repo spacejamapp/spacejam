@@ -1,28 +1,31 @@
 //! Work package related stuffs
 
 use crate::{
-    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, String, Vec, WorkPackageHash,
-    service::{RefineContext, RefineContextJson},
+    ErasureRoot, ExportsRoot, Gas, OpaqueHash, ServiceId, Vec, WorkPackageHash,
+    service::RefineContext,
 };
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
+
+#[cfg(feature = "json")]
+use {crate::String, crate::service::RefineContextJson, spacejson::Json};
 
 /// Represents the specification of a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct WorkPackageSpec {
     /// (p) The hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub hash: WorkPackageHash,
 
     /// (l) The length of the erasure bundle
     pub length: u32,
 
     /// (u) The erasure root
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub erasure_root: ErasureRoot,
 
     /// (e) The exports root (segment root)
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub exports_root: ExportsRoot,
 
     /// (n) The exports count
@@ -32,41 +35,43 @@ pub struct WorkPackageSpec {
 /// Represents a work package in the system.
 ///
 /// TODO: embed token and host to the authorizer?
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct WorkPackage {
     /// (h) The auth code host
     pub auth_code_host: ServiceId,
 
     /// (u) The auth code hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub auth_code_hash: OpaqueHash,
 
     /// (c) The context
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub context: RefineContext,
 
     /// (j) The authorization token
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub authorization: Vec<u8>,
 
     /// (a) The authorizer
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     #[serde(alias = "authorizer_config")]
     pub config: Vec<u8>,
 
     /// (w) The items
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub items: Vec<WorkItem>,
 }
 
 /// Represents an individual work item within a work package.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct WorkItem {
     /// (s) The service
     pub service: ServiceId,
 
     /// (h) The code hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub code_hash: OpaqueHash,
 
     /// (g) The refine gas limit
@@ -81,27 +86,28 @@ pub struct WorkItem {
     pub export_count: u16,
 
     /// (y) The payload
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub payload: Vec<u8>,
 
     /// (i) The import segments
     ///
     /// MAX=W_M=3072
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub import_segments: Vec<ImportSpec>,
 
     /// (x) The extrinsic
     ///
     /// MAX=T=128
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub extrinsic: Vec<ExtrinsicSpec>,
 }
 
 /// Represents an import specification for a work item.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct ImportSpec {
     /// The tree root
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub tree_root: OpaqueHash,
 
     /// The index
@@ -109,10 +115,11 @@ pub struct ImportSpec {
 }
 
 /// Represents an extrinsic specification for a work item.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct ExtrinsicSpec {
     /// The hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub hash: OpaqueHash,
 
     /// The length

@@ -1,36 +1,39 @@
 //! Work result types
 
-use crate::{
-    Gas, OpaqueHash, ServiceId, String, Vec,
-    service::{RefineLoad, RefineLoadJson},
-};
-pub use json::WorkExecResultJson;
+use crate::{Gas, OpaqueHash, ServiceId, Vec, service::RefineLoad};
+
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
+
+#[cfg(feature = "json")]
+use {crate::String, crate::service::RefineLoadJson, spacejson::Json};
+
+#[cfg(feature = "json")]
+pub use json::WorkExecResultJson;
 
 /// Represents the result of a work item.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct WorkResult {
     /// The service id
     pub service_id: ServiceId,
 
     /// The code hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub code_hash: OpaqueHash,
 
     /// The payload hash
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub payload_hash: OpaqueHash,
 
     /// The accumulate gas
     pub accumulate_gas: Gas,
 
     /// The result of the work item
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub result: WorkExecResult,
 
     /// The refine load
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub refine_load: RefineLoad,
 }
 
@@ -106,6 +109,7 @@ impl Refined {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Segment(#[serde(with = "codec::bytes")] pub [u8; crate::SEGMENT_SIZE]);
 
+#[cfg(feature = "json")]
 mod json {
     use super::WorkExecResult;
     use crate::String;

@@ -1,12 +1,15 @@
 //! Service account types
 
-use crate::{BTreeMap, Gas, OpaqueHash, String, TimeSlot, Vec, service::GasLimit};
+use crate::{BTreeMap, Gas, OpaqueHash, TimeSlot, Vec, service::GasLimit};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
+
+#[cfg(feature = "json")]
+use {crate::String, spacejson::Json};
 
 /// The service accounts (δ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct ServiceAccount {
     /// The index of the service account (i)
     pub index: u32,
@@ -21,7 +24,7 @@ pub struct ServiceAccount {
     pub lookup: BTreeMap<(OpaqueHash, u32), Vec<TimeSlot>>,
 
     /// The info of the service account
-    #[json(nested)]
+    #[cfg_attr(feature = "json", json(nested))]
     pub info: ServiceInfo,
 }
 
@@ -48,10 +51,11 @@ impl ServiceAccount {
 }
 
 /// Service info for pvm execution
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Json, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct ServiceInfo {
     /// The code hash of the service account (c)
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     #[serde(alias = "code_hash")]
     pub code: OpaqueHash,
 
