@@ -2,10 +2,10 @@
 
 use crate::Buffer;
 
-/// (ΨA): Accumulation invocation
+/// (ΨI): Is-Authorized invocation
 #[unsafe(no_mangle)]
-pub extern "C" fn comp_accumulate(args: Buffer) -> Buffer {
-    crate::accumulate::<pvmc::Compiler>(args)
+pub extern "C" fn comp_authorize(buffer: Buffer) -> Buffer {
+    crate::authorize::<pvmc::Compiler>(buffer)
 }
 
 /// (ΨR): Refine invocation
@@ -14,8 +14,8 @@ pub extern "C" fn comp_refine(args: Buffer) -> Buffer {
     crate::refine::<pvmc::Compiler>(args)
 }
 
-/// (ΨI): Is-Authorized invocation
+/// (ΨA): Accumulation invocation
 #[unsafe(no_mangle)]
-pub extern "C" fn comp_authorize(buffer: Buffer) -> Buffer {
-    crate::authorize::<pvmc::Compiler>(buffer)
+pub extern "C" fn comp_accumulate(args: Buffer) -> Buffer {
+    crate::accumulate::<pvmc::Compiler>(args)
 }

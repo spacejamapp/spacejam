@@ -4004,6 +4004,7 @@ dependencies = [
  "pvmi",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -6,6 +6,47 @@ use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineAr
 mod comp;
 mod interp;
 
+/// (ΨI): Is-Authorized invocation
+pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
+    let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
+    let output = VM::is_authorized(
+        &args.package,
+        args.core_idx,
+        &mut args.accounts,
+        args.timeslot,
+    );
+    let output = codec::encode(&output).unwrap();
+    Buffer {
+        ptr: output.as_ptr(),
+        len: output.len(),
+    }
+}
+
+/// (ΨR): Refine invocation
+pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
+    let mut args: RefineArgs = codec::decode(args.as_slice()).unwrap();
+    let all_imports = args
+        .all_imports
+        .iter()
+        .map(|s| s.iter().map(|s| s.0).collect())
+        .collect::<Vec<Vec<[u8; 4104]>>>();
+    let output = VM::refine(
+        args.core,
+        args.index,
+        &args.package,
+        &args.auth_output,
+        &all_imports,
+        args.export_offset,
+        &mut args.accounts,
+        args.timeslot,
+    );
+    let output = codec::encode(&output).unwrap();
+    Buffer {
+        ptr: output.as_ptr(),
+        len: output.len(),
+    }
+}
+
 /// (ΨA): Accumulation invocation
 pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let args: AccumulateArgs = codec::decode(args.as_slice()).unwrap();
@@ -54,47 +95,6 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
             Reason::Continue => api::Reason::Continue,
         },
     };
-    let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
-}
-
-/// (ΨR): Refine invocation
-pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
-    let mut args: RefineArgs = codec::decode(args.as_slice()).unwrap();
-    let all_imports = args
-        .all_imports
-        .iter()
-        .map(|s| s.iter().map(|s| s.0).collect())
-        .collect::<Vec<Vec<[u8; 4104]>>>();
-    let output = VM::refine(
-        args.core,
-        args.index,
-        &args.package,
-        &args.auth_output,
-        &all_imports,
-        args.export_offset,
-        &mut args.accounts,
-        args.timeslot,
-    );
-    let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
-}
-
-/// (ΨI): Is-Authorized invocation
-pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
-    let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
-    let output = VM::is_authorized(
-        &args.package,
-        args.core_idx,
-        &mut args.accounts,
-        args.timeslot,
-    );
     let output = codec::encode(&output).unwrap();
     Buffer {
         ptr: output.as_ptr(),
