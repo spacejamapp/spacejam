@@ -1,14 +1,13 @@
-//! SpaceVM common library
+//! SpaceVM exports
 
-use crate::{
-    SpaceVM,
-    pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData},
-};
+use pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData};
 use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs};
 
+mod comp;
+mod interp;
+
 /// (ΨA): Accumulation invocation
-#[unsafe(no_mangle)]
-pub extern "C" fn accumulate(args: Buffer) -> Buffer {
+pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let args: AccumulateArgs = codec::decode(args.as_slice()).unwrap();
     let context = AccumulateState {
         accounts: args.context.accounts,
@@ -22,7 +21,7 @@ pub extern "C" fn accumulate(args: Buffer) -> Buffer {
         privileges: args.context.privileges,
         entropy: args.context.entropy,
     };
-    let accumulated = <SpaceVM as Invocation>::accumulate(
+    let accumulated = VM::accumulate(
         context,
         args.timeslot,
         args.service,
@@ -63,15 +62,14 @@ pub extern "C" fn accumulate(args: Buffer) -> Buffer {
 }
 
 /// (ΨR): Refine invocation
-#[unsafe(no_mangle)]
-pub extern "C" fn refine(args: Buffer) -> Buffer {
+pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
     let mut args: RefineArgs = codec::decode(args.as_slice()).unwrap();
     let all_imports = args
         .all_imports
         .iter()
         .map(|s| s.iter().map(|s| s.0).collect())
         .collect::<Vec<Vec<[u8; 4104]>>>();
-    let output = <SpaceVM as Invocation>::refine(
+    let output = VM::refine(
         args.core,
         args.index,
         &args.package,
@@ -89,10 +87,9 @@ pub extern "C" fn refine(args: Buffer) -> Buffer {
 }
 
 /// (ΨI): Is-Authorized invocation
-#[unsafe(no_mangle)]
-pub extern "C" fn authorize(buffer: Buffer) -> Buffer {
+pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
     let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
-    let output = <SpaceVM as Invocation>::is_authorized(
+    let output = VM::is_authorized(
         &args.package,
         args.core_idx,
         &mut args.accounts,

@@ -1,13 +1,14 @@
 [package]
-name = "spacevm"
+name = "spacevm-export"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+name = "spacevm"
+crate-type = ["cdylib"]
+
 [dependencies]
-anyhow.workspace = true
-hex.workspace = true
 pvm.workspace = true
 pvmc.workspace = true
 pvmi.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+score.workspace = true
