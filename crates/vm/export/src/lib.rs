@@ -16,10 +16,7 @@ pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
         args.timeslot,
     );
     let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
+    Buffer::from(output)
 }
 
 /// (ΨR): Refine invocation
@@ -41,10 +38,7 @@ pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
         args.timeslot,
     );
     let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
+    Buffer::from(output)
 }
 
 /// (ΨA): Accumulation invocation
@@ -96,14 +90,12 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
         },
     };
     let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
+    Buffer::from(output)
 }
 
 /// A buffer that host args / results
 #[repr(C)]
+#[derive(Debug)]
 pub struct Buffer {
     /// The pointer to the buffer
     pub ptr: *const u8,
@@ -115,5 +107,19 @@ impl Buffer {
     /// Get the buffer as a byte slice
     pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
+impl From<Vec<u8>> for Buffer {
+    fn from(value: Vec<u8>) -> Self {
+        let layout = std::alloc::Layout::from_size_align(value.len(), 1).unwrap();
+        let ptr = unsafe { std::alloc::alloc(layout) };
+        unsafe {
+            std::ptr::copy_nonoverlapping(value.as_ptr(), ptr, value.len());
+        }
+        Buffer {
+            ptr: ptr,
+            len: value.len(),
+        }
     }
 }
