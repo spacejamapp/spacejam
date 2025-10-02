@@ -1,14 +1,62 @@
-//! SpaceVM common library
+//! SpaceVM exports
 
-use crate::{
-    SpaceVM,
-    pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData},
-};
+use pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData};
 use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs};
 
-/// (ΨA): Accumulation invocation
+mod comp;
+mod interp;
+
+/// Initialize the logger
 #[unsafe(no_mangle)]
-pub extern "C" fn accumulate(args: Buffer) -> Buffer {
+pub extern "C" fn init_logger(ansi: bool, timer: bool) {
+    let builder = tracing_subscriber::fmt::Subscriber::builder()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(ansi);
+
+    if !timer {
+        builder.without_time().init()
+    } else {
+        builder.init()
+    }
+}
+
+/// (ΨI): Is-Authorized invocation
+pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
+    let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
+    let output = VM::is_authorized(
+        &args.package,
+        args.core_idx,
+        &mut args.accounts,
+        args.timeslot,
+    );
+    let output = codec::encode(&output).unwrap();
+    Buffer::from(output)
+}
+
+/// (ΨR): Refine invocation
+pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
+    let mut args: RefineArgs = codec::decode(args.as_slice()).unwrap();
+    let all_imports = args
+        .all_imports
+        .iter()
+        .map(|s| s.iter().map(|s| s.0).collect())
+        .collect::<Vec<Vec<[u8; 4104]>>>();
+    let output = VM::refine(
+        args.core,
+        args.index,
+        &args.package,
+        &args.auth_output,
+        &all_imports,
+        args.export_offset,
+        &mut args.accounts,
+        args.timeslot,
+    );
+    let output = codec::encode(&output).unwrap();
+    Buffer::from(output)
+}
+
+/// (ΨA): Accumulation invocation
+pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let args: AccumulateArgs = codec::decode(args.as_slice()).unwrap();
     let context = AccumulateState {
         accounts: args.context.accounts,
@@ -22,7 +70,7 @@ pub extern "C" fn accumulate(args: Buffer) -> Buffer {
         privileges: args.context.privileges,
         entropy: args.context.entropy,
     };
-    let accumulated = <SpaceVM as Invocation>::accumulate(
+    let accumulated = VM::accumulate(
         context,
         args.timeslot,
         args.service,
@@ -56,57 +104,12 @@ pub extern "C" fn accumulate(args: Buffer) -> Buffer {
         },
     };
     let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
-}
-
-/// (ΨR): Refine invocation
-#[unsafe(no_mangle)]
-pub extern "C" fn refine(args: Buffer) -> Buffer {
-    let mut args: RefineArgs = codec::decode(args.as_slice()).unwrap();
-    let all_imports = args
-        .all_imports
-        .iter()
-        .map(|s| s.iter().map(|s| s.0).collect())
-        .collect::<Vec<Vec<[u8; 4104]>>>();
-    let output = <SpaceVM as Invocation>::refine(
-        args.core,
-        args.index,
-        &args.package,
-        &args.auth_output,
-        &all_imports,
-        args.export_offset,
-        &mut args.accounts,
-        args.timeslot,
-    );
-    let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
-}
-
-/// (ΨI): Is-Authorized invocation
-#[unsafe(no_mangle)]
-pub extern "C" fn authorize(buffer: Buffer) -> Buffer {
-    let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
-    let output = <SpaceVM as Invocation>::is_authorized(
-        &args.package,
-        args.core_idx,
-        &mut args.accounts,
-        args.timeslot,
-    );
-    let output = codec::encode(&output).unwrap();
-    Buffer {
-        ptr: output.as_ptr(),
-        len: output.len(),
-    }
+    Buffer::from(output)
 }
 
 /// A buffer that host args / results
 #[repr(C)]
+#[derive(Debug)]
 pub struct Buffer {
     /// The pointer to the buffer
     pub ptr: *const u8,
@@ -118,5 +121,19 @@ impl Buffer {
     /// Get the buffer as a byte slice
     pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
+impl From<Vec<u8>> for Buffer {
+    fn from(value: Vec<u8>) -> Self {
+        let layout = std::alloc::Layout::from_size_align(value.len(), 1).unwrap();
+        let ptr = unsafe { std::alloc::alloc(layout) };
+        unsafe {
+            std::ptr::copy_nonoverlapping(value.as_ptr(), ptr, value.len());
+        }
+        Buffer {
+            ptr,
+            len: value.len(),
+        }
     }
 }

@@ -179,7 +179,7 @@ pub trait Invocation {
         };
 
         let args = codec::encode(&params).expect("failed to encode params");
-        let result = Self::invoke2(refine, item.code_hash, code, args, item.refine_gas_limit, 5);
+        let result = Self::invoke2(refine, item.code_hash, code, args, item.refine_gas_limit, 0);
 
         // TODO: Implement actual segment export when host calls are ready
         // For now, return empty segments as before

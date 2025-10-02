@@ -13,5 +13,5 @@ hex.workspace = true
 log.workspace = true
 score = { workspace = true, features = ["blake2"] }
 serde.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, features = ["log"] }
 pvm-parser.workspace = true

@@ -12,12 +12,14 @@ keywords = ["pvm"]
 
 [dependencies]
 anyhow.workspace = true
-blake2 = { workspace = true, optional = true }
 codec.workspace = true
-hex.workspace = true
 serde.workspace = true
-serde_json = { workspace = true, features = ["alloc"] }
-spacejson.workspace = true
+
+# optional dependencies
+blake2 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["alloc"], optional = true }
+spacejson = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -25,8 +27,10 @@ std = [
     "anyhow/std",
     "blake2?/std",
     "codec/std",
+    "hex/std",
     "serde/std",
     "serde_json/std",
-    "spacejson/std",
+    "spacejson?/std",
 ]
 blake2 = ["dep:blake2"]
+json = ["hex", "serde_json", "spacejson"]
