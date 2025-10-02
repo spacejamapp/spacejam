@@ -1,6 +1,7 @@
 //! JIP specified host calls
 
 use crate::{host::Exit, Argument, Result};
+use account::Account;
 
 /// JIP-1 logging host function implementation
 ///
@@ -13,7 +14,7 @@ use crate::{host::Exit, Argument, Result};
 /// r9 = target length
 /// r10 = message address
 /// r11 = message length
-#[tracing::instrument(skip_all, name = "program", parent = None)]
+#[tracing::instrument(skip_all, name = "service", parent = None)]
 pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     let level = ctx.rget(7);
     let target_addr = ctx.rget(8) as u32;
@@ -43,7 +44,10 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
             Err(reason) => return Err(reason.into()),
         }
     } else {
-        "service".to_string()
+        let Ok(service) = ctx.this() else {
+            return Ok(Exit::What as u64);
+        };
+        format!("service-{}", service.index())
     };
 
     let level = match level {
