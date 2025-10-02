@@ -8,17 +8,13 @@ members = [
     "crates/core/service",
     "crates/offchain/worker",
     "crates/offchain/rpc",
-    "crates/vm/cli",
     "crates/vm/compiler",
     "crates/vm/cranelift",
     "crates/vm/export",
     "crates/vm/interpreter",
     "crates/vm/spacevm",
     "crates/vm/parser",
-    "crates/vm/testing",
     "crates/testing/spec",
-    "polkajam/*",
-    "services/*",
 ]
 resolver = "1"
 
@@ -67,21 +63,6 @@ spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
-
-# polkajam dependencies
-bounded-collections = { version = "0.3.2", default-features = false }
-jam-types = { version = "0.1.22", default-features = false }
-jam-codec = "0.1.1"
-jam-pvm-build = "0.1.22"
-jam-pvm-builder = "0.1.22"
-jam-pvm-common = { version = "0.1.22", default-features = false }
-jam-program-blob = "0.1.22"
-polkavm-linker = "0.24.0"
-polkavm-derive = "0.24.0"
-polkavm-common = "0.24.0"
-podec = { version = "0.1.1", package = "jam-codec", default-features = false, features = [
-    "derive",
-] }
 
 # crates.io
 anyhow = { version = "1.0.99", default-features = false }
@@ -160,8 +141,6 @@ w3f-bls = "0.1.9"
 x509-parser = "0.17.0"
 
 [patch.crates-io]
-jam-types = { path = "polkajam/jam-types" }
-jam-pvm-common = { path = "polkajam/jam-pvm-common" }
 w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
 ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
 
