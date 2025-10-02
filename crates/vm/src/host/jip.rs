@@ -1,6 +1,7 @@
 //! JIP specified host calls
 
 use crate::{host::Exit, Argument, Result};
+use account::Account;
 
 /// JIP-1 logging host function implementation
 ///
@@ -13,7 +14,7 @@ use crate::{host::Exit, Argument, Result};
 /// r9 = target length
 /// r10 = message address
 /// r11 = message length
-#[tracing::instrument(skip_all, name = "program", parent = None)]
+#[tracing::instrument(skip_all, name = "service", parent = None)]
 pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     let level = ctx.rget(7);
     let target_addr = ctx.rget(8) as u32;
@@ -43,19 +44,21 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
             Err(reason) => return Err(reason.into()),
         }
     } else {
-        Default::default()
+        let Ok(service) = ctx.this() else {
+            return Ok(Exit::What as u64);
+        };
+        format!("service-{}", service.index())
     };
 
-    // Convert numeric level to log::Level
-    tracing::trace!(target = target, level = level, "{message}");
-    /* match level {
-        0 => tracing::error!(target = target, "{message}"),
-        1 => tracing::warn!(target = target, "{message}"),
-        2 => tracing::info!(target = target, "{message}"),
-        3 => tracing::debug!(target = target, "{message}"),
-        4 => tracing::trace!(target = target, "{message}"),
-        _ => tracing::warn!(target = target, "{message}"),
-    } */
+    let level = match level {
+        0 => log::Level::Error,
+        1 => log::Level::Warn,
+        2 => log::Level::Info,
+        3 => log::Level::Debug,
+        4 => log::Level::Trace,
+        _ => log::Level::Warn,
+    };
 
+    log::log!(target: &target, level, "{message}");
     Ok(Exit::Ok as u64)
 }

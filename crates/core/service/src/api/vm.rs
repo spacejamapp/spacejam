@@ -7,6 +7,7 @@ use crate::{
     vm::{DeferredTransfer, Operand},
 };
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "json")]
 use spacejson::Json;
 
 /// Data of validators
@@ -107,20 +108,21 @@ pub struct Accumulated {
 }
 
 /// Represents the ValidatorData structure from ASN.1
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct ValidatorData {
     /// The bandersnatch public key
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub bandersnatch: BandersnatchPublic,
     /// The ed25519 public key
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     pub ed25519: Ed25519Public,
     /// The bls public key
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     #[serde(with = "codec::bytes")]
     pub bls: BlsPublic,
     /// The metadata
-    #[json(hex)]
+    #[cfg_attr(feature = "json", json(hex))]
     #[serde(with = "codec::bytes")]
     pub metadata: ValidatorMetadata,
 }

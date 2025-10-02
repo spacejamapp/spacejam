@@ -13,8 +13,6 @@ use std::{
     sync::{Arc, LazyLock, RwLock},
 };
 
-mod abi;
-
 /// Locks for the Jastime compilation
 pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<pvmc::Module>>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));

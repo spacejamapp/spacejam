@@ -1,6 +1,6 @@
 //! build script for spacejam
 
-use std::{fs, process::Command};
+use std::{env, fs, path::PathBuf, process::Command};
 
 const TINY_DEV_SPEC: &str = "https://gist.githubusercontent.com/clearloop/52b9d5c16d3bd2a2d900b756fc64a9d1/raw/fbf84b774254cb68071a8a37cf8faac699bebf48/spec.json";
 
@@ -8,11 +8,14 @@ fn main() {
     println!("cargo:rerun-if-changed=src/chain/spec.rs");
     println!("cargo:rerun-if-changed=build.rs");
 
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR must be set"));
     let root = std::path::PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
     );
 
-    fuzz::generate(&root).expect("failed to generate fuzz tests");
+    if fuzz::generate(&root, &out_dir).is_err() {
+        fs::write(out_dir.join("fuzz.rs"), "").expect("failed to write fuzz.rs");
+    };
     let dev = root.join("spec/dev");
     let target = dev.join("spec.json");
     if target.exists() {
@@ -33,11 +36,11 @@ fn main() {
 mod fuzz {
     use proc_macro2::Span;
     use quote::quote;
-    use std::{env, fs, path::Path, process::Command};
+    use std::{fs, path::Path, process::Command};
     use syn::{Ident, ItemFn, LitStr, parse_quote};
 
     /// Generate the fuzz tests
-    pub fn generate(root: &Path) -> std::io::Result<()> {
+    pub fn generate(root: &Path, out_dir: &Path) -> std::io::Result<()> {
         self::try_download(&root.join("../../"))?;
         let source = root.join("../../res/jam-conformance/fuzz-proto/examples/v1/forks");
         let mut tests: Vec<ItemFn> = Vec::new();
@@ -72,9 +75,7 @@ mod fuzz {
             });
         }
 
-        let out_dir = env::var("OUT_DIR").expect("OUT_DIR must be set");
         let out = Path::new(&out_dir).join("fuzz.rs");
-        println!("writing to {out:?}");
         fs::write(out, quote! { #(#tests)* }.to_string())?;
         Ok(())
     }

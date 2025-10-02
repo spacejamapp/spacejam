@@ -8,22 +8,19 @@ members = [
     "crates/core/service",
     "crates/offchain/worker",
     "crates/offchain/rpc",
-    "crates/vm/cli",
     "crates/vm/compiler",
     "crates/vm/cranelift",
+    "crates/vm/export",
     "crates/vm/interpreter",
     "crates/vm/spacevm",
     "crates/vm/parser",
-    "crates/vm/testing",
     "crates/testing/spec",
-    "polkajam/*",
-    "services/*",
 ]
 resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.0.12"
+version = "0.0.13"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -42,7 +39,7 @@ strip = true
 
 [workspace.dependencies]
 account = { path = "crates/core/account", package = "spacejam-account" }
-codec = { path = "crates/codec", package = "serde-jam", version = "0.0.12" }
+codec = { path = "crates/codec", package = "serde-jam", version = "0.0.13" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
@@ -53,35 +50,19 @@ pvmi = { path = "crates/vm/interpreter" }
 pvmc = { path = "crates/vm/compiler" }
 pvm-parser = { path = "crates/vm/parser" }
 pvm-testing = { path = "crates/vm/testing" }
-service = { path = "crates/core/service", package = "spacejam-service", version = "0.0.12" }
+service = { path = "crates/core/service", package = "spacejam-service", version = "0.0.13" }
 translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
-spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.0.12" }
-spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.0.12" }
+spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.0.13" }
+spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.0.13" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
 spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
-spacevm-sys = { path = "crates/vm/sys", package = "spacevm-sys", version = "0.0.12" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
 validator = { path = "crates/spacejam/validator", package = "spacejam-validator" }
 worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
-
-# polkajam dependencies
-bounded-collections = { version = "0.3.2", default-features = false }
-jam-types = { version = "0.1.22", default-features = false }
-jam-codec = "0.1.1"
-jam-pvm-build = "0.1.22"
-jam-pvm-builder = "0.1.22"
-jam-pvm-common = { version = "0.1.22", default-features = false }
-jam-program-blob = "0.1.22"
-polkavm-linker = "0.24.0"
-polkavm-derive = "0.24.0"
-polkavm-common = "0.24.0"
-podec = { version = "0.1.1", package = "jam-codec", default-features = false, features = [
-    "derive",
-] }
 
 # crates.io
 anyhow = { version = "1.0.99", default-features = false }
@@ -153,6 +134,7 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
     "fmt",
     "ansi",
     "std",
+    "tracing-log",
 ] }
 trait-variant = "0.1.2"
 uint = "0.10.0"
@@ -160,10 +142,8 @@ w3f-bls = "0.1.9"
 x509-parser = "0.17.0"
 
 [patch.crates-io]
-jam-types = { path = "polkajam/jam-types" }
-jam-pvm-common = { path = "polkajam/jam-pvm-common" }
 w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
 ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
 
 [workspace.metadata.conta]
-packages = ["serde-jam", "spacejam-service", "spacejson"]
+packages = ["codec", "spacejson-derive", "spacejson", "service"]

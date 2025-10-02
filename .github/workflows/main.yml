@@ -15,11 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.90.0
-          components: rust-src
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Toolchain
+        run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@sccache
       - uses: taiki-e/install-action@nextest
       - name: Run Tests
@@ -30,11 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.90.0
-          components: rust-src
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Toolchain
+        run: |
+          rustup update stable && rustup default stable
+          rustup component add clippy rustfmt
       - uses: taiki-e/install-action@sccache
       - name: Format
         run: cargo fmt --check

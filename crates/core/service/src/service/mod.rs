@@ -1,13 +1,22 @@
 //! Service types of SpaceJam
 
-use crate::{BTreeMap, Gas, ServiceId, Vec};
+use crate::{BTreeMap, Gas, ServiceId};
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
 pub use {
     account::ServiceAccount,
-    refine::{RefineContext, RefineContextJson, RefineLoad, RefineLoadJson},
-    result::{WorkExecResult, WorkExecResultJson, WorkResult, WorkResultJson},
+    refine::{RefineContext, RefineLoad},
+    result::{WorkExecResult, WorkResult},
     work::{ExtrinsicSpec, ImportSpec, WorkItem, WorkPackage, WorkPackageSpec},
+};
+
+#[cfg(feature = "json")]
+use {crate::Vec, spacejson::Json};
+
+#[cfg(feature = "json")]
+pub use {
+    refine::{RefineContextJson, RefineLoadJson},
+    result::{WorkExecResultJson, WorkResultJson},
+    work::{ExtrinsicSpecJson, ImportSpecJson, WorkPackageSpecJson},
 };
 
 pub mod account;
@@ -16,13 +25,14 @@ pub mod result;
 pub mod work;
 
 /// The privileged service indices (χ)
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct Privileges {
     /// The bless service id (χm)
     pub bless: ServiceId,
 
     /// The assign service id (χa)
-    #[json(Vec<ServiceId>)]
+    #[cfg_attr(feature = "json", json(Vec<ServiceId>))]
     pub assign: [ServiceId; crate::CORES_COUNT],
 
     /// The designate service id (χv)
@@ -41,7 +51,8 @@ impl Privileges {
 }
 
 /// The gas limits of the service account
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[cfg_attr(feature = "json", derive(Json))]
 pub struct GasLimit {
     /// The minimum gas in order to execute the accumulate
     /// entry-point of the service code (g)
