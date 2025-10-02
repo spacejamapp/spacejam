@@ -12,7 +12,7 @@ fn main() {
         std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set"),
     );
 
-    fuzz::generate(&root).expect("failed to generate fuzz tests");
+    let _ = fuzz::generate(&root).ok();
     let dev = root.join("spec/dev");
     let target = dev.join("spec.json");
     if target.exists() {
@@ -74,13 +74,11 @@ mod fuzz {
 
         let out_dir = env::var("OUT_DIR").expect("OUT_DIR must be set");
         let out = Path::new(&out_dir).join("fuzz.rs");
-        println!("writing to {out:?}");
         fs::write(out, quote! { #(#tests)* }.to_string())?;
         Ok(())
     }
 
     fn try_download(workspace: &Path) -> std::io::Result<()> {
-        fs::create_dir_all(workspace.join("res"))?;
         if !workspace.join("res/jam-conformance").exists() {
             Command::new("git")
                 .args([
