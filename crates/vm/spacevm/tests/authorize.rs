@@ -19,6 +19,8 @@ fn run_is_authorized<VM: Invocation>() -> Result<()> {
 
     tracing_subscriber::fmt::Subscriber::builder()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .without_time()
+        .with_ansi(false)
         .init();
 
     let mut account = ServiceAccount::default();

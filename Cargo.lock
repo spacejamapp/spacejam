@@ -4015,6 +4015,7 @@ dependencies = [
  "pvmc",
  "pvmi",
  "spacejam-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

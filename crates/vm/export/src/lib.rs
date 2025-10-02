@@ -6,6 +6,20 @@ use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineAr
 mod comp;
 mod interp;
 
+/// Initialize the logger
+#[unsafe(no_mangle)]
+pub extern "C" fn init_logger(ansi: bool, timer: bool) {
+    let builder = tracing_subscriber::fmt::Subscriber::builder()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(ansi);
+
+    if !timer {
+        builder.without_time().init()
+    } else {
+        builder.init()
+    }
+}
+
 /// (ΨI): Is-Authorized invocation
 pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
     let mut args: AuthorizeArgs = codec::decode(buffer.as_slice()).unwrap();
@@ -118,7 +132,7 @@ impl From<Vec<u8>> for Buffer {
             std::ptr::copy_nonoverlapping(value.as_ptr(), ptr, value.len());
         }
         Buffer {
-            ptr: ptr,
+            ptr,
             len: value.len(),
         }
     }

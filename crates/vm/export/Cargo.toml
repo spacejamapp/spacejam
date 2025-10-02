@@ -12,3 +12,4 @@ pvm.workspace = true
 pvmc.workspace = true
 pvmi.workspace = true
 score.workspace = true
+tracing-subscriber.workspace = true
