@@ -80,6 +80,7 @@ mod fuzz {
     }
 
     fn try_download(workspace: &Path) -> std::io::Result<()> {
+        fs::create_dir_all(workspace.join("res"))?;
         if !workspace.join("res/jam-conformance").exists() {
             Command::new("git")
                 .args([
