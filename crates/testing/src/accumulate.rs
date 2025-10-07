@@ -255,12 +255,15 @@ mod types {
         /// The bless service id
         pub bless: ServiceId,
 
-        /// The designate service id
-        pub designate: ServiceId,
-
         /// The assign service id
         #[json(Vec<ServiceId>)]
         pub assign: [ServiceId; score::CORES_COUNT],
+
+        /// The designate service id
+        pub designate: ServiceId,
+
+        /// The registrar service id
+        pub register: ServiceId,
 
         /// The always accumulate service ids
         #[json(nested)]
@@ -272,6 +275,7 @@ mod types {
             Privileges {
                 bless: value.bless,
                 designate: value.designate,
+                register: value.register,
                 assign: value.assign,
                 always_acc: value
                     .always_acc
@@ -287,6 +291,7 @@ mod types {
             PrivilegesWrap {
                 bless: value.bless,
                 designate: value.designate,
+                register: value.register,
                 assign: value.assign,
                 always_acc: value
                     .always_acc

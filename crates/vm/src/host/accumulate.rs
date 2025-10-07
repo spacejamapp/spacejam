@@ -14,12 +14,13 @@ use std::collections::BTreeMap;
 
 /// (ΩB) bless
 pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let [bless, assign, designate, acc, entries] = [
+    let [bless, assign, designate, register, acc, entries] = [
         ctx.rget(7),  // m: bless service id
         ctx.rget(8),  // a: memory address of assign array
         ctx.rget(9),  // v: designate service id
-        ctx.rget(10), // o: memory address of always_acc map
-        ctx.rget(11), // n: count of always_acc entries
+        ctx.rget(10), // r: register service id
+        ctx.rget(11), // o: memory address of always_acc map
+        ctx.rget(12), // n: count of always_acc entries
     ];
 
     // Read assign array from memory
@@ -63,6 +64,7 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     // Update privileges: tuple{m, 𝐚, v, 𝐳}
     ctx.set_privileges(Privileges {
         bless: bless as u32,
+        register: register as u32,
         assign,
         designate: designate as u32,
         always_acc,

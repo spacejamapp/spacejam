@@ -28,17 +28,21 @@ pub mod work;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "json", derive(Json))]
 pub struct Privileges {
-    /// The bless service id (χm)
+    /// The index of the manager service (χM)
     pub bless: ServiceId,
 
-    /// The assign service id (χa)
+    /// The designate service id (χV)
+    pub designate: ServiceId,
+
+    /// ...then χR alone is able to create new service accounts with
+    /// indices in the protected range (χR)
+    pub register: ServiceId,
+
+    /// The assign service id (χA)
     #[cfg_attr(feature = "json", json(Vec<ServiceId>))]
     pub assign: [ServiceId; crate::CORES_COUNT],
 
-    /// The designate service id (χv)
-    pub designate: ServiceId,
-
-    /// The always accumulate service ids (χg)
+    /// The always accumulate service ids (χZ)
     pub always_acc: BTreeMap<ServiceId, Gas>,
 }
 
