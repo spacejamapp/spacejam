@@ -62,10 +62,10 @@ impl Statistics {
 
     /// Update transfer statistics for services
     pub fn merge_transfers(&mut self, transfers: BTreeMap<u32, (usize, crate::Gas)>) {
-        for (service_id, (count, gas)) in transfers {
-            let service = self.services.entry(service_id).or_default();
-            service.on_transfers_count += count as u32;
-            service.on_transfers_gas_used += gas;
+        for (service_id, (_count, _gas)) in transfers {
+            let _service = self.services.entry(service_id).or_default();
+            /* service.on_transfers_count += count as u32;
+            service.on_transfers_gas_used += gas; */
         }
     }
 

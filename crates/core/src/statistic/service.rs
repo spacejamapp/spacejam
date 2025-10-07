@@ -37,10 +37,10 @@ pub struct ServiceActivityRecord {
     /// Amount of gas used for accumulation by service.
     #[serde(with = "codec::compact")]
     pub accumulate_gas_used: Gas,
-    /// Number of transfers processed by service.
+    /* /// Number of transfers processed by service.
     #[serde(with = "codec::compact")]
     pub on_transfers_count: u32,
     /// Amount of gas used for processing transfers by service.
     #[serde(with = "codec::compact")]
-    pub on_transfers_gas_used: Gas,
+    pub on_transfers_gas_used: Gas, */
 }

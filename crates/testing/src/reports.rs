@@ -194,6 +194,7 @@ mod types {
                         data: ServiceAccountData {
                             service: service.state(),
                             preimages: vec![],
+                            preimages_status: vec![],
                             storage: vec![],
                         },
                     })
@@ -223,7 +224,14 @@ mod types {
         /// (a_p) The preimages
         #[serde(default)]
         #[json(nested)]
+        #[serde(alias = "preimages_blob")]
         pub preimages: Vec<ServicePreimage>,
+
+        /// The preimage status
+        #[serde(default)]
+        #[json(nested)]
+        #[serde(alias = "preimages_status")]
+        pub preimages_status: Vec<ServicePreimageStatus>,
 
         /// The storage
         #[serde(default)]
@@ -242,6 +250,14 @@ mod types {
                         hash: *k,
                         // TODO: find a better solution for doing this.
                         blob: v.to_vec(),
+                    })
+                    .collect(),
+                preimages_status: account
+                    .lookup
+                    .iter()
+                    .map(|(k, v)| ServicePreimageStatus {
+                        hash: k.0,
+                        status: if v.is_empty() { vec![0] } else { v.to_vec() },
                     })
                     .collect(),
                 storage: account
@@ -291,6 +307,17 @@ mod types {
         /// The blob of the preimage
         #[json(hex)]
         pub blob: Vec<u8>,
+    }
+
+    /// Represents a service preimage.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct ServicePreimageStatus {
+        /// The hash of the preimage
+        #[json(hex)]
+        pub hash: OpaqueHash,
+
+        /// The status of the preimage
+        pub status: Vec<u32>,
     }
 
     /// Represents a service storage.
