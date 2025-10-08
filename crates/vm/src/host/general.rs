@@ -18,9 +18,9 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => codec::encode(&ctx.operands()).expect("should not fail"),
+        14 => codec::encode(&ctx.items()).expect("should not fail"),
         15 => {
-            let operands = ctx.operands();
+            let operands = ctx.items();
             let index = ctx.rget(11);
             if let Some(operand) = operands.get(index as usize) {
                 codec::encode(operand).expect("should not fail")

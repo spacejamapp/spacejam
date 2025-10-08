@@ -3,7 +3,11 @@
 use super::acc::Accumulated;
 use account::{Account, Accounts};
 use pvm::{AccumulateState, Pvm};
-use score::{Gas, ServiceId, TimeSlot, service::WorkReport};
+use score::{
+    Gas, ServiceId, TimeSlot,
+    service::WorkReport,
+    vm::{AccumulateItem, DeferredTransfer},
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// (Δ+) outer accumulation
@@ -24,6 +28,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - U: the total gas used
 pub async fn outer<V: Pvm, R: Accounts>(
     mut gas_limit: Gas,
+    mut transfers: Vec<DeferredTransfer>,
     mut reports: &[WorkReport],
     context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
@@ -50,6 +55,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
 
         let step = self::parallel::<V, R>(
             accumulated.context.clone(),
+            &mut transfers,
             &reports[..index],
             gas_table,
             timeslot,
@@ -86,6 +92,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
 /// (Δ*) parallel accumulation
 pub async fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
+    transfers: &mut Vec<DeferredTransfer>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
@@ -115,8 +122,14 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             let context = context.clone();
             let reports = reports.to_vec();
             let table = table.clone();
+            let transfers = transfers
+                .iter()
+                .filter(|t| t.recipient == service)
+                .cloned()
+                .collect();
             pool.spawn_blocking(move || {
-                let result = self::once::<V, R>(context, &reports, &table, service, timeslot);
+                let result =
+                    self::once::<V, R>(context, transfers, &reports, &table, service, timeslot);
                 (service, result)
             });
         }
@@ -128,7 +141,19 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         results
     } else {
         let service = services.iter().next().expect("should not fail");
-        let result = self::once::<V, R>(context.clone(), reports, table, *service, timeslot);
+        let transfers = transfers
+            .iter()
+            .filter(|t| t.recipient == *service)
+            .cloned()
+            .collect();
+        let result = self::once::<V, R>(
+            context.clone(),
+            transfers,
+            reports,
+            table,
+            *service,
+            timeslot,
+        );
         BTreeMap::from([(*service, result)])
     };
 
@@ -188,6 +213,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
 /// (Δ1) single accumulation
 pub fn once<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
+    transfers: Vec<DeferredTransfer>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
@@ -201,9 +227,17 @@ pub fn once<V: Pvm, R: Accounts>(
             .map(|result| result.accumulate_gas)
             .sum::<Gas>();
 
-    let operands = reports
+    // TODO: recheck this, shall we flat map the operands?
+    let items = reports
         .iter()
-        .flat_map(|r| r.operands(service))
+        .map(|r| AccumulateItem {
+            operands: r.operands(service),
+            transfers: transfers
+                .iter()
+                .filter(|t| t.recipient == service)
+                .cloned()
+                .collect(),
+        })
         .collect::<Vec<_>>();
-    V::accumulate(context, timeslot, service, gas, operands)
+    V::accumulate(context, timeslot, service, gas, items)
 }

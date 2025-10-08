@@ -49,10 +49,11 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
-    // (Δ+) run outer accumulation
+    // (Δ+) run outer accumulation (12.18)
     let gas_limit = privileges.gas_limit();
     let mut accumulated = exec::outer::<V, R>(
         gas_limit,
+        Default::default(),
         &accumulatable,
         AccumulateState {
             accounts,
