@@ -34,6 +34,8 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
+    tracing::debug!("fetch kind: {:?}", kind);
+
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);

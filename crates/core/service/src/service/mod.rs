@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub use {
     account::ServiceAccount,
     refine::{RefineContext, RefineLoad},
-    result::{WorkExecResult, WorkResult},
+    result::{WorkDigest, WorkExecResult},
     work::{ExtrinsicSpec, ImportSpec, WorkItem, WorkPackage, WorkPackageSpec},
 };
 
@@ -15,7 +15,7 @@ use {crate::Vec, spacejson::Json};
 #[cfg(feature = "json")]
 pub use {
     refine::{RefineContextJson, RefineLoadJson},
-    result::{WorkExecResultJson, WorkResultJson},
+    result::{WorkDigestJson, WorkExecResultJson},
     work::{ExtrinsicSpecJson, ImportSpecJson, WorkPackageSpecJson},
 };
 

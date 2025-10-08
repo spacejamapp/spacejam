@@ -3,8 +3,8 @@
 use crate::{
     CoreIndex, OpaqueHash, ServiceId, WorkPackageHash,
     service::{
-        RefineContext, RefineContextJson, WorkPackageSpec, WorkPackageSpecJson, WorkResult,
-        WorkResultJson,
+        RefineContext, RefineContextJson, WorkDigest, WorkDigestJson, WorkPackageSpec,
+        WorkPackageSpecJson,
     },
 };
 use anyhow;
@@ -13,42 +13,42 @@ use service::vm::Operand;
 use spacejson::Json;
 use std::collections::BTreeMap;
 
-/// Represents a work report.
+/// (11.2) Represents a work report.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Json, Eq, Clone, Default)]
 pub struct WorkReport {
-    /// The package spec
+    /// (s) The package spec
     #[json(nested)]
     #[serde(alias = "package_spec")]
     pub spec: WorkPackageSpec,
 
-    /// The refine context
+    /// (c) The refine context
     #[json(nested)]
     pub context: RefineContext,
 
-    /// The core index
+    /// (_c_) The core index
     #[serde(with = "codec::compact")]
     pub core_index: CoreIndex,
 
-    /// The authorizer hash
+    /// (a) The authorizer hash
     #[json(hex)]
     pub authorizer_hash: OpaqueHash,
 
-    /// The auth gas used
-    #[serde(with = "codec::compact")]
-    pub auth_gas_used: u64,
-
-    /// The auth output
+    /// (t) The auth output
     #[json(hex)]
     pub auth_output: Vec<u8>,
 
-    /// The segment root lookup directory
+    /// (l) The segment root lookup directory
     #[serde(alias = "segment_root_lookup")]
     #[json(array(key = "work_package_hash", value = "segment_tree_root"))]
     pub lookup: BTreeMap<WorkPackageHash, OpaqueHash>,
 
-    /// The results of the work items
+    /// (d) The results of the work items
     #[json(nested)]
-    pub results: Vec<WorkResult>,
+    pub results: Vec<WorkDigest>,
+
+    /// (g) The auth gas used
+    #[serde(with = "codec::compact")]
+    pub auth_gas_used: u64,
 }
 
 impl WorkReport {
