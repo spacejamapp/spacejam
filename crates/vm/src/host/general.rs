@@ -20,9 +20,11 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
         14 => codec::encode(&ctx.items()).expect("should not fail"),
         15 => {
-            let operands = ctx.items().operands.clone();
+            let items = ctx.items();
             let index = ctx.rget(11);
-            if let Some(operand) = operands.get(index as usize) {
+            if let Some(transfer) = items.transfers.get(index as usize) {
+                codec::encode(transfer).expect("should not fail")
+            } else if let Some(operand) = items.operands.get(index as usize) {
                 codec::encode(operand).expect("should not fail")
             } else {
                 Default::default()
