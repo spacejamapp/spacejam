@@ -5,7 +5,7 @@ use anyhow::Result;
 use score::{
     safrole::ValidatorData,
     service::Privileges,
-    vm::{AccumulateItem, DeferredTransfer},
+    vm::{AccumulateItems, DeferredTransfer},
     Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
 pub use {
@@ -71,7 +71,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.index()
     }
 
-    fn items(&self) -> &[AccumulateItem] {
+    fn items(&self) -> &AccumulateItems {
         self.ctx.items()
     }
 

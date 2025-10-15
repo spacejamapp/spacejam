@@ -1,7 +1,7 @@
 //! Virtual machine interfaces
 
 pub use {
-    accumulate::{AccumulateItem, AccumulateParams, CommitmentMap, Operand},
+    accumulate::{AccumulateItems, AccumulateParams, CommitmentMap, Operand},
     refine::RefineParams,
     transfer::DeferredTransfer,
 };

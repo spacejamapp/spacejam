@@ -6,7 +6,7 @@ use pvm::{AccumulateState, Pvm};
 use score::{
     Gas, ServiceId, TimeSlot,
     service::WorkReport,
-    vm::{AccumulateItem, DeferredTransfer},
+    vm::{AccumulateItems, DeferredTransfer},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -92,7 +92,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
 /// (Δ*) parallel accumulation
 pub async fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
-    transfers: &mut Vec<DeferredTransfer>,
+    transfers: &mut [DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
@@ -210,7 +210,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     }
 }
 
-/// (Δ1) single accumulation
+/// (Δ1) single accumulation (12.24)
 pub fn once<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
     transfers: Vec<DeferredTransfer>,
@@ -227,17 +227,17 @@ pub fn once<V: Pvm, R: Accounts>(
             .map(|result| result.accumulate_gas)
             .sum::<Gas>();
 
-    // TODO: recheck this, shall we flat map the operands?
-    let items = reports
-        .iter()
-        .map(|r| AccumulateItem {
-            operands: r.operands(service),
-            transfers: transfers
-                .iter()
-                .filter(|t| t.recipient == service)
-                .cloned()
-                .collect(),
-        })
-        .collect::<Vec<_>>();
+    let mut items = AccumulateItems::default();
+    for report in reports {
+        items.operands.extend(report.operands(service));
+    }
+    items.transfers.extend(
+        transfers
+            .iter()
+            .filter(|t| t.recipient == service)
+            .cloned()
+            .collect::<Vec<_>>(),
+    );
+
     V::accumulate(context, timeslot, service, gas, items)
 }

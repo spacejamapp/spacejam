@@ -61,11 +61,23 @@ pub struct Operand {
 /// An item of the accumulation
 ///
 /// reference per GP (12.23)
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AccumulateItem {
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct AccumulateItems {
     /// The deferred transfers (12.14)
     pub transfers: Vec<DeferredTransfer>,
 
     /// The operands (12.13)
     pub operands: Vec<Operand>,
+}
+
+impl AccumulateItems {
+    /// Get the length of the items
+    pub fn len(&self) -> usize {
+        self.transfers.len() + self.operands.len()
+    }
+
+    /// Check if the items are empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }

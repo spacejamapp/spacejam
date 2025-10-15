@@ -5,7 +5,7 @@ use account::{Account, Accounts};
 use score::{
     safrole::{ValidatorData, ValidatorsData},
     service::Privileges,
-    vm::{AccumulateItem, DeferredTransfer},
+    vm::{AccumulateItems, DeferredTransfer},
     EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ pub struct Accumulate<R: Accounts> {
     pub entropy: [u8; 32],
 
     /// (i) The accumulate items
-    pub items: Vec<AccumulateItem>,
+    pub items: AccumulateItems,
 }
 
 impl<R: Accounts> Accumulate<R> {
@@ -70,7 +70,7 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.index
     }
 
-    fn items(&self) -> &[AccumulateItem] {
+    fn items(&self) -> &AccumulateItems {
         &self.items
     }
 
@@ -160,7 +160,7 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(self, timeslot: TimeSlot, items: Vec<AccumulateItem>) -> Accumulate<R> {
+    pub fn accumulate(self, timeslot: TimeSlot, items: AccumulateItems) -> Accumulate<R> {
         let entropy = self.context.entropy[0];
         Accumulate {
             y: self.clone(),

@@ -5,7 +5,7 @@ use account::{Account, Accounts};
 pub use accumulate::AccumulateState;
 use score::{
     service::{Refined, WorkExecResult, WorkPackage},
-    vm::{AccumulateItem, AccumulateParams, DeferredTransfer, RefineParams},
+    vm::{AccumulateItems, AccumulateParams, DeferredTransfer, RefineParams},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 pub use {
@@ -200,7 +200,7 @@ pub trait Invocation {
         // (N_g)  the gas limit for the current operation
         gas: Gas,
         // (i)  the accumulation operands
-        items: Vec<AccumulateItem>,
+        items: AccumulateItems,
     ) -> Accumulated<R> {
         let Some(code_hash) = context.code_hash(service) else {
             tracing::warn!("no code hash found for service: {}", service);

@@ -5,7 +5,7 @@ use anyhow::Result;
 use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
-    vm::{AccumulateItem, DeferredTransfer},
+    vm::{AccumulateItems, DeferredTransfer},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
@@ -63,7 +63,7 @@ pub trait Argument: Send + Sync {
     }
 
     /// Get the accumulate items
-    fn items(&self) -> &[AccumulateItem] {
+    fn items(&self) -> &AccumulateItems {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
