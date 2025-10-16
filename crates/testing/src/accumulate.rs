@@ -62,11 +62,15 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         output.post_state.accumulated
     );
     assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-    for (idx, account) in accounts.iter().enumerate() {
-        assert_eq!(
-            account.data.service.total, output.post_state.accounts[idx].data.service.total,
-            "total storage octets mismatch"
-        );
+    let paccounts = output.post_state.haccounts();
+    for i in 0..accounts.len() {
+        let left = &accounts[i];
+        let right = &paccounts[i];
+        assert_eq!(left.id, right.id);
+        assert_eq!(left.data.service, right.data.service);
+        assert_eq!(left.data.storage, right.data.storage);
+        assert_eq!(left.data.preimages_status, right.data.preimages_status);
+        assert_eq!(left.data.preimages, right.data.preimages);
     }
     assert_eq!(accounts, output.post_state.haccounts());
     assert_eq!(accumulation.privileges, output.post_state.privileges.into());
@@ -157,8 +161,8 @@ mod types {
                     continue;
                 }
 
-                let mut account = account.clone();
-                let blob = other
+                let account = account.clone();
+                /* let blob = other
                     .preimage
                     .get(&account.info.code)
                     .cloned()
@@ -166,7 +170,7 @@ mod types {
                 account
                     .lookup
                     .insert((account.info.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.info.code, blob);
+                account.preimage.insert(account.info.code, blob); */
 
                 let mut item: ServiceItem = ServiceItem {
                     id: *id,
