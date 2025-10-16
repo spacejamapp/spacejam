@@ -29,7 +29,7 @@ pub struct AccumulateParams {
 /// NOTE: we are currently following the order of jam-types instead
 /// of graypaper.
 ///
-/// defined per GP (12.13)
+/// defined per GP (12.13), (C.32) for the order.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operand {
     /// (p) The hash of the work package
@@ -50,34 +50,34 @@ pub struct Operand {
     #[serde(with = "codec::compact")]
     pub gas: Gas,
 
+    /// (l) The work execution result
+    pub data: WorkExecResult,
+
     /// (t) The output of the Is-Authorized logic which authorized the execution
     /// of the work-package which generated this result.
     pub auth_output: Vec<u8>,
-
-    /// (l) The work execution result
-    pub data: WorkExecResult,
 }
 
 /// An item of the accumulation
 ///
-/// reference per GP (12.23)
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct AccumulateItems {
-    /// The deferred transfers (12.14)
-    pub transfers: Vec<DeferredTransfer>,
+/// reference per GP (C.33)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AccumulateItem {
+    /// The operands (12.13) + (C.32)
+    Operand(Operand),
 
-    /// The operands (12.13)
-    pub operands: Vec<Operand>,
+    /// The deferred transfers (12.14) + (C.31)
+    Transfer(DeferredTransfer),
 }
 
-impl AccumulateItems {
-    /// Get the length of the items
-    pub fn len(&self) -> usize {
-        self.transfers.len() + self.operands.len()
+impl From<Operand> for AccumulateItem {
+    fn from(operand: Operand) -> Self {
+        AccumulateItem::Operand(operand)
     }
+}
 
-    /// Check if the items are empty
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+impl From<DeferredTransfer> for AccumulateItem {
+    fn from(transfer: DeferredTransfer) -> Self {
+        AccumulateItem::Transfer(transfer)
     }
 }

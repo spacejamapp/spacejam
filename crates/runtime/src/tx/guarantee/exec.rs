@@ -6,7 +6,7 @@ use pvm::{AccumulateState, Pvm};
 use score::{
     Gas, ServiceId, TimeSlot,
     service::WorkReport,
-    vm::{AccumulateItems, DeferredTransfer},
+    vm::{AccumulateItem, DeferredTransfer},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -227,16 +227,21 @@ pub fn once<V: Pvm, R: Accounts>(
             .map(|result| result.accumulate_gas)
             .sum::<Gas>();
 
-    let mut items = AccumulateItems::default();
+    let mut items = Vec::new();
     for report in reports {
-        items.operands.extend(report.operands(service));
+        items.extend(
+            report
+                .operands(service)
+                .into_iter()
+                .map(AccumulateItem::from),
+        );
     }
-    items.transfers.extend(
+    items.extend(
         transfers
             .iter()
             .filter(|t| t.recipient == service)
             .cloned()
-            .collect::<Vec<_>>(),
+            .map(AccumulateItem::from),
     );
 
     V::accumulate(context, timeslot, service, gas, items)

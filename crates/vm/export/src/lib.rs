@@ -3,7 +3,7 @@
 use pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData};
 use score::{
     svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs},
-    vm::AccumulateItems,
+    vm::AccumulateItem,
 };
 
 mod comp;
@@ -80,10 +80,10 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
         args.timeslot,
         args.service,
         args.gas,
-        AccumulateItems {
-            operands: args.operands,
-            transfers: vec![],
-        },
+        args.operands
+            .into_iter()
+            .map(AccumulateItem::from)
+            .collect(),
     );
 
     let output = Accumulated {

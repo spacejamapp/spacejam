@@ -51,7 +51,11 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
 
     // convert the accounts to the service items
     let accounts = self::to_accounts(&accumulation);
-    // assert_eq!(accumulation.records, output.post_state.statistics());
+    /* assert_eq!(
+        accumulation.records,
+        output.post_state.statistics(),
+        "statistics mismatch"
+    ); */
     assert_eq!(accumulation.root, output.output.unwrap());
     assert_eq!(
         accumulation.accumulated_queue,
@@ -60,8 +64,8 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
     for (idx, account) in accounts.iter().enumerate() {
         assert_eq!(
-            account.data.service.total,
-            output.post_state.accounts[idx].data.service.total
+            account.data.service.total, output.post_state.accounts[idx].data.service.total,
+            "total storage octets mismatch"
         );
     }
     assert_eq!(accounts, output.post_state.haccounts());

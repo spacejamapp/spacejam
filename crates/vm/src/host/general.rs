@@ -5,7 +5,7 @@ use crate::{
     Argument, Result,
 };
 use account::Account;
-use score::Parameters;
+use score::{vm::AccumulateItem, Parameters};
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
@@ -22,10 +22,15 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         15 => {
             let items = ctx.items();
             let index = ctx.rget(11);
-            if let Some(transfer) = items.transfers.get(index as usize) {
-                codec::encode(transfer).expect("should not fail")
-            } else if let Some(operand) = items.operands.get(index as usize) {
-                codec::encode(operand).expect("should not fail")
+            if let Some(item) = items.get(index as usize) {
+                match item {
+                    AccumulateItem::Transfer(transfer) => {
+                        codec::encode(transfer).expect("should not fail")
+                    }
+                    AccumulateItem::Operand(operand) => {
+                        codec::encode(operand).expect("should not fail")
+                    }
+                }
             } else {
                 Default::default()
             }
