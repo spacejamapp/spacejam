@@ -13,14 +13,12 @@ pub use {
     authorize::IsAuthorized,
     general::General,
     refine::Refine,
-    transfer::Transferred,
 };
 
 pub mod accumulate;
 mod authorize;
 mod general;
 pub mod refine;
-pub mod transfer;
 
 /// The invocation Interface of PVM
 pub trait Invocation {
