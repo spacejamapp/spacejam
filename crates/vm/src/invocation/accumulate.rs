@@ -86,6 +86,10 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.context.accounts.remove(service);
     }
 
+    fn is_removed(&self, index: u32) -> bool {
+        self.x.context.accounts.is_removed(index)
+    }
+
     fn service(&self) -> ServiceId {
         self.x.service
     }

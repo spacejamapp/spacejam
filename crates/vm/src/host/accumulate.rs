@@ -228,6 +228,11 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         gas_limit: limit,
     };
 
+    // check if the recipient is removed
+    if ctx.is_removed(dest as u32) {
+        return Ok(Exit::Who as u64);
+    }
+
     // check if the sender has enough balance
     let sender = ctx.this()?;
     let balance = sender.balance();

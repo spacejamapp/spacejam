@@ -99,6 +99,10 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.remove(service)
     }
 
+    fn is_removed(&self, index: u32) -> bool {
+        self.ctx.is_removed(index)
+    }
+
     fn service(&self) -> ServiceId {
         self.ctx.service()
     }

@@ -105,6 +105,11 @@ pub trait Argument: Send + Sync {
         unimplemented!("make sure you are invoking the accumulation interface: service={service}")
     }
 
+    /// Check if an account is removed
+    fn is_removed(&self, index: u32) -> bool {
+        unimplemented!("make sure you are invoking the accumulation interface: index={index}")
+    }
+
     /// The sbrk instruction
     fn sbrk(&mut self, target: u8, increment: u8) {
         let increment = self.rget(increment);
