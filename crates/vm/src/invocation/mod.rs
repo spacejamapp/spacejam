@@ -5,7 +5,7 @@ use account::{Account, Accounts};
 pub use accumulate::AccumulateState;
 use score::{
     service::{Refined, WorkExecResult, WorkPackage},
-    vm::{AccumulateItem, AccumulateParams, DeferredTransfer, RefineParams},
+    vm::{AccumulateItem, AccumulateParams, RefineParams},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 pub use {
@@ -238,45 +238,6 @@ pub trait Invocation {
         }
 
         result.to_result()
-    }
-
-    /// (ΨT): on-transfer invocation
-    ///
-    /// Defined per graypaper (B.15)
-    fn transfer<R: Accounts>(
-        // (δ) The account storage
-        mut accounts: R,
-        // (N_t)  timeslot for the current accumulation
-        slot: TimeSlot,
-        // (N_s)  the service id of the caller
-        service: ServiceId,
-        // (T)  the deferred transfers
-        transfers: &[DeferredTransfer],
-    ) -> Transferred {
-        let Some(account) = accounts.get(service) else {
-            tracing::warn!("no account found for service: {}", service);
-            return Transferred::default();
-        };
-
-        let Some(code) = account.blob() else {
-            return Transferred::default();
-        };
-
-        let code_hash = account.code();
-        let code = code.clone();
-        let gas = transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
-
-        // Note: Balance update happens in defer_transfers, not here
-        // according to Gray Paper the transfer invocation executes the recipient's
-        // transfer handler but doesn't modify the balance directly
-        let updated_account = account.account();
-        let general = General::new(service, accounts, Vec::new(), Default::default());
-        let input = codec::encode(&(slot, service, transfers)).expect("failed to encode");
-        let received = Self::invoke2(general, code_hash, code, input, gas, 10);
-        Transferred {
-            account: updated_account,
-            gas: received.gas,
-        }
     }
 
     /// (Ψ): the general PVM invocation

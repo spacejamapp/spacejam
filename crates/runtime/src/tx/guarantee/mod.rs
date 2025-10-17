@@ -1,7 +1,7 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 pub use acc::Accumulation;
-use account::{Account, Accounts};
+use account::Accounts;
 use error::{Error, Result};
 use pvm::{AccumulateState, Pvm};
 use score::{
@@ -242,7 +242,9 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
     // The current timeslot (τ')
     slot: TimeSlot,
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
-    let mut statistics = BTreeMap::new();
+    let _ = (accounts, transfers, slot);
+    Default::default()
+    /* let mut statistics = BTreeMap::new();
     let services: Vec<ServiceId> = accounts.services();
     for dest_service in services {
         let selected_transfers = DeferredTransfer::select(transfers, dest_service);
@@ -265,7 +267,7 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
         );
     }
 
-    statistics
+    statistics */
 }
 
 /// (p of β') Report the work packages
