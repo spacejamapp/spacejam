@@ -1,6 +1,8 @@
 //! Primitives for the accumulate invocation
 
-use crate::{BTreeMap, Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult};
+use crate::{
+    BTreeMap, Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult, vm::DeferredTransfer,
+};
 use serde::{Deserialize, Serialize};
 
 /// The commitment map
@@ -27,7 +29,7 @@ pub struct AccumulateParams {
 /// NOTE: we are currently following the order of jam-types instead
 /// of graypaper.
 ///
-/// defined per GP (12.19)
+/// defined per GP (12.13), (C.32) for the order.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Operand {
     /// (p) The hash of the work package
@@ -44,15 +46,38 @@ pub struct Operand {
     /// (y) The payload blob hash
     pub payload: OpaqueHash,
 
-    // JAM_TYPES currently does not include this field
     /// (g) The accumulate gas
     #[serde(with = "codec::compact")]
     pub gas: Gas,
 
-    /// (d) The work execution result
+    /// (l) The work execution result
     pub data: WorkExecResult,
 
-    /// (o) The output of the Is-Authorized logic which authorized the execution
+    /// (t) The output of the Is-Authorized logic which authorized the execution
     /// of the work-package which generated this result.
     pub auth_output: Vec<u8>,
+}
+
+/// An item of the accumulation
+///
+/// reference per GP (C.33)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AccumulateItem {
+    /// The operands (12.13) + (C.32)
+    Operand(Operand),
+
+    /// The deferred transfers (12.14) + (C.31)
+    Transfer(DeferredTransfer),
+}
+
+impl From<Operand> for AccumulateItem {
+    fn from(operand: Operand) -> Self {
+        AccumulateItem::Operand(operand)
+    }
+}
+
+impl From<DeferredTransfer> for AccumulateItem {
+    fn from(transfer: DeferredTransfer) -> Self {
+        AccumulateItem::Transfer(transfer)
+    }
 }

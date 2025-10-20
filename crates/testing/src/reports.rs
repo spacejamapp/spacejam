@@ -194,6 +194,7 @@ mod types {
                         data: ServiceAccountData {
                             service: service.state(),
                             preimages: vec![],
+                            preimages_status: vec![],
                             storage: vec![],
                         },
                     })
@@ -223,7 +224,14 @@ mod types {
         /// (a_p) The preimages
         #[serde(default)]
         #[json(nested)]
+        #[serde(alias = "preimages_blob")]
         pub preimages: Vec<ServicePreimage>,
+
+        /// The preimage status
+        #[serde(default)]
+        #[json(nested)]
+        #[serde(alias = "preimages_status")]
+        pub preimages_status: Vec<ServicePreimageStatus>,
 
         /// The storage
         #[serde(default)]
@@ -244,6 +252,14 @@ mod types {
                         blob: v.to_vec(),
                     })
                     .collect(),
+                preimages_status: account
+                    .lookup
+                    .iter()
+                    .map(|(k, v)| ServicePreimageStatus {
+                        hash: k.0,
+                        status: if v.is_empty() { vec![0] } else { v.to_vec() },
+                    })
+                    .collect(),
                 storage: account
                     .storage
                     .iter()
@@ -261,10 +277,15 @@ mod types {
             let data = item.data;
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
-                lookup.insert(
-                    (preimage.hash, preimage.blob.len() as u32),
-                    Default::default(),
-                );
+                let mut slots = Default::default();
+                if let Some(status) = data
+                    .preimages_status
+                    .iter()
+                    .find(|s| s.hash == preimage.hash)
+                {
+                    slots = status.status.clone();
+                }
+                lookup.insert((preimage.hash, preimage.blob.len() as u32), slots);
             }
 
             ServiceAccount {
@@ -291,6 +312,17 @@ mod types {
         /// The blob of the preimage
         #[json(hex)]
         pub blob: Vec<u8>,
+    }
+
+    /// Represents a service preimage.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct ServicePreimageStatus {
+        /// The hash of the preimage
+        #[json(hex)]
+        pub hash: OpaqueHash,
+
+        /// The status of the preimage
+        pub status: Vec<u32>,
     }
 
     /// Represents a service storage.

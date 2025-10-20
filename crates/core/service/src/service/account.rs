@@ -54,6 +54,9 @@ impl ServiceAccount {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 #[cfg_attr(feature = "json", derive(Json))]
 pub struct ServiceInfo {
+    /// The version of the service account (v)
+    pub version: u8,
+
     /// The code hash of the service account (c)
     #[cfg_attr(feature = "json", json(hex))]
     #[serde(alias = "code_hash")]

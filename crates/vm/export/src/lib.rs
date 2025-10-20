@@ -1,7 +1,10 @@
 //! SpaceVM exports
 
 use pvm::{AccumulateState, Invocation, Reason, codec, score, score::safrole::ValidatorData};
-use score::svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs};
+use score::{
+    svc::api::{self, AccumulateArgs, Accumulated, AuthorizeArgs, RefineArgs},
+    vm::AccumulateItem,
+};
 
 mod comp;
 mod interp;
@@ -70,12 +73,17 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
         privileges: args.context.privileges,
         entropy: args.context.entropy,
     };
+
+    // TODO: handle accumulate items
     let accumulated = VM::accumulate(
         context,
         args.timeslot,
         args.service,
         args.gas,
-        args.operands,
+        args.operands
+            .into_iter()
+            .map(AccumulateItem::from)
+            .collect(),
     );
 
     let output = Accumulated {

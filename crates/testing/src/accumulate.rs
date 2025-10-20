@@ -20,7 +20,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
 
     // run the accumulate function
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
-    let mut accumulation = if use_compiler {
+    let accumulation = if use_compiler {
         tx::guarantee::accumulate::<spacevm::Compiler, _>(
             input.input.slot,
             input.pre_state.slot,
@@ -47,22 +47,38 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         )
         .await?
     };
-    accumulation.root = Default::default();
 
     // convert the accounts to the service items
     let accounts = self::to_accounts(&accumulation);
-    // assert_eq!(accumulation.records, output.post_state.statistics());
+    /* assert_eq!(
+        accumulation.records,
+        output.post_state.statistics(),
+        "statistics mismatch"
+    ); */
     assert_eq!(accumulation.root, output.output.unwrap());
     assert_eq!(
         accumulation.accumulated_queue,
         output.post_state.accumulated
     );
     assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
-    for (idx, account) in accounts.iter().enumerate() {
+    let paccounts = output.post_state.haccounts();
+    assert_eq!(
+        accounts.iter().map(|a| a.id).collect::<Vec<_>>(),
+        paccounts.iter().map(|a| a.id).collect::<Vec<_>>(),
+        "account length mismatch"
+    );
+    for i in 0..accounts.len() {
+        let left = &accounts[i];
+        let right = &paccounts[i];
+        assert_eq!(left.id, right.id);
         assert_eq!(
-            account.data.service.total,
-            output.post_state.accounts[idx].data.service.total
+            left.data.service, right.data.service,
+            "service id ={}",
+            left.id
         );
+        assert_eq!(left.data.storage, right.data.storage);
+        assert_eq!(left.data.preimages_status, right.data.preimages_status);
+        assert_eq!(left.data.preimages, right.data.preimages);
     }
     assert_eq!(accounts, output.post_state.haccounts());
     assert_eq!(accumulation.privileges, output.post_state.privileges.into());
@@ -136,42 +152,10 @@ mod types {
         let accounts = accumulation.accounts.accounts();
         for (id, account) in accounts.iter() {
             let account = account.account();
-            if account.preimage.contains_key(&account.info.code) {
-                items.push(ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                });
-
-                continue;
-            }
-
-            for other in accounts.values() {
-                let other = other.account();
-                if other.info.code != account.info.code
-                    || !other.preimage.contains_key(&account.info.code)
-                {
-                    continue;
-                }
-
-                let mut account = account.clone();
-                let blob = other
-                    .preimage
-                    .get(&account.info.code)
-                    .cloned()
-                    .unwrap_or_default();
-                account
-                    .lookup
-                    .insert((account.info.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.info.code, blob);
-
-                let mut item: ServiceItem = ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                };
-
-                item.data.preimages.retain(|k| k.hash != account.info.code);
-                items.push(item);
-            }
+            items.push(ServiceItem {
+                id: *id,
+                data: (&account).into(),
+            });
         }
         items
     }
@@ -255,12 +239,15 @@ mod types {
         /// The bless service id
         pub bless: ServiceId,
 
-        /// The designate service id
-        pub designate: ServiceId,
-
         /// The assign service id
         #[json(Vec<ServiceId>)]
         pub assign: [ServiceId; score::CORES_COUNT],
+
+        /// The designate service id
+        pub designate: ServiceId,
+
+        /// The registrar service id
+        pub register: ServiceId,
 
         /// The always accumulate service ids
         #[json(nested)]
@@ -272,6 +259,7 @@ mod types {
             Privileges {
                 bless: value.bless,
                 designate: value.designate,
+                register: value.register,
                 assign: value.assign,
                 always_acc: value
                     .always_acc
@@ -287,6 +275,7 @@ mod types {
             PrivilegesWrap {
                 bless: value.bless,
                 designate: value.designate,
+                register: value.register,
                 assign: value.assign,
                 always_acc: value
                     .always_acc

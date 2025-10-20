@@ -5,7 +5,7 @@ use crate::{
     Argument, Result,
 };
 use account::Account;
-use score::Parameters;
+use score::{vm::AccumulateItem, Parameters};
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
@@ -18,12 +18,19 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => codec::encode(&ctx.operands()).expect("should not fail"),
+        14 => codec::encode(&ctx.items()).expect("should not fail"),
         15 => {
-            let operands = ctx.operands();
+            let items = ctx.items();
             let index = ctx.rget(11);
-            if let Some(operand) = operands.get(index as usize) {
-                codec::encode(operand).expect("should not fail")
+            if let Some(item) = items.get(index as usize) {
+                match item {
+                    AccumulateItem::Transfer(transfer) => {
+                        codec::encode(transfer).expect("should not fail")
+                    }
+                    AccumulateItem::Operand(operand) => {
+                        codec::encode(operand).expect("should not fail")
+                    }
+                }
             } else {
                 Default::default()
             }
@@ -33,6 +40,8 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         }
     };
+
+    tracing::debug!("fetch kind: {:?}", kind);
 
     let vlen = value.len() as u64;
     let out = ctx.rget(7);

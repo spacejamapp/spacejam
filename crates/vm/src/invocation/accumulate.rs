@@ -5,7 +5,7 @@ use account::{Account, Accounts};
 use score::{
     safrole::{ValidatorData, ValidatorsData},
     service::Privileges,
-    vm::{DeferredTransfer, Operand},
+    vm::{AccumulateItem, DeferredTransfer},
     EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 use serde::{Deserialize, Serialize};
@@ -24,8 +24,8 @@ pub struct Accumulate<R: Accounts> {
     /// (η′0) The entropy
     pub entropy: [u8; 32],
 
-    /// (o) The operands
-    pub operands: Vec<Operand>,
+    /// (i) The accumulate items
+    pub items: Vec<AccumulateItem>,
 }
 
 impl<R: Accounts> Accumulate<R> {
@@ -70,8 +70,8 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.index
     }
 
-    fn operands(&self) -> &[Operand] {
-        &self.operands
+    fn items(&self) -> &[AccumulateItem] {
+        &self.items
     }
 
     fn output(&mut self, hash: OpaqueHash) {
@@ -84,6 +84,10 @@ impl<R: Accounts> Argument for Accumulate<R> {
 
     fn remove(&mut self, service: ServiceId) {
         self.x.context.accounts.remove(service);
+    }
+
+    fn is_removed(&self, index: u32) -> bool {
+        self.x.context.accounts.is_removed(index)
     }
 
     fn service(&self) -> ServiceId {
@@ -160,14 +164,14 @@ impl<R: Accounts> AccumulateContext<R> {
     }
 
     /// Convert the accumulate context to an accumulate
-    pub fn accumulate(self, timeslot: TimeSlot, operands: Vec<Operand>) -> Accumulate<R> {
+    pub fn accumulate(self, timeslot: TimeSlot, items: Vec<AccumulateItem>) -> Accumulate<R> {
         let entropy = self.context.entropy[0];
         Accumulate {
             y: self.clone(),
             x: self,
             timeslot,
             entropy,
-            operands,
+            items,
         }
     }
 

@@ -70,6 +70,10 @@ impl<S: Storage> account::Accounts for Accounts<S> {
         self.removed.insert(index);
     }
 
+    fn is_removed(&self, index: u32) -> bool {
+        self.removed.contains(&index)
+    }
+
     fn services(&self) -> Vec<u32> {
         self.accounts.keys().cloned().collect()
     }

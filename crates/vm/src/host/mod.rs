@@ -15,9 +15,9 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         return Reason::Continue;
     }
 
-    /* if call != 100 {
+    if call != 100 {
         tracing::debug!("host call: {}", call);
-    } */
+    }
     let reason = match call {
         0 => general::gas(ctx),
         1 => general::fetch(ctx),

@@ -62,17 +62,12 @@ pub const MAX_DEPENDENCY_COUNT: u16 = 8;
 /// (K) The maximum number of tickets which may be submitted in a single extrinsic.
 pub const MAX_TICKETS_PER_EXTRINSIC: u16 = 16;
 
-// /// (L) The maximum age of a lookup anchor (24 hrs)
-// pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD as u32;
-
 /// (L) The maximum age of a lookup anchor (24 hrs)
+// pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24 * 60 * 60 / SLOT_PERIOD as u32;
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24;
 
 /// (N) The number of ticket entries per validator
 pub const TICKET_ENTRIES_PER_VALIDATOR: u16 = 2;
-
-/// (N_Q) The number of items in the authorization queue
-pub const QUEUE_ITEMS: u64 = 80;
 
 /// (O) The maximum number of items in the authorizations pool
 pub const AUTH_WINDOW: u16 = 8;
@@ -81,13 +76,13 @@ pub const AUTH_WINDOW: u16 = 8;
 pub const SLOT_PERIOD: u16 = 6;
 
 /// (Q) The number of items in the authorizations queue
-pub const AUTH_QUEUE_LEN: u16 = 80;
+pub const QUEUE_ITEMS: u16 = 80;
 
 /// (R) The rotation period of validator core assignments, in timeslots.
 pub const ROTATION_PERIOD: u16 = 4;
 
-/// (S) the max entries of in the accumulation queue
-pub const MAX_ACCUMULATION_QUEUE_ENTRIES: u16 = 1024;
+/// (S) the minimum service id
+pub const MINIMUM_SERVICE_ID: ServiceId = 65536; // 2^16
 
 /// (T) The maximum number of extrinsics in a work package
 pub const MAX_EXTRINSICS: u16 = 128;

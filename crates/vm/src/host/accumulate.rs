@@ -14,12 +14,13 @@ use std::collections::BTreeMap;
 
 /// (ΩB) bless
 pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let [bless, assign, designate, acc, entries] = [
+    let [bless, assign, designate, register, acc, entries] = [
         ctx.rget(7),  // m: bless service id
         ctx.rget(8),  // a: memory address of assign array
         ctx.rget(9),  // v: designate service id
-        ctx.rget(10), // o: memory address of always_acc map
-        ctx.rget(11), // n: count of always_acc entries
+        ctx.rget(10), // r: register service id
+        ctx.rget(11), // o: memory address of always_acc map
+        ctx.rget(12), // n: count of always_acc entries
     ];
 
     // Read assign array from memory
@@ -63,6 +64,7 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     // Update privileges: tuple{m, 𝐚, v, 𝐳}
     ctx.set_privileges(Privileges {
         bless: bless as u32,
+        register: register as u32,
         assign,
         designate: designate as u32,
         always_acc,
@@ -218,13 +220,19 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the defer transfer is valid
     let memo = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+    let service = ctx.service();
     let transfer = DeferredTransfer {
-        sender: ctx.service(),
+        sender: service,
         recipient: dest as u32,
         amount,
         memo,
         gas_limit: limit,
     };
+
+    // check if the recipient is removed
+    if ctx.is_removed(dest as u32) {
+        return Ok(Exit::Who as u64);
+    }
 
     // check if the sender has enough balance
     let sender = ctx.this()?;
@@ -238,7 +246,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     let dest = ctx.account(dest)?;
 
     // check if the destination has enough transfer gas
-    if dest.transfer_gas() < limit {
+    if limit < dest.transfer_gas() {
         return Ok(Exit::Low as u64);
     }
 
@@ -259,6 +267,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let service = ctx.service();
     let timeslot = ctx.timeslot();
     let Ok(dest) = ctx.account(dest) else {
+        tracing::debug!("failed to eject: account not found");
         return Ok(Exit::Who as u64);
     };
 
@@ -266,28 +275,32 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let mut code = [0; 32];
     code[..4].copy_from_slice(&service.to_le_bytes());
     if dest.code() != code {
+        tracing::debug!("failed to eject: code mismatch");
         return Ok(Exit::Who as u64);
     }
 
     // check if the look up is valid
     if dest.items() != 2 {
+        tracing::debug!("failed to eject: items mismatch");
         return Ok(Exit::Huh as u64);
     }
     let length = dest.total().saturating_sub(81);
     let Some(lookup) = dest.lookup(hash, length as u32) else {
+        tracing::debug!("failed to eject: lookup not found");
         return Ok(Exit::Huh as u64);
     };
 
     // remove account and add the balance to the parent account
     if lookup.len() == 2 && lookup[1] < timeslot.saturating_sub(score::EXPUNGED_TIME) {
         let balance = dest.balance();
-        let to_remote = dest.index();
+        let to_remove = dest.index();
         let _ = dest;
         *ctx.this()?.balance_mut() += balance;
-        ctx.remove(to_remote);
+        ctx.remove(to_remove);
         return Ok(Exit::Ok as u64);
     }
 
+    tracing::debug!("failed to eject: lookup not expired");
     Ok(Exit::Huh as u64)
 }
 

@@ -1,7 +1,7 @@
 //! Reporting is the process of reporting the results of a work-package to the service state singleton.
 
 pub use acc::Accumulation;
-use account::{Account, Accounts};
+use account::Accounts;
 use error::{Error, Result};
 use pvm::{AccumulateState, Pvm};
 use score::{
@@ -49,10 +49,11 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
 
-    // (Δ+) run outer accumulation
+    // (Δ+) run outer accumulation (12.18)
     let gas_limit = privileges.gas_limit();
     let mut accumulated = exec::outer::<V, R>(
         gas_limit,
+        Default::default(),
         &accumulatable,
         AccumulateState {
             accounts,
@@ -235,36 +236,27 @@ pub fn pools(
 /// (δ‡) Process deferred transfers to transition from δ′ to δ‡
 pub fn defer_transfers<V: Pvm, R: Accounts>(
     // The post-accumulation accounts (δ′)
-    accounts: &mut R,
+    _accounts: &mut R,
     // The deferred transfers (t)
-    transfers: &[DeferredTransfer],
+    _transfers: &[DeferredTransfer],
     // The current timeslot (τ')
-    slot: TimeSlot,
+    _slot: TimeSlot,
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
-    let mut statistics = BTreeMap::new();
-    let services: Vec<ServiceId> = accounts.services();
-    for dest_service in services {
-        let selected_transfers = DeferredTransfer::select(transfers, dest_service);
-        if selected_transfers.is_empty() {
-            continue;
-        }
-
-        let transfer_result =
-            V::transfer(accounts.clone(), slot, dest_service, &selected_transfers);
-        if let Some(existing_account) = accounts.get(dest_service) {
-            let amount: u64 = selected_transfers.iter().map(|t| t.amount).sum();
-            *existing_account.balance_mut() += amount;
+    // tracing::debug!("transfers: {}", transfers.len());
+    /* for transfer in transfers {
+        let mut dest = transfer.recipient;
+        if accounts.is_removed(transfer.recipient) {
+            tracing::debug!("{} is removed", transfer.recipient);
+            dest = transfer.sender;
         } else {
-            accounts.upsert(dest_service, transfer_result.account);
+            tracing::debug!("{} is not removed", transfer.recipient);
         }
 
-        statistics.insert(
-            dest_service,
-            (selected_transfers.len(), transfer_result.gas),
-        );
-    }
-
-    statistics
+        if let Some(dest) = accounts.get(dest) {
+            *dest.balance_mut() += transfer.amount;
+        }
+    } */
+    Default::default()
 }
 
 /// (p of β') Report the work packages

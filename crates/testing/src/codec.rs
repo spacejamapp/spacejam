@@ -10,7 +10,7 @@ use score::{
         AvailAssurance, Preimage, ReportGuarantee, dispute::DisputesExtrinsic,
         ticket::TicketEnvelope,
     },
-    service::{RefineContext, WorkItem, WorkPackage, WorkReport, WorkResult},
+    service::{RefineContext, WorkDigest, WorkItem, WorkPackage, WorkReport},
 };
 use specjam::Registry;
 use std::path::PathBuf;
@@ -68,8 +68,8 @@ impl_codec_tests! {
     (work_item, WorkItem),
     (work_package, WorkPackage),
     (work_report, WorkReport),
-    (work_result_0, WorkResult),
-    (work_result_1, WorkResult)
+    (work_result_0, WorkDigest),
+    (work_result_1, WorkDigest)
 
     @ex
     (assurances_extrinsic, AvailAssurance),

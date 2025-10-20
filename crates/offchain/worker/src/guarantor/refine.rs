@@ -8,7 +8,7 @@ use anyhow::Result;
 use pvm::Pvm;
 use score::{
     CoreIndex, OpaqueHash, Segment, TimeSlot,
-    service::{RefineLoad, WorkExecResult, WorkPackage, WorkReport, WorkResult},
+    service::{RefineLoad, WorkDigest, WorkExecResult, WorkPackage, WorkReport},
 };
 
 /// Refine the work package
@@ -125,7 +125,7 @@ pub async fn refine_single<R: Accounts, VM: Pvm>(
     export_offset: u16,
     all_imports: &[Vec<Segment>],
     auth_output: &[u8],
-) -> Result<(WorkResult, Vec<Segment>)> {
+) -> Result<(WorkDigest, Vec<Segment>)> {
     let item = &package.items[item_index];
 
     // Execute Refine invocation (Ψ_R)
@@ -152,7 +152,7 @@ pub async fn refine_single<R: Accounts, VM: Pvm>(
     };
 
     // Create work result with load metrics
-    let work_result = WorkResult {
+    let work_result = WorkDigest {
         service_id: item.service,
         code_hash: item.code_hash,
         payload_hash: crypto::blake2b(&item.payload),

@@ -3,7 +3,7 @@
 use crate::{Gas, ServiceId, Vec};
 use serde::{Deserialize, Serialize};
 
-/// A deferred transfer item
+/// (12.14) A deferred transfer item
 #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
 pub struct DeferredTransfer {
     /// (s) The sender

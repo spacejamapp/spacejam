@@ -5,7 +5,7 @@ use anyhow::Result;
 use score::{
     safrole::ValidatorData,
     service::Privileges,
-    vm::{DeferredTransfer, Operand},
+    vm::{AccumulateItem, DeferredTransfer},
     Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
 };
 pub use {
@@ -71,8 +71,8 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.index()
     }
 
-    fn operands(&self) -> &[Operand] {
-        self.ctx.operands()
+    fn items(&self) -> &[AccumulateItem] {
+        self.ctx.items()
     }
 
     fn or_this(&mut self, account: u64) -> Result<&mut impl Account> {
@@ -97,6 +97,10 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
 
     fn remove(&mut self, service: ServiceId) {
         self.ctx.remove(service)
+    }
+
+    fn is_removed(&self, index: u32) -> bool {
+        self.ctx.is_removed(index)
     }
 
     fn service(&self) -> ServiceId {

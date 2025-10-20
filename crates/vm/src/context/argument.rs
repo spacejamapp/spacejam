@@ -5,7 +5,7 @@ use anyhow::Result;
 use score::{
     safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
-    vm::{DeferredTransfer, Operand},
+    vm::{AccumulateItem, DeferredTransfer},
     Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 
@@ -62,8 +62,8 @@ pub trait Argument: Send + Sync {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
-    /// Get the operands
-    fn operands(&self) -> &[Operand] {
+    /// Get the accumulate items
+    fn items(&self) -> &[AccumulateItem] {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
@@ -103,6 +103,11 @@ pub trait Argument: Send + Sync {
     /// Remove an account
     fn remove(&mut self, service: ServiceId) {
         unimplemented!("make sure you are invoking the accumulation interface: service={service}")
+    }
+
+    /// Check if an account is removed
+    fn is_removed(&self, index: u32) -> bool {
+        unimplemented!("make sure you are invoking the accumulation interface: index={index}")
     }
 
     /// The sbrk instruction

@@ -34,27 +34,27 @@ pub struct RefineContext {
     pub prerequisites: Vec<OpaqueHash>,
 }
 
-/// The refine load
+/// (11.6) The refine load
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "json", derive(Json))]
 pub struct RefineLoad {
-    /// The gas used
+    /// (u) The gas used
     #[serde(with = "codec::compact")]
     pub gas_used: u64,
 
-    /// The number of imports
+    /// (i) The number of imports
     #[serde(with = "codec::compact")]
     pub imports: u16,
 
-    /// The number of extrinsics
+    /// (x) The number of extrinsics
     #[serde(with = "codec::compact")]
     pub extrinsic_count: u16,
 
-    /// The size of the extrinsics
+    /// (z) The size of the extrinsics
     #[serde(with = "codec::compact")]
     pub extrinsic_size: u32,
 
-    /// The number of exports
+    /// (e) The number of exports
     #[serde(with = "codec::compact")]
     pub exports: u16,
 }

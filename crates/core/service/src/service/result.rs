@@ -10,29 +10,29 @@ use {crate::String, crate::service::RefineLoadJson, spacejson::Json};
 #[cfg(feature = "json")]
 pub use json::WorkExecResultJson;
 
-/// Represents the result of a work item.
+/// (11.6) Represents the result of a work item.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "json", derive(Json))]
-pub struct WorkResult {
-    /// The service id
+pub struct WorkDigest {
+    /// (s) The service id
     pub service_id: ServiceId,
 
-    /// The code hash
+    /// (c) The code hash
     #[cfg_attr(feature = "json", json(hex))]
     pub code_hash: OpaqueHash,
 
-    /// The payload hash
+    /// (y) The payload hash
     #[cfg_attr(feature = "json", json(hex))]
     pub payload_hash: OpaqueHash,
 
-    /// The accumulate gas
+    /// (g) The accumulate gas
     pub accumulate_gas: Gas,
 
-    /// The result of the work item
+    /// (l) The result of the work item
     #[cfg_attr(feature = "json", json(nested))]
     pub result: WorkExecResult,
 
-    /// The refine load
+    /// (u, i, x, z, e) The refine load
     #[cfg_attr(feature = "json", json(nested))]
     pub refine_load: RefineLoad,
 }
