@@ -277,10 +277,15 @@ mod types {
             let data = item.data;
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
-                lookup.insert(
-                    (preimage.hash, preimage.blob.len() as u32),
-                    Default::default(),
-                );
+                let mut slots = Default::default();
+                if let Some(status) = data
+                    .preimages_status
+                    .iter()
+                    .find(|s| s.hash == preimage.hash)
+                {
+                    slots = status.status.clone();
+                }
+                lookup.insert((preimage.hash, preimage.blob.len() as u32), slots);
             }
 
             ServiceAccount {

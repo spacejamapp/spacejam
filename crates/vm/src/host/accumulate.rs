@@ -220,8 +220,9 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the defer transfer is valid
     let memo = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+    let service = ctx.service();
     let transfer = DeferredTransfer {
-        sender: ctx.service(),
+        sender: service,
         recipient: dest as u32,
         amount,
         memo,
@@ -231,6 +232,8 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the recipient is removed
     if ctx.is_removed(dest as u32) {
         return Ok(Exit::Who as u64);
+    } else {
+        tracing::debug!("service={service} recipient is not removed: {}", dest);
     }
 
     // check if the sender has enough balance
@@ -266,6 +269,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let service = ctx.service();
     let timeslot = ctx.timeslot();
     let Ok(dest) = ctx.account(dest) else {
+        tracing::debug!("failed to eject: account not found");
         return Ok(Exit::Who as u64);
     };
 
@@ -273,28 +277,37 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let mut code = [0; 32];
     code[..4].copy_from_slice(&service.to_le_bytes());
     if dest.code() != code {
+        tracing::debug!("failed to eject: code mismatch");
         return Ok(Exit::Who as u64);
     }
 
     // check if the look up is valid
     if dest.items() != 2 {
+        tracing::debug!("failed to eject: items mismatch");
         return Ok(Exit::Huh as u64);
     }
     let length = dest.total().saturating_sub(81);
     let Some(lookup) = dest.lookup(hash, length as u32) else {
+        tracing::debug!("failed to eject: lookup not found");
         return Ok(Exit::Huh as u64);
     };
 
     // remove account and add the balance to the parent account
+    tracing::debug!(
+        "service={service} ejecting account({}): lookup={:?}",
+        dest.index(),
+        lookup
+    );
     if lookup.len() == 2 && lookup[1] < timeslot.saturating_sub(score::EXPUNGED_TIME) {
         let balance = dest.balance();
-        let to_remote = dest.index();
+        let to_remove = dest.index();
         let _ = dest;
         *ctx.this()?.balance_mut() += balance;
-        ctx.remove(to_remote);
+        ctx.remove(to_remove);
         return Ok(Exit::Ok as u64);
     }
 
+    tracing::debug!("failed to eject: lookup not expired");
     Ok(Exit::Huh as u64)
 }
 
