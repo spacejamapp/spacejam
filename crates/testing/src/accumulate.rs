@@ -20,7 +20,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
 
     // run the accumulate function
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
-    let mut accumulation = if use_compiler {
+    let accumulation = if use_compiler {
         tx::guarantee::accumulate::<spacevm::Compiler, _>(
             input.input.slot,
             input.pre_state.slot,
@@ -47,7 +47,6 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         )
         .await?
     };
-    accumulation.root = Default::default();
 
     // convert the accounts to the service items
     let accounts = self::to_accounts(&accumulation);
