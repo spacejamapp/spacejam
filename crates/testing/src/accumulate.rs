@@ -63,6 +63,11 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     );
     assert_eq!(accumulation.ready_queue, output.post_state.ready_queue);
     let paccounts = output.post_state.haccounts();
+    assert_eq!(
+        accounts.iter().map(|a| a.id).collect::<Vec<_>>(),
+        paccounts.iter().map(|a| a.id).collect::<Vec<_>>(),
+        "account length mismatch"
+    );
     for i in 0..accounts.len() {
         let left = &accounts[i];
         let right = &paccounts[i];
@@ -148,42 +153,10 @@ mod types {
         let accounts = accumulation.accounts.accounts();
         for (id, account) in accounts.iter() {
             let account = account.account();
-            if account.preimage.contains_key(&account.info.code) {
-                items.push(ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                });
-
-                continue;
-            }
-
-            for other in accounts.values() {
-                let other = other.account();
-                if other.info.code != account.info.code
-                    || !other.preimage.contains_key(&account.info.code)
-                {
-                    continue;
-                }
-
-                let account = account.clone();
-                /* let blob = other
-                    .preimage
-                    .get(&account.info.code)
-                    .cloned()
-                    .unwrap_or_default();
-                account
-                    .lookup
-                    .insert((account.info.code, blob.len() as u32), Default::default());
-                account.preimage.insert(account.info.code, blob); */
-
-                let mut item: ServiceItem = ServiceItem {
-                    id: *id,
-                    data: (&account).into(),
-                };
-
-                item.data.preimages.retain(|k| k.hash != account.info.code);
-                items.push(item);
-            }
+            items.push(ServiceItem {
+                id: *id,
+                data: (&account).into(),
+            });
         }
         items
     }

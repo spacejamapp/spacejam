@@ -72,7 +72,7 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
     }
 
     fn remove(&mut self, index: u32) {
-        self.remove(&index);
+        BTreeMap::remove(self, &index);
     }
 
     fn is_removed(&self, index: u32) -> bool {
