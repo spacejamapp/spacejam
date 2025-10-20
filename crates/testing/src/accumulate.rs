@@ -67,7 +67,11 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         let left = &accounts[i];
         let right = &paccounts[i];
         assert_eq!(left.id, right.id);
-        assert_eq!(left.data.service, right.data.service);
+        assert_eq!(
+            left.data.service, right.data.service,
+            "service id ={}",
+            left.id
+        );
         assert_eq!(left.data.storage, right.data.storage);
         assert_eq!(left.data.preimages_status, right.data.preimages_status);
         assert_eq!(left.data.preimages, right.data.preimages);

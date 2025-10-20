@@ -105,11 +105,23 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
     }
 
-    // NOTE: this is for debugging usage
-    /* let mut results = {
+    /* // NOTE: this is for debugging usage
+    let mut results = {
         let mut results = BTreeMap::new();
         for service in services.iter().cloned() {
-            let result = self::once::<V, R>(context.clone(), reports, table, service, timeslot);
+            let transfers = transfers
+                .iter()
+                .filter(|t| t.recipient == service)
+                .cloned()
+                .collect();
+            let result = self::once::<V, R>(
+                context.clone(),
+                transfers,
+                reports,
+                table,
+                service,
+                timeslot,
+            );
             results.insert(service, result);
         }
         results

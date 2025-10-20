@@ -232,8 +232,6 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the recipient is removed
     if ctx.is_removed(dest as u32) {
         return Ok(Exit::Who as u64);
-    } else {
-        tracing::debug!("service={service} recipient is not removed: {}", dest);
     }
 
     // check if the sender has enough balance
@@ -248,7 +246,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     let dest = ctx.account(dest)?;
 
     // check if the destination has enough transfer gas
-    if dest.transfer_gas() < limit {
+    if limit < dest.transfer_gas() {
         return Ok(Exit::Low as u64);
     }
 
@@ -293,11 +291,6 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     // remove account and add the balance to the parent account
-    tracing::debug!(
-        "service={service} ejecting account({}): lookup={:?}",
-        dest.index(),
-        lookup
-    );
     if lookup.len() == 2 && lookup[1] < timeslot.saturating_sub(score::EXPUNGED_TIME) {
         let balance = dest.balance();
         let to_remove = dest.index();
