@@ -68,15 +68,7 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
     .await;
 
     // (πS') compose the service activity records
-    let mut records = accumulated.records();
-    for report in &accumulatable {
-        for result in &report.results {
-            records
-                .entry(result.service_id)
-                .or_default()
-                .accumulate_count += 1;
-        }
-    }
+    let records = accumulated.records(&accumulatable);
 
     // update the accumulated queue (ξ')
     let next_accumulated_queue =
