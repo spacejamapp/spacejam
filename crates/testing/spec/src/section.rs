@@ -57,6 +57,7 @@ impl FromStr for Section {
             "preimages" | "stf/preimages" => Ok(Section::Preimages),
             "reports" | "stf/reports" => Ok(Section::Reports),
             "fallback" | "traces/fallback" => Ok(Section::Trace(Trace::Fallback)),
+            "fuzzy" | "traces/fuzzy" => Ok(Section::Trace(Trace::Fuzzy)),
             "traces/safrole" => Ok(Section::Trace(Trace::Safrole)),
             "traces/preimages" => Ok(Section::Trace(Trace::Preimages)),
             "traces/preimages_light" => Ok(Section::Trace(Trace::PreimagesLight)),
@@ -86,6 +87,7 @@ impl AsRef<str> for Section {
             Section::Reports => "stf/reports",
             Section::Trace(trace) => match trace {
                 Trace::Fallback => "traces/fallback",
+                Trace::Fuzzy => "traces/fuzzy",
                 Trace::Preimages => "traces/preimages",
                 Trace::PreimagesLight => "traces/preimages_light",
                 Trace::Safrole => "traces/safrole",
@@ -108,6 +110,8 @@ impl Display for Section {
 pub enum Trace {
     /// The fallback traces
     Fallback,
+    /// The fuzzy traces
+    Fuzzy,
     /// The preimages traces
     Preimages,
     /// The preimages traces light

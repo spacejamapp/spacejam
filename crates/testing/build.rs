@@ -63,6 +63,10 @@ fn main() -> Result<()> {
         &out_dir.join("traces_fallback.rs"),
     )?;
     build_tests(
+        registry.trace(Trace::Fuzzy)?,
+        &out_dir.join("traces_fuzzy.rs"),
+    )?;
+    build_tests(
         registry.trace(Trace::Safrole)?,
         &out_dir.join("traces_safrole.rs"),
     )?;
@@ -84,7 +88,7 @@ fn main() -> Result<()> {
     )?;
 
     // build all sequential tests
-    build_all_seq_test(&out_dir.join("traces_fuzz.rs"))?;
+    build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
     Ok(())
 }
 
