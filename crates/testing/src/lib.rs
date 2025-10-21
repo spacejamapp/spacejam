@@ -10,7 +10,7 @@ pub mod authorizations;
 pub mod codec;
 pub mod disputes;
 pub mod erasure;
-// pub mod fuzz;
+pub mod fuzz;
 pub mod history;
 pub mod preimage;
 pub mod pvmc;
