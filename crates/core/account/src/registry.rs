@@ -21,6 +21,11 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     /// Get an account from the registry
     fn get(&mut self, index: u32) -> Option<&mut impl Account>;
 
+    /// Check if an account exists in the registry
+    fn exists(&mut self, index: u32) -> bool {
+        self.get(index).is_some()
+    }
+
     /// Remove an account from the registry
     fn remove(&mut self, index: u32);
 

@@ -50,14 +50,11 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     }
 
-    // Check if current service is the blessed service
-    let privileges = ctx.privileges();
-    if ctx.service() != privileges.bless {
-        return Ok(Exit::Huh as u64);
-    }
-
     // Check if bless and designate are valid service IDs
-    if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
+    if ctx.account(bless).is_err()
+        || ctx.account(designate).is_err()
+        || ctx.account(register).is_err()
+    {
         return Ok(Exit::Who as u64);
     }
 
