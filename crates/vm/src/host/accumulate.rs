@@ -198,7 +198,10 @@ pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
     created.info.balance = new_account_threshold;
     ctx.upsert(index, created);
 
-    let new_index = ctx.check(((index - (1 << 8) + 42) % score::CHECK_SALT) + (1 << 8));
+    // Check and find a free account index
+    let base =
+        score::MINIMUM_SERVICE_ID + (index - score::MINIMUM_SERVICE_ID + 42) % score::CHECK_SALT;
+    let new_index = ctx.check(base);
     ctx.set_index(new_index);
     Ok(index as u64)
 }

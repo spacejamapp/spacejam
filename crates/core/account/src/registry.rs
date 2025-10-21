@@ -38,14 +38,15 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
 
-    /// Check and find a free account index
+    /// (B.14) Check and find a free account index
     fn check(&mut self, mut index: ServiceId) -> ServiceId {
         loop {
             if self.get(index).is_none() {
                 return index;
             }
 
-            index = ((index - (1 << 8) + 1) % score::CHECK_SALT) + (1 << 8);
+            index = ((index - score::MINIMUM_SERVICE_ID + 1) % score::CHECK_SALT)
+                + score::MINIMUM_SERVICE_ID;
         }
     }
 }

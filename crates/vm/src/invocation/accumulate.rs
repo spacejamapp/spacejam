@@ -232,7 +232,7 @@ impl<R: Accounts> AccumulateState<R> {
         None */
     }
 
-    /// (I) Generate a new index from provided environment
+    /// (I) Generate a new index from provided environment (B.10)
     pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
         let encoded = codec::encode(&IndexSalt {
             service,
@@ -242,7 +242,7 @@ impl<R: Accounts> AccumulateState<R> {
         .expect("failed to encode");
         let hash = crypto::blake2b(&encoded);
         let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
-        let index = (base % score::CHECK_SALT) + (1 << 8);
+        let index = (base % score::CHECK_SALT) + score::MINIMUM_SERVICE_ID;
         self.accounts.check(index)
     }
 }
