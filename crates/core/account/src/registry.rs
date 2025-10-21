@@ -37,9 +37,6 @@ pub trait Accounts: Clone + Send + Sync + 'static {
         Default::default()
     }
 
-    /// Check if an account is removed
-    fn is_removed(&self, index: u32) -> bool;
-
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
 
@@ -79,10 +76,6 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
 
     fn remove(&mut self, index: u32) {
         BTreeMap::remove(self, &index);
-    }
-
-    fn is_removed(&self, index: u32) -> bool {
-        !self.contains_key(&index)
     }
 
     fn accounts(&self) -> &BTreeMap<u32, impl Account> {

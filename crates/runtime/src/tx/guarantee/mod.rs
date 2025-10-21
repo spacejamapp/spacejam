@@ -235,11 +235,6 @@ pub fn defer_transfers<V: Pvm, R: Accounts>(
     _slot: TimeSlot,
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
     for transfer in transfers {
-        // let mut dest = transfer.recipient;
-        /* if accounts.is_removed(transfer.recipient) {
-            dest = transfer.sender;
-        } */
-
         if let Some(dest) = accounts.get(transfer.recipient) {
             *dest.balance_mut() += transfer.amount;
         }

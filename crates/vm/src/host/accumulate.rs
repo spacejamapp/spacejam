@@ -230,7 +230,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     // check if the recipient is removed
-    if ctx.is_removed(dest as u32) {
+    if ctx.account(dest).is_err() {
         return Ok(Exit::Who as u64);
     }
 
