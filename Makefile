@@ -22,17 +22,17 @@ tar-all: tar-spacejam tar-spacevm
 # make tarball for spacejam
 tar-spacejam:
 	mkdir -p target/bundle
-	tar -czf target/bundle/spacejam-0.7.0-macos-arm64.tar.gz -C target/aarch64-apple-darwin/prod spacejam
-	tar -czf target/bundle/spacejam-0.7.0-macos-amd64.tar.gz -C target/x86_64-apple-darwin/prod spacejam
-	tar -czf target/bundle/spacejam-0.7.0-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/prod spacejam
-	tar -czf target/bundle/spacejam-0.7.0-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/prod spacejam
+	tar -czf target/bundle/spacejam-0.7.1-macos-arm64.tar.gz -C target/aarch64-apple-darwin/prod spacejam
+	tar -czf target/bundle/spacejam-0.7.1-macos-amd64.tar.gz -C target/x86_64-apple-darwin/prod spacejam
+	tar -czf target/bundle/spacejam-0.7.1-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/prod spacejam
+	tar -czf target/bundle/spacejam-0.7.1-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/prod spacejam
 
 # make tarball for spacevm
 tar-spacevm:
-	tar -czf target/bundle/spacevm-0.7.0-macos-arm64.tar.gz -C target/aarch64-apple-darwin/prod libspacevm.dylib
-	tar -czf target/bundle/spacevm-0.7.0-macos-amd64.tar.gz -C target/x86_64-apple-darwin/prod libspacevm.dylib
-	tar -czf target/bundle/spacevm-0.7.0-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/prod libspacevm.so
-	tar -czf target/bundle/spacevm-0.7.0-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/prod libspacevm.so
+	tar -czf target/bundle/spacevm-0.7.1-macos-arm64.tar.gz -C target/aarch64-apple-darwin/prod libspacevm.dylib
+	tar -czf target/bundle/spacevm-0.7.1-macos-amd64.tar.gz -C target/x86_64-apple-darwin/prod libspacevm.dylib
+	tar -czf target/bundle/spacevm-0.7.1-linux-amd64.tar.gz -C target/x86_64-unknown-linux-gnu/prod libspacevm.so
+	tar -czf target/bundle/spacevm-0.7.1-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/prod libspacevm.so
 
 # build macos-arm64
 macos-arm64:

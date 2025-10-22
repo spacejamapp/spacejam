@@ -12,7 +12,7 @@ mod utils;
 pub mod validator;
 
 /// The version of matched graypaper
-pub const GRAYPAPER: &str = "0.7.0";
+pub const GRAYPAPER: &str = "0.7.1";
 
 /// The config of development
 pub struct Development;
