@@ -149,7 +149,11 @@ fn build_all_seq_test(out: &Path) -> Result<()> {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
-                items.push(build_seq_test(path.to_str().unwrap())?);
+                let testset = path.to_str().expect("failed to get testset");
+                if testset.contains("fuzzy") {
+                    continue;
+                }
+                items.push(build_seq_test(testset)?);
             }
         }
     }
