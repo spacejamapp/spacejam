@@ -50,14 +50,11 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     }
 
-    // Check if current service is the blessed service
-    let privileges = ctx.privileges();
-    if ctx.service() != privileges.bless {
-        return Ok(Exit::Huh as u64);
-    }
-
     // Check if bless and designate are valid service IDs
-    if bless > u32::MAX as u64 || designate > u32::MAX as u64 {
+    if ctx.account(bless).is_err()
+        || ctx.account(designate).is_err()
+        || ctx.account(register).is_err()
+    {
         return Ok(Exit::Who as u64);
     }
 
@@ -198,7 +195,10 @@ pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
     created.info.balance = new_account_threshold;
     ctx.upsert(index, created);
 
-    let new_index = ctx.check(((index - (1 << 8) + 42) % score::CHECK_SALT) + (1 << 8));
+    // Check and find a free account index
+    let base =
+        score::MINIMUM_SERVICE_ID + (index - score::MINIMUM_SERVICE_ID + 42) % score::CHECK_SALT;
+    let new_index = ctx.check(base);
     ctx.set_index(new_index);
     Ok(index as u64)
 }
@@ -230,7 +230,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     // check if the recipient is removed
-    if ctx.is_removed(dest as u32) {
+    if ctx.account(dest).is_err() {
         return Ok(Exit::Who as u64);
     }
 

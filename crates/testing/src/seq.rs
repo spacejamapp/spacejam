@@ -11,7 +11,7 @@ use std::{
     time::Instant,
 };
 
-include!(concat!(env!("OUT_DIR"), "/traces_fuzz.rs"));
+include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
 
 /// The processor for sequential test vectors
 pub struct Processor {

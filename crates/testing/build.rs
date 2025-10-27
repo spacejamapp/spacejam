@@ -10,7 +10,7 @@ use std::{
 };
 use syn::{Ident, ItemFn, parse_quote};
 
-const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
+// const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.0/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
@@ -63,6 +63,10 @@ fn main() -> Result<()> {
         &out_dir.join("traces_fallback.rs"),
     )?;
     build_tests(
+        registry.trace(Trace::Fuzzy)?,
+        &out_dir.join("traces_fuzzy.rs"),
+    )?;
+    build_tests(
         registry.trace(Trace::Safrole)?,
         &out_dir.join("traces_safrole.rs"),
     )?;
@@ -84,7 +88,7 @@ fn main() -> Result<()> {
     )?;
 
     // build all sequential tests
-    build_all_seq_test(&out_dir.join("traces_fuzz.rs"))?;
+    build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
     Ok(())
 }
 
@@ -139,12 +143,17 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
 /// Builds all sequential tests
 fn build_all_seq_test(out: &Path) -> Result<()> {
     let mut items = Vec::new();
-    for entry in [REPORTS, TRACES] {
+    for entry in [TRACES] {
+        // for entry in [REPORTS, TRACES] {
         for entry in fs::read_dir(entry)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
-                items.push(build_seq_test(path.to_str().unwrap())?);
+                let testset = path.to_str().expect("failed to get testset");
+                if testset.contains("fuzzy") {
+                    continue;
+                }
+                items.push(build_seq_test(testset)?);
             }
         }
     }

@@ -188,7 +188,7 @@ pub const AUTH_POOL_MAX_SIZE: usize = 8;
 pub const GUARANTORS_PER_CORE: usize = VALIDATORS_COUNT as usize / CORES_COUNT;
 
 /// The salt for the check function
-pub const CHECK_SALT: u32 = ((1u64 << 32) - (1u64 << 9)) as u32;
+pub const CHECK_SALT: u32 = ((1u64 << 32) - (1u64 << 8)) as u32 - MINIMUM_SERVICE_ID;
 
 // Singing Contexts
 

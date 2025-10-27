@@ -21,6 +21,11 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     /// Get an account from the registry
     fn get(&mut self, index: u32) -> Option<&mut impl Account>;
 
+    /// Check if an account exists in the registry
+    fn exists(&mut self, index: u32) -> bool {
+        self.get(index).is_some()
+    }
+
     /// Remove an account from the registry
     fn remove(&mut self, index: u32);
 
@@ -32,20 +37,18 @@ pub trait Accounts: Clone + Send + Sync + 'static {
         Default::default()
     }
 
-    /// Check if an account is removed
-    fn is_removed(&self, index: u32) -> bool;
-
     /// Get the diff of the accounts
     fn diff(self) -> (Vec<(TrieKey, Vec<u8>)>, Vec<TrieKey>);
 
-    /// Check and find a free account index
+    /// (B.14) Check and find a free account index
     fn check(&mut self, mut index: ServiceId) -> ServiceId {
         loop {
             if self.get(index).is_none() {
                 return index;
             }
 
-            index = ((index - (1 << 8) + 1) % score::CHECK_SALT) + (1 << 8);
+            index = ((index - score::MINIMUM_SERVICE_ID + 1) % score::CHECK_SALT)
+                + score::MINIMUM_SERVICE_ID;
         }
     }
 }
@@ -73,10 +76,6 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
 
     fn remove(&mut self, index: u32) {
         BTreeMap::remove(self, &index);
-    }
-
-    fn is_removed(&self, index: u32) -> bool {
-        !self.contains_key(&index)
     }
 
     fn accounts(&self) -> &BTreeMap<u32, impl Account> {

@@ -22,6 +22,10 @@ mod fallback {
     include!(concat!(env!("OUT_DIR"), "/traces_fallback.rs"));
 }
 
+/* mod fuzzy {
+    include!(concat!(env!("OUT_DIR"), "/traces_fuzzy.rs"));
+} */
+
 mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }

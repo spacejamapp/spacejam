@@ -3,7 +3,7 @@
 pub use acc::Accumulation;
 use account::Accounts;
 use error::{Error, Result};
-use pvm::{AccumulateState, Pvm};
+use pvm::{Account, AccumulateState, Pvm};
 use score::{
     CORES_COUNT, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
@@ -68,15 +68,7 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
     .await;
 
     // (πS') compose the service activity records
-    let mut records = accumulated.records();
-    for report in &accumulatable {
-        for result in &report.results {
-            records
-                .entry(result.service_id)
-                .or_default()
-                .accumulate_count += 1;
-        }
-    }
+    let records = accumulated.records(&accumulatable);
 
     // update the accumulated queue (ξ')
     let next_accumulated_queue =
@@ -236,26 +228,17 @@ pub fn pools(
 /// (δ‡) Process deferred transfers to transition from δ′ to δ‡
 pub fn defer_transfers<V: Pvm, R: Accounts>(
     // The post-accumulation accounts (δ′)
-    _accounts: &mut R,
+    accounts: &mut R,
     // The deferred transfers (t)
-    _transfers: &[DeferredTransfer],
+    transfers: &[DeferredTransfer],
     // The current timeslot (τ')
     _slot: TimeSlot,
 ) -> BTreeMap<ServiceId, (usize, Gas)> {
-    // tracing::debug!("transfers: {}", transfers.len());
-    /* for transfer in transfers {
-        let mut dest = transfer.recipient;
-        if accounts.is_removed(transfer.recipient) {
-            tracing::debug!("{} is removed", transfer.recipient);
-            dest = transfer.sender;
-        } else {
-            tracing::debug!("{} is not removed", transfer.recipient);
-        }
-
-        if let Some(dest) = accounts.get(dest) {
+    for transfer in transfers {
+        if let Some(dest) = accounts.get(transfer.recipient) {
             *dest.balance_mut() += transfer.amount;
         }
-    } */
+    }
     Default::default()
 }
 

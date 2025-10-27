@@ -5,7 +5,7 @@ use pvm::AccumulateState;
 use score::{
     Gas, OpaqueHash, ServiceId,
     safrole::ValidatorsData,
-    service::{AccumulatedQueue, Privileges, ReadyQueue},
+    service::{AccumulatedQueue, Privileges, ReadyQueue, WorkReport},
     statistic::{AccumulationRecord, ServiceActivityRecord},
     vm::{CommitmentMap, DeferredTransfer},
 };
@@ -49,28 +49,18 @@ impl<R: Accounts> Accumulated<R> {
     }
 
     /// Get the service records
-    pub fn records(&self) -> BTreeMap<ServiceId, ServiceActivityRecord> {
-        let mut records = BTreeMap::new();
-
-        // Include all services that exist in accounts
-        for service_id in self.context.accounts.services() {
-            records.insert(service_id, ServiceActivityRecord::default());
-        }
-
-        // Update gas usage for services that actually executed
-        for (service, gas) in self.gas.iter() {
-            tracing::debug!("Service {} used {} gas during accumulation", service, gas);
-            if let Some(record) = records.get_mut(service) {
-                record.accumulate_gas_used = *gas;
-            } else {
-                // Service executed but doesn't exist in accounts (shouldn't happen)
-                records.insert(
-                    *service,
-                    ServiceActivityRecord {
-                        accumulate_gas_used: *gas,
-                        ..Default::default()
-                    },
-                );
+    pub fn records(
+        &self,
+        accumulatable: &[WorkReport],
+    ) -> BTreeMap<ServiceId, ServiceActivityRecord> {
+        let mut records: BTreeMap<ServiceId, ServiceActivityRecord> = BTreeMap::new();
+        for report in accumulatable {
+            for result in &report.results {
+                let record = records.entry(result.service_id).or_default();
+                record.accumulate_count += 1;
+                if record.accumulate_gas_used == 0 {
+                    record.accumulate_gas_used = *self.gas.get(&result.service_id).unwrap_or(&0);
+                }
             }
         }
 
