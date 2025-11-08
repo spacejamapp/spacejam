@@ -105,7 +105,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
     }
 
-    /* // NOTE: this is for debugging usage
+    // NOTE: this is for debugging usage
     let mut results = {
         let mut results = BTreeMap::new();
         for service in services.iter().cloned() {
@@ -125,9 +125,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             results.insert(service, result);
         }
         results
-    }; */
+    };
 
-    // Execute each service exactly once using Δ₁ (once function)
+    /* // Execute each service exactly once using Δ₁ (once function)
     let mut results = if services.len() > 1 {
         let mut pool = tokio::task::JoinSet::new();
         for service in services.iter().cloned() {
@@ -167,7 +167,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             timeslot,
         );
         BTreeMap::from([(*service, result)])
-    };
+    }; */
 
     // Extract privilege service results from the already-executed results
     if let Some(result) = results.get(&context.privileges.bless) {

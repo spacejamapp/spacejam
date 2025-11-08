@@ -9,6 +9,7 @@ use score::{vm::AccumulateItem, Parameters};
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
+    tracing::debug!("gas: {}", ctx.gas());
     Ok(ctx.gas())
 }
 
@@ -65,6 +66,7 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
     ];
     let phash = ctx.read(address as u32, 32)?;
     let Ok(account) = ctx.or_this(acc) else {
+        // tracing::warn!("account not found: acc={}", acc);
         return Ok(Exit::None as u64);
     };
 
@@ -73,6 +75,7 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         let mut hash = [0u8; 32];
         hash.copy_from_slice(&phash);
         let Some(preimage) = account.preimage(hash) else {
+            tracing::warn!("preimage not found: hash=0x{}", hex::encode(hash));
             return Ok(Exit::None as u64);
         };
 
@@ -131,11 +134,17 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
+        tracing::debug!("\nremoving storage key=0x{}\n", hex::encode(&key));
         let Some(_value) = account.remove(&key) else {
             return Ok(Exit::None as u64);
         };
     } else {
         // TODO: we actually can update the key here for avoiding hashing for twice
+        tracing::debug!(
+            "\nwriting storage key=0x{} with value=0x{}\n",
+            hex::encode(&key),
+            hex::encode(&value)
+        );
         account.write(&key, value);
     }
 

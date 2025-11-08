@@ -110,7 +110,7 @@ pub async fn run_single<Vm: Pvm>(
         let encoded = hex::encode(&key);
         let Some(result) = memdb.state_get(&key)? else {
             tracing::error!(
-                "{info:?} key=0x{encoded} value=0x{} not exists",
+                "{info:?} key=0x{encoded} value=0x{} not exists in spacejam",
                 hex::encode(&value)
             );
             continue;

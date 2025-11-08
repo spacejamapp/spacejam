@@ -202,6 +202,15 @@ impl<S: Storage> ::account::Account for Account<S> {
 
     fn preimage(&mut self, hash: [u8; 32]) -> Option<Vec<u8>> {
         let key = account::preimage(self.index, hash);
+        tracing::debug!("preimage key: 0x{}", hex::encode(key));
+        tracing::debug!(
+            "preimages: {:?}",
+            self.account
+                .preimage
+                .keys()
+                .map(|h| hex::encode(h))
+                .collect::<Vec<String>>()
+        );
         self.account
             .preimage
             .get(&hash)
