@@ -49,13 +49,13 @@ pub async fn outer<V: Pvm, R: Accounts>(
             index = i + 1;
         }
 
-        if index == 0 {
+        if index == 0 && accumulated.transfers.is_empty() {
             break;
         }
 
         let step = self::parallel::<V, R>(
             accumulated.context.clone(),
-            &mut transfers,
+            &transfers,
             &reports[..index],
             gas_table,
             timeslot,
@@ -65,8 +65,9 @@ pub async fn outer<V: Pvm, R: Accounts>(
 
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
-        accumulated.accumulated += step.accumulated;
+        transfers = step.transfers.clone();
         accumulated.transfers.extend(step.transfers);
+        accumulated.accumulated += step.accumulated;
         accumulated.pairings.extend(step.pairings);
         accumulated.context = step.context;
         for (service, gas) in step.gas.iter() {
@@ -92,7 +93,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
 /// (Δ*) parallel accumulation
 pub async fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
-    transfers: &mut [DeferredTransfer],
+    transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     timeslot: TimeSlot,
@@ -103,6 +104,14 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         for result in &report.results {
             services.insert(result.service_id);
         }
+    }
+
+    for &service in table.keys() {
+        services.insert(service);
+    }
+
+    for transfer in transfers.iter() {
+        services.insert(transfer.recipient);
     }
 
     // NOTE: this is for debugging usage
@@ -188,7 +197,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
 
     // Update the state of accounts
     let mut gas = BTreeMap::new();
-    let mut transfers = vec![];
+    let mut transfers = transfers.to_vec();
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter_mut() {
         let accounts = result.context.accounts.accounts();
