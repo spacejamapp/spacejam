@@ -132,7 +132,6 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
     }
 
     fn transfer(&mut self, transfer: DeferredTransfer) {
-        self.gas -= transfer.gas_limit as i64;
         self.ctx.transfer(transfer)
     }
 

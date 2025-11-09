@@ -202,19 +202,19 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
-        // FIXME: currently using is_removed for adapting both testing and production
-        //
-        // This is just for testing usages
-        {
-            for service in context.accounts.services() {
-                if result.context.accounts.get(service).is_none() {
-                    context.accounts.remove(service);
-                }
+        // Remove accounts that are no longer present in the results
+        for service in context.accounts.services() {
+            if result.context.accounts.get(service).is_none() {
+                context.accounts.remove(service);
             }
         }
 
         for service in result.context.accounts.removed() {
             context.accounts.remove(service);
+        }
+
+        for transfer in &result.transfers {
+            result.gas += transfer.gas_limit;
         }
 
         transfers.extend(result.transfers.clone());
