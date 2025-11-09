@@ -57,16 +57,16 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩL) account lookup
 pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
-    let [acc, address, target, from, to] = [
+    let [acc, address, target, from, len] = [
         ctx.rget(7),
-        ctx.rget(8),
-        ctx.rget(9),
-        ctx.rget(10),
-        ctx.rget(11),
+        ctx.rget(8),  // h
+        ctx.rget(9),  // o
+        ctx.rget(10), // f
+        ctx.rget(11), // l
     ];
     let phash = ctx.read(address as u32, 32)?;
+    // let _thash = ctx.read(target as u32, 32)?;
     let Ok(account) = ctx.or_this(acc) else {
-        // tracing::warn!("account not found: acc={}", acc);
         return Ok(Exit::None as u64);
     };
 
@@ -75,7 +75,6 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         let mut hash = [0u8; 32];
         hash.copy_from_slice(&phash);
         let Some(preimage) = account.preimage(hash) else {
-            tracing::warn!("preimage not found: hash=0x{}", hex::encode(hash));
             return Ok(Exit::None as u64);
         };
 
@@ -84,8 +83,11 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
 
     // write patrial preimage to memory
     let plen = preimage.len() as u64;
-    let (from, to) = (from.min(plen), to.min(plen));
-    ctx.write(target as u32, &preimage[from as usize..to as usize])?;
+    let (from, len) = (from.min(plen), len.min(plen));
+    ctx.write(
+        target as u32,
+        &preimage[from as usize..(from + len) as usize],
+    )?;
     Ok(plen)
 }
 
@@ -134,21 +136,15 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
-        tracing::debug!("\nremoving storage key=0x{}\n", hex::encode(&key));
         let Some(_value) = account.remove(&key) else {
             return Ok(Exit::None as u64);
         };
     } else {
         // TODO: we actually can update the key here for avoiding hashing for twice
-        tracing::debug!(
-            "\nwriting storage key=0x{} with value=0x{}\n",
-            hex::encode(&key),
-            hex::encode(&value)
-        );
         account.write(&key, value);
     }
 
-    Ok(result)
+    Ok(result)                                                          
 }
 
 /// (ΩI) fetch account info

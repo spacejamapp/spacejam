@@ -26,6 +26,10 @@ mod fuzzy {
     include!(concat!(env!("OUT_DIR"), "/traces_fuzzy.rs"));
 }
 
+mod fuzzy_light {
+    include!(concat!(env!("OUT_DIR"), "/traces_fuzzy_light.rs"));
+}
+
 mod safrole {
     include!(concat!(env!("OUT_DIR"), "/traces_safrole.rs"));
 }

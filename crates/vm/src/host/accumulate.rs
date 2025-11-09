@@ -221,13 +221,6 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the defer transfer is valid
     let memo = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
     let service = ctx.service();
-    let transfer = DeferredTransfer {
-        sender: service,
-        recipient: dest as u32,
-        amount,
-        memo,
-        gas_limit: limit,
-    };
 
     // check if the recipient is removed
     if ctx.account(dest).is_err() {
@@ -243,14 +236,19 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // drop the sender account to handle the dest account
     let _ = sender;
-    let dest = ctx.account(dest)?;
-
-    // check if the destination has enough transfer gas
-    if limit < dest.transfer_gas() {
+    let recipient = ctx.account(dest)?;
+    if limit < recipient.transfer_gas() {
         return Ok(Exit::Low as u64);
     }
 
     // add the transfer to the deferred transfers
+    let transfer = DeferredTransfer {
+        sender: service,
+        recipient: dest as u32,
+        amount,
+        memo,
+        gas_limit: limit,
+    };
     ctx.transfer(transfer);
     *ctx.this()?.balance_mut() -= amount;
     Ok(Exit::Ok as u64)
