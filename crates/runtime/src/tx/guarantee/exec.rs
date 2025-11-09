@@ -4,7 +4,7 @@ use super::acc::Accumulated;
 use account::{Account, Accounts};
 use pvm::{AccumulateState, Pvm};
 use score::{
-    Gas, ServiceId, TimeSlot,
+    Gas, ServiceId,
     service::WorkReport,
     vm::{AccumulateItem, DeferredTransfer},
 };
@@ -32,7 +32,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
     mut reports: &[WorkReport],
     context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
-    timeslot: TimeSlot,
 ) -> Accumulated<R> {
     let mut updates = BTreeSet::new();
     let mut accumulated = Accumulated::new(context);
@@ -58,7 +57,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
             &transfers,
             &reports[..index],
             gas_table,
-            timeslot,
             &mut updates,
         )
         .await;
@@ -83,7 +81,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
     // currently have bugs doing it in the middle.
     for svc in updates {
         if let Some(account) = accumulated.context.accounts.get(svc) {
-            account.set_update(timeslot);
+            account.set_update(accumulated.context.timeslot);
         }
     }
 
@@ -96,7 +94,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
-    timeslot: TimeSlot,
     updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
     let mut services: BTreeSet<ServiceId> = Default::default();
@@ -123,14 +120,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
                 .filter(|t| t.recipient == service)
                 .cloned()
                 .collect();
-            let result = self::once::<V, R>(
-                context.clone(),
-                transfers,
-                reports,
-                table,
-                service,
-                timeslot,
-            );
+            let result = self::once::<V, R>(context.clone(), transfers, reports, table, service);
             results.insert(service, result);
         }
         results
@@ -202,7 +192,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     for (service_id, result) in results.iter_mut() {
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
-            if account.creation() == timeslot || id == service_id {
+            if account.creation() == context.timeslot || id == service_id {
                 if id == service_id {
                     updates.insert(*id);
                 }
@@ -249,7 +239,6 @@ pub fn once<V: Pvm, R: Accounts>(
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
-    timeslot: TimeSlot,
 ) -> pvm::Accumulated<R> {
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
@@ -276,5 +265,5 @@ pub fn once<V: Pvm, R: Accounts>(
             .map(AccumulateItem::from),
     );
 
-    V::accumulate(context, timeslot, service, gas, items)
+    V::accumulate(context, service, gas, items)
 }

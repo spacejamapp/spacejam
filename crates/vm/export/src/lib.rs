@@ -72,12 +72,12 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
         authorization: args.context.authorization.clone(),
         privileges: args.context.privileges,
         entropy: args.context.entropy,
+        timeslot: args.timeslot,
     };
 
     // TODO: handle accumulate items
     let accumulated = VM::accumulate(
         context,
-        args.timeslot,
         args.service,
         args.gas,
         args.operands

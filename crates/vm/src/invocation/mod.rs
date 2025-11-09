@@ -192,7 +192,7 @@ pub trait Invocation {
         // (U) The state context
         mut context: AccumulateState<R>,
         // (N_t)  timeslot for the current accumulation
-        timeslot: TimeSlot,
+        // timeslot: TimeSlot,
         // (N_s)  the service id of the caller
         service: ServiceId,
         // (N_g)  the gas limit for the current operation
@@ -211,6 +211,7 @@ pub trait Invocation {
         };
 
         // create the accumulate context
+        let timeslot = context.timeslot;
         let context = AccumulateContext::new(context, service, timeslot);
         let params = AccumulateParams {
             slot: timeslot,
