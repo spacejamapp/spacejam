@@ -19,10 +19,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => {
-            tracing::debug!("items: {:?}", ctx.items());
-            codec::encode(&ctx.items()).expect("should not fail")
-        }
+        14 => codec::encode(&ctx.items()).expect("should not fail"),
         15 => {
             let items = ctx.items();
             let index = ctx.rget(11);
@@ -51,10 +48,6 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let length = ctx.rget(9).min(vlen - from);
     tracing::debug!("fetch={kind} length={length}");
     if length > 0 {
-        tracing::debug!(
-            "fetched value: 0x{}",
-            hex::encode(&value[from as usize..(from + length) as usize])
-        );
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
 
@@ -142,11 +135,15 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
+        // let skey = hex::encode(&key);
+        // tracing::debug!("removing ko={ko} kz={kz} key=0x{skey}");
         let Some(_value) = account.remove(&key) else {
+            // tracing::debug!("key=0x{skey} not exists");
             return Ok(Exit::None as u64);
         };
     } else {
         // TODO: we actually can update the key here for avoiding hashing for twice
+        // tracing::debug!("writing key: 0x{}", hex::encode(&key));
         account.write(&key, value);
     }
 
@@ -160,6 +157,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
+    tracing::debug!("account={} info: {:?}", account.index(), account.info());
     let Ok(info) = account.info().host() else {
         crate::bail!("failed to encode account info");
     };
