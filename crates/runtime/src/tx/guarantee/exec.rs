@@ -190,6 +190,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     let mut transfers = Vec::new();
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter_mut() {
+        if result.gas == 0 {
+            continue;
+        }
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
             if account.creation() == context.timeslot || id == service_id {
