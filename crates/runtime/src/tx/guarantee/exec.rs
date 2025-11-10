@@ -48,14 +48,14 @@ pub async fn outer<V: Pvm, R: Accounts>(
             index = i + 1;
         }
 
-        if index == 0 && accumulated.transfers.is_empty() {
+        if index == 0 && transfers.is_empty() {
             break;
         }
 
         let step = self::parallel::<V, R>(
             accumulated.context.clone(),
             &transfers,
-            &reports[..index],
+            if index == 0 { &[] } else { &reports[..index] },
             gas_table,
             &mut updates,
         )
@@ -187,7 +187,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
 
     // Update the state of accounts
     let mut gas = BTreeMap::new();
-    let mut transfers = transfers.to_vec();
+    let mut transfers = Vec::new();
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter_mut() {
         let accounts = result.context.accounts.accounts();
@@ -240,13 +240,20 @@ pub fn once<V: Pvm, R: Accounts>(
     table: &BTreeMap<ServiceId, Gas>,
     service: ServiceId,
 ) -> pvm::Accumulated<R> {
+    let transfers = transfers
+        .iter()
+        .filter(|t| t.recipient == service)
+        .cloned()
+        .collect::<Vec<DeferredTransfer>>();
+
     let gas = *table.get(&service).unwrap_or(&0)
         + reports
             .iter()
             .flat_map(|r| &r.results)
             .filter(|result| result.service_id == service)
             .map(|result| result.accumulate_gas)
-            .sum::<Gas>();
+            .sum::<Gas>()
+        + transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
 
     let mut items = Vec::new();
     for report in reports {
@@ -257,13 +264,7 @@ pub fn once<V: Pvm, R: Accounts>(
                 .map(AccumulateItem::from),
         );
     }
-    items.extend(
-        transfers
-            .iter()
-            .filter(|t| t.recipient == service)
-            .cloned()
-            .map(AccumulateItem::from),
-    );
+    items.extend(transfers.into_iter().map(AccumulateItem::from));
 
     V::accumulate(context, service, gas, items)
 }

@@ -224,15 +224,17 @@ pub trait Invocation {
         let result = Self::invoke2(accumulate, code_hash, code, args, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
-                "PVM execution stopped with reason: {:?} for service {}",
+                "PVM execution stopped for service {} with reason: {:?}, gas spent: {}",
+                service,
                 result.reason,
-                service
+                result.gas,
             );
         } else {
             tracing::debug!(
-                "PVM execution continued for service {}, reason: {:?}",
+                "PVM execution continued for service {}, reason: {:?}, gas spent: {}",
                 service,
-                result.reason
+                result.reason,
+                result.gas,
             );
         }
 
