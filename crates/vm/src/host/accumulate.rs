@@ -219,7 +219,12 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [dest, amount, limit, memo] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
 
     // check if the defer transfer is valid
-    let memo = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+    let memo = {
+        let bytes = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
+        let mut memo = [0u8; score::TRANSFER_MEMO_SIZE as usize];
+        memo[..bytes.len()].copy_from_slice(&bytes);
+        memo
+    };
     let service = ctx.service();
 
     // check if the recipient is removed

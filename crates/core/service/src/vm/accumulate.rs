@@ -1,12 +1,22 @@
 //! Primitives for the accumulate invocation
 
-use crate::{
-    BTreeMap, Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult, vm::DeferredTransfer,
-};
+use crate::{BTreeMap, Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult};
 use serde::{Deserialize, Serialize};
 
 /// The commitment map
 pub type CommitmentMap = BTreeMap<ServiceId, OpaqueHash>;
+
+impl From<Operand> for AccumulateItem {
+    fn from(operand: Operand) -> Self {
+        AccumulateItem::Operand(operand)
+    }
+}
+
+impl From<DeferredTransfer> for AccumulateItem {
+    fn from(transfer: DeferredTransfer) -> Self {
+        AccumulateItem::Transfer(transfer)
+    }
+}
 
 /// The accumulate params for the accumulation
 #[derive(Serialize, Deserialize, Debug)]
@@ -22,6 +32,18 @@ pub struct AccumulateParams {
     /// (|o|) The count of operands
     #[serde(with = "codec::compact")]
     pub results: u32,
+}
+
+/// An item of the accumulation
+///
+/// reference per GP (C.33)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AccumulateItem {
+    /// The operands (12.13) + (C.32)
+    Operand(Operand),
+
+    /// The deferred transfers (12.14) + (C.31)
+    Transfer(DeferredTransfer),
 }
 
 /// An operand of the accumulation
@@ -58,26 +80,35 @@ pub struct Operand {
     pub auth_output: Vec<u8>,
 }
 
-/// An item of the accumulation
-///
-/// reference per GP (C.33)
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AccumulateItem {
-    /// The operands (12.13) + (C.32)
-    Operand(Operand),
+/// (12.14) A deferred transfer item (encoding: C.31)
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct DeferredTransfer {
+    /// (s) The sender
+    pub sender: ServiceId,
 
-    /// The deferred transfers (12.14) + (C.31)
-    Transfer(DeferredTransfer),
+    /// (d) The destination
+    pub recipient: ServiceId,
+
+    /// (a) The amount
+    pub amount: u64,
+
+    /// (m) The memo
+    #[serde(with = "codec::bytes")]
+    pub memo: [u8; crate::TRANSFER_MEMO_SIZE],
+
+    /// (g) The gas limit
+    pub gas_limit: Gas,
 }
 
-impl From<Operand> for AccumulateItem {
-    fn from(operand: Operand) -> Self {
-        AccumulateItem::Operand(operand)
-    }
-}
-
-impl From<DeferredTransfer> for AccumulateItem {
-    fn from(transfer: DeferredTransfer) -> Self {
-        AccumulateItem::Transfer(transfer)
+impl DeferredTransfer {
+    /// (R): Select transfers for a given destination service
+    pub fn select(transfers: &[DeferredTransfer], dest: ServiceId) -> Vec<DeferredTransfer> {
+        let mut transfers = transfers.to_vec();
+        transfers.sort_by_key(|t| t.sender);
+        transfers
+            .iter()
+            .filter(|t| t.recipient == dest)
+            .cloned()
+            .collect()
     }
 }

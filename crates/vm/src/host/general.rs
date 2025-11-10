@@ -19,7 +19,10 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()).expect("should not fail"),
         1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => codec::encode(&ctx.items()).expect("should not fail"),
+        14 => {
+            tracing::debug!("items: {:?}", ctx.items());
+            codec::encode(&ctx.items()).expect("should not fail")
+        }
         15 => {
             let items = ctx.items();
             let index = ctx.rget(11);
@@ -42,13 +45,16 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
-    tracing::debug!("fetch kind: {:?}", kind);
-
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
     let length = ctx.rget(9).min(vlen - from);
+    tracing::debug!("fetch={kind} length={length}");
     if length > 0 {
+        tracing::debug!(
+            "fetched value: 0x{}",
+            hex::encode(&value[from as usize..(from + length) as usize])
+        );
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
 
@@ -144,7 +150,7 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
         account.write(&key, value);
     }
 
-    Ok(result)                                                          
+    Ok(result)
 }
 
 /// (ΩI) fetch account info

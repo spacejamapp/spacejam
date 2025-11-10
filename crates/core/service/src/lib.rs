@@ -40,6 +40,9 @@ pub const GAS_ALL_ACC: u64 = 20_000_000;
 /// (W_G) The size of a segment
 pub const SEGMENT_SIZE: usize = 4104;
 
+/// (W_T) The size of a transfer memo
+pub const TRANSFER_MEMO_SIZE: usize = 128;
+
 /// The gas type
 pub type Gas = u64;
 
