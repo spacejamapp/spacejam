@@ -64,6 +64,19 @@ impl<R: Accounts> Accumulated<R> {
             }
         }
 
+        for transfer in self.transfers.iter() {
+            if records.contains_key(&transfer.recipient)
+                || !self.gas.contains_key(&transfer.recipient)
+            {
+                continue;
+            }
+
+            let record = records.entry(transfer.recipient).or_default();
+            if record.accumulate_gas_used == 0 {
+                record.accumulate_gas_used = *self.gas.get(&transfer.recipient).unwrap_or(&0);
+            }
+        }
+
         records
     }
 

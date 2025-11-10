@@ -200,6 +200,9 @@ pub struct AccumulateState<R> {
 
     /// (η) The entropy
     pub entropy: EntropyBuffer,
+
+    /// (τ) The timeslot for the current accumulation
+    pub timeslot: TimeSlot,
 }
 
 impl<R: Accounts> AccumulateState<R> {

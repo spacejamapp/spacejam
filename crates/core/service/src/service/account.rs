@@ -50,7 +50,7 @@ impl ServiceAccount {
     }
 }
 
-/// Service info for pvm execution
+/// Service info for pvm execution (9.3) + (9.8)
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 #[cfg_attr(feature = "json", derive(Json))]
 pub struct ServiceInfo {
@@ -101,8 +101,7 @@ pub struct ServiceInfo {
 impl ServiceInfo {
     /// encode self into the info that host call required
     ///
-    /// FIXME: currently just for passing the test, we should
-    /// use the account's threshold without conditions.
+    /// (9.3) + ()
     pub fn host(&self) -> Result<Vec<u8>> {
         codec::encode(&(
             self.code,

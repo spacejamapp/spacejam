@@ -192,7 +192,7 @@ pub trait Invocation {
         // (U) The state context
         mut context: AccumulateState<R>,
         // (N_t)  timeslot for the current accumulation
-        timeslot: TimeSlot,
+        // timeslot: TimeSlot,
         // (N_s)  the service id of the caller
         service: ServiceId,
         // (N_g)  the gas limit for the current operation
@@ -211,6 +211,7 @@ pub trait Invocation {
         };
 
         // create the accumulate context
+        let timeslot = context.timeslot;
         let context = AccumulateContext::new(context, service, timeslot);
         let params = AccumulateParams {
             slot: timeslot,
@@ -223,15 +224,17 @@ pub trait Invocation {
         let result = Self::invoke2(accumulate, code_hash, code, args, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(
-                "PVM execution stopped with reason: {:?} for service {}",
+                "PVM execution stopped for service {} with reason: {:?}, gas spent: {}",
+                service,
                 result.reason,
-                service
+                result.gas,
             );
         } else {
-            tracing::trace!(
-                "PVM execution continued for service {}, reason: {:?}",
+            tracing::debug!(
+                "PVM execution continued for service {}, reason: {:?}, gas spent: {}",
                 service,
-                result.reason
+                result.reason,
+                result.gas,
             );
         }
 

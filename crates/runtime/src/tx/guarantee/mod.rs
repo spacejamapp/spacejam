@@ -61,9 +61,9 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
             validators: *validators,
             authorization: Default::default(),
             entropy,
+            timeslot: slot,
         },
         &privileges.always_acc,
-        slot,
     )
     .await;
 

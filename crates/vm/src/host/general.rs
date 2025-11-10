@@ -9,6 +9,7 @@ use score::{vm::AccumulateItem, Parameters};
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
+    tracing::debug!("gas: {}", ctx.gas());
     Ok(ctx.gas())
 }
 
@@ -41,12 +42,11 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
-    tracing::debug!("fetch kind: {:?}", kind);
-
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
     let length = ctx.rget(9).min(vlen - from);
+    tracing::debug!("fetch={kind} length={length}");
     if length > 0 {
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
@@ -56,14 +56,15 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩL) account lookup
 pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
-    let [acc, address, target, from, to] = [
+    let [acc, address, target, from, len] = [
         ctx.rget(7),
-        ctx.rget(8),
-        ctx.rget(9),
-        ctx.rget(10),
-        ctx.rget(11),
+        ctx.rget(8),  // h
+        ctx.rget(9),  // o
+        ctx.rget(10), // f
+        ctx.rget(11), // l
     ];
     let phash = ctx.read(address as u32, 32)?;
+    // let _thash = ctx.read(target as u32, 32)?;
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
@@ -81,8 +82,11 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
 
     // write patrial preimage to memory
     let plen = preimage.len() as u64;
-    let (from, to) = (from.min(plen), to.min(plen));
-    ctx.write(target as u32, &preimage[from as usize..to as usize])?;
+    let (from, len) = (from.min(plen), len.min(plen));
+    ctx.write(
+        target as u32,
+        &preimage[from as usize..(from + len) as usize],
+    )?;
     Ok(plen)
 }
 
@@ -131,11 +135,15 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
+        // let skey = hex::encode(&key);
+        // tracing::debug!("removing ko={ko} kz={kz} key=0x{skey}");
         let Some(_value) = account.remove(&key) else {
+            // tracing::debug!("key=0x{skey} not exists");
             return Ok(Exit::None as u64);
         };
     } else {
         // TODO: we actually can update the key here for avoiding hashing for twice
+        // tracing::debug!("writing key: 0x{}", hex::encode(&key));
         account.write(&key, value);
     }
 
@@ -149,6 +157,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
+    tracing::debug!("account={} info: {:?}", account.index(), account.info());
     let Ok(info) = account.info().host() else {
         crate::bail!("failed to encode account info");
     };

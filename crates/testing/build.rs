@@ -67,6 +67,10 @@ fn main() -> Result<()> {
         &out_dir.join("traces_fuzzy.rs"),
     )?;
     build_tests(
+        registry.trace(Trace::FuzzyLight)?,
+        &out_dir.join("traces_fuzzy_light.rs"),
+    )?;
+    build_tests(
         registry.trace(Trace::Safrole)?,
         &out_dir.join("traces_safrole.rs"),
     )?;
