@@ -217,6 +217,12 @@ pub fn upgrade(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩT) transfer funds from the sender to the destination
 pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [dest, amount, limit, memo] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    tracing::debug!("transfer: dest={dest}, amount={amount}, limit={limit}, memo={memo}");
+
+    // check if the recipient exists
+    if ctx.account(dest).is_err() {
+        return Ok(Exit::Who as u64);
+    }
 
     // check if the defer transfer is valid
     let memo = {
@@ -226,11 +232,6 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         memo
     };
     let service = ctx.service();
-
-    // check if the recipient is removed
-    if ctx.account(dest).is_err() {
-        return Ok(Exit::Who as u64);
-    }
 
     // check if the sender has enough balance
     let sender = ctx.this()?;

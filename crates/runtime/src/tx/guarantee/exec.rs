@@ -233,7 +233,7 @@ pub fn once<V: Pvm, R: Accounts>(
             .sum::<Gas>()
         + transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
 
-    let mut items = Vec::new();
+    let mut items: Vec<AccumulateItem> = transfers.into_iter().map(AccumulateItem::from).collect();
     for report in reports {
         items.extend(
             report
@@ -243,6 +243,5 @@ pub fn once<V: Pvm, R: Accounts>(
         );
     }
 
-    items.extend(transfers.into_iter().map(AccumulateItem::from));
     V::accumulate(context, service, gas, items)
 }

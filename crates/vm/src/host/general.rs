@@ -64,7 +64,6 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         ctx.rget(11), // l
     ];
     let phash = ctx.read(address as u32, 32)?;
-    // let _thash = ctx.read(target as u32, 32)?;
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
