@@ -135,15 +135,10 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
-        // let skey = hex::encode(&key);
-        // tracing::debug!("removing ko={ko} kz={kz} key=0x{skey}");
         let Some(_value) = account.remove(&key) else {
-            // tracing::debug!("key=0x{skey} not exists");
             return Ok(Exit::None as u64);
         };
     } else {
-        // TODO: we actually can update the key here for avoiding hashing for twice
-        // tracing::debug!("writing key: 0x{}", hex::encode(&key));
         account.write(&key, value);
     }
 
@@ -157,8 +152,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
-    tracing::debug!("account={} info: {:?}", account.index(), account.info());
-    let Ok(info) = account.info().host() else {
+    let Ok(info) = codec::encode(&account.info().vm()) else {
         crate::bail!("failed to encode account info");
     };
 
