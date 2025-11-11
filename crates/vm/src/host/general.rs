@@ -147,22 +147,24 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩI) fetch account info
 pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let [acc, output, from, to] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    let [acc, output] = [ctx.rget(7), ctx.rget(8)];
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
-    let Ok(info) = codec::encode(&account.info().vm()) else {
+    let info = account.info().vm();
+    let Ok(info) = codec::encode(&info) else {
         crate::bail!("failed to encode account info");
     };
 
     // Get memory write parameters from registers
-    let total_len = info.len() as u64;
-    let (from, to) = (from.min(total_len) as usize, to.min(total_len) as usize);
-    if to > from {
-        ctx.write(output as u32, &info[from..to])?;
+    let tlen = info.len() as u64;
+    let from = ctx.rget(9).min(tlen) as usize;
+    let length = ctx.rget(10).min(tlen - from as u64) as usize;
+    if from < tlen as usize {
+        ctx.write(output as u32, &info[from..from + length])?;
     }
 
     // Return total length of encoded data
-    Ok(total_len)
+    Ok(tlen)
 }
