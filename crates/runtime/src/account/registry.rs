@@ -52,6 +52,10 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
+        if let Some(account) = self.accounts.get(&index) {
+            return Some(account.info.code);
+        }
+
         // WORKAROUND:
         //
         // always return the code hash from storage since this
@@ -68,10 +72,6 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     fn remove(&mut self, index: u32) {
         self.accounts.remove(&index);
         self.removed.insert(index);
-    }
-
-    fn services(&self) -> Vec<u32> {
-        self.accounts.keys().cloned().collect()
     }
 
     fn accounts(&self) -> &BTreeMap<u32, impl ::account::Account> {

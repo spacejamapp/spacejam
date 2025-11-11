@@ -15,9 +15,6 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     /// Create a new account
     fn upsert(&mut self, index: u32, account: impl Account);
 
-    /// Get the services from the registry
-    fn services(&self) -> Vec<u32>;
-
     /// Get an account from the registry
     fn get(&mut self, index: u32) -> Option<&mut impl Account>;
 
@@ -64,10 +61,6 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
 
     fn upsert(&mut self, index: u32, account: impl Account) {
         self.insert(index, account.account());
-    }
-
-    fn services(&self) -> Vec<u32> {
-        self.keys().cloned().collect()
     }
 
     fn get(&mut self, index: u32) -> Option<&mut impl Account> {

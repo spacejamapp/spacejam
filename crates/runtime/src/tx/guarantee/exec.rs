@@ -186,13 +186,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             }
         }
 
-        // Remove accounts that are no longer present in the results
-        for service in context.accounts.services() {
-            if result.context.accounts.get(service).is_none() {
-                context.accounts.remove(service);
-            }
-        }
-
         for service in result.context.accounts.removed() {
             context.accounts.remove(service);
         }
@@ -249,7 +242,7 @@ pub fn once<V: Pvm, R: Accounts>(
                 .map(AccumulateItem::from),
         );
     }
-    items.extend(transfers.into_iter().map(AccumulateItem::from));
 
+    items.extend(transfers.into_iter().map(AccumulateItem::from));
     V::accumulate(context, service, gas, items)
 }

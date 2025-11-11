@@ -114,8 +114,9 @@ impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
         let affected_services: HashSet<_> = accumulated
             .context
             .accounts
-            .services()
-            .into_iter()
+            .accounts()
+            .keys()
+            .cloned()
             .collect();
 
         AccumulationRecord {

@@ -206,31 +206,6 @@ pub struct AccumulateState<R> {
 }
 
 impl<R: Accounts> AccumulateState<R> {
-    /// Get the code hash of an account
-    pub fn code_hash(&mut self, service: ServiceId) -> Option<OpaqueHash> {
-        self.accounts.code_hash(service)
-    }
-
-    /// Share preimages for the services in the state context
-    pub fn code(&mut self, service: ServiceId) -> Option<Vec<u8>> {
-        self.accounts.blob(service)
-        // self.accounts.get(service)?.account().code().cloned()
-        // TODO: The logic below is correct, but we need to match
-        // the test vectors atm.
-        /* let hash = self.accounts.get(service)?.code();
-        for account in self.accounts.accounts().values() {
-            if account.code() != hash {
-                continue;
-            }
-
-            if let Some(code) = account.account().code() {
-                return Some(code.clone());
-            }
-        }
-
-        None */
-    }
-
     /// (I) Generate a new index from provided environment (B.10)
     pub fn index(&mut self, service: ServiceId, timeslot: TimeSlot) -> ServiceId {
         let encoded = codec::encode(&IndexSalt {
