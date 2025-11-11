@@ -33,7 +33,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated<R> {
-    let mut updates = BTreeSet::new();
     let mut accumulated = Accumulated::new(context);
     loop {
         let mut cumulative_gas = 0;
@@ -57,7 +56,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             gas_table,
-            &mut updates,
         )
         .await;
 
@@ -73,18 +71,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
         }
     }
 
-    // WORKAROUND:
-    //
-    // post set updates, need to check if we need to post update
-    // all accounts instead of in the middle of the parallel accumulation.
-    //
-    // currently have bugs doing it in the middle.
-    for svc in updates {
-        if let Some(account) = accumulated.context.accounts.get(svc) {
-            account.set_update(accumulated.context.timeslot);
-        }
-    }
-
     accumulated
 }
 
@@ -94,7 +80,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
-    updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
     let mut services: BTreeSet<ServiceId> = Default::default();
     for report in reports {
@@ -190,16 +175,13 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     let mut transfers = Vec::new();
     let mut pairings = BTreeMap::new();
     for (service_id, result) in results.iter_mut() {
-        /* if result.gas == 0 {
+        if result.gas == 0 {
             continue;
-        } */
+        }
+
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
             if account.creation() == context.timeslot || id == service_id {
-                if id == service_id {
-                    updates.insert(*id);
-                }
-
                 context.accounts.upsert(*id, account.clone());
             }
         }

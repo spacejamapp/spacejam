@@ -50,11 +50,11 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
 
     // convert the accounts to the service items
     let accounts = self::to_accounts(&accumulation);
-    /* assert_eq!(
+    assert_eq!(
         accumulation.records,
         output.post_state.statistics(),
         "statistics mismatch"
-    ); */
+    );
     assert_eq!(accumulation.root, output.output.unwrap());
     assert_eq!(
         accumulation.accumulated_queue,

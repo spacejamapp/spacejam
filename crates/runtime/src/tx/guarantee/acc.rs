@@ -1,7 +1,7 @@
 //! Accumulation related types
 
 use account::Accounts;
-use pvm::AccumulateState;
+use pvm::{Account, AccumulateState};
 use score::{
     Gas, OpaqueHash, ServiceId,
     safrole::ValidatorsData,
@@ -50,7 +50,7 @@ impl<R: Accounts> Accumulated<R> {
 
     /// Get the service records
     pub fn records(
-        &self,
+        &mut self,
         accumulatable: &[WorkReport],
     ) -> BTreeMap<ServiceId, ServiceActivityRecord> {
         let mut records: BTreeMap<ServiceId, ServiceActivityRecord> = BTreeMap::new();
@@ -74,6 +74,13 @@ impl<R: Accounts> Accumulated<R> {
             let record = records.entry(transfer.recipient).or_default();
             if record.accumulate_gas_used == 0 {
                 record.accumulate_gas_used = *self.gas.get(&transfer.recipient).unwrap_or(&0);
+            }
+        }
+
+        // update the last update time of the accounts
+        for service in records.keys() {
+            if let Some(account) = self.context.accounts.get(*service) {
+                account.set_update(self.context.timeslot);
             }
         }
 
