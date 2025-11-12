@@ -134,8 +134,22 @@ pub async fn simulate_with_state<Vm: Pvm>(
         anyhow::bail!("invalid tickets mark");
     }
 
+    // complete the state root
+    if let Some(parent) = state
+        .recent_blocks
+        .complete_state_root(block.header.parent_state_root)?
+        && parent != block.header.parent
+    {
+        anyhow::bail!(
+            "Parent mismatch, expected: 0x{}, got: 0x{}",
+            hex::encode(block.header.parent),
+            hex::encode(parent),
+        );
+    }
+
     // The first round computation
-    let mut reports = {
+    let accounts = Accounts::new(storage);
+    let (mut reports, reported, reporters) = {
         // (η') Update entropy (6.22)
         //
         // TODO: check if we can skip this calculation at cases
@@ -175,9 +189,27 @@ pub async fn simulate_with_state<Vm: Pvm>(
             marks
         };
 
+        // (p of β') validate the guarantees
+        let (mut reported, mut reporters) = (vec![], vec![]);
+        if !block.extrinsic.guarantees.is_empty() {
+            (reported, reporters) = {
+                let _guard = timing::guarantees();
+                guarantee::report(
+                    &state,
+                    block.header.slot,
+                    &accounts,
+                    &block.extrinsic.guarantees,
+                )?
+            }
+        };
+
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
         let _guard = timing::assignments();
-        dispute::reports(&marks, &state.reports)
+        (
+            dispute::reports(&marks, &state.reports),
+            reported,
+            reporters,
+        )
     };
 
     // Round 2 computation
@@ -247,7 +279,6 @@ pub async fn simulate_with_state<Vm: Pvm>(
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
-        let accounts = Accounts::new(storage);
         let _guard = timing::accumulate();
         let accumulation = guarantee::accumulate::<Vm, _>(
             block.header.slot,
@@ -282,33 +313,6 @@ pub async fn simulate_with_state<Vm: Pvm>(
 
     // Round 4 computation
     {
-        if let Some(parent) = state
-            .recent_blocks
-            .complete_state_root(block.header.parent_state_root)?
-            && parent != block.header.parent
-        {
-            anyhow::bail!(
-                "Parent mismatch, expected: 0x{}, got: 0x{}",
-                hex::encode(block.header.parent),
-                hex::encode(parent),
-            );
-        }
-
-        // (p of β') Report the work packages
-        let (mut reported, mut reporters) = (vec![], vec![]);
-        if !block.extrinsic.guarantees.is_empty() {
-            // {
-            (reported, reporters) = {
-                let _guard = timing::guarantees();
-                guarantee::report(
-                    &state,
-                    block.header.slot,
-                    &accounts,
-                    &block.extrinsic.guarantees,
-                )?
-            }
-        };
-
         // (β') Update the block history
         block::history::import(
             &mut state.recent_blocks,
