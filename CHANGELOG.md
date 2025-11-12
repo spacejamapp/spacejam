@@ -1,3 +1,9 @@
+## 0.7.2
+
+- Update the gas calculation for host call `transfer`
+
+## 0.7.1
+
 ## 0.6.7
 
 - Correct the usage of next validators

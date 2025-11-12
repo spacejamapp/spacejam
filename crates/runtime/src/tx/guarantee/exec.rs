@@ -190,10 +190,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             context.accounts.remove(service);
         }
 
-        for transfer in &result.transfers {
-            result.gas += transfer.gas_limit;
-        }
-
         transfers.extend(result.transfers.clone());
         gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
