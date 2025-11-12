@@ -297,6 +297,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
         let balance = dest.balance();
         let to_remove = dest.index();
         let _ = dest;
+        tracing::debug!("eject: balance={balance}, to_remove={to_remove}");
         *ctx.this()?.balance_mut() += balance;
         ctx.remove(to_remove);
         return Ok(Exit::Ok as u64);

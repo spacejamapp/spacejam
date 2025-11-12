@@ -44,6 +44,10 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     }
 
     fn get(&mut self, index: u32) -> Option<&mut impl ::account::Account> {
+        if self.removed.contains(&index) {
+            return None;
+        }
+
         if let Entry::Vacant(e) = self.accounts.entry(index) {
             e.insert(Account::new(self.storage.clone(), index).ok()?);
         }

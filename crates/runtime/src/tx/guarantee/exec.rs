@@ -96,6 +96,8 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
+    tracing::debug!("transfers: {:?}", transfers);
+
     // NOTE: this is for debugging usage
     let mut results = {
         let mut results = BTreeMap::new();
