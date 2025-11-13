@@ -97,6 +97,8 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
+    tracing::debug!("services: {:?}", services);
+
     // NOTE: this is for debugging usage
     let mut results = {
         let mut results = BTreeMap::new();
@@ -182,7 +184,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
 
         let accounts = result.context.accounts.accounts();
         for (id, account) in accounts.iter() {
-            if account.creation() == context.timeslot || id == service_id {
+            if (account.creation() == context.timeslot && context.accounts.get(*id).is_none())
+                || id == service_id
+            {
                 context.accounts.upsert(*id, account.clone());
             }
         }
