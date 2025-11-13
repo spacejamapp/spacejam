@@ -344,24 +344,22 @@ pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the account has enough balance
     let timeslot = ctx.timeslot();
     let account = ctx.this()?;
-    if account.balance() < account.threshold() {
+    let mut slots = vec![];
+    if let Some(lookup) = account.lookup(hash, z as u32) {
+        if lookup.len() == 2 {
+            slots = vec![lookup[0], lookup[1], timeslot];
+        } else {
+            return Ok(Exit::Huh as u64);
+        }
+    }
+
+    // pre-calculate the new threshold
+    let threshold = account.lookup_threshold(z).unwrap_or(u64::MAX);
+    if account.balance() < threshold {
         return Ok(Exit::Full as u64);
     }
 
-    // get the lookup
-    let Some(mut lookup) = account.lookup(hash, z as u32) else {
-        tracing::debug!("inserting lookup hash={} len={}", hex::encode(hash), z);
-        account.insert_lookup(hash, z as u32, vec![]);
-        return Ok(Exit::Ok as u64);
-    };
-
-    if lookup.len() == 2 {
-        lookup.push(timeslot);
-        account.insert_lookup(hash, z as u32, lookup);
-    } else {
-        return Ok(Exit::Huh as u64);
-    }
-
+    account.insert_lookup(hash, z as u32, slots);
     Ok(Exit::Ok as u64)
 }
 

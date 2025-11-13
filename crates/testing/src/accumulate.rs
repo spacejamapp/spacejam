@@ -68,10 +68,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
         paccounts.iter().map(|a| a.id).collect::<Vec<_>>(),
         "account length mismatch"
     ); */
-    accounts = accounts
-        .into_iter()
-        .filter(|a| paccounts.iter().any(|p| p.id == a.id))
-        .collect();
+    accounts.retain(|a| paccounts.iter().any(|p| p.id == a.id));
     for i in 0..accounts.len() {
         let left = &accounts[i];
         let right = &paccounts[i];
