@@ -1,10 +1,12 @@
 //! Primitives for the accumulate invocation
 
+use std::collections::BTreeSet;
+
 use crate::{Gas, OpaqueHash, ServiceId, Vec, service::WorkExecResult};
 use serde::{Deserialize, Serialize};
 
 /// The commitment map
-pub type CommitmentMap = Vec<(ServiceId, OpaqueHash)>;
+pub type CommitmentMap = BTreeSet<(ServiceId, OpaqueHash)>;
 
 impl From<Operand> for AccumulateItem {
     fn from(operand: Operand) -> Self {

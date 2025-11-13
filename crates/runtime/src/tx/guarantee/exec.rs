@@ -67,7 +67,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
         accumulated.accumulated += step.accumulated;
         accumulated.context = step.context;
         accumulated.pairings.extend(step.pairings);
-        accumulated.pairings.sort_by_key(|(service, _)| *service);
         for (service, gas) in step.gas.iter() {
             *accumulated.gas.entry(*service).or_insert(0) += gas;
         }
@@ -177,7 +176,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     // Update the state of accounts
     let mut gas = BTreeMap::new();
     let mut transfers = Vec::new();
-    let mut pairings = Vec::new();
+    let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
         if result.gas == 0 {
             continue;
@@ -199,8 +198,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         transfers.extend(result.transfers.clone());
         gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
-            pairings.push((*service_id, hash));
-            pairings.sort_by_key(|(service, _)| *service);
+            pairings.insert((*service_id, hash));
         }
     }
 

@@ -425,7 +425,7 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // FIXME: the lookup insert is not specified in graypper, could be a bug
     // in the fuzzy tests or our implementation.
-    account.insert_lookup(hash, size as u32, vec![timeslot as u32]);
+    account.insert_lookup(hash, size as u32, vec![timeslot]);
     account.insert_preimage(hash, preimage);
     Ok(Exit::Ok as u64)
 }
