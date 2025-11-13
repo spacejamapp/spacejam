@@ -402,17 +402,18 @@ pub fn yield_(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩP) provide new preimage
 pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [mut service, from, size] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
+    let timeslot = ctx.timeslot();
     if service == u64::MAX {
         service = ctx.service() as u64;
     }
 
-    let image = ctx.read(from as u32, size as u32)?;
+    let preimage = ctx.read(from as u32, size as u32)?;
     let Ok(account) = ctx.account(service) else {
         return Ok(Exit::Who as u64);
     };
 
     // check if the preimage is already in the account
-    let hash = crypto::blake2b(&image);
+    let hash = crypto::blake2b(&preimage);
     if account.lookup(hash, size as u32) != Some(vec![]) {
         return Ok(Exit::Huh as u64);
     }
@@ -422,6 +423,9 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Huh as u64);
     }
 
-    account.insert_preimage(hash, image);
+    // FIXME: the lookup insert is not specified in graypper, could be a bug
+    // in the fuzzy tests or our implementation.
+    account.insert_lookup(hash, size as u32, vec![timeslot as u32]);
+    account.insert_preimage(hash, preimage);
     Ok(Exit::Ok as u64)
 }

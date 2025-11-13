@@ -173,7 +173,7 @@ impl<S: Storage> ::account::Account for Account<S> {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let key = account::lookup(self.index, len, hash);
-        let exists = self.state.state_get(key).ok().flatten().is_some();
+        let exists = self.lookup(hash, len).is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
         let encoded = codec::encode(&lookup).expect("lookup is valid");
@@ -250,11 +250,6 @@ impl<S: Storage> ::account::Account for Account<S> {
 
         // update storage
         self.ops.removal.remove(&vkey);
-        tracing::debug!(
-            "write: key=0x{}, value=0x{}",
-            hex::encode(&vkey),
-            hex::encode(&value)
-        );
         self.ops.set(vkey, value.clone());
         self.account
             .storage
