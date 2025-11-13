@@ -33,7 +33,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
                     }
                 }
             } else {
-                Default::default()
+                return Ok(Exit::None as u64);
             }
         }
         kind => {
@@ -140,6 +140,11 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         };
     } else {
+        tracing::debug!(
+            "write: key=0x{}, value=0x{}",
+            hex::encode(&key),
+            hex::encode(&value)
+        );
         account.write(&key, value);
     }
 
