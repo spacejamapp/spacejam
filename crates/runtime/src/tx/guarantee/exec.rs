@@ -33,7 +33,6 @@ pub async fn outer<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated<R> {
-    let mut updates = BTreeSet::new();
     let mut accumulated = Accumulated::new(context);
     loop {
         let mut cumulative_gas = 0;
@@ -52,36 +51,24 @@ pub async fn outer<V: Pvm, R: Accounts>(
             break;
         }
 
-        let step = self::parallel::<V, R>(
+        let mut step = self::parallel::<V, R>(
             accumulated.context.clone(),
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             gas_table,
-            &mut updates,
         )
         .await;
 
+        step.defer_transfers();
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
         transfers = step.transfers.clone();
         accumulated.transfers.extend(step.transfers);
         accumulated.accumulated += step.accumulated;
-        accumulated.pairings.extend(step.pairings);
         accumulated.context = step.context;
+        accumulated.pairings.extend(step.pairings);
         for (service, gas) in step.gas.iter() {
             *accumulated.gas.entry(*service).or_insert(0) += gas;
-        }
-    }
-
-    // WORKAROUND:
-    //
-    // post set updates, need to check if we need to post update
-    // all accounts instead of in the middle of the parallel accumulation.
-    //
-    // currently have bugs doing it in the middle.
-    for svc in updates {
-        if let Some(account) = accumulated.context.accounts.get(svc) {
-            account.set_update(accumulated.context.timeslot);
         }
     }
 
@@ -94,7 +81,6 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
-    updates: &mut BTreeSet<ServiceId>,
 ) -> Accumulated<R> {
     let mut services: BTreeSet<ServiceId> = Default::default();
     for report in reports {
@@ -110,6 +96,8 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     for transfer in transfers.iter() {
         services.insert(transfer.recipient);
     }
+
+    tracing::debug!("services: {:?}", services);
 
     // NOTE: this is for debugging usage
     let mut results = {
@@ -188,26 +176,18 @@ pub async fn parallel<V: Pvm, R: Accounts>(
     // Update the state of accounts
     let mut gas = BTreeMap::new();
     let mut transfers = Vec::new();
-    let mut pairings = BTreeMap::new();
+    let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
-        /* if result.gas == 0 {
+        if result.gas == 0 {
             continue;
-        } */
-        let accounts = result.context.accounts.accounts();
-        for (id, account) in accounts.iter() {
-            if account.creation() == context.timeslot || id == service_id {
-                if id == service_id {
-                    updates.insert(*id);
-                }
-
-                context.accounts.upsert(*id, account.clone());
-            }
         }
 
-        // Remove accounts that are no longer present in the results
-        for service in context.accounts.services() {
-            if result.context.accounts.get(service).is_none() {
-                context.accounts.remove(service);
+        let accounts = result.context.accounts.accounts();
+        for (id, account) in accounts.iter() {
+            if (account.creation() == context.timeslot && context.accounts.get(*id).is_none())
+                || id == service_id
+            {
+                context.accounts.upsert(*id, account.clone());
             }
         }
 
@@ -215,14 +195,10 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             context.accounts.remove(service);
         }
 
-        for transfer in &result.transfers {
-            result.gas += transfer.gas_limit;
-        }
-
         transfers.extend(result.transfers.clone());
         gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
-            pairings.insert(*service_id, hash);
+            pairings.insert((*service_id, hash));
         }
     }
 
@@ -258,7 +234,7 @@ pub fn once<V: Pvm, R: Accounts>(
             .sum::<Gas>()
         + transfers.iter().map(|t| t.gas_limit).sum::<Gas>();
 
-    let mut items = Vec::new();
+    let mut items: Vec<AccumulateItem> = transfers.into_iter().map(AccumulateItem::from).collect();
     for report in reports {
         items.extend(
             report
@@ -267,7 +243,6 @@ pub fn once<V: Pvm, R: Accounts>(
                 .map(AccumulateItem::from),
         );
     }
-    items.extend(transfers.into_iter().map(AccumulateItem::from));
 
     V::accumulate(context, service, gas, items)
 }

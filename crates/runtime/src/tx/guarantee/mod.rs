@@ -3,18 +3,16 @@
 pub use acc::Accumulation;
 use account::Accounts;
 use error::{Error, Result};
-use pvm::{Account, AccumulateState, Pvm};
+use pvm::{AccumulateState, Pvm};
 use score::{
-    CORES_COUNT, Ed25519Public, EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
+    CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     safrole::ValidatorsData,
     service::{
         AccumulatedQueue, AvailabilityAssignment, AvailabilityAssignments, Privileges, ReadyQueue,
         ReadyReport, ReportedWorkPackage, WorkReport,
     },
-    vm::DeferredTransfer,
 };
-use std::collections::BTreeMap;
 
 mod acc;
 pub mod error;
@@ -78,13 +76,6 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
     let next_ready_queue =
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
-    // (δ‡) Process deferred transfers
-    let transfers = self::defer_transfers::<V, R>(
-        &mut accumulated.context.accounts,
-        &accumulated.transfers,
-        slot,
-    );
-
     Ok(Accumulation {
         root: accumulated.root(),
         ready_queue: next_ready_queue,
@@ -93,7 +84,6 @@ pub async fn accumulate<V: Pvm, R: Accounts>(
         privileges: accumulated.context.privileges,
         validators: accumulated.context.validators,
         records,
-        transfers,
         logs: accumulated.pairings,
     })
 }
@@ -223,23 +213,6 @@ pub fn pools(
     }
 
     new_pools
-}
-
-/// (δ‡) Process deferred transfers to transition from δ′ to δ‡
-pub fn defer_transfers<V: Pvm, R: Accounts>(
-    // The post-accumulation accounts (δ′)
-    accounts: &mut R,
-    // The deferred transfers (t)
-    transfers: &[DeferredTransfer],
-    // The current timeslot (τ')
-    _slot: TimeSlot,
-) -> BTreeMap<ServiceId, (usize, Gas)> {
-    for transfer in transfers {
-        if let Some(dest) = accounts.get(transfer.recipient) {
-            *dest.balance_mut() += transfer.amount;
-        }
-    }
-    Default::default()
 }
 
 /// (p of β') Report the work packages

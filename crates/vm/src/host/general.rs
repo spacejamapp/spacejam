@@ -33,7 +33,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
                     }
                 }
             } else {
-                Default::default()
+                return Ok(Exit::None as u64);
             }
         }
         kind => {
@@ -64,7 +64,6 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         ctx.rget(11), // l
     ];
     let phash = ctx.read(address as u32, 32)?;
-    // let _thash = ctx.read(target as u32, 32)?;
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
@@ -122,8 +121,11 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     let key = ctx.read(ko as u32, kz as u32)?;
 
     // check if the account has enough balance to cover the threshold
+    //
+    // FIXME: bug in the fuzzy tests, should just check greater than.
     let account = ctx.this()?;
-    if account.threshold() > account.balance() {
+    let threshold = account.write_threshold(&key, &value).unwrap_or(u64::MAX);
+    if threshold > account.balance() {
         return Ok(Exit::Full as u64);
     }
 
@@ -135,15 +137,10 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     if vz == 0 {
-        // let skey = hex::encode(&key);
-        // tracing::debug!("removing ko={ko} kz={kz} key=0x{skey}");
         let Some(_value) = account.remove(&key) else {
-            // tracing::debug!("key=0x{skey} not exists");
             return Ok(Exit::None as u64);
         };
     } else {
-        // TODO: we actually can update the key here for avoiding hashing for twice
-        // tracing::debug!("writing key: 0x{}", hex::encode(&key));
         account.write(&key, value);
     }
 
@@ -152,23 +149,24 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩI) fetch account info
 pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let [acc, output, from, to] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    let [acc, output] = [ctx.rget(7), ctx.rget(8)];
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
-    tracing::debug!("account={} info: {:?}", account.index(), account.info());
-    let Ok(info) = account.info().host() else {
+    let info = account.info().vm();
+    let Ok(info) = codec::encode(&info) else {
         crate::bail!("failed to encode account info");
     };
 
     // Get memory write parameters from registers
-    let total_len = info.len() as u64;
-    let (from, to) = (from.min(total_len) as usize, to.min(total_len) as usize);
-    if to > from {
-        ctx.write(output as u32, &info[from..to])?;
+    let tlen = info.len() as u64;
+    let from = ctx.rget(9).min(tlen) as usize;
+    let length = ctx.rget(10).min(tlen - from as u64) as usize;
+    if from < tlen as usize {
+        ctx.write(output as u32, &info[from..from + length])?;
     }
 
     // Return total length of encoded data
-    Ok(total_len)
+    Ok(tlen)
 }

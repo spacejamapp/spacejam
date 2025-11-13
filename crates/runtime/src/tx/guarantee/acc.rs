@@ -1,7 +1,7 @@
 //! Accumulation related types
 
 use account::Accounts;
-use pvm::AccumulateState;
+use pvm::{Account, AccumulateState};
 use score::{
     Gas, OpaqueHash, ServiceId,
     safrole::ValidatorsData,
@@ -43,14 +43,14 @@ impl<R: Accounts> Accumulated<R> {
             accumulated: 0,
             context,
             transfers: vec![],
-            pairings: BTreeMap::new(),
+            pairings: Default::default(),
             gas: BTreeMap::new(),
         }
     }
 
     /// Get the service records
     pub fn records(
-        &self,
+        &mut self,
         accumulatable: &[WorkReport],
     ) -> BTreeMap<ServiceId, ServiceActivityRecord> {
         let mut records: BTreeMap<ServiceId, ServiceActivityRecord> = BTreeMap::new();
@@ -77,6 +77,13 @@ impl<R: Accounts> Accumulated<R> {
             }
         }
 
+        // update the last update time of the accounts
+        for service in records.keys() {
+            if let Some(account) = self.context.accounts.get(*service) {
+                account.set_update(self.context.timeslot);
+            }
+        }
+
         records
     }
 
@@ -84,11 +91,9 @@ impl<R: Accounts> Accumulated<R> {
     ///
     /// see also (7.7) in the graypaper
     pub fn root(&self) -> OpaqueHash {
-        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
-        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
-
-        let leaves = sorted_pairs
-            .into_iter()
+        let leaves = self
+            .pairings
+            .iter()
             .map(|(service, commit)| {
                 let mut leaf = Vec::new();
                 leaf.extend_from_slice(&service.to_le_bytes());
@@ -99,6 +104,15 @@ impl<R: Accounts> Accumulated<R> {
 
         crypto::merkle::kroot(leaves)
     }
+
+    /// Apply the deferred transfers to the accounts
+    pub fn defer_transfers(&mut self) {
+        for transfer in self.transfers.iter() {
+            if let Some(dest) = self.context.accounts.get(transfer.recipient) {
+                *dest.balance_mut() += transfer.amount;
+            }
+        }
+    }
 }
 
 impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
@@ -107,8 +121,9 @@ impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
         let affected_services: HashSet<_> = accumulated
             .context
             .accounts
-            .services()
-            .into_iter()
+            .accounts()
+            .keys()
+            .cloned()
             .collect();
 
         AccumulationRecord {
@@ -142,9 +157,6 @@ pub struct Accumulation<R: Accounts> {
 
     /// (πS') The service records
     pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
-
-    /// (Xt) The transfer statistics: (service_id -> (transfer_count, gas_used))
-    pub transfers: BTreeMap<ServiceId, (usize, Gas)>,
 
     /// (θ) The accumulation logs
     pub logs: CommitmentMap,
