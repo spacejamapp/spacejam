@@ -306,7 +306,6 @@ pub async fn simulate_with_state<Vm: Pvm>(
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
         state.statistics.merge_services(accumulation.records);
-        state.statistics.merge_transfers(accumulation.transfers);
         processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
         (accumulation.root, accumulation.accounts)
     };

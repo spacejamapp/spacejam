@@ -51,7 +51,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
             break;
         }
 
-        let step = self::parallel::<V, R>(
+        let mut step = self::parallel::<V, R>(
             accumulated.context.clone(),
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
@@ -59,6 +59,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
         )
         .await;
 
+        step.defer_transfers();
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
         transfers = step.transfers.clone();
