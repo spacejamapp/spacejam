@@ -250,6 +250,11 @@ impl<S: Storage> ::account::Account for Account<S> {
 
         // update storage
         self.ops.removal.remove(&vkey);
+        tracing::debug!(
+            "write: key=0x{}, value=0x{}",
+            hex::encode(&vkey),
+            hex::encode(&value)
+        );
         self.ops.set(vkey, value.clone());
         self.account
             .storage

@@ -37,28 +37,7 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     fn blob(&mut self, index: u32) -> Option<Vec<u8>> {
         let account = self.get(index)?;
         let code = account.code();
-        let mut accounts = self
-            .accounts
-            .keys()
-            .filter(|&id| !self.removed.contains(id) || *id != index)
-            .cloned()
-            .collect::<Vec<_>>();
-        accounts = vec![vec![index], accounts].concat();
-
-        // FIXME: we only support active accounts in the current execution atm
-        //
-        // could be buggy in production!
-        for service in accounts {
-            if let Some(blob) = self
-                .accounts
-                .get_mut(&service)
-                .and_then(|a| a.preimage(code))
-            {
-                return Some(blob.clone());
-            }
-        }
-
-        None
+        account.preimage(code)
     }
 
     fn get(&mut self, index: u32) -> Option<&mut impl ::account::Account> {

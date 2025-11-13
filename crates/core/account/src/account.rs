@@ -108,15 +108,21 @@ pub trait Account: Clone {
 
     /// Get the threshold with new lookup
     fn lookup_threshold(&self, len: u64) -> Option<u64> {
-        let mut threshold = self.threshold();
-        threshold = threshold
+        self.threshold()
             .checked_add(
                 81u64
                     .checked_add(len)?
                     .checked_mul(score::BALANCE_PER_OCTET)?,
             )?
-            .checked_add(2u64.checked_mul(score::BALANCE_PER_ITEM)?)?;
-        Some(threshold)
+            .checked_add(2u64.checked_mul(score::BALANCE_PER_ITEM)?)
+    }
+
+    /// Write the threshold of the account
+    fn write_threshold(&self, key: &[u8], value: &[u8]) -> Option<u64> {
+        let klen = key.len() as u64;
+        let vlen = value.len() as u64;
+        self.threshold()
+            .checked_add(score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET)
     }
 
     /// (Λ) lookup preimage in the recent histories

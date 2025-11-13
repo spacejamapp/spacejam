@@ -124,7 +124,8 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     //
     // FIXME: bug in the fuzzy tests, should just check greater than.
     let account = ctx.this()?;
-    if account.threshold() >= account.balance() {
+    let threshold = account.write_threshold(&key, &value).unwrap_or(u64::MAX);
+    if threshold > account.balance() {
         return Ok(Exit::Full as u64);
     }
 
@@ -140,11 +141,6 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         };
     } else {
-        tracing::debug!(
-            "write: key=0x{}, value=0x{}",
-            hex::encode(&key),
-            hex::encode(&value)
-        );
         account.write(&key, value);
     }
 
