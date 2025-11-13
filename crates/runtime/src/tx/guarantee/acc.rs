@@ -43,7 +43,7 @@ impl<R: Accounts> Accumulated<R> {
             accumulated: 0,
             context,
             transfers: vec![],
-            pairings: BTreeMap::new(),
+            pairings: Default::default(),
             gas: BTreeMap::new(),
         }
     }
@@ -91,11 +91,9 @@ impl<R: Accounts> Accumulated<R> {
     ///
     /// see also (7.7) in the graypaper
     pub fn root(&self) -> OpaqueHash {
-        let mut sorted_pairs: Vec<_> = self.pairings.iter().collect();
-        sorted_pairs.sort_by_key(|(service_id, _)| *service_id);
-
-        let leaves = sorted_pairs
-            .into_iter()
+        let leaves = self
+            .pairings
+            .iter()
             .map(|(service, commit)| {
                 let mut leaf = Vec::new();
                 leaf.extend_from_slice(&service.to_le_bytes());

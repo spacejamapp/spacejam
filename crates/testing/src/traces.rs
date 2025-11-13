@@ -13,6 +13,7 @@ use score::{
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
     state::{StateKeyInfo, StateKeyLike, account, key},
     statistic::Statistics,
+    vm::CommitmentMap,
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
@@ -129,6 +130,25 @@ pub async fn run_single<Vm: Pvm>(
             );
         } else {
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
+        }
+
+        if key == key::ACCUMULATION_LOGS && value != result {
+            let polkajam: CommitmentMap = codec::decode(&value)?;
+            let spacejam: CommitmentMap = codec::decode(&result)?;
+            tracing::debug!(
+                "polkajam: {:?}",
+                polkajam
+                    .iter()
+                    .map(|(k, v)| (k, hex::encode(v)))
+                    .collect::<Vec<_>>()
+            );
+            tracing::debug!(
+                "spacejam: {:?}",
+                spacejam
+                    .iter()
+                    .map(|(k, v)| (k, hex::encode(v)))
+                    .collect::<Vec<_>>()
+            );
         }
 
         if key == key::STATISTICS && value != result {
