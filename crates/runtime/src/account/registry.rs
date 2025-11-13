@@ -2,7 +2,7 @@
 
 use crate::{Storage, account::Account};
 use account::Account as _;
-use score::{OpaqueHash, state};
+use score::OpaqueHash;
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -37,10 +37,28 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     fn blob(&mut self, index: u32) -> Option<Vec<u8>> {
         let account = self.get(index)?;
         let code = account.code();
-        self.storage
-            .state_get(state::account::preimage(index, code))
-            .ok()?
-            .map(|v| v.to_vec())
+        let mut accounts = self
+            .accounts
+            .keys()
+            .filter(|&id| !self.removed.contains(id) || *id != index)
+            .cloned()
+            .collect::<Vec<_>>();
+        accounts = vec![vec![index], accounts].concat();
+
+        // FIXME: we only support active accounts in the current execution atm
+        //
+        // could be buggy in production!
+        for service in accounts {
+            if let Some(blob) = self
+                .accounts
+                .get_mut(&service)
+                .and_then(|a| a.preimage(code))
+            {
+                return Some(blob.clone());
+            }
+        }
+
+        None
     }
 
     fn get(&mut self, index: u32) -> Option<&mut impl ::account::Account> {
