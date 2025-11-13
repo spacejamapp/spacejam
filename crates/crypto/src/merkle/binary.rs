@@ -29,40 +29,43 @@ pub fn hroot(hashes: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
     }
 
     let tree = tree(hashes.to_vec(), hash);
-    tree[tree.len() - 1][0]
+    let mut root = [0u8; 32];
+    root.copy_from_slice(&tree[tree.len() - 1][0]);
+    root
 }
 
 /// Compute the Merkle tree.
-pub fn tree(mut leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<[u8; 32]>> {
+pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<Vec<u8>>> {
     if leaves.is_empty() {
-        return vec![vec![[0u8; 32]]];
+        return vec![vec![vec![0u8; 32]]];
     }
 
     if leaves.len() == 1 {
-        return vec![vec![hash(&leaves[0])]];
+        return vec![vec![hash(&leaves[0]).to_vec()]];
     }
 
     // pad leaves
-    let padded_len = leaves.len().next_power_of_two();
-    leaves.resize(padded_len, vec![]);
     let mut tree = Vec::new();
     let mut current = leaves;
 
     // build layers until we reach the root.
     loop {
-        let mut next_layer = Vec::new();
+        let mut layer = Vec::new();
         for i in (0..current.len()).step_by(2) {
             let left = &current[i];
-            let right = &current[i + 1];
-            next_layer.push(hash(&[b"node", left.as_slice(), right.as_slice()].concat()));
+            if let Some(right) = current.get(i + 1) {
+                layer.push(hash(&[b"node", left.as_slice(), right.as_slice()].concat()).to_vec());
+            } else {
+                layer.push(left.clone());
+            }
         }
 
-        tree.push(next_layer.clone());
-        if next_layer.len() == 1 {
+        tree.push(layer.clone());
+        if layer.len() == 1 {
             break;
         }
 
-        current = next_layer.into_iter().map(|h| h.to_vec()).collect();
+        current = layer;
     }
 
     tree
@@ -112,7 +115,8 @@ impl From<Vec<Vec<u8>>> for MerkleTree {
 
         // pad leaves
         let tree = tree(leaves.clone(), blake2b);
-        let root = tree[tree.len() - 1][0];
+        let mut root = [0; 32];
+        root.copy_from_slice(&tree[tree.len() - 1][0]);
         let padded_len = leaves.len().next_power_of_two();
         leaves.resize(padded_len, vec![]);
 
@@ -143,7 +147,9 @@ impl From<Vec<Vec<u8>>> for MerkleTree {
                 if layer.len() > 1 {
                     let sibling_index = if index % 2 == 0 { index + 1 } else { index - 1 };
                     if sibling_index < layer.len() {
-                        proof_path.push(layer[sibling_index]);
+                        let mut node = [0; 32];
+                        node.copy_from_slice(&layer[sibling_index]);
+                        proof_path.push(node);
                     }
                     index /= 2;
                 }
