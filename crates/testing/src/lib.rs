@@ -50,7 +50,9 @@ impl Runner {
             Section::Safrole => crate::safrole::run(test).await?,
             Section::Statistics => crate::statistics::run(test)?,
             Section::Pvm => crate::pvmi::run(test)?,
-            Section::Trace(_) => crate::traces::run(test).await?,
+            Section::Trace(_) => {
+                crate::traces::run(test).await?;
+            }
             Section::Codec | Section::Shuffle | Section::Trie => {}
         }
 

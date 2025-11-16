@@ -51,9 +51,9 @@ mod storage_light {
     include!(concat!(env!("OUT_DIR"), "/traces_storage_light.rs"));
 }
 
-pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
+pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
     if test.input.len() == 31 {
-        return Ok(());
+        return Ok(false);
     }
     let memdb = Arc::new(MemoryDb::default());
     let input = TestInput::from_json(&test.input)?;
@@ -77,7 +77,7 @@ pub async fn run_single<Vm: Pvm>(
     memdb: Arc<MemoryDb>,
     input: TestInput,
     output: TestOutput,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let block: Block = input.block;
     let mut pkeys = Vec::new();
     let state = memdb.state()?;
@@ -103,6 +103,7 @@ pub async fn run_single<Vm: Pvm>(
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
     );
 
+    let is_ok = result.is_ok();
     match result {
         Err(e) => tracing::warn!("failed to import block: {e:?}"),
         Ok(((), diff)) => memdb
@@ -223,7 +224,7 @@ pub async fn run_single<Vm: Pvm>(
 
     let state_root = memdb.root().expect("failed to get state root");
     assert_eq!(state_root, output.post_state.state_root);
-    Ok(())
+    Ok(is_ok)
 }
 
 /// State transition trace input

@@ -53,14 +53,12 @@ pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
     }
 
     // same validator set already cached
+    if let Ok(mut map) = LAZY_RING.lock()
+        && let Some(v) = map.values().find(|v| v.ring() == *drawn)
     {
-        if let Ok(mut map) = LAZY_RING.lock()
-            && let Some(v) = map.values().find(|v| v.ring() == *drawn)
-        {
-            let v = v.clone();
-            map.insert(epoch, v.clone());
-            return v;
-        }
+        let v = v.clone();
+        map.insert(epoch, v.clone());
+        return v;
     }
 
     // build new verifier
