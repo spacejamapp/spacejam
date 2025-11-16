@@ -100,6 +100,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     let slot_phase = block.header.slot % score::EPOCH_LENGTH;
 
+    if block.header.slot < state.timeslot {
+        anyhow::bail!("block slot is less than current height");
+    }
+
     // TODO: move this logic to the header validation
     if let Some(epoch_mark) = &block.header.epoch_mark {
         if epoch_mark.validators.iter().any(|v| {
