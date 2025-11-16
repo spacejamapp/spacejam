@@ -23,14 +23,19 @@ pub struct Processor {
 impl Processor {
     /// Process a test
     pub async fn process(&mut self, test: Test) -> Result<()> {
-        tracing::debug!("processing test: {}", test.name);
         let input = TestInput::from_json(&test.input)?;
         let output = TestOutput::from_json(&test.output)?;
         let slot = input.block.header.slot;
+        tracing::debug!(
+            "processing test: {}, slots: {:?}, incoming block: {slot}",
+            test.name,
+            self.history.keys()
+        );
+
         if self.history.contains_key(&slot) {
-            let mut lstate = Default::default();
+            let mut lstate = HashMap::new();
             for (cslot, state) in self.history.iter() {
-                if *cslot == slot {
+                if *cslot == slot && !lstate.is_empty() {
                     self.memdb.reset(lstate);
                     break;
                 }
