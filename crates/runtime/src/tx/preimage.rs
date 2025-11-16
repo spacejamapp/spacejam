@@ -49,6 +49,12 @@ pub fn accounts(
 
         // Set lookup slots to [τ'] (current time slot)
         let updated_slots = vec![slot];
+        tracing::debug!(
+            "service={} inserting preimage hash={} len={}",
+            account.index(),
+            hex::encode(hash),
+            blob_len
+        );
         account.insert_preimage(hash, preimage.blob.clone());
         account.insert_lookup(hash, blob_len, updated_slots);
     }

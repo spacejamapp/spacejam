@@ -173,7 +173,7 @@ impl<S: Storage> ::account::Account for Account<S> {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let key = account::lookup(self.index, len, hash);
-        let exists = self.state.state_get(key).ok().flatten().is_some();
+        let exists = self.lookup(hash, len).is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
         let encoded = codec::encode(&lookup).expect("lookup is valid");
@@ -184,8 +184,8 @@ impl<S: Storage> ::account::Account for Account<S> {
         //  a_i = 2 * |a_l| + |a_s| (items)
         //  a_o includes Σ(81 + z) for each lookup (total octets)
         if !exists {
-            self.set_total(self.total() + 81 + len as u64);
             self.set_items(self.items() + 2);
+            self.set_total(self.total() + 81 + len as u64);
         }
     }
 
@@ -193,8 +193,8 @@ impl<S: Storage> ::account::Account for Account<S> {
         let key = account::lookup(self.index, len, hash);
         if self.state.state_get(key).ok().flatten().is_some() {
             self.ops.remove(key);
-            self.set_total(self.total() - 81 - len as u64);
             self.set_items(self.items() - 2);
+            self.set_total(self.total() - 81 - len as u64);
         }
 
         self.account.lookup.remove(&(hash, len));

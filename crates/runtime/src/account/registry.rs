@@ -2,7 +2,7 @@
 
 use crate::{Storage, account::Account};
 use account::Account as _;
-use score::{OpaqueHash, state};
+use score::OpaqueHash;
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     sync::Arc,
@@ -37,13 +37,14 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     fn blob(&mut self, index: u32) -> Option<Vec<u8>> {
         let account = self.get(index)?;
         let code = account.code();
-        self.storage
-            .state_get(state::account::preimage(index, code))
-            .ok()?
-            .map(|v| v.to_vec())
+        account.preimage(code)
     }
 
     fn get(&mut self, index: u32) -> Option<&mut impl ::account::Account> {
+        if self.removed.contains(&index) {
+            return None;
+        }
+
         if let Entry::Vacant(e) = self.accounts.entry(index) {
             e.insert(Account::new(self.storage.clone(), index).ok()?);
         }
@@ -52,6 +53,10 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     }
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
+        if let Some(account) = self.accounts.get(&index) {
+            return Some(account.info.code);
+        }
+
         // WORKAROUND:
         //
         // always return the code hash from storage since this
@@ -68,10 +73,6 @@ impl<S: Storage> account::Accounts for Accounts<S> {
     fn remove(&mut self, index: u32) {
         self.accounts.remove(&index);
         self.removed.insert(index);
-    }
-
-    fn services(&self) -> Vec<u32> {
-        self.accounts.keys().cloned().collect()
     }
 
     fn accounts(&self) -> &BTreeMap<u32, impl ::account::Account> {

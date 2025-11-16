@@ -91,12 +91,12 @@ impl Interpreter {
             return Reason::OOG;
         }
 
-        tracing::trace!(
+        /* tracing::trace!(
             "{} gas={} registers={:?}",
             instr.value,
             self.context.gas,
             self.context.registers
-        );
+        ); */
         let stepped = self.dispatch(instr.value, &instr.range);
         if let Err(e) = stepped {
             e.into()

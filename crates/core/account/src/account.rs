@@ -106,6 +106,25 @@ pub trait Account: Clone {
     /// Get the operations of the account
     fn ops(self) -> (BTreeMap<TrieKey, Vec<u8>>, BTreeSet<TrieKey>);
 
+    /// Get the threshold with new lookup
+    fn lookup_threshold(&self, len: u64) -> Option<u64> {
+        self.threshold()
+            .checked_add(
+                81u64
+                    .checked_add(len)?
+                    .checked_mul(score::BALANCE_PER_OCTET)?,
+            )?
+            .checked_add(2u64.checked_mul(score::BALANCE_PER_ITEM)?)
+    }
+
+    /// Write the threshold of the account
+    fn write_threshold(&self, key: &[u8], value: &[u8]) -> Option<u64> {
+        let klen = key.len() as u64;
+        let vlen = value.len() as u64;
+        self.threshold()
+            .checked_add(score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET)
+    }
+
     /// (Λ) lookup preimage in the recent histories
     fn historical_lookup(&mut self, timeslot: u32, hash: [u8; 32]) -> Option<Vec<u8>> {
         let preimage = self.preimage(hash)?;

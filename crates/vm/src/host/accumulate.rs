@@ -227,7 +227,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
     let service = ctx.service();
 
-    // check if the recipient is removed
+    // check if the recipient exists
     if ctx.account(dest).is_err() {
         return Ok(Exit::Who as u64);
     }
@@ -239,8 +239,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Cash as u64);
     }
 
-    // drop the sender account to handle the dest account
-    let _ = sender;
+    // check if the recipient has enough transfer gas
     let recipient = ctx.account(dest)?;
     if limit < recipient.transfer_gas() {
         return Ok(Exit::Low as u64);
@@ -298,6 +297,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
         let balance = dest.balance();
         let to_remove = dest.index();
         let _ = dest;
+        tracing::debug!("eject: balance={balance}, to_remove={to_remove}");
         *ctx.this()?.balance_mut() += balance;
         ctx.remove(to_remove);
         return Ok(Exit::Ok as u64);
@@ -344,24 +344,22 @@ pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the account has enough balance
     let timeslot = ctx.timeslot();
     let account = ctx.this()?;
-    if account.balance() < account.threshold() {
+    let mut slots = vec![];
+    if let Some(lookup) = account.lookup(hash, z as u32) {
+        if lookup.len() == 2 {
+            slots = vec![lookup[0], lookup[1], timeslot];
+        } else {
+            return Ok(Exit::Huh as u64);
+        }
+    }
+
+    // pre-calculate the new threshold
+    let threshold = account.lookup_threshold(z).unwrap_or(u64::MAX);
+    if account.balance() < threshold {
         return Ok(Exit::Full as u64);
     }
 
-    // get the lookup
-    let Some(mut lookup) = account.lookup(hash, z as u32) else {
-        tracing::debug!("inserting lookup hash={} len={}", hex::encode(hash), z);
-        account.insert_lookup(hash, z as u32, vec![]);
-        return Ok(Exit::Ok as u64);
-    };
-
-    if lookup.len() == 2 {
-        lookup.push(timeslot);
-        account.insert_lookup(hash, z as u32, lookup);
-    } else {
-        return Ok(Exit::Huh as u64);
-    }
-
+    account.insert_lookup(hash, z as u32, slots);
     Ok(Exit::Ok as u64)
 }
 
@@ -404,17 +402,18 @@ pub fn yield_(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩP) provide new preimage
 pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [mut service, from, size] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
+    let timeslot = ctx.timeslot();
     if service == u64::MAX {
         service = ctx.service() as u64;
     }
 
-    let image = ctx.read(from as u32, size as u32)?;
+    let preimage = ctx.read(from as u32, size as u32)?;
     let Ok(account) = ctx.account(service) else {
         return Ok(Exit::Who as u64);
     };
 
     // check if the preimage is already in the account
-    let hash = crypto::blake2b(&image);
+    let hash = crypto::blake2b(&preimage);
     if account.lookup(hash, size as u32) != Some(vec![]) {
         return Ok(Exit::Huh as u64);
     }
@@ -424,6 +423,9 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Huh as u64);
     }
 
-    account.insert_preimage(hash, image);
+    // FIXME: the lookup insert is not specified in graypper, could be a bug
+    // in the fuzzy tests or our implementation.
+    account.insert_lookup(hash, size as u32, vec![timeslot]);
+    account.insert_preimage(hash, preimage);
     Ok(Exit::Ok as u64)
 }
