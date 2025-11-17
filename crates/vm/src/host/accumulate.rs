@@ -6,7 +6,7 @@ use crate::{
 };
 use account::Account;
 use score::{
-    safrole::ValidatorData,
+    safrole::{ValidatorData, ValidatorIter},
     service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
 };
@@ -110,7 +110,7 @@ pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     let privileges = ctx.privileges();
     if ctx.service() != privileges.designate {
-        ctx.set_validators(ctx.read_only_validators());
+        ctx.set_validators(ctx.readonly_validators());
         return Ok(Exit::Huh as u64);
     }
 
@@ -134,6 +134,14 @@ pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     // set the validators
+    tracing::debug!(
+        "designate: validators={:?}",
+        validators
+            .ed25519()
+            .iter()
+            .map(|v| hex::encode(v))
+            .collect::<Vec<_>>()
+    );
     ctx.set_validators(validators);
     Ok(Exit::Ok as u64)
 }

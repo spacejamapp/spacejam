@@ -95,8 +95,12 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.registers[reg as usize] = value;
     }
 
-    fn read_only_validators(&self) -> [ValidatorData; VALIDATORS_COUNT as usize] {
-        self.ctx.read_only_validators()
+    fn readonly_privileges(&self) -> Privileges {
+        self.ctx.readonly_privileges()
+    }
+
+    fn readonly_validators(&self) -> [ValidatorData; VALIDATORS_COUNT as usize] {
+        self.ctx.readonly_validators()
     }
 
     fn remove(&mut self, service: ServiceId) {

@@ -4,7 +4,7 @@ use ::account::{Account, Accounts};
 use pvm::Pvm;
 use runtime::{
     storage::{Column, KVStorage, MemoryDb, StateStorage},
-    tx::{self, block::header},
+    tx::{self, block::header, ticket::lazy},
 };
 use score::{
     EntropyBuffer, OpaqueHash,
@@ -86,7 +86,11 @@ pub async fn run_single<Vm: Pvm>(
     let mut block2 = block.clone();
     let safrole = state.safrole.clone();
     let entropy = state.entropy;
-    let verifier = runtime::tx::ticket::lazy::verifier(epoch, &safrole.validators.bandersnatch());
+    let verifier = if new_epoch {
+        lazy::verifier(epoch, &safrole.validators.bandersnatch())
+    } else {
+        lazy::verifier(epoch, &state.validators.current.bandersnatch())
+    };
     let validators = state.validators.current;
     let result = tokio::try_join!(
         async {

@@ -85,7 +85,11 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.context.privileges.clone()
     }
 
-    fn read_only_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
+    fn readonly_privileges(&self) -> Privileges {
+        self.state.privileges.clone()
+    }
+
+    fn readonly_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
         self.state.validators.clone()
     }
 

@@ -89,7 +89,11 @@ pub trait Argument: Send + Sync {
     }
 
     /// Get the read-only validators
-    fn read_only_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
+    fn readonly_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
+        unimplemented!("make sure you are invoking the accumulation interface")
+    }
+
+    fn readonly_privileges(&self) -> Privileges {
         unimplemented!("make sure you are invoking the accumulation interface")
     }
 
