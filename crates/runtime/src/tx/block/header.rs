@@ -58,6 +58,11 @@ pub async fn validate(
         } else {
             validators.bandersnatch()
         };
+
+        if header.author_index as usize >= score::VALIDATORS_COUNT as usize {
+            anyhow::bail!("invalid block author index");
+        }
+
         if keys[slot] != vals[header.author_index as usize] {
             anyhow::bail!("invalid block author");
         }
