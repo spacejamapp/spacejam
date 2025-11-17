@@ -299,7 +299,10 @@ pub async fn simulate_with_state<Vm: Pvm>(
         // lazy load vrf rings
         if state.validators.drawn != accumulation.validators || ticket::lazy::is_empty() {
             tokio::task::spawn_blocking(move || {
-                ticket::lazy::drawn(epoch, &accumulation.validators)
+                ticket::lazy::drawn(
+                    if new_epoch { epoch } else { epoch + 1 },
+                    &accumulation.validators,
+                )
             });
         }
 

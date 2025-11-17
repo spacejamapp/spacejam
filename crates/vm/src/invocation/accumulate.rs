@@ -18,6 +18,9 @@ pub struct Accumulate<R: Accounts> {
     /// The exceptional dimension
     pub y: AccumulateContext<R>,
 
+    /// The read-only state of the accumulation
+    pub state: AccumulateState<R>,
+
     /// The timeslot
     pub timeslot: TimeSlot,
 
@@ -80,6 +83,10 @@ impl<R: Accounts> Argument for Accumulate<R> {
 
     fn privileges(&self) -> Privileges {
         self.x.context.privileges.clone()
+    }
+
+    fn read_only_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
+        self.state.validators.clone()
     }
 
     fn remove(&mut self, service: ServiceId) {
@@ -163,6 +170,7 @@ impl<R: Accounts> AccumulateContext<R> {
     pub fn accumulate(self, timeslot: TimeSlot, items: Vec<AccumulateItem>) -> Accumulate<R> {
         let entropy = self.context.entropy[0];
         Accumulate {
+            state: self.context.clone(),
             y: self.clone(),
             x: self,
             timeslot,
