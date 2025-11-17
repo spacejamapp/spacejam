@@ -43,19 +43,18 @@ pub fn commitment(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> BandersnatchRi
 
 /// Get the verifier of the next validators at an epoch
 pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
-    if let Some(v) = LAZY_RING
-        .lock()
-        .map(|map| map.get(&epoch).cloned())
-        .ok()
-        .flatten()
+    let Ok(mut map) = LAZY_RING.lock() else {
+        panic!("failed to lock ring, fix me later");
+    };
+
+    if let Some(v) = map.get(&epoch)
+        && v.ring() == *drawn
     {
         return v.clone();
     }
 
     // same validator set already cached
-    if let Ok(mut map) = LAZY_RING.lock()
-        && let Some(v) = map.values().find(|v| v.ring() == *drawn)
-    {
+    if let Some(v) = map.values().find(|v| v.ring() == *drawn) {
         let v = v.clone();
         map.insert(epoch, v.clone());
         return v;
@@ -63,9 +62,6 @@ pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
 
     // build new verifier
     let verifier = Arc::new(crypto::ring::verifier(drawn));
-    let Ok(mut map) = LAZY_RING.lock() else {
-        panic!("failed to lock ring, fix me later");
-    };
     map.insert(epoch, verifier.clone());
     while map.len() > CACHED {
         map.pop_first();

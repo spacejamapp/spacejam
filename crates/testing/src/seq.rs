@@ -26,12 +26,6 @@ impl Processor {
         let input = TestInput::from_json(&test.input)?;
         let output = TestOutput::from_json(&test.output)?;
         let slot = input.block.header.slot;
-        tracing::debug!(
-            "processing test: {}, slots: {:?}, incoming block: {slot}",
-            test.name,
-            self.history.keys()
-        );
-
         if !self.init {
             for keyval in input.pre_state.keyvals.clone() {
                 self.memdb
@@ -40,6 +34,12 @@ impl Processor {
             }
             self.init = true;
         }
+
+        tracing::debug!(
+            "processing test: {}, slots: {:?}, incoming block: {slot}",
+            test.name,
+            self.history.keys()
+        );
 
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
             traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?
