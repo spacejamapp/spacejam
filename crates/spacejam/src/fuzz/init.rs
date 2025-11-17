@@ -16,8 +16,10 @@ use tokio::task::JoinSet;
 pub async fn verifier(data: Arc<MemoryDb>) -> Result<()> {
     let safrole = data.safrole()?;
     let timeslot = data.timeslot()?;
+    let validators = data.current_validators()?;
     let epoch = timeslot / score::EPOCH_LENGTH;
     lazy::drawn(epoch, &safrole.validators);
+    lazy::drawn(epoch, &validators);
     Ok(())
 }
 
