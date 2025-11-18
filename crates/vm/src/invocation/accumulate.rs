@@ -85,14 +85,6 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.context.privileges.clone()
     }
 
-    fn readonly_privileges(&self) -> Privileges {
-        self.state.privileges.clone()
-    }
-
-    fn readonly_validators(&self) -> [ValidatorData; score::VALIDATORS_COUNT as usize] {
-        self.state.validators.clone()
-    }
-
     fn remove(&mut self, service: ServiceId) {
         self.x.context.accounts.remove(service);
     }

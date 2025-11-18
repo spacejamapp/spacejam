@@ -110,7 +110,6 @@ pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     let privileges = ctx.privileges();
     if ctx.service() != privileges.designate {
-        ctx.set_validators(ctx.readonly_validators());
         return Ok(Exit::Huh as u64);
     }
 

@@ -156,22 +156,51 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         BTreeMap::from([(*service, result)])
     }; */
 
-    // Extract privilege service results from the already-executed results
-    if let Some(result) = results.get(&context.privileges.bless) {
-        context.privileges = result.context.privileges.clone();
-    };
-
     // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {
         context.validators = result.context.validators;
     };
 
-    // Handle the assign array - each core has its own assign service
+    // Extract privilege service results from the already-executed results
+    if let Some(result) = results.get(&context.privileges.bless) {
+        // update the designate service with the new designate service
+        if result.context.privileges.designate == context.privileges.designate {
+            if let Some(result) = results.get(&context.privileges.designate) {
+                context.privileges.designate = result.context.privileges.designate;
+            };
+        } else {
+            context.privileges.designate = result.context.privileges.designate;
+        }
+
+        // update the register service with the new register service
+        if result.context.privileges.register == context.privileges.register {
+            if let Some(result) = results.get(&context.privileges.register) {
+                context.privileges.register = result.context.privileges.register;
+            };
+        } else {
+            context.privileges.register = result.context.privileges.register;
+        }
+
+        for (core_index, assign_service) in context.privileges.assign.clone().iter().enumerate() {
+            if let Some(result) = results.get(&assign_service) {
+                context.privileges.assign[core_index] =
+                    result.context.privileges.assign[core_index];
+            } else {
+                context.privileges.assign[core_index] =
+                    result.context.privileges.assign[core_index];
+            }
+        }
+
+        context.privileges.bless = result.context.privileges.bless;
+        context.privileges.always_acc = result.context.privileges.always_acc.clone();
+    };
+
+    /* // Handle the assign array - each core has its own assign service
     for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
         if let Some(result) = results.get(assign_service) {
             context.authorization[core_index] = result.context.authorization[core_index].clone();
         }
-    }
+    } */
 
     // Update the state of accounts
     let mut gas = BTreeMap::new();
