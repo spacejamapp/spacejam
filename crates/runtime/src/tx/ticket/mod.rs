@@ -45,7 +45,7 @@ pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validator
 }
 
 /// (γ') Enacts an epoch change and updates the entropy accumulator.
-pub async fn safrole(
+pub fn safrole(
     tau: u32,
     slot: u32,
     entropy: [OpaqueHash; 4],
@@ -85,8 +85,7 @@ pub async fn safrole(
         entropy,
         &safrole.validators.bandersnatch(),
         tickets,
-    )
-    .await?;
+    )?;
 
     Ok(safrole)
 }
@@ -94,7 +93,7 @@ pub async fn safrole(
 /// (γ_a') Verifies tickets and updates the accumulator according to graypaper section 6.7.
 ///
 /// NOTE: gamma_k has already been updated at this point
-pub async fn accumulator(
+pub fn accumulator(
     epoch: u32,
     new_epoch: bool,
     accumulator: &TicketsAccumulator,
@@ -104,7 +103,7 @@ pub async fn accumulator(
 ) -> Result<TicketsAccumulator> {
     let mut new_tickets = Vec::new();
     if !tickets.is_empty() {
-        new_tickets = self::verify::tickets(epoch, entropy, next, tickets).await?;
+        new_tickets = self::verify::tickets(epoch, entropy, next, tickets)?;
     }
 
     // update the accumulator

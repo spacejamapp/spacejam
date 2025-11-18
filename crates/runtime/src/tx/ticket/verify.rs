@@ -1,6 +1,7 @@
 //! Verification utilities for tickets
 
 use crate::tx::ticket::{Error, lazy};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use score::{
     BandersnatchPublic, OpaqueHash,
     extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
@@ -9,7 +10,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use tokio::task::JoinSet;
 
 /// Verify tickets
-pub async fn tickets(
+pub fn tickets(
     epoch: u32,
     entropy: [OpaqueHash; 4],
     next: &Vec<BandersnatchPublic>,
@@ -24,21 +25,21 @@ pub async fn tickets(
         queue.spawn_blocking(move || self::ticket(index, envelope, entropy, verifier));
     }
 
-    let mut ordered_tickets = BTreeMap::new();
-    while let Some(ticket) = queue.join_next().await {
-        let (index, ticket) = ticket.map_err(|_| Error::Reserved)??;
-        ordered_tickets.insert(index, ticket);
-    }
+    let verified = tickets
+        .par_iter()
+        .enumerate()
+        .map(|(index, envelope)| self::ticket(index, envelope.clone(), entropy, verifier.clone()))
+        .collect::<Result<BTreeMap<usize, TicketBody>, Error>>()?;
 
     // Check for bad order: 6.32 & 6.33
-    let new_tickets = ordered_tickets.into_values().collect::<Vec<_>>();
-    let mut sorted_new_tickets = new_tickets.clone();
-    sorted_new_tickets.sort_by(|a, b| a.id.cmp(&b.id));
-    if sorted_new_tickets != new_tickets {
+    let new_tickets = verified.into_values().collect::<Vec<_>>();
+    let mut sorted = new_tickets.clone();
+    sorted.sort_by(|a, b| a.id.cmp(&b.id));
+    if sorted != new_tickets {
         return Err(Error::BadTicketOrder);
     }
 
-    Ok(new_tickets)
+    Ok(sorted)
 }
 
 /// Verify a single ticket

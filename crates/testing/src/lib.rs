@@ -47,7 +47,7 @@ impl Runner {
             Section::History => crate::history::run(test)?,
             Section::Preimages => crate::preimage::run(test)?,
             Section::Reports => crate::reports::run(test)?,
-            Section::Safrole => crate::safrole::run(test).await?,
+            Section::Safrole => crate::safrole::run(test)?,
             Section::Statistics => crate::statistics::run(test)?,
             Section::Pvm => crate::pvmi::run(test)?,
             Section::Trace(_) => {

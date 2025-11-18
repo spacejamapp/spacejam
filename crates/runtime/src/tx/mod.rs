@@ -221,8 +221,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
                 &state.safrole,
                 &state.validators,
                 &block.extrinsic.tickets,
-            )
-            .await?;
+            )?;
 
             {
                 // FIXME: for building blocks only, could be removed
