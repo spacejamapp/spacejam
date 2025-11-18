@@ -26,11 +26,6 @@ impl Processor {
         let input = TestInput::from_json(&test.input)?;
         let output = TestOutput::from_json(&test.output)?;
         let slot = input.block.header.slot;
-        if self.history.contains_key(&slot) {
-            self.memdb
-                .reset(self.history.get(&(slot.saturating_sub(1))).unwrap().clone());
-        }
-
         if !self.init {
             for keyval in input.pre_state.keyvals.clone() {
                 self.memdb
@@ -40,12 +35,21 @@ impl Processor {
             self.init = true;
         }
 
-        if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
-            traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?;
+        tracing::debug!(
+            "processing test: {}, slots: {:?}, incoming block: {slot}",
+            test.name,
+            self.history.keys()
+        );
+
+        let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
+            traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?
         } else {
-            traces::run_single::<spacevm::Interpreter>(self.memdb.clone(), input, output).await?;
+            traces::run_single::<spacevm::Interpreter>(self.memdb.clone(), input, output).await?
+        };
+
+        if is_ok {
+            self.history.insert(slot, self.memdb.deep_clone());
         }
-        self.history.insert(slot, self.memdb.deep_clone());
         Ok(())
     }
 }

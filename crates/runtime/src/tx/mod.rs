@@ -99,6 +99,9 @@ pub async fn simulate_with_state<Vm: Pvm>(
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     let slot_phase = block.header.slot % score::EPOCH_LENGTH;
+    if block.header.slot <= state.timeslot {
+        anyhow::bail!("block slot is less than or equal to current height");
+    }
 
     // TODO: move this logic to the header validation
     if let Some(epoch_mark) = &block.header.epoch_mark {
@@ -294,9 +297,12 @@ pub async fn simulate_with_state<Vm: Pvm>(
         .await?;
 
         // lazy load vrf rings
-        if state.validators.drawn != accumulation.validators || ticket::lazy::is_empty() {
+        if state.validators.drawn != accumulation.validators {
             tokio::task::spawn_blocking(move || {
-                ticket::lazy::drawn(epoch, &accumulation.validators)
+                ticket::lazy::drawn(
+                    if new_epoch { epoch + 1 } else { epoch + 2 },
+                    &accumulation.validators,
+                )
             });
         }
 

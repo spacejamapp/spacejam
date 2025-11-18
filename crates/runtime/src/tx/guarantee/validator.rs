@@ -142,6 +142,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     /// Validate work package
     fn validate_deps(&self, guarantee: &ReportGuarantee) -> Result<()> {
+        // FIXME:
+        //
+        // This is checked in the reports function as well.
+        if guarantee.report.core_index as usize >= CORES_COUNT {
+            return Err(Error::BadCoreIndex);
+        }
+
         if !self.state.pools[guarantee.report.core_index as usize]
             .contains(&guarantee.report.authorizer_hash)
         {

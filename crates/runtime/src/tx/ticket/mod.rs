@@ -2,7 +2,7 @@
 
 pub use error::{Error, Result};
 use score::{
-    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
+    BandersnatchPublic, Ed25519Public, OpaqueHash,
     extrinsic::{
         TicketsAccumulator,
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
@@ -70,26 +70,23 @@ pub async fn safrole(
     let mut safrole = safrole.clone();
     safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
     if new_epoch {
-        safrole.validators = safrole.next(&validators.drawn, offenders);
+        let next = safrole.next(&validators.drawn, offenders);
+        if next != safrole.validators {
+            safrole.validators = next;
+            safrole.ring_commitment = lazy::commitment(epoch, &next.bandersnatch());
+        }
     }
 
     // Process accumulator and ring commitment in parallel
-    let next = safrole.validators.bandersnatch();
     safrole.accumulator = self::accumulator(
         epoch,
         new_epoch,
         &safrole.accumulator,
         entropy,
-        &next,
+        &safrole.validators.bandersnatch(),
         tickets,
     )
     .await?;
-
-    safrole.ring_commitment = if new_epoch {
-        self::ring_commitment(epoch, &next)
-    } else {
-        safrole.ring_commitment
-    };
 
     Ok(safrole)
 }
@@ -160,9 +157,4 @@ pub fn sealing_key_series(
     }
 
     next
-}
-
-/// (γ_z') Returns the bandersnatch ring commitment.
-pub fn ring_commitment(epoch: u32, next: &Vec<BandersnatchPublic>) -> BandersnatchRingCommitment {
-    lazy::commitment(epoch, next)
 }

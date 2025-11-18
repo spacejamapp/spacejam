@@ -159,8 +159,14 @@ pub fn reports(
     guarantees: &GuaranteesExtrinsic,
 ) -> Result<AvailabilityAssignments> {
     let mut next = prev.clone();
+    let mut lcoreidx = 0;
     for guarantee in guarantees.iter() {
         let core_index = guarantee.report.core_index as usize;
+        if core_index < lcoreidx {
+            return Err(Error::OutOfOrderGuarantee);
+        }
+
+        lcoreidx = core_index;
         if core_index >= CORES_COUNT {
             return Err(Error::BadCoreIndex);
         }

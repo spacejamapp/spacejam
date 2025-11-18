@@ -58,6 +58,11 @@ pub async fn validate(
         } else {
             validators.bandersnatch()
         };
+
+        if header.author_index as usize >= score::VALIDATORS_COUNT as usize {
+            anyhow::bail!("invalid block author index");
+        }
+
         if keys[slot] != vals[header.author_index as usize] {
             anyhow::bail!("invalid block author");
         }
@@ -69,9 +74,11 @@ pub async fn validate(
 
     // construct the context
     let mut message = Vec::new();
+    let mut fallback = false;
     if let Some(ticket) = ticket {
         message = TicketBody::message(ticket.attempt, &entropy);
     } else {
+        fallback = true;
         message.extend_from_slice(&score::JAM_FALLBACK_SEAL);
         message.extend_from_slice(&entropy);
     }
@@ -84,7 +91,7 @@ pub async fn validate(
         let output = verifier0
             .ietf_vrf_verify(&message, &context, &seal0, author_index as usize)
             .map_err(|e| {
-                anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}")
+                anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}, fallback={fallback}")
             })?;
 
         if let Some(ticket) = ticket

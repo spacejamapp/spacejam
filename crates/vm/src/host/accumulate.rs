@@ -287,7 +287,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Huh as u64);
     }
     let length = dest.total().saturating_sub(81);
-    let Some(lookup) = dest.lookup(hash, length as u32) else {
+    let Some(lookup) = dest.lookup(hash, length as u32).flatten() else {
         tracing::debug!("failed to eject: lookup not found");
         return Ok(Exit::Huh as u64);
     };
@@ -312,7 +312,7 @@ pub fn query(ctx: &mut impl Argument) -> Result<ExitCode> {
     let (o, z) = (ctx.rget(7) as u32, ctx.rget(8) as u32);
     let hash = ctx.read_hash(o)?;
     let account = ctx.this()?;
-    let Some(lookup) = account.lookup(hash, z) else {
+    let Some(lookup) = account.lookup(hash, z).flatten() else {
         ctx.rset(8, 0);
         return Ok(Exit::None as u64);
     };
@@ -345,7 +345,7 @@ pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
     let timeslot = ctx.timeslot();
     let account = ctx.this()?;
     let mut slots = vec![];
-    if let Some(lookup) = account.lookup(hash, z as u32) {
+    if let Some(lookup) = account.lookup(hash, z as u32).flatten() {
         if lookup.len() == 2 {
             slots = vec![lookup[0], lookup[1], timeslot];
         } else {
@@ -371,7 +371,7 @@ pub fn forget(ctx: &mut impl Argument) -> Result<ExitCode> {
     // get the lookup data
     let timeslot = ctx.timeslot();
     let account = ctx.this()?;
-    let Some(mut lookup) = account.lookup(hash, z as u32) else {
+    let Some(mut lookup) = account.lookup(hash, z as u32).flatten() else {
         return Ok(Exit::Huh as u64);
     };
 
@@ -414,7 +414,7 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the preimage is already in the account
     let hash = crypto::blake2b(&preimage);
-    if account.lookup(hash, size as u32) != Some(vec![]) {
+    if account.lookup(hash, size as u32).flatten() != Some(vec![]) {
         return Ok(Exit::Huh as u64);
     }
 
