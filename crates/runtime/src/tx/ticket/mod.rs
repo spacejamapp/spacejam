@@ -71,12 +71,10 @@ pub async fn safrole(
     safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
     if new_epoch {
         let next = safrole.next(&validators.drawn, offenders);
-        if next == safrole.validators {
-            return Ok(safrole);
+        if next != safrole.validators {
+            safrole.validators = next;
+            safrole.ring_commitment = lazy::commitment(epoch, &next.bandersnatch());
         }
-
-        safrole.validators = next;
-        safrole.ring_commitment = lazy::commitment(epoch, &next.bandersnatch());
     }
 
     // Process accumulator and ring commitment in parallel
