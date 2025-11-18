@@ -143,8 +143,8 @@ w3f-bls = "0.1.9"
 x509-parser = "0.17.0"
 
 [patch.crates-io]
-w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
-ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
+# w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
+# ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
 
 [workspace.metadata.conta]
 packages = ["codec", "spacejson-derive", "spacejson", "service"]
