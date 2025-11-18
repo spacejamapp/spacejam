@@ -18,7 +18,7 @@ pub async fn verifier(data: Arc<MemoryDb>) -> Result<()> {
     let timeslot = data.timeslot()?;
     let validators = data.current_validators()?;
     let epoch = timeslot / score::EPOCH_LENGTH;
-    lazy::drawn(epoch, &safrole.validators);
+    lazy::drawn(epoch + 1, &safrole.validators);
     lazy::drawn(epoch, &validators);
     Ok(())
 }

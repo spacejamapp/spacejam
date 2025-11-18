@@ -99,7 +99,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
 
     tracing::debug!("services: {:?}", services);
 
-    // NOTE: this is for debugging usage
+    /* // NOTE: this is for debugging usage
     let mut results = {
         let mut results = BTreeMap::new();
         for service in services.iter().cloned() {
@@ -112,9 +112,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             results.insert(service, result);
         }
         results
-    };
+    }; */
 
-    /* // Execute each service exactly once using Δ₁ (once function)
+    // Execute each service exactly once using Δ₁ (once function)
     let mut results = if services.len() > 1 {
         let mut pool = tokio::task::JoinSet::new();
         for service in services.iter().cloned() {
@@ -127,8 +127,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
                 .cloned()
                 .collect();
             pool.spawn_blocking(move || {
-                let result =
-                    self::once::<V, R>(context, transfers, &reports, &table, service, timeslot);
+                let result = self::once::<V, R>(context, transfers, &reports, &table, service);
                 (service, result)
             });
         }
@@ -145,16 +144,9 @@ pub async fn parallel<V: Pvm, R: Accounts>(
             .filter(|t| t.recipient == *service)
             .cloned()
             .collect();
-        let result = self::once::<V, R>(
-            context.clone(),
-            transfers,
-            reports,
-            table,
-            *service,
-            timeslot,
-        );
+        let result = self::once::<V, R>(context.clone(), transfers, reports, table, *service);
         BTreeMap::from([(*service, result)])
-    }; */
+    };
 
     // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {

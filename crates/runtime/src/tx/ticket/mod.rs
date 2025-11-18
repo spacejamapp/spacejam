@@ -2,7 +2,7 @@
 
 pub use error::{Error, Result};
 use score::{
-    BandersnatchPublic, BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
+    BandersnatchPublic, Ed25519Public, OpaqueHash,
     extrinsic::{
         TicketsAccumulator,
         ticket::{TicketBody, TicketsExtrinsic, TicketsOrKeys},
@@ -86,7 +86,7 @@ pub async fn safrole(
     .await?;
 
     safrole.ring_commitment = if new_epoch {
-        self::ring_commitment(epoch, &next)
+        lazy::commitment(epoch, &next)
     } else {
         safrole.ring_commitment
     };
@@ -160,9 +160,4 @@ pub fn sealing_key_series(
     }
 
     next
-}
-
-/// (γ_z') Returns the bandersnatch ring commitment.
-pub fn ring_commitment(epoch: u32, next: &Vec<BandersnatchPublic>) -> BandersnatchRingCommitment {
-    lazy::commitment(epoch, next)
 }
