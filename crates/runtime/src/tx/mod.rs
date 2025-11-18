@@ -318,7 +318,6 @@ pub fn simulate_with_state<Vm: Pvm>(
         state.timeslot = block.header.slot;
     }
 
-    diff.update
-        .extend(state.pairs(new_epoch, &block.extrinsic).into_iter());
+    diff.update.extend(state.pairs(new_epoch, &block.extrinsic));
     Ok(diff)
 }
