@@ -8,7 +8,7 @@ use score::{
 use std::sync::Arc;
 
 /// Validate the header
-pub async fn validate(
+pub fn validate(
     header: &Header,
     new_epoch: bool,
     validators: &ValidatorsData,
@@ -83,45 +83,34 @@ pub async fn validate(
         message.extend_from_slice(&entropy);
     }
 
-    // check the ticket seal
-    let author_index = header.author_index;
-    let seal0 = header.seal;
-    let verifier0 = verifier.clone();
-    let ts = tokio::task::spawn_blocking(move || {
-        let output = verifier0
-            .ietf_vrf_verify(&message, &context, &seal0, author_index as usize)
+    let extracted_vrf_output = crypto::vrf::ietf_output(header.seal)?;
+    let entropy_message = [&score::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
+    let (ticket_output, entropy_output) = rayon::join(
+        || {
+            verifier
+            .ietf_vrf_verify(&message, &context, &header.seal, header.author_index as usize)
             .map_err(|e| {
                 anyhow::anyhow!("ticket seal verification failed: {e}, new_epoch={new_epoch}, fallback={fallback}")
-            })?;
+            })
+        },
+        || {
+            verifier
+                .ietf_vrf_verify(
+                    &entropy_message,
+                    &[],
+                    &header.entropy_source,
+                    header.author_index as usize,
+                )
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))
+        },
+    );
 
-        if let Some(ticket) = ticket
-            && ticket.id != output
-        {
-            anyhow::bail!("header seal mismatched");
-        }
+    if let Some(ticket) = ticket
+        && ticket.id != ticket_output?
+    {
+        anyhow::bail!("header seal mismatched");
+    }
 
-        Ok(())
-    });
-
-    // verify entropy source
-    let seal = header.seal;
-    let entropy_source = header.entropy_source;
-    let es = tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
-        let extracted_vrf_output = crypto::vrf::ietf_output(seal)?;
-        let entropy_message = [&score::JAM_ENTROPY[..], &extracted_vrf_output[..]].concat();
-        verifier
-            .ietf_vrf_verify(
-                &entropy_message,
-                &[],
-                &entropy_source,
-                author_index as usize,
-            )
-            .map(|_| ())
-            .map_err(|e| anyhow::anyhow!("entropy source verification failed: {}", e))?;
-        Ok(())
-    });
-
-    let (ts, es) = tokio::try_join!(ts, es)?;
-    let (_, _) = (ts?, es?);
-    Ok(())
+    entropy_output
 }

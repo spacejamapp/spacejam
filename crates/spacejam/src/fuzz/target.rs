@@ -138,7 +138,7 @@ impl Target {
                 } else {
                     lazy::verifier(epoch, &validators.bandersnatch())
                 };
-                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier).await
+                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier)
             }),
             tokio::spawn(async move {
                 if interp {

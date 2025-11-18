@@ -17,6 +17,7 @@ erasure.workspace = true
 hex.workspace = true
 once_cell.workspace = true
 pvm.workspace = true
+rayon.workspace = true
 score.workspace = true
 serde.workspace = true
 serde_json.workspace = true

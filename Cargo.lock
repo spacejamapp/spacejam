@@ -3436,6 +3436,7 @@ dependencies = [
  "hex",
  "once_cell",
  "pvm",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",

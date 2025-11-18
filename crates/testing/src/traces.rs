@@ -102,7 +102,6 @@ pub async fn run_single<Vm: Pvm>(
                 &safrole,
                 verifier,
             )
-            .await
         },
         async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
     );
