@@ -160,9 +160,9 @@ impl<'a, C: Config> Author<'a, C> {
         // do not simulate the block but just calculate the required data
         tracing::trace!("simulating block...");
         if let Some(fork) = &context.fork {
-            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone()).await?;
+            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone())?;
         } else if let Some(state) = &context.state {
-            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone()).await?;
+            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone())?;
         } else {
             anyhow::bail!("no state found");
         }

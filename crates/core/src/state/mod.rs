@@ -98,6 +98,7 @@ impl State {
         pairs.insert(key::TIMESLOT, Box::new(&self.timeslot));
         pairs.insert(key::PENDING_REPORTS, Box::new(&self.reports));
         pairs.insert(key::PRIVILEGED_SERVICE, Box::new(&self.privileges));
+        pairs.insert(key::ACCUMULATION_LOGS, Box::new(&self.logs));
         pairs.insert(key::ACCUMULATION_QUEUE, Box::new(&self.queue));
         pairs.insert(key::ACCUMULATION_HISTORY, Box::new(&self.history));
         pairs.insert(key::DRAWN_VALIDATORS, Box::new(&self.validators.drawn));

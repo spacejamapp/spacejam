@@ -3,6 +3,7 @@
 use super::acc::Accumulated;
 use account::{Account, Accounts};
 use pvm::{AccumulateState, Pvm};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use score::{
     Gas, ServiceId,
     service::WorkReport,
@@ -26,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// - [T]: resultant deferred-transfers
 /// - B: accumulation-output pairings.
 /// - U: the total gas used
-pub async fn outer<V: Pvm, R: Accounts>(
+pub fn outer<V: Pvm, R: Accounts>(
     mut gas_limit: Gas,
     mut transfers: Vec<DeferredTransfer>,
     mut reports: &[WorkReport],
@@ -56,8 +57,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             gas_table,
-        )
-        .await;
+        );
 
         step.defer_transfers();
         gas_limit -= step.gas.values().sum::<Gas>();
@@ -76,7 +76,7 @@ pub async fn outer<V: Pvm, R: Accounts>(
 }
 
 /// (Δ*) parallel accumulation
-pub async fn parallel<V: Pvm, R: Accounts>(
+pub fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
@@ -97,56 +97,19 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
-    tracing::debug!("services: {:?}", services);
-
-    /* // NOTE: this is for debugging usage
-    let mut results = {
-        let mut results = BTreeMap::new();
-        for service in services.iter().cloned() {
-            let transfers = transfers
-                .iter()
-                .filter(|t| t.recipient == service)
-                .cloned()
-                .collect();
-            let result = self::once::<V, R>(context.clone(), transfers, reports, table, service);
-            results.insert(service, result);
-        }
-        results
-    }; */
-
     // Execute each service exactly once using Δ₁ (once function)
-    let mut results = if services.len() > 1 {
-        let mut pool = tokio::task::JoinSet::new();
-        for service in services.iter().cloned() {
-            let context = context.clone();
-            let reports = reports.to_vec();
-            let table = table.clone();
+    let mut results = services
+        .par_iter()
+        .map(|service| {
             let transfers = transfers
                 .iter()
-                .filter(|t| t.recipient == service)
+                .filter(|t| t.recipient == *service)
                 .cloned()
                 .collect();
-            pool.spawn_blocking(move || {
-                let result = self::once::<V, R>(context, transfers, &reports, &table, service);
-                (service, result)
-            });
-        }
-
-        let mut results = BTreeMap::new();
-        while let Some(Ok((service, result))) = pool.join_next().await {
-            results.insert(service, result);
-        }
-        results
-    } else {
-        let service = services.iter().next().expect("should not fail");
-        let transfers = transfers
-            .iter()
-            .filter(|t| t.recipient == *service)
-            .cloned()
-            .collect();
-        let result = self::once::<V, R>(context.clone(), transfers, reports, table, *service);
-        BTreeMap::from([(*service, result)])
-    };
+            let result = self::once::<V, R>(context.clone(), transfers, reports, table, *service);
+            (*service, result)
+        })
+        .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>();
 
     // update the validators
     if let Some(result) = results.get(&context.privileges.designate) {

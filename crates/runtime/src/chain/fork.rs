@@ -143,7 +143,7 @@ impl<S: Storage> Fork<S> {
         // We execute the block instead of querying the latest state from the remote.
         tracing::trace!("transiting block");
         let head = block.header.head()?;
-        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone()).await?;
+        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
         self.state.commit(Column::State, diff.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",

@@ -3487,6 +3487,7 @@ dependencies = [
  "pvmc",
  "pvmi",
  "quote",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",

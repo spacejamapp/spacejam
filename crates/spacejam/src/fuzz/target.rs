@@ -142,9 +142,9 @@ impl Target {
             }),
             tokio::spawn(async move {
                 if interp {
-                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data).await
+                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data)
                 } else {
-                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data).await
+                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data)
                 }
             }),
         )?;

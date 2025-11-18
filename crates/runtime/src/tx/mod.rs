@@ -21,11 +21,11 @@ pub mod ticket;
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub async fn transit<Vm: Pvm>(
+pub fn transit<Vm: Pvm>(
     mut block: Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let diff = self::simulate::<Vm>(&mut block, storage.clone()).await?;
+    let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
     let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
@@ -33,28 +33,28 @@ pub async fn transit<Vm: Pvm>(
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub async fn transit_with_state<Vm: Pvm>(
+pub fn transit_with_state<Vm: Pvm>(
     mut block: Block,
     state: score::State,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone()).await?;
+    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone())?;
     let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
 }
 
 /// Simulate state transition with new block
-pub async fn simulate<Vm: Pvm>(
+pub fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let state = storage.state()?;
-    self::simulate_with_state::<Vm>(block, state, storage.clone()).await
+    self::simulate_with_state::<Vm>(block, state, storage.clone())
 }
 
 /// Simulate state transition with new block
-pub async fn simulate_with_state<Vm: Pvm>(
+pub fn simulate_with_state<Vm: Pvm>(
     block: &mut Block,
     mut state: score::State,
     storage: Arc<impl Storage>,
@@ -253,8 +253,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
             &state.validators.drawn,
             accounts,
             state.entropy,
-        )
-        .await?;
+        )?;
 
         // lazy load vrf rings
         if state.validators.drawn != accumulation.validators {
