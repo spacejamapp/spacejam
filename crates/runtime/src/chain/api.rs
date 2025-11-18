@@ -105,7 +105,7 @@ impl<C: Config> Runtime<C> {
         let mut chain = self.chain_mut().await;
         let imported = chain.import(block).await?;
         if imported.imported() {
-            let head = block.header.head()?;
+            let head = block.header.head();
             let mut handshake = chain.grandpa.handshake.clone();
             drop(chain);
             self.add_leaf_to(head, &block.header, &mut handshake)

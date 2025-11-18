@@ -294,13 +294,13 @@ impl Account for ServiceAccount {
 
         // Ensure the account info is written to storage
         let info_key = score::state::account::info(self.index);
-        let encoded_info = codec::encode(&self.info).expect("service info is valid");
+        let encoded_info = codec::encode(&self.info);
         updates.insert(info_key, encoded_info);
 
         // Ensure the lookup is written to storage
         for ((hash, len), slots) in self.lookup.iter() {
             let lookup_key = score::state::account::lookup(self.index, *len, *hash);
-            let encoded_lookup = codec::encode(slots).expect("lookup is valid");
+            let encoded_lookup = codec::encode(slots);
             updates.insert(lookup_key, encoded_lookup);
         }
 

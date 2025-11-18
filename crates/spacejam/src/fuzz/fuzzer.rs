@@ -182,7 +182,7 @@ impl Fuzzer {
         self.verify_root(
             output.post_state.state_root,
             &test.name,
-            header.hash()?,
+            header.hash(),
             Self::to_keyvals(output.post_state.keyvals.clone()),
             output.post_state.state_root == input.pre_state.state_root,
         )?;
@@ -286,7 +286,7 @@ impl Fuzzer {
         self.verify_root(
             input.pre_state.state_root,
             name,
-            input.block.header.hash()?,
+            input.block.header.hash(),
             state,
             false,
         )

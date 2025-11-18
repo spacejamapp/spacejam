@@ -174,7 +174,7 @@ impl<S: Storage> ::account::Account for Account<S> {
         let exists = self.lookup(hash, len).is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
-        let encoded = codec::encode(&lookup).expect("lookup is valid");
+        let encoded = codec::encode(&lookup);
         self.ops.set(key, encoded);
 
         // Only update footprint if this is a new lookup entry:
@@ -288,7 +288,7 @@ impl<S: Storage> ::account::Account for Account<S> {
         if self.info != self.account.info {
             self.ops.set(
                 account::info(self.index),
-                codec::encode(&self.account.state()).expect("data is valid"),
+                codec::encode(&self.account.state()),
             );
         }
         let removals: BTreeSet<TrieKey> = self.ops.iremoval().cloned().collect();

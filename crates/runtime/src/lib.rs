@@ -62,7 +62,7 @@ impl<C: Config> Runtime<C> {
     /// Finalize the chain
     pub async fn finalize(&self) -> anyhow::Result<()> {
         for (block, diff) in self._chain.write().await.finalize().await? {
-            self.hook.on_diff(block.header.hash()?, diff).await?;
+            self.hook.on_diff(block.header.hash(), diff).await?;
             self.hook.on_finalized_block(block).await?;
         }
 

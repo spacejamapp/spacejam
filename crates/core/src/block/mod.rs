@@ -99,18 +99,10 @@ pub struct BlockInfo {
 mod crypto_impl {
     use super::*;
 
-    impl Block {
-        /// Returns the hash of the block
-        pub fn hash(&self) -> anyhow::Result<crate::HeaderHash> {
-            let encoded = codec::encode(&self.header)?;
-            Ok(crate::blake2b(&encoded))
-        }
-    }
-
     impl From<Header> for BlockInfo {
         fn from(header: Header) -> Self {
             Self {
-                header_hash: header.hash().unwrap(),
+                header_hash: header.hash(),
                 beefy_root: OpaqueHash::default(),
                 state_root: header.parent_state_root,
                 reported: vec![],

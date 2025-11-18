@@ -69,7 +69,7 @@ pub fn validate(
     }
 
     // construct the message
-    let encoded = codec::encode(&header)?;
+    let encoded = codec::encode(&header);
     let context = encoded[..encoded.len() - 96].to_vec();
 
     // construct the context

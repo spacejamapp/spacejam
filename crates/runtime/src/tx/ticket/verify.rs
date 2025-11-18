@@ -7,7 +7,6 @@ use score::{
     extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
 };
 use std::{collections::BTreeMap, sync::Arc};
-use tokio::task::JoinSet;
 
 /// Verify tickets
 pub fn tickets(
@@ -17,14 +16,6 @@ pub fn tickets(
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator, Error> {
     let verifier = lazy::verifier(epoch, next);
-
-    // process verification in parallel
-    let mut queue = JoinSet::new();
-    for (index, envelope) in tickets.iter().cloned().enumerate() {
-        let verifier = verifier.clone();
-        queue.spawn_blocking(move || self::ticket(index, envelope, entropy, verifier));
-    }
-
     let verified = tickets
         .par_iter()
         .enumerate()

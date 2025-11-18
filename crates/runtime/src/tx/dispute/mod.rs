@@ -63,8 +63,7 @@ pub fn reports(
     // Clean work-reports from rho if they were judged as uncertain or invalid
     for maybe_assignment in next_assignments.iter_mut() {
         if let Some(assignment) = maybe_assignment {
-            let hashed =
-                crypto::blake2b(&codec::encode(&assignment.report).expect("failed to encode "));
+            let hashed = crypto::blake2b(&codec::encode(&assignment.report));
 
             // Clear if the report is in bad or wonky sets (i.e., t < ⌊2/3V⌋)
             if records.bad.contains(&hashed) || records.wonky.contains(&hashed) {

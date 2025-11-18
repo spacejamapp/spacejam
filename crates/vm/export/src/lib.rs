@@ -32,7 +32,7 @@ pub fn authorize<VM: Invocation>(buffer: Buffer) -> Buffer {
         &mut args.accounts,
         args.timeslot,
     );
-    let output = codec::encode(&output).unwrap();
+    let output = codec::encode(&output);
     Buffer::from(output)
 }
 
@@ -54,7 +54,7 @@ pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
         &mut args.accounts,
         args.timeslot,
     );
-    let output = codec::encode(&output).unwrap();
+    let output = codec::encode(&output);
     Buffer::from(output)
 }
 
@@ -111,7 +111,7 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
             Reason::Continue => api::Reason::Continue,
         },
     };
-    let output = codec::encode(&output).unwrap();
+    let output = codec::encode(&output);
     Buffer::from(output)
 }
 

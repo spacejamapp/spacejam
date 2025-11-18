@@ -22,7 +22,7 @@ fn encoding() {
         .collect(),
     };
 
-    let encoded = codec::encode(&handshake).expect("failed to encode handshake");
+    let encoded = codec::encode(&handshake);
     let decoded = codec::decode::<Handshake>(&encoded).expect("failed to decode handshake");
     assert_eq!(handshake, decoded);
 

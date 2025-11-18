@@ -17,20 +17,16 @@ pub fn gas(ctx: &impl Argument) -> Result<u64> {
 pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let kind = ctx.rget(10);
     let value: Vec<u8> = match kind {
-        0 => codec::encode(&Parameters::default()).expect("should not fail"),
-        1 => codec::encode(&ctx.entropy()).expect("should not fail"),
-        14 => codec::encode(&ctx.items()).expect("should not fail"),
+        0 => codec::encode(&Parameters::default()),
+        1 => codec::encode(&ctx.entropy()),
+        14 => codec::encode(&ctx.items()),
         15 => {
             let items = ctx.items();
             let index = ctx.rget(11);
             if let Some(item) = items.get(index as usize) {
                 match item {
-                    AccumulateItem::Transfer(transfer) => {
-                        codec::encode(transfer).expect("should not fail")
-                    }
-                    AccumulateItem::Operand(operand) => {
-                        codec::encode(operand).expect("should not fail")
-                    }
+                    AccumulateItem::Transfer(transfer) => codec::encode(transfer),
+                    AccumulateItem::Operand(operand) => codec::encode(operand),
                 }
             } else {
                 return Ok(Exit::None as u64);
@@ -155,9 +151,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
 
     let info = account.info().vm();
-    let Ok(info) = codec::encode(&info) else {
-        crate::bail!("failed to encode account info");
-    };
+    let info = codec::encode(&info);
 
     // Get memory write parameters from registers
     let tlen = info.len() as u64;

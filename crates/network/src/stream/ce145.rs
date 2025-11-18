@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[allow(unused)]
 pub async fn send(mut send: SendStream, judgement: Judgement) -> anyhow::Result<()> {
     let mut buf = vec![145];
-    buf.extend_from_slice(&codec::encode(&judgement)?);
+    buf.extend_from_slice(&codec::encode(&judgement));
     send.write_all(&buf).await?;
     send.finish()?;
     Ok(())

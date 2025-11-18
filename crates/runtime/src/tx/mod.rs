@@ -10,7 +10,7 @@ use account::Accounts as _;
 use anyhow::Result;
 use pvm::Pvm;
 use score::{Block, TrieKey, safrole::ValidatorIter};
-use std::sync::Arc;
+use std::{sync::Arc, thread};
 
 pub mod assurance;
 pub mod block;
@@ -257,7 +257,7 @@ pub fn simulate_with_state<Vm: Pvm>(
 
         // lazy load vrf rings
         if state.validators.drawn != accumulation.validators {
-            tokio::task::spawn_blocking(move || {
+            thread::spawn(move || {
                 ticket::lazy::drawn(
                     if new_epoch { epoch + 1 } else { epoch + 2 },
                     &accumulation.validators,
@@ -280,7 +280,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         // (β') Update the block history
         block::history::import(
             &mut state.recent_blocks,
-            block.header.hash()?,
+            block.header.hash(),
             root,
             reported,
         );

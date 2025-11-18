@@ -106,7 +106,7 @@ impl Builder {
         // apply config from the spec file
         //
         // TODO: handle bootnode and peer id
-        self.network.genesis = parsed_genesis.genesis_header.hash()?;
+        self.network.genesis = parsed_genesis.genesis_header.hash();
 
         Ok(parsed_genesis)
     }

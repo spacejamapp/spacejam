@@ -54,7 +54,7 @@ impl<C: runtime::Config> Validating<C> {
             if block::timeslot() == timeslot {
                 tracing::trace!("check authored block ...");
                 if let Some(block) = block {
-                    let hash = block.header.hash().expect("failed to get hash");
+                    let hash = block.header.hash();
                     tracing::info!("block#{}@0x{}", block.header.slot, hex::encode(&hash[..3]));
                     match runtime.chain_mut().await.import(&block).await {
                         Ok(imported) => {

@@ -78,7 +78,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
     // NOTE: since grandpa is not fully implemented, we set the best block
     // together with the finalized block.
     async fn on_finalized_block(&self, block: Block) -> anyhow::Result<()> {
-        let head = block.header.head()?;
+        let head = block.header.head();
 
         // 1. dispatch the best and finalized block
         self.dispatch_best_block(&head.hash, head.slot as u64)
@@ -112,7 +112,7 @@ impl<C: runtime::Config> runtime::Hook for RpcHook<C> {
             let mut plist: BTreeSet<u32> =
                 codec::decode(&best.state.state_get(&key)?.unwrap_or_default())?;
             plist.extend(data.keys().copied());
-            best.state.state_set(key, codec::encode(&plist)?)?;
+            best.state.state_set(key, codec::encode(&plist))?;
         }
 
         for (service, sink) in self.service_data_sub.lock().await.iter() {

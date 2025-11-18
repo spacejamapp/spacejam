@@ -15,7 +15,7 @@ fn codec() {
     let test = Test {
         data: vec![[0; 64], [1; 64]],
     };
-    let encoded = serde_jam::encode(&test).unwrap();
+    let encoded = serde_jam::encode(&test);
     let decoded = serde_jam::decode::<Test>(&encoded).unwrap();
     assert_eq!(test.data, decoded.data);
 }
@@ -24,7 +24,7 @@ fn codec() {
 fn test_vec_u8_serialization() {
     let vec_data = vec![1u8, 2, 3, 4];
 
-    let vec_encoded = encode(&vec_data).unwrap();
+    let vec_encoded = encode(&vec_data);
     println!(
         "Vec<u8> encoded: {:?} (len={})",
         vec_encoded,
@@ -39,7 +39,7 @@ fn test_vec_u8_serialization() {
 fn test_slice_serialization() {
     let slice_data = &[1u8, 2, 3, 4][..];
 
-    let slice_encoded = encode(&slice_data).unwrap();
+    let slice_encoded = encode(&slice_data);
     println!(
         "&[u8] encoded: {:?} (len={})",
         slice_encoded,
@@ -56,8 +56,8 @@ fn test_vec_vs_slice_comparison() {
     let vec_data = data.to_vec();
     let slice_data = &data[..];
 
-    let vec_encoded = encode(&vec_data).unwrap();
-    let slice_encoded = encode(&slice_data).unwrap();
+    let vec_encoded = encode(&vec_data);
+    let slice_encoded = encode(&slice_data);
 
     println!(
         "Vec<u8> {:?} -> {:?} (len={})",
@@ -84,7 +84,7 @@ fn test_vec_vs_slice_comparison() {
 fn test_string_serialization() {
     let string_data = "hello world".to_string();
 
-    let string_encoded = encode(&string_data).unwrap();
+    let string_encoded = encode(&string_data);
     println!(
         "String encoded: {:?} (len={})",
         string_encoded,
@@ -99,7 +99,7 @@ fn test_string_serialization() {
 fn test_str_serialization() {
     let str_data = "hello world";
 
-    let str_encoded = encode(&str_data).unwrap();
+    let str_encoded = encode(&str_data);
     println!(
         "&str encoded: {:?} (len={})",
         str_encoded,

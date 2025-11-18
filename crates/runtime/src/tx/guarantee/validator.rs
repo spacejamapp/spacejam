@@ -191,10 +191,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         // 4. validate the signatures
-        let message = guarantee
-            .signing_message()
-            .inspect_err(|e| tracing::warn!("failed to get signing message: {:?}", e))
-            .map_err(|_| Error::BadSignature)?;
+        let message = guarantee.signing_message();
         let mut guarantor = None;
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;

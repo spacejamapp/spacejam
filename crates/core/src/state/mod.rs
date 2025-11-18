@@ -106,7 +106,7 @@ impl State {
         pairs.insert(key::STATISTICS, Box::new(&self.statistics));
         pairs
             .par_iter()
-            .map(|(key, value)| (*key, codec::encode(value).unwrap()))
+            .map(|(key, value)| (*key, codec::encode(value)))
             .collect()
     }
 }

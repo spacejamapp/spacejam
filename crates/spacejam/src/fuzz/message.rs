@@ -46,7 +46,7 @@ impl Display for Message {
                     f,
                     "ImportBlock(slot={}, hash=0x{})",
                     block.header.slot,
-                    hex::encode(block.header.hash().unwrap())
+                    hex::encode(block.header.hash())
                 )
             }
             Self::Initialize(state) => write!(f, "Initialize(len={})", state.state.len()),

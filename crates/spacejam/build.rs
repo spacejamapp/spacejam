@@ -69,7 +69,7 @@ mod fuzz {
                         bytes[0] = 6;
                     }
                     let message: Message = codec::decode(&bytes).unwrap();
-                    let encoded = codec::encode(&message).unwrap();
+                    let encoded = codec::encode(&message);
                     assert_eq!(encoded, bytes);
                 }
             });

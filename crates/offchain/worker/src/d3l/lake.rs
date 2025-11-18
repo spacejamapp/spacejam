@@ -141,7 +141,7 @@ pub trait DataLake: Send + Sync {
         let encoded = codec::encode(&(
             exported.to_vec().iter().flatten().collect::<Vec<_>>(),
             proofs,
-        ))?;
+        ));
         let exported_chunks = erasure::encode(encoded).await?;
         let exported_chunk_hashes: Vec<OpaqueHash> = exported_chunks
             .iter()
@@ -149,7 +149,7 @@ pub trait DataLake: Send + Sync {
             .collect();
 
         // 2. Generate bundle chunks (s♣)
-        let bundle_data = codec::encode(bundle)?;
+        let bundle_data = codec::encode(bundle);
         let length = bundle_data.len() as u32;
         let bundle_chunks = erasure::encode(bundle_data).await?;
         let bundle_chunk_hashes: Vec<OpaqueHash> = bundle_chunks
@@ -192,7 +192,7 @@ pub trait DataLake: Send + Sync {
         }
 
         Ok(WorkPackageSpec {
-            hash: crypto::blake2b(&codec::encode(&bundle.package)?),
+            hash: crypto::blake2b(&codec::encode(&bundle.package)),
             length,
             erasure_root,
             exports_root: crypto::blake2b(

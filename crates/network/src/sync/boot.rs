@@ -50,7 +50,7 @@ impl<C: runtime::Config> Network<C> {
             send.finish()?;
 
             let block = Block::read(&mut recv).await?;
-            let hash = block.header.hash()?;
+            let hash = block.header.hash();
             if hash == handshake.head.hash {
                 break;
             }
