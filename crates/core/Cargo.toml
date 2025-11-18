@@ -7,9 +7,11 @@ edition.workspace = true
 anyhow.workspace = true
 blake2 = { workspace = true, optional = true }
 codec.workspace = true
+erased-serde.workspace = true
 hex.workspace = true
 service = { workspace = true, features = ["json"] }
 tracing.workspace = true
+rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 spacejson.workspace = true
