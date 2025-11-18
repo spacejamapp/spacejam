@@ -306,7 +306,7 @@ impl Verifier {
         signature: &[u8],
         signer_key_index: usize,
     ) -> anyhow::Result<[u8; 32]> {
-        let signature = IetfVrfSignature::deserialize_compressed(signature)?;
+        let signature = IetfVrfSignature::deserialize_compressed_unchecked(signature)?;
         let IetfProof { c, s } = signature.proof;
         let output = signature.output;
         let input = Input::new(input).ok_or(anyhow::anyhow!("Invalid input"))?;
