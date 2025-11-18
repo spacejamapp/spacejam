@@ -131,23 +131,23 @@ impl Target {
         let slot = block.header.slot;
         let interp = self.interp;
         let validators = state.validators.current;
-        let (vr, diff) = tokio::try_join!(
-            tokio::spawn(async move {
+        let (vr, diff) = rayon::join(
+            || {
                 let verifier = if new_epoch {
                     lazy::verifier(epoch, &safrole.validators.bandersnatch())
                 } else {
                     lazy::verifier(epoch, &validators.bandersnatch())
                 };
                 header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier)
-            }),
-            tokio::spawn(async move {
+            },
+            || {
                 if interp {
                     tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data)
                 } else {
                     tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data)
                 }
-            }),
-        )?;
+            },
+        );
         let (_, diff) = (vr?, diff?);
         self.data.commit(Column::State, diff)?;
         {
@@ -217,15 +217,13 @@ impl Target {
     async fn init_state(&self) -> Result<()> {
         let data = self.data.clone();
         if self.interp {
-            init::verifier(data).await?;
+            init::verifier(data)?;
         } else {
-            let (threadv, threadp) = (
-                tokio::spawn(init::verifier(data.clone())),
-                tokio::spawn(init::programs(data.clone())),
+            let (vr, pr) = rayon::join(
+                || init::verifier(data.clone()),
+                || init::programs(data.clone()),
             );
-
-            let (vr, pr) = tokio::try_join!(threadv, threadp)?;
-            let (_, _) = (vr?, pr?);
+            let _ = (vr?, pr?);
         }
 
         Ok(())

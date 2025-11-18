@@ -22,6 +22,7 @@ offchain.workspace = true
 parity-db.workspace = true
 spacevm.workspace = true
 rand.workspace = true
+rayon.workspace = true
 runtime.workspace = true
 score = { workspace = true }
 serde = { workspace = true, optional = true }
