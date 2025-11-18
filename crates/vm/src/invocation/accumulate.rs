@@ -18,9 +18,6 @@ pub struct Accumulate<R: Accounts> {
     /// The exceptional dimension
     pub y: AccumulateContext<R>,
 
-    /// The read-only state of the accumulation
-    pub state: AccumulateState<R>,
-
     /// The timeslot
     pub timeslot: TimeSlot,
 
@@ -166,7 +163,6 @@ impl<R: Accounts> AccumulateContext<R> {
     pub fn accumulate(self, timeslot: TimeSlot, items: Vec<AccumulateItem>) -> Accumulate<R> {
         let entropy = self.context.entropy[0];
         Accumulate {
-            state: self.context.clone(),
             y: self.clone(),
             x: self,
             timeslot,

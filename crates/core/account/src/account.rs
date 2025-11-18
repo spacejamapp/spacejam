@@ -69,7 +69,7 @@ pub trait Account: Clone {
     fn set_update(&mut self, update: u32);
 
     /// Get a lookup from the account
-    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>>;
+    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Option<Vec<u32>>>;
 
     /// Insert a lookup to the account
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>);
@@ -128,7 +128,7 @@ pub trait Account: Clone {
     /// (Λ) lookup preimage in the recent histories
     fn historical_lookup(&mut self, timeslot: u32, hash: [u8; 32]) -> Option<Vec<u8>> {
         let preimage = self.preimage(hash)?;
-        let lookup = self.lookup(hash, preimage.len() as u32)?;
+        let lookup = self.lookup(hash, preimage.len() as u32).flatten()?;
         if (lookup.len() == 1 && timeslot >= lookup[0])
             || (lookup.len() == 2 && timeslot >= lookup[0] && timeslot <= lookup[1])
             || (lookup.len() == 3
@@ -231,8 +231,8 @@ impl Account for ServiceAccount {
         self.info.update = update;
     }
 
-    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
-        self.lookup.get(&(hash, len)).cloned()
+    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Option<Vec<u32>>> {
+        self.lookup.get(&(hash, len)).cloned().map(Some)
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {

@@ -182,7 +182,7 @@ pub async fn parallel<V: Pvm, R: Accounts>(
         }
 
         for (core_index, assign_service) in context.privileges.assign.clone().iter().enumerate() {
-            if let Some(result) = results.get(&assign_service) {
+            if let Some(result) = results.get(assign_service) {
                 context.privileges.assign[core_index] =
                     result.context.privileges.assign[core_index];
             } else {

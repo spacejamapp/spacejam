@@ -39,6 +39,11 @@ pub fn accounts(
             anyhow::bail!("Preimage lookup failed");
         };
 
+        // skip if the lookup is removed
+        let Some(slots) = slots else {
+            continue;
+        };
+
         if !slots.is_empty() {
             anyhow::bail!("Preimage already has non-empty lookup slots");
         }

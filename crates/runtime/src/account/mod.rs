@@ -150,22 +150,20 @@ impl<S: Storage> ::account::Account for Account<S> {
         self.account.info.update = update;
     }
 
-    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Vec<u32>> {
+    fn lookup(&mut self, hash: [u8; 32], len: u32) -> Option<Option<Vec<u32>>> {
         if let Some(lookup) = self.account.lookup.get(&(hash, len)) {
-            return Some(lookup.clone());
+            return Some(Some(lookup.clone()));
         }
 
         let key = account::lookup(self.index, len, hash);
-
-        // Check if this key is marked for removal in the current transaction
         if self.ops.removal.contains(&key) {
-            return None;
+            return Some(None);
         }
 
         if let Some(lookup) = self.state.state_get(key).ok().flatten() {
             let lookup: Vec<u32> = codec::decode(&lookup).ok()?;
             self.account.lookup.insert((hash, len), lookup.clone());
-            Some(lookup)
+            Some(Some(lookup))
         } else {
             None
         }
