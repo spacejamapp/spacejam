@@ -21,17 +21,17 @@ pub struct CoreActivityRecord {
     #[serde(with = "codec::compact")]
     pub imports: u16,
 
-    /// (e) Number of segments exported into DA made by core for reported work.
+    /// (x) Total number of extrinsics used by core for reported work.
     #[serde(with = "codec::compact")]
-    pub exports: u16,
+    pub extrinsic_count: u16,
 
     /// (z) Total size of extrinsics used by core for reported work.
     #[serde(with = "codec::compact")]
     pub extrinsic_size: u32,
 
-    /// (x) Total number of extrinsics used by core for reported work.
+    /// (e) Number of segments exported into DA made by core for reported work.
     #[serde(with = "codec::compact")]
-    pub extrinsic_count: u16,
+    pub exports: u16,
 
     /// (b) The work-bundle size. This is the size of data being placed into Audits DA by the core.
     #[serde(with = "codec::compact")]
