@@ -10,10 +10,9 @@ use runtime::{
 use score::state::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use spacevm::{Memory, pvm::Context};
 use std::sync::Arc;
-use tokio::task::JoinSet;
 
 /// Initialize the verifier
-pub async fn verifier(data: Arc<MemoryDb>) -> Result<()> {
+pub fn verifier(data: Arc<MemoryDb>) -> Result<()> {
     let safrole = data.safrole()?;
     let timeslot = data.timeslot()?;
     let validators = data.current_validators()?;
@@ -28,9 +27,8 @@ pub async fn verifier(data: Arc<MemoryDb>) -> Result<()> {
 /// Find all accounts and their codes
 ///
 /// FIXM: currently only supports accumulation
-pub async fn programs(data: Arc<MemoryDb>) -> Result<()> {
+pub fn programs(data: Arc<MemoryDb>) -> Result<()> {
     let mut accounts = Accounts::new(data.clone());
-    let mut queue = JoinSet::new();
     for pair in data.state_iter()? {
         let (k, _v) = pair?;
         let info = k.as_state_key().info();
@@ -46,16 +44,21 @@ pub async fn programs(data: Arc<MemoryDb>) -> Result<()> {
             // compile for twice to pass the confirmation
             if let Some(blob) = accounts.blob(service) {
                 let blob_1 = blob.clone();
-                queue.spawn_blocking(move || {
-                    spacevm::compile::<Context<'static, (), Memory>>(blob_1, vec![], hash, false)
-                });
-                queue.spawn_blocking(move || {
-                    spacevm::compile::<Context<'static, (), Memory>>(blob, vec![], hash, false)
-                });
+                let (l, r) = rayon::join(
+                    || {
+                        spacevm::compile::<Context<'static, (), Memory>>(
+                            blob_1,
+                            vec![],
+                            hash,
+                            false,
+                        )
+                    },
+                    || spacevm::compile::<Context<'static, (), Memory>>(blob, vec![], hash, false),
+                );
+                let _ = (l?, r?);
             }
         }
     }
 
-    let _ = queue.join_all().await;
     Ok(())
 }

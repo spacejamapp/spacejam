@@ -12,7 +12,7 @@ pub async fn send(
     request: OpaqueHash,
 ) -> anyhow::Result<()> {
     let mut buf = vec![143];
-    buf.extend_from_slice(&codec::encode(&request)?);
+    buf.extend_from_slice(&codec::encode(&request));
     send.write_all(&buf).await?;
     send.finish()?;
     Ok(())

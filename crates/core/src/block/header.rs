@@ -135,16 +135,16 @@ mod crypto_impl {
 
     impl Header {
         /// Get the hash of the header
-        pub fn hash(&self) -> anyhow::Result<HeaderHash> {
-            Ok(crate::blake2b(&codec::encode(self)?))
+        pub fn hash(&self) -> HeaderHash {
+            crate::blake2b(&codec::encode(self))
         }
 
         /// Get the head of the header
-        pub fn head(&self) -> anyhow::Result<Head> {
-            Ok(Head {
-                hash: self.hash()?,
+        pub fn head(&self) -> Head {
+            Head {
+                hash: self.hash(),
                 slot: self.slot,
-            })
+            }
         }
     }
 }

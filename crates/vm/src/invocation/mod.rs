@@ -83,7 +83,7 @@ pub trait Invocation {
         }
 
         // Prepare arguments
-        let args = codec::encode(&core_idx).unwrap_or_default();
+        let args = codec::encode(&core_idx);
         let context = crate::invocation::IsAuthorized::new(package.clone(), core_idx);
         let result = Self::invoke2(
             context,
@@ -148,8 +148,7 @@ pub trait Invocation {
         }
 
         // FIXME: passing the hash into this function mb. do not hash it for twice!
-        let package_hash =
-            crypto::blake2b(&codec::encode(package).expect("failed to encode package"));
+        let package_hash = crypto::blake2b(&codec::encode(package));
         let params = RefineParams {
             core,
             index: index as u16,
@@ -176,7 +175,7 @@ pub trait Invocation {
             exports: Vec::new(),
         };
 
-        let args = codec::encode(&params).expect("failed to encode params");
+        let args = codec::encode(&params);
         let result = Self::invoke2(refine, item.code_hash, code, args, item.refine_gas_limit, 0);
 
         // TODO: Implement actual segment export when host calls are ready
@@ -220,7 +219,7 @@ pub trait Invocation {
         };
 
         let accumulate = context.accumulate(timeslot, items);
-        let args = codec::encode(&params).expect("failed to encode");
+        let args = codec::encode(&params);
         let result = Self::invoke2(accumulate, code_hash, code, args, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
             tracing::warn!(

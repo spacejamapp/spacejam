@@ -69,17 +69,17 @@ pub trait SyncStorage: KVStorage + ArchiveStorage {
     ///
     /// FIXME: use a commit instead.
     fn finalize(&self, block: &Block, hash: OpaqueHash, state_root: OpaqueHash) -> Result<()> {
-        self.sync_set(Key::Block(hash).key(), codec::encode(block)?)?;
+        self.sync_set(Key::Block(hash).key(), codec::encode(block))?;
         self.sync_set(Key::Descendant(block.header.parent).key(), hash)?;
-        self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()?)?)?;
-        self.sync_set(Key::Header(hash).key(), codec::encode(&block.header)?)?;
+        self.sync_set(Key::Finalized.key(), codec::encode(&block.header.head()))?;
+        self.sync_set(Key::Header(hash).key(), codec::encode(&block.header))?;
         self.sync_set(Key::Parent(hash).key(), block.header.parent)?;
         self.sync_set(Key::StateRoot(hash).key(), state_root)?;
         if let Some(tickets) = block.header.tickets_mark {
             let epoch = block.header.slot / score::EPOCH_LENGTH + 1;
             self.sync_set(
                 Key::Safrole(epoch).key(),
-                codec::encode(&TicketsOrKeys::Tickets(tickets))?,
+                codec::encode(&TicketsOrKeys::Tickets(tickets)),
             )?;
         }
 

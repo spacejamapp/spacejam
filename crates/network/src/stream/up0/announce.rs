@@ -46,7 +46,7 @@ pub async fn send<C: runtime::Config>(
         }
 
         let handshake = conn.handshake.read().await;
-        if !handshake.accept(&header.head()?) {
+        if !handshake.accept(&header.head()) {
             continue;
         }
 
@@ -85,7 +85,7 @@ pub async fn recv<C: runtime::Config>(
         let (header, head) = codec::decode::<(Header, Head)>(buf.as_ref())?;
 
         // 3. update the remote peer's handshake data.
-        let lhead = header.head()?;
+        let lhead = header.head();
         let exists = {
             let mut handshake = conn.handshake.write().await;
             handshake.head = head;

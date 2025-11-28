@@ -44,7 +44,7 @@ impl StreamExt for UnixStream {
 
     #[tracing::instrument(skip_all, name = "write", parent = None)]
     fn write_message(&mut self, message: Message) -> Result<()> {
-        let mut bytes = codec::encode(&message)?;
+        let mut bytes = codec::encode(&message);
         let length = bytes.len() as u32;
         if bytes[0] == 6 {
             bytes[0] = 255;

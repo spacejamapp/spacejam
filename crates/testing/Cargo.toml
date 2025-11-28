@@ -15,6 +15,7 @@ paste.workspace = true
 pvm.workspace = true
 pvmi.workspace = true
 pvmc.workspace = true
+rayon.workspace = true
 runtime.workspace = true
 specjam.workspace = true
 score.workspace = true

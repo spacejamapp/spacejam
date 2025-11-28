@@ -24,7 +24,7 @@ impl<C: runtime::Config> Dev<C> {
             tracing::info!(
                 "block#{}@0x{}",
                 block.header.slot,
-                hex::encode(&block.header.hash()?[..3])
+                hex::encode(&block.header.hash()[..3])
             );
 
             runtime.chain_mut().await.import(&block).await?;

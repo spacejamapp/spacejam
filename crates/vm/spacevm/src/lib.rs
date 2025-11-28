@@ -11,6 +11,7 @@ pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
     sync::{Arc, LazyLock, RwLock},
+    thread,
 };
 
 /// Locks for the Jastime compilation
@@ -71,7 +72,7 @@ impl Invocation for SpaceVM {
             {
                 let code = code.clone();
                 let args = args.clone();
-                tokio::task::spawn_blocking(move || {
+                thread::spawn(move || {
                     if let Err(e) = self::compile::<X>(code, args, hash, true) {
                         tracing::warn!("failed to compile program: {e:?}");
                     }

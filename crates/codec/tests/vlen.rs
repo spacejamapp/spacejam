@@ -29,7 +29,7 @@ fn test_vlen_foo() {
     let foo = VlenFoo {
         data: vec![1, 2, 3],
     };
-    let encoded = codec::encode(&foo).unwrap();
+    let encoded = codec::encode(&foo);
     assert_eq!(encoded, vec![3, 1, 2, 3]);
 
     let decoded = codec::decode::<VlenFoo>(&encoded).unwrap();
@@ -41,7 +41,7 @@ fn test_vlen_foo_large() {
     let foo = VlenFoo {
         data: vec![0u8; 12288],
     };
-    let encoded = codec::encode(&foo).unwrap();
+    let encoded = codec::encode(&foo);
     assert_eq!(encoded.len(), 12290);
     assert_eq!(encoded[..2], vec![176, 0]);
 
@@ -52,7 +52,7 @@ fn test_vlen_foo_large() {
 #[test]
 fn just_vec() {
     let vec = vec![1u8, 2, 3];
-    let encoded = codec::encode(&vec).unwrap();
+    let encoded = codec::encode(&vec);
     assert_eq!(encoded, vec![3, 1, 2, 3]);
 
     let decoded: Vec<u8> = codec::decode(&encoded).unwrap();

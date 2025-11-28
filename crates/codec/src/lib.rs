@@ -27,8 +27,8 @@ mod with;
 /// Trait for types that can be encoded and decoded using serde-jam
 pub trait Codec: serde::Serialize + serde::de::DeserializeOwned {
     /// Encode the value into a byte vector
-    fn encode(&self) -> anyhow::Result<Vec<u8>> {
-        encode(&self).map_err(Into::into)
+    fn encode(&self) -> Vec<u8> {
+        encode(&self)
     }
 
     /// Decode the value from a byte vector
@@ -40,10 +40,14 @@ pub trait Codec: serde::Serialize + serde::de::DeserializeOwned {
 impl<T: serde::Serialize + serde::de::DeserializeOwned> Codec for T {}
 
 /// Encode a value to a byte vector
-pub fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>> {
+pub fn encode<T: serde::Serialize>(value: &T) -> Vec<u8> {
     let mut serializer = Serializer::default();
-    value.serialize(&mut serializer)?;
-    Ok(serializer.output)
+    if let Err(_e) = value.serialize(&mut serializer) {
+        #[cfg(feature = "std")]
+        eprintln!("failed to serialize: {:?}", _e);
+        return vec![];
+    }
+    serializer.output
 }
 
 /// Decode a value from a byte vector

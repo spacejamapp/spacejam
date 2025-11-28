@@ -9,10 +9,8 @@ use crate::{
 use account::Accounts as _;
 use anyhow::Result;
 use pvm::Pvm;
-use score::{Block, TrieKey, safrole::ValidatorIter, state::key};
-use serde::Serialize;
-use std::sync::Arc;
-use tokio::task::JoinSet;
+use score::{Block, TrieKey, safrole::ValidatorIter};
+use std::{sync::Arc, thread};
 
 pub mod assurance;
 pub mod block;
@@ -21,44 +19,13 @@ pub mod guarantee;
 pub mod preimage;
 pub mod ticket;
 
-/// Processor for state transition
-pub struct Processor {
-    /// The set of encoding tasks
-    encode: JoinSet<Result<(TrieKey, Vec<u8>)>>,
-}
-
-impl Processor {
-    fn new() -> Self {
-        Self {
-            encode: JoinSet::new(),
-        }
-    }
-
-    /// Add an encoding task to the pool
-    fn encode<T: Serialize + Send + 'static>(&mut self, key: TrieKey, value: T) {
-        self.encode.spawn(async move {
-            let encoded = codec::encode(&value)?;
-            Ok((key, encoded))
-        });
-    }
-
-    /// Collect all encoding results and populate the diff
-    async fn finish(mut self, diff: &mut Commit<TrieKey, Vec<u8>>) -> Result<()> {
-        while let Some(result) = self.encode.join_next().await {
-            let (key, value) = result??;
-            diff.set(key, value);
-        }
-        Ok(())
-    }
-}
-
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub async fn transit<Vm: Pvm>(
+pub fn transit<Vm: Pvm>(
     mut block: Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let diff = self::simulate::<Vm>(&mut block, storage.clone()).await?;
+    let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
     let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
@@ -66,34 +33,33 @@ pub async fn transit<Vm: Pvm>(
 
 /// Transit state with new block
 #[tracing::instrument(skip_all, name = "stf")]
-pub async fn transit_with_state<Vm: Pvm>(
+pub fn transit_with_state<Vm: Pvm>(
     mut block: Block,
     state: score::State,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone()).await?;
+    let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone())?;
     let _guard = timing::commit();
     storage.commit(Column::State, diff.clone())?;
     Ok(diff)
 }
 
 /// Simulate state transition with new block
-pub async fn simulate<Vm: Pvm>(
+pub fn simulate<Vm: Pvm>(
     block: &mut Block,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let state = storage.state()?;
-    self::simulate_with_state::<Vm>(block, state, storage.clone()).await
+    self::simulate_with_state::<Vm>(block, state, storage.clone())
 }
 
 /// Simulate state transition with new block
-pub async fn simulate_with_state<Vm: Pvm>(
+pub fn simulate_with_state<Vm: Pvm>(
     block: &mut Block,
     mut state: score::State,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let mut diff = Commit::default();
-    let mut processor = Processor::new();
 
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
@@ -160,13 +126,11 @@ pub async fn simulate_with_state<Vm: Pvm>(
             let _guard = timing::entropy();
             let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
             state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-            processor.encode(key::ENTROPY, state.entropy);
         };
 
         // (λ') Update validator state (6.13)
         if new_epoch {
             state.validators.previous = state.validators.previous(new_epoch);
-            processor.encode(key::PREVIOUS_VALIDATORS, state.validators.previous);
         }
 
         // (ψ') Update disputes and get marks
@@ -182,7 +146,6 @@ pub async fn simulate_with_state<Vm: Pvm>(
                 &block.extrinsic.disputes,
             )?;
 
-            processor.encode(key::DISPUTES, disputes.clone());
             state.disputes = disputes;
             {
                 // FIXME: for building blocks only, could be removed
@@ -234,7 +197,6 @@ pub async fn simulate_with_state<Vm: Pvm>(
             state.validators.current = state
                 .validators
                 .current(new_epoch, &state.safrole.validators);
-            processor.encode(key::CURRENT_VALIDATORS, state.validators.current);
         }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
@@ -259,10 +221,8 @@ pub async fn simulate_with_state<Vm: Pvm>(
                 &state.safrole,
                 &state.validators,
                 &block.extrinsic.tickets,
-            )
-            .await?;
+            )?;
 
-            processor.encode(key::SAFROLE, state.safrole.clone());
             {
                 // FIXME: for building blocks only, could be removed
                 // on importing blocks.
@@ -293,12 +253,11 @@ pub async fn simulate_with_state<Vm: Pvm>(
             &state.validators.drawn,
             accounts,
             state.entropy,
-        )
-        .await?;
+        )?;
 
         // lazy load vrf rings
         if state.validators.drawn != accumulation.validators {
-            tokio::task::spawn_blocking(move || {
+            thread::spawn(move || {
                 ticket::lazy::drawn(
                     if new_epoch { epoch + 1 } else { epoch + 2 },
                     &accumulation.validators,
@@ -312,7 +271,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
         state.statistics.merge_services(accumulation.records);
-        processor.encode(key::ACCUMULATION_LOGS, accumulation.logs);
+        state.logs = accumulation.logs;
         (accumulation.root, accumulation.accounts)
     };
 
@@ -321,7 +280,7 @@ pub async fn simulate_with_state<Vm: Pvm>(
         // (β') Update the block history
         block::history::import(
             &mut state.recent_blocks,
-            block.header.hash()?,
+            block.header.hash(),
             root,
             reported,
         );
@@ -357,17 +316,8 @@ pub async fn simulate_with_state<Vm: Pvm>(
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
-        processor.encode(key::TIMESLOT, state.timeslot);
     }
 
-    // Finish all encoding tasks in parallel
-    processor.encode(key::PENDING_REPORTS, state.reports);
-    processor.encode(key::PRIVILEGED_SERVICE, state.privileges);
-    processor.encode(key::ACCUMULATION_QUEUE, state.queue);
-    processor.encode(key::ACCUMULATION_HISTORY, state.history);
-    processor.encode(key::DRAWN_VALIDATORS, state.validators.drawn);
-    processor.encode(key::RECENT_BLOCKS, state.recent_blocks);
-    processor.encode(key::STATISTICS, state.statistics);
-    processor.finish(&mut diff).await?;
+    diff.update.extend(state.pairs(new_epoch, &block.extrinsic));
     Ok(diff)
 }

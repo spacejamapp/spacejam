@@ -92,8 +92,8 @@ pub async fn run_single<Vm: Pvm>(
         lazy::verifier(epoch, &state.validators.current.bandersnatch())
     };
     let validators = state.validators.current;
-    let result = tokio::try_join!(
-        async {
+    let (vresult, sresult) = rayon::join(
+        || {
             header::validate(
                 &block.header,
                 new_epoch,
@@ -102,15 +102,15 @@ pub async fn run_single<Vm: Pvm>(
                 &safrole,
                 verifier,
             )
-            .await
         },
-        async { tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()).await },
+        || tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()),
     );
 
-    let is_ok = result.is_ok();
-    match result {
-        Err(e) => tracing::warn!("failed to import block: {e:?}"),
-        Ok(((), diff)) => memdb
+    let is_ok = vresult.is_ok() && sresult.is_ok();
+    match (vresult, sresult) {
+        (Err(e), _) => tracing::warn!("failed to import block: {e:?}"),
+        (_, Err(e)) => tracing::warn!("failed to import block: {e:?}"),
+        (Ok(()), Ok(diff)) => memdb
             .commit(Column::State, diff)
             .expect("failed to commit state"),
     }

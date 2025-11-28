@@ -99,7 +99,7 @@ impl<S: Storage> Fork<S> {
                 break;
             }
 
-            chain.insert(this.header.head()?);
+            chain.insert(this.header.head());
             blocks.insert(*slot, (this.clone(), commit.clone()));
             branch.commit(Column::State, commit.clone())?;
         }
@@ -142,8 +142,8 @@ impl<S: Storage> Fork<S> {
         //
         // We execute the block instead of querying the latest state from the remote.
         tracing::trace!("transiting block");
-        let head = block.header.head()?;
-        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone()).await?;
+        let head = block.header.head();
+        let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
         self.state.commit(Column::State, diff.clone())?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
@@ -243,7 +243,7 @@ impl<S: Storage> Fork<S> {
         .bandersnatch();
 
         // construct the message
-        let encoded = codec::encode(&header)?;
+        let encoded = codec::encode(&header);
         let context = encoded[..encoded.len() - 96].to_vec();
 
         // construct the context

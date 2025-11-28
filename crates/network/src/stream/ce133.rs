@@ -16,7 +16,7 @@ impl<C: runtime::Config> Network<C> {
 #[allow(unused)]
 pub async fn send(mut send: SendStream, request: Request) -> anyhow::Result<()> {
     let mut buf = vec![133];
-    buf.extend_from_slice(&codec::encode(&request.message)?);
+    buf.extend_from_slice(&codec::encode(&request.message));
     send.write_all(&buf).await?;
     send.write_all(&request.extrinsic).await?;
     send.finish()?;

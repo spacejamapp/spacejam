@@ -22,7 +22,7 @@ impl<C: runtime::Config> Network<C> {
         //
         // TODO: fetch the state from the storage
         let response = Response::default();
-        send.write_all(&codec::encode(&response)?).await?;
+        send.write_all(&codec::encode(&response)).await?;
         send.finish()?;
         Ok(())
     }
@@ -36,7 +36,7 @@ pub async fn send(
     request: Request,
 ) -> anyhow::Result<Response> {
     let mut buf = vec![129];
-    buf.extend_from_slice(&codec::encode(&request)?);
+    buf.extend_from_slice(&codec::encode(&request));
     send.write_all(&buf).await?;
     send.finish()?;
 

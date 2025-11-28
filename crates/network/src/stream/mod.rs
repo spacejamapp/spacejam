@@ -77,7 +77,7 @@ pub mod ext {
 
     impl<T: Serialize> Write for T {
         async fn write(&self, stream: &mut SendStream) -> anyhow::Result<()> {
-            let encoded = codec::encode(&self)?;
+            let encoded = codec::encode(&self);
             let length = encoded.len() as u32;
             stream
                 .write_all(&[length.to_le_bytes().to_vec(), encoded].concat())

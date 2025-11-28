@@ -212,8 +212,7 @@ impl<R: Accounts> AccumulateState<R> {
             service,
             entropy: self.entropy[0],
             timeslot,
-        })
-        .expect("failed to encode");
+        });
         let hash = crypto::blake2b(&encoded);
         let base = u32::from_le_bytes([hash[0], hash[1], hash[2], hash[3]]);
         let index = (base % score::CHECK_SALT) + score::MINIMUM_SERVICE_ID;

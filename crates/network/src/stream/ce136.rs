@@ -8,7 +8,7 @@ use score::{OpaqueHash, service::WorkReport};
 #[allow(unused)]
 pub async fn send(mut send: SendStream, hash: OpaqueHash) -> anyhow::Result<()> {
     let mut buf = vec![136];
-    buf.extend_from_slice(&codec::encode(&hash)?);
+    buf.extend_from_slice(&codec::encode(&hash));
     send.write_all(&buf).await?;
     send.finish()?;
     Ok(())
@@ -29,7 +29,7 @@ impl<C: runtime::Config> Network<C> {
 
         // send the work report
         let mut buf = vec![];
-        buf.extend_from_slice(&codec::encode(&work_report)?);
+        buf.extend_from_slice(&codec::encode(&work_report));
         send.write_all(&buf).await?;
         send.finish()?;
         Ok(())

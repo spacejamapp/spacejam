@@ -44,7 +44,7 @@ impl<C: Config> Chain<C> {
         let mut blocks = Vec::new();
         let mut finalized = BTreeSet::new();
         while let Some((slot, (block, commit))) = chain.blocks.pop_first() {
-            let head = block.header.head()?;
+            let head = block.header.head();
             self.state.commit(Column::State, commit.clone())?;
 
             // finalize the block in storage

@@ -28,7 +28,7 @@ pub async fn send(
     request: Request,
 ) -> anyhow::Result<()> {
     let mut buf = vec![135];
-    buf.extend_from_slice(&codec::encode(&request)?);
+    buf.extend_from_slice(&codec::encode(&request));
     send.write_all(&buf).await?;
     send.finish();
     Ok(())

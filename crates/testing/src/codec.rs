@@ -32,8 +32,8 @@ macro_rules! impl_codec_tests {
                 let decoded: $dest = $dest::from_json(json).context("failed to decode json")?;
 
                 println!("decoded: {:?}", decoded);
-                assert_eq!(decoded.encode()?, data, "encoded data mismatch");
-                println!("encoded: {:?}", &(decoded.encode()?)[68..]);
+                assert_eq!(decoded.encode(), data, "encoded data mismatch");
+                println!("encoded: {:?}", &(decoded.encode())[68..]);
                 assert_eq!(decoded, $dest::decode(&data)?, "decoded data mismatch");
                 Ok(())
             }
@@ -46,7 +46,7 @@ macro_rules! impl_codec_tests {
                 let (json, data) = impl_codec_tests!($name);
                 let decoded: Vec<$dest> = $dest::load_json(json)?;
 
-                assert_eq!(decoded.encode()?, data, "encoded data mismatch");
+                assert_eq!(decoded.encode(), data, "encoded data mismatch");
                 assert_eq!(decoded, Vec::<$dest>::decode(&data)?, "decoded data mismatch");
                 Ok(())
             }

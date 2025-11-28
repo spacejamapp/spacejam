@@ -46,7 +46,7 @@ impl<C: Config> Chain<C> {
     /// Create a new fork at the latest finalized block.
     pub async fn fork(&mut self, block: &Block) -> Result<()> {
         let head = self.grandpa.handshake.head.clone();
-        let hash = block.header.hash()?;
+        let hash = block.header.hash();
         let branch = Branch::checkout(self.state.clone());
         let mut fork = Fork::new(Arc::new(branch), self.grid.clone(), self.series.clone());
         fork.import::<C::Vm>(&head, block).await?;
@@ -58,7 +58,7 @@ impl<C: Config> Chain<C> {
     ///
     /// returns true if the block is imported.
     pub async fn import(&mut self, block: &Block) -> anyhow::Result<Imported> {
-        let head = block.header.head()?;
+        let head = block.header.head();
         if block.header.slot <= self.grandpa.handshake.head.slot {
             tracing::trace!(
                 "Discarding block#{}@0x{}...",
@@ -136,7 +136,7 @@ impl<C: Config> Chain<C> {
         state: &HashMap<[u8; 31], Vec<u8>>,
     ) -> anyhow::Result<()> {
         // 1. save the block to the storage
-        let head = header.head()?;
+        let head = header.head();
 
         // 2. set the genesis state
         let mut kvs = Vec::new();

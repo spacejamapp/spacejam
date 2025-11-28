@@ -394,13 +394,13 @@ dependencies = [
 [[package]]
 name = "ark-vrf"
 version = "0.1.0"
-source = "git+https://github.com/sunhuachuang/ark-vrf#9cacedaa4cf6fd4d4f7a8ba0284f51fcf4b5bbca"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9501da18569b2afe0eb934fb7afd5a247d238b94116155af4dd068f319adfe6d"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ff 0.5.0",
- "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "digest",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-pvm"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "cranelift",
@@ -1272,6 +1272,17 @@ name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "erased-serde"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89e8918065695684b2b0702da20382d5ae6065cf3327bc2d6436bd49a71ce9f3"
+dependencies = [
+ "serde",
+ "serde_core",
+ "typeid",
+]
 
 [[package]]
 name = "fallible-iterator"
@@ -2587,7 +2598,7 @@ dependencies = [
 
 [[package]]
 name = "pvmc"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3117,7 +3128,7 @@ dependencies = [
 
 [[package]]
 name = "serde-jam"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "serde",
@@ -3285,7 +3296,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3296,6 +3307,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rand 0.8.5",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",
@@ -3319,7 +3331,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-account"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "serde-jam",
@@ -3330,11 +3342,13 @@ dependencies = [
 
 [[package]]
 name = "spacejam-core"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "blake2",
+ "erased-serde",
  "hex",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",
@@ -3379,7 +3393,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-network"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -3402,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-offchain"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3418,7 +3432,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-rpc"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "jsonrpsee",
@@ -3430,12 +3444,13 @@ dependencies = [
 
 [[package]]
 name = "spacejam-runtime"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "hex",
  "once_cell",
  "pvm",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",
@@ -3450,7 +3465,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-service"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "blake2",
@@ -3463,7 +3478,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testing"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "hex",
@@ -3473,6 +3488,7 @@ dependencies = [
  "pvmc",
  "pvmi",
  "quote",
+ "rayon",
  "serde",
  "serde-jam",
  "serde_json",
@@ -3492,7 +3508,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testnet"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "clap",
@@ -3503,7 +3519,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-worker"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "pvm",
@@ -3519,7 +3535,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "hex",
@@ -3529,7 +3545,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson-derive"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3538,21 +3554,20 @@ dependencies = [
 
 [[package]]
 name = "spacevm"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "anyhow",
  "hex",
  "pvm",
  "pvmc",
  "pvmi",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
 
 [[package]]
 name = "spacevm-export"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "pvm",
  "pvmc",
@@ -4006,6 +4021,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "typeid"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
+
+[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4095,8 +4116,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-pcs"
-version = "0.0.3"
-source = "git+https://github.com/w3f/fflonk#26b6e2e15f7fa90eee97ebd039a4146a8dafc695"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbe7a8d5c914b69392ab3b267f679a2e546fe29afaddce47981772ac71bd02e1"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4110,7 +4132,8 @@ dependencies = [
 [[package]]
 name = "w3f-plonk-common"
 version = "0.0.2"
-source = "git+https://github.com/sunhuachuang/ring-proof#1c5c2b9599a079b59d0f0b430c9130b9e91f1ddc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aca389e494fe08c5c108b512e2328309036ee1c0bc7bdfdb743fef54d448c8c"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4126,7 +4149,8 @@ dependencies = [
 [[package]]
 name = "w3f-ring-proof"
 version = "0.0.2"
-source = "git+https://github.com/sunhuachuang/ring-proof#1c5c2b9599a079b59d0f0b430c9130b9e91f1ddc"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a639379402ad51504575dbd258740383291ac8147d3b15859bdf1ea48c677de"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",

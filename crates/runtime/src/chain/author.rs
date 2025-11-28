@@ -142,7 +142,7 @@ impl<'a, C: Config> Author<'a, C> {
         parent.state_root = context.root;
         let mut builder = Block::builder()
             .parent(&parent)?
-            .extrinsic(extrinsic)?
+            .extrinsic(extrinsic)
             .timeslot(timeslot);
 
         // 4. set the author index
@@ -160,9 +160,9 @@ impl<'a, C: Config> Author<'a, C> {
         // do not simulate the block but just calculate the required data
         tracing::trace!("simulating block...");
         if let Some(fork) = &context.fork {
-            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone()).await?;
+            let _diff = tx::simulate::<C::Vm>(&mut builder, fork.state.clone())?;
         } else if let Some(state) = &context.state {
-            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone()).await?;
+            let _diff = tx::simulate::<C::Vm>(&mut builder, state.clone())?;
         } else {
             anyhow::bail!("no state found");
         }
@@ -250,7 +250,7 @@ impl<'a, C: Config> Author<'a, C> {
 
         // construct the seal
         let context = {
-            let encoded = codec::encode(&block.header)?;
+            let encoded = codec::encode(&block.header);
             encoded[..encoded.len() - 96].to_vec()
         };
         block.header.seal = self

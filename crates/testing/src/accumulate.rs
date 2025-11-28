@@ -31,8 +31,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             &Default::default(),
             accounts.clone(),
             Default::default(),
-        )
-        .await?
+        )?
     } else {
         tx::guarantee::accumulate::<spacevm::Interpreter, _>(
             input.input.slot,
@@ -44,8 +43,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             &Default::default(),
             accounts.clone(),
             Default::default(),
-        )
-        .await?
+        )?
     };
 
     // convert the accounts to the service items

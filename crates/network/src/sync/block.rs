@@ -13,9 +13,9 @@ use score::{
 
 impl<C: runtime::Config> Network<C> {
     /// Announce a block to the network
-    #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()?[..3])))]
+    #[tracing::instrument(skip_all, name = "announce", fields(block = %header.slot, hash = %hex::encode(&header.hash()[..3])))]
     pub async fn announce(&self, header: Header) -> anyhow::Result<()> {
-        let hash = header.hash()?;
+        let hash = header.hash();
         let slot = header.slot;
         match self.announce.send(header) {
             Ok(count) => tracing::trace!(
@@ -79,7 +79,7 @@ impl<C: runtime::Config> Network<C> {
         .await?;
 
         let block = Block::read(&mut recv).await?;
-        let hash = block.header.hash()?;
+        let hash = block.header.hash();
         tracing::trace!(
             "received block#{}@0x{}",
             block.header.slot,

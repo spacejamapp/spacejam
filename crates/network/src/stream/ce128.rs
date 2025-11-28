@@ -44,7 +44,7 @@ impl<C: runtime::Config> Network<C> {
             tracing::trace!(
                 "sent block#{}@{}",
                 block.header.slot,
-                hex::encode(&block.header.hash()?[..3])
+                hex::encode(&block.header.hash()[..3])
             );
         }
 
@@ -103,8 +103,5 @@ fn encoding() {
         maximum: 1,
     };
 
-    assert_eq!(
-        codec::encode(&req).unwrap(),
-        codec::encode(&request).unwrap()
-    );
+    assert_eq!(codec::encode(&req), codec::encode(&request));
 }
