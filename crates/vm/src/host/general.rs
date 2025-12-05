@@ -23,6 +23,15 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         15 => {
             let items = ctx.items();
             let index = ctx.rget(11);
+            tracing::debug!("requesting item at index {index}");
+            for (i, item) in items.iter().enumerate() {
+                let encoded = match item {
+                    AccumulateItem::Transfer(transfer) => codec::encode(transfer),
+                    AccumulateItem::Operand(operand) => codec::encode(operand),
+                };
+                tracing::debug!("encoded item {i}: {:?}", hex::encode(&encoded));
+            }
+
             if let Some(item) = items.get(index as usize) {
                 match item {
                     AccumulateItem::Transfer(transfer) => codec::encode(transfer),
@@ -42,7 +51,10 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
     let length = ctx.rget(9).min(vlen - from);
-    tracing::debug!("fetch={kind} length={length}");
+    tracing::debug!(
+        "fetch={kind} vlen={vlen} from={from} length={length} value={}",
+        hex::encode(&value)
+    );
     if length > 0 {
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
@@ -105,6 +117,11 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
     let from = ctx.rget(11).min(vlen);
     let length = ctx.rget(12).min(vlen - from);
     if length > 0 {
+        tracing::debug!(
+            "read key={} value={}",
+            hex::encode(&key),
+            hex::encode(&value[from as usize..(from + length) as usize])
+        );
         ctx.write(o as u32, &value[from as usize..(from + length) as usize])?;
     }
     Ok(vlen)
@@ -137,6 +154,11 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         };
     } else {
+        tracing::debug!(
+            "write key={} value={}",
+            hex::encode(&key),
+            hex::encode(&value)
+        );
         account.write(&key, value);
     }
 
@@ -158,6 +180,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
     let from = ctx.rget(9).min(tlen) as usize;
     let length = ctx.rget(10).min(tlen - from as u64) as usize;
     if from < tlen as usize {
+        tracing::debug!("info bytes: {:?}", hex::encode(&info[from..from + length]));
         ctx.write(output as u32, &info[from..from + length])?;
     }
 
