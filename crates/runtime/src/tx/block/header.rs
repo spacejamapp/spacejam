@@ -31,7 +31,7 @@ pub fn validate(
         tickets.copy_from_slice(&TicketBody::sequence(&safrole.accumulator));
         ticket = Some(tickets[slot]);
     } else if let TicketsOrKeys::Tickets(tickets) = safrole.series
-        && new_epoch == false
+        && !new_epoch
     {
         ticket = Some(tickets[slot]);
     }
