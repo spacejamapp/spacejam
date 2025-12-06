@@ -86,18 +86,10 @@ impl Visitor for Context<'_> {
 
     fn visit_ecalli(
         &mut self,
-        format: format::I,
+        _format: format::I,
         _range: &Range<usize>,
     ) -> Result<Self::Output, Self::Error> {
-        let format::I { imm0: call } = format;
-        Ok(match call {
-            20 => {
-                let reg9 = self.builder.use_var(self.pool.registers[9]);
-                Gas::Value(self.builder.ins().iadd_imm(reg9, 11))
-            }
-            100 => Gas::Imm(1),
-            _ => Gas::Imm(11),
-        })
+        Ok(Gas::Imm(11))
     }
 }
 
