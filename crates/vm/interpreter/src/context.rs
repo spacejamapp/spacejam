@@ -47,7 +47,6 @@ impl Visitor for Context {
     ) -> Result<Self::Output, Self::Error> {
         let format::I { imm0: call } = format;
         Ok(match call {
-            100 => 1,
             20 => 11 + self.registers[9],
             _ => 11,
         })
