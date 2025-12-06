@@ -91,6 +91,7 @@ pub async fn run_single<Vm: Pvm>(
     } else {
         lazy::verifier(epoch, &state.validators.current.bandersnatch())
     };
+
     let validators = state.validators.current;
     let (vresult, sresult) = rayon::join(
         || {
