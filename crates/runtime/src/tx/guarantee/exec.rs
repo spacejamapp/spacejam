@@ -3,7 +3,7 @@
 use super::acc::Accumulated;
 use account::{Account, Accounts};
 use pvm::{AccumulateState, Pvm};
-// use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use score::{
     Gas, ServiceId,
     service::WorkReport,
@@ -97,22 +97,8 @@ pub fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
-    // Execute each service exactly once using Δ₁ (once function)
-    /* let mut results = services
-    .par_iter()
-    .map(|service| {
-        let transfers = transfers
-            .iter()
-            .filter(|t| t.recipient == *service)
-            .cloned()
-            .collect();
-        let result = self::once::<V, R>(context.clone(), transfers, reports, table, *service);
-        (*service, result)
-    })
-    .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>(); */
-
     let mut results = services
-        .iter()
+        .par_iter()
         .map(|service| {
             let transfers = transfers
                 .iter()

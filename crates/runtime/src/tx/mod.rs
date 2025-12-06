@@ -69,7 +69,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         anyhow::bail!("block slot is less than or equal to current height");
     }
 
-    if block.header.author_index >= score::VALIDATORS_COUNT as u16 {
+    if block.header.author_index >= score::VALIDATORS_COUNT {
         anyhow::bail!("invalid author index");
     }
 
