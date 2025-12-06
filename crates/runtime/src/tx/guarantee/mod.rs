@@ -176,6 +176,10 @@ pub fn reports(
             return Err(Error::CoreEngaged);
         }
 
+        if guarantee.report.results.is_empty() {
+            return Err(Error::MissingWorkResults);
+        }
+
         next[core_index] = Some(AvailabilityAssignment {
             report: guarantee.report.clone(),
             timeout: slot,

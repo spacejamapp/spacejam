@@ -30,7 +30,9 @@ pub fn validate(
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
         tickets.copy_from_slice(&TicketBody::sequence(&safrole.accumulator));
         ticket = Some(tickets[slot]);
-    } else if let TicketsOrKeys::Tickets(tickets) = safrole.series {
+    } else if let TicketsOrKeys::Tickets(tickets) = safrole.series
+        && !new_epoch
+    {
         ticket = Some(tickets[slot]);
     }
 

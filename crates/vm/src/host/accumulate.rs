@@ -254,6 +254,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         gas_limit: limit,
     };
     ctx.transfer(transfer);
+    ctx.set_gas(ctx.gas() - limit);
     *ctx.this()?.balance_mut() -= amount;
     Ok(Exit::Ok as u64)
 }

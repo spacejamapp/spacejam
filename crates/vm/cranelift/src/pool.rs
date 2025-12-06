@@ -183,6 +183,17 @@ impl Translator<'_> {
         }
     }
 
+    /// Load gas from memory
+    pub fn load_gas(&mut self) {
+        let gas = self.context.builder.ins().load(
+            types::I64,
+            MemFlags::trusted(),
+            self.context.pool.vmctx,
+            offsets::GAS_OFFSET,
+        );
+        self.context.builder.def_var(self.context.pool.gas, gas);
+    }
+
     /// Sync gas to memory
     pub fn store_gas(&mut self) {
         let gas = self.context.builder.use_var(self.context.pool.gas);

@@ -98,10 +98,10 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     let mut results = services
-        .par_iter()
+        .iter()
         .map(|service| {
             let transfers = transfers
-                .iter()
+                .par_iter()
                 .filter(|t| t.recipient == *service)
                 .cloned()
                 .collect();
@@ -115,46 +115,39 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.validators = result.context.validators;
     };
 
+    // Update designate service from the old designate service
+    if let Some(designate_result) = results.get(&context.privileges.designate) {
+        context.privileges.designate = designate_result.context.privileges.designate;
+    }
+
+    // Update register service from the old register service
+    if let Some(register_result) = results.get(&context.privileges.register) {
+        context.privileges.register = register_result.context.privileges.register;
+    }
+
     // Extract privilege service results from the already-executed results
+    // This must happen BEFORE reading validators to ensure we get them from the correct designate service
     if let Some(result) = results.get(&context.privileges.bless) {
-        // update the designate service with the new designate service
-        if result.context.privileges.designate == context.privileges.designate {
-            if let Some(result) = results.get(&context.privileges.designate) {
-                context.privileges.designate = result.context.privileges.designate;
-            };
-        } else {
-            context.privileges.designate = result.context.privileges.designate;
-        }
+        context.privileges.bless = result.context.privileges.bless;
+        context.privileges.designate = result.context.privileges.designate;
+        context.privileges.register = result.context.privileges.register;
 
-        // update the register service with the new register service
-        if result.context.privileges.register == context.privileges.register {
-            if let Some(result) = results.get(&context.privileges.register) {
-                context.privileges.register = result.context.privileges.register;
-            };
-        } else {
-            context.privileges.register = result.context.privileges.register;
-        }
-
+        // Update assign services
         for (core_index, assign_service) in context.privileges.assign.clone().iter().enumerate() {
             if let Some(result) = results.get(assign_service) {
-                context.privileges.assign[core_index] =
-                    result.context.privileges.assign[core_index];
-            } else {
                 context.privileges.assign[core_index] =
                     result.context.privileges.assign[core_index];
             }
         }
 
-        context.privileges.bless = result.context.privileges.bless;
         context.privileges.always_acc = result.context.privileges.always_acc.clone();
-    };
+    }
 
-    /* // Handle the assign array - each core has its own assign service
-    for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
-        if let Some(result) = results.get(assign_service) {
-            context.authorization[core_index] = result.context.authorization[core_index].clone();
-        }
-    } */
+    // Update validators from the (now potentially updated) designate service
+    // This must happen AFTER privilege updates to read from the correct designate service
+    if let Some(result) = results.get(&context.privileges.designate) {
+        context.validators = result.context.validators;
+    }
 
     // Update the state of accounts
     let mut gas = BTreeMap::new();

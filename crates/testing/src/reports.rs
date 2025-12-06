@@ -194,7 +194,7 @@ mod types {
                         data: ServiceAccountData {
                             service: service.state(),
                             preimages: vec![],
-                            preimages_status: vec![],
+                            preimage_requests: vec![],
                             storage: vec![],
                         },
                     })
@@ -224,14 +224,14 @@ mod types {
         /// (a_p) The preimages
         #[serde(default)]
         #[json(nested)]
-        #[serde(alias = "preimages_blob")]
+        #[serde(alias = "preimage_blobs")]
         pub preimages: Vec<ServicePreimage>,
 
         /// The preimage status
         #[serde(default)]
         #[json(nested)]
-        #[serde(alias = "preimages_status")]
-        pub preimages_status: Vec<ServicePreimageStatus>,
+        #[serde(alias = "preimage_requests")]
+        pub preimage_requests: Vec<ServicePreimageRequest>,
 
         /// The storage
         #[serde(default)]
@@ -252,12 +252,15 @@ mod types {
                         blob: v.to_vec(),
                     })
                     .collect(),
-                preimages_status: account
+                preimage_requests: account
                     .lookup
                     .iter()
-                    .map(|(k, v)| ServicePreimageStatus {
-                        hash: k.0,
-                        status: if v.is_empty() { vec![0] } else { v.to_vec() },
+                    .map(|(k, v)| ServicePreimageRequest {
+                        key: ServicePreimageRequestKey {
+                            hash: k.0,
+                            length: k.1,
+                        },
+                        value: if v.is_empty() { vec![0] } else { v.to_vec() },
                     })
                     .collect(),
                 storage: account
@@ -278,12 +281,10 @@ mod types {
             let mut lookup = BTreeMap::new();
             for preimage in &data.preimages {
                 let mut slots = Default::default();
-                if let Some(status) = data
-                    .preimages_status
-                    .iter()
-                    .find(|s| s.hash == preimage.hash)
-                {
-                    slots = status.status.clone();
+                if let Some(status) = data.preimage_requests.iter().find(|s| {
+                    s.key.hash == preimage.hash && s.key.length == preimage.blob.len() as u32
+                }) {
+                    slots = status.value.clone();
                 }
                 lookup.insert((preimage.hash, preimage.blob.len() as u32), slots);
             }
@@ -316,13 +317,24 @@ mod types {
 
     /// Represents a service preimage.
     #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
-    pub struct ServicePreimageStatus {
+    pub struct ServicePreimageRequest {
+        /// The key of the preimage
+        #[json(nested)]
+        pub key: ServicePreimageRequestKey,
+
+        /// The status of the preimage
+        pub value: Vec<u32>,
+    }
+
+    /// Represents a service preimage.
+    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    pub struct ServicePreimageRequestKey {
         /// The hash of the preimage
         #[json(hex)]
         pub hash: OpaqueHash,
 
-        /// The status of the preimage
-        pub status: Vec<u32>,
+        /// The length of the preimage
+        pub length: u32,
     }
 
     /// Represents a service storage.

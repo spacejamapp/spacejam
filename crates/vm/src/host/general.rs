@@ -16,12 +16,6 @@ pub fn gas(ctx: &impl Argument) -> Result<u64> {
 // (ΩY) fetch the on chain parameters
 pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let kind = ctx.rget(10);
-    tracing::debug!(
-        "fetch={kind} output={:?} from={} length={}",
-        ctx.rget(7),
-        ctx.rget(8),
-        ctx.rget(9)
-    );
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()),
         1 => codec::encode(&ctx.entropy()),

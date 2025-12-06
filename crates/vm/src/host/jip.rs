@@ -60,5 +60,5 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     };
 
     log::log!(target: &target, level, "{message}");
-    Ok(Exit::Ok as u64)
+    Ok(Exit::What as u64)
 }

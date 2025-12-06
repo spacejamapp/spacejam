@@ -76,7 +76,9 @@ impl Interpreter {
                 Reason::HostCall(call) => {
                     let mut context = interp.context.ctx(&mut ctx);
                     let reason = host::call(call, &mut context);
-                    interp.context.registers = context.registers;
+                    let pvm::Context { registers, gas, .. } = context;
+                    interp.context.registers = registers;
+                    interp.context.gas = gas;
                     if reason != Reason::Continue {
                         return Ok(interp.result(ctx, initial_gas, reason));
                     }

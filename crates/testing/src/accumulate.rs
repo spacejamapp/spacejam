@@ -77,7 +77,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             left.id
         );
         assert_eq!(left.data.storage, right.data.storage);
-        assert_eq!(left.data.preimages_status, right.data.preimages_status);
+        assert_eq!(left.data.preimage_requests, right.data.preimage_requests);
         assert_eq!(left.data.preimages, right.data.preimages);
     }
     assert_eq!(accounts, output.post_state.haccounts());

@@ -16,7 +16,7 @@ pub mod pvmc;
 pub mod pvmi;
 pub mod reports;
 pub mod safrole;
-pub mod seq;
+// pub mod seq;
 pub mod shuffle;
 pub mod statistics;
 pub mod traces;

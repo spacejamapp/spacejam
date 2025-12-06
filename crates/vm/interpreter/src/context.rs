@@ -42,15 +42,10 @@ impl Visitor for Context {
 
     fn visit_ecalli(
         &mut self,
-        format: format::I,
+        _format: format::I,
         _range: &Range<usize>,
     ) -> Result<Self::Output, Self::Error> {
-        let format::I { imm0: call } = format;
-        Ok(match call {
-            100 => 1,
-            20 => 11 + self.registers[9],
-            _ => 11,
-        })
+        Ok(11)
     }
 
     fn visit_default(&mut self) -> Result<Self::Output, Self::Error> {
