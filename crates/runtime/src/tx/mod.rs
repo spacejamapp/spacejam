@@ -69,6 +69,10 @@ pub fn simulate_with_state<Vm: Pvm>(
         anyhow::bail!("block slot is less than or equal to current height");
     }
 
+    if block.header.author_index >= score::VALIDATORS_COUNT {
+        anyhow::bail!("invalid author index");
+    }
+
     // TODO: move this logic to the header validation
     if let Some(epoch_mark) = &block.header.epoch_mark {
         if epoch_mark.validators.iter().any(|v| {

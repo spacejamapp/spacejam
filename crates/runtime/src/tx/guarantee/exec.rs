@@ -97,7 +97,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
-    // Execute each service exactly once using Δ₁ (once function)
     let mut results = services
         .par_iter()
         .map(|service| {

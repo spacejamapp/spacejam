@@ -76,7 +76,7 @@ pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
     let source = ctx.read(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
 
     // return if invalid core index
-    if core > score::CORES_COUNT as u64 {
+    if core >= score::CORES_COUNT as u64 {
         return Ok(Exit::Core as u64);
     }
 

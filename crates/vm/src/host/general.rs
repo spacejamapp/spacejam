@@ -5,7 +5,7 @@ use crate::{
     Argument, Result,
 };
 use account::Account;
-use score::{vm::AccumulateItem, Parameters};
+use score::Parameters;
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
@@ -16,6 +16,12 @@ pub fn gas(ctx: &impl Argument) -> Result<u64> {
 // (ΩY) fetch the on chain parameters
 pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let kind = ctx.rget(10);
+    tracing::debug!(
+        "fetch={kind} output={:?} from={} length={}",
+        ctx.rget(7),
+        ctx.rget(8),
+        ctx.rget(9)
+    );
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()),
         1 => codec::encode(&ctx.entropy()),
@@ -24,10 +30,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             let items = ctx.items();
             let index = ctx.rget(11);
             if let Some(item) = items.get(index as usize) {
-                match item {
-                    AccumulateItem::Transfer(transfer) => codec::encode(transfer),
-                    AccumulateItem::Operand(operand) => codec::encode(operand),
-                }
+                codec::encode(&item)
             } else {
                 return Ok(Exit::None as u64);
             }
@@ -42,7 +45,6 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
     let length = ctx.rget(9).min(vlen - from);
-    tracing::debug!("fetch={kind} length={length}");
     if length > 0 {
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
