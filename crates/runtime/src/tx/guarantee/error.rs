@@ -36,6 +36,7 @@ pub enum Error {
     SegmentRootLookupInvalid,
     WorkReportTooBig,
     BadSignature,
+    MissingWorkResults,
 }
 
 impl Json<Error> for Error {

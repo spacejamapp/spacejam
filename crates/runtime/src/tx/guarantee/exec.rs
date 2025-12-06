@@ -147,7 +147,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
         context.privileges.bless = result.context.privileges.bless;
         context.privileges.always_acc = result.context.privileges.always_acc.clone();
-    };
+    }
 
     /* // Handle the assign array - each core has its own assign service
     for (core_index, assign_service) in context.privileges.assign.iter().enumerate() {
