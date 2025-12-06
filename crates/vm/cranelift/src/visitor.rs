@@ -492,6 +492,11 @@ impl Visitor for Translator<'_> {
         let result = self.builder.inst_results(inst)[0];
         self.load_registers();
 
+        // Load gas from memory if ecalli is 20
+        if imm0 == 20 {
+            self.load_gas();
+        }
+
         // Check if the result is panic
         let panic = self.builder.ins().iconst(types::I8, 1);
         let is_panic = self.builder.ins().icmp(IntCC::Equal, result, panic);

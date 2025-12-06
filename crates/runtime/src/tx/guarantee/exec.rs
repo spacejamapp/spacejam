@@ -59,12 +59,6 @@ pub fn outer<V: Pvm, R: Accounts>(
             gas_table,
         );
 
-        // FIXME: the case that after transfering, the gas_limit is not enough for
-        // the following execution.
-        for transfer in step.transfers.iter() {
-            *accumulated.gas.entry(transfer.sender).or_insert(0) += transfer.gas_limit;
-        }
-
         step.defer_transfers();
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
@@ -104,10 +98,10 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     let mut results = services
-        .par_iter()
+        .iter()
         .map(|service| {
             let transfers = transfers
-                .iter()
+                .par_iter()
                 .filter(|t| t.recipient == *service)
                 .cloned()
                 .collect();
