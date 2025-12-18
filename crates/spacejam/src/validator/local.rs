@@ -61,7 +61,7 @@ impl Validator for LocalValidator {
     }
 
     fn ed25519_public_key(&self) -> Ed25519Public {
-        *self.ed25519.verifying.as_bytes()
+        self.ed25519.public()
     }
 
     fn bandersnatch_public_key(&self) -> BandersnatchPublic {

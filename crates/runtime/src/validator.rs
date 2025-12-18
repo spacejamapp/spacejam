@@ -73,7 +73,7 @@ impl Validator for crypto::ed25519::KeyPair {
     }
 
     fn ed25519_public_key(&self) -> Ed25519Public {
-        *self.verifying.as_bytes()
+        self.public()
     }
 
     fn bls_public_key(&self) -> BlsPublic {

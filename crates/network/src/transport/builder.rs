@@ -72,7 +72,7 @@ impl Builder {
 
     /// Build the QUIC server.
     pub fn build(self) -> anyhow::Result<Endpoint> {
-        let dns = PeerId::from(self.ed25519.verifying.to_bytes()).to_string();
+        let dns = PeerId::from(self.ed25519.public()).to_string();
         let provider = Self::provider();
 
         // setup cert
