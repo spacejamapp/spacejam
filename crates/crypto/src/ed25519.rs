@@ -38,9 +38,8 @@ pub fn verify(message: &[u8], signature: [u8; 64], key: [u8; 32]) -> anyhow::Res
 #[cfg(feature = "rand")]
 impl Default for KeyPair {
     fn default() -> Self {
-        use rand::Rng;
-
-        let seed = rand::thread_rng().gen::<[u8; 32]>();
+        use rand::{rngs::OsRng, Rng};
+        let seed = OsRng.gen::<[u8; 32]>();
         Self::from(seed)
     }
 }
