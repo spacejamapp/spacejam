@@ -3388,6 +3388,8 @@ dependencies = [
  "once_cell",
  "rand 0.8.5",
  "rcgen",
+ "serde",
+ "serde_json",
  "tiny-keccak",
  "tracing",
  "w3f-bls",

@@ -42,7 +42,9 @@ vrf = [
 ]
 
 [dev-dependencies]
-hex.workspace = true
+hex = { workspace = true, features = ["std"] }
+serde.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 ark-serialize.workspace = true
