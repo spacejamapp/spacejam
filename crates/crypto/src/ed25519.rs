@@ -16,7 +16,7 @@ pub struct KeyPair {
 impl KeyPair {
     /// Get the public key.
     pub fn public(&self) -> [u8; 32] {
-        self.verifying.clone().into()
+        self.verifying.into()
     }
 }
 
