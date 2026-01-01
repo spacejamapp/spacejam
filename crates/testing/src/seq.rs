@@ -3,7 +3,7 @@
 use crate::traces::{self, TestInput, TestOutput};
 use anyhow::Result;
 use runtime::storage::{MemoryDb, StateStorage};
-use score::TimeSlot;
+use score::{OpaqueHash, TimeSlot};
 use specjam::Test;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -16,8 +16,7 @@ include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
 /// The processor for sequential test vectors
 pub struct Processor {
     memdb: Arc<MemoryDb>,
-    history: BTreeMap<TimeSlot, HashMap<Vec<u8>, Vec<u8>>>,
-    init: bool,
+    history: BTreeMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
 }
 
 impl Processor {
@@ -26,19 +25,17 @@ impl Processor {
         let input = TestInput::from_json(&test.input)?;
         let output = TestOutput::from_json(&test.output)?;
         let slot = input.block.header.slot;
-        if !self.init {
-            for keyval in input.pre_state.keyvals.clone() {
-                self.memdb
-                    .state_set(keyval.key, keyval.value)
-                    .expect("failed to set keyval");
-            }
-            self.init = true;
+        let hash = input.block.header.hash();
+        if let Some(state) = self.history.get(&input.block.header.parent) {
+            self.memdb.reset(state.clone());
+        } else {
+            self.memdb.reset(input.pre_state.keyvals());
         }
 
+        let timeslot = self.memdb.timeslot()?;
         tracing::debug!(
-            "processing test: {}, slots: {:?}, incoming block: {slot}",
+            "processing test: {}, slot: {timeslot}, incoming: {slot}",
             test.name,
-            self.history.keys()
         );
 
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
@@ -48,7 +45,7 @@ impl Processor {
         };
 
         if is_ok {
-            self.history.insert(slot, self.memdb.deep_clone());
+            self.history.insert(hash, self.memdb.deep_clone());
         }
         Ok(())
     }
@@ -68,7 +65,6 @@ impl Default for Processor {
 
         Self {
             memdb: Arc::new(MemoryDb::default()),
-            init: false,
             history: BTreeMap::new(),
         }
     }

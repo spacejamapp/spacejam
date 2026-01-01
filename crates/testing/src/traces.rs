@@ -17,7 +17,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 mod fallback {
     include!(concat!(env!("OUT_DIR"), "/traces_fallback.rs"));
@@ -262,6 +262,17 @@ pub struct State {
     /// The key-values
     #[json(nested)]
     pub keyvals: Vec<KeyValue>,
+}
+
+impl State {
+    /// Get the key-values
+    pub fn keyvals(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.keyvals
+            .clone()
+            .into_iter()
+            .map(|kv| (kv.key, kv.value))
+            .collect::<HashMap<_, _>>()
+    }
 }
 
 /// State transition trace key-value
