@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-blake2 = { workspace = true, optional = true }
 codec.workspace = true
+crypto = { workspace = true, optional = true }
 erased-serde.workspace = true
 hex.workspace = true
 service = { workspace = true, features = ["json"] }
@@ -17,5 +17,6 @@ serde_json.workspace = true
 spacejson.workspace = true
 
 [features]
-default = []
-blake2 = ["dep:blake2", "service/blake2"]
+default = ["blake2", "merkle"]
+blake2 = ["crypto/blake2", "service/blake2"]
+merkle = ["crypto/merkle"]

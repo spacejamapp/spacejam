@@ -129,11 +129,7 @@ pub async fn run_single<Vm: Pvm>(
 
         pkeys.push(key.clone());
         if value != result {
-            tracing::error!(
-                "keyval mismatch: {info:?}: 0x{encoded}, expected vs got:\n0x{}\n0x{}",
-                hex::encode(&value),
-                hex::encode(&result)
-            );
+            tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
         } else {
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }
@@ -157,7 +153,14 @@ pub async fn run_single<Vm: Pvm>(
             );
         }
 
-        if key == key::STATISTICS && value != result {
+        if key == key::TIMESLOT && value != result {
+            let polkajam: u32 = codec::decode(&value)?;
+            let timeslot: u32 = codec::decode(&result)?;
+            tracing::debug!("polkajam: {:?}", polkajam);
+            tracing::debug!("spacejam: {:?}", timeslot);
+        }
+
+        /* if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
@@ -202,7 +205,7 @@ pub async fn run_single<Vm: Pvm>(
                     .map(|v| hex::encode(v.ed25519))
                     .collect::<Vec<_>>()
             );
-        }
+        } */
 
         if key.starts_with(&[255]) && value != result {
             let polkajam: ServiceInfo = codec::decode(&value)?;

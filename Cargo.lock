@@ -3360,13 +3360,13 @@ name = "spacejam-core"
 version = "0.0.22"
 dependencies = [
  "anyhow",
- "blake2",
  "erased-serde",
  "hex",
  "rayon",
  "serde",
  "serde-jam",
  "serde_json",
+ "spacejam-crypto",
  "spacejam-service",
  "spacejson",
  "tracing",

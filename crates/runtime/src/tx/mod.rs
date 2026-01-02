@@ -66,6 +66,11 @@ pub fn simulate_with_state<Vm: Pvm>(
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     state.check(&block.header, new_epoch)?;
 
+    // validate the extrinsic hash
+    if block.extrinsic.hash() != block.header.extrinsic_hash {
+        anyhow::bail!("extrinsic hash mismatch");
+    }
+
     // The first round computation
     let accounts = Accounts::new(storage);
     let (mut reports, reported, reporters) = {

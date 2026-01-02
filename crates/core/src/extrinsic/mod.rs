@@ -37,9 +37,33 @@ pub struct Extrinsic {
 }
 
 impl Extrinsic {
-    #[cfg(feature = "blake2")]
     /// Returns the hash of the extrinsic
+    #[cfg(all(feature = "blake2", feature = "merkle"))]
     pub fn hash(&self) -> crate::OpaqueHash {
-        crate::blake2b(&codec::encode(&self))
+        // Encode guarantees specially: g = encode([(hash(w), encode_4(t), a)])
+        let g: Vec<u8> = codec::encode(
+            &self
+                .guarantees
+                .iter()
+                .map(|guarantee| {
+                    let work_report_hash = crate::blake2b(&codec::encode(&guarantee.report));
+                    let slot_bytes = (guarantee.slot as u32).to_le_bytes();
+                    (work_report_hash, slot_bytes, &guarantee.signatures)
+                })
+                .collect::<Vec<_>>(),
+        );
+
+        // Build sequence a = [encode_T, encode_P, g, encode_A, encode_D]
+        let a: Vec<Vec<u8>> = vec![
+            codec::encode(&self.tickets),
+            codec::encode(&self.preimages),
+            g,
+            codec::encode(&self.assurances),
+            codec::encode(&self.disputes),
+        ];
+
+        // hash#(a) - binary merkle root
+        let merkle_root = crypto::merkle::broot(a);
+        crate::blake2b(&codec::encode(&merkle_root))
     }
 }

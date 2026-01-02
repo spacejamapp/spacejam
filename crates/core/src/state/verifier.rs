@@ -26,7 +26,6 @@ impl State {
                 anyhow::bail!("epoch mark validators mismatch");
             }
 
-            // GP (217): epoch mark = (η_0, η_1, validators)
             if epoch_mark.entropy != self.entropy[0] {
                 anyhow::bail!("epoch mark entropy mismatch");
             }
