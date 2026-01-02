@@ -83,6 +83,9 @@ pub fn simulate_with_state<Vm: Pvm>(
 
         // (ψ') Update disputes and get marks
         let marks = if block.extrinsic.disputes.is_empty() {
+            if !block.header.offenders_mark.is_empty() {
+                anyhow::bail!("offenders mark is not empty");
+            }
             Default::default()
         } else {
             let _guard = timing::disputes();
