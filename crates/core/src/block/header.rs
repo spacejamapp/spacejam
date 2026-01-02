@@ -6,40 +6,11 @@ use crate::{
     BandersnatchPublic, BandersnatchVrfSignature, Ed25519Public, Entropy, HeaderHash, OpaqueHash,
     StateRoot, TimeSlot, ValidatorIndex, extrinsic::*,
 };
-
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents the tickets mark in a block header.
 pub type TicketsMark = [TicketBody; EPOCH_LENGTH as usize];
-
-/// Represents the epoch mark in a block header.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
-pub struct EpochMark {
-    /// The entropy
-    #[json(hex)]
-    pub entropy: Entropy,
-
-    /// The tickets entropy
-    #[json(hex)]
-    pub tickets_entropy: Entropy,
-
-    /// The validators
-    #[json(Vec<EValidatorJson>)]
-    pub validators: [EValidator; VALIDATORS_COUNT as usize],
-}
-
-/// Represents the epoch validator in a block header.
-#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default, Copy)]
-pub struct EValidator {
-    /// The bandersnatch public key
-    #[json(hex)]
-    pub bandersnatch: BandersnatchPublic,
-
-    /// The ed25519 public key
-    #[json(hex)]
-    pub ed25519: Ed25519Public,
-}
 
 /// Represents the header of a block.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
@@ -104,6 +75,34 @@ impl Default for Header {
             seal: [0; 96],
         }
     }
+}
+
+/// Represents the epoch mark in a block header.
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default)]
+pub struct EpochMark {
+    /// The entropy
+    #[json(hex)]
+    pub entropy: Entropy,
+
+    /// The tickets entropy
+    #[json(hex)]
+    pub tickets_entropy: Entropy,
+
+    /// The validators
+    #[json(Vec<EValidatorJson>)]
+    pub validators: [EValidator; VALIDATORS_COUNT as usize],
+}
+
+/// Represents the epoch validator in a block header.
+#[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default, Copy)]
+pub struct EValidator {
+    /// The bandersnatch public key
+    #[json(hex)]
+    pub bandersnatch: BandersnatchPublic,
+
+    /// The ed25519 public key
+    #[json(hex)]
+    pub ed25519: Ed25519Public,
 }
 
 /// The head of the chain
