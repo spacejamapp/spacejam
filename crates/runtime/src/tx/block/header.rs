@@ -61,6 +61,7 @@ pub fn validate(
             keys
         };
 
+        // FIXME: This is a duplicated check for async processing.
         if header.author_index as usize >= score::VALIDATORS_COUNT as usize {
             anyhow::bail!("invalid block author index");
         }

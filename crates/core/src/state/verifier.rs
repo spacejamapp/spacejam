@@ -18,14 +18,16 @@ impl State {
 
         // validate the epoch mark
         if let Some(epoch_mark) = &header.epoch_mark {
-            if epoch_mark.validators.iter().any(|v| {
-                !self
-                    .safrole
-                    .validators
-                    .iter()
-                    .any(|nv| nv.bandersnatch == v.bandersnatch && nv.ed25519 == v.ed25519)
-            }) {
-                anyhow::bail!("next validators mismatch");
+            let expected = self
+                .safrole
+                .next(&self.validators.drawn, &header.offenders_mark);
+            if epoch_mark
+                .validators
+                .iter()
+                .zip(expected.iter())
+                .any(|(v, ev)| v.bandersnatch != ev.bandersnatch || v.ed25519 != ev.ed25519)
+            {
+                anyhow::bail!("epoch mark validators mismatch");
             }
         } else if new_epoch {
             anyhow::bail!("epoch mark is required");
@@ -49,8 +51,7 @@ impl State {
             anyhow::bail!("invalid tickets mark");
         }
 
-        // validate the block parent
-        // complete the state root
+        // validate the block parent and complete the state root
         if let Some(parent) = self
             .recent_blocks
             .complete_state_root(header.parent_state_root)?
