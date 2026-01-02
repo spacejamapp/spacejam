@@ -1,6 +1,6 @@
 //! Header verifier
 
-use crate::{State, block::Header};
+use crate::{State, block::Header, safrole::ValidatorIter};
 
 impl State {
     /// Verify the header
@@ -20,14 +20,19 @@ impl State {
         if let Some(epoch_mark) = &header.epoch_mark {
             let expected = self
                 .safrole
-                .next(&self.validators.drawn, &header.offenders_mark);
-            if epoch_mark
-                .validators
-                .iter()
-                .zip(expected.iter())
-                .any(|(v, ev)| v.bandersnatch != ev.bandersnatch || v.ed25519 != ev.ed25519)
-            {
+                .next(&self.validators.drawn, &header.offenders_mark)
+                .evals();
+            if epoch_mark.validators != expected.as_slice() {
                 anyhow::bail!("epoch mark validators mismatch");
+            }
+
+            // GP (217): epoch mark = (η_0, η_1, validators)
+            if epoch_mark.entropy != self.entropy[0] {
+                anyhow::bail!("epoch mark entropy mismatch");
+            }
+
+            if epoch_mark.tickets_entropy != self.entropy[1] {
+                anyhow::bail!("epoch mark tickets entropy mismatch");
             }
         } else if new_epoch {
             anyhow::bail!("epoch mark is required");
