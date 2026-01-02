@@ -3366,7 +3366,6 @@ dependencies = [
  "serde",
  "serde-jam",
  "serde_json",
- "spacejam-crypto",
  "spacejam-service",
  "spacejson",
  "tracing",

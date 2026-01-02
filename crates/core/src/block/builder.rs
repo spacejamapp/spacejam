@@ -16,7 +16,7 @@ impl Builder {
     }
 
     /// Set the extrinsic
-    #[cfg(all(feature = "blake2", feature = "merkle"))]
+    #[cfg(feature = "blake2")]
     pub fn extrinsic(mut self, extrinsic: crate::Extrinsic) -> Self {
         self.header.extrinsic_hash = extrinsic.hash();
         self.extrinsic = extrinsic;

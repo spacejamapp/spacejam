@@ -38,32 +38,29 @@ pub struct Extrinsic {
 
 impl Extrinsic {
     /// Returns the hash of the extrinsic
-    #[cfg(all(feature = "blake2", feature = "merkle"))]
+    #[cfg(feature = "blake2")]
     pub fn hash(&self) -> crate::OpaqueHash {
-        // Encode guarantees specially: g = encode([(hash(w), encode_4(t), a)])
-        let g: Vec<u8> = codec::encode(
-            &self
-                .guarantees
-                .iter()
-                .map(|guarantee| {
-                    let work_report_hash = crate::blake2b(&codec::encode(&guarantee.report));
-                    let slot_bytes = (guarantee.slot as u32).to_le_bytes();
-                    (work_report_hash, slot_bytes, &guarantee.signatures)
-                })
-                .collect::<Vec<_>>(),
-        );
-
-        // Build sequence a = [encode_T, encode_P, g, encode_A, encode_D]
-        let a: Vec<Vec<u8>> = vec![
+        let guarantees_data: Vec<([u8; 32], [u8; 4], &Vec<ValidatorSignature>)> = self
+            .guarantees
+            .iter()
+            .map(|guarantee| {
+                let work_report_hash = crate::blake2b(&codec::encode(&guarantee.report));
+                let slot_bytes = (guarantee.slot as u32).to_le_bytes();
+                (work_report_hash, slot_bytes, &guarantee.signatures)
+            })
+            .collect();
+        let g: Vec<u8> = codec::encode(&guarantees_data);
+        let hashes = &[
             codec::encode(&self.tickets),
             codec::encode(&self.preimages),
             g,
             codec::encode(&self.assurances),
             codec::encode(&self.disputes),
-        ];
-
-        // hash#(a) - binary merkle root
-        let merkle_root = crypto::merkle::broot(a);
-        crate::blake2b(&codec::encode(&merkle_root))
+        ]
+        .map(|component| crate::blake2b(&component))
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        crate::blake2b(hashes.as_slice())
     }
 }
