@@ -32,9 +32,9 @@ impl State {
         }
 
         // handle marks in the block
-        let slot = header.slot % crate::EPOCH_LENGTH;
+        let slot_phase = header.slot % crate::EPOCH_LENGTH;
         if let Some(tickets_mark) = header.tickets_mark {
-            if slot < crate::TICKET_SUBMISSION_PERIOD {
+            if slot_phase < crate::TICKET_SUBMISSION_PERIOD {
                 anyhow::bail!("invalid tickets mark");
             }
 
@@ -43,7 +43,7 @@ impl State {
                     anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
                 }
             }
-        } else if slot == crate::TICKET_SUBMISSION_PERIOD
+        } else if slot_phase == crate::TICKET_SUBMISSION_PERIOD
             && self.safrole.accumulator.len() == crate::EPOCH_LENGTH as usize
         {
             anyhow::bail!("invalid tickets mark");

@@ -41,9 +41,15 @@ pub fn validate(
     // FIXME: this should be cached in production, embed this here for
     // the workaround of the fuzz tests.
     if ticket.is_none() {
+        let vals = if new_epoch {
+            safrole.validators.bandersnatch()
+        } else {
+            validators.bandersnatch()
+        };
+
         let keys = if new_epoch {
             let TicketsOrKeys::Keys(keys) =
-                TicketsOrKeys::fallback(validators.bandersnatch(), entropy_buffer[1])
+                TicketsOrKeys::fallback(vals.clone(), entropy_buffer[1])
             else {
                 anyhow::bail!("invalid series");
             };
@@ -55,18 +61,15 @@ pub fn validate(
             keys
         };
 
-        let vals = if new_epoch {
-            safrole.validators.bandersnatch()
-        } else {
-            validators.bandersnatch()
-        };
-
         if header.author_index as usize >= score::VALIDATORS_COUNT as usize {
             anyhow::bail!("invalid block author index");
         }
 
         if keys[slot] != vals[header.author_index as usize] {
-            anyhow::bail!("invalid block author");
+            anyhow::bail!(
+                "invalid block author, slot={slot}, new_epoch={new_epoch}, author_index={}",
+                header.author_index
+            );
         }
     }
 
