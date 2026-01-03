@@ -17,7 +17,6 @@ use std::collections::BTreeMap;
 pub mod account;
 pub mod info;
 pub mod key;
-mod verifier;
 
 /// The state of SpaceJam
 ///

@@ -64,7 +64,7 @@ pub fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    state.check(&block.header, new_epoch)?;
+    block::header::check(&mut state, &block.header, new_epoch)?;
 
     // check the state root
     if let Ok(root) = storage.root() {
