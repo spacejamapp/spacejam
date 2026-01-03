@@ -64,11 +64,6 @@ impl Interpreter {
             };
 
             interp.pc = instr.range.start;
-            tracing::trace!(
-                "stepping: {:?}, registers: {:?}",
-                instr.value,
-                interp.context.registers
-            );
             match interp.step(instr) {
                 Reason::Continue => {
                     if let Some(target) = interp.jump.take() {
