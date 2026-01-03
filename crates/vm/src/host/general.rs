@@ -35,12 +35,15 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
-    tracing::debug!("fetching value: kind={kind}");
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
     let length = ctx.rget(9).min(vlen - from);
     if length > 0 {
+        tracing::debug!(
+            "fetching value: kind={kind} value={}",
+            hex::encode(&value[from as usize..(from + length) as usize])
+        );
         ctx.write(out as u32, &value[from as usize..(from + length) as usize])?;
     }
 

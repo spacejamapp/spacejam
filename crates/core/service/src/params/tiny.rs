@@ -30,7 +30,7 @@ impl Parameters {
             availability_timeout: 5,
             val_count: 6,
             max_is_authorized_code_size: 64000,
-            max_input: 13794305,
+            max_input: 13791360,
             max_refine_code_size: 4000000,
             basic_piece_len: 4,
             max_imports: 3072,
