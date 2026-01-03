@@ -35,6 +35,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     };
 
+    tracing::debug!("fetching value: kind={kind}");
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
     let from = ctx.rget(8).min(vlen);
@@ -97,6 +98,12 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::None as u64);
     };
 
+    tracing::debug!(
+        "reading storage: key={:?}, value={}",
+        key,
+        hex::encode(&value)
+    );
+
     let vlen = value.len() as u64;
     let from = ctx.rget(11).min(vlen);
     let length = ctx.rget(12).min(vlen - from);
@@ -133,6 +140,11 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         };
     } else {
+        tracing::debug!(
+            "writing to storage: key={:?}, value={}",
+            key,
+            hex::encode(&value)
+        );
         account.write(&key, value);
     }
 
@@ -148,6 +160,7 @@ pub fn info(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     let info = account.info().vm();
     let info = codec::encode(&info);
+    tracing::debug!("account info: {}", hex::encode(&info));
 
     // Get memory write parameters from registers
     let tlen = info.len() as u64;

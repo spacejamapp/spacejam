@@ -130,6 +130,11 @@ pub async fn run_single<Vm: Pvm>(
         pkeys.push(key.clone());
         if value != result {
             tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
+            tracing::error!(
+                "\npolkajam={}\nspacejam={}",
+                hex::encode(&value),
+                hex::encode(&result)
+            );
         } else {
             tracing::trace!("keyval matched: {info:?}: 0x{encoded}");
         }

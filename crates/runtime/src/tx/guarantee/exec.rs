@@ -98,7 +98,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     let mut results = services
-        .par_iter()
+        .iter()
         .map(|service| {
             let transfers = transfers
                 .par_iter()
