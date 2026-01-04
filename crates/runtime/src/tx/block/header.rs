@@ -113,8 +113,9 @@ pub fn validate(
         },
     );
 
+    let ticket_output = ticket_output?;
     if let Some(ticket) = ticket
-        && ticket.id != ticket_output?
+        && ticket.id != ticket_output
     {
         anyhow::bail!("header seal mismatched");
     }
