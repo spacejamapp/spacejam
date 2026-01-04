@@ -45,7 +45,7 @@ impl Extrinsic {
             .iter()
             .map(|guarantee| {
                 let work_report_hash = crate::blake2b(&codec::encode(&guarantee.report));
-                let slot_bytes = (guarantee.slot as u32).to_le_bytes();
+                let slot_bytes = guarantee.slot.to_le_bytes();
                 (work_report_hash, slot_bytes, &guarantee.signatures)
             })
             .collect();

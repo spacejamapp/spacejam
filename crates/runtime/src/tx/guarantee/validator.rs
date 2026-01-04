@@ -289,28 +289,18 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::ReportEpochBeforeLast);
         }
 
-        // get the current and the previous validators
-        let (current, previous) = if slot / EPOCH_LENGTH > self.state.timeslot / EPOCH_LENGTH {
-            (self.state.safrole.validators, self.state.validators.current)
-        } else {
-            (
-                self.state.validators.current,
-                self.state.validators.previous,
-            )
-        };
-
         // get the validators and assignments
         let (validators, assignments) = if gslot / ROTATION_PERIOD as u32
             == slot / ROTATION_PERIOD as u32
         {
             let assignments = self::permute(self.state.entropy[2], slot);
-            (current, assignments)
+            (self.state.validators.current, assignments)
         } else {
             let (entropy, validators) =
                 if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
-                    (self.state.entropy[2], current)
+                    (self.state.entropy[2], self.state.validators.current)
                 } else {
-                    (self.state.entropy[3], previous)
+                    (self.state.entropy[3], self.state.validators.previous)
                 };
             let assignments = self::permute(entropy, slot.saturating_sub(ROTATION_PERIOD as u32));
             (validators, assignments)

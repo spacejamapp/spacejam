@@ -67,10 +67,10 @@ pub fn simulate_with_state<Vm: Pvm>(
     block::header::check(&mut state, &block.header, new_epoch)?;
 
     // check the state root
-    if let Ok(root) = storage.root() {
-        if root != block.header.parent_state_root {
-            anyhow::bail!("parent state root mismatch");
-        }
+    if let Ok(root) = storage.root()
+        && root != block.header.parent_state_root
+    {
+        anyhow::bail!("parent state root mismatch");
     }
 
     // validate the extrinsic hash
@@ -88,9 +88,14 @@ pub fn simulate_with_state<Vm: Pvm>(
             state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         };
 
-        // (λ') Update validator state (6.13)
         if new_epoch {
+            // (λ') Update validator state (6.13)
             state.validators.previous = state.validators.previous(new_epoch);
+
+            // (κ') Update current validators (6.13)
+            state.validators.current = state
+                .validators
+                .current(new_epoch, &state.safrole.validators);
         }
 
         // (ψ') Update disputes and get marks
@@ -151,19 +156,16 @@ pub fn simulate_with_state<Vm: Pvm>(
             let _guard = timing::assurances();
             self::assurance::available(
                 &state.reports,
-                &state.validators.current,
+                if new_epoch {
+                    &state.validators.previous
+                } else {
+                    &state.validators.current
+                },
                 block.header.slot,
                 block.header.parent,
                 &block.extrinsic.assurances,
             )?
         };
-
-        // (κ') Update current validators (6.13)
-        if new_epoch {
-            state.validators.current = state
-                .validators
-                .current(new_epoch, &state.safrole.validators);
-        }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());

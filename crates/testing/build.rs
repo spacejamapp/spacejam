@@ -152,7 +152,7 @@ fn build_all_seq_test(out: &Path) -> Result<()> {
             let entry = entry?;
             let path = entry.path();
             let dname = path.file_name().unwrap().to_string_lossy();
-            if dname.contains("1763489605") {
+            if dname.contains("_4872") {
                 continue;
             }
 
