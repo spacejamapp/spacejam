@@ -9,7 +9,6 @@ use score::Parameters;
 
 /// (ΩG) Get the gas to register
 pub fn gas(ctx: &impl Argument) -> Result<u64> {
-    tracing::debug!("gas: {}", ctx.gas());
     Ok(ctx.gas())
 }
 

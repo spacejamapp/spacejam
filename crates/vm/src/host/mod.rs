@@ -10,12 +10,12 @@ mod refine;
 /// Call the host function
 pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
     if !X::SUPPORTED_CALLS.contains(&call) {
-        tracing::error!("unsupported host call: {}", call);
+        tracing::warn!("unsupported host call: {}", call);
         ctx.rset(7, Exit::What as u64);
         return Reason::Continue;
     }
 
-    tracing::debug!("host call: {}", call);
+    // tracing::debug!("host call: {}", call);
     let reason = match call {
         0 => general::gas(ctx),
         1 => general::fetch(ctx),

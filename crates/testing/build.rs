@@ -10,7 +10,7 @@ use std::{
 };
 use syn::{Ident, ItemFn, parse_quote};
 
-// const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.1/traces";
+const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.2/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
@@ -147,12 +147,12 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
 /// Builds all sequential tests
 fn build_all_seq_test(out: &Path) -> Result<()> {
     let mut items = Vec::new();
-    for entry in [TRACES] {
+    for entry in [TRACES, REPORTS] {
         for entry in fs::read_dir(entry)? {
             let entry = entry?;
             let path = entry.path();
             let dname = path.file_name().unwrap().to_string_lossy();
-            if dname.contains("1763489605") {
+            if dname.contains("_4872") {
                 continue;
             }
 

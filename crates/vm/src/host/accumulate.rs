@@ -232,17 +232,17 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Who as u64);
     }
 
+    // check if the recipient has enough transfer gas
+    let recipient = ctx.account(dest)?;
+    if limit < recipient.transfer_gas() {
+        return Ok(Exit::Low as u64);
+    }
+
     // check if the sender has enough balance
     let sender = ctx.this()?;
     let balance = sender.balance();
     if balance.saturating_sub(amount) < sender.threshold() {
         return Ok(Exit::Cash as u64);
-    }
-
-    // check if the recipient has enough transfer gas
-    let recipient = ctx.account(dest)?;
-    if limit < recipient.transfer_gas() {
-        return Ok(Exit::Low as u64);
     }
 
     // add the transfer to the deferred transfers

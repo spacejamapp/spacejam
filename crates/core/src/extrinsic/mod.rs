@@ -37,9 +37,30 @@ pub struct Extrinsic {
 }
 
 impl Extrinsic {
-    #[cfg(feature = "blake2")]
     /// Returns the hash of the extrinsic
+    #[cfg(feature = "blake2")]
     pub fn hash(&self) -> crate::OpaqueHash {
-        crate::blake2b(&codec::encode(&self))
+        let guarantees_data: Vec<([u8; 32], [u8; 4], &Vec<ValidatorSignature>)> = self
+            .guarantees
+            .iter()
+            .map(|guarantee| {
+                let work_report_hash = crate::blake2b(&codec::encode(&guarantee.report));
+                let slot_bytes = guarantee.slot.to_le_bytes();
+                (work_report_hash, slot_bytes, &guarantee.signatures)
+            })
+            .collect();
+        let g: Vec<u8> = codec::encode(&guarantees_data);
+        let hashes = &[
+            codec::encode(&self.tickets),
+            codec::encode(&self.preimages),
+            g,
+            codec::encode(&self.assurances),
+            codec::encode(&self.disputes),
+        ]
+        .map(|component| crate::blake2b(&component))
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        crate::blake2b(hashes.as_slice())
     }
 }

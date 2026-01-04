@@ -236,8 +236,13 @@ impl Account for ServiceAccount {
     }
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, slots: Vec<u32>) {
-        self.set_total(self.total() + 81 + len as u64);
-        self.set_items(self.items() + 2);
+        // Only update total/items when inserting a NEW lookup entry
+        // When updating an existing entry (e.g., forget [x] -> [x, t], solicit [x, y] -> [x, y, t])
+        // the counts should not change per Graypaper equation for a_i and a_o
+        if !self.lookup.contains_key(&(hash, len)) {
+            self.set_total(self.total() + 81 + len as u64);
+            self.set_items(self.items() + 2);
+        }
         self.lookup.insert((hash, len), slots);
     }
 

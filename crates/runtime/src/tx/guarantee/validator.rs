@@ -289,6 +289,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::ReportEpochBeforeLast);
         }
 
+        // get the validators and assignments
         let (validators, assignments) = if gslot / ROTATION_PERIOD as u32
             == slot / ROTATION_PERIOD as u32
         {

@@ -64,81 +64,45 @@ pub fn simulate_with_state<Vm: Pvm>(
     // prepare epoch information
     let epoch = block.header.slot / score::EPOCH_LENGTH;
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    let slot_phase = block.header.slot % score::EPOCH_LENGTH;
-    if block.header.slot <= state.timeslot {
-        anyhow::bail!("block slot is less than or equal to current height");
-    }
+    block::header::check(&mut state, &block.header, new_epoch)?;
 
-    if block.header.author_index >= score::VALIDATORS_COUNT {
-        anyhow::bail!("invalid author index");
-    }
-
-    // TODO: move this logic to the header validation
-    if let Some(epoch_mark) = &block.header.epoch_mark {
-        if epoch_mark.validators.iter().any(|v| {
-            !state
-                .safrole
-                .validators
-                .iter()
-                .any(|nv| nv.bandersnatch == v.bandersnatch && nv.ed25519 == v.ed25519)
-        }) {
-            anyhow::bail!("next validators mismatch");
-        }
-    } else if new_epoch {
-        anyhow::bail!("epoch mark is required");
-    }
-
-    // TODO: move this logic to the header validation
-    //
-    // handle marks in the block
-    if let Some(tickets_mark) = block.header.tickets_mark {
-        if slot_phase < score::TICKET_SUBMISSION_PERIOD {
-            anyhow::bail!("invalid tickets mark");
-        }
-
-        for ticket in tickets_mark {
-            if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
-                anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
-            }
-        }
-    } else if slot_phase == score::TICKET_SUBMISSION_PERIOD
-        && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+    // check the state root
+    if let Ok(root) = storage.root()
+        && root != block.header.parent_state_root
     {
-        anyhow::bail!("invalid tickets mark");
+        anyhow::bail!("parent state root mismatch");
     }
 
-    // complete the state root
-    if let Some(parent) = state
-        .recent_blocks
-        .complete_state_root(block.header.parent_state_root)?
-        && parent != block.header.parent
-    {
-        anyhow::bail!(
-            "Parent mismatch, expected: 0x{}, got: 0x{}",
-            hex::encode(block.header.parent),
-            hex::encode(parent),
-        );
+    // validate the extrinsic hash
+    if block.extrinsic.hash() != block.header.extrinsic_hash {
+        anyhow::bail!("extrinsic hash mismatch");
     }
 
     // The first round computation
     let accounts = Accounts::new(storage);
     let (mut reports, reported, reporters) = {
         // (η') Update entropy (6.22)
-        //
-        // TODO: check if we can skip this calculation at cases
         {
             let _guard = timing::entropy();
             let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
             state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         };
 
-        // (λ') Update validator state (6.13)
         if new_epoch {
+            // (λ') Update validator state (6.13)
             state.validators.previous = state.validators.previous(new_epoch);
+
+            // (κ') Update current validators (6.13)
+            state.validators.current = state
+                .validators
+                .current(new_epoch, &state.safrole.validators);
         }
 
         // (ψ') Update disputes and get marks
         let marks = if block.extrinsic.disputes.is_empty() {
+            if !block.header.offenders_mark.is_empty() {
+                anyhow::bail!("offenders mark is not empty");
+            }
             Default::default()
         } else {
             let _guard = timing::disputes();
@@ -152,9 +116,12 @@ pub fn simulate_with_state<Vm: Pvm>(
 
             state.disputes = disputes;
             {
+                if block.header.offenders_mark != marks.offenders {
+                    anyhow::bail!("offenders mark mismatch");
+                }
                 // FIXME: for building blocks only, could be removed
                 // on importing blocks.
-                block.header.offenders_mark = marks.offenders.clone();
+                // block.header.offenders_mark = marks.offenders.clone();
             }
             marks
         };
@@ -189,19 +156,16 @@ pub fn simulate_with_state<Vm: Pvm>(
             let _guard = timing::assurances();
             self::assurance::available(
                 &state.reports,
-                &state.validators.current,
+                if new_epoch {
+                    &state.validators.previous
+                } else {
+                    &state.validators.current
+                },
                 block.header.slot,
                 block.header.parent,
                 &block.extrinsic.assurances,
             )?
         };
-
-        // (κ') Update current validators (6.13)
-        if new_epoch {
-            state.validators.current = state
-                .validators
-                .current(new_epoch, &state.safrole.validators);
-        }
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());

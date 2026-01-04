@@ -171,7 +171,7 @@ impl<S: Storage> ::account::Account for Account<S> {
 
     fn insert_lookup(&mut self, hash: [u8; 32], len: u32, lookup: Vec<u32>) {
         let key = account::lookup(self.index, len, hash);
-        let exists = self.lookup(hash, len).is_some();
+        let exists = self.lookup(hash, len).flatten().is_some();
         self.account.lookup.insert((hash, len), lookup.clone());
         self.ops.removal.remove(&key);
         let encoded = codec::encode(&lookup);

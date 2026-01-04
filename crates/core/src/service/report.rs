@@ -70,13 +70,13 @@ impl WorkReport {
                 data: work.result.clone(),
                 // (g) The accumulate gas
                 gas: work.accumulate_gas,
-                // (y) The payload hash
+                // (y) The package hash
                 package: self.spec.hash,
                 // (t) The auth output
                 auth_output: self.auth_output.clone(),
                 // (e) The exports root
                 exports_root: self.spec.exports_root,
-                // (p) The package hash
+                // (p) The payload hash
                 payload: work.payload_hash,
                 // (a) The authorizer hash
                 authorizer_hash: self.authorizer_hash,

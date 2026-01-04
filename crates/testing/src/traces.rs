@@ -17,7 +17,7 @@ use score::{
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 mod fallback {
     include!(concat!(env!("OUT_DIR"), "/traces_fallback.rs"));
@@ -129,8 +129,9 @@ pub async fn run_single<Vm: Pvm>(
 
         pkeys.push(key.clone());
         if value != result {
+            tracing::error!("keyval mismatch: {info:?}: 0x{encoded}");
             tracing::error!(
-                "keyval mismatch: {info:?}: 0x{encoded}, expected vs got:\n0x{}\n0x{}",
+                "\npolkajam={}\nspacejam={}",
                 hex::encode(&value),
                 hex::encode(&result)
             );
@@ -157,7 +158,14 @@ pub async fn run_single<Vm: Pvm>(
             );
         }
 
-        if key == key::STATISTICS && value != result {
+        if key == key::TIMESLOT && value != result {
+            let polkajam: u32 = codec::decode(&value)?;
+            let timeslot: u32 = codec::decode(&result)?;
+            tracing::debug!("polkajam: {:?}", polkajam);
+            tracing::debug!("spacejam: {:?}", timeslot);
+        }
+
+        /* if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
@@ -202,7 +210,7 @@ pub async fn run_single<Vm: Pvm>(
                     .map(|v| hex::encode(v.ed25519))
                     .collect::<Vec<_>>()
             );
-        }
+        } */
 
         if key.starts_with(&[255]) && value != result {
             let polkajam: ServiceInfo = codec::decode(&value)?;
@@ -262,6 +270,17 @@ pub struct State {
     /// The key-values
     #[json(nested)]
     pub keyvals: Vec<KeyValue>,
+}
+
+impl State {
+    /// Get the key-values
+    pub fn keyvals(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.keyvals
+            .clone()
+            .into_iter()
+            .map(|kv| (kv.key, kv.value))
+            .collect::<HashMap<_, _>>()
+    }
 }
 
 /// State transition trace key-value

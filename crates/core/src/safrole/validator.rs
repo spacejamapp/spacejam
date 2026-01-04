@@ -1,6 +1,8 @@
 //! Validator data
 
-use crate::{BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata};
+use crate::{
+    BandersnatchPublic, BlsPublic, Ed25519Public, ValidatorMetadata, block::header::EValidator,
+};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::net::{Ipv6Addr, SocketAddrV4, SocketAddrV6};
@@ -90,6 +92,9 @@ pub trait ValidatorIter {
 
     /// Get the ed25519 keys
     fn ed25519(&self) -> Vec<Ed25519Public>;
+
+    /// Get the epoch validators
+    fn evals(&self) -> Vec<EValidator>;
 }
 
 impl<T> ValidatorIter for T
@@ -102,5 +107,15 @@ where
 
     fn ed25519(&self) -> Vec<Ed25519Public> {
         self.as_ref().iter().map(|v| v.ed25519).collect()
+    }
+
+    fn evals(&self) -> Vec<EValidator> {
+        self.as_ref()
+            .iter()
+            .map(|v| EValidator {
+                bandersnatch: v.bandersnatch,
+                ed25519: v.ed25519,
+            })
+            .collect()
     }
 }
