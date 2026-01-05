@@ -60,6 +60,13 @@ pub struct Header {
     pub seal: BandersnatchVrfSignature,
 }
 
+impl Header {
+    /// Get the epoch of the header
+    pub const fn epoch(&self) -> u32 {
+        self.slot / EPOCH_LENGTH
+    }
+}
+
 impl Default for Header {
     fn default() -> Self {
         Self {

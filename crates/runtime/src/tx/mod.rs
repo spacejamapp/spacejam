@@ -62,7 +62,7 @@ pub fn simulate_with_state<Vm: Pvm>(
     let mut diff = Commit::default();
 
     // prepare epoch information
-    let epoch = block.header.slot / score::EPOCH_LENGTH;
+    let epoch = block.header.epoch();
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
     block::header::check(&mut state, &block.header, new_epoch)?;
 
