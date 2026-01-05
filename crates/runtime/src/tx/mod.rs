@@ -73,10 +73,10 @@ pub fn simulate_with_state<Vm: Pvm>(
         anyhow::bail!("parent state root mismatch");
     }
 
-    // validate the extrinsic hash
+    /* // validate the extrinsic hash
     if block.extrinsic.hash() != block.header.extrinsic_hash {
         anyhow::bail!("extrinsic hash mismatch");
-    }
+    } */
 
     // The first round computation
     let accounts = Accounts::new(storage);

@@ -151,10 +151,10 @@ fn build_all_seq_test(out: &Path) -> Result<()> {
         for entry in fs::read_dir(entry)? {
             let entry = entry?;
             let path = entry.path();
-            let dname = path.file_name().unwrap().to_string_lossy();
-            if dname.contains("_4872") {
+            // let dname = path.file_name().unwrap().to_string_lossy();
+            /* if dname.contains("_4872") {
                 continue;
-            }
+            } */
 
             if path.is_dir() {
                 let testset = path.to_str().expect("failed to get testset");
