@@ -103,7 +103,7 @@ impl Statistics {
                 anyhow::bail!("reporter is invalid");
             };
 
-            self.vals_current[index as usize].guarantees += 1;
+            self.vals_current[index].guarantees += 1;
         }
         Ok(())
     }
@@ -121,7 +121,7 @@ impl Statistics {
                 [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
         }
 
-        if index >= crate::VALIDATORS_COUNT as u16 {
+        if index >= crate::VALIDATORS_COUNT {
             anyhow::bail!("author index is invalid");
         }
 
