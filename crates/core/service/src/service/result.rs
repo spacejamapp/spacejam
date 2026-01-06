@@ -51,7 +51,7 @@ pub enum WorkExecResult {
     InvalidExports,
     /// the size of the digest (refinement output) would
     /// cross the acceptable limit
-    InvalidDigest,
+    OutputOversize,
     /// (BAD) the third indicates that the service’s code
     /// was not available for lookup in state at the posterior state
     /// of the lookup-anchor block
@@ -124,16 +124,19 @@ mod json {
         /// The out of gas result
         #[serde(default = "default_some_unit")]
         pub out_of_gas: Option<()>,
-        /// The panic result
+        /// The panic result (unexpected program termination)
         #[serde(default = "default_some_unit")]
         pub panic: Option<()>,
-        /// The invalid exports result
+        /// The invalid exports result (the number of exports made was invalidly reported)
         #[serde(default = "default_some_unit")]
         pub invalid_exports: Option<()>,
-        /// The invalid digest result
+        /// The invalid digest result (the size of the digest (refinement output) would
+        /// cross the acceptable limit)
         #[serde(default = "default_some_unit")]
-        pub invalid_digest: Option<()>,
-        /// The bad code result
+        pub output_oversize: Option<()>,
+        /// The bad code result (the service’s code
+        /// was not available for lookup in state at the posterior state
+        /// of the lookup-anchor block)
         #[serde(default = "default_some_unit")]
         pub bad_code: Option<()>,
         /// The code oversize result
@@ -153,27 +156,27 @@ mod json {
                     ..Default::default()
                 },
                 WorkExecResult::OutOfGas => WorkExecResultJson {
-                    out_of_gas: Some(()),
+                    out_of_gas: None,
                     ..Default::default()
                 },
                 WorkExecResult::Panic => WorkExecResultJson {
-                    panic: Some(()),
+                    panic: None,
                     ..Default::default()
                 },
                 WorkExecResult::InvalidExports => WorkExecResultJson {
-                    invalid_exports: Some(()),
+                    invalid_exports: None,
                     ..Default::default()
                 },
-                WorkExecResult::InvalidDigest => WorkExecResultJson {
-                    invalid_digest: Some(()),
+                WorkExecResult::OutputOversize => WorkExecResultJson {
+                    output_oversize: None,
                     ..Default::default()
                 },
                 WorkExecResult::CodeOversize => WorkExecResultJson {
-                    code_oversize: Some(()),
+                    code_oversize: None,
                     ..Default::default()
                 },
                 WorkExecResult::BadCode => WorkExecResultJson {
-                    bad_code: Some(()),
+                    bad_code: None,
                     ..Default::default()
                 },
             }
@@ -189,6 +192,10 @@ mod json {
                 Ok(WorkExecResult::OutOfGas)
             } else if json.panic.is_none() {
                 Ok(WorkExecResult::Panic)
+            } else if json.invalid_exports.is_none() {
+                Ok(WorkExecResult::InvalidExports)
+            } else if json.output_oversize.is_none() {
+                Ok(WorkExecResult::OutputOversize)
             } else if json.bad_code.is_none() {
                 Ok(WorkExecResult::BadCode)
             } else {
