@@ -40,12 +40,18 @@ pub struct Statistics {
 
 impl Statistics {
     /// Update the statistics
-    pub fn update(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
+    pub fn update(
+        &mut self,
+        new_epoch: bool,
+        index: u16,
+        extrinsic: &Extrinsic,
+    ) -> anyhow::Result<()> {
         self.services.clear();
-        self.update_blocks(new_epoch, index, extrinsic);
+        self.update_blocks(new_epoch, index, extrinsic)?;
         self.update_preimages(index, extrinsic);
         self.update_assurances(extrinsic);
         self.update_guarantees(extrinsic);
+        Ok(())
     }
 
     /// Merge the service statistics from accumulation
@@ -87,28 +93,41 @@ impl Statistics {
     }
 
     /// Merge the reporter statistics
-    pub fn merge_reporters(&mut self, reporters: &[Ed25519Public], validators: &[Ed25519Public]) {
-        for reporter in reporters.iter().map(|r| {
-            let index = validators
-                .iter()
-                .position(|v| v == r)
-                .expect("reporter is invalid");
-            index as u16
-        }) {
-            self.vals_current[reporter as usize].guarantees += 1;
+    pub fn merge_reporters(
+        &mut self,
+        reporters: &[Ed25519Public],
+        validators: &[Ed25519Public],
+    ) -> anyhow::Result<()> {
+        for reporter in reporters.iter() {
+            let Some(index) = validators.iter().position(|v| v == reporter) else {
+                anyhow::bail!("reporter is invalid");
+            };
+
+            self.vals_current[index as usize].guarantees += 1;
         }
+        Ok(())
     }
 
     // Update validator statistics for blocks
-    fn update_blocks(&mut self, new_epoch: bool, index: u16, extrinsic: &Extrinsic) {
+    fn update_blocks(
+        &mut self,
+        new_epoch: bool,
+        index: u16,
+        extrinsic: &Extrinsic,
+    ) -> anyhow::Result<()> {
         if new_epoch {
             self.vals_last = self.vals_current;
             self.vals_current =
                 [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
         }
 
+        if index >= crate::VALIDATORS_COUNT as u16 {
+            anyhow::bail!("author index is invalid");
+        }
+
         self.vals_current[index as usize].blocks += 1;
         self.vals_current[index as usize].tickets += extrinsic.tickets.len() as u32;
+        Ok(())
     }
 
     // Update validator / service statistics

@@ -81,30 +81,11 @@ pub async fn run_single<Vm: Pvm>(
     let block: Block = input.block;
     let mut pkeys = Vec::new();
     let state = memdb.state()?;
-    let epoch = state.timeslot / score::EPOCH_LENGTH;
-    let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
     let mut block2 = block.clone();
-    let safrole = state.safrole.clone();
-    let entropy = state.entropy;
-    let verifier = if new_epoch {
-        lazy::verifier(epoch, &safrole.validators.bandersnatch())
-    } else {
-        lazy::verifier(epoch, &state.validators.current.bandersnatch())
-    };
-
-    let validators = state.validators.current;
+    let state2 = state.clone();
     let (vresult, sresult) = rayon::join(
-        || {
-            header::validate(
-                &block.header,
-                new_epoch,
-                &validators,
-                entropy,
-                &safrole,
-                verifier,
-            )
-        },
-        || tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()),
+        || header::validate(state, &block.header),
+        || tx::simulate_with_state::<Vm>(&mut block2, state2, memdb.clone()),
     );
 
     let is_ok = vresult.is_ok() && sresult.is_ok();

@@ -9,7 +9,7 @@ use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx::{self, block::header, ticket::lazy},
 };
-use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
+use score::{Block, OpaqueHash, TimeSlot};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -122,29 +122,18 @@ impl Target {
             state = self.data.state()?;
         }
 
-        let epoch = state.timeslot / score::EPOCH_LENGTH;
-        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
-        let entropy = state.entropy;
-        let safrole = state.safrole.clone();
         let header = block.header.clone();
+        let state2 = state.clone();
         let data = self.data.clone();
         let slot = block.header.slot;
         let interp = self.interp;
-        let validators = state.validators.current;
         let (vr, diff) = rayon::join(
-            || {
-                let verifier = if new_epoch {
-                    lazy::verifier(epoch, &safrole.validators.bandersnatch())
-                } else {
-                    lazy::verifier(epoch, &validators.bandersnatch())
-                };
-                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier)
-            },
+            || header::validate(state, &header),
             || {
                 if interp {
-                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data)
+                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state2, data)
                 } else {
-                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data)
+                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state2, data)
                 }
             },
         );

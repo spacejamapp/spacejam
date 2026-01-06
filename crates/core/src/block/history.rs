@@ -25,8 +25,8 @@ pub struct History {
 
 impl History {
     /// Get the head block info
-    pub fn head(&self) -> Option<&OpaqueHash> {
-        self.history.last().map(|b| &b.header_hash)
+    pub fn head(&self) -> Option<&BlockInfo> {
+        self.history.last()
     }
 
     /// Complete the state root of the last block in the history

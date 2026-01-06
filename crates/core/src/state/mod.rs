@@ -2,7 +2,7 @@
 
 use crate::{
     CORES_COUNT, EntropyBuffer, Extrinsic, OpaqueHash, TimeSlot, TrieKey,
-    block::{Header, History},
+    block::History,
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
     service::{AccumulatedQueue, AvailabilityAssignments, Privileges, ReadyQueue, ServiceAccount},
@@ -108,22 +108,5 @@ impl State {
             .par_iter()
             .map(|(key, value)| (*key, codec::encode(value)))
             .collect()
-    }
-
-    /// Check if should have tickets mark
-    ///
-    /// Validate tickets mark per GP eq 262-265:
-    /// H_winnersmark ≡ Z(accumulator) when e' = e ∧ m < Y ≤ m' ∧ |accumulator| = E
-    ///               ≡ None otherwise
-    pub fn tickets_mark(&self, header: &Header) -> bool {
-        let curr_epoch = header.slot / crate::EPOCH_LENGTH;
-        let prev_epoch = self.timeslot / crate::EPOCH_LENGTH;
-        let curr_slot_phase = header.slot % crate::EPOCH_LENGTH;
-        let prev_slot_phase = self.timeslot % crate::EPOCH_LENGTH;
-        let accumulator_full = self.safrole.accumulator.len() == crate::EPOCH_LENGTH as usize;
-        curr_epoch == prev_epoch
-            && prev_slot_phase < crate::TICKET_SUBMISSION_PERIOD
-            && curr_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
-            && accumulator_full
     }
 }

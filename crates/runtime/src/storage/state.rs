@@ -103,6 +103,12 @@ pub trait StateStorage: KVStorage {
         state.statistics = codec::decode(&data[12]).unwrap_or_default();
         state.queue = codec::decode(&data[13]).unwrap_or_default();
         state.history = codec::decode(&data[14]).unwrap_or_default();
+
+        // TODO: we should host this in runtime in production.
+        if let Some(last) = state.recent_blocks.history.last_mut() {
+            last.state_root = self.root()?;
+        }
+
         Ok(state)
     }
 

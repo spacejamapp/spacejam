@@ -59,19 +59,8 @@ pub fn simulate_with_state<Vm: Pvm>(
     mut state: score::State,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let mut diff = Commit::default();
-
-    // prepare epoch information
     let epoch = block.header.epoch();
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    block::header::check(&state, &block.header, new_epoch)?;
-
-    // check the state root
-    if let Ok(root) = storage.root()
-        && root != block.header.parent_state_root
-    {
-        anyhow::bail!("parent state root mismatch");
-    }
 
     // validate the extrinsic hash
     if block.extrinsic.hash() != block.header.extrinsic_hash {
@@ -193,7 +182,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         // (π') Update the statistic
         state
             .statistics
-            .update(new_epoch, block.header.author_index, &block.extrinsic);
+            .update(new_epoch, block.header.author_index, &block.extrinsic)?;
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
@@ -231,6 +220,7 @@ pub fn simulate_with_state<Vm: Pvm>(
     };
 
     // Round 4 computation
+    let mut diff = Commit::default();
     {
         // (β') Update the block history
         block::history::import(
@@ -244,7 +234,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         if !reporters.is_empty() {
             state
                 .statistics
-                .merge_reporters(&reporters, &state.validators.current.ed25519());
+                .merge_reporters(&reporters, &state.validators.current.ed25519())?;
         }
 
         // (δ') Update the accounts

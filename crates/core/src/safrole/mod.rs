@@ -71,23 +71,27 @@ impl Safrole {
         })
     }
 
-    /// Collects the tickets mark.
-    pub fn tickets_mark(&self, tau: u32, slot: u32) -> Option<TicketsMark> {
+    /// Check if the safrole should have tickets mark
+    pub fn has_tickets_mark(&self, tau: u32, slot: u32) -> bool {
         let curr_epoch = slot / crate::EPOCH_LENGTH;
         let prev_epoch = tau / crate::EPOCH_LENGTH;
         let curr_slot_phase = slot % crate::EPOCH_LENGTH;
         let prev_slot_phase = tau % crate::EPOCH_LENGTH;
 
-        // Return None if:
+        // Return true if:
         // 1. Different epochs (e' ≠ e)
         // 2. Previous slot not before submission period (m ≥ Y)
         // 3. Current slot not after submission period (m' < Y)
         // 4. Accumulator not full (|gamma_a| ≠ E)
-        if curr_epoch != prev_epoch
-            || prev_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
-            || curr_slot_phase < crate::TICKET_SUBMISSION_PERIOD
-            || self.accumulator.len() != crate::EPOCH_LENGTH as usize
-        {
+        curr_epoch == prev_epoch
+            && prev_slot_phase < crate::TICKET_SUBMISSION_PERIOD
+            && curr_slot_phase >= crate::TICKET_SUBMISSION_PERIOD
+            && self.accumulator.len() == crate::EPOCH_LENGTH as usize
+    }
+
+    /// Collects the tickets mark.
+    pub fn tickets_mark(&self, tau: u32, slot: u32) -> Option<TicketsMark> {
+        if !self.has_tickets_mark(tau, slot) {
             return None;
         }
 
