@@ -7,9 +7,9 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, block::header, ticket::lazy},
+    tx::{self, ticket::lazy},
 };
-use score::{Block, OpaqueHash, TimeSlot, safrole::ValidatorIter};
+use score::{Block, OpaqueHash, TimeSlot};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -112,44 +112,22 @@ impl Target {
 
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
-    pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
-        let mut state = self.data.state()?;
-        if block.header.slot <= state.timeslot
+    pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
+        if block.header.slot <= self.data.timeslot()?
             && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
         {
             tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
             self.data.reset(prev.clone());
-            state = self.data.state()?;
         }
 
-        let epoch = state.timeslot / score::EPOCH_LENGTH;
-        let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
-        let entropy = state.entropy;
-        let safrole = state.safrole.clone();
-        let header = block.header.clone();
         let data = self.data.clone();
         let slot = block.header.slot;
-        let interp = self.interp;
-        let validators = state.validators.current;
-        let (vr, diff) = rayon::join(
-            || {
-                let verifier = if new_epoch {
-                    lazy::verifier(epoch, &safrole.validators.bandersnatch())
-                } else {
-                    lazy::verifier(epoch, &validators.bandersnatch())
-                };
-                header::validate(&header, new_epoch, &validators, entropy, &safrole, verifier)
-            },
-            || {
-                if interp {
-                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state, data)
-                } else {
-                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state, data)
-                }
-            },
-        );
-        let (_, diff) = (vr?, diff?);
-        self.data.commit(Column::State, diff)?;
+        if self.interp {
+            tx::block::process::<spacevm::Interpreter>(block, data.clone())?;
+        } else {
+            tx::block::process::<spacevm::SpaceVM>(block, data.clone())?;
+        }
+
         {
             self.history.insert(slot, self.data.deep_clone());
             if self.history.len() > 6 {

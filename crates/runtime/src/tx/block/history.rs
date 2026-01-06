@@ -11,9 +11,14 @@ use score::{
 pub fn import(
     history: &mut History,
     header_hash: OpaqueHash,
+    parent_state_root: OpaqueHash,
     accumulate_root: OpaqueHash,
     reported: Vec<ReportedWorkPackage>,
 ) {
+    if let Some(last) = history.history.last_mut() {
+        last.state_root = parent_state_root;
+    }
+
     history.mmr.peaks = mmr::append(history.mmr.peaks.clone(), accumulate_root);
     if history.history.is_empty() {
         let new_block = BlockInfo {

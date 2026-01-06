@@ -59,19 +59,8 @@ pub fn simulate_with_state<Vm: Pvm>(
     mut state: score::State,
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
-    let mut diff = Commit::default();
-
-    // prepare epoch information
-    let epoch = block.header.slot / score::EPOCH_LENGTH;
+    let epoch = block.header.epoch();
     let new_epoch: bool = epoch > (state.timeslot / score::EPOCH_LENGTH);
-    block::header::check(&mut state, &block.header, new_epoch)?;
-
-    // check the state root
-    if let Ok(root) = storage.root()
-        && root != block.header.parent_state_root
-    {
-        anyhow::bail!("parent state root mismatch");
-    }
 
     // validate the extrinsic hash
     if block.extrinsic.hash() != block.header.extrinsic_hash {
@@ -82,12 +71,8 @@ pub fn simulate_with_state<Vm: Pvm>(
     let accounts = Accounts::new(storage);
     let (mut reports, reported, reporters) = {
         // (η') Update entropy (6.22)
-        {
-            let _guard = timing::entropy();
-            let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
-            state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        };
-
+        let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
+        state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         if new_epoch {
             // (λ') Update validator state (6.13)
             state.validators.previous = state.validators.previous(new_epoch);
@@ -105,7 +90,6 @@ pub fn simulate_with_state<Vm: Pvm>(
             }
             Default::default()
         } else {
-            let _guard = timing::disputes();
             let (disputes, marks) = self::dispute::disputes(
                 state.timeslot,
                 &state.validators.current,
@@ -115,16 +99,14 @@ pub fn simulate_with_state<Vm: Pvm>(
             )?;
 
             state.disputes = disputes;
-            {
-                if block.header.offenders_mark != marks.offenders {
-                    anyhow::bail!("offenders mark mismatch");
-                }
-                // FIXME: for building blocks only, could be removed
-                // on importing blocks.
-                // block.header.offenders_mark = marks.offenders.clone();
-            }
+            block.header.offenders_mark = marks.offenders.clone();
             marks
         };
+
+        // complete the state root of the last block in the history
+        if let Some(last) = state.recent_blocks.history.last_mut() {
+            last.state_root = block.header.parent_state_root;
+        }
 
         // (p of β') validate the guarantees
         let (mut reported, mut reporters) = (vec![], vec![]);
@@ -141,7 +123,6 @@ pub fn simulate_with_state<Vm: Pvm>(
         };
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
-        let _guard = timing::assignments();
         (
             dispute::reports(&marks, &state.reports),
             reported,
@@ -152,20 +133,17 @@ pub fn simulate_with_state<Vm: Pvm>(
     // Round 2 computation
     let (available, assurances) = {
         // (W) the sequence of new available work reports (11.16)
-        let (available, assurances) = {
-            let _guard = timing::assurances();
-            self::assurance::available(
-                &state.reports,
-                if new_epoch {
-                    &state.validators.previous
-                } else {
-                    &state.validators.current
-                },
-                block.header.slot,
-                block.header.parent,
-                &block.extrinsic.assurances,
-            )?
-        };
+        let (available, assurances) = self::assurance::available(
+            &state.reports,
+            if new_epoch {
+                &state.validators.previous
+            } else {
+                &state.validators.current
+            },
+            block.header.slot,
+            block.header.parent,
+            &block.extrinsic.assurances,
+        )?;
 
         // (ρ‡) Update availability assignments based on assurances (11.17)
         reports = self::assurance::reports(block.header.slot, &available, reports.clone());
@@ -192,8 +170,6 @@ pub fn simulate_with_state<Vm: Pvm>(
             )?;
 
             {
-                // FIXME: for building blocks only, could be removed
-                // on importing blocks.
                 if new_epoch {
                     block.header.epoch_mark = state.safrole.epoch_mark(&state.entropy);
                 }
@@ -206,7 +182,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         // (π') Update the statistic
         state
             .statistics
-            .update(new_epoch, block.header.author_index, &block.extrinsic);
+            .update(new_epoch, block.header.author_index, &block.extrinsic)?;
         state.statistics.merge_reports(&available, &assurances);
 
         // (..., C) Accumulate the available work reports
@@ -244,11 +220,13 @@ pub fn simulate_with_state<Vm: Pvm>(
     };
 
     // Round 4 computation
+    let mut diff = Commit::default();
     {
         // (β') Update the block history
         block::history::import(
             &mut state.recent_blocks,
             block.header.hash(),
+            block.header.parent_state_root,
             root,
             reported,
         );
@@ -256,31 +234,13 @@ pub fn simulate_with_state<Vm: Pvm>(
         if !reporters.is_empty() {
             state
                 .statistics
-                .merge_reporters(&reporters, &state.validators.current.ed25519());
+                .merge_reporters(&reporters, &state.validators.current.ed25519())?;
         }
 
         // (δ') Update the accounts
-        // if !block.extrinsic.preimages.is_empty() {
-        // let _guard = timing::preimages();
         let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
-        // }
-
-        // FIXME: looks like polkajam currently doesn't update the authorization
-        // pool, so we're not updating it here as well atm.
-        //
-        // // (α') Update the authorization pool
-        // let pools = guarantee::pools(
-        //     block.header.slot,
-        //     &state.pools,
-        //     &state.authorization,
-        //     &block.extrinsic.guarantees,
-        // );
-        // if pools != state.pools {
-        //     diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
-        //     state.pools = pools;
-        // }
 
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
@@ -289,3 +249,18 @@ pub fn simulate_with_state<Vm: Pvm>(
     diff.update.extend(state.pairs(new_epoch, &block.extrinsic));
     Ok(diff)
 }
+
+// FIXME: looks like polkajam currently doesn't update the authorization
+// pool, so we're not updating it here as well atm.
+//
+// // (α') Update the authorization pool
+// let pools = guarantee::pools(
+//     block.header.slot,
+//     &state.pools,
+//     &state.authorization,
+//     &block.extrinsic.guarantees,
+// );
+// if pools != state.pools {
+//     diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
+//     state.pools = pools;
+// }

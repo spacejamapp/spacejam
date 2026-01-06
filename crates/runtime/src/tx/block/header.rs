@@ -1,37 +1,41 @@
 //! Block header utilities
 
+use crate::tx::ticket::lazy;
 use score::{
     State,
     block::Header,
     extrinsic::{TicketBody, TicketsOrKeys},
-    safrole::{ValidatorIter, ValidatorsData},
+    safrole::ValidatorIter,
 };
-use std::sync::Arc;
 
 /// Validate the header
-pub fn validate(
-    header: &Header,
-    new_epoch: bool,
-    validators: &ValidatorsData,
-    entropy: score::EntropyBuffer,
-    safrole: &score::safrole::Safrole,
-    verifier: Arc<crypto::vrf::Verifier>,
-) -> anyhow::Result<()> {
+pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
+    let new_epoch = header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
+    self::check(&state, header, new_epoch)?;
+
+    // setup the verifier
     let slot = (header.slot % score::EPOCH_LENGTH) as usize;
-    let entropy_buffer = entropy;
+    let epoch = state.timeslot / score::EPOCH_LENGTH;
+    let verifier = if new_epoch {
+        lazy::verifier(epoch, &state.safrole.validators.bandersnatch())
+    } else {
+        lazy::verifier(epoch, &state.validators.current.bandersnatch())
+    };
+
+    // setup the entropy
     let mut ticket = None;
     let entropy = if new_epoch {
-        entropy_buffer[2]
+        state.entropy[2]
     } else {
-        entropy_buffer[3]
+        state.entropy[3]
     };
 
     // check the ticket mark
-    if new_epoch && safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
+    if new_epoch && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
-        tickets.copy_from_slice(&TicketBody::sequence(&safrole.accumulator));
+        tickets.copy_from_slice(&TicketBody::sequence(&state.safrole.accumulator));
         ticket = Some(tickets[slot]);
-    } else if let TicketsOrKeys::Tickets(tickets) = safrole.series
+    } else if let TicketsOrKeys::Tickets(tickets) = state.safrole.series
         && !new_epoch
     {
         ticket = Some(tickets[slot]);
@@ -43,20 +47,19 @@ pub fn validate(
     // the workaround of the fuzz tests.
     if ticket.is_none() {
         let vals = if new_epoch {
-            safrole.validators.bandersnatch()
+            state.safrole.validators.bandersnatch()
         } else {
-            validators.bandersnatch()
+            state.validators.current.bandersnatch()
         };
 
         let keys = if new_epoch {
-            let TicketsOrKeys::Keys(keys) =
-                TicketsOrKeys::fallback(vals.clone(), entropy_buffer[1])
+            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(vals.clone(), state.entropy[1])
             else {
                 anyhow::bail!("invalid series");
             };
             keys
         } else {
-            let TicketsOrKeys::Keys(keys) = safrole.series else {
+            let TicketsOrKeys::Keys(keys) = state.safrole.series else {
                 anyhow::bail!("invalid series");
             };
             keys
@@ -123,11 +126,8 @@ pub fn validate(
     entropy_output
 }
 
-/// Verify the header
-///
-/// NOTE: this is for doing the header validation, currently
-/// inside the runtime.
-pub fn check(state: &mut State, header: &Header, new_epoch: bool) -> anyhow::Result<()> {
+/// Check the marks in the header
+pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<()> {
     if header.slot <= state.timeslot {
         anyhow::bail!("block slot is less than or equal to current height");
     }
@@ -157,32 +157,10 @@ pub fn check(state: &mut State, header: &Header, new_epoch: bool) -> anyhow::Res
         anyhow::bail!("epoch mark is required");
     }
 
-    // Validate tickets mark per GP eq 262-265:
-    // H_winnersmark ≡ Z(accumulator) when e' = e ∧ m < Y ≤ m' ∧ |accumulator| = E
-    //               ≡ None otherwise
-    let curr_epoch = header.slot / score::EPOCH_LENGTH;
-    let prev_epoch = state.timeslot / score::EPOCH_LENGTH;
-    let curr_slot_phase = header.slot % score::EPOCH_LENGTH;
-    let prev_slot_phase = state.timeslot % score::EPOCH_LENGTH;
-    let accumulator_full = state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize;
-
-    // Condition: same epoch, prior slot before tail start, current slot at/after tail start, accumulator full
-    let should_have_tickets_mark = curr_epoch == prev_epoch
-        && prev_slot_phase < score::TICKET_SUBMISSION_PERIOD
-        && curr_slot_phase >= score::TICKET_SUBMISSION_PERIOD
-        && accumulator_full;
-
+    let should_have_tickets_mark = state.safrole.has_tickets_mark(state.timeslot, header.slot);
     if let Some(tickets_mark) = header.tickets_mark {
         if !should_have_tickets_mark {
-            anyhow::bail!(
-                "tickets mark present but not expected: curr_epoch={}, prev_epoch={}, \
-                     curr_phase={}, prev_phase={}, accumulator_len={}",
-                curr_epoch,
-                prev_epoch,
-                curr_slot_phase,
-                prev_slot_phase,
-                state.safrole.accumulator.len()
-            );
+            anyhow::bail!("tickets mark present but not expected");
         }
 
         // Validate content: tickets_mark == Z(accumulator)
@@ -198,25 +176,17 @@ pub fn check(state: &mut State, header: &Header, new_epoch: bool) -> anyhow::Res
             }
         }
     } else if should_have_tickets_mark {
-        anyhow::bail!(
-            "tickets mark required but not present: curr_phase={}, prev_phase={}, accumulator_len={}",
-            curr_slot_phase,
-            prev_slot_phase,
-            state.safrole.accumulator.len()
-        );
+        anyhow::bail!("tickets mark required but not present");
     }
 
-    // validate the block parent and complete the state root
-    if let Some(parent) = state
-        .recent_blocks
-        .complete_state_root(header.parent_state_root)?
-        && parent != header.parent
-    {
-        anyhow::bail!(
-            "Parent mismatch, expected: 0x{}, got: 0x{}",
-            hex::encode(header.parent),
-            hex::encode(parent),
-        );
+    // validate the parent header hash
+    if let Some(head) = state.recent_blocks.head() {
+        if head.header_hash != header.parent {
+            anyhow::bail!("parent header hash mismatch");
+        }
+        if head.state_root != header.parent_state_root {
+            anyhow::bail!("parent state root mismatch");
+        }
     }
 
     Ok(())

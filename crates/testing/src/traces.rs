@@ -80,41 +80,7 @@ pub async fn run_single<Vm: Pvm>(
 ) -> anyhow::Result<bool> {
     let block: Block = input.block;
     let mut pkeys = Vec::new();
-    let state = memdb.state()?;
-    let epoch = state.timeslot / score::EPOCH_LENGTH;
-    let new_epoch = block.header.slot / score::EPOCH_LENGTH > epoch;
-    let mut block2 = block.clone();
-    let safrole = state.safrole.clone();
-    let entropy = state.entropy;
-    let verifier = if new_epoch {
-        lazy::verifier(epoch, &safrole.validators.bandersnatch())
-    } else {
-        lazy::verifier(epoch, &state.validators.current.bandersnatch())
-    };
-
-    let validators = state.validators.current;
-    let (vresult, sresult) = rayon::join(
-        || {
-            header::validate(
-                &block.header,
-                new_epoch,
-                &validators,
-                entropy,
-                &safrole,
-                verifier,
-            )
-        },
-        || tx::simulate_with_state::<Vm>(&mut block2, state, memdb.clone()),
-    );
-
-    let is_ok = vresult.is_ok() && sresult.is_ok();
-    match (vresult, sresult) {
-        (Err(e), _) => tracing::warn!("failed to import block: {e:?}"),
-        (_, Err(e)) => tracing::warn!("failed to import block: {e:?}"),
-        (Ok(()), Ok(diff)) => memdb
-            .commit(Column::State, diff)
-            .expect("failed to commit state"),
-    }
+    let is_ok = tx::block::process::<Vm>(block, memdb.clone()).is_ok();
 
     for KeyValue { key, value } in output.post_state.keyvals {
         let info = key.as_state_key().info();

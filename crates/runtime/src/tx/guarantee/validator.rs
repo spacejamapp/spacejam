@@ -217,9 +217,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             crypto::ed25519::verify(&message, sig.signature, *key)
                 .inspect_err(|_| {
                     tracing::warn!(
-                        "failed to verify guarantee signature 0x{} by {} - 0x{}",
+                        "failed to verify guarantee signature 0x{} by {}(slot={}) - 0x{}",
                         hex::encode(sig.signature),
                         sig.validator_index,
+                        guarantee.slot,
                         hex::encode(key),
                     )
                 })
@@ -276,7 +277,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
     }
 
     fn validate_rotation(
-        &mut self,
+        &self,
         guarantee: &ReportGuarantee,
     ) -> Result<BTreeMap<usize, Ed25519Public>> {
         let slot = self.timeslot;

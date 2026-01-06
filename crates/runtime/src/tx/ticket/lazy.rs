@@ -60,8 +60,12 @@ pub fn verifier(epoch: u32, drawn: &Vec<BandersnatchPublic>) -> Arc<Verifier> {
         return v;
     }
 
-    // build new verifier
+    drop(map);
+    // build new verifier, expensive computation here.
     let verifier = Arc::new(crypto::ring::verifier(drawn));
+    let Ok(mut map) = LAZY_RING.lock() else {
+        panic!("failed to lock ring, fix me later");
+    };
     map.insert(epoch, verifier.clone());
     while map.len() > CACHED {
         map.pop_first();
