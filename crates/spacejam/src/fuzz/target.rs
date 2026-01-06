@@ -7,7 +7,7 @@ use crate::fuzz::{
 use anyhow::{Context, Result};
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, block::header, ticket::lazy},
+    tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash, TimeSlot};
 use std::{
@@ -112,33 +112,22 @@ impl Target {
 
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
-    pub async fn import_block(&mut self, mut block: Block) -> anyhow::Result<()> {
-        let mut state = self.data.state()?;
-        if block.header.slot <= state.timeslot
+    pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
+        if block.header.slot <= self.data.timeslot()?
             && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
         {
             tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
             self.data.reset(prev.clone());
-            state = self.data.state()?;
         }
 
-        let header = block.header.clone();
-        let state2 = state.clone();
         let data = self.data.clone();
         let slot = block.header.slot;
-        let interp = self.interp;
-        let (vr, diff) = rayon::join(
-            || header::validate(state, &header),
-            || {
-                if interp {
-                    tx::simulate_with_state::<spacevm::Interpreter>(&mut block, state2, data)
-                } else {
-                    tx::simulate_with_state::<spacevm::SpaceVM>(&mut block, state2, data)
-                }
-            },
-        );
-        let (_, diff) = (vr?, diff?);
-        self.data.commit(Column::State, diff)?;
+        if self.interp {
+            tx::block::process::<spacevm::Interpreter>(block, data.clone())?;
+        } else {
+            tx::block::process::<spacevm::SpaceVM>(block, data.clone())?;
+        }
+
         {
             self.history.insert(slot, self.data.deep_clone());
             if self.history.len() > 6 {

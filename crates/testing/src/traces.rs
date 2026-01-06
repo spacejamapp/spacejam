@@ -80,22 +80,7 @@ pub async fn run_single<Vm: Pvm>(
 ) -> anyhow::Result<bool> {
     let block: Block = input.block;
     let mut pkeys = Vec::new();
-    let state = memdb.state()?;
-    let mut block2 = block.clone();
-    let state2 = state.clone();
-    let (vresult, sresult) = rayon::join(
-        || header::validate(state, &block.header),
-        || tx::simulate_with_state::<Vm>(&mut block2, state2, memdb.clone()),
-    );
-
-    let is_ok = vresult.is_ok() && sresult.is_ok();
-    match (vresult, sresult) {
-        (Err(e), _) => tracing::warn!("failed to import block: {e:?}"),
-        (_, Err(e)) => tracing::warn!("failed to import block: {e:?}"),
-        (Ok(()), Ok(diff)) => memdb
-            .commit(Column::State, diff)
-            .expect("failed to commit state"),
-    }
+    let is_ok = tx::block::process::<Vm>(block, memdb.clone()).is_ok();
 
     for KeyValue { key, value } in output.post_state.keyvals {
         let info = key.as_state_key().info();
