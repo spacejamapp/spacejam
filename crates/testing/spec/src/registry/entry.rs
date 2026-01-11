@@ -332,7 +332,8 @@ impl Entry {
         })
     }
 
-    fn file_name(path: &Path) -> Result<String> {
+    /// Get the file name from a path
+    pub fn file_name(path: &Path) -> Result<String> {
         Ok(path
             .with_extension("")
             .file_name()
