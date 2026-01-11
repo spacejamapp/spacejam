@@ -269,7 +269,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [dest, o] = [ctx.rget(7), ctx.rget(8)];
     let hash = ctx.read_hash(o as u32)?;
     if dest == ctx.service() as u64 {
-        crate::bail!("cannot eject to self");
+        return Ok(Exit::Who as u64);
     }
 
     let service = ctx.service();

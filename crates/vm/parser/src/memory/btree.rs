@@ -117,7 +117,12 @@ impl Memory {
             let page_num = ptr / crate::PAGE_SIZE as u32;
             let offset = ptr % crate::PAGE_SIZE as u32;
             let Some((page_data, _)) = self.memory.get(&page_num) else {
-                anyhow::bail!("Memory page {} not accessible", page_num);
+                tracing::debug!("{:?}", self.info);
+                anyhow::bail!(
+                    "Memory page {} not accessible, read={}, remaining={remaining}",
+                    page_num,
+                    result.len()
+                );
             };
 
             // Calculate how much to read from this page

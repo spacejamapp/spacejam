@@ -98,7 +98,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     let mut results = services
-        .par_iter()
+        .iter()
         .map(|service| {
             let transfers = transfers
                 .par_iter()
@@ -125,7 +125,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Update assign services
-    for (c, old) in context.privileges.assign.clone().into_iter().enumerate() {
+    for (c, old) in context.privileges.assign.into_iter().enumerate() {
         let mgr_val = mgr.map(|m| m.assign[c]).unwrap_or(old);
         let svc_val = results.get(&old).map(|r| r.context.privileges.assign[c]);
         context.privileges.assign[c] = svc_val.map(|s| r(old, mgr_val, s)).unwrap_or(mgr_val);

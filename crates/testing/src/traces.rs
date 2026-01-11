@@ -138,9 +138,9 @@ pub async fn run_single<Vm: Pvm>(
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        }
+        } */
 
-        if key == key::RECENT_BLOCKS && value != result {
+        /* if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
             let recent: History = codec::decode(&result)?;
             tracing::debug!("polkajam: {:?}", polkajam.to_json());

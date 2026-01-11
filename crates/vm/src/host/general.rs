@@ -33,6 +33,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         }
     };
+    tracing::debug!("fetch: kind={kind}, value=0x{}", hex::encode(&value));
 
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
@@ -82,7 +83,6 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
 
 /// (ΩR) storage lookup
 pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
-    // get the key
     let [acc, ko, kz, o] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
     let key = ctx.read(ko as u32, kz as u32)?;
 
@@ -112,8 +112,6 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     let key = ctx.read(ko as u32, kz as u32)?;
 
     // check if the account has enough balance to cover the threshold
-    //
-    // FIXME: bug in the fuzzy tests, should just check greater than.
     let account = ctx.this()?;
     let threshold = account.write_threshold(&key, &value).unwrap_or(u64::MAX);
     if threshold > account.balance() {
