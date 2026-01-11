@@ -15,7 +15,7 @@ const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
-    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.0");
+    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.2/traces");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
