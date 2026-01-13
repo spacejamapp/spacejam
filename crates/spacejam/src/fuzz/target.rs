@@ -9,7 +9,7 @@ use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx::{self, ticket::lazy},
 };
-use score::{Block, OpaqueHash, TimeSlot};
+use score::{Block, OpaqueHash};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -28,7 +28,7 @@ pub struct Target {
     data: Arc<MemoryDb>,
 
     /// The history of the state
-    history: BTreeMap<TimeSlot, HashMap<Vec<u8>, Vec<u8>>>,
+    history: BTreeMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
 
     /// If use interpreter instead
     interp: bool,
@@ -113,15 +113,13 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        if block.header.slot <= self.data.timeslot()?
-            && let Some(prev) = self.history.get(&(block.header.slot.saturating_sub(1)))
-        {
-            tracing::warn!("Fallback state to {}", block.header.slot.saturating_sub(1));
+        if let Some(prev) = self.history.get(&block.header.parent) {
+            tracing::warn!("Fallback state to 0x{}", hex::encode(block.header.parent));
             self.data.reset(prev.clone());
         }
 
+        let hash = block.header.hash();
         let data = self.data.clone();
-        let slot = block.header.slot;
         if self.interp {
             tx::block::process::<spacevm::Interpreter>(block, data.clone())?;
         } else {
@@ -129,7 +127,7 @@ impl Target {
         }
 
         {
-            self.history.insert(slot, self.data.deep_clone());
+            self.history.insert(hash, self.data.deep_clone());
             if self.history.len() > 6 {
                 self.history.pop_first();
             }
@@ -152,8 +150,12 @@ impl Target {
 
         self.data.commit(Column::State, commit)?;
         let state = self.data.state()?;
-        let timeslot = state.timeslot;
-        self.history.insert(timeslot, self.data.deep_clone());
+        let genesis = state
+            .recent_blocks
+            .head()
+            .map(|h| h.header_hash)
+            .unwrap_or_default();
+        self.history.insert(genesis, self.data.deep_clone());
         if let Err(e) = self.init_state().await {
             tracing::warn!("failed to initialize state: {e}");
         }
