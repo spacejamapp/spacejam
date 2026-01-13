@@ -113,13 +113,17 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;
-    let threshold = account.write_threshold(&key, &value).unwrap_or(u64::MAX);
+    let prev = account.read(&key);
+    let threshold = account
+        .write_threshold(&key, &value, prev.as_deref())
+        .unwrap_or(u64::MAX);
+
     if threshold > account.balance() {
         return Ok(Exit::Full as u64);
     }
 
     // update storage
-    let result = if let Some(prev) = account.read(&key) {
+    let result = if let Some(prev) = prev {
         prev.len() as u64
     } else {
         Exit::None as u64

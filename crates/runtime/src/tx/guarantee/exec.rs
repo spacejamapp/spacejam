@@ -172,7 +172,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     for (service_id, result) in results.iter_mut() {
         transfers.extend(result.transfers.clone());
 
-        // For panicked services, deduct balance for transfers
+        /*   // For panicked services, deduct balance for transfers
         let panicked = matches!(
             result.reason,
             pvm::Reason::Panic(_) | pvm::Reason::OOG | pvm::Reason::Fault { .. }
@@ -185,7 +185,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
                     }
                 }
             }
-        }
+        } */
 
         if result.gas == 0 {
             continue;
