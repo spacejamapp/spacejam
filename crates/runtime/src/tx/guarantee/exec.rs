@@ -171,6 +171,22 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
         transfers.extend(result.transfers.clone());
+
+        // For panicked services, deduct balance for transfers
+        let panicked = matches!(
+            result.reason,
+            pvm::Reason::Panic(_) | pvm::Reason::OOG | pvm::Reason::Fault { .. }
+        );
+        if panicked {
+            for transfer in &result.transfers {
+                if transfer.sender == *service_id {
+                    if let Some(sender) = result.context.accounts.get(transfer.sender) {
+                        *sender.balance_mut() = sender.balance().saturating_sub(transfer.amount);
+                    }
+                }
+            }
+        }
+
         if result.gas == 0 {
             continue;
         }
