@@ -5,19 +5,22 @@ use crate::fuzz::{
     message::{Initialize, KeyValue, Message, PeerInfo, Version},
 };
 use anyhow::{Context, Result};
+use indexmap::IndexMap;
 use runtime::{
     storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
     tx::{self, ticket::lazy},
 };
 use score::{Block, OpaqueHash};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     fs,
     ops::{Deref, DerefMut},
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
     sync::Arc,
 };
+
+const MAX_HISTORY_SIZE: usize = 12;
 
 /// A fuzz target
 pub struct Target {
@@ -27,8 +30,8 @@ pub struct Target {
     /// The database used in fuzzing
     data: Arc<MemoryDb>,
 
-    /// The history of the state
-    history: BTreeMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
+    /// The history of the state (maintains insertion order for LRU)
+    history: IndexMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
 
     /// If use interpreter instead
     interp: bool,
@@ -41,7 +44,7 @@ impl Target {
         Self {
             stream,
             data: Arc::new(MemoryDb::default()),
-            history: BTreeMap::new(),
+            history: IndexMap::new(),
             interp,
         }
     }
@@ -127,10 +130,10 @@ impl Target {
         }
 
         {
-            self.history.insert(hash, self.data.deep_clone());
-            if self.history.len() > 6 {
-                self.history.pop_first();
+            if self.history.len() >= MAX_HISTORY_SIZE {
+                self.history.shift_remove_index(0);
             }
+            self.history.insert(hash, self.data.deep_clone());
         }
         let message = Message::StateRoot(self.data.root()?);
         self.write_message(message)?;
