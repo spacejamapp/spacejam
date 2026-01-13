@@ -132,8 +132,9 @@ pub trait Account: Clone {
             // Key doesn't exist or is in removal set: account for new item and full storage cost
             let klen = key.len() as u64;
             let vlen = value.len() as u64;
-            self.threshold()
-                .checked_add(score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET)
+            self.threshold().checked_add(
+                score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET,
+            )
         }
     }
 
