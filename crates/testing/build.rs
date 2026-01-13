@@ -15,7 +15,7 @@ const TRACES: &str = "../../res/jam-test-vectors/traces";
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
-    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.0");
+    println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.2/traces");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
@@ -102,10 +102,11 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     let section = entry.section;
     let ss = section.as_ref();
 
-    // NOTE: currently iterates over directories on each of the tests,
-    // for speed up building time.
-    for (i, test) in entry.into_iter().enumerate() {
-        let name = &test.name;
+    // Iterate over file paths directly instead of parsing JSON files to avoid
+    // reading thousands of files during build time. Test names are derived from
+    // filenames, so parsing is unnecessary.
+    for (i, path) in entry.files.iter().enumerate() {
+        let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
         tests.push(parse_quote! {
             #[tokio::test]
@@ -126,10 +127,11 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
     let section = entry.section;
     let ss = section.as_ref();
 
-    // NOTE: currently iterates over directories on each of the tests,
-    // for speed up building time.
-    for (i, test) in entry.into_iter().enumerate() {
-        let name = &test.name;
+    // Iterate over file paths directly instead of parsing JSON files to avoid
+    // reading thousands of files during build time. Test names are derived from
+    // filenames, so parsing is unnecessary.
+    for (i, path) in entry.files.iter().enumerate() {
+        let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
         tests.push(parse_quote! {
             #[test]
@@ -173,9 +175,11 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
     let test_name = Path::new(entry).file_name().unwrap().to_str().unwrap();
     let mut tests = BTreeSet::<String>::new();
 
-    // build the tests and get test name first
-    for test in fentry.into_iter() {
-        let names = test.name.split('_').collect::<Vec<&str>>();
+    // Iterate over file paths directly instead of parsing JSON files to avoid
+    // reading thousands of files during build time. Extract test names from filenames.
+    for path in &fentry.files {
+        let name = Entry::file_name(path)?;
+        let names = name.split('_').collect::<Vec<&str>>();
         let fname = names.last().unwrap().to_string();
         if fname.contains("genesis") {
             continue;

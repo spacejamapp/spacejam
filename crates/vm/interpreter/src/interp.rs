@@ -72,7 +72,11 @@ impl Interpreter {
     pub fn result<X: Argument>(&self, data: X, gas: u64, reason: Reason) -> Invoked<X> {
         Invoked {
             gas: gas - self.context.gas.max(0) as u64,
-            output: self.output(),
+            output: if matches!(reason, Reason::Panic(_)) {
+                Vec::new()
+            } else {
+                self.output()
+            },
             reason,
             data,
             state: self.state(),

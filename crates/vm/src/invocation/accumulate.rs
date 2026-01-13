@@ -94,6 +94,14 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.index = index;
     }
 
+    fn set_authorization(&mut self, core: u16, queue: Vec<[u8; 32]>) {
+        self.x.context.authorization[core as usize] = queue;
+    }
+
+    fn set_assign(&mut self, core: u16, assign: ServiceId) {
+        self.x.context.privileges.assign[core as usize] = assign;
+    }
+
     fn set_privileges(&mut self, privileges: Privileges) {
         self.x.context.privileges = privileges;
     }

@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-pvm"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "cranelift",
@@ -1614,6 +1614,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
+
+[[package]]
 name = "heapless"
 version = "0.7.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1855,12 +1861,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.11.3"
+version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92119844f513ffa41556430369ab02c295a3578af21cf945caa3e9e0c2481ac3"
+checksum = "7714e70437a7dc3ac8eb7e6f8df75fd8eb422675fc7678aff7364301092b1017"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.5",
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -2613,7 +2619,7 @@ dependencies = [
 
 [[package]]
 name = "pvmc"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3143,7 +3149,7 @@ dependencies = [
 
 [[package]]
 name = "serde-jam"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "serde",
@@ -3311,13 +3317,14 @@ dependencies = [
 
 [[package]]
 name = "spacejam"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "async-trait",
  "clap",
  "dirs",
  "hex",
+ "indexmap",
  "parity-db",
  "proc-macro2",
  "quote",
@@ -3346,7 +3353,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-account"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "serde-jam",
@@ -3357,7 +3364,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-core"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "erased-serde",
@@ -3409,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-network"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "clap",
@@ -3432,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-offchain"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3448,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-rpc"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "jsonrpsee",
@@ -3460,7 +3467,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-runtime"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "hex",
@@ -3481,7 +3488,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-service"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "blake2",
@@ -3494,7 +3501,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testing"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "hex",
@@ -3524,7 +3531,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testnet"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "clap",
@@ -3535,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-worker"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "pvm",
@@ -3551,7 +3558,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "hex",
@@ -3561,7 +3568,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson-derive"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3570,7 +3577,7 @@ dependencies = [
 
 [[package]]
 name = "spacevm"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "anyhow",
  "hex",
@@ -3583,7 +3590,7 @@ dependencies = [
 
 [[package]]
 name = "spacevm-export"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "pvm",
  "pvmc",

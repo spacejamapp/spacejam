@@ -80,7 +80,9 @@ pub async fn run_single<Vm: Pvm>(
 ) -> anyhow::Result<bool> {
     let block: Block = input.block;
     let mut pkeys = Vec::new();
-    let is_ok = tx::block::process::<Vm>(block, memdb.clone()).is_ok();
+    let is_ok = tx::block::process::<Vm>(block, memdb.clone())
+        .inspect_err(|e| tracing::error!("{e:?}"))
+        .is_ok();
 
     for KeyValue { key, value } in output.post_state.keyvals {
         let info = key.as_state_key().info();
@@ -136,9 +138,9 @@ pub async fn run_single<Vm: Pvm>(
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        }
+        } */
 
-        if key == key::RECENT_BLOCKS && value != result {
+        /* if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
             let recent: History = codec::decode(&result)?;
             tracing::debug!("polkajam: {:?}", polkajam.to_json());

@@ -35,6 +35,8 @@ pub fn outer<V: Pvm, R: Accounts>(
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated<R> {
     let mut accumulated = Accumulated::new(context);
+    let empty = BTreeMap::new();
+    let mut first = true;
     loop {
         let mut cumulative_gas = 0;
         let mut index = 0;
@@ -43,12 +45,11 @@ pub fn outer<V: Pvm, R: Accounts>(
             if cumulative_gas + report_gas > gas_limit {
                 break;
             }
-
             cumulative_gas += report_gas;
             index = i + 1;
         }
 
-        if index == 0 && transfers.is_empty() {
+        if index == 0 && transfers.is_empty() && (!first || gas_table.is_empty()) {
             break;
         }
 
@@ -56,7 +57,7 @@ pub fn outer<V: Pvm, R: Accounts>(
             accumulated.context.clone(),
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
-            gas_table,
+            if first { gas_table } else { &empty },
         );
 
         step.defer_transfers();
@@ -69,6 +70,11 @@ pub fn outer<V: Pvm, R: Accounts>(
         accumulated.pairings.extend(step.pairings);
         for (service, gas) in step.gas.iter() {
             *accumulated.gas.entry(*service).or_insert(0) += gas;
+        }
+        first = false;
+
+        if reports.is_empty() && transfers.is_empty() {
+            break;
         }
     }
 
@@ -110,38 +116,48 @@ pub fn parallel<V: Pvm, R: Accounts>(
         })
         .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>();
 
-    // update the validators
-    if let Some(result) = results.get(&context.privileges.designate) {
-        context.validators = result.context.validators;
+    // Helper function R(o, a, b) from graypaper: if manager changed it (a != o), use a; else use b
+    let r = |old: ServiceId, mgr: ServiceId, svc: ServiceId| -> ServiceId {
+        if mgr == old { svc } else { mgr }
     };
 
-    // Update designate service from the old designate service
-    if let Some(designate_result) = results.get(&context.privileges.designate) {
-        context.privileges.designate = designate_result.context.privileges.designate;
+    // Get manager service post-state
+    let mgr = results
+        .get(&context.privileges.bless)
+        .map(|r| &r.context.privileges);
+    if let Some(mgr) = mgr {
+        context.privileges.bless = mgr.bless;
+        context.privileges.always_acc = mgr.always_acc.clone();
     }
 
-    // Update register service from the old register service
-    if let Some(register_result) = results.get(&context.privileges.register) {
-        context.privileges.register = register_result.context.privileges.register;
+    // Update assign services
+    for (c, old) in context.privileges.assign.into_iter().enumerate() {
+        let mgr_val = mgr.map(|m| m.assign[c]).unwrap_or(old);
+        let svc_val = results.get(&old).map(|r| r.context.privileges.assign[c]);
+        context.privileges.assign[c] = svc_val.map(|s| r(old, mgr_val, s)).unwrap_or(mgr_val);
     }
 
-    // Extract privilege service results from the already-executed results
-    // This must happen BEFORE reading validators to ensure we get them from the correct designate service
-    if let Some(result) = results.get(&context.privileges.bless) {
-        context.privileges.bless = result.context.privileges.bless;
-        context.privileges.designate = result.context.privileges.designate;
-        context.privileges.register = result.context.privileges.register;
+    // Update designate
+    let designate = context.privileges.designate;
+    let mgr_designate = mgr
+        .map(|m| m.designate)
+        .unwrap_or(context.privileges.designate);
+    let svc_designate = results
+        .get(&designate)
+        .map(|r| r.context.privileges.designate);
+    context.privileges.designate = svc_designate
+        .map(|s| r(designate, mgr_designate, s))
+        .unwrap_or(mgr_designate);
 
-        // Update assign services
-        for (core_index, assign_service) in context.privileges.assign.clone().iter().enumerate() {
-            if let Some(result) = results.get(assign_service) {
-                context.privileges.assign[core_index] =
-                    result.context.privileges.assign[core_index];
-            }
-        }
-
-        context.privileges.always_acc = result.context.privileges.always_acc.clone();
-    }
+    // Update register
+    let register = context.privileges.register;
+    let mgr_register = mgr.map(|m| m.register).unwrap_or(register);
+    let svc_register = results
+        .get(&register)
+        .map(|r| r.context.privileges.register);
+    context.privileges.register = svc_register
+        .map(|s| r(register, mgr_register, s))
+        .unwrap_or(mgr_register);
 
     // Update validators from the (now potentially updated) designate service
     // This must happen AFTER privilege updates to read from the correct designate service
@@ -154,6 +170,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut transfers = Vec::new();
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
+        transfers.extend(result.transfers.clone());
         if result.gas == 0 {
             continue;
         }
@@ -171,7 +188,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
             context.accounts.remove(service);
         }
 
-        transfers.extend(result.transfers.clone());
         gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
             pairings.insert((*service_id, hash));

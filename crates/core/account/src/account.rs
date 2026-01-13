@@ -118,11 +118,24 @@ pub trait Account: Clone {
     }
 
     /// Write the threshold of the account
-    fn write_threshold(&self, key: &[u8], value: &[u8]) -> Option<u64> {
-        let klen = key.len() as u64;
-        let vlen = value.len() as u64;
-        self.threshold()
-            .checked_add(score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET)
+    /// If prev_value is Some, the key exists and we only account for the difference in value size.
+    /// If prev_value is None, the key is new and we account for the full cost including BALANCE_PER_ITEM.
+    fn write_threshold(&self, key: &[u8], value: &[u8], prev_value: Option<&[u8]>) -> Option<u64> {
+        if let Some(prev) = prev_value {
+            // Key exists: only account for the difference in value size
+            let vlen = value.len() as u64;
+            let old_vlen = prev.len() as u64;
+            let diff = vlen.saturating_sub(old_vlen);
+            self.threshold()
+                .checked_add(diff * score::BALANCE_PER_OCTET)
+        } else {
+            // Key doesn't exist or is in removal set: account for new item and full storage cost
+            let klen = key.len() as u64;
+            let vlen = value.len() as u64;
+            self.threshold().checked_add(
+                score::BALANCE_PER_ITEM + (34 + klen + vlen) * score::BALANCE_PER_OCTET,
+            )
+        }
     }
 
     /// (Λ) lookup preimage in the recent histories

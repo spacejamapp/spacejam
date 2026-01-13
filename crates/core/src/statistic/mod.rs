@@ -100,7 +100,8 @@ impl Statistics {
     ) -> anyhow::Result<()> {
         for reporter in reporters.iter() {
             let Some(index) = validators.iter().position(|v| v == reporter) else {
-                anyhow::bail!("reporter is invalid");
+                continue;
+                // anyhow::bail!("reporter is invalid");
             };
 
             self.vals_current[index].guarantees += 1;

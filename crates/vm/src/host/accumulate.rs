@@ -73,20 +73,25 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩA) assign authorization queue
 pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [core, o, assign] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
-    let source = ctx.read(o as u32, (12 * score::QUEUE_ITEMS) as u32)?;
+    let source = ctx.read(o as u32, (32 * score::QUEUE_ITEMS) as u32)?;
 
-    // return if invalid core index
+    // Check core index first (before reading memory)
     if core >= score::CORES_COUNT as u64 {
         return Ok(Exit::Core as u64);
     }
 
-    // check if the service is a core
+    // Check if the calling service is the current assign service for this core
     let privileges = ctx.privileges();
     if ctx.service() != privileges.assign[core as usize] {
         return Ok(Exit::Huh as u64);
     }
 
-    // parse the authorization queue
+    // Validate assign parameter is a valid service ID
+    if (assign != 0 && assign < score::MINIMUM_SERVICE_ID as u64) || assign > u32::MAX as u64 {
+        return Ok(Exit::Who as u64);
+    }
+
+    // Parse the authorization queue
     let queue: Vec<[u8; 32]> = source
         .chunks(32)
         .map(|chunk| {
@@ -96,7 +101,7 @@ pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
         })
         .collect();
 
-    // set the authorization queue
+    // Set the authorization queue and assign service for this core
     ctx.set_authorization(core as u16, queue);
     ctx.set_assign(core as u16, assign as u32);
     Ok(Exit::Ok as u64)
@@ -264,7 +269,7 @@ pub fn eject(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [dest, o] = [ctx.rget(7), ctx.rget(8)];
     let hash = ctx.read_hash(o as u32)?;
     if dest == ctx.service() as u64 {
-        crate::bail!("cannot eject to self");
+        return Ok(Exit::Who as u64);
     }
 
     let service = ctx.service();
