@@ -35,6 +35,8 @@ pub fn outer<V: Pvm, R: Accounts>(
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated<R> {
     let mut accumulated = Accumulated::new(context);
+    let empty = BTreeMap::new();
+    let mut first = true;
     loop {
         let mut cumulative_gas = 0;
         let mut index = 0;
@@ -43,12 +45,11 @@ pub fn outer<V: Pvm, R: Accounts>(
             if cumulative_gas + report_gas > gas_limit {
                 break;
             }
-
             cumulative_gas += report_gas;
             index = i + 1;
         }
 
-        if index == 0 && transfers.is_empty() {
+        if index == 0 && transfers.is_empty() && (!first || gas_table.is_empty()) {
             break;
         }
 
@@ -56,7 +57,7 @@ pub fn outer<V: Pvm, R: Accounts>(
             accumulated.context.clone(),
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
-            gas_table,
+            if first { gas_table } else { &empty },
         );
 
         step.defer_transfers();
@@ -69,6 +70,11 @@ pub fn outer<V: Pvm, R: Accounts>(
         accumulated.pairings.extend(step.pairings);
         for (service, gas) in step.gas.iter() {
             *accumulated.gas.entry(*service).or_insert(0) += gas;
+        }
+        first = false;
+
+        if reports.is_empty() && transfers.is_empty() {
+            break;
         }
     }
 
@@ -164,6 +170,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut transfers = Vec::new();
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
+        transfers.extend(result.transfers.clone());
         if result.gas == 0 {
             continue;
         }
@@ -181,7 +188,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
             context.accounts.remove(service);
         }
 
-        transfers.extend(result.transfers.clone());
         gas.insert(*service_id, result.gas);
         if let Some(hash) = result.hash {
             pairings.insert((*service_id, hash));

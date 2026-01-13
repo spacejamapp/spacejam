@@ -59,6 +59,7 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
         _ => log::Level::Warn,
     };
 
-    log::log!(target: &target, level, "{message}");
+    let gas = ctx.gas();
+    log::log!(target: &target, level, "{message} (gas={gas})");
     Ok(Exit::What as u64)
 }

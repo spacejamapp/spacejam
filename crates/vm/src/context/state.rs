@@ -77,7 +77,11 @@ impl<R: Accounts> Invoked<Accumulate<R>> {
                 }
                 result
             }
-            _ => self.data.y.to_result(self.gas, self.reason),
+            _ => {
+                let mut result = self.data.y.to_result(self.gas, self.reason);
+                result.transfers.extend(self.data.x.transfer);
+                result
+            }
         }
     }
 }
