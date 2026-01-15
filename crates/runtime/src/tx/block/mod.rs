@@ -2,7 +2,7 @@
 
 use crate::{
     Storage,
-    storage::{Column, MemoryDb},
+    storage::{Column, MemoryDb, StateStorage},
     tx,
 };
 use anyhow::Result;
@@ -47,23 +47,22 @@ pub struct TestChain {
 
 impl TestChain {
     /// Initialize the chain with the given block.
-    pub fn new<Vm: Pvm>(block: Block) -> anyhow::Result<Self> {
-        let head = block.header.hash();
-        let data = Arc::new(MemoryDb::default());
-        let mut forks = HashMap::new();
+    pub fn new() -> Self {
+        Self {
+            finalized: Default::default(),
+            data: Arc::new(MemoryDb::default()),
+            forks: HashMap::new(),
+        }
+    }
 
-        // import the genesis block
-        self::process::<Vm>(block, data.clone())?;
-        forks.insert(head, data.deep_clone());
-        Ok(Self {
-            finalized: head,
-            data,
-            forks,
-        })
+    /// Check if the chain is initialized.
+    pub fn initialized(&self) -> bool {
+        self.finalized != [0; 32]
     }
 
     /// Import a new block to the chain.
     pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<()> {
+        // import the block to the chain
         let head = block.header.hash();
         let parent = block.header.parent;
         let guard = Arc::new(self.data.dup());
@@ -85,6 +84,19 @@ impl TestChain {
 
         // update the forks
         self.forks.insert(head, guard.deep_clone());
+        Ok(())
+    }
+
+    /// Initialize the chain with the given block.
+    pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<()> {
+        self.data.reset(state);
+        let head = self
+            .data
+            .recent_blocks()?
+            .last()
+            .ok_or(anyhow::anyhow!("no recent blocks"))?
+            .header_hash;
+        self.finalized = head;
         Ok(())
     }
 }
