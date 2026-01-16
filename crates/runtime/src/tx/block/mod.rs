@@ -52,7 +52,7 @@ impl TestChain {
     }
 
     /// Import a new block to the chain.
-    pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<()> {
+    pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<OpaqueHash> {
         let head = block.header.hash();
         let parent = block.header.parent;
         let guard = Arc::new(self.data.dup());
@@ -74,7 +74,7 @@ impl TestChain {
 
         // update the forks
         self.forks.insert(head, guard.deep_clone());
-        Ok(())
+        guard.root()
     }
 
     /// Prepare the chain for the given block.
@@ -111,7 +111,7 @@ impl TestChain {
     }
 
     /// Initialize the chain with the given block.
-    pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<()> {
+    pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<OpaqueHash> {
         self.data.reset(state);
         let head = self
             .data
@@ -120,7 +120,7 @@ impl TestChain {
             .ok_or(anyhow::anyhow!("no recent blocks"))?
             .header_hash;
         self.finalized = head;
-        Ok(())
+        self.data.root()
     }
 }
 

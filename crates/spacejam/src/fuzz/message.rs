@@ -2,7 +2,7 @@
 
 use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 /// Messages used in the unix socket communication
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -139,6 +139,16 @@ pub struct Initialize {
 
     /// The ancestry of the peer
     pub ancestry: Vec<Head>,
+}
+
+impl Initialize {
+    /// Get the key-value pairs of the state
+    pub fn keyvals(&self) -> HashMap<Vec<u8>, Vec<u8>> {
+        self.state
+            .iter()
+            .map(|kv| (kv.key.to_vec(), kv.value.clone()))
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

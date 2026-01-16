@@ -17,7 +17,6 @@ codec.workspace = true
 crypto.workspace = true
 dirs.workspace = true
 hex.workspace = true
-indexmap.workspace = true
 network.workspace = true
 offchain.workspace = true
 parity-db.workspace = true
