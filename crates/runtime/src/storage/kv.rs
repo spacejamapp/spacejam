@@ -55,6 +55,13 @@ impl MemoryDb {
         self.data.read().unwrap().clone()
     }
 
+    /// Duplicate the memory database
+    pub fn dup(&self) -> Self {
+        Self {
+            data: Arc::new(RwLock::new(self.data.read().unwrap().clone())),
+        }
+    }
+
     /// Reset the memory database
     pub fn reset(&self, data: HashMap<Vec<u8>, Vec<u8>>) {
         let mut curr = self.data.write().unwrap();

@@ -3324,7 +3324,6 @@ dependencies = [
  "clap",
  "dirs",
  "hex",
- "indexmap",
  "parity-db",
  "proc-macro2",
  "quote",

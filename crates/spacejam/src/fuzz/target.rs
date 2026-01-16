@@ -5,33 +5,28 @@ use crate::fuzz::{
     message::{Initialize, KeyValue, Message, PeerInfo, Version},
 };
 use anyhow::{Context, Result};
-use indexmap::IndexMap;
 use runtime::{
-    storage::{Column, Commit, KVStorage, MemoryDb, StateStorage},
-    tx::{self, ticket::lazy},
+    storage::{Column, KVStorage},
+    tx::{block::TestChain, ticket::lazy},
 };
 use score::{Block, OpaqueHash};
 use std::{
-    collections::HashMap,
     fs,
     ops::{Deref, DerefMut},
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
-    sync::Arc,
 };
 
-const MAX_HISTORY_SIZE: usize = 12;
+/// If the target is running on Linux
+const IS_LINUX: bool = cfg!(target_os = "linux");
 
 /// A fuzz target
 pub struct Target {
     /// The connected unix stream
     stream: UnixStream,
 
-    /// The database used in fuzzing
-    data: Arc<MemoryDb>,
-
-    /// The history of the state (maintains insertion order for LRU)
-    history: IndexMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
+    /// The chain of blocks
+    chain: TestChain,
 
     /// If use interpreter instead
     interp: bool,
@@ -43,8 +38,7 @@ impl Target {
         runtime::timing::setup();
         Self {
             stream,
-            data: Arc::new(MemoryDb::default()),
-            history: IndexMap::new(),
+            chain: TestChain::default(),
             interp,
         }
     }
@@ -116,26 +110,13 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        if let Some(prev) = self.history.get(&block.header.parent) {
-            tracing::warn!("Fallback state to 0x{}", hex::encode(block.header.parent));
-            self.data.reset(prev.clone());
-        }
-
-        let hash = block.header.hash();
-        let data = self.data.clone();
-        if self.interp {
-            tx::block::process::<spacevm::Interpreter>(block, data.clone())?;
+        let root = if self.interp && !IS_LINUX {
+            self.chain.import::<spacevm::Interpreter>(block)?
         } else {
-            tx::block::process::<spacevm::SpaceVM>(block, data.clone())?;
-        }
+            self.chain.import::<spacevm::SpaceVM>(block)?
+        };
 
-        {
-            if self.history.len() >= MAX_HISTORY_SIZE {
-                self.history.shift_remove_index(0);
-            }
-            self.history.insert(hash, self.data.deep_clone());
-        }
-        let message = Message::StateRoot(self.data.root()?);
+        let message = Message::StateRoot(root);
         self.write_message(message)?;
         Ok(())
     }
@@ -143,26 +124,13 @@ impl Target {
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
-        self.history = Default::default();
-        self.data = Arc::new(Default::default());
         lazy::clear().await;
-        let mut commit = Commit::default();
-        for KeyValue { key, value } in state.state.into_iter() {
-            commit.set(key, value);
-        }
-
-        self.data.commit(Column::State, commit)?;
-        let state = self.data.state()?;
-        let genesis = state
-            .recent_blocks
-            .head()
-            .map(|h| h.header_hash)
-            .unwrap_or_default();
-        self.history.insert(genesis, self.data.deep_clone());
+        self.chain = Default::default();
+        let root = self.chain.init(state.keyvals())?;
         if let Err(e) = self.init_state().await {
             tracing::warn!("failed to initialize state: {e}");
         }
-        let message = Message::StateRoot(self.data.root()?);
+        let message = Message::StateRoot(root);
         self.write_message(message)?;
         Ok(())
     }
@@ -170,7 +138,7 @@ impl Target {
     /// Received get state request
     pub fn get_state(&mut self, _hash: OpaqueHash) -> Result<()> {
         let mut state = Vec::new();
-        for pair in self.data.iter(Column::State)? {
+        for pair in self.chain.data.iter(Column::State)? {
             let (vkey, value) = pair?;
             let mut key = [0; 31];
             key.copy_from_slice(&vkey);
@@ -198,7 +166,7 @@ impl Target {
     /// Initialize the target
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
-        let data = self.data.clone();
+        let data = self.chain.data.clone();
         if self.interp {
             init::verifier(data)?;
         } else {
