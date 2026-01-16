@@ -247,6 +247,11 @@ impl Fuzzer {
             }
         }
 
+        // reset the entry as the provided path if it is empty
+        if entries.is_empty() {
+            entries.push(entry.to_path_buf());
+        }
+
         // handle incoming connections
         let mut stream =
             UnixStream::connect(socket).context(format!("Failed to connect to {socket:?}"))?;

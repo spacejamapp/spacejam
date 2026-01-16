@@ -122,6 +122,7 @@ impl Target {
     #[tracing::instrument(skip_all, name = "initialize")]
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
         lazy::clear().await;
+        self.chain = Default::default();
         let root = self.chain.init(state.keyvals())?;
         if let Err(e) = self.init_state().await {
             tracing::warn!("failed to initialize state: {e}");
