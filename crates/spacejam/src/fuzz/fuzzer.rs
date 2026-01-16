@@ -64,7 +64,7 @@ impl Fuzzer {
     }
 
     /// Run the fuzzer with traces
-    pub fn conformance(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
+    pub fn seq(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
         if !entry.is_dir() {
             anyhow::bail!("invalid traces folder, {entry:?}");
         }
