@@ -30,7 +30,7 @@ pub enum Fuzz {
 
         /// The path to the conformance folder
         #[clap(short, long)]
-        sequence: Option<PathBuf>,
+        conformance: Option<PathBuf>,
 
         /// The path to the report folder
         #[clap(default_value = "reports", short, long)]
@@ -56,14 +56,14 @@ impl Fuzz {
             Self::Fuzzer {
                 socket,
                 traces,
-                sequence,
+                conformance,
                 report,
                 exact,
             } => {
                 if let Some(exact) = exact {
                     Fuzzer::execute(socket, exact, report)
-                } else if let Some(sequence) = sequence {
-                    Fuzzer::seq(socket, sequence, report)
+                } else if let Some(conformance) = conformance {
+                    Fuzzer::conformance(socket, conformance, report)
                 } else {
                     Fuzzer::run(socket, traces, report)
                 }
