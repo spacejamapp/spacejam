@@ -2,7 +2,10 @@
 
 use crate::traces::{self, TestInput, TestOutput};
 use anyhow::Result;
-use runtime::storage::{MemoryDb, StateStorage};
+use runtime::{
+    storage::{MemoryDb, StateStorage},
+    tx::block::TestChain,
+};
 use score::{OpaqueHash, TimeSlot};
 use specjam::Test;
 use std::{
@@ -15,8 +18,7 @@ include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
 
 /// The processor for sequential test vectors
 pub struct Processor {
-    memdb: Arc<MemoryDb>,
-    history: BTreeMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
+    chain: TestChain,
 }
 
 impl Processor {
@@ -24,28 +26,20 @@ impl Processor {
     pub async fn process(&mut self, test: Test) -> Result<()> {
         let input = TestInput::from_json(&test.input)?;
         let output = TestOutput::from_json(&test.output)?;
-        let slot = input.block.header.slot;
-        let hash = input.block.header.hash();
-        if let Some(state) = self.history.get(&input.block.header.parent) {
-            self.memdb.reset(state.clone());
-        } else {
-            self.memdb.reset(input.pre_state.keyvals());
+        if !self.chain.initialized() {
+            self.chain.init(input.pre_state.keyvals())?;
         }
 
-        let timeslot = self.memdb.timeslot()?;
-        tracing::debug!(
-            "processing test: {}, slot: {timeslot}, incoming: {slot}",
-            test.name,
-        );
-
+        let block = input.block.clone();
+        let (data, pstate) = self.chain.prepare(&input.block);
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
-            traces::run_single::<spacevm::Compiler>(self.memdb.clone(), input, output).await?
+            traces::run_single::<spacevm::Compiler>(data.clone(), input, output).await?
         } else {
-            traces::run_single::<spacevm::Interpreter>(self.memdb.clone(), input, output).await?
+            traces::run_single::<spacevm::Interpreter>(data.clone(), input, output).await?
         };
 
         if is_ok {
-            self.history.insert(hash, self.memdb.deep_clone());
+            self.chain.apply(&block, data, pstate);
         }
         Ok(())
     }
@@ -64,8 +58,7 @@ impl Default for Processor {
             .try_init();
 
         Self {
-            memdb: Arc::new(MemoryDb::default()),
-            history: BTreeMap::new(),
+            chain: TestChain::new(),
         }
     }
 }
