@@ -17,6 +17,9 @@ use std::{
     path::Path,
 };
 
+/// If the target is running on Linux
+const IS_LINUX: bool = cfg!(target_os = "linux");
+
 /// A fuzz target
 pub struct Target {
     /// The connected unix stream
@@ -107,10 +110,10 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        let root = if self.interp {
+        let root = if self.interp && !IS_LINUX {
             self.chain.import::<spacevm::Interpreter>(block)?
         } else {
-            self.chain.import::<spacevm::Compiler>(block)?
+            self.chain.import::<spacevm::SpaceVM>(block)?
         };
 
         let message = Message::StateRoot(root);
