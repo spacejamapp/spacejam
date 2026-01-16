@@ -46,15 +46,6 @@ pub struct TestChain {
 }
 
 impl TestChain {
-    /// Initialize the chain with the given block.
-    pub fn new() -> Self {
-        Self {
-            finalized: Default::default(),
-            data: Arc::new(MemoryDb::default()),
-            forks: HashMap::new(),
-        }
-    }
-
     /// Check if the chain is initialized.
     pub fn initialized(&self) -> bool {
         self.finalized != [0; 32]
@@ -87,6 +78,7 @@ impl TestChain {
     }
 
     /// Prepare the chain for the given block.
+    #[allow(clippy::type_complexity)]
     pub fn prepare(&self, block: &Block) -> (Arc<MemoryDb>, Option<HashMap<Vec<u8>, Vec<u8>>>) {
         let parent = block.header.parent;
         let guard = Arc::new(self.data.dup());
@@ -129,5 +121,15 @@ impl TestChain {
             .header_hash;
         self.finalized = head;
         Ok(())
+    }
+}
+
+impl Default for TestChain {
+    fn default() -> Self {
+        Self {
+            finalized: Default::default(),
+            data: Arc::new(MemoryDb::default()),
+            forks: HashMap::new(),
+        }
     }
 }

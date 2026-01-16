@@ -58,7 +58,7 @@ impl Default for Processor {
             .try_init();
 
         Self {
-            chain: TestChain::new(),
+            chain: TestChain::default(),
         }
     }
 }
