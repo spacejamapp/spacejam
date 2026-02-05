@@ -110,7 +110,7 @@ impl Target {
     /// Received import block request
     #[tracing::instrument(skip_all, name = "import", parent = None)]
     pub async fn import_block(&mut self, block: Block) -> anyhow::Result<()> {
-        let root = if self.interp && !IS_LINUX {
+        let root = if self.interp || !IS_LINUX {
             self.chain.import::<spacevm::Interpreter>(block)?
         } else {
             self.chain.import::<spacevm::SpaceVM>(block)?
@@ -167,7 +167,7 @@ impl Target {
     #[tracing::instrument(skip_all, name = "init", parent = None)]
     async fn init_state(&self) -> Result<()> {
         let data = self.chain.data.clone();
-        if self.interp {
+        if self.interp || !IS_LINUX {
             init::verifier(data)?;
         } else {
             let (vr, pr) = rayon::join(
