@@ -33,6 +33,23 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     }
 }
 
+/// Process the block with panic catching.
+///
+/// Wraps `process` to catch any panics and convert them to `anyhow::Result`.
+pub fn checked_process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        process::<Vm>(block, storage)
+    }))
+    .unwrap_or_else(|panic| {
+        let msg = panic
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown panic".into());
+        Err(anyhow::anyhow!("panic during block processing: {msg}"))
+    })
+}
+
 /// DEVELOPMENT: A test chain for processing fuzz blocks.
 pub struct TestChain {
     /// The finalized head of the chain.
@@ -65,7 +82,7 @@ impl TestChain {
         }
 
         // process the block
-        self::process::<Vm>(block, guard.clone())?;
+        self::checked_process::<Vm>(block, guard.clone())?;
         if let Some(pstate) = pstate {
             self.finalized = parent;
             self.data.reset(pstate);
