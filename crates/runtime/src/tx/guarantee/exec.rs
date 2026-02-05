@@ -159,9 +159,10 @@ pub fn parallel<V: Pvm, R: Accounts>(
         .map(|s| r(register, mgr_register, s))
         .unwrap_or(mgr_register);
 
-    // Update validators from the (now potentially updated) designate service
-    // This must happen AFTER privilege updates to read from the correct designate service
-    if let Some(result) = results.get(&context.privileges.designate) {
+    // Update validators from the designate service (ι' = ps¬stagingset' from accpar 12.56)
+    // Use the pre-update designate: stagingset comes from accone(ps¬delegator), i.e. the
+    // delegator at the start of the round, not the posterior designate after R() updates.
+    if let Some(result) = results.get(&designate) {
         context.validators = result.context.validators;
     }
 
@@ -171,6 +172,13 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
         transfers.extend(result.transfers.clone());
+
+        // Per graypaper eq. accpar: pairings are added when yield != None,
+        // regardless of gas_used. The condition is: s ∈ S, b = yield, b ≠ ∅
+        if let Some(hash) = result.hash {
+            pairings.insert((*service_id, hash));
+        }
+
         if result.gas == 0 {
             continue;
         }
@@ -189,9 +197,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
         }
 
         gas.insert(*service_id, result.gas);
-        if let Some(hash) = result.hash {
-            pairings.insert((*service_id, hash));
-        }
     }
 
     Accumulated {

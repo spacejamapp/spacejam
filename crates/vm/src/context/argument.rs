@@ -67,6 +67,12 @@ pub trait Argument: Send + Sync {
         unimplemented!("make sure your are invoking the accumulation interface")
     }
 
+    /// Get the work package auth config (p_wp_authconfig) when available.
+    /// Returns None when fetch is invoked without work package context (e.g. Accumulate).
+    fn auth_config(&self) -> Option<Vec<u8>> {
+        None
+    }
+
     /// Get the account or this
     fn or_this(&mut self, account: u64) -> Result<&mut impl Account> {
         let service = self.service() as u64;

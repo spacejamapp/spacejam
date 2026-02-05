@@ -18,6 +18,10 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
     let value: Vec<u8> = match kind {
         0 => codec::encode(&Parameters::default()),
         1 => codec::encode(&ctx.entropy()),
+        8 => match ctx.auth_config() {
+            Some(config) => config,
+            None => return Ok(Exit::None as u64),
+        },
         14 => codec::encode(&ctx.items()),
         15 => {
             let items = ctx.items();
@@ -33,7 +37,6 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         }
     };
-    tracing::debug!("fetch: kind={kind}, value=0x{}", hex::encode(&value));
 
     let vlen = value.len() as u64;
     let out = ctx.rget(7);

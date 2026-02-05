@@ -3,6 +3,9 @@
 use crate::blake2b;
 use std::collections::HashMap;
 
+/// Parallel threshold
+const PARALLEL_THRESHOLD: usize = 64;
+
 // Binary Merkle Tree with 16-bit `ChunkIndex` has depth at most 17.
 // The proof has at most `depth - 1` length.
 const MAX_MERKLE_PROOF_DEPTH: u32 = 16;
@@ -22,19 +25,51 @@ pub fn root(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
     hroot(leaves, hash)
 }
 
-/// Compute the root of a Merkle tree from hashes.
-pub fn hroot(hashes: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
-    if hashes.is_empty() {
-        return [0u8; 32];
+/// Compute the root of a Merkle tree from leaves.
+///
+/// Implements the well-balanced binary merkle tree from the graypaper (eq. simplemerkleroot):
+/// - M_B(v, H) = H(v[0]) when len(v) == 1
+/// - M_B(v, H) = N(v, H) otherwise
+///
+/// Where N is the node function (eq. merklenode):
+/// - N(v, H) = zerohash when len(v) == 0
+/// - N(v, H) = v[0] when len(v) == 1
+/// - N(v, H) = H("$node" || N(v[..ceil(len/2)], H) || N(v[ceil(len/2)..], H)) otherwise
+pub fn hroot(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
+    match leaves.len() {
+        0 => [0u8; 32],
+        1 => hash(&leaves[0]), // M_B hashes single element
+        _ => {
+            // Convert node result (which may be a blob or hash) to [u8; 32]
+            let result = node(&leaves, hash);
+            let mut root = [0u8; 32];
+            root.copy_from_slice(&result);
+            root
+        }
     }
+}
 
-    let tree = tree(hashes.to_vec(), hash);
-    let mut root = [0u8; 32];
-    root.copy_from_slice(&tree[tree.len() - 1][0]);
-    root
+/// The node function N from graypaper eq. merklenode.
+/// Recursively splits at ceil(len/2) for well-balanced tree structure.
+fn node(v: &[Vec<u8>], hash: fn(&[u8]) -> [u8; 32]) -> Vec<u8> {
+    match v.len() {
+        0 => vec![0u8; 32],
+        1 => v[0].clone(), // Return the blob itself, not hashed
+        len => {
+            let mid = len.div_ceil(2);
+            let (left, right) = if len >= PARALLEL_THRESHOLD {
+                rayon::join(|| node(&v[..mid], hash), || node(&v[mid..], hash))
+            } else {
+                (node(&v[..mid], hash), node(&v[mid..], hash))
+            };
+            hash(&[b"node", &left[..], &right[..]].concat()).to_vec()
+        }
+    }
 }
 
 /// Compute the Merkle tree.
+///
+/// @deprecated use `node` instead
 pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<Vec<u8>>> {
     if leaves.is_empty() {
         return vec![vec![vec![0u8; 32]]];
@@ -72,6 +107,8 @@ pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<Vec<u8
 }
 
 /// Binary Merkle Tree
+///
+/// FIXME: fix this while implementing M2 again.
 pub struct MerkleTree {
     root: [u8; 32],
     proofs: HashMap<Vec<u8>, MerkleProof>,

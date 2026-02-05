@@ -25,6 +25,10 @@ impl Argument for IsAuthorized {
 
     const INITIAL_PC: u64 = 0;
 
+    fn auth_config(&self) -> Option<Vec<u8>> {
+        Some(self.package.config.clone())
+    }
+
     fn account(&mut self, _id: u64) -> anyhow::Result<&mut impl Account> {
         anyhow::Result::<&mut ServiceAccount>::Err(anyhow::anyhow!("not implemented"))
     }
