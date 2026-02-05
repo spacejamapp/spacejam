@@ -22,6 +22,9 @@ pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<pvmc::Modul
 pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeMap<OpaqueHash, ()>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
+/// If the target is running on Linux
+const IS_LINUX: bool = cfg!(target_os = "linux");
+
 /// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
 
@@ -69,6 +72,7 @@ impl Invocation for SpaceVM {
         {
             if let Ok(locks) = SPACEVM_LOCKS.read()
                 && !locks.contains_key(&hash)
+                && IS_LINUX
             {
                 let code = code.clone();
                 let args = args.clone();
