@@ -56,7 +56,7 @@ fn node(v: &[Vec<u8>], hash: fn(&[u8]) -> [u8; 32]) -> Vec<u8> {
         0 => vec![0u8; 32],
         1 => v[0].clone(), // Return the blob itself, not hashed
         len => {
-            let mid = (len + 1) / 2;
+            let mid = len.div_ceil(2);
             let (left, right) = if len >= PARALLEL_THRESHOLD {
                 rayon::join(|| node(&v[..mid], hash), || node(&v[mid..], hash))
             } else {
