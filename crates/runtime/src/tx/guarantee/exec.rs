@@ -172,6 +172,13 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
         transfers.extend(result.transfers.clone());
+
+        // Per graypaper eq. accpar: pairings are added when yield != None,
+        // regardless of gas_used. The condition is: s ∈ S, b = yield, b ≠ ∅
+        if let Some(hash) = result.hash {
+            pairings.insert((*service_id, hash));
+        }
+
         if result.gas == 0 {
             continue;
         }
@@ -190,9 +197,6 @@ pub fn parallel<V: Pvm, R: Accounts>(
         }
 
         gas.insert(*service_id, result.gas);
-        if let Some(hash) = result.hash {
-            pairings.insert((*service_id, hash));
-        }
     }
 
     Accumulated {

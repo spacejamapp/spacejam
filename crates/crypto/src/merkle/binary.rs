@@ -22,16 +22,44 @@ pub fn root(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
     hroot(leaves, hash)
 }
 
-/// Compute the root of a Merkle tree from hashes.
-pub fn hroot(hashes: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
-    if hashes.is_empty() {
-        return [0u8; 32];
+/// Compute the root of a Merkle tree from leaves.
+///
+/// Implements the well-balanced binary merkle tree from the graypaper (eq. simplemerkleroot):
+/// - M_B(v, H) = H(v[0]) when len(v) == 1
+/// - M_B(v, H) = N(v, H) otherwise
+///
+/// Where N is the node function (eq. merklenode):
+/// - N(v, H) = zerohash when len(v) == 0
+/// - N(v, H) = v[0] when len(v) == 1
+/// - N(v, H) = H("$node" || N(v[..ceil(len/2)], H) || N(v[ceil(len/2)..], H)) otherwise
+pub fn hroot(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
+    match leaves.len() {
+        0 => [0u8; 32],
+        1 => hash(&leaves[0]), // M_B hashes single element
+        _ => {
+            // Convert node result (which may be a blob or hash) to [u8; 32]
+            let result = node(&leaves, hash);
+            let mut root = [0u8; 32];
+            root.copy_from_slice(&result);
+            root
+        }
     }
+}
 
-    let tree = tree(hashes.to_vec(), hash);
-    let mut root = [0u8; 32];
-    root.copy_from_slice(&tree[tree.len() - 1][0]);
-    root
+/// The node function N from graypaper eq. merklenode.
+/// Recursively splits at ceil(len/2) for well-balanced tree structure.
+/// Returns Vec<u8> because it can return either a blob[n] or hash depending on input.
+fn node(v: &[Vec<u8>], hash: fn(&[u8]) -> [u8; 32]) -> Vec<u8> {
+    match v.len() {
+        0 => vec![0u8; 32],
+        1 => v[0].clone(), // Return the blob itself, not hashed
+        len => {
+            let mid = (len + 1) / 2; // ceil(len/2)
+            let left = node(&v[..mid], hash);
+            let right = node(&v[mid..], hash);
+            hash(&[b"node", &left[..], &right[..]].concat()).to_vec()
+        }
+    }
 }
 
 /// Compute the Merkle tree.
