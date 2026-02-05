@@ -20,7 +20,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.0.25"
+version = "0.0.26"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -39,7 +39,7 @@ strip = true
 
 [workspace.dependencies]
 account = { path = "crates/core/account", package = "spacejam-account" }
-codec = { path = "crates/codec", package = "serde-jam", version = "0.0.25" }
+codec = { path = "crates/codec", package = "serde-jam", version = "0.0.26" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
@@ -50,14 +50,14 @@ pvmi = { path = "crates/vm/interpreter" }
 pvmc = { path = "crates/vm/compiler" }
 pvm-parser = { path = "crates/vm/parser" }
 pvm-testing = { path = "crates/vm/testing" }
-service = { path = "crates/core/service", package = "spacejam-service", version = "0.0.25" }
+service = { path = "crates/core/service", package = "spacejam-service", version = "0.0.26" }
 translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
-spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.0.25" }
-spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.0.25" }
+spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.0.26" }
+spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.0.26" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
 spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
