@@ -169,6 +169,7 @@ pub trait Invocation {
             accounts: accounts.clone(),
             service: item.service,
             core,
+            package: package.clone(),
             auth_output: auth_output.to_vec(),
             all_imports: all_imports.to_vec(),
             export_offset,

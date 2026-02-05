@@ -75,6 +75,10 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.items()
     }
 
+    fn auth_config(&self) -> Option<Vec<u8>> {
+        self.ctx.auth_config()
+    }
+
     fn or_this(&mut self, account: u64) -> Result<&mut impl Account> {
         self.ctx.or_this(account)
     }

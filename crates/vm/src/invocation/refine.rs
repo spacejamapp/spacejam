@@ -2,7 +2,7 @@
 
 use crate::Argument;
 use account::{Account, Accounts};
-use score::ServiceId;
+use score::{service::WorkPackage, ServiceId};
 
 /// Refine host call arguments
 pub struct Refine<R: Accounts> {
@@ -14,6 +14,9 @@ pub struct Refine<R: Accounts> {
 
     /// (c) core index
     pub core: u16,
+
+    /// (p) work package
+    pub package: WorkPackage,
 
     /// (r) authorizer output
     pub auth_output: Vec<u8>,
@@ -32,6 +35,10 @@ impl<R: Accounts> Argument for Refine<R> {
     const SUPPORTED_CALLS: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100];
 
     const INITIAL_PC: u64 = 0;
+
+    fn auth_config(&self) -> Option<Vec<u8>> {
+        Some(self.package.config.clone())
+    }
 
     fn account(&mut self, id: u64) -> anyhow::Result<&mut impl Account> {
         self.accounts
