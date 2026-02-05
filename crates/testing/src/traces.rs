@@ -133,14 +133,14 @@ pub async fn run_single<Vm: Pvm>(
             tracing::debug!("spacejam: {:?}", timeslot);
         }
 
-        /* if key == key::STATISTICS && value != result {
+        if key == key::STATISTICS && value != result {
             let polkajam: Statistics = codec::decode(&value)?;
             let statistics: Statistics = codec::decode(&result)?;
             tracing::debug!("polkajam: {:#?}", polkajam.to_json());
             tracing::debug!("spacejam: {:#?}", statistics.to_json());
-        } */
+        }
 
-        /* if key == key::RECENT_BLOCKS && value != result {
+        if key == key::RECENT_BLOCKS && value != result {
             let polkajam: History = codec::decode(&value)?;
             let recent: History = codec::decode(&result)?;
             tracing::debug!("polkajam: {:?}", polkajam.to_json());
@@ -178,7 +178,7 @@ pub async fn run_single<Vm: Pvm>(
                     .map(|v| hex::encode(v.ed25519))
                     .collect::<Vec<_>>()
             );
-        } */
+        }
 
         if key.starts_with(&[255]) && value != result {
             let polkajam: ServiceInfo = codec::decode(&value)?;
