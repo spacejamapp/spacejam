@@ -3,6 +3,9 @@
 use crate::blake2b;
 use std::collections::HashMap;
 
+/// Parallel threshold
+const PARALLEL_THRESHOLD: usize = 64;
+
 // Binary Merkle Tree with 16-bit `ChunkIndex` has depth at most 17.
 // The proof has at most `depth - 1` length.
 const MAX_MERKLE_PROOF_DEPTH: u32 = 16;
@@ -48,21 +51,25 @@ pub fn hroot(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> [u8; 32] {
 
 /// The node function N from graypaper eq. merklenode.
 /// Recursively splits at ceil(len/2) for well-balanced tree structure.
-/// Returns Vec<u8> because it can return either a blob[n] or hash depending on input.
 fn node(v: &[Vec<u8>], hash: fn(&[u8]) -> [u8; 32]) -> Vec<u8> {
     match v.len() {
         0 => vec![0u8; 32],
         1 => v[0].clone(), // Return the blob itself, not hashed
         len => {
-            let mid = (len + 1) / 2; // ceil(len/2)
-            let left = node(&v[..mid], hash);
-            let right = node(&v[mid..], hash);
+            let mid = (len + 1) / 2;
+            let (left, right) = if len >= PARALLEL_THRESHOLD {
+                rayon::join(|| node(&v[..mid], hash), || node(&v[mid..], hash))
+            } else {
+                (node(&v[..mid], hash), node(&v[mid..], hash))
+            };
             hash(&[b"node", &left[..], &right[..]].concat()).to_vec()
         }
     }
 }
 
 /// Compute the Merkle tree.
+///
+/// @deprecated use `node` instead
 pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<Vec<u8>>> {
     if leaves.is_empty() {
         return vec![vec![vec![0u8; 32]]];
@@ -100,6 +107,8 @@ pub fn tree(leaves: Vec<Vec<u8>>, hash: fn(&[u8]) -> [u8; 32]) -> Vec<Vec<Vec<u8
 }
 
 /// Binary Merkle Tree
+///
+/// FIXME: fix this while implementing M2 again.
 pub struct MerkleTree {
     root: [u8; 32],
     proofs: HashMap<Vec<u8>, MerkleProof>,

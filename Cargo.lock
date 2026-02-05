@@ -3392,6 +3392,7 @@ dependencies = [
  "hex",
  "once_cell",
  "rand 0.8.5",
+ "rayon",
  "rcgen",
  "serde",
  "serde_json",
