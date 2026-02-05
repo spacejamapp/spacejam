@@ -37,7 +37,6 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             return Ok(Exit::None as u64);
         }
     };
-    tracing::debug!("fetch: kind={kind}, value=0x{}", hex::encode(&value));
 
     let vlen = value.len() as u64;
     let out = ctx.rget(7);
