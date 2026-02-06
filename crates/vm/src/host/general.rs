@@ -74,13 +74,16 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         preimage
     };
 
-    // write patrial preimage to memory
+    // write partial preimage to memory (per graypaper: l = min(registers_11, len(v) - f))
     let plen = preimage.len() as u64;
-    let (from, len) = (from.min(plen), len.min(plen));
-    ctx.write(
-        target as u32,
-        &preimage[from as usize..(from + len) as usize],
-    )?;
+    let from = from.min(plen);
+    let len = len.min(plen.saturating_sub(from));
+    if len > 0 {
+        ctx.write(
+            target as u32,
+            &preimage[from as usize..(from + len) as usize],
+        )?;
+    }
     Ok(plen)
 }
 
