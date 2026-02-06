@@ -11,6 +11,9 @@ use std::{
     sync::{LazyLock, RwLock},
 };
 
+/// The maximum number of cached programs.
+const MAX_CACHED_PROGRAMS: usize = 20;
+
 /// The cached programs.
 pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, ParsedProgram>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
@@ -19,7 +22,7 @@ pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, ParsedProgram>>
 pub fn set(hash: OpaqueHash, program: ParsedProgram) {
     if let Ok(mut cached_programs) = CACHED_PROGRAMS.try_write() {
         cached_programs.insert(hash, program);
-        if cached_programs.len() > 20 {
+        if cached_programs.len() > MAX_CACHED_PROGRAMS {
             cached_programs.pop_first();
         }
     }
