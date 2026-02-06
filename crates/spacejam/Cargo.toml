@@ -28,6 +28,7 @@ score = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 spacejson = { workspace = true, optional = true }
+sysinfo.workspace = true
 testing.workspace = true
 time = { workspace = true, optional = true, features = ["local-offset"] }
 toml = { workspace = true, optional = true }

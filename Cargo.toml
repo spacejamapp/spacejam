@@ -114,7 +114,7 @@ rustls-webpki = "0.102.8"
 serde = { version = "1.0.219", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.143", default-features = false }
 syn = "2.0.106"
-sysinfo = "0.36.1"
+sysinfo = "0.38.0"
 temp-dir = "0.1.16"
 time = "0.3.43"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
