@@ -189,6 +189,7 @@ impl MemoryLike for Memory {
     }
 
     fn read_into(&self, addr: u32, buf: &mut [u8]) -> Result<()> {
+        pvm::check_range(addr, buf.len() as u32)?;
         let src = self.read_bytes(addr, buf.len() as u32);
         buf.copy_from_slice(src);
         Ok(())

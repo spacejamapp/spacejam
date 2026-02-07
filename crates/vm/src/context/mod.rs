@@ -10,7 +10,7 @@ use score::{
 };
 pub use {
     argument::Argument,
-    memory::MemoryLike,
+    memory::{check_range, MemoryLike},
     state::{Executed, Invoked, State},
 };
 
