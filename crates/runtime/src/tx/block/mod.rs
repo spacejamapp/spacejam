@@ -60,7 +60,7 @@ pub struct TestChain {
     pub data: Arc<MemoryDb>,
 
     /// The forks and their states.
-    pub forks: HashMap<OpaqueHash, HashMap<Vec<u8>, Vec<u8>>>,
+    pub forks: HashMap<OpaqueHash, Arc<MemoryDb>>,
 }
 
 impl TestChain {
@@ -74,44 +74,41 @@ impl TestChain {
         let head = block.header.hash();
         let parent = block.header.parent;
 
-        // Avoid dup() when a fork exists — it would be immediately overwritten by reset()
-        let (guard, pstate) = if let Some(state) = self.forks.get(&parent) {
-            let cloned = state.clone();
-            let guard = Arc::new(MemoryDb::default());
-            guard.reset(cloned.clone());
-            (guard, Some(cloned))
+        // Build the guard from the parent fork or finalized state
+        let finalize_parent = if let Some(fork) = self.forks.get(&parent) {
+            let guard = Arc::new(fork.dup());
+            // process the block
+            self::checked_process::<Vm>(block, guard.clone())?;
+            self.forks.insert(head, guard);
+            true
         } else {
-            (Arc::new(self.data.dup()), None)
+            let guard = Arc::new(self.data.dup());
+            self::checked_process::<Vm>(block, guard.clone())?;
+            self.forks.insert(head, guard);
+            false
         };
 
-        // process the block
-        self::checked_process::<Vm>(block, guard.clone())?;
-        if let Some(pstate) = pstate {
+        if finalize_parent {
+            let parent_db = self.forks.remove(&parent).unwrap();
             self.finalized = parent;
-            self.data.reset(pstate);
-            self.forks.clear();
+            self.data = parent_db;
+            // Remove all forks except the one we just inserted
+            self.forks.retain(|k, _| *k == head);
         }
 
-        // Combine deep_clone + root computation under a single read lock
-        guard.with_data(|data| {
-            self.forks.insert(head, data.clone());
+        self.forks.get(&head).unwrap().with_data(|data| {
             handle_root(head, data)
         })
     }
 
     /// Prepare the chain for the given block.
-    #[allow(clippy::type_complexity)]
-    pub fn prepare(&self, block: &Block) -> (Arc<MemoryDb>, Option<HashMap<Vec<u8>, Vec<u8>>>) {
+    pub fn prepare(&self, block: &Block) -> (Arc<MemoryDb>, bool) {
         let parent = block.header.parent;
 
-        // Avoid dup() when a fork exists — it would be immediately overwritten by reset()
-        if let Some(state) = self.forks.get(&parent) {
-            let cloned = state.clone();
-            let guard = Arc::new(MemoryDb::default());
-            guard.reset(cloned.clone());
-            (guard, Some(cloned))
+        if let Some(fork) = self.forks.get(&parent) {
+            (Arc::new(fork.dup()), true)
         } else {
-            (Arc::new(self.data.dup()), None)
+            (Arc::new(self.data.dup()), false)
         }
     }
 
@@ -120,21 +117,18 @@ impl TestChain {
         &mut self,
         block: &Block,
         guard: Arc<MemoryDb>,
-        pstate: Option<HashMap<Vec<u8>, Vec<u8>>>,
+        has_parent_fork: bool,
     ) {
         let parent = block.header.parent;
-        if let Some(pstate) = pstate {
-            self.finalized = parent;
-            self.data.reset(pstate);
-            self.forks.clear();
-        }
-
         let head = block.header.hash();
-        guard
-            .with_data(|data| {
-                self.forks.insert(head, data.clone());
-            })
-            .ok();
+        self.forks.insert(head, guard);
+
+        if has_parent_fork {
+            let parent_db = self.forks.remove(&parent).unwrap();
+            self.finalized = parent;
+            self.data = parent_db;
+            self.forks.retain(|k, _| *k == head);
+        }
     }
 
     /// Initialize the chain with the given block.

@@ -2,14 +2,11 @@
 
 use crate::traces::{self, TestInput, TestOutput};
 use anyhow::Result;
-use runtime::{
-    storage::{MemoryDb, StateStorage},
-    tx::block::TestChain,
-};
+use runtime::tx::block::TestChain;
 use score::{OpaqueHash, TimeSlot};
 use specjam::Test;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     sync::Arc,
     time::Instant,
 };
@@ -31,7 +28,7 @@ impl Processor {
         }
 
         let block = input.block.clone();
-        let (data, pstate) = self.chain.prepare(&input.block);
+        let (data, has_parent_fork) = self.chain.prepare(&input.block);
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
             traces::run_single::<spacevm::Compiler>(data.clone(), input, output).await?
         } else {
@@ -39,7 +36,7 @@ impl Processor {
         };
 
         if is_ok {
-            self.chain.apply(&block, data, pstate);
+            self.chain.apply(&block, data, has_parent_fork);
         }
         Ok(())
     }
