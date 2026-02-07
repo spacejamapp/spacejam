@@ -62,6 +62,19 @@ impl MemoryDb {
         }
     }
 
+    /// Execute a closure with direct read access to the underlying data,
+    /// holding the read lock for the duration.
+    pub fn with_data<F, R>(&self, f: F) -> Result<R>
+    where
+        F: FnOnce(&HashMap<Vec<u8>, Vec<u8>>) -> R,
+    {
+        let data = self
+            .data
+            .read()
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
+        Ok(f(&data))
+    }
+
     /// Reset the memory database
     pub fn reset(&self, data: HashMap<Vec<u8>, Vec<u8>>) {
         let mut curr = self.data.write().unwrap();

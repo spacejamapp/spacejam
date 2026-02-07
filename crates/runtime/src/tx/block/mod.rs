@@ -6,8 +6,9 @@ use crate::{
     tx,
 };
 use anyhow::Result;
+use crypto::merkle;
 use pvm::Pvm;
-use score::{Block, OpaqueHash};
+use score::{Block, OpaqueHash, state::StateKeyLike};
 use std::{collections::HashMap, sync::Arc};
 
 pub mod header;
@@ -72,14 +73,16 @@ impl TestChain {
     pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<OpaqueHash> {
         let head = block.header.hash();
         let parent = block.header.parent;
-        let guard = Arc::new(self.data.dup());
-        let mut pstate = None;
 
-        // find the parent of the block
-        if let Some(state) = self.forks.get(&parent) {
-            pstate = Some(state.clone());
-            guard.reset(state.clone());
-        }
+        // Avoid dup() when a fork exists — it would be immediately overwritten by reset()
+        let (guard, pstate) = if let Some(state) = self.forks.get(&parent) {
+            let cloned = state.clone();
+            let guard = Arc::new(MemoryDb::default());
+            guard.reset(cloned.clone());
+            (guard, Some(cloned))
+        } else {
+            (Arc::new(self.data.dup()), None)
+        };
 
         // process the block
         self::checked_process::<Vm>(block, guard.clone())?;
@@ -89,25 +92,33 @@ impl TestChain {
             self.forks.clear();
         }
 
-        // update the forks
-        self.forks.insert(head, guard.deep_clone());
-        guard.root()
+        // Combine deep_clone + root computation under a single read lock
+        guard.with_data(|data| {
+            self.forks.insert(head, data.clone());
+
+            let mut kvs: Vec<([u8; 31], &[u8])> = data
+                .iter()
+                .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
+                .collect();
+            kvs.sort_by(|a, b| a.0.cmp(&b.0));
+            merkle::trie31(&kvs)
+        })
     }
 
     /// Prepare the chain for the given block.
     #[allow(clippy::type_complexity)]
     pub fn prepare(&self, block: &Block) -> (Arc<MemoryDb>, Option<HashMap<Vec<u8>, Vec<u8>>>) {
         let parent = block.header.parent;
-        let guard = Arc::new(self.data.dup());
-        let mut pstate = None;
 
-        // find the parent of the block
+        // Avoid dup() when a fork exists — it would be immediately overwritten by reset()
         if let Some(state) = self.forks.get(&parent) {
-            pstate = Some(state.clone());
-            guard.reset(state.clone());
+            let cloned = state.clone();
+            let guard = Arc::new(MemoryDb::default());
+            guard.reset(cloned.clone());
+            (guard, Some(cloned))
+        } else {
+            (Arc::new(self.data.dup()), None)
         }
-
-        (guard, pstate)
     }
 
     /// Apply the block to the chain.
