@@ -2,7 +2,7 @@
 
 use crate::{
     Storage,
-    storage::{Column, MemoryDb, StateStorage},
+    storage::{Column, MemoryDb, StateStorage, root},
     tx,
 };
 use anyhow::Result;
@@ -95,13 +95,7 @@ impl TestChain {
         // Combine deep_clone + root computation under a single read lock
         guard.with_data(|data| {
             self.forks.insert(head, data.clone());
-
-            let mut kvs: Vec<([u8; 31], &[u8])> = data
-                .iter()
-                .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
-                .collect();
-            kvs.sort_by(|a, b| a.0.cmp(&b.0));
-            merkle::trie31(&kvs)
+            handle_root(head, data)
         })
     }
 
@@ -135,7 +129,12 @@ impl TestChain {
             self.forks.clear();
         }
 
-        self.forks.insert(block.header.hash(), guard.deep_clone());
+        let head = block.header.hash();
+        guard
+            .with_data(|data| {
+                self.forks.insert(head, data.clone());
+            })
+            .ok();
     }
 
     /// Initialize the chain with the given block.
@@ -148,7 +147,7 @@ impl TestChain {
             .ok_or(anyhow::anyhow!("no recent blocks"))?
             .header_hash;
         self.finalized = head;
-        self.data.root()
+        self.data.with_data(|data| handle_root(head, data))
     }
 }
 
@@ -160,4 +159,16 @@ impl Default for TestChain {
             forks: HashMap::new(),
         }
     }
+}
+
+/// Compute the state root and cache it for the given header hash.
+fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash {
+    let mut kvs: Vec<([u8; 31], &[u8])> = data
+        .iter()
+        .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
+        .collect();
+    kvs.sort_by(|a, b| a.0.cmp(&b.0));
+    let state_root = merkle::trie31(&kvs);
+    root::set(head, state_root);
+    state_root
 }

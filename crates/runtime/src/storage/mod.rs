@@ -13,6 +13,7 @@ pub use {
 
 mod archive;
 mod branch;
+pub mod root;
 mod commit;
 mod kv;
 mod state;

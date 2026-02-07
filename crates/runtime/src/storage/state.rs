@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{Column, KVStorage};
+use crate::storage::{Column, KVStorage, root};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -104,9 +104,14 @@ pub trait StateStorage: KVStorage {
         state.queue = codec::decode(&data[13]).unwrap_or_default();
         state.history = codec::decode(&data[14]).unwrap_or_default();
 
-        // TODO: we should host this in runtime in production.
+        // Use cached state root if available, otherwise compute it.
         if let Some(last) = state.recent_blocks.history.last_mut() {
-            last.state_root = self.root()?;
+            if let Some(root) = root::get(&last.header_hash) {
+                last.state_root = root;
+            } else {
+                last.state_root = self.root()?;
+                root::set(last.header_hash, last.state_root);
+            }
         }
 
         Ok(state)

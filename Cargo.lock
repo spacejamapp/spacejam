@@ -3550,6 +3550,7 @@ version = "0.0.27"
 dependencies = [
  "anyhow",
  "hex",
+ "lru",
  "once_cell",
  "pvm",
  "rayon",
