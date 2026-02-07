@@ -1,6 +1,7 @@
 //! Jastime - JAM virtual machine
 
 use anyhow::Result;
+use lru::LruCache;
 pub use pvm;
 use pvm::{
     Argument, Invocation, Invoked, State, parser,
@@ -10,13 +11,22 @@ pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeMap,
-    sync::{Arc, LazyLock, RwLock},
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock, Mutex, RwLock},
     thread,
 };
 
-/// Locks for the Jastime compilation
-pub static SPACEVM_MODULES: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<pvmc::Module>>>> =
-    LazyLock::new(|| RwLock::new(BTreeMap::new()));
+/// Maximum number of modules to keep in memory. Evicted modules remain on disk
+/// and can be reloaded when needed.
+const MAX_CACHED_MODULES: usize = 3;
+
+/// Cached modules (LRU). Uses Mutex because LruCache::get requires &mut for LRU tracking.
+pub static SPACEVM_MODULES: LazyLock<Mutex<LruCache<OpaqueHash, Arc<pvmc::Module>>>> =
+    LazyLock::new(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(MAX_CACHED_MODULES).expect("MAX_CACHED_MODULES must be non-zero"),
+        ))
+    });
 
 /// Locks for the Jastime compilation
 pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeMap<OpaqueHash, ()>>> =
@@ -35,7 +45,9 @@ impl Invocation for SpaceVM {
         pc: usize,
     ) -> Invoked<X> {
         if let Ok(None) = SPACEVM_LOCKS.read().map(|lock| lock.get(&hash).cloned())
-            && let Ok(Some(module)) = SPACEVM_MODULES.read().map(|lock| lock.get(&hash).cloned())
+            && let Ok(Some(module)) = SPACEVM_MODULES
+                .lock()
+                .map(|mut cache| cache.get(&hash).cloned())
         {
             let program = parser::program::preimage(code, &args).expect("failed to preimage");
             let mut context = pvm::Context {
@@ -100,10 +112,10 @@ pub fn compile<X: Argument>(
         .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {
-            if let Ok(mut locks) = SPACEVM_MODULES.write()
-                && memcache
-            {
-                locks.insert(hash, Arc::new(module));
+            if memcache {
+                if let Ok(mut cache) = SPACEVM_MODULES.lock() {
+                    cache.put(hash, Arc::new(module));
+                }
             }
         }
         Err(err) => {
