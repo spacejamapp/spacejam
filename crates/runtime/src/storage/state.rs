@@ -126,11 +126,6 @@ pub trait StateStorage: KVStorage {
 
         // Sort keys to ensure deterministic trie root calculation
         kvs.sort_by(|a, b| a.0.cmp(&b.0));
-        tracing::debug!(
-            target = "mdbg",
-            "merkle kvs size: {} MB",
-            std::mem::size_of_val(&kvs) / 1024 / 1024
-        );
         Ok(merkle::trie31(&kvs))
     }
 

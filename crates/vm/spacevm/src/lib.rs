@@ -18,7 +18,7 @@ use std::{
 
 /// Maximum number of modules to keep in memory. Evicted modules remain on disk
 /// and can be reloaded when needed.
-const MAX_CACHED_MODULES: usize = 3;
+const MAX_CACHED_MODULES: usize = 8;
 
 /// Cached modules (LRU). Uses Mutex because LruCache::get requires &mut for LRU tracking.
 pub static SPACEVM_MODULES: LazyLock<Mutex<LruCache<OpaqueHash, Arc<pvmc::Module>>>> =

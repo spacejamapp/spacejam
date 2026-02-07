@@ -13,7 +13,7 @@ use std::{
 };
 
 /// The maximum number of cached parsed programs.
-const MAX_CACHED_PROGRAMS: usize = 3;
+const MAX_CACHED_PROGRAMS: usize = 16;
 
 /// Cached parsed programs (LRU).
 pub static CACHED_PROGRAMS: LazyLock<Mutex<LruCache<OpaqueHash, Arc<ParsedProgram>>>> =

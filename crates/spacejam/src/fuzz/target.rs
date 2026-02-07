@@ -69,7 +69,7 @@ impl Target {
             let _ = sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
             if let Some(process) = sys.process(pid) {
                 tracing::debug!(
-                    target = "mdbg",
+                    target: "mdbg",
                     "Memory usage: {} MB",
                     process.memory() / 1024 / 1024
                 );
