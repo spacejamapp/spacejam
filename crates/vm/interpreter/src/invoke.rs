@@ -33,12 +33,12 @@ impl Interpreter {
         };
 
         pvmi::set(hash, parsed.clone());
-        Self::invoke_parsed(parsed, program, ctx, gas, pc)
+        Self::invoke_parsed(&parsed, program, ctx, gas, pc)
     }
 
     /// Invoke a program with the given context
     pub fn invoke_parsed<X: Argument>(
-        program: ParsedProgram,
+        program: &ParsedProgram,
         cprog: Program,
         mut ctx: X,
         gas: Gas,
@@ -52,12 +52,12 @@ impl Interpreter {
                 memory: cprog.memory,
             },
             pc,
-            table: program.table,
+            table: program.table.clone(),
             ..Default::default()
         };
 
         // interpret the program
-        let program = program.program;
+        let program = &program.program;
         loop {
             let Some(Some(instr)) = program.get(interp.pc) else {
                 break;

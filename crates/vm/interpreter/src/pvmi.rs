@@ -8,20 +8,20 @@ use pvm::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{LazyLock, RwLock},
+    sync::{Arc, LazyLock, RwLock},
 };
 
 /// The maximum number of cached programs.
-const MAX_CACHED_PROGRAMS: usize = 20;
+const MAX_CACHED_PROGRAMS: usize = 5;
 
 /// The cached programs.
-pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, ParsedProgram>>> =
+pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<ParsedProgram>>>> =
     LazyLock::new(|| RwLock::new(BTreeMap::new()));
 
 /// Set the parsed program.
 pub fn set(hash: OpaqueHash, program: ParsedProgram) {
     if let Ok(mut cached_programs) = CACHED_PROGRAMS.try_write() {
-        cached_programs.insert(hash, program);
+        cached_programs.insert(hash, Arc::new(program));
         if cached_programs.len() > MAX_CACHED_PROGRAMS {
             cached_programs.pop_first();
         }
@@ -29,7 +29,7 @@ pub fn set(hash: OpaqueHash, program: ParsedProgram) {
 }
 
 /// Get the parsed program.
-pub fn get(hash: OpaqueHash) -> Option<ParsedProgram> {
+pub fn get(hash: OpaqueHash) -> Option<Arc<ParsedProgram>> {
     if let Ok(cached_programs) = CACHED_PROGRAMS.try_read() {
         return cached_programs.get(&hash).cloned();
     }
@@ -56,7 +56,7 @@ impl Invocation for Interpreter {
     ) -> Invoked<X> {
         let program = program::preimage(code, &args).expect("failed to preimage");
         if let Some(parsed) = self::get(hash) {
-            return Self::invoke_parsed(parsed, program, ctx, gas, pc).expect("fix me later");
+            return Self::invoke_parsed(&parsed, program, ctx, gas, pc).expect("fix me later");
         }
 
         Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")
