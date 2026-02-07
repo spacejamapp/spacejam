@@ -117,15 +117,17 @@ pub trait StateStorage: KVStorage {
     /// FIXME: it is not ideal to store all data in memory
     /// for calculating the root.
     fn root(&self) -> Result<OpaqueHash> {
-        let mut kvs = Vec::new();
+        let mut owned: Vec<([u8; 31], Vec<u8>)> = Vec::new();
         for pair in self.state_iter()? {
             let (k, v) = pair?;
-            let key = k.as_state_key();
-            kvs.push((key, v));
+            owned.push((k.as_state_key(), v));
         }
 
         // Sort keys to ensure deterministic trie root calculation
-        kvs.sort_by(|a, b| a.0.cmp(&b.0));
+        owned.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let kvs: Vec<([u8; 31], &[u8])> =
+            owned.iter().map(|(k, v)| (*k, v.as_slice())).collect();
         Ok(merkle::trie31(&kvs))
     }
 
