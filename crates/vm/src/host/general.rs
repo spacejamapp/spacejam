@@ -89,6 +89,10 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
 /// (ΩR) storage lookup
 pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [acc, ko, kz, o] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    if kz > u32::MAX as u64 {
+        crate::bail!("read: key size exceeds PVM address space");
+    }
+    crate::check_range(ko as u32, kz as u32)?;
     let mut key = vec![0u8; kz as usize];
     ctx.read_into(ko as u32, &mut key)?;
 
@@ -114,6 +118,11 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩW) storage write
 pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
+    if vz > u32::MAX as u64 || kz > u32::MAX as u64 {
+        crate::bail!("write: size exceeds PVM address space");
+    }
+    crate::check_range(vo as u32, vz as u32)?;
+    crate::check_range(ko as u32, kz as u32)?;
     let mut value = vec![0u8; vz as usize];
     ctx.read_into(vo as u32, &mut value)?;
     let mut key = vec![0u8; kz as usize];

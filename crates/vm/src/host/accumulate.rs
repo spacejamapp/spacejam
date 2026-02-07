@@ -40,7 +40,12 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     // (z) Read always accumulate map from memory
     let mut always_acc = BTreeMap::new();
     if entries > 0 {
-        let mut source = vec![0u8; (12 * entries) as usize];
+        let alloc_size = 12u64.saturating_mul(entries);
+        if alloc_size > u32::MAX as u64 {
+            crate::bail!("bless: entries size exceeds PVM address space");
+        }
+        crate::check_range(acc as u32, alloc_size as u32)?;
+        let mut source = vec![0u8; alloc_size as usize];
         ctx.read_into(acc as u32, &mut source)?;
         for chunk in source.chunks(12) {
             let service_id = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
@@ -415,6 +420,10 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
         service = ctx.service() as u64;
     }
 
+    if size > u32::MAX as u64 {
+        crate::bail!("provide: size exceeds PVM address space");
+    }
+    crate::check_range(from as u32, size as u32)?;
     let mut preimage = vec![0u8; size as usize];
     ctx.read_into(from as u32, &mut preimage)?;
     let Ok(account) = ctx.account(service) else {

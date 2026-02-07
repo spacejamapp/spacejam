@@ -21,6 +21,10 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     let target_len = ctx.rget(9) as u32;
     let msg_addr = ctx.rget(10) as u32;
     let msg_len = ctx.rget(11) as u32;
+    crate::check_range(msg_addr, msg_len)?;
+    if target_len > 0 {
+        crate::check_range(target_addr, target_len)?;
+    }
     let message = {
         let mut buf = vec![0u8; msg_len as usize];
         match ctx.read_into(msg_addr, &mut buf) {
