@@ -25,8 +25,8 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // (a) Read assign array from memory
     let assign = {
-        let size = 4 * score::CORES_COUNT as u32;
-        let data = ctx.read(assign as u32, size)?;
+        let mut data = vec![0u8; 4 * score::CORES_COUNT];
+        ctx.read_into(assign as u32, &mut data)?;
         let mut assign = [0u32; score::CORES_COUNT];
         for (i, chunk) in data.chunks(4).enumerate() {
             if i < score::CORES_COUNT {
@@ -40,7 +40,8 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     // (z) Read always accumulate map from memory
     let mut always_acc = BTreeMap::new();
     if entries > 0 {
-        let source = ctx.read(acc as u32, (12 * entries) as u32)?;
+        let mut source = vec![0u8; (12 * entries) as usize];
+        ctx.read_into(acc as u32, &mut source)?;
         for chunk in source.chunks(12) {
             let service_id = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
             let gas_allowance = u64::from_le_bytes([
@@ -73,7 +74,8 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩA) assign authorization queue
 pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [core, o, assign] = [ctx.rget(7), ctx.rget(8), ctx.rget(9)];
-    let source = ctx.read(o as u32, (32 * score::QUEUE_ITEMS) as u32)?;
+    let mut source = vec![0u8; 32 * score::QUEUE_ITEMS as usize];
+    ctx.read_into(o as u32, &mut source)?;
 
     // Check core index first (before reading memory)
     if core >= score::CORES_COUNT as u64 {
@@ -111,7 +113,8 @@ pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
 pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
     // get the data source
     let o = ctx.rget(7);
-    let source = ctx.read(o as u32, 336 * score::VALIDATORS_COUNT as u32)?;
+    let mut source = vec![0u8; 336 * score::VALIDATORS_COUNT as usize];
+    ctx.read_into(o as u32, &mut source)?;
 
     let privileges = ctx.privileges();
     if ctx.service() != privileges.designate {
@@ -225,10 +228,9 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the defer transfer is valid
     let memo = {
-        let bytes = ctx.read(memo as u32, score::TRANSFER_MEMO_SIZE)?;
-        let mut memo = [0u8; score::TRANSFER_MEMO_SIZE as usize];
-        memo[..bytes.len()].copy_from_slice(&bytes);
-        memo
+        let mut buf = [0u8; score::TRANSFER_MEMO_SIZE as usize];
+        ctx.read_into(memo as u32, &mut buf)?;
+        buf
     };
     let service = ctx.service();
 
@@ -413,7 +415,8 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
         service = ctx.service() as u64;
     }
 
-    let preimage = ctx.read(from as u32, size as u32)?;
+    let mut preimage = vec![0u8; size as usize];
+    ctx.read_into(from as u32, &mut preimage)?;
     let Ok(account) = ctx.account(service) else {
         return Ok(Exit::Who as u64);
     };

@@ -1,6 +1,6 @@
 //! ABI for host functions
 
-use pvm::{Argument, MemoryLike};
+use pvm::Argument;
 
 /// Host function trampoline
 ///
@@ -34,10 +34,7 @@ pub extern "C" fn sbrk<X: Argument>(ctx: *mut u8, target: u8, increment: u8) {
 /// Memory get function trampoline
 pub extern "C" fn mget<X: Argument>(ctx: *mut u8, address: u32, len: u8) -> u64 {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
-    let bytes = context
-        .memory
-        .read(address, len as u32)
-        .expect("invalid memory access");
+    let bytes = context.memory.read_bytes(address, len as u32);
 
     match len {
         1 => u8::from_le_bytes([bytes[0]]) as u64,
@@ -54,23 +51,5 @@ pub extern "C" fn mget<X: Argument>(ctx: *mut u8, address: u32, len: u8) -> u64 
 pub extern "C" fn mset<X: Argument>(ctx: *mut u8, address: u32, value: i64, len: u8) {
     let context = unsafe { &mut *(ctx as *mut pvm::Context<X, crate::Memory>) };
     let bytes = value.to_le_bytes();
-    match len {
-        1 => context
-            .memory
-            .write(address, &bytes[..1])
-            .expect("invalid memory access"),
-        2 => context
-            .memory
-            .write(address, &bytes[..2])
-            .expect("invalid memory access"),
-        4 => context
-            .memory
-            .write(address, &bytes[..4])
-            .expect("invalid memory access"),
-        8 => context
-            .memory
-            .write(address, &bytes)
-            .expect("invalid memory access"),
-        _ => panic!("invalid value length"),
-    }
+    context.memory.write_bytes(address, &bytes[..len as usize]);
 }

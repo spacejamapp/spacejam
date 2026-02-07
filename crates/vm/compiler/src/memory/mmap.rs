@@ -188,6 +188,12 @@ impl MemoryLike for Memory {
         Ok(self.read_bytes(addr, len).to_vec())
     }
 
+    fn read_into(&self, addr: u32, buf: &mut [u8]) -> Result<()> {
+        let src = self.read_bytes(addr, buf.len() as u32);
+        buf.copy_from_slice(src);
+        Ok(())
+    }
+
     fn write(&mut self, addr: u32, data: &[u8]) -> Result<()> {
         self.write_bytes(addr, data);
         Ok(())

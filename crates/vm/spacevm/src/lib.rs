@@ -61,8 +61,17 @@ impl Invocation for SpaceVM {
                 .execute(&mut context, pc as u64)
                 .expect("fix me later");
 
-            // TODO: find a solution to do this without the trap handler
-            let output = pvmc::trap::with(|| context.acc_output()).unwrap_or_default();
+            let output = {
+                let ptr = context.registers[7] as u32;
+                let len = context.registers[8] as u32;
+                let mut buf = vec![0u8; len as usize];
+                match pvmc::trap::with(|| {
+                    buf.copy_from_slice(context.memory.read_bytes(ptr, len));
+                }) {
+                    Ok(()) => buf,
+                    Err(_) => Vec::new(),
+                }
+            };
             return Invoked {
                 gas: gas - (context.gas.max(0) as u64),
                 output,
