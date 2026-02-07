@@ -10,7 +10,7 @@ use pvm::{
 pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
-    collections::BTreeMap,
+    collections::BTreeSet,
     num::NonZeroUsize,
     sync::{Arc, LazyLock, Mutex, RwLock},
     thread,
@@ -29,8 +29,8 @@ pub static SPACEVM_MODULES: LazyLock<Mutex<LruCache<OpaqueHash, Arc<pvmc::Module
     });
 
 /// Locks for the Jastime compilation
-pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeMap<OpaqueHash, ()>>> =
-    LazyLock::new(|| RwLock::new(BTreeMap::new()));
+pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeSet<OpaqueHash>>> =
+    LazyLock::new(|| RwLock::new(BTreeSet::new()));
 
 /// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
@@ -44,7 +44,7 @@ impl Invocation for SpaceVM {
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
-        if let Ok(None) = SPACEVM_LOCKS.read().map(|lock| lock.get(&hash).cloned())
+        if let Ok(true) = SPACEVM_LOCKS.read().map(|lock| !lock.contains(&hash))
             && let Ok(Some(module)) = SPACEVM_MODULES
                 .lock()
                 .map(|mut cache| cache.get(&hash).cloned())
@@ -80,7 +80,7 @@ impl Invocation for SpaceVM {
         // lock the compilation
         {
             if let Ok(locks) = SPACEVM_LOCKS.read()
-                && !locks.contains_key(&hash)
+                && !locks.contains(&hash)
             {
                 let code = code.clone();
                 let args = args.clone();
@@ -105,7 +105,7 @@ pub fn compile<X: Argument>(
     memcache: bool,
 ) -> Result<()> {
     if let Ok(mut locks) = SPACEVM_LOCKS.write() {
-        locks.insert(hash, ());
+        locks.insert(hash);
     }
 
     match <pvmc::Module as ModuleLike>::new::<X>()?
