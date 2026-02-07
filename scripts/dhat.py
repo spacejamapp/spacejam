@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import json
+from pathlib import Path
 
-with open('dhat-heap.json') as f:
+# dhat-heap.json is in project root, script may be run from root or scripts/
+heap_path = Path(__file__).resolve().parent.parent / 'dhat-heap.json'
+with open(heap_path) as f:
     data = json.load(f)
 
 ftbl = data['ftbl']
@@ -31,19 +34,22 @@ for p in pps:
 
 print('=== TOP 15 call paths by TOTAL BYTES ===')
 for key, d in sorted(tb_by_func.items(), key=lambda x: x[1]['tb'], reverse=True)[:15]:
-    print(f'  tb={d[\"tb\"]/1e6:>10.1f}MB  eb={d[\"eb\"]/1e6:>8.1f}MB  gb={d[\"gb\"]/1e6:>8.1f}MB  | {key}')
+    tb, eb, gb = d['tb'], d['eb'], d['gb']
+    print(f'  tb={tb/1e6:>10.1f}MB  eb={eb/1e6:>8.1f}MB  gb={gb/1e6:>8.1f}MB  | {key}')
 
 print()
 print('=== TOP 15 call paths by BYTES AT END (leaks) ===')
 for key, d in sorted(tb_by_func.items(), key=lambda x: x[1]['eb'], reverse=True)[:15]:
     if d['eb'] == 0: break
-    print(f'  eb={d[\"eb\"]/1e6:>8.1f}MB  tb={d[\"tb\"]/1e6:>10.1f}MB  ebk={d[\"ebk\"]:>6}  | {key}')
+    eb, tb, ebk = d['eb'], d['tb'], d['ebk']
+    print(f'  eb={eb/1e6:>8.1f}MB  tb={tb/1e6:>10.1f}MB  ebk={ebk:>6}  | {key}')
 
 print()
 print('=== TOP 15 call paths by BYTES AT GLOBAL MAX (peak) ===')
 for key, d in sorted(tb_by_func.items(), key=lambda x: x[1]['gb'], reverse=True)[:15]:
     if d['gb'] == 0: break
-    print(f'  gb={d[\"gb\"]/1e6:>8.1f}MB  tb={d[\"tb\"]/1e6:>10.1f}MB  | {key}')
+    gb, tb = d['gb'], d['tb']
+    print(f'  gb={gb/1e6:>8.1f}MB  tb={tb/1e6:>10.1f}MB  | {key}')
 
 # Now show specifically pvmi breakdown
 print()
@@ -57,4 +63,5 @@ for p in pps:
 pvmi_points.sort(key=lambda x: x[0].get('tb', 0), reverse=True)
 for p, frames in pvmi_points[:10]:
     clean = [f.split(': ', 1)[-1].split(' (')[0] if ': ' in f else f for f in frames if 'alloc::' not in f and 'dhat::' not in f]
-    print(f'  tb={p[\"tb\"]/1e6:>10.1f}MB  mb={p[\"mb\"]/1e6:>6.1f}MB  gb={p[\"gb\"]/1e6:>6.1f}MB  | {\" -> \".join(clean[:5])}')
+    tb, mb, gb = p['tb'], p['mb'], p['gb']
+    print(f'  tb={tb/1e6:>10.1f}MB  mb={mb/1e6:>6.1f}MB  gb={gb/1e6:>6.1f}MB  | {" -> ".join(clean[:5])}')

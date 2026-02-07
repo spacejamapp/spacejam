@@ -112,10 +112,8 @@ pub fn compile<X: Argument>(
         .compile(&parser::program::preimage(code, &args).expect("failed to preimage"))
     {
         Ok(module) => {
-            if memcache {
-                if let Ok(mut cache) = SPACEVM_MODULES.lock() {
-                    cache.put(hash, Arc::new(module));
-                }
+            if memcache && let Ok(mut cache) = SPACEVM_MODULES.lock() {
+                cache.put(hash, Arc::new(module));
             }
         }
         Err(err) => {
