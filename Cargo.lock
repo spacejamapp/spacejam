@@ -2693,6 +2693,7 @@ name = "pvmi"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "lru",
  "pvm",
  "pvm-parser",
  "tracing",

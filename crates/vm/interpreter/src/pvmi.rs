@@ -1,37 +1,39 @@
 //! PVM interface implementation
 
 use crate::Interpreter;
+use lru::LruCache;
 use parser::{program, reader::Offset, Instruction};
 use pvm::{
     score::{Gas, OpaqueHash},
     Argument, Invocation, Invoked,
 };
 use std::{
-    collections::BTreeMap,
-    sync::{Arc, LazyLock, RwLock},
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock, Mutex},
 };
 
-/// The maximum number of cached programs.
-const MAX_CACHED_PROGRAMS: usize = 5;
+/// The maximum number of cached parsed programs.
+const MAX_CACHED_PROGRAMS: usize = 3;
 
-/// The cached programs.
-pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, Arc<ParsedProgram>>>> =
-    LazyLock::new(|| RwLock::new(BTreeMap::new()));
+/// Cached parsed programs (LRU).
+pub static CACHED_PROGRAMS: LazyLock<Mutex<LruCache<OpaqueHash, Arc<ParsedProgram>>>> =
+    LazyLock::new(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(MAX_CACHED_PROGRAMS).expect("MAX_CACHED_PROGRAMS must be non-zero"),
+        ))
+    });
 
 /// Set the parsed program.
 pub fn set(hash: OpaqueHash, program: ParsedProgram) {
-    if let Ok(mut cached_programs) = CACHED_PROGRAMS.try_write() {
-        cached_programs.insert(hash, Arc::new(program));
-        if cached_programs.len() > MAX_CACHED_PROGRAMS {
-            cached_programs.pop_first();
-        }
+    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
+        cache.put(hash, Arc::new(program));
     }
 }
 
 /// Get the parsed program.
 pub fn get(hash: OpaqueHash) -> Option<Arc<ParsedProgram>> {
-    if let Ok(cached_programs) = CACHED_PROGRAMS.try_read() {
-        return cached_programs.get(&hash).cloned();
+    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
+        return cache.get(&hash).cloned();
     }
     None
 }
