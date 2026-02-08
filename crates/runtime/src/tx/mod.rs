@@ -201,12 +201,7 @@ pub fn simulate_with_state<Vm: Pvm>(
 
         // lazy load vrf rings
         if state.validators.drawn != accumulation.validators {
-            thread::spawn(move || {
-                ticket::lazy::drawn(
-                    if new_epoch { epoch + 1 } else { epoch + 2 },
-                    &accumulation.validators,
-                )
-            });
+            thread::spawn(move || ticket::lazy::drawn(&accumulation.validators));
         }
 
         // update state fields

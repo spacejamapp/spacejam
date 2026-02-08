@@ -3551,7 +3551,6 @@ dependencies = [
  "anyhow",
  "hex",
  "lru",
- "once_cell",
  "pvm",
  "rayon",
  "serde",

@@ -10,12 +10,11 @@ use std::{collections::BTreeMap, sync::Arc};
 
 /// Verify tickets
 pub fn tickets(
-    epoch: u32,
     entropy: [OpaqueHash; 4],
     next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator, Error> {
-    let verifier = lazy::verifier(epoch, next);
+    let verifier = lazy::verifier(next);
     let verified = tickets
         .par_iter()
         .enumerate()

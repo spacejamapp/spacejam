@@ -16,7 +16,6 @@ crypto = { workspace = true, features = ["vrf", "merkle"] }
 erasure.workspace = true
 hex.workspace = true
 lru.workspace = true
-once_cell.workspace = true
 pvm.workspace = true
 rayon.workspace = true
 score.workspace = true
