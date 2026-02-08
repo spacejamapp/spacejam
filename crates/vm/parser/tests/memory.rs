@@ -124,13 +124,16 @@ fn allocate_pages() {
     assert!(memory.memory.contains_key(&6));
     assert!(memory.memory.contains_key(&7));
 
-    // Verify they are mutable and zero-filled
+    // Verify they are writable and read as zero-filled
     for page_num in 5..8 {
-        let (page_data, writable) = &memory.memory[&page_num];
+        let (_, writable) = &memory.memory[&page_num];
         assert!(*writable, "Page {} should be writable", page_num);
-        assert_eq!(page_data.len(), PAGE_SIZE as usize);
+        let data = memory
+            .read_bytes(page_num * PAGE_SIZE as u32, PAGE_SIZE as u32)
+            .unwrap();
+        assert_eq!(data.len(), PAGE_SIZE as usize);
         assert!(
-            page_data.iter().all(|&b| b == 0),
+            data.iter().all(|&b| b == 0),
             "Page {} should be zero-filled",
             page_num
         );
