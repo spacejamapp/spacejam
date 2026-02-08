@@ -81,8 +81,16 @@ impl TestChain {
         // Process on a Branch overlay
         let guard = Arc::new(Branch::checkout(self.data.clone()));
         self::process::<Vm>(block, guard.clone())?;
-        let state_root = guard.root()?;
-        root::set(head, state_root);
+
+        // Compute root from base HashMap + overlay diff (no clone of base)
+        let state_root = {
+            let commit = guard
+                .commit
+                .read()
+                .map_err(|_| anyhow::anyhow!("lock poisoned"))?;
+            self.data
+                .with_data(|data| handle_root_with_diff(head, data, &commit))?
+        };
 
         // Store Branch (diff only) in forks
         self.forks.insert(
@@ -135,11 +143,52 @@ impl Default for TestChain {
 }
 
 /// Compute the state root and cache it for the given header hash.
+///
+/// NOTE: this method overrides the StateStorage::root for zero-copy.
 fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash {
     let mut kvs: Vec<([u8; 31], &[u8])> = data
         .iter()
         .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
         .collect();
+    kvs.sort_by(|a, b| a.0.cmp(&b.0));
+    let state_root = merkle::trie31(&kvs);
+    root::set(head, state_root);
+    state_root
+}
+
+/// Compute the state root from base data + overlay diff (no base clone).
+///
+/// NOTE: this method overrides the StateStorage::root for zero-copy.
+fn handle_root_with_diff(
+    head: OpaqueHash,
+    base: &HashMap<Vec<u8>, Vec<u8>>,
+    diff: &crate::storage::Commit<score::TrieKey, Vec<u8>>,
+) -> OpaqueHash {
+    let mut kvs: Vec<([u8; 31], &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
+
+    // Add base entries, applying overlay
+    for (k, v) in base.iter() {
+        let trie_key = k.as_slice().as_state_key();
+        if diff.removal.contains(&trie_key) {
+            continue;
+        }
+        if let Some(updated) = diff.update.get(&trie_key) {
+            kvs.push((trie_key, updated.as_slice()));
+        } else {
+            kvs.push((trie_key, v.as_slice()));
+        }
+    }
+
+    // Add new keys from overlay (not in base)
+    for (trie_key, v) in diff.update.iter() {
+        if diff.removal.contains(trie_key) {
+            continue;
+        }
+        if !base.contains_key(trie_key.as_ref()) {
+            kvs.push((*trie_key, v.as_slice()));
+        }
+    }
+
     kvs.sort_by(|a, b| a.0.cmp(&b.0));
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
