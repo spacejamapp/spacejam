@@ -5,11 +5,7 @@ use anyhow::Result;
 use runtime::tx::block::TestChain;
 use score::{OpaqueHash, TimeSlot};
 use specjam::Test;
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-    time::Instant,
-};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
 

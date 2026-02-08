@@ -13,9 +13,9 @@ pub use {
 
 mod archive;
 mod branch;
-pub mod root;
 mod commit;
 mod kv;
+pub mod root;
 mod state;
 pub mod sync;
 
