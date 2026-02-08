@@ -66,7 +66,7 @@ impl Invocation for SpaceVM {
                 let len = context.registers[8] as u32;
                 let mut buf = vec![0u8; len as usize];
                 match pvmc::trap::with(|| {
-                    buf.copy_from_slice(context.memory.read_bytes(ptr, len));
+                    buf.copy_from_slice(context.memory.read_bytes(ptr, len).as_ref());
                 }) {
                     Ok(()) => buf,
                     Err(_) => Vec::new(),
