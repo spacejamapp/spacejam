@@ -50,18 +50,6 @@ pub struct MemoryDb {
 }
 
 impl MemoryDb {
-    /// Deep clone the memory database
-    pub fn deep_clone(&self) -> HashMap<Vec<u8>, Vec<u8>> {
-        self.data.read().unwrap().clone()
-    }
-
-    /// Duplicate the memory database
-    pub fn dup(&self) -> Self {
-        Self {
-            data: Arc::new(RwLock::new(self.data.read().unwrap().clone())),
-        }
-    }
-
     /// Execute a closure with direct read access to the underlying data,
     /// holding the read lock for the duration.
     pub fn with_data<F, R>(&self, f: F) -> Result<R>

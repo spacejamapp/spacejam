@@ -28,15 +28,15 @@ impl Processor {
         }
 
         let block = input.block.clone();
-        let (data, has_parent_fork) = self.chain.prepare(&input.block);
+        let data = self.chain.prepare(&input.block);
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
-            traces::run_single::<spacevm::Compiler>(data.clone(), input, output).await?
+            traces::run_single::<spacevm::Compiler, _>(data.clone(), input, output).await?
         } else {
-            traces::run_single::<spacevm::Interpreter>(data.clone(), input, output).await?
+            traces::run_single::<spacevm::Interpreter, _>(data.clone(), input, output).await?
         };
 
         if is_ok {
-            self.chain.apply(&block, data, has_parent_fork);
+            self.chain.apply(&block, data);
         }
         Ok(())
     }

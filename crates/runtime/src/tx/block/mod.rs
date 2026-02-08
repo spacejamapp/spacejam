@@ -2,7 +2,7 @@
 
 use crate::{
     Storage,
-    storage::{Column, MemoryDb, StateStorage, root},
+    storage::{Branch, Column, KVStorage, MemoryDb, StateStorage, root},
     tx,
 };
 use anyhow::Result;
@@ -34,22 +34,7 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     }
 }
 
-/// Process the block with panic catching.
-///
-/// Wraps `process` to catch any panics and convert them to `anyhow::Result`.
-pub fn checked_process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        process::<Vm>(block, storage)
-    }))
-    .unwrap_or_else(|panic| {
-        let msg = panic
-            .downcast_ref::<&str>()
-            .map(|s| s.to_string())
-            .or_else(|| panic.downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "unknown panic".into());
-        Err(anyhow::anyhow!("panic during block processing: {msg}"))
-    })
-}
+type Fork = Branch<MemoryDb>;
 
 /// DEVELOPMENT: A test chain for processing fuzz blocks.
 pub struct TestChain {
@@ -59,8 +44,8 @@ pub struct TestChain {
     /// The data of the chain.
     pub data: Arc<MemoryDb>,
 
-    /// The forks and their states.
-    pub forks: HashMap<OpaqueHash, Arc<MemoryDb>>,
+    /// The forks and their states (diff only).
+    pub forks: HashMap<OpaqueHash, Fork>,
 }
 
 impl TestChain {
@@ -69,66 +54,60 @@ impl TestChain {
         self.finalized != [0; 32]
     }
 
+    /// Finalize a parent fork by committing its diff into self.data.
+    fn finalize_fork(&mut self, parent: OpaqueHash) -> anyhow::Result<()> {
+        if let Some(fork) = self.forks.remove(&parent) {
+            let commit = fork
+                .commit
+                .read()
+                .map_err(|_| anyhow::anyhow!("lock poisoned"))?
+                .clone();
+            self.data.commit(Column::State, commit)?;
+            self.finalized = parent;
+            self.forks.clear();
+        }
+        Ok(())
+    }
+
     /// Import a new block to the chain.
     pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<OpaqueHash> {
         let head = block.header.hash();
         let parent = block.header.parent;
 
-        // Build the guard from the parent fork or finalized state
-        let finalize_parent = if let Some(fork) = self.forks.get(&parent) {
-            let guard = Arc::new(fork.dup());
-            // process the block
-            self::checked_process::<Vm>(block, guard.clone())?;
-            self.forks.insert(head, guard);
-            true
-        } else {
-            let guard = Arc::new(self.data.dup());
-            self::checked_process::<Vm>(block, guard.clone())?;
-            self.forks.insert(head, guard);
-            false
-        };
-
-        if finalize_parent {
-            let parent_db = self.forks.remove(&parent).unwrap();
-            self.finalized = parent;
-            self.data = parent_db;
-            // Remove all forks except the one we just inserted
-            self.forks.retain(|k, _| *k == head);
+        if self.forks.contains_key(&parent) {
+            self.finalize_fork(parent)?;
         }
 
-        self.forks.get(&head).unwrap().with_data(|data| {
-            handle_root(head, data)
-        })
+        // Process on a Branch overlay
+        let guard = Arc::new(Branch::checkout(self.data.clone()));
+        self::process::<Vm>(block, guard.clone())?;
+        let state_root = guard.root()?;
+        root::set(head, state_root);
+
+        // Store Branch (diff only) in forks
+        self.forks.insert(
+            head,
+            Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone()),
+        );
+        Ok(state_root)
     }
 
     /// Prepare the chain for the given block.
-    pub fn prepare(&self, block: &Block) -> (Arc<MemoryDb>, bool) {
+    pub fn prepare(&mut self, block: &Block) -> Arc<Fork> {
         let parent = block.header.parent;
-
-        if let Some(fork) = self.forks.get(&parent) {
-            (Arc::new(fork.dup()), true)
-        } else {
-            (Arc::new(self.data.dup()), false)
+        if self.forks.contains_key(&parent) {
+            let _ = self.finalize_fork(parent);
         }
+        Arc::new(Branch::checkout(self.data.clone()))
     }
 
     /// Apply the block to the chain.
-    pub fn apply(
-        &mut self,
-        block: &Block,
-        guard: Arc<MemoryDb>,
-        has_parent_fork: bool,
-    ) {
-        let parent = block.header.parent;
+    pub fn apply(&mut self, block: &Block, guard: Arc<Fork>) {
         let head = block.header.hash();
-        self.forks.insert(head, guard);
-
-        if has_parent_fork {
-            let parent_db = self.forks.remove(&parent).unwrap();
-            self.finalized = parent;
-            self.data = parent_db;
-            self.forks.retain(|k, _| *k == head);
-        }
+        self.forks.insert(
+            head,
+            Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone()),
+        );
     }
 
     /// Initialize the chain with the given block.
