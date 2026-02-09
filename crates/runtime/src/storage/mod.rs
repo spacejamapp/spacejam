@@ -15,6 +15,7 @@ mod archive;
 mod branch;
 mod commit;
 mod kv;
+pub mod root;
 mod state;
 pub mod sync;
 

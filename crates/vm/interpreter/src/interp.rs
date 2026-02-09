@@ -69,7 +69,7 @@ impl Interpreter {
     }
 
     /// Get the result of the interpreter
-    pub fn result<X: Argument>(&self, data: X, gas: u64, reason: Reason) -> Invoked<X> {
+    pub fn result<X: Argument>(self, data: X, gas: u64, reason: Reason) -> Invoked<X> {
         Invoked {
             gas: gas - self.context.gas.max(0) as u64,
             output: if matches!(reason, Reason::Panic(_)) {

@@ -107,7 +107,7 @@ impl Version {
     pub const SPACEJAM: Version = Version {
         major: 0,
         minor: 0,
-        patch: 26,
+        patch: 27,
     };
 
     /// The protocol version of spacejam

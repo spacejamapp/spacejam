@@ -215,10 +215,20 @@ pub trait Argument: Send + Sync {
         unimplemented!("make sure you are accessing a VM context: address={address} len={len}")
     }
 
+    /// Read from memory into a caller-provided buffer.
+    ///
+    /// Avoids heap allocation during the read, which prevents memory
+    /// leaks inside longjmp-protected regions.
+    fn read_into(&self, address: u32, buf: &mut [u8]) -> Result<()> {
+        let data = self.read(address, buf.len() as u32)?;
+        buf.copy_from_slice(&data);
+        Ok(())
+    }
+
     /// Read a hash from memory
     fn read_hash(&self, address: u32) -> Result<[u8; 32]> {
         let mut hash = [0; 32];
-        hash.copy_from_slice(&self.read(address, 32)?);
+        self.read_into(address, &mut hash)?;
         Ok(hash)
     }
 

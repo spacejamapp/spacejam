@@ -61,7 +61,20 @@ impl Target {
     /// Handle a new connection
     pub async fn run(stream: UnixStream, interp: bool) -> Result<()> {
         let mut target = Target::new(stream, interp);
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        let pid = sysinfo::Pid::from_u32(std::process::id());
+
         loop {
+            let _ = sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+            if let Some(process) = sys.process(pid) {
+                tracing::debug!(
+                    target: "mdbg",
+                    "Memory usage: {} MB",
+                    process.memory() / 1024 / 1024
+                );
+            }
+
             let Ok(message) = target.read_message() else {
                 tracing::info!("Disconnected from the fuzzer");
                 return Ok(());

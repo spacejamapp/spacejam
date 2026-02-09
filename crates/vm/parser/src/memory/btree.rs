@@ -211,8 +211,7 @@ impl Memory {
     /// Allocate pages for sbrk implementation
     pub fn allocate(&mut self, start: u32, count: u32) -> anyhow::Result<()> {
         for page_num in start..start + count {
-            let page_data = vec![0u8; crate::PAGE_SIZE as usize];
-            self.memory.insert(page_num, (page_data, true));
+            self.memory.insert(page_num, (vec![], true));
         }
         Ok(())
     }

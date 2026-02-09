@@ -66,15 +66,15 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
 
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     if use_compiler {
-        self::run_single::<spacevm::Compiler>(memdb, input, output).await
+        self::run_single::<spacevm::Compiler, _>(memdb, input, output).await
     } else {
-        self::run_single::<spacevm::Interpreter>(memdb, input, output).await
+        self::run_single::<spacevm::Interpreter, _>(memdb, input, output).await
     }
 }
 
 /// Run the traces test
-pub async fn run_single<Vm: Pvm>(
-    memdb: Arc<MemoryDb>,
+pub async fn run_single<Vm: Pvm, S: runtime::Storage>(
+    memdb: Arc<S>,
     input: TestInput,
     output: TestOutput,
 ) -> anyhow::Result<bool> {

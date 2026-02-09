@@ -10,7 +10,7 @@ use score::{
 };
 pub use {
     argument::Argument,
-    memory::MemoryLike,
+    memory::{check_range, MemoryLike},
     state::{Executed, Invoked, State},
 };
 
@@ -149,6 +149,10 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
 
     fn read(&self, address: u32, len: u32) -> Result<Vec<u8>> {
         self.memory.read(address, len)
+    }
+
+    fn read_into(&self, address: u32, buf: &mut [u8]) -> Result<()> {
+        self.memory.read_into(address, buf)
     }
 
     fn write(&mut self, address: u32, data: &[u8]) -> Result<()> {

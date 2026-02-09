@@ -1,34 +1,39 @@
 //! PVM interface implementation
 
 use crate::Interpreter;
+use lru::LruCache;
 use parser::{program, reader::Offset, Instruction};
 use pvm::{
     score::{Gas, OpaqueHash},
     Argument, Invocation, Invoked,
 };
 use std::{
-    collections::BTreeMap,
-    sync::{LazyLock, RwLock},
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock, Mutex},
 };
 
-/// The cached programs.
-pub static CACHED_PROGRAMS: LazyLock<RwLock<BTreeMap<OpaqueHash, ParsedProgram>>> =
-    LazyLock::new(|| RwLock::new(BTreeMap::new()));
+/// The maximum number of cached parsed programs.
+const MAX_CACHED_PROGRAMS: usize = 16;
+
+/// Cached parsed programs (LRU).
+pub static CACHED_PROGRAMS: LazyLock<Mutex<LruCache<OpaqueHash, Arc<ParsedProgram>>>> =
+    LazyLock::new(|| {
+        Mutex::new(LruCache::new(
+            NonZeroUsize::new(MAX_CACHED_PROGRAMS).expect("MAX_CACHED_PROGRAMS must be non-zero"),
+        ))
+    });
 
 /// Set the parsed program.
 pub fn set(hash: OpaqueHash, program: ParsedProgram) {
-    if let Ok(mut cached_programs) = CACHED_PROGRAMS.try_write() {
-        cached_programs.insert(hash, program);
-        if cached_programs.len() > 20 {
-            cached_programs.pop_first();
-        }
+    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
+        cache.put(hash, Arc::new(program));
     }
 }
 
 /// Get the parsed program.
-pub fn get(hash: OpaqueHash) -> Option<ParsedProgram> {
-    if let Ok(cached_programs) = CACHED_PROGRAMS.try_read() {
-        return cached_programs.get(&hash).cloned();
+pub fn get(hash: OpaqueHash) -> Option<Arc<ParsedProgram>> {
+    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
+        return cache.get(&hash).cloned();
     }
     None
 }
@@ -53,7 +58,7 @@ impl Invocation for Interpreter {
     ) -> Invoked<X> {
         let program = program::preimage(code, &args).expect("failed to preimage");
         if let Some(parsed) = self::get(hash) {
-            return Self::invoke_parsed(parsed, program, ctx, gas, pc).expect("fix me later");
+            return Self::invoke_parsed(&parsed, program, ctx, gas, pc).expect("fix me later");
         }
 
         Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")

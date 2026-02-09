@@ -73,13 +73,12 @@ pub fn safrole(
         let next = safrole.next(&validators.drawn, offenders);
         if next != safrole.validators {
             safrole.validators = next;
-            safrole.ring_commitment = lazy::commitment(epoch, &next.bandersnatch());
+            safrole.ring_commitment = lazy::commitment(&next.bandersnatch());
         }
     }
 
     // Process accumulator and ring commitment in parallel
     safrole.accumulator = self::accumulator(
-        epoch,
         new_epoch,
         &safrole.accumulator,
         entropy,
@@ -94,7 +93,6 @@ pub fn safrole(
 ///
 /// NOTE: gamma_k has already been updated at this point
 pub fn accumulator(
-    epoch: u32,
     new_epoch: bool,
     accumulator: &TicketsAccumulator,
     entropy: [OpaqueHash; 4],
@@ -103,7 +101,7 @@ pub fn accumulator(
 ) -> Result<TicketsAccumulator> {
     let mut new_tickets = Vec::new();
     if !tickets.is_empty() {
-        new_tickets = self::verify::tickets(epoch, entropy, next, tickets)?;
+        new_tickets = self::verify::tickets(entropy, next, tickets)?;
     }
 
     // update the accumulator

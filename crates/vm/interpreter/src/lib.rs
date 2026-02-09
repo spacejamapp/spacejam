@@ -45,21 +45,13 @@ pub struct Interpreter {
 
 impl Interpreter {
     /// Get the state of the interpreter.
-    pub fn state(&self) -> State {
+    pub fn state(self) -> State {
         State {
             pc: self.pc,
             gas: self.context.gas,
             registers: self.context.registers,
-            memory: self.context.memory.clone(),
+            memory: self.context.memory,
         }
-    }
-
-    /// Set the state of the interpreter.
-    pub fn set_state(&mut self, state: State) {
-        self.pc = state.pc;
-        self.context.gas = state.gas;
-        self.context.registers = state.registers;
-        self.context.memory = state.memory;
     }
 
     /// Get the output of the interpreter.

@@ -14,11 +14,9 @@ use std::sync::Arc;
 /// Initialize the verifier
 pub fn verifier(data: Arc<MemoryDb>) -> Result<()> {
     let safrole = data.safrole()?;
-    let timeslot = data.timeslot()?;
     let validators = data.current_validators()?;
-    let epoch = timeslot / score::EPOCH_LENGTH;
-    lazy::drawn(epoch + 1, &safrole.validators);
-    lazy::drawn(epoch, &validators);
+    lazy::drawn(&safrole.validators);
+    lazy::drawn(&validators);
     Ok(())
 }
 

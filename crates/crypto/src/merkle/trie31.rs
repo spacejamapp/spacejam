@@ -4,36 +4,41 @@
 use crate::blake2b;
 
 /// Compute the Merkle root of a set of key-value pairs. (D.6)
-pub fn trie(kvs: &[([u8; 31], Vec<u8>)]) -> [u8; 32] {
-    merkle(kvs, 0)
+pub fn trie(kvs: &[([u8; 31], &[u8])]) -> [u8; 32] {
+    let mut buf = kvs.to_vec();
+    merkle(&mut buf, 0)
 }
 
 /// Compute the Merkle root of a set of key-value pairs with specified depth. (D.6)
-pub fn merkle(kvs: &[([u8; 31], Vec<u8>)], depth: usize) -> [u8; 32] {
+fn merkle(kvs: &mut [([u8; 31], &[u8])], depth: usize) -> [u8; 32] {
     if kvs.is_empty() {
         return [0; 32];
     }
 
     if kvs.len() == 1 {
-        let (k, ref v) = &kvs[0];
-        return blake2b(&leaf(*k, v));
+        let (k, v) = kvs[0];
+        return blake2b(&leaf(k, v));
     }
 
-    let (mut left, mut right) = (Vec::new(), Vec::new());
-    for (k, v) in kvs {
-        if bit(k, depth) {
-            right.push((*k, v.clone()));
-        } else {
-            left.push((*k, v.clone()));
+    // In-place partition: entries with bit=0 (left) before entries with bit=1 (right)
+    let mid = partition(kvs, depth);
+    let (left, right) = kvs.split_at_mut(mid);
+    let l_hash = merkle(left, depth + 1);
+    let r_hash = merkle(right, depth + 1);
+    blake2b(&branch(l_hash, r_hash))
+}
+
+/// Partition `kvs` in-place so that entries with bit 0 at `depth` come first.
+/// Returns the index of the first "right" (bit=1) entry.
+fn partition(kvs: &mut [([u8; 31], &[u8])], depth: usize) -> usize {
+    let mut left_end = 0;
+    for i in 0..kvs.len() {
+        if !bit(&kvs[i].0, depth) {
+            kvs.swap(i, left_end);
+            left_end += 1;
         }
     }
-
-    // Recursive calls with incremented depth
-    let l_hash = merkle(&left, depth + 1);
-    let r_hash = merkle(&right, depth + 1);
-
-    // According to D.6, M(d) = H(bits^{-1}(B(M(l), M(r))))
-    blake2b(&branch(l_hash, r_hash))
+    left_end
 }
 
 /// Branch encoding

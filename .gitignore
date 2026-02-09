@@ -14,6 +14,7 @@
 /logs
 
 # misc
+dhat-heap.json
 reports
 spacejam.db
 genesis.json

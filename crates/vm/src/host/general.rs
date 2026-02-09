@@ -58,15 +58,14 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         ctx.rget(10), // f
         ctx.rget(11), // l
     ];
-    let phash = ctx.read(address as u32, 32)?;
+    let mut hash = [0u8; 32];
+    ctx.read_into(address as u32, &mut hash)?;
     let Ok(account) = ctx.or_this(acc) else {
         return Ok(Exit::None as u64);
     };
 
     // get the preimage
     let preimage = {
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&phash);
         let Some(preimage) = account.preimage(hash) else {
             return Ok(Exit::None as u64);
         };
@@ -74,20 +73,28 @@ pub fn lookup(ctx: &mut impl Argument) -> Result<u64> {
         preimage
     };
 
-    // write patrial preimage to memory
+    // write partial preimage to memory (per graypaper: l = min(registers_11, len(v) - f))
     let plen = preimage.len() as u64;
-    let (from, len) = (from.min(plen), len.min(plen));
-    ctx.write(
-        target as u32,
-        &preimage[from as usize..(from + len) as usize],
-    )?;
+    let from = from.min(plen);
+    let len = len.min(plen.saturating_sub(from));
+    if len > 0 {
+        ctx.write(
+            target as u32,
+            &preimage[from as usize..(from + len) as usize],
+        )?;
+    }
     Ok(plen)
 }
 
 /// (ΩR) storage lookup
 pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [acc, ko, kz, o] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
-    let key = ctx.read(ko as u32, kz as u32)?;
+    if kz > u32::MAX as u64 {
+        crate::bail!("read: key size exceeds PVM address space");
+    }
+    crate::check_range(ko as u32, kz as u32)?;
+    let mut key = vec![0u8; kz as usize];
+    ctx.read_into(ko as u32, &mut key)?;
 
     // get the account
     let Ok(account) = ctx.or_this(acc) else {
@@ -111,8 +118,15 @@ pub fn read(ctx: &mut impl Argument) -> Result<ExitCode> {
 /// (ΩW) storage write
 pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     let [ko, kz, vo, vz] = [ctx.rget(7), ctx.rget(8), ctx.rget(9), ctx.rget(10)];
-    let value = ctx.read(vo as u32, vz as u32)?;
-    let key = ctx.read(ko as u32, kz as u32)?;
+    if vz > u32::MAX as u64 || kz > u32::MAX as u64 {
+        crate::bail!("write: size exceeds PVM address space");
+    }
+    crate::check_range(vo as u32, vz as u32)?;
+    crate::check_range(ko as u32, kz as u32)?;
+    let mut value = vec![0u8; vz as usize];
+    ctx.read_into(vo as u32, &mut value)?;
+    let mut key = vec![0u8; kz as usize];
+    ctx.read_into(ko as u32, &mut key)?;
 
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;

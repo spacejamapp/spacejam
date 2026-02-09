@@ -15,11 +15,10 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
 
     // setup the verifier
     let slot = (header.slot % score::EPOCH_LENGTH) as usize;
-    let epoch = state.timeslot / score::EPOCH_LENGTH;
     let verifier = if new_epoch {
-        lazy::verifier(epoch, &state.safrole.validators.bandersnatch())
+        lazy::verifier(&state.safrole.validators.bandersnatch())
     } else {
-        lazy::verifier(epoch, &state.validators.current.bandersnatch())
+        lazy::verifier(&state.validators.current.bandersnatch())
     };
 
     // setup the entropy

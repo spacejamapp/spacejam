@@ -1,6 +1,6 @@
 //! Storage APIs of the state of SpaceJam
 
-use crate::storage::{Column, KVStorage};
+use crate::storage::{Column, KVStorage, root};
 use anyhow::{Context, Result};
 use crypto::merkle;
 use score::{
@@ -104,9 +104,14 @@ pub trait StateStorage: KVStorage {
         state.queue = codec::decode(&data[13]).unwrap_or_default();
         state.history = codec::decode(&data[14]).unwrap_or_default();
 
-        // TODO: we should host this in runtime in production.
+        // Use cached state root if available, otherwise compute it.
         if let Some(last) = state.recent_blocks.history.last_mut() {
-            last.state_root = self.root()?;
+            if let Some(root) = root::get(&last.header_hash) {
+                last.state_root = root;
+            } else {
+                last.state_root = self.root()?;
+                root::set(last.header_hash, last.state_root);
+            }
         }
 
         Ok(state)
@@ -117,15 +122,16 @@ pub trait StateStorage: KVStorage {
     /// FIXME: it is not ideal to store all data in memory
     /// for calculating the root.
     fn root(&self) -> Result<OpaqueHash> {
-        let mut kvs = Vec::new();
+        let mut owned: Vec<([u8; 31], Vec<u8>)> = Vec::new();
         for pair in self.state_iter()? {
             let (k, v) = pair?;
-            let key = k.as_state_key();
-            kvs.push((key, v));
+            owned.push((k.as_state_key(), v));
         }
 
         // Sort keys to ensure deterministic trie root calculation
-        kvs.sort_by(|a, b| a.0.cmp(&b.0));
+        owned.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let kvs: Vec<([u8; 31], &[u8])> = owned.iter().map(|(k, v)| (*k, v.as_slice())).collect();
         Ok(merkle::trie31(&kvs))
     }
 

@@ -21,26 +21,31 @@ pub fn log(ctx: &mut impl Argument) -> Result<u64> {
     let target_len = ctx.rget(9) as u32;
     let msg_addr = ctx.rget(10) as u32;
     let msg_len = ctx.rget(11) as u32;
-    let message = match ctx.read(msg_addr, msg_len) {
-        Ok(data) => {
-            let msg_str = String::from_utf8_lossy(&data).to_string();
-            msg_str
-        }
-        Err(reason) => {
-            tracing::error!(
-                "Failed to read message bytes at addr=0x{:x}, len={}: {:?}",
-                msg_addr,
-                msg_len,
-                reason
-            );
-            return Err(reason.into());
+    crate::check_range(msg_addr, msg_len)?;
+    if target_len > 0 {
+        crate::check_range(target_addr, target_len)?;
+    }
+    let message = {
+        let mut buf = vec![0u8; msg_len as usize];
+        match ctx.read_into(msg_addr, &mut buf) {
+            Ok(()) => String::from_utf8_lossy(&buf).to_string(),
+            Err(reason) => {
+                tracing::error!(
+                    "Failed to read message bytes at addr=0x{:x}, len={}: {:?}",
+                    msg_addr,
+                    msg_len,
+                    reason
+                );
+                return Err(reason.into());
+            }
         }
     };
 
     // Read target if provided (for structured logging)
     let target = if target_len > 0 {
-        match ctx.read(target_addr, target_len) {
-            Ok(data) => String::from_utf8_lossy(&data).to_string(),
+        let mut buf = vec![0u8; target_len as usize];
+        match ctx.read_into(target_addr, &mut buf) {
+            Ok(()) => String::from_utf8_lossy(&buf).to_string(),
             Err(reason) => return Err(reason.into()),
         }
     } else {
