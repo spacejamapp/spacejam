@@ -53,14 +53,13 @@ pub fn outer<V: Pvm, R: Accounts>(
             break;
         }
 
-        let mut step = self::parallel::<V, R>(
+        let step = self::parallel::<V, R>(
             accumulated.context.clone(),
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             if first { gas_table } else { &empty },
         );
 
-        step.defer_transfers();
         gas_limit -= step.gas.values().sum::<Gas>();
         reports = &reports[index..];
         transfers = step.transfers.clone();
@@ -160,21 +159,19 @@ pub fn parallel<V: Pvm, R: Accounts>(
         .unwrap_or(mgr_register);
 
     // Update validators from the designate service (ι' = ps¬stagingset' from accpar 12.56)
-    // Use the pre-update designate: stagingset comes from accone(ps¬delegator), i.e. the
-    // delegator at the start of the round, not the posterior designate after R() updates.
     if let Some(result) = results.get(&designate) {
         context.validators = result.context.validators;
     }
 
-    // Update the state of accounts
+    // Per graypaper accpar: accounts' = (accounts ∪ n) \ m
+    // Collect all removals (m) first so they take precedence over additions.
+    let mut removed = BTreeSet::new();
     let mut gas = BTreeMap::new();
     let mut transfers = Vec::new();
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
         transfers.extend(result.transfers.clone());
 
-        // Per graypaper eq. accpar: pairings are added when yield != None,
-        // regardless of gas_used. The condition is: s ∈ S, b = yield, b ≠ ∅
         if let Some(hash) = result.hash {
             pairings.insert((*service_id, hash));
         }
@@ -183,20 +180,41 @@ pub fn parallel<V: Pvm, R: Accounts>(
             continue;
         }
 
-        let accounts = result.context.accounts.accounts();
-        for (id, account) in accounts.iter() {
-            if (account.creation() == context.timeslot && context.accounts.get(*id).is_none())
-                || id == service_id
+        for service in result.context.accounts.removed() {
+            removed.insert(service);
+        }
+
+        gas.insert(*service_id, result.gas);
+    }
+
+    // Apply additions (n): the service's own account from every result,
+    for (service_id, result) in results.iter() {
+        if !removed.contains(service_id)
+            && let Some(account) = result.context.accounts.accounts().get(service_id)
+        {
+            context.accounts.upsert(*service_id, account.clone());
+        }
+
+        if result.gas == 0 {
+            continue;
+        }
+
+        for (id, account) in result.context.accounts.accounts().iter() {
+            if id == service_id {
+                continue; // already handled above
+            }
+            if !removed.contains(id)
+                && account.creation() == context.timeslot
+                && context.accounts.get(*id).is_none()
             {
                 context.accounts.upsert(*id, account.clone());
             }
         }
+    }
 
-        for service in result.context.accounts.removed() {
-            context.accounts.remove(service);
-        }
-
-        gas.insert(*service_id, result.gas);
+    // Apply removals (m)
+    for service in &removed {
+        context.accounts.remove(*service);
     }
 
     Accumulated {
