@@ -1,7 +1,5 @@
 ## SpaceJam
 
-> _maybe the last move or the new journey. -- Koh Chang, 30 Nov 2024_
-
 The universal implementation of [the JAM Protocol][graypaper].
 
 **Features**
@@ -27,5 +25,7 @@ The universal implementation of [the JAM Protocol][graypaper].
 [m1]: https://github.com/w3f/jam-milestone-delivery/pull/13
 
 ## LICENSE
+
+> _maybe the last move or the new journey. -- Koh Chang, 30 Nov 2024_
 
 GPL-3.0-only
