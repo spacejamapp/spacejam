@@ -1,8 +1,8 @@
-# SpaceJam
+## SpaceJam
 
 The universal implementation of [the JAM Protocol][graypaper].
 
-### Features
+**Features**
 
 - Best performance at [JAM performance dashboard][perf]
 - Zero-copy for memory management
@@ -15,7 +15,7 @@ The universal implementation of [the JAM Protocol][graypaper].
 
 - [SpaceJam Milestone 1][m1]
 
-### Addresses
+**Addresses**
 
 | Chain    | Address                                                                                                                                  |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -25,3 +25,7 @@ The universal implementation of [the JAM Protocol][graypaper].
 [graypaper]: https://graypaper.com
 [perf]: https://paritytech.github.io/jam-conformance-dashboard/
 [m1]: https://github.com/w3f/jam-milestone-delivery/pull/13
+
+## LICENSE
+
+GPL-3.0-only
