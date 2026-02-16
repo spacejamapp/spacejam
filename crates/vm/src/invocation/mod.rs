@@ -200,6 +200,21 @@ pub trait Invocation {
         // (i)  the accumulation operands
         items: Vec<AccumulateItem>,
     ) -> Accumulated<R> {
+        // Per graypaper Ψ_A: add incoming deferred transfer amounts to the
+        // service's balance before PVM invocation.
+        let transfer_sum: u64 = items
+            .iter()
+            .filter_map(|item| match item {
+                AccumulateItem::Transfer(t) => Some(t.amount),
+                _ => None,
+            })
+            .sum();
+        if transfer_sum > 0 {
+            if let Some(account) = context.accounts.get(service) {
+                *account.balance_mut() += transfer_sum;
+            }
+        }
+
         let Some(code_hash) = context.accounts.code_hash(service) else {
             tracing::warn!("no code hash found for service: {}", service);
             return Accumulated::new(context);

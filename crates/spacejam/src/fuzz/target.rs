@@ -149,9 +149,17 @@ impl Target {
     }
 
     /// Received get state request
-    pub fn get_state(&mut self, _hash: OpaqueHash) -> Result<()> {
+    #[allow(clippy::type_complexity)]
+    pub fn get_state(&mut self, hash: OpaqueHash) -> Result<()> {
         let mut state = Vec::new();
-        for pair in self.chain.data.iter(Column::State)? {
+        let iter: Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> =
+            if let Some(fork) = self.chain.forks.get(&hash) {
+                Box::new(fork.iter(Column::State)?)
+            } else {
+                Box::new(self.chain.data.iter(Column::State)?)
+            };
+
+        for pair in iter {
             let (vkey, value) = pair?;
             let mut key = [0; 31];
             key.copy_from_slice(&vkey);

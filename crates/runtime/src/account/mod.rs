@@ -189,8 +189,14 @@ impl<S: Storage> ::account::Account for Account<S> {
 
     fn remove_lookup(&mut self, hash: [u8; 32], len: u32) {
         let key = account::lookup(self.index, len, hash);
-        if self.state.state_get(key).ok().flatten().is_some() {
-            self.ops.remove(key);
+        let in_state = self.state.state_get(key).ok().flatten().is_some();
+        let in_ops = self.ops.update.contains_key(&key);
+
+        if in_state || in_ops {
+            self.ops.update.remove(&key);
+            if in_state {
+                self.ops.removal.insert(key);
+            }
             self.set_items(self.items() - 2);
             self.set_total(self.total() - 81 - len as u64);
         }

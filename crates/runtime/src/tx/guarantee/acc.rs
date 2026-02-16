@@ -104,15 +104,6 @@ impl<R: Accounts> Accumulated<R> {
 
         crypto::merkle::kroot(leaves)
     }
-
-    /// Apply the deferred transfers to the accounts
-    pub fn defer_transfers(&mut self) {
-        for transfer in self.transfers.iter() {
-            if let Some(dest) = self.context.accounts.get(transfer.recipient) {
-                *dest.balance_mut() += transfer.amount;
-            }
-        }
-    }
 }
 
 impl<R: Accounts> From<&Accumulated<R>> for AccumulationRecord {
