@@ -149,6 +149,7 @@ impl Target {
     }
 
     /// Received get state request
+    #[allow(clippy::type_complexity)]
     pub fn get_state(&mut self, hash: OpaqueHash) -> Result<()> {
         let mut state = Vec::new();
         let iter: Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> =
