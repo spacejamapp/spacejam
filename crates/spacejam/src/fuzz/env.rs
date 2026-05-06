@@ -100,13 +100,13 @@ fn require_env(name: &str) -> Result<String> {
     std::env::var(name).with_context(|| format!("{name} must be set when {JAM_FUZZ} is set"))
 }
 
+// Mirror the main CLI's behavior: install a subscriber only when the operator
+// explicitly opts in. Without JAM_FUZZ_LOG_LEVEL no subscriber is installed,
+// so tracing macros become no-ops and the hot path stays free of logging cost.
 fn init_logger(level: Option<&str>) {
-    let filter = match level {
-        Some(level) => EnvFilter::new(level),
-        None => EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-    };
+    let Some(level) = level else { return };
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(filter)
+        .with_env_filter(EnvFilter::new(level))
         .with_target(false)
         .try_init();
 }
