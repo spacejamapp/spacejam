@@ -10,8 +10,6 @@
 # make macos-amd64
 # make linux-arm64
 # make linux-amd64
-export AWS_LC_SYS_C_STD = 11
-export AWS_LC_SYS_CMAKE_BUILDER = 1
 
 DOCKER_IMAGE := clearloop/spacejam
 VERSION := $(shell awk '/^\[workspace.package\]/{f=1} f && /^version/{gsub(/"/,"",$$3); print $$3; exit}' Cargo.toml)
