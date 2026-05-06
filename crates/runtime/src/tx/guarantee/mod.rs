@@ -170,9 +170,7 @@ pub fn reports(
             return Err(Error::BadCoreIndex);
         }
 
-        if let Some(Some(assignment)) = prev.get(core_index)
-            && slot <= assignment.timeout + 1
-        {
+        if matches!(prev.get(core_index), Some(Some(_))) {
             return Err(Error::CoreEngaged);
         }
 
