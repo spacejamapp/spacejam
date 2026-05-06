@@ -1,6 +1,6 @@
 //! Fuzz messages
 
-use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
+use score::{block::Header, Block, OpaqueHash, TimeSlot, TrieKey};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
@@ -107,7 +107,7 @@ impl Version {
     pub const SPACEJAM: Version = Version {
         major: 0,
         minor: 1,
-        patch: 0,
+        patch: 1,
     };
 
     /// The protocol version of spacejam

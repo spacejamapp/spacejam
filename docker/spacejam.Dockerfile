@@ -13,6 +13,6 @@
 #
 # Build via `make docker` (depends on `make linux-amd64`).
 
-FROM --platform=linux/amd64 debian:bookworm-slim
+FROM debian:bookworm-slim
 COPY target/x86_64-unknown-linux-gnu/prod/spacejam /usr/local/bin/spacejam
 ENTRYPOINT ["spacejam"]
