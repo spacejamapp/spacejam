@@ -11,11 +11,8 @@
 #   JAM_FUZZ_SOCK_PATH  Unix domain socket path for fuzzer communication.
 #   JAM_FUZZ_LOG_LEVEL  Optional. error | warn | info | debug | trace.
 #
-# Build the amd64 binary locally first:
-#   cargo build -p spacejam --release --target x86_64-unknown-linux-gnu
-#   cp target/x86_64-unknown-linux-gnu/release/spacejam target/release/spacejam
-# then `docker build -f docker/spacejam.Dockerfile -t spacejam:fuzz .`
+# Build via `make docker` (depends on `make linux-amd64`).
 
 FROM --platform=linux/amd64 debian:bookworm-slim
-COPY target/release/spacejam /usr/local/bin/spacejam
+COPY target/x86_64-unknown-linux-gnu/prod/spacejam /usr/local/bin/spacejam
 ENTRYPOINT ["spacejam"]
