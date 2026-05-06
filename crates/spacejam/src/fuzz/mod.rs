@@ -7,6 +7,7 @@ use std::{
     os::unix::net::UnixStream,
 };
 
+pub mod env;
 pub mod fuzzer;
 pub mod init;
 pub mod message;

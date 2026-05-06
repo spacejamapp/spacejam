@@ -35,6 +35,14 @@ pub struct App {
 impl App {
     /// Run the command
     pub async fn run() {
+        if crate::fuzz::env::is_active() {
+            if let Err(e) = crate::fuzz::env::run().await {
+                tracing::error!("fuzz target error: {e:#}");
+                std::process::exit(1);
+            }
+            return;
+        }
+
         let app = App::parse();
         if app.graypaper {
             println!("graypaper: {}", crate::GRAYPAPER);
