@@ -206,32 +206,35 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
 }
 
 fn try_download(workspace: &Path) -> Result<()> {
-    if !workspace.join("res/jam-test-vectors").exists() {
-        fs::create_dir_all(workspace.join("res"))?;
-        Command::new("git")
-            .args([
-                "clone",
-                "https://github.com/spacejamapp/jam-test-vectors",
-                "res/jam-test-vectors",
-                "--depth",
-                "1",
-            ])
-            .current_dir(workspace)
-            .output()?;
-    }
+    fs::create_dir_all(workspace.join("res"))?;
+    clone_if_missing(
+        workspace,
+        "https://github.com/spacejamapp/jam-test-vectors",
+        "res/jam-test-vectors",
+    )?;
+    clone_if_missing(
+        workspace,
+        "https://github.com/spacejamapp/jam-conformance",
+        "res/jam-conformance",
+    )?;
+    Ok(())
+}
 
-    if !workspace.join("res/jam-conformance").exists() {
-        Command::new("git")
-            .args([
-                "clone",
-                "https://github.com/spacejamapp/jam-conformance",
-                "res/jam-conformance",
-                "--depth",
-                "1",
-            ])
-            .current_dir(workspace)
-            .output()?;
+fn clone_if_missing(workspace: &Path, url: &str, dest: &str) -> Result<()> {
+    if workspace.join(dest).exists() {
+        return Ok(());
     }
-
+    let output = Command::new("git")
+        .args(["clone", url, dest, "--depth", "1"])
+        .current_dir(workspace)
+        .output()
+        .map_err(|e| anyhow::anyhow!("failed to spawn `git clone {url}`: {e}"))?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "git clone {url} into {dest} failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
     Ok(())
 }

@@ -71,7 +71,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         // Sort the reported work packages and reporters
-        reported.sort_by(|a, b| a.hash.cmp(&b.hash));
+        reported.sort_by_key(|a| a.hash);
         Ok((reported, reporters.into_iter().collect()))
     }
 
@@ -117,15 +117,11 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::AnchorNotRecent);
         };
 
-        // GP (11.34)
-        if self.timeslot
-            < guarantee
-                .report
-                .context
-                .lookup_anchor_slot
-                .saturating_sub(score::MAX_AGE_LOOKUP_ANCHOR)
+        // GP (11.34): lookup anchor slot must be within the recent window
+        if guarantee.report.context.lookup_anchor_slot
+            < self.timeslot.saturating_sub(score::MAX_AGE_LOOKUP_ANCHOR)
         {
-            return Err(Error::FutureReportSlot);
+            return Err(Error::LookupAnchorNotRecent);
         }
 
         // Validate state root

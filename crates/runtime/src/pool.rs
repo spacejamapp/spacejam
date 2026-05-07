@@ -106,7 +106,7 @@ impl Pool {
         });
 
         // Sort the tickets by ID
-        collected_tickets.sort_by(|a, b| a.id.cmp(&b.id));
+        collected_tickets.sort_by_key(|a| a.id);
         let max_tickets = score::MAX_TICKETS_PER_EXTRINSIC as usize;
         collected_tickets.truncate(max_tickets);
 

@@ -1,18 +1,18 @@
-# Use the official Rust image to build the application
-# FROM rust:latest AS builder
-# WORKDIR /usr/src/spacejam
-# COPY . .
-# RUN  --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
-#     --mount=target=/var/cache/apt,type=cache,sharing=locked \
-#     --mount=type=cache,target=/usr/local/cargo/registry \
-#     --mount=type=cache,target=/usr/local/cargo/git \
-#     --mount=type=cache,sharing=private,target=target \
-#     apt-get update && \
-#     apt-get install -y protobuf-compiler libclang-dev && \
-#     cargo build -p spacejam --release && \
-#     cp target/release/spacejam /usr/local/bin/spacejam
+# Spacejam image (jam-conformance fuzz target compatible).
+#
+# When run with JAM_FUZZ set, the binary listens on JAM_FUZZ_SOCK_PATH for the
+# fuzzer protocol (fuzz-proto/README.md). Without JAM_FUZZ, it behaves as the
+# normal CLI (run, key, fuzz subcommands).
+#
+# Required env vars in fuzz mode:
+#   JAM_FUZZ            Enable fuzz target mode (any value).
+#   JAM_FUZZ_SPEC       Protocol parameters: tiny | full (only tiny supported).
+#   JAM_FUZZ_DATA_PATH  Directory for target data persistence.
+#   JAM_FUZZ_SOCK_PATH  Unix domain socket path for fuzzer communication.
+#   JAM_FUZZ_LOG_LEVEL  Optional. error | warn | info | debug | trace.
+#
+# Build via `make docker` (depends on `make linux-amd64`).
 
-# Use a smaller image for the final output
 FROM debian:bookworm-slim
-COPY target/release/spacejam /usr/local/bin/spacejam
+COPY target/x86_64-unknown-linux-gnu/prod/spacejam /usr/local/bin/spacejam
 ENTRYPOINT ["spacejam"]

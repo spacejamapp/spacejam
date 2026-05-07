@@ -24,7 +24,7 @@ pub fn tickets(
     // Check for bad order: 6.32 & 6.33
     let new_tickets = verified.into_values().collect::<Vec<_>>();
     let mut sorted = new_tickets.clone();
-    sorted.sort_by(|a, b| a.id.cmp(&b.id));
+    sorted.sort_by_key(|a| a.id);
     if sorted != new_tickets {
         return Err(Error::BadTicketOrder);
     }

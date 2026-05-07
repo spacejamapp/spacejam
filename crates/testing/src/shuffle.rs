@@ -23,7 +23,7 @@ fn tests() -> anyhow::Result<()> {
     let input: Vec<TestInput> = serde_json::from_str(&test.input)?;
     let output: Vec<TestOutput> = serde_json::from_str(&test.output)?;
 
-    for (source, target) in input.into_iter().zip(output.into_iter()) {
+    for (source, target) in input.into_iter().zip(output) {
         let mut input = vec![0; source.input as usize];
         for i in 0..source.input as usize {
             input[i] = i as u32;

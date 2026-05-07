@@ -52,6 +52,7 @@ impl Ticket {
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Hash)]
 pub struct TicketEnvelope {
     /// Ticket attempt
+    #[serde(with = "codec::compact")]
     pub attempt: TicketAttempt,
     /// Ticket ring signature
     #[json(hex)]
@@ -74,6 +75,7 @@ pub struct TicketBody {
     #[json(hex)]
     pub id: TicketId,
     /// Ticket entry index
+    #[serde(with = "codec::compact")]
     pub attempt: TicketAttempt,
 }
 

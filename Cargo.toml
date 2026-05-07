@@ -20,7 +20,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.0"
+version = "0.1.1"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -108,11 +108,11 @@ quinn = "0.11.9"
 quote = "1.0.40"
 rand = "0.8.5"
 rayon = "1.11.0"
-rcgen = "0.13.2"
+rcgen = { version = "0.13.2", default-features = false, features = ["crypto", "pem", "ring"] }
 reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
 ring = { package = "w3f-ring-proof", version = "0.0.2", default-features = false }
-rustls = "0.23.31"
-rustls-webpki = "0.102.8"
+rustls = { version = "0.23.31", default-features = false, features = ["std", "logging", "tls12", "ring"] }
+rustls-webpki = { version = "0.102.8", default-features = false, features = ["std", "ring"] }
 serde = { version = "1.0.219", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.143", default-features = false }
 syn = "2.0.106"

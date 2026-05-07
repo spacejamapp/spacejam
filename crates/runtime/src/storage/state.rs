@@ -129,7 +129,7 @@ pub trait StateStorage: KVStorage {
         }
 
         // Sort keys to ensure deterministic trie root calculation
-        owned.sort_by(|a, b| a.0.cmp(&b.0));
+        owned.sort_by_key(|a| a.0);
 
         let kvs: Vec<([u8; 31], &[u8])> = owned.iter().map(|(k, v)| (*k, v.as_slice())).collect();
         Ok(merkle::trie31(&kvs))

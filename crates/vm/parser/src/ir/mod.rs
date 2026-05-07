@@ -41,8 +41,8 @@ impl IR {
         // collect the dynamic library functions
         let known = self
             .funcs
-            .iter()
-            .filter_map(|(_, fref)| {
+            .values()
+            .filter_map(|fref| {
                 if fref.jump.is_empty() {
                     None
                 } else {

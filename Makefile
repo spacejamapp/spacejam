@@ -10,8 +10,9 @@
 # make macos-amd64
 # make linux-arm64
 # make linux-amd64
-export AWS_LC_SYS_C_STD = 11
-export AWS_LC_SYS_CMAKE_BUILDER = 1
+
+DOCKER_IMAGE := clearloop/spacejam
+VERSION := $(shell awk '/^\[workspace.package\]/{f=1} f && /^version/{gsub(/"/,"",$$3); print $$3; exit}' Cargo.toml)
 
 # build all targets
 bundle: macos-arm64 macos-amd64 linux-amd64 linux-arm64 tar-all
@@ -49,3 +50,11 @@ linux-arm64:
 # build linux-amd64
 linux-amd64:
 	cargo b --profile prod --target x86_64-unknown-linux-gnu
+
+# build the docker image, tagging both :latest and :$(VERSION)
+docker: linux-amd64
+	docker build --platform=linux/amd64 \
+		-f docker/spacejam.Dockerfile \
+		-t $(DOCKER_IMAGE):latest \
+		-t $(DOCKER_IMAGE):$(VERSION) \
+		.

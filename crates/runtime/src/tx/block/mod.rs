@@ -150,7 +150,7 @@ fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash
         .iter()
         .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
         .collect();
-    kvs.sort_by(|a, b| a.0.cmp(&b.0));
+    kvs.sort_by_key(|a| a.0);
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
     state_root
@@ -189,7 +189,7 @@ fn handle_root_with_diff(
         }
     }
 
-    kvs.sort_by(|a, b| a.0.cmp(&b.0));
+    kvs.sort_by_key(|a| a.0);
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
     state_root

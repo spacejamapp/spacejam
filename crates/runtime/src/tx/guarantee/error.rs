@@ -37,6 +37,7 @@ pub enum Error {
     WorkReportTooBig,
     BadSignature,
     MissingWorkResults,
+    LookupAnchorNotRecent,
 }
 
 impl Json<Error> for Error {
