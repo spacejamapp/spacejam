@@ -58,11 +58,7 @@ impl Interpreter {
 
         // interpret the program
         let program = &program.program;
-        loop {
-            let Some(Some(instr)) = program.get(interp.pc) else {
-                break;
-            };
-
+        while let Some(Some(instr)) = program.get(interp.pc) {
             interp.pc = instr.range.start;
             match interp.step(instr) {
                 Reason::Continue => {

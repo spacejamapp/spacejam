@@ -71,7 +71,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
 
         // Sort the reported work packages and reporters
-        reported.sort_by(|a, b| a.hash.cmp(&b.hash));
+        reported.sort_by_key(|a| a.hash);
         Ok((reported, reporters.into_iter().collect()))
     }
 

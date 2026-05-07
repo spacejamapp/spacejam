@@ -122,7 +122,7 @@ pub fn accumulator(
     // Sort by identifier
     //
     // Take only the first E tickets (formula 6.35: truncate to E)
-    accumulator.sort_by(|a, b| a.id.cmp(&b.id));
+    accumulator.sort_by_key(|a| a.id);
     accumulator.truncate(score::EPOCH_LENGTH as usize);
     Ok(accumulator)
 }
