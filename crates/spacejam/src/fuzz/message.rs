@@ -1,6 +1,6 @@
 //! Fuzz messages
 
-use score::{block::Header, Block, OpaqueHash, TimeSlot, TrieKey};
+use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Display};
 
