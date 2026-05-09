@@ -86,6 +86,7 @@ impl Fuzzer {
         let test = source.get(0).context("No test found")?;
         let input = traces::TestInput::from_json(&test.input)?;
         self.init_state(&input, &test.name)?;
+        self.init = true;
         self.import_block(test)
     }
 
