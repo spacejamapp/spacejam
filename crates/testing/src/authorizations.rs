@@ -40,9 +40,15 @@ pub struct TestState {
 
 impl From<TestState> for State {
     fn from(state: TestState) -> Self {
+        let mut authorization = [[[0u8; 32]; score::AUTH_QUEUE_SIZE]; score::CORES_COUNT];
+        for (core, queue) in state.auth_queues.iter().enumerate() {
+            for (slot, hash) in queue.iter().enumerate() {
+                authorization[core][slot] = *hash;
+            }
+        }
         Self {
             pools: state.auth_pools.try_into().expect("invalid auth pools"),
-            authorization: state.auth_queues.try_into().expect("invalid auth queues"),
+            authorization,
             ..Default::default()
         }
     }

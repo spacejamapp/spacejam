@@ -81,7 +81,8 @@ impl Default for PeerInfo {
     fn default() -> Self {
         Self {
             fuzz_version: 1,
-            fuzz_features: 2,
+            // feature-ancestry (1) | feature-fork (2) — both [M1] mandatory
+            fuzz_features: 3,
             jam_version: Version::PROTOCOL,
             app_version: Version::SPACEJAM,
             app_name: "spacejam".to_string(),

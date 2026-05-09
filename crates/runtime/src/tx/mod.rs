@@ -237,6 +237,14 @@ pub fn simulate_with_state<Vm: Pvm>(
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
 
+        // (α') Update the authorization pools (12.13)
+        state.pools = guarantee::pools(
+            block.header.slot,
+            &state.pools,
+            &state.authorization,
+            &block.extrinsic.guarantees,
+        );
+
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
     }
@@ -245,17 +253,3 @@ pub fn simulate_with_state<Vm: Pvm>(
     Ok(diff)
 }
 
-// FIXME: looks like polkajam currently doesn't update the authorization
-// pool, so we're not updating it here as well atm.
-//
-// // (α') Update the authorization pool
-// let pools = guarantee::pools(
-//     block.header.slot,
-//     &state.pools,
-//     &state.authorization,
-//     &block.extrinsic.guarantees,
-// );
-// if pools != state.pools {
-//     diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
-//     state.pools = pools;
-// }

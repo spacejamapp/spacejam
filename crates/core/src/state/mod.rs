@@ -1,7 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
-    CORES_COUNT, EntropyBuffer, Extrinsic, OpaqueHash, TimeSlot, TrieKey,
+    AUTH_QUEUE_SIZE, CORES_COUNT, EntropyBuffer, Extrinsic, OpaqueHash, TimeSlot, TrieKey,
     block::History,
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
@@ -10,7 +10,6 @@ use crate::{
 };
 pub use info::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde::{Deserialize, Serialize};
 use service::vm::CommitmentMap;
 use std::collections::BTreeMap;
 
@@ -21,7 +20,7 @@ pub mod key;
 /// The state of SpaceJam
 ///
 /// σ = (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, θ, ξ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct State {
     /// The authorization pools (α)
     pub pools: [Vec<OpaqueHash>; CORES_COUNT],
@@ -30,7 +29,6 @@ pub struct State {
     pub recent_blocks: History,
 
     /// State concerning Safrole (γ)
-    #[serde(flatten)]
     pub safrole: Safrole,
 
     /// The prior state of the service accounts (δ)
@@ -40,7 +38,6 @@ pub struct State {
     pub entropy: EntropyBuffer,
 
     /// The validators (ι, κ, λ)
-    #[serde(flatten)]
     pub validators: Validators,
 
     /// The pending reports, per core, which are being made available prior to
@@ -51,7 +48,7 @@ pub struct State {
     pub timeslot: TimeSlot,
 
     /// The authorization queue (φ)
-    pub authorization: [Vec<OpaqueHash>; CORES_COUNT],
+    pub authorization: [[OpaqueHash; AUTH_QUEUE_SIZE]; CORES_COUNT],
 
     /// The privileged service indices (χ)
     pub privileges: Privileges,
@@ -70,6 +67,28 @@ pub struct State {
 
     /// The accumulation history (ξ)
     pub history: AccumulatedQueue,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            pools: Default::default(),
+            recent_blocks: Default::default(),
+            safrole: Default::default(),
+            accounts: Default::default(),
+            entropy: Default::default(),
+            validators: Default::default(),
+            reports: Default::default(),
+            timeslot: Default::default(),
+            authorization: [[[0; 32]; AUTH_QUEUE_SIZE]; CORES_COUNT],
+            privileges: Default::default(),
+            disputes: Default::default(),
+            statistics: Default::default(),
+            queue: Default::default(),
+            logs: Default::default(),
+            history: Default::default(),
+        }
+    }
 }
 
 impl State {
@@ -94,6 +113,7 @@ impl State {
             pairs.insert(key::SAFROLE, Box::new(&self.safrole));
         }
 
+        pairs.insert(key::AUTHORIZATION_POOLS, Box::new(&self.pools));
         pairs.insert(key::ENTROPY, Box::new(&self.entropy));
         pairs.insert(key::TIMESLOT, Box::new(&self.timeslot));
         pairs.insert(key::PENDING_REPORTS, Box::new(&self.reports));

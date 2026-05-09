@@ -191,7 +191,7 @@ pub fn reports(
 pub fn pools(
     timeslot: TimeSlot,
     pools: &[Vec<OpaqueHash>; score::CORES_COUNT],
-    authorizations: &[Vec<OpaqueHash>; score::CORES_COUNT],
+    authorizations: &[[OpaqueHash; score::AUTH_QUEUE_SIZE]; score::CORES_COUNT],
     guarantees: &GuaranteesExtrinsic,
 ) -> [Vec<OpaqueHash>; score::CORES_COUNT] {
     let slot = timeslot % score::EPOCH_LENGTH;
@@ -202,7 +202,12 @@ pub fn pools(
         // remove old authorizers from the pool
         for guarantee in guarantees {
             if guarantee.report.core_index as usize == core_index {
-                new_pool.retain(|auth| *auth != guarantee.report.authorizer_hash);
+                if let Some(pos) = new_pool
+                    .iter()
+                    .position(|auth| *auth == guarantee.report.authorizer_hash)
+                {
+                    new_pool.remove(pos);
+                }
             }
         }
 

@@ -89,7 +89,12 @@ pub trait StateStorage: KVStorage {
             .collect::<Vec<_>>();
 
         state.pools = codec::decode(&data[0]).unwrap_or_default();
-        state.authorization = codec::decode(&data[1]).unwrap_or_default();
+        if data[1].len() == CORES_COUNT * score::AUTH_QUEUE_SIZE * 32 {
+            for (i, chunk) in data[1].chunks_exact(32).enumerate() {
+                state.authorization[i / score::AUTH_QUEUE_SIZE][i % score::AUTH_QUEUE_SIZE]
+                    .copy_from_slice(chunk);
+            }
+        }
         state.recent_blocks = codec::decode(&data[2]).unwrap_or_default();
         state.safrole = codec::decode(&data[3]).unwrap_or_default();
         state.disputes = codec::decode(&data[4]).unwrap_or_default();
