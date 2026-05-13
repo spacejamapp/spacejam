@@ -362,7 +362,7 @@ impl Visitor for Interpreter {
     fn visit_load_ind_i8(&mut self, format: format::RRI, _range: &Range<usize>) -> Result<()> {
         let format::RRI { reg0, reg1, imm0 } = format;
         let addr = self.rget(reg1);
-        let value: i8 = self.read((addr + imm0) as u32)?;
+        let value: i8 = self.read(addr.wrapping_add(imm0) as u32)?;
         self.rset(reg0, value.as_u64());
         Ok(())
     }
@@ -1011,7 +1011,7 @@ impl Visitor for Interpreter {
     fn visit_store_imm_ind_u8(&mut self, format: format::RII, _range: &Range<usize>) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.write((address + imm0) as u32, imm1 as u8)
+        self.write(address.wrapping_add(imm0) as u32, imm1 as u8)
     }
 
     fn visit_store_imm_ind_u16(
@@ -1021,7 +1021,7 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.write((address + imm0) as u32, imm1 as u16)
+        self.write(address.wrapping_add(imm0) as u32, imm1 as u16)
     }
 
     fn visit_store_imm_ind_u32(
@@ -1031,7 +1031,7 @@ impl Visitor for Interpreter {
     ) -> Result<()> {
         let format::RII { reg0, imm0, imm1 } = format;
         let address = self.rget(reg0);
-        self.write((address + imm0) as u32, imm1 as u32)
+        self.write(address.wrapping_add(imm0) as u32, imm1 as u32)
     }
 
     fn visit_store_imm_ind_u64(

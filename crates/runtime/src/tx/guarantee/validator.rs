@@ -236,16 +236,17 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let mut output_len = guarantee.report.auth_output.len();
-        let mut gas_limit = 0;
+        let mut gas_limit: u64 = 0;
         for result in guarantee.report.results.iter() {
             if let WorkExecResult::Ok(blob) = &result.result {
-                output_len += blob.len();
+                output_len = output_len.wrapping_add(blob.len());
                 if output_len > MAX_WORK_REPORT_OUTPUT_SIZE {
                     return Err(Error::WorkReportTooBig);
                 }
             }
 
-            gas_limit += result.accumulate_gas;
+            // wrapping (not saturating) to match polkajam's modular u64 sum.
+            gas_limit = gas_limit.wrapping_add(result.accumulate_gas);
             if gas_limit > WORK_REPORT_GAS_LIMIT {
                 return Err(Error::WorkReportGasTooHigh);
             }

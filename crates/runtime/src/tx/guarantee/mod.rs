@@ -132,7 +132,11 @@ pub fn ready_queue(
     let accd = history[score::EPOCH_LENGTH as usize - 1].clone();
 
     // update the ready queue (θ')
-    let blocks = slot - tau;
+    //
+    // saturating_sub: header validation rejects slot <= tau, but it runs in
+    // parallel with STF simulation in block::process — must not panic on the
+    // simulate side before the joined match bails on the validate error.
+    let blocks = slot.saturating_sub(tau);
     for idx in 0..score::EPOCH_LENGTH {
         let target = ((score::EPOCH_LENGTH + phase - idx) % score::EPOCH_LENGTH) as usize;
         let ready = if idx == 0 {
