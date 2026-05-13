@@ -1,0 +1,19 @@
+[package]
+name = "spacejam-spec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Chain-spec constants and parameters for SpaceJam"
+documentation = "https://docs.rs/spacejam-spec"
+categories = ["no-std", "embedded"]
+keywords = ["jam"]
+
+[dependencies]
+serde.workspace = true
+
+[features]
+default = ["tiny"]
+tiny = []
+full = []

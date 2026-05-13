@@ -10,38 +10,11 @@ pub(crate) use std::{collections::BTreeMap, string::String, vec::Vec};
 #[cfg(not(feature = "std"))]
 pub(crate) use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
-pub use params::Parameters;
+pub use ::spec::*;
 
 pub mod api;
-pub mod params;
 pub mod service;
 pub mod vm;
-
-/// (B_I) The balance per item
-pub const BALANCE_PER_ITEM: u64 = 10;
-
-/// (B_L) The balance per octet
-pub const BALANCE_PER_OCTET: u64 = 1;
-
-/// (B_S) The balance per service
-pub const BALANCE_PER_SERVICE: u64 = 100;
-
-/// (C) The count of cores
-pub const CORES_COUNT: usize = 2;
-
-/// (G_A) The gas allocated to invoke a work report's Accumulation logic
-pub const GAS_ACC: u64 = 10_000_000;
-
-/// (G_T) The total gas allocated across for all accumulation
-///
-/// should be no smaller than G_A * C + ∑ privileges
-pub const GAS_ALL_ACC: u64 = 20_000_000;
-
-/// (W_G) The size of a segment
-pub const SEGMENT_SIZE: usize = 4104;
-
-/// (W_T) The size of a transfer memo
-pub const TRANSFER_MEMO_SIZE: usize = 128;
 
 /// The gas type
 pub type Gas = u64;

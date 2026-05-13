@@ -3517,7 +3517,15 @@ dependencies = [
  "serde",
  "serde-jam",
  "serde_json",
+ "spacejam-spec",
  "spacejson",
+]
+
+[[package]]
+name = "spacejam-spec"
+version = "0.1.1"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

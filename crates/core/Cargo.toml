@@ -16,5 +16,7 @@ serde_json.workspace = true
 spacejson.workspace = true
 
 [features]
-default = ["blake2"]
+default = ["blake2", "tiny"]
 blake2 = ["service/blake2"]
+tiny = ["service/tiny"]
+full = ["service/full"]

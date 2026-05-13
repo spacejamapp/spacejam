@@ -73,13 +73,19 @@ impl Config {
 }
 
 enum Spec {
+    #[cfg(all(feature = "tiny", not(feature = "full")))]
     Tiny,
+    #[cfg(feature = "full")]
+    Full,
 }
 
 impl Spec {
     fn as_str(&self) -> &'static str {
         match self {
+            #[cfg(all(feature = "tiny", not(feature = "full")))]
             Self::Tiny => "tiny",
+            #[cfg(feature = "full")]
+            Self::Full => "full",
         }
     }
 }
@@ -89,8 +95,14 @@ impl FromStr for Spec {
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
+            #[cfg(all(feature = "tiny", not(feature = "full")))]
             "tiny" => Ok(Self::Tiny),
-            "full" => bail!("JAM_FUZZ_SPEC=full is not supported by this build"),
+            #[cfg(feature = "full")]
+            "full" => Ok(Self::Full),
+            #[cfg(all(feature = "tiny", not(feature = "full")))]
+            "full" => bail!("JAM_FUZZ_SPEC=full requires building with --features full"),
+            #[cfg(feature = "full")]
+            "tiny" => bail!("JAM_FUZZ_SPEC=tiny requires building --no-default-features"),
             other => bail!("invalid JAM_FUZZ_SPEC: {other:?} (expected 'tiny' or 'full')"),
         }
     }

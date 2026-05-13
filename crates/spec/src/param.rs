@@ -1,10 +1,6 @@
 //! Chain parameters
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-pub use std_impl::*;
-
-mod tiny;
 
 /// Parameters for version 1
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,27 +73,91 @@ pub struct Parameters {
     pub ticket_submission_period: u32,
 }
 
-impl Default for Parameters {
-    fn default() -> Self {
-        Self::tiny()
+impl Parameters {
+    /// Tiny parameters
+    pub const fn tiny() -> Self {
+        Self {
+            deposit_per_item: 10,
+            deposit_per_byte: 1,
+            deposit_per_account: 100,
+            validators_per_core: 2,
+            min_turnaround_period: 32,
+            epoch_period: 12,
+            max_accumulate_gas: 10_000_000,
+            max_is_authorized_gas: 50_000_000,
+            max_refine_gas: 1_000_000_000,
+            block_gas_limit: 20_000_000,
+            recent_block_count: 8,
+            max_work_items: 16,
+            max_dependencies: 8,
+            max_tickets_per_extrinsic: 3,
+            max_lookup_anchor_age: 24,
+            ticket_entries_per_validator: 3,
+            auth_window: 8,
+            slot_period: 6,
+            auth_queue_len: 80,
+            rotation_period: 4,
+            max_extrinsics: 128,
+            availability_timeout: 5,
+            val_count: 6,
+            max_is_authorized_code_size: 64_000,
+            max_input: 13_791_360,
+            max_refine_code_size: 4_000_000,
+            basic_piece_len: 4,
+            max_imports: 3072,
+            erasure_coded_pieces: 1026,
+            max_refine_memory: 49_152,
+            transfer_memo_size: 128,
+            max_exports: 3072,
+            ticket_submission_period: 10,
+        }
+    }
+
+    /// Full parameters
+    pub const fn full() -> Self {
+        Self {
+            deposit_per_item: 10,
+            deposit_per_byte: 1,
+            deposit_per_account: 100,
+            validators_per_core: 3,
+            min_turnaround_period: 19200,
+            epoch_period: 600,
+            max_accumulate_gas: 10_000_000,
+            max_is_authorized_gas: 50_000_000,
+            max_refine_gas: 5_000_000_000,
+            block_gas_limit: 3_500_000_000,
+            recent_block_count: 8,
+            max_work_items: 16,
+            max_dependencies: 8,
+            max_tickets_per_extrinsic: 16,
+            max_lookup_anchor_age: 14400,
+            ticket_entries_per_validator: 2,
+            auth_window: 8,
+            slot_period: 6,
+            auth_queue_len: 80,
+            rotation_period: 10,
+            max_extrinsics: 128,
+            availability_timeout: 5,
+            val_count: 1023,
+            max_is_authorized_code_size: 64_000,
+            max_input: 13_791_360,
+            max_refine_code_size: 4_000_000,
+            basic_piece_len: 684,
+            max_imports: 3072,
+            erasure_coded_pieces: 6,
+            max_refine_memory: 49_152,
+            transfer_memo_size: 128,
+            max_exports: 3072,
+            ticket_submission_period: 500,
+        }
     }
 }
 
-#[cfg(feature = "std")]
-mod std_impl {
-    use crate::Parameters;
-    use std::sync::{LazyLock, RwLock, RwLockReadGuard};
-
-    /// Parameters for the chain
-    static PARAMS: LazyLock<RwLock<Parameters>> = LazyLock::new(|| RwLock::new(Parameters::tiny()));
-
-    /// Get the parameters
-    pub fn get() -> RwLockReadGuard<'static, Parameters> {
-        PARAMS.read().expect("Failed to read parameters")
-    }
-
-    /// Set new parameters
-    pub fn set(params: Parameters) {
-        *PARAMS.write().expect("Failed to write parameters") = params;
+impl Default for Parameters {
+    fn default() -> Self {
+        #[cfg(all(feature = "tiny", not(feature = "full")))]
+        return Self::tiny();
+        #[cfg(feature = "full")]
+        return Self::full();
     }
 }
