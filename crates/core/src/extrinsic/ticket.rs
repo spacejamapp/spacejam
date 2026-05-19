@@ -96,7 +96,7 @@ impl TicketBody {
     }
 
     /// Sequences the tickets with Z function (outside-in)
-    pub fn sequence(tickets: &[TicketBody]) -> [TicketBody; crate::EPOCH_LENGTH as usize] {
+    pub fn sequence(tickets: &[TicketBody]) -> crate::block::header::TicketsMark {
         let mut ordered_tickets = Vec::with_capacity(tickets.len());
         let mid = tickets.len() / 2;
 
@@ -108,8 +108,7 @@ impl TicketBody {
             }
         }
 
-        // copy to the fixed-size array
-        let mut ordered = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
+        let mut ordered = crate::block::header::TicketsMark::default();
         ordered.copy_from_slice(&ordered_tickets);
         ordered
     }
@@ -135,18 +134,21 @@ impl TicketBody {
 /// Represents an accumulator of tickets.
 pub type TicketsAccumulator = Vec<TicketBody>;
 
+/// Epoch-length array of bandersnatch public keys
+pub type EpochKeys = crate::Array<BandersnatchPublic, { crate::EPOCH_LENGTH as usize }>;
+
 /// Represents either tickets or keys.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum TicketsOrKeys {
-    Tickets([TicketBody; crate::EPOCH_LENGTH as usize]),
-    Keys([BandersnatchPublic; crate::EPOCH_LENGTH as usize]),
+    Tickets(crate::block::header::TicketsMark),
+    Keys(EpochKeys),
 }
 
 impl TicketsOrKeys {
     /// Returns the fallback keys for the given ring and entropy.
     #[cfg(feature = "blake2")]
     pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: OpaqueHash) -> Self {
-        let mut keys = [BandersnatchPublic::default(); crate::EPOCH_LENGTH as usize];
+        let mut keys = EpochKeys::default();
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy.as_slice(), &i.to_le_bytes()].concat();
             let hash = crate::blake2b(&input);

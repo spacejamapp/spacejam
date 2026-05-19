@@ -143,7 +143,7 @@ mod types {
 
         /// (α') Authorization pools.
         #[json(Vec<Vec<String>>)]
-        pub auth_pools: [Vec<OpaqueHash>; CORES_COUNT],
+        pub auth_pools: score::AuthorizationPools,
 
         /// (δ) Encoded services dictionary. Refer to T(σ) in Appendix D.
         #[json(nested)]

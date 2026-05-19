@@ -112,16 +112,16 @@ impl State {
         let prev = self.clone();
         let new_epoch = input.slot / score::EPOCH_LENGTH > self.tau / score::EPOCH_LENGTH;
         let safrole = Safrole {
-            validators: self.gamma_k,
+            validators: self.gamma_k.clone(),
             series: self.gamma_s.clone(),
             ring_commitment: self.gamma_z,
             accumulator: self.gamma_a.clone(),
         };
 
         let mut validators = Validators {
-            current: self.kappa,
-            drawn: self.iota,
-            previous: self.lambda,
+            current: self.kappa.clone(),
+            drawn: self.iota.clone(),
+            previous: self.lambda.clone(),
         };
 
         validators = tx::ticket::validators(new_epoch, &safrole.validators, &validators);

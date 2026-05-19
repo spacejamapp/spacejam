@@ -2,7 +2,7 @@
 
 use crate::{
     BandersnatchRingCommitment, Ed25519Public, OpaqueHash,
-    block::header::{EValidator, EpochMark, TicketsMark},
+    block::header::{EValidator, EpochMark, EpochValidators, TicketsMark},
     extrinsic::{TicketBody, TicketBodyJson, TicketsAccumulator, TicketsOrKeys, TicketsOrKeysJson},
 };
 use serde::{Deserialize, Serialize};
@@ -37,8 +37,7 @@ pub struct Safrole {
 impl Safrole {
     /// (γ_k') Returns the validators for the next epoch.
     pub fn next(&self, drawn: &ValidatorsData, offenders: &[Ed25519Public]) -> ValidatorsData {
-        // Apply blacklist filter Φ(ι)
-        let mut next = [ValidatorData::default(); crate::VALIDATORS_COUNT as usize];
+        let mut next = ValidatorsData::default();
         for (i, validator) in drawn.iter().enumerate() {
             next[i] = if offenders.contains(&validator.ed25519) {
                 ValidatorData::default()
@@ -61,7 +60,7 @@ impl Safrole {
             })
             .collect();
 
-        let mut validators = [EValidator::default(); crate::VALIDATORS_COUNT as usize];
+        let mut validators = EpochValidators::default();
         validators.copy_from_slice(&next_epoch_validators);
 
         Some(EpochMark {
@@ -96,7 +95,7 @@ impl Safrole {
         }
 
         // Apply Z function to gamma_a (outside-in sequencing)
-        let mut tickets = [TicketBody::default(); crate::EPOCH_LENGTH as usize];
+        let mut tickets = TicketsMark::default();
         tickets.copy_from_slice(&TicketBody::sequence(&self.accumulator));
         Some(tickets)
     }

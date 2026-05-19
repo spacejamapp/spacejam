@@ -34,6 +34,6 @@ std = [
     "spacejson?/std",
 ]
 blake2 = ["dep:blake2"]
-json = ["hex", "serde_json", "spacejson"]
+json = ["hex", "serde_json", "spacejson", "spacejson/codec"]
 tiny = ["spec/tiny"]
 full = ["spec/full"]

@@ -34,7 +34,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
         tickets.copy_from_slice(&TicketBody::sequence(&state.safrole.accumulator));
         ticket = Some(tickets[slot]);
-    } else if let TicketsOrKeys::Tickets(tickets) = state.safrole.series
+    } else if let TicketsOrKeys::Tickets(tickets) = &state.safrole.series
         && !new_epoch
     {
         ticket = Some(tickets[slot]);
@@ -58,10 +58,10 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
             };
             keys
         } else {
-            let TicketsOrKeys::Keys(keys) = state.safrole.series else {
+            let TicketsOrKeys::Keys(keys) = &state.safrole.series else {
                 anyhow::bail!("invalid series");
             };
-            keys
+            keys.clone()
         };
 
         // FIXME: This is a duplicated check for async processing.
@@ -141,7 +141,7 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
             .safrole
             .next(&state.validators.drawn, &header.offenders_mark)
             .evals();
-        if epoch_mark.validators != expected.as_slice() {
+        if epoch_mark.validators[..] != expected[..] {
             anyhow::bail!("epoch mark validators mismatch");
         }
 
@@ -157,14 +157,14 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
     }
 
     let should_have_tickets_mark = state.safrole.has_tickets_mark(state.timeslot, header.slot);
-    if let Some(tickets_mark) = header.tickets_mark {
+    if let Some(tickets_mark) = &header.tickets_mark {
         if !should_have_tickets_mark {
             anyhow::bail!("tickets mark present but not expected");
         }
 
         // Validate content: tickets_mark == Z(accumulator)
         let expected = TicketBody::sequence(&state.safrole.accumulator);
-        if tickets_mark != expected {
+        if tickets_mark[..] != expected[..] {
             anyhow::bail!("tickets mark content mismatch");
         }
 

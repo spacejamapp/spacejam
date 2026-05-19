@@ -1,6 +1,6 @@
 //! Service module
 
-use crate::WorkPackageHash;
+use crate::{CORES_COUNT, WorkPackageHash};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -27,13 +27,14 @@ mod report;
 mod validate;
 
 /// The ready queue (θ)
-pub type ReadyQueue = [Vec<ReadyReport>; crate::EPOCH_LENGTH as usize];
+pub type ReadyQueue = crate::Array<Vec<ReadyReport>, { crate::EPOCH_LENGTH as usize }>;
 
 /// The accumulated queue (ξ)
-pub type AccumulatedQueue = [Vec<WorkPackageHash>; crate::EPOCH_LENGTH as usize];
+pub type AccumulatedQueue = crate::Array<Vec<WorkPackageHash>, { crate::EPOCH_LENGTH as usize }>;
 
 /// The availability assignments (ρ)
-pub type AvailabilityAssignments = [Option<AvailabilityAssignment>; crate::CORES_COUNT];
+pub type AvailabilityAssignments =
+    crate::Array<Option<AvailabilityAssignment>, CORES_COUNT>;
 
 /// The availability assignment
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]

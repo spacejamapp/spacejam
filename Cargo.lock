@@ -3592,6 +3592,7 @@ dependencies = [
  "anyhow",
  "hex",
  "serde",
+ "serde-jam",
  "spacejson-derive",
 ]
 

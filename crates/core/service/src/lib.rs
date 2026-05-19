@@ -12,6 +12,11 @@ pub(crate) use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 pub use ::spec::*;
 
+#[cfg(not(feature = "full"))]
+pub use codec::FixedArray as Array;
+#[cfg(feature = "full")]
+pub use codec::Array;
+
 pub mod api;
 pub mod service;
 pub mod vm;
@@ -48,6 +53,12 @@ pub type ErasureRoot = OpaqueHash;
 
 /// The type for an entropy buffer
 pub type EntropyBuffer = [OpaqueHash; 4];
+
+/// Per-core service assignments (χA)
+pub type CoreAssignments = Array<ServiceId, CORES_COUNT>;
+
+/// Per-core authorization pools (α)
+pub type AuthorizationPools = Array<Vec<OpaqueHash>, CORES_COUNT>;
 
 /// The type for a validator metadata
 pub type ValidatorMetadata = [u8; 128];

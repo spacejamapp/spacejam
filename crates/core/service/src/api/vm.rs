@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Data of validators
-pub type ValidatorsData = [ValidatorData; 6];
+pub type ValidatorsData = crate::Array<ValidatorData, { crate::VALIDATORS_COUNT as usize }>;
 
 /// The accounts type
 pub type Accounts = BTreeMap<ServiceId, ServiceAccount>;
@@ -79,7 +79,7 @@ pub struct AccumulateState {
     pub validators: ValidatorsData,
 
     /// p (φ) The authorization queue
-    pub authorization: [Vec<OpaqueHash>; crate::CORES_COUNT],
+    pub authorization: crate::AuthorizationPools,
 
     /// a (χ) The privileged service indices
     pub privileges: Privileges,

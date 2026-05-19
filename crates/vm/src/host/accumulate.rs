@@ -6,7 +6,6 @@ use crate::{
 };
 use account::Account;
 use score::{
-    safrole::ValidatorData,
     service::{Privileges, ServiceAccount, ServiceInfo},
     vm::DeferredTransfer,
 };
@@ -27,7 +26,7 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
     let assign = {
         let mut data = vec![0u8; 4 * score::CORES_COUNT];
         ctx.read_into(assign as u32, &mut data)?;
-        let mut assign = [0u32; score::CORES_COUNT];
+        let mut assign = score::CoreAssignments::default();
         for (i, chunk) in data.chunks(4).enumerate() {
             if i < score::CORES_COUNT {
                 assign[i] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
@@ -135,7 +134,7 @@ pub fn designate(ctx: &mut impl Argument) -> Result<ExitCode> {
             );
         }
 
-        let mut validators = [ValidatorData::default(); score::VALIDATORS_COUNT as usize];
+        let mut validators = score::safrole::ValidatorsData::default();
         for (i, chunk) in source.chunks(336).enumerate() {
             let Ok(validator) = codec::decode(chunk) else {
                 crate::bail!("Could not parse validators");

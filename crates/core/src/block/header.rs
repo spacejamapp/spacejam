@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
 /// Represents the tickets mark in a block header.
-pub type TicketsMark = [TicketBody; EPOCH_LENGTH as usize];
+pub type TicketsMark = crate::Array<TicketBody, { EPOCH_LENGTH as usize }>;
 
 /// Represents the header of a block.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone)]
@@ -97,8 +97,11 @@ pub struct EpochMark {
 
     /// The validators
     #[json(Vec<EValidatorJson>)]
-    pub validators: [EValidator; VALIDATORS_COUNT as usize],
+    pub validators: EpochValidators,
 }
+
+/// Validators in an epoch mark
+pub type EpochValidators = crate::Array<EValidator, { VALIDATORS_COUNT as usize }>;
 
 /// Represents the epoch validator in a block header.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, Default, Copy)]

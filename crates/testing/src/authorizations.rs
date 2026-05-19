@@ -40,7 +40,10 @@ pub struct TestState {
 
 impl From<TestState> for State {
     fn from(state: TestState) -> Self {
-        let mut authorization = [[[0u8; 32]; score::AUTH_QUEUE_SIZE]; score::CORES_COUNT];
+        let mut authorization: score::Array<
+            score::Array<score::OpaqueHash, { score::AUTH_QUEUE_SIZE }>,
+            { score::CORES_COUNT },
+        > = Default::default();
         for (core, queue) in state.auth_queues.iter().enumerate() {
             for (slot, hash) in queue.iter().enumerate() {
                 authorization[core][slot] = *hash;

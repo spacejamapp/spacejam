@@ -3,7 +3,7 @@
 use crate::{invocation::Argument, Reason, Result};
 use account::{Account, Accounts};
 use score::{
-    safrole::{ValidatorData, ValidatorsData},
+    safrole::ValidatorsData,
     service::Privileges,
     vm::{AccumulateItem, DeferredTransfer},
     EntropyBuffer, Gas, OpaqueHash, ServiceId, TimeSlot,
@@ -27,6 +27,7 @@ pub struct Accumulate<R: Accounts> {
     /// (i) The accumulate items
     pub items: Vec<AccumulateItem>,
 }
+
 
 impl<R: Accounts> Accumulate<R> {
     /// Get the account
@@ -106,8 +107,8 @@ impl<R: Accounts> Argument for Accumulate<R> {
         self.x.context.privileges = privileges;
     }
 
-    fn set_validators(&mut self, validators: [ValidatorData; score::VALIDATORS_COUNT as usize]) {
-        self.x.context.validators = validators;
+    fn set_validators(&mut self, validators: score::safrole::ValidatorsData) {
+        self.x.validators = validators;
     }
 
     fn this(&mut self) -> anyhow::Result<&mut impl Account> {
@@ -140,6 +141,9 @@ pub struct AccumulateContext<R: Accounts> {
     /// (e) the accumulate state
     pub context: AccumulateState<R>,
 
+    /// i (ι) The upcoming validators
+    pub validators: ValidatorsData,
+
     /// (i) empty index for a new account
     pub index: ServiceId,
 
@@ -152,11 +156,17 @@ pub struct AccumulateContext<R: Accounts> {
 
 impl<R: Accounts> AccumulateContext<R> {
     /// Create a new accumulate context
-    pub fn new(mut context: AccumulateState<R>, service: ServiceId, timeslot: TimeSlot) -> Self {
+    pub fn new(
+        mut context: AccumulateState<R>,
+        validators: ValidatorsData,
+        service: ServiceId,
+        timeslot: TimeSlot,
+    ) -> Self {
         Self {
             service,
             index: context.index(service, timeslot),
             context,
+            validators,
             transfer: Vec::new(),
             output: None,
         }
@@ -183,6 +193,7 @@ impl<R: Accounts> AccumulateContext<R> {
     pub fn to_result(self, gas: Gas, reason: Reason) -> Accumulated<R> {
         Accumulated {
             context: self.context,
+            validators: self.validators,
             transfers: self.transfer,
             hash: self.output,
             gas,
@@ -197,11 +208,8 @@ pub struct AccumulateState<R> {
     /// d (δ) The accounts
     pub accounts: R,
 
-    /// i (ι) The upcoming validators
-    pub validators: ValidatorsData,
-
     /// p (φ) The authorization queue
-    pub authorization: [Vec<OpaqueHash>; score::CORES_COUNT],
+    pub authorization: score::AuthorizationPools,
 
     /// a (χ) The privileged service indices
     pub privileges: Privileges,
@@ -233,6 +241,9 @@ pub struct Accumulated<R: Accounts> {
     /// (o) The state context
     pub context: AccumulateState<R>,
 
+    /// i (ι) The upcoming validators
+    pub validators: ValidatorsData,
+
     /// (t) The timeslot for the current accumulation
     pub transfers: Vec<DeferredTransfer>,
 
@@ -251,6 +262,7 @@ impl<R: Accounts> Accumulated<R> {
     pub fn new(context: AccumulateState<R>) -> Self {
         Self {
             context,
+            validators: Default::default(),
             transfers: Vec::new(),
             hash: None,
             gas: 0,

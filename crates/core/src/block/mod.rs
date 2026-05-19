@@ -5,7 +5,7 @@ use crate::{
     extrinsic::*,
     service::{ReportedWorkPackage, ReportedWorkPackageJson},
 };
-use header::{EValidator, EpochMark};
+use header::EpochMark;
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 use std::time::{Duration, UNIX_EPOCH};
@@ -37,7 +37,7 @@ impl Block {
     }
 
     /// Returns the genesis block
-    pub fn genesis(validators: [EValidator; crate::VALIDATORS_COUNT as usize]) -> Self {
+    pub fn genesis(validators: header::EpochValidators) -> Self {
         let header = Header {
             epoch_mark: Some(EpochMark {
                 entropy: Entropy::default(),

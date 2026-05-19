@@ -191,8 +191,8 @@ pub trait Invocation {
     fn accumulate<R: Accounts>(
         // (U) The state context
         mut context: AccumulateState<R>,
-        // (N_t)  timeslot for the current accumulation
-        // timeslot: TimeSlot,
+        // i (ι) The upcoming validators
+        validators: score::safrole::ValidatorsData,
         // (N_s)  the service id of the caller
         service: ServiceId,
         // (N_g)  the gas limit for the current operation
@@ -227,7 +227,7 @@ pub trait Invocation {
 
         // create the accumulate context
         let timeslot = context.timeslot;
-        let context = AccumulateContext::new(context, service, timeslot);
+        let context = AccumulateContext::new(context, validators, service, timeslot);
         let params = AccumulateParams {
             slot: timeslot,
             id: service,

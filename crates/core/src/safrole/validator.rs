@@ -8,10 +8,10 @@ use spacejson::Json;
 use std::net::{Ipv6Addr, SocketAddrV4, SocketAddrV6};
 
 /// Data of validators
-pub type ValidatorsData = [ValidatorData; crate::VALIDATORS_COUNT as usize];
+pub type ValidatorsData = crate::Array<ValidatorData, { crate::VALIDATORS_COUNT as usize }>;
 
 /// The validators (ι, κ, λ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default, Json)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default, Json)]
 pub struct Validators {
     /// The validator keys and metadata to be drawn from next (ι)
     #[json(Vec<ValidatorDataJson>)]
@@ -28,17 +28,17 @@ pub struct Validators {
 
 impl Validators {
     /// (λ') Returns the validators for the previous epoch.
-    pub fn previous(&self, new_epoch: bool) -> ValidatorsData {
+    pub fn previous(&self, new_epoch: bool) -> &ValidatorsData {
         if new_epoch {
-            self.current
+            &self.current
         } else {
-            self.previous
+            &self.previous
         }
     }
 
     /// (κ') Returns the validators for the current epoch.
-    pub fn current(&self, new_epoch: bool, next: &ValidatorsData) -> ValidatorsData {
-        if new_epoch { *next } else { self.current }
+    pub fn current<'a>(&'a self, new_epoch: bool, next: &'a ValidatorsData) -> &'a ValidatorsData {
+        if new_epoch { next } else { &self.current }
     }
 }
 

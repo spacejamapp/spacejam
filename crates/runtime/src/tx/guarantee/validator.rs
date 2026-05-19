@@ -292,13 +292,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             == slot / ROTATION_PERIOD as u32
         {
             let assignments = self::permute(self.state.entropy[2], slot);
-            (self.state.validators.current, assignments)
+            (&self.state.validators.current, assignments)
         } else {
             let (entropy, validators) =
                 if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
-                    (self.state.entropy[2], self.state.validators.current)
+                    (self.state.entropy[2], &self.state.validators.current)
                 } else {
-                    (self.state.entropy[3], self.state.validators.previous)
+                    (self.state.entropy[3], &self.state.validators.previous)
                 };
             let assignments = self::permute(entropy, slot.saturating_sub(ROTATION_PERIOD as u32));
             (validators, assignments)
@@ -348,7 +348,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 /// Permute function P(e, t) for guarantor assignments.
 ///
 /// Returns the core assignments for all validators based on entropy and time.
-fn permute(entropy: Entropy, timeslot: TimeSlot) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+fn permute(entropy: Entropy, timeslot: TimeSlot) -> score::Array<Vec<CoreIndex>, CORES_COUNT> {
     let initial_assignments: Vec<u32> = (0..VALIDATORS_COUNT as u32)
         .map(|i| (CORES_COUNT as u32 * i) / VALIDATORS_COUNT as u32)
         .collect();
@@ -365,14 +365,14 @@ fn permute(entropy: Entropy, timeslot: TimeSlot) -> [Vec<CoreIndex>; score::CORE
 /// Rotation function R for guarantor assignments.
 ///
 /// Rotates core assignments by n positions.
-fn rotate(assignments: Vec<CoreIndex>, n: u32) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+fn rotate(assignments: Vec<CoreIndex>, n: u32) -> score::Array<Vec<CoreIndex>, CORES_COUNT> {
     let rotated: Vec<CoreIndex> = assignments
         .iter()
-        .map(|&x| ((x as u32 + n) % score::CORES_COUNT as u32) as CoreIndex)
+        .map(|&x| ((x as u32 + n) % CORES_COUNT as u32) as CoreIndex)
         .collect();
 
     // Group validators by their assigned cores
-    let mut assignments: [Vec<u16>; score::CORES_COUNT] = Default::default();
+    let mut assignments: score::Array<Vec<u16>, CORES_COUNT> = Default::default();
     for (validator_idx, &core_idx) in rotated.iter().enumerate() {
         assignments[core_idx as usize].push(validator_idx as u16);
     }

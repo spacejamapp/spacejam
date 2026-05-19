@@ -23,7 +23,7 @@ pub mod key;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct State {
     /// The authorization pools (α)
-    pub pools: [Vec<OpaqueHash>; CORES_COUNT],
+    pub pools: service::AuthorizationPools,
 
     /// The recent blocks (β)
     pub recent_blocks: History,
@@ -48,7 +48,7 @@ pub struct State {
     pub timeslot: TimeSlot,
 
     /// The authorization queue (φ)
-    pub authorization: [[OpaqueHash; AUTH_QUEUE_SIZE]; CORES_COUNT],
+    pub authorization: crate::Array<crate::Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT>,
 
     /// The privileged service indices (χ)
     pub privileges: Privileges,
@@ -80,7 +80,7 @@ impl Default for State {
             validators: Default::default(),
             reports: Default::default(),
             timeslot: Default::default(),
-            authorization: [[[0; 32]; AUTH_QUEUE_SIZE]; CORES_COUNT],
+            authorization: Default::default(),
             privileges: Default::default(),
             disputes: Default::default(),
             statistics: Default::default(),

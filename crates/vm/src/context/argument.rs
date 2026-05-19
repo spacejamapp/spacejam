@@ -3,7 +3,6 @@
 use account::Account;
 use anyhow::Result;
 use score::{
-    safrole::ValidatorData,
     service::{Privileges, ServiceAccount},
     vm::{AccumulateItem, DeferredTransfer},
     Gas, OpaqueHash, ServiceId, TimeSlot,
@@ -170,7 +169,7 @@ pub trait Argument: Send + Sync {
     }
 
     /// Set the validators
-    fn set_validators(&mut self, validators: [ValidatorData; score::VALIDATORS_COUNT as usize]) {
+    fn set_validators(&mut self, validators: score::safrole::ValidatorsData) {
         unimplemented!(
             "make sure you are invoking the accumulation interface {:?}",
             validators.len()
