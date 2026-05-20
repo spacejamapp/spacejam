@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Result;
 use crypto::merkle;
 use pvm::Pvm;
-use score::{Block, OpaqueHash, state::StateKeyLike};
+use score::{Block, OpaqueHash, TrieKey, state::StateKeyLike};
 use std::{collections::HashMap, sync::Arc};
 
 pub mod header;
@@ -120,6 +120,10 @@ impl TestChain {
 
     /// Initialize the chain with the given block.
     pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<OpaqueHash> {
+        let state: HashMap<TrieKey, Vec<u8>> = state
+            .into_iter()
+            .map(|(k, v)| (k.as_slice().as_state_key(), v))
+            .collect();
         self.data.reset(state);
         let head = self
             .data
@@ -145,11 +149,9 @@ impl Default for TestChain {
 /// Compute the state root and cache it for the given header hash.
 ///
 /// NOTE: this method overrides the StateStorage::root for zero-copy.
-fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash {
-    let mut kvs: Vec<([u8; 31], &[u8])> = data
-        .iter()
-        .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
-        .collect();
+fn handle_root(head: OpaqueHash, data: &HashMap<TrieKey, Vec<u8>>) -> OpaqueHash {
+    let mut kvs: Vec<(TrieKey, &[u8])> =
+        data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
     kvs.sort_by_key(|a| a.0);
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
@@ -161,21 +163,20 @@ fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash
 /// NOTE: this method overrides the StateStorage::root for zero-copy.
 fn handle_root_with_diff(
     head: OpaqueHash,
-    base: &HashMap<Vec<u8>, Vec<u8>>,
-    diff: &crate::storage::Commit<score::TrieKey, Vec<u8>>,
+    base: &HashMap<TrieKey, Vec<u8>>,
+    diff: &crate::storage::Commit<TrieKey, Vec<u8>>,
 ) -> OpaqueHash {
-    let mut kvs: Vec<([u8; 31], &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
+    let mut kvs: Vec<(TrieKey, &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
 
     // Add base entries, applying overlay
     for (k, v) in base.iter() {
-        let trie_key = k.as_slice().as_state_key();
-        if diff.removal.contains(&trie_key) {
+        if diff.removal.contains(k) {
             continue;
         }
-        if let Some(updated) = diff.update.get(&trie_key) {
-            kvs.push((trie_key, updated.as_slice()));
+        if let Some(updated) = diff.update.get(k) {
+            kvs.push((*k, updated.as_slice()));
         } else {
-            kvs.push((trie_key, v.as_slice()));
+            kvs.push((*k, v.as_slice()));
         }
     }
 
@@ -184,7 +185,7 @@ fn handle_root_with_diff(
         if diff.removal.contains(trie_key) {
             continue;
         }
-        if !base.contains_key(trie_key.as_ref()) {
+        if !base.contains_key(trie_key) {
             kvs.push((*trie_key, v.as_slice()));
         }
     }

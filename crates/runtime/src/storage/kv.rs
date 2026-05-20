@@ -2,7 +2,7 @@
 
 use crate::storage::{Column, Commit};
 use anyhow::Result;
-use score::TrieKey;
+use score::{TrieKey, state::StateKeyLike};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -46,7 +46,7 @@ pub trait KVStorage: Send + Sync + 'static {
 /// It's useful for testing and for situations where persistence isn't required.
 #[derive(Default)]
 pub struct MemoryDb {
-    data: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
+    data: Arc<RwLock<HashMap<TrieKey, Vec<u8>>>>,
 }
 
 impl MemoryDb {
@@ -54,7 +54,7 @@ impl MemoryDb {
     /// holding the read lock for the duration.
     pub fn with_data<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&HashMap<Vec<u8>, Vec<u8>>) -> R,
+        F: FnOnce(&HashMap<TrieKey, Vec<u8>>) -> R,
     {
         let data = self
             .data
@@ -64,7 +64,7 @@ impl MemoryDb {
     }
 
     /// Reset the memory database
-    pub fn reset(&self, data: HashMap<Vec<u8>, Vec<u8>>) {
+    pub fn reset(&self, data: HashMap<TrieKey, Vec<u8>>) {
         let mut curr = self.data.write().unwrap();
         *curr = data;
     }
@@ -78,11 +78,11 @@ impl KVStorage for MemoryDb {
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
 
         for (key, value) in commit.iset() {
-            data.insert(key.to_vec(), value.clone());
+            data.insert(*key, value.clone());
         }
 
         for key in commit.iremoval() {
-            data.remove(key.as_ref());
+            data.remove(key);
         }
 
         Ok(())
@@ -94,7 +94,7 @@ impl KVStorage for MemoryDb {
             .write()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
 
-        data.insert(key.as_ref().to_vec(), value.as_ref().to_vec());
+        data.insert(key.as_ref().as_state_key(), value.as_ref().to_vec());
         Ok(())
     }
 
@@ -103,7 +103,7 @@ impl KVStorage for MemoryDb {
             .data
             .read()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        Ok(data.get(key.as_ref()).cloned())
+        Ok(data.get(&key.as_ref().as_state_key()).cloned())
     }
 
     fn iter(&self, _column: Column) -> Result<impl Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> {
@@ -114,7 +114,7 @@ impl KVStorage for MemoryDb {
 
         // Clone all entries to avoid holding the lock during iteration
         let entries: Vec<(Vec<u8>, Vec<u8>)> =
-            data.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            data.iter().map(|(k, v)| (k.to_vec(), v.clone())).collect();
 
         Ok(entries.into_iter().map(Ok))
     }
@@ -128,13 +128,13 @@ impl KVStorage for MemoryDb {
             .data
             .read()
             .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        let prefix_bytes = prefix.as_ref().to_vec();
+        let prefix_bytes = prefix.as_ref();
 
         // Clone all matching entries to avoid holding the lock during iteration
         let matches: Vec<(Vec<u8>, Vec<u8>)> = data
             .iter()
-            .filter(|(k, _)| k.starts_with(&prefix_bytes))
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .filter(|(k, _)| k.starts_with(prefix_bytes))
+            .map(|(k, v)| (k.to_vec(), v.clone()))
             .collect();
 
         Ok(matches.into_iter().map(Ok))
