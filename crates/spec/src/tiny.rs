@@ -16,13 +16,13 @@ pub const GAS_REFINE: u64 = 5_000_000_000;
 pub const GAS_ALL_ACC: u64 = 20_000_000;
 
 /// (K) The maximum number of tickets which may be submitted in a single extrinsic.
-pub const MAX_TICKETS_PER_EXTRINSIC: u16 = 16;
+pub const MAX_TICKETS_PER_EXTRINSIC: u16 = 3;
 
 /// (L) The maximum age of a lookup anchor (in timeslots).
 pub const MAX_AGE_LOOKUP_ANCHOR: u32 = 24;
 
 /// (N) The number of ticket entries per validator
-pub const TICKET_ENTRIES_PER_VALIDATOR: u16 = 2;
+pub const TICKET_ENTRIES_PER_VALIDATOR: u16 = 3;
 
 /// (R) The rotation period of validator core assignments, in timeslots.
 pub const ROTATION_PERIOD: u16 = 4;

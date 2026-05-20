@@ -7,15 +7,20 @@ use ark_serialize::CanonicalDeserialize;
 use ark_vrf::{suites::bandersnatch::RingProofParams, Public};
 use once_cell::sync::Lazy;
 
-/// Number of keys in the ring.
-///
-/// TODO: add features to support full ring size
+#[cfg(not(feature = "full"))]
 pub const RING_SIZE: usize = 6;
+#[cfg(feature = "full")]
+pub const RING_SIZE: usize = 1023;
 
 /// "Static" ring context data
 pub static RING_CTX: Lazy<RingProofParams> = Lazy::new(|| {
+    #[cfg(not(feature = "full"))]
     let buf =
         include_bytes!("../bandersnatch-vrfs-spec/assets/example/data/size-6-with-zcash-srs.bin");
+    #[cfg(feature = "full")]
+    let buf = include_bytes!(
+        "../bandersnatch-vrfs-spec/assets/example/data/size-1023-with-zcash-srs.bin"
+    );
     RingProofParams::deserialize_uncompressed_unchecked(&mut &buf[..])
         .expect("Failed to deserialize SRS parameters")
 });

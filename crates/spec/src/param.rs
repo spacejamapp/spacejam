@@ -11,8 +11,8 @@ pub struct Parameters {
     pub deposit_per_byte: u64,
     /// (B_S) The base deposit required to retain an account.
     pub deposit_per_account: u64,
-    /// (C = V/3) The number of validators per core is always 3
-    pub validators_per_core: u16,
+    /// (C) The number of cores.
+    pub core_count: u16,
     /// (D) Minimum period in blocks between going from becoming Available to Zombie, and then again from Zombie to non-existent.
     pub min_turnaround_period: u32,
     /// (E) The epoch period, defined in number of slots.
@@ -80,7 +80,7 @@ impl Parameters {
             deposit_per_item: 10,
             deposit_per_byte: 1,
             deposit_per_account: 100,
-            validators_per_core: 2,
+            core_count: 2,
             min_turnaround_period: 32,
             epoch_period: 12,
             max_accumulate_gas: 10_000_000,
@@ -119,7 +119,7 @@ impl Parameters {
             deposit_per_item: 10,
             deposit_per_byte: 1,
             deposit_per_account: 100,
-            validators_per_core: 3,
+            core_count: 341,
             min_turnaround_period: 19200,
             epoch_period: 600,
             max_accumulate_gas: 10_000_000,

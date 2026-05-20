@@ -48,7 +48,7 @@ impl Config {
     }
 }
 
-// The tiny config that matches polkajam 0.6.5
+#[cfg(not(feature = "full"))]
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -56,6 +56,18 @@ impl Default for Config {
             original: 2,
             recovery: 4,
             memory: 2 * 1024,
+        }
+    }
+}
+
+#[cfg(feature = "full")]
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            shard: 2,
+            original: 342,
+            recovery: 681,
+            memory: 4 * 1024 * 1024,
         }
     }
 }

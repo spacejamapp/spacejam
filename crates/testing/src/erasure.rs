@@ -17,8 +17,14 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let encoded = erasure::encode(edata).await.expect("failed to encode");
     assert_eq!(encoded, eshards);
 
-    // test decoding
-    let decoded = erasure::decode(vec![(0, shards[0].clone()), (2, shards[2].clone())])
+    // test decoding — provide the minimum original shards needed
+    let decode_shards: Vec<_> = shards
+        .iter()
+        .enumerate()
+        .take(erasure::Config::default().original)
+        .map(|(i, s)| (i, s.clone()))
+        .collect();
+    let decoded = erasure::decode(decode_shards)
         .await
         .expect("failed to decode");
     data.resize(decoded.len(), 0);

@@ -17,7 +17,12 @@ use std::path::PathBuf;
 
 macro_rules! impl_codec_tests {
     ($name:ident) => {{
-        let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
+        let scale = if cfg!(feature = "full") {
+            specjam::Scale::Full
+        } else {
+            specjam::Scale::Tiny
+        };
+        let registry = Registry::with_scale(PathBuf::from("../../res/jam-test-vectors"), scale);
         let test = registry.entry("codec").unwrap().test(stringify!($name)).unwrap();
         let json = test.input.to_string();
         let data = hex::decode(&test.output)?;

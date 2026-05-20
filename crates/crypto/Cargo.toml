@@ -23,6 +23,7 @@ tracing.workspace = true
 
 [features]
 default = []
+full = []
 blake2 = ["dep:blake2"]
 blake3 = ["dep:blake3"]
 bls = ["w3f-bls"]
