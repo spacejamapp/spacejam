@@ -27,7 +27,7 @@ full = []
 blake2 = ["dep:blake2"]
 blake3 = ["dep:blake3"]
 bls = ["w3f-bls"]
-ed25519 = ["anyhow", "ed25519-zebra"]
+ed25519 = ["anyhow", "ed25519-zebra", "rand", "rayon"]
 keccak = ["tiny-keccak"]
 merkle = ["blake2", "keccak", "rayon"]
 rand = ["dep:rand"]
@@ -44,9 +44,15 @@ vrf = [
 ]
 
 [dev-dependencies]
+criterion = { version = "0.5", default-features = false }
 hex = { workspace = true, features = ["std"] }
 serde.workspace = true
 serde_json = { workspace = true, features = ["std"] }
+
+[[bench]]
+name = "ed25519"
+harness = false
+required-features = ["ed25519"]
 
 [build-dependencies]
 ark-serialize.workspace = true

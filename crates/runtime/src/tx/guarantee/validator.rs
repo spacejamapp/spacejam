@@ -186,9 +186,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::InsufficientGuarantees);
         }
 
-        // 4. validate the signatures
+        // 4. validate the signatures: cheap checks first, then batch verify.
         let message = guarantee.signing_message();
         let mut guarantor = None;
+        let mut to_verify = Vec::with_capacity(guarantee.signatures.len());
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
@@ -210,19 +211,18 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 return Err(Error::BannedValidator);
             }
 
-            crypto::ed25519::verify(&message, sig.signature, *key)
-                .inspect_err(|_| {
-                    tracing::warn!(
-                        "failed to verify guarantee signature 0x{} by {}(slot={}) - 0x{}",
-                        hex::encode(sig.signature),
-                        sig.validator_index,
-                        guarantee.slot,
-                        hex::encode(key),
-                    )
-                })
-                .map_err(|_| Error::BadSignature)?;
+            to_verify.push((message.as_slice(), sig.signature, *key));
             guarantor = Some(validator_index);
         }
+
+        crypto::ed25519::batch_verify(&to_verify)
+            .inspect_err(|_| {
+                tracing::warn!(
+                    "failed to verify guarantee signatures for slot={}",
+                    guarantee.slot,
+                )
+            })
+            .map_err(|_| Error::BadSignature)?;
 
         self.processed.insert(guarantee.report.core_index);
 

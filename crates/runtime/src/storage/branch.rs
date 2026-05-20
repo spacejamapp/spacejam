@@ -1,13 +1,14 @@
 //! Branch of state
 
 use crate::{
-    Storage,
     storage::{Column, Commit, KVStorage, StateStorage},
+    Storage,
 };
 use anyhow::Result;
-use score::{TrieKey, state::StateKeyLike};
+use score::{state::StateKeyLike, TrieKey};
 use std::{
-    collections::{BTreeMap, btree_map::IntoIter},
+    collections::{btree_map::IntoIter, BTreeMap},
+    mem,
     sync::{Arc, RwLock},
 };
 
@@ -159,8 +160,7 @@ impl<I: Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> Iterator for BranchIter<I> 
         // If the state iterator is finished, we need to return the next update entry
         let Some(next) = self.state.next() else {
             self.finished = true;
-            self.iter = self.updates.clone().into_iter();
-            self.updates.clear();
+            self.iter = mem::take(&mut self.updates).into_iter();
             return self.next();
         };
 

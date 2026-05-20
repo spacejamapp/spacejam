@@ -52,10 +52,15 @@ pub fn available(
         }
     }
 
-    // Check for engaged reports
+    // Check for engaged reports: cheap checks first, then batch verify sigs.
     let mut assuror = None;
     for assurance in assurances.iter() {
-        self::verify_assurance(validators, assurance, parent)?;
+        if assurance.validator_index >= VALIDATORS_COUNT {
+            return Err(Error::BadValidatorIndex);
+        }
+        if assurance.anchor != parent {
+            return Err(Error::BadAttestationParent);
+        }
         if let Some(last) = assuror
             && assurance.validator_index <= last
         {
@@ -80,6 +85,22 @@ pub fn available(
             }
         }
     }
+
+    let messages: Vec<Vec<u8>> = assurances.iter().map(|a| a.singing_message()).collect();
+    let verify_items: Vec<_> = assurances
+        .iter()
+        .zip(messages.iter())
+        .map(|(a, m)| {
+            (
+                m.as_slice(),
+                a.signature,
+                validators[a.validator_index as usize].ed25519,
+            )
+        })
+        .collect();
+    crypto::ed25519::batch_verify(&verify_items)
+        .inspect_err(|_| tracing::error!("bad signature in assurances"))
+        .map_err(|_| Error::BadSignature)?;
 
     // Check which cores reached 2/3 majority
     let mut available = Vec::new();
