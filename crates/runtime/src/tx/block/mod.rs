@@ -9,7 +9,10 @@ use anyhow::Result;
 use crypto::merkle;
 use pvm::Pvm;
 use score::{Block, OpaqueHash, TrieKey, state::StateKeyLike};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 pub mod header;
 pub mod history;
@@ -120,7 +123,7 @@ impl TestChain {
 
     /// Initialize the chain with the given block.
     pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<OpaqueHash> {
-        let state: HashMap<TrieKey, Vec<u8>> = state
+        let state: BTreeMap<TrieKey, Vec<u8>> = state
             .into_iter()
             .map(|(k, v)| (k.as_slice().as_state_key(), v))
             .collect();
@@ -148,11 +151,11 @@ impl Default for TestChain {
 
 /// Compute the state root and cache it for the given header hash.
 ///
+/// Base is sorted (BTreeMap), so iteration already yields keys in trie order.
+///
 /// NOTE: this method overrides the StateStorage::root for zero-copy.
-fn handle_root(head: OpaqueHash, data: &HashMap<TrieKey, Vec<u8>>) -> OpaqueHash {
-    let mut kvs: Vec<(TrieKey, &[u8])> =
-        data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
-    kvs.sort_by_key(|a| a.0);
+fn handle_root(head: OpaqueHash, data: &BTreeMap<TrieKey, Vec<u8>>) -> OpaqueHash {
+    let kvs: Vec<(TrieKey, &[u8])> = data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
     state_root
@@ -160,37 +163,46 @@ fn handle_root(head: OpaqueHash, data: &HashMap<TrieKey, Vec<u8>>) -> OpaqueHash
 
 /// Compute the state root from base data + overlay diff (no base clone).
 ///
+/// Both base and diff.update are sorted by TrieKey, so we merge-walk them in
+/// O(N+M) and skip the final sort. On ties diff wins (it's the newer write);
+/// keys present in diff.removal are dropped after selection so removals take
+/// precedence over updates of the same key.
+///
 /// NOTE: this method overrides the StateStorage::root for zero-copy.
 fn handle_root_with_diff(
     head: OpaqueHash,
-    base: &HashMap<TrieKey, Vec<u8>>,
+    base: &BTreeMap<TrieKey, Vec<u8>>,
     diff: &crate::storage::Commit<TrieKey, Vec<u8>>,
 ) -> OpaqueHash {
     let mut kvs: Vec<(TrieKey, &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
+    let mut base_iter = base.iter();
+    let mut diff_iter = diff.update.iter();
+    let mut b = base_iter.next();
+    let mut d = diff_iter.next();
 
-    // Add base entries, applying overlay
-    for (k, v) in base.iter() {
-        if diff.removal.contains(k) {
-            continue;
+    while let Some((key, value)) = match (b, d) {
+        (Some((bk, _)), Some((dk, dv))) if dk <= bk => {
+            if dk == bk {
+                b = base_iter.next();
+            }
+            d = diff_iter.next();
+            Some((dk, dv.as_slice()))
         }
-        if let Some(updated) = diff.update.get(k) {
-            kvs.push((*k, updated.as_slice()));
-        } else {
-            kvs.push((*k, v.as_slice()));
+        (Some((bk, bv)), _) => {
+            b = base_iter.next();
+            Some((bk, bv.as_slice()))
+        }
+        (None, Some((dk, dv))) => {
+            d = diff_iter.next();
+            Some((dk, dv.as_slice()))
+        }
+        (None, None) => None,
+    } {
+        if !diff.removal.contains(key) {
+            kvs.push((*key, value));
         }
     }
 
-    // Add new keys from overlay (not in base)
-    for (trie_key, v) in diff.update.iter() {
-        if diff.removal.contains(trie_key) {
-            continue;
-        }
-        if !base.contains_key(trie_key) {
-            kvs.push((*trie_key, v.as_slice()));
-        }
-    }
-
-    kvs.sort_by_key(|a| a.0);
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
     state_root

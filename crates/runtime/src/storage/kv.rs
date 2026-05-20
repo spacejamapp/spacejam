@@ -4,7 +4,7 @@ use crate::storage::{Column, Commit};
 use anyhow::Result;
 use score::{TrieKey, state::StateKeyLike};
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     sync::{Arc, RwLock},
 };
 
@@ -46,7 +46,7 @@ pub trait KVStorage: Send + Sync + 'static {
 /// It's useful for testing and for situations where persistence isn't required.
 #[derive(Default)]
 pub struct MemoryDb {
-    data: Arc<RwLock<HashMap<TrieKey, Vec<u8>>>>,
+    data: Arc<RwLock<BTreeMap<TrieKey, Vec<u8>>>>,
 }
 
 impl MemoryDb {
@@ -54,7 +54,7 @@ impl MemoryDb {
     /// holding the read lock for the duration.
     pub fn with_data<F, R>(&self, f: F) -> Result<R>
     where
-        F: FnOnce(&HashMap<TrieKey, Vec<u8>>) -> R,
+        F: FnOnce(&BTreeMap<TrieKey, Vec<u8>>) -> R,
     {
         let data = self
             .data
@@ -64,7 +64,7 @@ impl MemoryDb {
     }
 
     /// Reset the memory database
-    pub fn reset(&self, data: HashMap<TrieKey, Vec<u8>>) {
+    pub fn reset(&self, data: BTreeMap<TrieKey, Vec<u8>>) {
         let mut curr = self.data.write().unwrap();
         *curr = data;
     }
