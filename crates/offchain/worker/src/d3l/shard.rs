@@ -36,9 +36,7 @@ pub fn verify_shard(segment: &[u8], expected_shard: &[u8], shard_index: u16) -> 
 }
 
 /// Reconstruct segment with size validation (generic over size)
-pub fn reconstruct_segment(
-    partial_shards: &[(usize, Vec<u8>)],
-) -> Result<[u8; SEGMENT_SIZE]> {
+pub fn reconstruct_segment(partial_shards: &[(usize, Vec<u8>)]) -> Result<[u8; SEGMENT_SIZE]> {
     let reconstructed = decode_sync(partial_shards.to_vec())?;
 
     if reconstructed.len() != SEGMENT_SIZE {

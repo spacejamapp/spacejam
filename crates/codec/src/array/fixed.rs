@@ -208,4 +208,3 @@ impl<'a, T, const N: usize> IntoIterator for &'a mut FixedArray<T, N> {
         self.as_mut_slice().iter_mut()
     }
 }
-
