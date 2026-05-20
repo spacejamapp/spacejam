@@ -9,7 +9,7 @@ ark-ec = { workspace = true, optional = true }
 ark-ed-on-bls12-381-bandersnatch = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
 ark-vrf = { workspace = true, optional = true }
-blake2 = { workspace = true, optional = true }
+blake2b_simd = { workspace = true, optional = true }
 blake3 = { workspace = true, optional = true }
 ed25519-zebra = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
@@ -24,7 +24,7 @@ tracing.workspace = true
 [features]
 default = []
 full = []
-blake2 = ["dep:blake2"]
+blake2 = ["dep:blake2b_simd"]
 blake3 = ["dep:blake3"]
 bls = ["w3f-bls"]
 ed25519 = ["anyhow", "ed25519-zebra", "rand", "rayon"]
@@ -44,6 +44,7 @@ vrf = [
 ]
 
 [dev-dependencies]
+blake2 = "0.10.6"
 criterion = { version = "0.5", default-features = false }
 hex = { workspace = true, features = ["std"] }
 serde.workspace = true
@@ -53,6 +54,11 @@ serde_json = { workspace = true, features = ["std"] }
 name = "ed25519"
 harness = false
 required-features = ["ed25519"]
+
+[[bench]]
+name = "blake2b"
+harness = false
+required-features = ["blake2"]
 
 [build-dependencies]
 ark-serialize.workspace = true

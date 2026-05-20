@@ -77,7 +77,7 @@ ark-serialize = { version = "0.5", default-features = false }
 ark-vrf = { version = "0.1.0", features = ["bandersnatch", "ring", "parallel"] }
 async-trait = "0.1.89"
 bindgen = "0.72"
-blake2 = { version = "0.10.6", default-features = false }
+blake2b_simd = "1.0.4"
 blake3 = "1.8.2"
 cc = "1.2"
 clap = "4.5.47"
