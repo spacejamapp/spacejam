@@ -51,17 +51,17 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
             state.validators.current.bandersnatch()
         };
 
-        let keys = if new_epoch {
+        let key = if new_epoch {
             let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(vals.clone(), state.entropy[1])
             else {
                 anyhow::bail!("invalid series");
             };
-            keys
+            keys[slot]
         } else {
             let TicketsOrKeys::Keys(keys) = &state.safrole.series else {
                 anyhow::bail!("invalid series");
             };
-            keys.clone()
+            keys[slot]
         };
 
         // FIXME: This is a duplicated check for async processing.
@@ -69,7 +69,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
             anyhow::bail!("invalid block author index");
         }
 
-        if keys[slot] != vals[header.author_index as usize] {
+        if key != vals[header.author_index as usize] {
             anyhow::bail!(
                 "invalid block author, slot={slot}, new_epoch={new_epoch}, author_index={}",
                 header.author_index

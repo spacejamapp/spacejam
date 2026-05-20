@@ -12,6 +12,7 @@ use syn::{Ident, ItemFn, parse_quote};
 
 const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.2/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";
+const REPORT: &str = "../../res/report";
 
 fn scale() -> Scale {
     if env::var("CARGO_FEATURE_FULL").is_ok() {
@@ -24,6 +25,7 @@ fn scale() -> Scale {
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.2/traces");
+    println!("cargo:rerun-if-changed=../../res/report");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
@@ -185,6 +187,10 @@ fn build_all_seq_test(out: &Path) -> Result<()> {
         }
     }
 
+    if Path::new(REPORT).is_dir() {
+        items.push(build_seq_test(REPORT)?);
+    }
+
     fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
     Ok(())
 }
@@ -201,7 +207,7 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
         let name = Entry::file_name(path)?;
         let names = name.split('_').collect::<Vec<&str>>();
         let fname = names.last().unwrap().to_string();
-        if fname.contains("genesis") {
+        if fname.contains("genesis") || fname.parse::<u64>().is_err() {
             continue;
         }
         tests.insert(fname);

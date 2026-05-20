@@ -170,8 +170,8 @@ pub fn parallel<V: Pvm, R: Accounts>(
         .unwrap_or(mgr_register);
 
     // Update validators in-place from the designate service (ι')
-    if let Some(result) = results.get(&designate) {
-        *validators = result.validators.clone();
+    if let Some(result) = results.get_mut(&designate) {
+        *validators = std::mem::take(&mut result.validators);
     }
 
     // Per graypaper accpar: accounts' = (accounts ∪ n) \ m

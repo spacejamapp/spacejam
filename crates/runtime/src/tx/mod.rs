@@ -75,8 +75,10 @@ pub fn simulate_with_state<Vm: Pvm>(
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         if new_epoch {
             // (λ', κ') Update validator state (6.13)
-            state.validators.previous = state.validators.current.clone();
-            state.validators.current = state.safrole.validators.clone();
+            state.validators.previous = std::mem::replace(
+                &mut state.validators.current,
+                state.safrole.validators.clone(),
+            );
         }
 
         // (ψ') Update disputes and get marks

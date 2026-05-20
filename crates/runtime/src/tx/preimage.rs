@@ -18,16 +18,14 @@ pub fn accounts(
     preimages: &PreimagesExtrinsic,
     mut accounts: impl Accounts,
 ) -> Result<impl Accounts> {
-    let mut requester = None;
+    let mut prev: Option<&score::extrinsic::Preimage> = None;
     for preimage in preimages {
-        if let Some(exist) = requester
-            && preimage.requester < exist
+        if let Some(p) = prev
+            && preimage <= p
         {
-            anyhow::bail!("Preimages are not ordered");
+            anyhow::bail!("preimages not sorted or unique");
         }
-
-        // Skip if account doesn't exist (disregard without prejudice)
-        requester = Some(preimage.requester);
+        prev = Some(preimage);
         let Some(account) = accounts.get(preimage.requester) else {
             anyhow::bail!("Preimage for non-existent account");
         };
