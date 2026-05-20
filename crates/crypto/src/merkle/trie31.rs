@@ -27,10 +27,7 @@ fn merkle(kvs: &mut [([u8; 31], &[u8])], depth: usize) -> [u8; 32] {
     let mid = partition(kvs, depth);
     let (left, right) = kvs.split_at_mut(mid);
     let (l_hash, r_hash) = if len >= PARALLEL_THRESHOLD {
-        rayon::join(
-            || merkle(left, depth + 1),
-            || merkle(right, depth + 1),
-        )
+        rayon::join(|| merkle(left, depth + 1), || merkle(right, depth + 1))
     } else {
         (merkle(left, depth + 1), merkle(right, depth + 1))
     };

@@ -1,7 +1,7 @@
 //! Core of SpaceJam
 
 pub use {
-    ::service::{self as svc, vm, Array, *},
+    ::service::{self as svc, Array, vm, *},
     block::Block,
     codec,
     extrinsic::Extrinsic,

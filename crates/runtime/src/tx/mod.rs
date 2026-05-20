@@ -249,4 +249,3 @@ pub fn simulate_with_state<Vm: Pvm>(
     diff.update.extend(state.pairs(new_epoch, &block.extrinsic));
     Ok(diff)
 }
-

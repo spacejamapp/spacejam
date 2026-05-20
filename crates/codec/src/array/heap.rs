@@ -175,7 +175,10 @@ impl<T, const N: usize> From<[T; N]> for Array<T, N> {
 
 impl<T, const N: usize> From<Array<T, N>> for [T; N] {
     fn from(arr: Array<T, N>) -> Self {
-        arr.0.try_into().ok().expect("Array length invariant broken")
+        arr.0
+            .try_into()
+            .ok()
+            .expect("Array length invariant broken")
     }
 }
 

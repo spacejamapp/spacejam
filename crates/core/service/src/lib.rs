@@ -12,10 +12,10 @@ pub(crate) use alloc::{collections::BTreeMap, string::String, vec::Vec};
 
 pub use ::spec::*;
 
-#[cfg(not(feature = "full"))]
-pub use codec::FixedArray as Array;
 #[cfg(feature = "full")]
 pub use codec::Array;
+#[cfg(not(feature = "full"))]
+pub use codec::FixedArray as Array;
 
 pub mod api;
 pub mod service;

@@ -196,7 +196,10 @@ pub fn reports(
 pub fn pools(
     timeslot: TimeSlot,
     pools: &score::AuthorizationPools,
-    authorizations: &score::Array<score::Array<OpaqueHash, { score::AUTH_QUEUE_SIZE }>, { score::CORES_COUNT }>,
+    authorizations: &score::Array<
+        score::Array<OpaqueHash, { score::AUTH_QUEUE_SIZE }>,
+        { score::CORES_COUNT },
+    >,
     guarantees: &GuaranteesExtrinsic,
 ) -> score::AuthorizationPools {
     let slot = timeslot % score::EPOCH_LENGTH;

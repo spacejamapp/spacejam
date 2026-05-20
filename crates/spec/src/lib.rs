@@ -5,18 +5,18 @@
 #[cfg(not(any(feature = "tiny", feature = "full")))]
 compile_error!("enable one of `tiny` or `full` features");
 
+#[cfg(feature = "full")]
+mod full;
 mod param;
 #[cfg(all(feature = "tiny", not(feature = "full")))]
 mod tiny;
-#[cfg(feature = "full")]
-mod full;
 
 pub use param::Parameters;
 
-#[cfg(all(feature = "tiny", not(feature = "full")))]
-pub use tiny::*;
 #[cfg(feature = "full")]
 pub use full::*;
+#[cfg(all(feature = "tiny", not(feature = "full")))]
+pub use tiny::*;
 
 // Universal constants
 

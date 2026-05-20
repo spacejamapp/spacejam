@@ -27,9 +27,7 @@ impl<const L: usize> Json<String> for [u8; L] {
             .map_err(|e| anyhow::anyhow!("failed to decode json string: {e:?}"))?;
         let actual = bytes.len();
         bytes.try_into().map_err(|_: Vec<u8>| {
-            anyhow::anyhow!(
-                "Invalid hex string, target length is {L}, actual length is {actual}"
-            )
+            anyhow::anyhow!("Invalid hex string, target length is {L}, actual length is {actual}")
         })
     }
 }

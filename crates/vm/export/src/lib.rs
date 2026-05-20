@@ -61,12 +61,17 @@ pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
 /// (ΨA): Accumulation invocation
 pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let args: AccumulateArgs = codec::decode(args.as_slice()).unwrap();
-    let validators: Vec<_> = args.context.validators.into_iter().map(|v| ValidatorData {
-        bandersnatch: v.bandersnatch,
-        ed25519: v.ed25519,
-        bls: v.bls,
-        metadata: v.metadata,
-    }).collect();
+    let validators: Vec<_> = args
+        .context
+        .validators
+        .into_iter()
+        .map(|v| ValidatorData {
+            bandersnatch: v.bandersnatch,
+            ed25519: v.ed25519,
+            bls: v.bls,
+            metadata: v.metadata,
+        })
+        .collect();
     let validators = score::safrole::ValidatorsData::try_from_vec(validators)
         .expect("validators length mismatch");
     let context = AccumulateState {
@@ -93,12 +98,16 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
         context: api::AccumulateState {
             accounts: accumulated.context.accounts,
             validators: {
-                let v: Vec<_> = accumulated.validators.into_iter().map(|v| api::ValidatorData {
-                    bandersnatch: v.bandersnatch,
-                    ed25519: v.ed25519,
-                    bls: v.bls,
-                    metadata: v.metadata,
-                }).collect();
+                let v: Vec<_> = accumulated
+                    .validators
+                    .into_iter()
+                    .map(|v| api::ValidatorData {
+                        bandersnatch: v.bandersnatch,
+                        ed25519: v.ed25519,
+                        bls: v.bls,
+                        metadata: v.metadata,
+                    })
+                    .collect();
                 api::ValidatorsData::try_from_vec(v).expect("validators length mismatch")
             },
             authorization: accumulated.context.authorization,

@@ -262,11 +262,8 @@ pub trait StateStorage: KVStorage {
     #[allow(clippy::type_complexity)]
     fn accumulation_queue(
         &self,
-    ) -> Result<
-        Option<
-            score::Array<(Vec<WorkReport>, Vec<OpaqueHash>), { EPOCH_LENGTH as usize }>,
-        >,
-    > {
+    ) -> Result<Option<score::Array<(Vec<WorkReport>, Vec<OpaqueHash>), { EPOCH_LENGTH as usize }>>>
+    {
         self.state_get(key::ACCUMULATION_QUEUE)?
             .map(|value| codec::decode(&value))
             .transpose()
@@ -274,9 +271,7 @@ pub trait StateStorage: KVStorage {
     }
 
     /// Fetch the accumulation history
-    fn accumulation_history(
-        &self,
-    ) -> Result<Option<score::service::AccumulatedQueue>> {
+    fn accumulation_history(&self) -> Result<Option<score::service::AccumulatedQueue>> {
         self.state_get(key::ACCUMULATION_HISTORY)?
             .map(|value| codec::decode(&value))
             .transpose()

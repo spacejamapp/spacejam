@@ -36,38 +36,23 @@ fn main() -> Result<()> {
     let registry = Registry::with_scale(workspace.join("res/jam-test-vectors"), scale);
 
     // build all tests
-    build_tests(
-        registry.accumulate(scale)?,
-        &out_dir.join("accumulate.rs"),
-    )?;
-    build_tests(
-        registry.assurances(scale)?,
-        &out_dir.join("assurances.rs"),
-    )?;
+    build_tests(registry.accumulate(scale)?, &out_dir.join("accumulate.rs"))?;
+    build_tests(registry.assurances(scale)?, &out_dir.join("assurances.rs"))?;
     build_tests(
         registry.authorizations(scale)?,
         &out_dir.join("authorizations.rs"),
     )?;
     build_tests(registry.codec(scale)?, &out_dir.join("codec.rs"))?;
-    build_tests(
-        registry.disputes(scale)?,
-        &out_dir.join("disputes.rs"),
-    )?;
+    build_tests(registry.disputes(scale)?, &out_dir.join("disputes.rs"))?;
     build_tests(registry.erasure(scale)?, &out_dir.join("erasure.rs"))?;
     build_tests(registry.history(scale)?, &out_dir.join("history.rs"))?;
     build_tests(registry.pvm()?, &out_dir.join("pvm.rs"))?;
     build_pvmc_tests(registry.pvm()?, &out_dir.join("pvmc.rs"))?;
-    build_tests(
-        registry.preimages(scale)?,
-        &out_dir.join("preimages.rs"),
-    )?;
+    build_tests(registry.preimages(scale)?, &out_dir.join("preimages.rs"))?;
     build_tests(registry.reports(scale)?, &out_dir.join("reports.rs"))?;
     build_tests(registry.safrole(scale)?, &out_dir.join("safrole.rs"))?;
     build_tests(registry.shuffle()?, &out_dir.join("shuffle.rs"))?;
-    build_tests(
-        registry.statistics(scale)?,
-        &out_dir.join("statistics.rs"),
-    )?;
+    build_tests(registry.statistics(scale)?, &out_dir.join("statistics.rs"))?;
     build_tests(registry.trie()?, &out_dir.join("trie.rs"))?;
     // Trace and sequential tests are tiny-only
     if scale == Scale::Tiny {
@@ -106,9 +91,15 @@ fn main() -> Result<()> {
         build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
     } else {
         for name in [
-            "traces_fallback", "traces_fuzzy", "traces_fuzzy_light",
-            "traces_safrole", "traces_preimages", "traces_preimages_light",
-            "traces_storage", "traces_storage_light", "traces_seq",
+            "traces_fallback",
+            "traces_fuzzy",
+            "traces_fuzzy_light",
+            "traces_safrole",
+            "traces_preimages",
+            "traces_preimages_light",
+            "traces_storage",
+            "traces_storage_light",
+            "traces_seq",
         ] {
             fs::write(out_dir.join(format!("{name}.rs")), "")?;
         }
@@ -118,7 +109,10 @@ fn main() -> Result<()> {
 
 fn scale_constructor() -> proc_macro2::TokenStream {
     if env::var("CARGO_FEATURE_FULL").is_ok() {
-        quote::quote!(specjam::Registry::with_scale("../../res/jam-test-vectors", specjam::Scale::Full))
+        quote::quote!(specjam::Registry::with_scale(
+            "../../res/jam-test-vectors",
+            specjam::Scale::Full
+        ))
     } else {
         quote::quote!(specjam::Registry::new("../../res/jam-test-vectors"))
     }

@@ -26,9 +26,8 @@ fn main() -> Result<()> {
     }
 
     let ring_size = ring_size();
-    let output = format!(
-        "bandersnatch-vrfs-spec/assets/example/data/size-{ring_size}-with-zcash-srs.bin"
-    );
+    let output =
+        format!("bandersnatch-vrfs-spec/assets/example/data/size-{ring_size}-with-zcash-srs.bin");
 
     if !Path::new(&output).exists() {
         let buf = std::fs::read(
