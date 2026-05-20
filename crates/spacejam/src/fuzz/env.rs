@@ -6,12 +6,8 @@
 //! Packaging").
 
 use super::target::Target;
-use anyhow::{Context, Result, bail};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use anyhow::{Context, Result};
+use std::{path::PathBuf, str::FromStr};
 use tracing_subscriber::EnvFilter;
 
 const JAM_FUZZ: &str = "JAM_FUZZ";
@@ -29,28 +25,31 @@ pub fn is_active() -> bool {
 pub async fn run() -> Result<()> {
     init_logger(std::env::var(JAM_FUZZ_LOG_LEVEL).ok().as_deref());
     let cfg = Config::from_env()?;
-    tracing::info!(
-        "fuzz target starting: spec={}, data_path={}, socket={}",
-        cfg.spec.as_str(),
-        cfg.data_path.display(),
-        cfg.socket.display(),
-    );
-    set_compiler_cache_dir(&cfg.data_path)?;
+    log_runtime_env(&cfg);
     // Use the compiler on linux; Target::serve falls back to interp on other platforms.
     Target::serve(&cfg.socket, /*interp=*/ false).await
 }
 
-/// Point the cranelift artifact cache at `data_path` so JIT compilation
-/// results persist across fuzz sessions (per fuzz-proto README, the path is
-/// host-mapped and may be reused for caching).
-fn set_compiler_cache_dir(data_path: &Path) -> Result<()> {
-    fs::create_dir_all(data_path)
-        .with_context(|| format!("failed to create JAM_FUZZ_DATA_PATH at {data_path:?}"))?;
-    let mut slot = spacevm::SPACEJAM_CACHE_DIR
-        .lock()
-        .map_err(|e| anyhow::anyhow!("compiler cache lock poisoned: {e:?}"))?;
-    *slot = data_path.to_path_buf();
-    Ok(())
+/// Log target config (spec / data_path / socket) and host hardware (CPU model,
+/// cores, total RAM) at startup. Useful when comparing perf across machines
+/// from log archives.
+fn log_runtime_env(cfg: &Config) {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+    sys.refresh_cpu_list(sysinfo::CpuRefreshKind::nothing());
+    let cpu = sys
+        .cpus()
+        .first()
+        .map(|c| c.brand().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let cores = sys.cpus().len();
+    let ram_gb = sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
+    tracing::info!(
+        "fuzz target starting: spec={}, data_path={}, socket={}, vm=compiler, cpu={cpu:?} ({cores} cores), ram={ram_gb:.1} GB",
+        cfg.spec.as_str(),
+        cfg.data_path.display(),
+        cfg.socket.display(),
+    );
 }
 
 struct Config {
@@ -100,10 +99,10 @@ impl FromStr for Spec {
             #[cfg(feature = "full")]
             "full" => Ok(Self::Full),
             #[cfg(all(feature = "tiny", not(feature = "full")))]
-            "full" => bail!("JAM_FUZZ_SPEC=full requires building with --features full"),
+            "full" => anyhow::bail!("JAM_FUZZ_SPEC=full requires building with --features full"),
             #[cfg(feature = "full")]
-            "tiny" => bail!("JAM_FUZZ_SPEC=tiny requires building --no-default-features"),
-            other => bail!("invalid JAM_FUZZ_SPEC: {other:?} (expected 'tiny' or 'full')"),
+            "tiny" => anyhow::bail!("JAM_FUZZ_SPEC=tiny requires building --no-default-features"),
+            other => anyhow::bail!("invalid JAM_FUZZ_SPEC: {other:?} (expected 'tiny' or 'full')"),
         }
     }
 }

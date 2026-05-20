@@ -115,7 +115,7 @@ pub trait Invocation {
         // (r) the authorizer output
         auth_output: &[u8],
         // (ī) all work items' import segments
-        all_imports: &[Vec<[u8; score::SEGMENT_SIZE as usize]>],
+        all_imports: &[Vec<[u8; score::SEGMENT_SIZE]>],
         // (ς) export segment offset
         export_offset: u16,
         // (δ) accounts for historical lookup

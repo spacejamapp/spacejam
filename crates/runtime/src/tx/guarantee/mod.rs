@@ -209,13 +209,12 @@ pub fn pools(
 
         // remove old authorizers from the pool
         for guarantee in guarantees {
-            if guarantee.report.core_index as usize == core_index {
-                if let Some(pos) = new_pool
+            if guarantee.report.core_index as usize == core_index
+                && let Some(pos) = new_pool
                     .iter()
                     .position(|auth| *auth == guarantee.report.authorizer_hash)
-                {
-                    new_pool.remove(pos);
-                }
+            {
+                new_pool.remove(pos);
             }
         }
 

@@ -232,7 +232,7 @@ pub fn transfer(ctx: &mut impl Argument) -> Result<ExitCode> {
 
     // check if the defer transfer is valid
     let memo = {
-        let mut buf = [0u8; score::TRANSFER_MEMO_SIZE as usize];
+        let mut buf = [0u8; score::TRANSFER_MEMO_SIZE];
         ctx.read_into(memo as u32, &mut buf)?;
         buf
     };

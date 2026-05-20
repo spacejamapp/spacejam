@@ -209,4 +209,3 @@ impl<'a, T, const N: usize> IntoIterator for &'a mut FixedArray<T, N> {
     }
 }
 
-impl<T: Copy, const N: usize> Copy for FixedArray<T, N> {}
