@@ -20,7 +20,7 @@ pub mod key;
 /// The state of SpaceJam
 ///
 /// σ = (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, θ, ξ)
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct State {
     /// The authorization pools (α)
     pub pools: service::AuthorizationPools,
@@ -67,28 +67,6 @@ pub struct State {
 
     /// The accumulation history (ξ)
     pub history: AccumulatedQueue,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            pools: Default::default(),
-            recent_blocks: Default::default(),
-            safrole: Default::default(),
-            accounts: Default::default(),
-            entropy: Default::default(),
-            validators: Default::default(),
-            reports: Default::default(),
-            timeslot: Default::default(),
-            authorization: Default::default(),
-            privileges: Default::default(),
-            disputes: Default::default(),
-            statistics: Default::default(),
-            queue: Default::default(),
-            logs: Default::default(),
-            history: Default::default(),
-        }
-    }
 }
 
 impl State {

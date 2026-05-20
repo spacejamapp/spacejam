@@ -217,12 +217,12 @@ pub trait Invocation {
 
         let Some(code_hash) = context.accounts.code_hash(service) else {
             tracing::warn!("no code hash found for service: {}", service);
-            return Accumulated::new(context);
+            return Accumulated::new(context).with_validators(validators);
         };
 
         let Some(code) = context.accounts.blob(service) else {
             tracing::warn!("no code found for service: {}", service);
-            return Accumulated::new(context);
+            return Accumulated::new(context).with_validators(validators);
         };
 
         // create the accumulate context

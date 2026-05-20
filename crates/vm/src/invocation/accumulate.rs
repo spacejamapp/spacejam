@@ -28,7 +28,6 @@ pub struct Accumulate<R: Accounts> {
     pub items: Vec<AccumulateItem>,
 }
 
-
 impl<R: Accounts> Accumulate<R> {
     /// Get the account
     pub fn account(&mut self) -> Result<&mut (impl Account + '_)> {
@@ -268,6 +267,12 @@ impl<R: Accounts> Accumulated<R> {
             gas: 0,
             reason: Reason::Continue,
         }
+    }
+
+    /// Set the upcoming validators on a result.
+    pub fn with_validators(mut self, validators: ValidatorsData) -> Self {
+        self.validators = validators;
+        self
     }
 }
 
