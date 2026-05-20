@@ -120,5 +120,6 @@ fn init_logger(level: Option<&str>) {
     let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new(level))
         .with_target(false)
+        .with_ansi(false)
         .try_init();
 }

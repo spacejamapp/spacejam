@@ -109,7 +109,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .iter()
             .find(|b| b.header_hash == guarantee.report.context.anchor)
         else {
-            tracing::warn!(
+            tracing::debug!(
                 "could not find anchor: 0x{} in recent blocks {:?}",
                 hex::encode(guarantee.report.context.anchor),
                 recent_blocks
@@ -217,7 +217,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
         crypto::ed25519::batch_verify(&to_verify)
             .inspect_err(|_| {
-                tracing::warn!(
+                tracing::debug!(
                     "failed to verify guarantee signatures for slot={}",
                     guarantee.slot,
                 )
@@ -260,7 +260,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             };
 
             if code_hash != result.code_hash {
-                tracing::warn!(
+                tracing::debug!(
                     "bad code hash for service {}: 0x{} != 0x{}",
                     result.service_id,
                     hex::encode(code_hash),

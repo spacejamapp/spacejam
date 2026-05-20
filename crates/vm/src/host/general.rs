@@ -33,7 +33,7 @@ pub fn fetch(ctx: &mut impl Argument) -> Result<ExitCode> {
             }
         }
         kind => {
-            tracing::warn!("kind {kind} not supported");
+            tracing::debug!("kind {kind} not supported");
             return Ok(Exit::None as u64);
         }
     };

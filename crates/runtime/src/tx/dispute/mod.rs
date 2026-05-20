@@ -132,7 +132,7 @@ fn verdicts(
         }
 
         crypto::ed25519::batch_verify(&verify_items)
-            .inspect_err(|e| tracing::warn!("Invalid verdict signature: {e}"))
+            .inspect_err(|e| tracing::debug!("Invalid verdict signature: {e}"))
             .map_err(|_| Error::BadSignature)?;
 
         match aye {
@@ -174,7 +174,7 @@ fn culprits(
         if let Err(e) =
             crypto::ed25519::verify(&culprit.signature_message(), culprit.signature, culprit.key)
         {
-            tracing::warn!("Invalid signature in culprit: {e}");
+            tracing::debug!("Invalid signature in culprit: {e}");
             return Err(Error::BadSignature);
         }
 
@@ -244,7 +244,7 @@ fn faults(
         if let Err(e) =
             crypto::ed25519::verify(&fault.singing_message(), fault.signature, fault.key)
         {
-            tracing::warn!("Invalid signature in fault: {e}");
+            tracing::debug!("Invalid signature in fault: {e}");
             return Err(Error::BadSignature);
         }
 
