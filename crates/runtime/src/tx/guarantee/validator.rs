@@ -109,7 +109,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .iter()
             .find(|b| b.header_hash == guarantee.report.context.anchor)
         else {
-            tracing::warn!(
+            tracing::debug!(
                 "could not find anchor: 0x{} in recent blocks {:?}",
                 hex::encode(guarantee.report.context.anchor),
                 recent_blocks
@@ -186,9 +186,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::InsufficientGuarantees);
         }
 
-        // 4. validate the signatures
+        // 4. validate the signatures: cheap checks first, then batch verify.
         let message = guarantee.signing_message();
         let mut guarantor = None;
+        let mut to_verify = Vec::with_capacity(guarantee.signatures.len());
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
@@ -210,19 +211,18 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 return Err(Error::BannedValidator);
             }
 
-            crypto::ed25519::verify(&message, sig.signature, *key)
-                .inspect_err(|_| {
-                    tracing::warn!(
-                        "failed to verify guarantee signature 0x{} by {}(slot={}) - 0x{}",
-                        hex::encode(sig.signature),
-                        sig.validator_index,
-                        guarantee.slot,
-                        hex::encode(key),
-                    )
-                })
-                .map_err(|_| Error::BadSignature)?;
+            to_verify.push((message.as_slice(), sig.signature, *key));
             guarantor = Some(validator_index);
         }
+
+        crypto::ed25519::batch_verify(&to_verify)
+            .inspect_err(|_| {
+                tracing::debug!(
+                    "failed to verify guarantee signatures for slot={}",
+                    guarantee.slot,
+                )
+            })
+            .map_err(|_| Error::BadSignature)?;
 
         self.processed.insert(guarantee.report.core_index);
 
@@ -236,16 +236,17 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
     fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {
         let mut output_len = guarantee.report.auth_output.len();
-        let mut gas_limit = 0;
+        let mut gas_limit: u64 = 0;
         for result in guarantee.report.results.iter() {
             if let WorkExecResult::Ok(blob) = &result.result {
-                output_len += blob.len();
+                output_len = output_len.wrapping_add(blob.len());
                 if output_len > MAX_WORK_REPORT_OUTPUT_SIZE {
                     return Err(Error::WorkReportTooBig);
                 }
             }
 
-            gas_limit += result.accumulate_gas;
+            // wrapping (not saturating) to match polkajam's modular u64 sum.
+            gas_limit = gas_limit.wrapping_add(result.accumulate_gas);
             if gas_limit > WORK_REPORT_GAS_LIMIT {
                 return Err(Error::WorkReportGasTooHigh);
             }
@@ -259,7 +260,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             };
 
             if code_hash != result.code_hash {
-                tracing::warn!(
+                tracing::debug!(
                     "bad code hash for service {}: 0x{} != 0x{}",
                     result.service_id,
                     hex::encode(code_hash),
@@ -291,13 +292,13 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             == slot / ROTATION_PERIOD as u32
         {
             let assignments = self::permute(self.state.entropy[2], slot);
-            (self.state.validators.current, assignments)
+            (&self.state.validators.current, assignments)
         } else {
             let (entropy, validators) =
                 if (slot - ROTATION_PERIOD as u32) / EPOCH_LENGTH == slot / EPOCH_LENGTH {
-                    (self.state.entropy[2], self.state.validators.current)
+                    (self.state.entropy[2], &self.state.validators.current)
                 } else {
-                    (self.state.entropy[3], self.state.validators.previous)
+                    (self.state.entropy[3], &self.state.validators.previous)
                 };
             let assignments = self::permute(entropy, slot.saturating_sub(ROTATION_PERIOD as u32));
             (validators, assignments)
@@ -347,7 +348,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 /// Permute function P(e, t) for guarantor assignments.
 ///
 /// Returns the core assignments for all validators based on entropy and time.
-fn permute(entropy: Entropy, timeslot: TimeSlot) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+fn permute(entropy: Entropy, timeslot: TimeSlot) -> score::Array<Vec<CoreIndex>, CORES_COUNT> {
     let initial_assignments: Vec<u32> = (0..VALIDATORS_COUNT as u32)
         .map(|i| (CORES_COUNT as u32 * i) / VALIDATORS_COUNT as u32)
         .collect();
@@ -364,14 +365,14 @@ fn permute(entropy: Entropy, timeslot: TimeSlot) -> [Vec<CoreIndex>; score::CORE
 /// Rotation function R for guarantor assignments.
 ///
 /// Rotates core assignments by n positions.
-fn rotate(assignments: Vec<CoreIndex>, n: u32) -> [Vec<CoreIndex>; score::CORES_COUNT] {
+fn rotate(assignments: Vec<CoreIndex>, n: u32) -> score::Array<Vec<CoreIndex>, CORES_COUNT> {
     let rotated: Vec<CoreIndex> = assignments
         .iter()
-        .map(|&x| ((x as u32 + n) % score::CORES_COUNT as u32) as CoreIndex)
+        .map(|&x| ((x as u32 + n) % CORES_COUNT as u32) as CoreIndex)
         .collect();
 
     // Group validators by their assigned cores
-    let mut assignments: [Vec<u16>; score::CORES_COUNT] = Default::default();
+    let mut assignments: score::Array<Vec<u16>, CORES_COUNT> = Default::default();
     for (validator_idx, &core_idx) in rotated.iter().enumerate() {
         assignments[core_idx as usize].push(validator_idx as u16);
     }

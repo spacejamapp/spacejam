@@ -56,7 +56,7 @@ pub trait Invocation {
     ) -> Executed {
         // Get the service account that hosts the authorization code
         let Some(account) = accounts.get(package.auth_code_host) else {
-            tracing::warn!(
+            tracing::debug!(
                 "Authorization code host service {} not found",
                 package.auth_code_host
             );
@@ -65,7 +65,7 @@ pub trait Invocation {
 
         // Resolve authorization code using historical lookup
         let Some(code) = account.historical_lookup(timeslot, package.auth_code_hash) else {
-            tracing::warn!(
+            tracing::debug!(
                 "Authorization code not found for hash {:?}",
                 package.auth_code_hash
             );
@@ -74,7 +74,7 @@ pub trait Invocation {
 
         // Check authorization code size limit (W_A - BIG if too big)
         if code.len() > score::MAX_IS_AUTHORIZED_CODE_SIZE as usize {
-            tracing::warn!(
+            tracing::debug!(
                 "Authorization code too big: {} bytes > {} bytes limit",
                 code.len(),
                 score::MAX_IS_AUTHORIZED_CODE_SIZE as usize
@@ -115,7 +115,7 @@ pub trait Invocation {
         // (r) the authorizer output
         auth_output: &[u8],
         // (ī) all work items' import segments
-        all_imports: &[Vec<[u8; score::SEGMENT_SIZE as usize]>],
+        all_imports: &[Vec<[u8; score::SEGMENT_SIZE]>],
         // (ς) export segment offset
         export_offset: u16,
         // (δ) accounts for historical lookup
@@ -125,7 +125,7 @@ pub trait Invocation {
     ) -> Refined {
         let item = &package.items[index];
         let Some(account) = accounts.get(item.service) else {
-            tracing::warn!("no account found for service: {}", item.service);
+            tracing::debug!("no account found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -133,7 +133,7 @@ pub trait Invocation {
         };
 
         let Some(code) = account.historical_lookup(timeslot, item.code_hash) else {
-            tracing::warn!("no code found for service: {}", item.service);
+            tracing::debug!("no code found for service: {}", item.service);
             return Refined::new(
                 Executed::new(Vec::new(), WorkExecResult::BadCode, 0),
                 Vec::new(),
@@ -191,8 +191,8 @@ pub trait Invocation {
     fn accumulate<R: Accounts>(
         // (U) The state context
         mut context: AccumulateState<R>,
-        // (N_t)  timeslot for the current accumulation
-        // timeslot: TimeSlot,
+        // i (ι) The upcoming validators
+        validators: score::safrole::ValidatorsData,
         // (N_s)  the service id of the caller
         service: ServiceId,
         // (N_g)  the gas limit for the current operation
@@ -216,18 +216,18 @@ pub trait Invocation {
         }
 
         let Some(code_hash) = context.accounts.code_hash(service) else {
-            tracing::warn!("no code hash found for service: {}", service);
-            return Accumulated::new(context);
+            tracing::debug!("no code hash found for service: {}", service);
+            return Accumulated::new(context).with_validators(validators);
         };
 
         let Some(code) = context.accounts.blob(service) else {
-            tracing::warn!("no code found for service: {}", service);
-            return Accumulated::new(context);
+            tracing::debug!("no code found for service: {}", service);
+            return Accumulated::new(context).with_validators(validators);
         };
 
         // create the accumulate context
         let timeslot = context.timeslot;
-        let context = AccumulateContext::new(context, service, timeslot);
+        let context = AccumulateContext::new(context, validators, service, timeslot);
         let params = AccumulateParams {
             slot: timeslot,
             id: service,
@@ -238,7 +238,7 @@ pub trait Invocation {
         let args = codec::encode(&params);
         let result = Self::invoke2(accumulate, code_hash, code, args, gas, 5);
         if result.reason != Reason::Continue && result.reason != Reason::Halt {
-            tracing::warn!(
+            tracing::debug!(
                 "PVM execution stopped for service {} with reason: {:?}, gas spent: {}",
                 service,
                 result.reason,

@@ -1,7 +1,7 @@
 //! State of SpaceJam
 
 use crate::{
-    CORES_COUNT, EntropyBuffer, Extrinsic, OpaqueHash, TimeSlot, TrieKey,
+    AUTH_QUEUE_SIZE, CORES_COUNT, EntropyBuffer, Extrinsic, OpaqueHash, TimeSlot, TrieKey,
     block::History,
     extrinsic::DisputesRecords,
     safrole::{Safrole, Validators},
@@ -10,7 +10,6 @@ use crate::{
 };
 pub use info::{ServiceField, StateKey, StateKeyInfo, StateKeyLike};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde::{Deserialize, Serialize};
 use service::vm::CommitmentMap;
 use std::collections::BTreeMap;
 
@@ -21,16 +20,15 @@ pub mod key;
 /// The state of SpaceJam
 ///
 /// σ = (α, β, γ, δ, η, ι, κ, λ, ρ, τ, φ, χ, ψ, π, θ, ξ)
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct State {
     /// The authorization pools (α)
-    pub pools: [Vec<OpaqueHash>; CORES_COUNT],
+    pub pools: service::AuthorizationPools,
 
     /// The recent blocks (β)
     pub recent_blocks: History,
 
     /// State concerning Safrole (γ)
-    #[serde(flatten)]
     pub safrole: Safrole,
 
     /// The prior state of the service accounts (δ)
@@ -40,7 +38,6 @@ pub struct State {
     pub entropy: EntropyBuffer,
 
     /// The validators (ι, κ, λ)
-    #[serde(flatten)]
     pub validators: Validators,
 
     /// The pending reports, per core, which are being made available prior to
@@ -51,7 +48,7 @@ pub struct State {
     pub timeslot: TimeSlot,
 
     /// The authorization queue (φ)
-    pub authorization: [Vec<OpaqueHash>; CORES_COUNT],
+    pub authorization: crate::Array<crate::Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT>,
 
     /// The privileged service indices (χ)
     pub privileges: Privileges,
@@ -94,6 +91,7 @@ impl State {
             pairs.insert(key::SAFROLE, Box::new(&self.safrole));
         }
 
+        pairs.insert(key::AUTHORIZATION_POOLS, Box::new(&self.pools));
         pairs.insert(key::ENTROPY, Box::new(&self.entropy));
         pairs.insert(key::TIMESLOT, Box::new(&self.timeslot));
         pairs.insert(key::PENDING_REPORTS, Box::new(&self.reports));

@@ -27,9 +27,10 @@ pub struct App {
     #[arg(short, action = ArgAction::Count, global = true)]
     verbose: u8,
 
-    /// Disable ANSI colors
-    #[arg(short, long, global = true)]
-    noansi: bool,
+    /// Enable ANSI colors in logs. Off by default so docker/CI/piped output
+    /// stays clean — opt in for an interactive terminal.
+    #[arg(long, global = true)]
+    ansi: bool,
 }
 
 impl App {
@@ -81,7 +82,7 @@ impl App {
             .with_env_filter(env)
             .with_timer(fmt::Time)
             .with_target(false)
-            .with_ansi(!self.noansi);
+            .with_ansi(self.ansi);
 
         if self.verbose > 2 {
             subscriber = subscriber.with_target(true)

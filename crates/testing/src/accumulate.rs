@@ -241,7 +241,7 @@ mod types {
 
         /// The assign service id
         #[json(Vec<ServiceId>)]
-        pub assign: [ServiceId; score::CORES_COUNT],
+        pub assign: score::CoreAssignments,
 
         /// The designate service id
         pub designate: ServiceId,

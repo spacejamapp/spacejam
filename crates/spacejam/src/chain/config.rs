@@ -8,7 +8,7 @@ pub struct Config {
     /// Chain ID
     id: String,
     /// Genesis Validators
-    genesis_validators: [GenesisValidator; score::VALIDATORS_COUNT as usize],
+    genesis_validators: score::Array<GenesisValidator, { score::VALIDATORS_COUNT as usize }>,
 }
 
 /// Genesis Validator

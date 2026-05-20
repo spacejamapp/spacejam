@@ -10,7 +10,7 @@ mod refine;
 /// Call the host function
 pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
     if !X::SUPPORTED_CALLS.contains(&call) {
-        tracing::warn!("unsupported host call: {}", call);
+        tracing::debug!("unsupported host call: {}", call);
         ctx.rset(7, Exit::What as u64);
         return Reason::Continue;
     }
@@ -24,7 +24,7 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         4 => general::write(ctx),
         5 => general::info(ctx),
         6..14 => {
-            tracing::warn!("refine host call: {}", call);
+            tracing::debug!("refine host call: {}", call);
             Ok(Exit::What as u64)
         }
         14 => accumulate::bless(ctx),
@@ -42,7 +42,7 @@ pub fn call<X: Argument>(call: u32, ctx: &mut X) -> Reason {
         26 => accumulate::provide(ctx),
         100 => jip::log(ctx),
         _ => {
-            tracing::warn!("unknown host call: {}", call);
+            tracing::debug!("unknown host call: {}", call);
             Ok(Exit::What as u64)
         }
     };

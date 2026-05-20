@@ -3,10 +3,9 @@
 use account::Account;
 use anyhow::Result;
 use score::{
-    safrole::ValidatorData,
     service::Privileges,
     vm::{AccumulateItem, DeferredTransfer},
-    Gas, OpaqueHash, ServiceId, TimeSlot, VALIDATORS_COUNT,
+    Gas, OpaqueHash, ServiceId, TimeSlot,
 };
 pub use {
     argument::Argument,
@@ -123,7 +122,7 @@ impl<'ctx, X: Argument, M: MemoryLike> Argument for Context<'ctx, X, M> {
         self.ctx.set_privileges(privileges)
     }
 
-    fn set_validators(&mut self, validators: [ValidatorData; VALIDATORS_COUNT as usize]) {
+    fn set_validators(&mut self, validators: score::safrole::ValidatorsData) {
         self.ctx.set_validators(validators)
     }
 

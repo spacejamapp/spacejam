@@ -32,6 +32,7 @@ pub fn outer<V: Pvm, R: Accounts>(
     mut transfers: Vec<DeferredTransfer>,
     mut reports: &[WorkReport],
     context: AccumulateState<R>,
+    validators: &mut score::safrole::ValidatorsData,
     gas_table: &BTreeMap<ServiceId, Gas>,
 ) -> Accumulated<R> {
     let mut accumulated = Accumulated::new(context);
@@ -55,6 +56,7 @@ pub fn outer<V: Pvm, R: Accounts>(
 
         let step = self::parallel::<V, R>(
             accumulated.context.clone(),
+            validators,
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             if first { gas_table } else { &empty },
@@ -83,6 +85,7 @@ pub fn outer<V: Pvm, R: Accounts>(
 /// (Δ*) parallel accumulation
 pub fn parallel<V: Pvm, R: Accounts>(
     mut context: AccumulateState<R>,
+    validators: &mut score::safrole::ValidatorsData,
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
@@ -102,15 +105,23 @@ pub fn parallel<V: Pvm, R: Accounts>(
         services.insert(transfer.recipient);
     }
 
+    let designate = context.privileges.designate;
+    let validators_ref = &*validators;
     let mut results = services
         .par_iter()
         .map(|service| {
+            let v = if *service == designate {
+                validators_ref.clone()
+            } else {
+                Default::default()
+            };
             let transfers = transfers
                 .par_iter()
                 .filter(|t| t.recipient == *service)
                 .cloned()
                 .collect();
-            let result = self::once::<V, R>(context.clone(), transfers, reports, table, *service);
+            let result =
+                self::once::<V, R>(context.clone(), v, transfers, reports, table, *service);
             (*service, result)
         })
         .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>();
@@ -130,14 +141,14 @@ pub fn parallel<V: Pvm, R: Accounts>(
     }
 
     // Update assign services
-    for (c, old) in context.privileges.assign.into_iter().enumerate() {
+    for c in 0..context.privileges.assign.len() {
+        let old = context.privileges.assign[c];
         let mgr_val = mgr.map(|m| m.assign[c]).unwrap_or(old);
         let svc_val = results.get(&old).map(|r| r.context.privileges.assign[c]);
         context.privileges.assign[c] = svc_val.map(|s| r(old, mgr_val, s)).unwrap_or(mgr_val);
     }
 
     // Update designate
-    let designate = context.privileges.designate;
     let mgr_designate = mgr
         .map(|m| m.designate)
         .unwrap_or(context.privileges.designate);
@@ -158,9 +169,9 @@ pub fn parallel<V: Pvm, R: Accounts>(
         .map(|s| r(register, mgr_register, s))
         .unwrap_or(mgr_register);
 
-    // Update validators from the designate service (ι' = ps¬stagingset' from accpar 12.56)
-    if let Some(result) = results.get(&designate) {
-        context.validators = result.context.validators;
+    // Update validators in-place from the designate service (ι')
+    if let Some(result) = results.get_mut(&designate) {
+        *validators = std::mem::take(&mut result.validators);
     }
 
     // Per graypaper accpar: accounts' = (accounts ∪ n) \ m
@@ -229,6 +240,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
 /// (Δ1) single accumulation (12.24)
 pub fn once<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
+    validators: score::safrole::ValidatorsData,
     transfers: Vec<DeferredTransfer>,
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
@@ -259,5 +271,5 @@ pub fn once<V: Pvm, R: Accounts>(
         );
     }
 
-    V::accumulate(context, service, gas, items)
+    V::accumulate(context, validators, service, gas, items)
 }

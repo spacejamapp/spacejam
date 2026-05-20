@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Ed25519Public, Extrinsic};
+use crate::{CORES_COUNT, Ed25519Public, Extrinsic};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 pub use {
@@ -17,22 +17,29 @@ mod core;
 mod service;
 mod val;
 
+/// Per-validator activity records for one epoch
+pub type ValidatorStats =
+    crate::Array<ValidatorActivityRecord, { crate::VALIDATORS_COUNT as usize }>;
+
+/// Per-core activity records
+pub type CoreStats = crate::Array<CoreActivityRecord, CORES_COUNT>;
+
 /// Represents statistics.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Default, Json)]
 pub struct Statistics {
     /// Current epoch statistics (πV)
     #[serde(rename = "vals_curr_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
-    pub vals_current: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
+    pub vals_current: ValidatorStats,
 
     /// Last epoch statistics (πL)
     #[serde(rename = "vals_last_stats")]
     #[json(Vec<ValidatorActivityRecordJson>)]
-    pub vals_last: [ValidatorActivityRecord; crate::VALIDATORS_COUNT as usize],
+    pub vals_last: ValidatorStats,
 
     /// Current core activity records (πC)
     #[json(Vec<CoreActivityRecordJson>)]
-    pub cores: [CoreActivityRecord; crate::CORES_COUNT],
+    pub cores: CoreStats,
 
     /// Current service activity records (πS)
     pub services: BTreeMap<u32, ServiceActivityRecord>,
@@ -117,9 +124,7 @@ impl Statistics {
         extrinsic: &Extrinsic,
     ) -> anyhow::Result<()> {
         if new_epoch {
-            self.vals_last = self.vals_current;
-            self.vals_current =
-                [ValidatorActivityRecord::default(); crate::VALIDATORS_COUNT as usize];
+            self.vals_last = std::mem::take(&mut self.vals_current);
         }
 
         if index >= crate::VALIDATORS_COUNT {

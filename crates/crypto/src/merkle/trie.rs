@@ -27,7 +27,7 @@ pub fn merkle(kvs: &[([u8; 32], Vec<u8>)], i: usize) -> [u8; 32] {
 
 fn branch(l: [u8; 32], r: [u8; 32]) -> [u8; 64] {
     let mut result = [0u8; 64];
-    result[0] = l[0] & 0xfe;
+    result[0] = l[0] & 0x7f;
     result[1..32].copy_from_slice(&l[1..]);
     result[32..].copy_from_slice(&r);
     result
@@ -38,11 +38,11 @@ fn leaf(k: [u8; 32], v: &[u8]) -> [u8; 64] {
     buf.extend_from_slice(&k[..k.len() - 1]);
 
     if v.len() <= 32 {
-        buf[0] = 0b01 | (v.len() << 2) as u8;
+        buf[0] = 0x80 | (v.len() as u8 & 0x3f);
         buf.extend_from_slice(v);
         buf.resize(64, 0);
     } else {
-        buf[0] = 0b11;
+        buf[0] = 0xc0;
         buf.extend_from_slice(&blake2b(v));
     }
 
@@ -52,5 +52,5 @@ fn leaf(k: [u8; 32], v: &[u8]) -> [u8; 64] {
 }
 
 fn bit(k: &[u8], i: usize) -> bool {
-    (k[i >> 3] & (1 << (i & 7))) != 0
+    (k[i >> 3] & (1 << (7 - (i & 7)))) != 0
 }

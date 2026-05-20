@@ -1,6 +1,6 @@
 //! Service types of SpaceJam
 
-use crate::{BTreeMap, Gas, ServiceId};
+use crate::{BTreeMap, CoreAssignments, Gas, ServiceId};
 use serde::{Deserialize, Serialize};
 pub use {
     account::ServiceAccount,
@@ -35,7 +35,7 @@ pub struct Privileges {
 
     /// The assign service id (χA)
     #[cfg_attr(feature = "json", json(Vec<ServiceId>))]
-    pub assign: [ServiceId; crate::CORES_COUNT],
+    pub assign: CoreAssignments,
 
     /// The designate service id (χV)
     pub designate: ServiceId,

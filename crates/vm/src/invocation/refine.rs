@@ -22,13 +22,13 @@ pub struct Refine<R: Accounts> {
     pub auth_output: Vec<u8>,
 
     /// (ī) all work items' import segments
-    pub all_imports: Vec<Vec<[u8; score::SEGMENT_SIZE as usize]>>,
+    pub all_imports: Vec<Vec<[u8; score::SEGMENT_SIZE]>>,
 
     /// (ς) export segment offset
     pub export_offset: u16,
 
     /// (e) exported segments (to be filled during execution)
-    pub exports: Vec<[u8; score::SEGMENT_SIZE as usize]>,
+    pub exports: Vec<[u8; score::SEGMENT_SIZE]>,
 }
 
 impl<R: Accounts> Argument for Refine<R> {

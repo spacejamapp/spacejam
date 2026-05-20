@@ -70,14 +70,14 @@ impl Fuzzer {
             if test.name.contains("genesis") {
                 continue;
             }
-            tracing::info!("\tProcessing test: {}", test.name);
+            tracing::debug!("\tProcessing test: {}", test.name);
             if let Err(e) = self.import_block(test) {
                 self.failures.push((base.clone(), e.to_string()));
                 break;
             }
         }
 
-        tracing::info!("\tdone!");
+        tracing::debug!("\tdone!");
         Ok(())
     }
 
@@ -86,6 +86,7 @@ impl Fuzzer {
         let test = source.get(0).context("No test found")?;
         let input = traces::TestInput::from_json(&test.input)?;
         self.init_state(&input, &test.name)?;
+        self.init = true;
         self.import_block(test)
     }
 

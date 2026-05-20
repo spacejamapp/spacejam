@@ -117,7 +117,7 @@ pub trait Assurer: DataLake {
                 None
             };
 
-            let mut segment = [0u8; score::SEGMENT_SIZE as usize];
+            let mut segment = [0u8; score::SEGMENT_SIZE];
             segment.copy_from_slice(&segment_shard);
             results.push((segment, justification));
         }

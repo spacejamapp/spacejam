@@ -34,7 +34,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
         tickets.copy_from_slice(&TicketBody::sequence(&state.safrole.accumulator));
         ticket = Some(tickets[slot]);
-    } else if let TicketsOrKeys::Tickets(tickets) = state.safrole.series
+    } else if let TicketsOrKeys::Tickets(tickets) = &state.safrole.series
         && !new_epoch
     {
         ticket = Some(tickets[slot]);
@@ -51,17 +51,17 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
             state.validators.current.bandersnatch()
         };
 
-        let keys = if new_epoch {
+        let key = if new_epoch {
             let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(vals.clone(), state.entropy[1])
             else {
                 anyhow::bail!("invalid series");
             };
-            keys
+            keys[slot]
         } else {
-            let TicketsOrKeys::Keys(keys) = state.safrole.series else {
+            let TicketsOrKeys::Keys(keys) = &state.safrole.series else {
                 anyhow::bail!("invalid series");
             };
-            keys
+            keys[slot]
         };
 
         // FIXME: This is a duplicated check for async processing.
@@ -69,7 +69,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
             anyhow::bail!("invalid block author index");
         }
 
-        if keys[slot] != vals[header.author_index as usize] {
+        if key != vals[header.author_index as usize] {
             anyhow::bail!(
                 "invalid block author, slot={slot}, new_epoch={new_epoch}, author_index={}",
                 header.author_index
@@ -141,7 +141,7 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
             .safrole
             .next(&state.validators.drawn, &header.offenders_mark)
             .evals();
-        if epoch_mark.validators != expected.as_slice() {
+        if epoch_mark.validators[..] != expected[..] {
             anyhow::bail!("epoch mark validators mismatch");
         }
 
@@ -157,14 +157,14 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
     }
 
     let should_have_tickets_mark = state.safrole.has_tickets_mark(state.timeslot, header.slot);
-    if let Some(tickets_mark) = header.tickets_mark {
+    if let Some(tickets_mark) = &header.tickets_mark {
         if !should_have_tickets_mark {
             anyhow::bail!("tickets mark present but not expected");
         }
 
         // Validate content: tickets_mark == Z(accumulator)
         let expected = TicketBody::sequence(&state.safrole.accumulator);
-        if tickets_mark != expected {
+        if tickets_mark[..] != expected[..] {
             anyhow::bail!("tickets mark content mismatch");
         }
 

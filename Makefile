@@ -11,7 +11,7 @@
 # make linux-arm64
 # make linux-amd64
 
-DOCKER_IMAGE := clearloop/spacejam
+DOCKER_IMAGE := ghcr.io/spacejamapp/spacejam
 VERSION := $(shell awk '/^\[workspace.package\]/{f=1} f && /^version/{gsub(/"/,"",$$3); print $$3; exit}' Cargo.toml)
 
 # build all targets
@@ -51,10 +51,26 @@ linux-arm64:
 linux-amd64:
 	cargo b --profile prod --target x86_64-unknown-linux-gnu
 
+# build linux-amd64 with full-spec constants
+linux-amd64-full:
+	cargo b --profile prod --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+
+# build both tiny and full binaries for docker
+linux-amd64-both:
+	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu
+	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-tiny
+	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-full
+
 # build the docker image, tagging both :latest and :$(VERSION)
-docker: linux-amd64
+docker: linux-amd64-both
 	docker build --platform=linux/amd64 \
 		-f docker/spacejam.Dockerfile \
 		-t $(DOCKER_IMAGE):latest \
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		.
+
+# push images to ghcr
+dpush:
+	docker push $(DOCKER_IMAGE):latest
+	docker push $(DOCKER_IMAGE):$(VERSION)

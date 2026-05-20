@@ -95,7 +95,7 @@ impl Invocation for SpaceVM {
                 let args = args.clone();
                 thread::spawn(move || {
                     if let Err(e) = self::compile::<X>(code, args, hash, true) {
-                        tracing::warn!("failed to compile program: {e:?}");
+                        tracing::debug!("failed to compile program: {e:?}");
                     }
                 });
             }
@@ -126,7 +126,7 @@ pub fn compile<X: Argument>(
             }
         }
         Err(err) => {
-            tracing::warn!("failed to compile program: {:?}", err);
+            tracing::debug!("failed to compile program: {:?}", err);
         }
     }
 

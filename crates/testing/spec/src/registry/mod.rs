@@ -11,11 +11,18 @@ mod entry;
 pub struct Registry {
     /// The root directory of the test vectors
     root: PathBuf,
+    /// The default scale for scaled sections
+    scale: Scale,
 }
 
 impl Registry {
     /// Create a new registry from the given jam-test-vectors directory
     pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self::with_scale(root, Scale::Tiny)
+    }
+
+    /// Create a new registry with the given scale
+    pub fn with_scale(root: impl Into<PathBuf>, scale: Scale) -> Self {
         let root = root.into();
         if !root.exists() {
             panic!(
@@ -23,27 +30,27 @@ impl Registry {
                 root.display()
             );
         }
-        Self { root }
+        Self { root, scale }
     }
 
     /// Get an entry from the registry
     pub fn entry(&self, section: &str) -> Result<Entry> {
         let section = section.parse::<Section>()?;
         match section {
-            Section::Codec => self.codec(Scale::Tiny),
+            Section::Codec => self.codec(self.scale),
             Section::Pvm => self.pvm(),
             Section::Shuffle => self.shuffle(),
             Section::Trie => self.trie(),
-            Section::Erasure => self.erasure(Scale::Tiny),
-            Section::Accumulate => self.accumulate(Scale::Tiny),
-            Section::Assurances => self.assurances(Scale::Tiny),
-            Section::Authorizations => self.authorizations(Scale::Tiny),
-            Section::Disputes => self.disputes(Scale::Tiny),
-            Section::History => self.history(Scale::Tiny),
-            Section::Preimages => self.preimages(Scale::Tiny),
-            Section::Reports => self.reports(Scale::Tiny),
-            Section::Safrole => self.safrole(Scale::Tiny),
-            Section::Statistics => self.statistics(Scale::Tiny),
+            Section::Erasure => self.erasure(self.scale),
+            Section::Accumulate => self.accumulate(self.scale),
+            Section::Assurances => self.assurances(self.scale),
+            Section::Authorizations => self.authorizations(self.scale),
+            Section::Disputes => self.disputes(self.scale),
+            Section::History => self.history(self.scale),
+            Section::Preimages => self.preimages(self.scale),
+            Section::Reports => self.reports(self.scale),
+            Section::Safrole => self.safrole(self.scale),
+            Section::Statistics => self.statistics(self.scale),
             Section::Trace(trace) => self.trace(trace),
         }
     }

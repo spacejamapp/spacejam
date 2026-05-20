@@ -15,12 +15,13 @@ members = [
     "crates/vm/spacevm",
     "crates/vm/parser",
     "crates/testing/spec",
+    "crates/spec",
 ]
 resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.1"
+version = "0.1.2-pre.1"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -39,7 +40,7 @@ strip = true
 
 [workspace.dependencies]
 account = { path = "crates/core/account", package = "spacejam-account" }
-codec = { path = "crates/codec", package = "serde-jam", version = "0.1.0" }
+codec = { path = "crates/codec", package = "serde-jam" }
 cjam = { path = "crates/vm/cli", package = "cargo-jam" }
 crypto = { path = "crates/crypto", package = "spacejam-crypto" }
 erasure = { path = "crates/codec/erasure", package = "spacejam-erasure" }
@@ -50,14 +51,15 @@ pvmi = { path = "crates/vm/interpreter" }
 pvmc = { path = "crates/vm/compiler" }
 pvm-parser = { path = "crates/vm/parser" }
 pvm-testing = { path = "crates/vm/testing" }
-service = { path = "crates/core/service", package = "spacejam-service", version = "0.1.0" }
+service = { path = "crates/core/service", package = "spacejam-service" }
 translator = { path = "crates/vm/cranelift", package = "cranelift-pvm" }
 rpc = { path = "crates/offchain/rpc", package = "spacejam-rpc" }
 runtime = { path = "crates/runtime", package = "spacejam-runtime" }
 score = { path = "crates/core", package = "spacejam-core" }
 spacejam = { path = "crates/spacejam", package = "spacejam" }
-spacejson = { path = "crates/codec/json", package = "spacejson", version = "0.1.0" }
-spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive", version = "0.1.0" }
+spacejson = { path = "crates/codec/json", package = "spacejson" }
+spacejson-derive = { path = "crates/codec/json/derive", package = "spacejson-derive" }
+spec = { path = "crates/spec", package = "spacejam-spec" }
 specjam = { path = "crates/testing/spec", package = "specjam" }
 spacevm = { path = "crates/vm/spacevm", package = "spacevm" }
 testing = { path = "crates/testing", package = "spacejam-testing" }
@@ -150,4 +152,4 @@ x509-parser = "0.17.0"
 # ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
 
 [workspace.metadata.conta]
-packages = ["codec", "spacejson-derive", "spacejson", "service"]
+packages = ["codec", "spacejson-derive", "spacejson", "spec", "service"]

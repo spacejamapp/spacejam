@@ -8,6 +8,11 @@ anyhow.workspace = true
 reed-solomon.workspace = true
 tokio.workspace = true
 
+[features]
+default = ["tiny"]
+tiny = []
+full = []
+
 [dev-dependencies]
 hex.workspace = true
 serde_json.workspace = true

@@ -168,7 +168,7 @@ impl<S: Storage> Fork<S> {
         }
 
         // 6. update safrole tickets or keys if any
-        let Some(series) = block.header.tickets_mark else {
+        let Some(series) = &block.header.tickets_mark else {
             return Ok(());
         };
 
@@ -182,7 +182,7 @@ impl<S: Storage> Fork<S> {
                 .collect::<Vec<_>>()
         );
 
-        let series = TicketsOrKeys::Tickets(series);
+        let series = TicketsOrKeys::Tickets(series.clone());
         self.series.insert(epoch, series);
         Ok(())
     }

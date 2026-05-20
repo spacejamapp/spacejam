@@ -27,6 +27,9 @@ impl Default for Judgement {
     }
 }
 
+/// Super-majority votes for a verdict
+pub type Votes = crate::Array<Judgement, { VALIDATORS_SUPER_MAJORITY as usize }>;
+
 /// Represents a verdict in a dispute.
 #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Verdict {
@@ -35,7 +38,7 @@ pub struct Verdict {
     /// Age of the verdict
     pub age: u32,
     #[json(Vec<JudgementJson>)]
-    pub votes: [Judgement; VALIDATORS_SUPER_MAJORITY as usize],
+    pub votes: Votes,
 }
 
 impl Verdict {

@@ -49,6 +49,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
 
     // (Δ+) run outer accumulation (12.18)
     let gas_limit = privileges.gas_limit();
+    let mut validators = validators.clone();
     let mut accumulated = exec::outer::<V, R>(
         gas_limit,
         Default::default(),
@@ -56,11 +57,11 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         AccumulateState {
             accounts,
             privileges: privileges.clone(),
-            validators: *validators,
             authorization: Default::default(),
             entropy,
             timeslot: slot,
         },
+        &mut validators,
         &privileges.always_acc,
     );
 
@@ -81,7 +82,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         accumulated_queue: next_accumulated_queue,
         accounts: accumulated.context.accounts,
         privileges: accumulated.context.privileges,
-        validators: accumulated.context.validators,
+        validators,
         records,
         logs: accumulated.pairings,
     })
@@ -112,7 +113,7 @@ pub fn accumulated_history(
     next.push(new_accumulated);
 
     // Update the accumulated history (ξ')
-    let mut history: [Vec<OpaqueHash>; score::EPOCH_LENGTH as usize] = Default::default();
+    let mut history = AccumulatedQueue::default();
     for (i, item) in next.iter().enumerate() {
         history[i] = item.clone();
     }
@@ -132,7 +133,11 @@ pub fn ready_queue(
     let accd = history[score::EPOCH_LENGTH as usize - 1].clone();
 
     // update the ready queue (θ')
-    let blocks = slot - tau;
+    //
+    // saturating_sub: header validation rejects slot <= tau, but it runs in
+    // parallel with STF simulation in block::process — must not panic on the
+    // simulate side before the joined match bails on the validate error.
+    let blocks = slot.saturating_sub(tau);
     for idx in 0..score::EPOCH_LENGTH {
         let target = ((score::EPOCH_LENGTH + phase - idx) % score::EPOCH_LENGTH) as usize;
         let ready = if idx == 0 {
@@ -190,19 +195,26 @@ pub fn reports(
 /// (α') Update authorization pools.
 pub fn pools(
     timeslot: TimeSlot,
-    pools: &[Vec<OpaqueHash>; score::CORES_COUNT],
-    authorizations: &[Vec<OpaqueHash>; score::CORES_COUNT],
+    pools: &score::AuthorizationPools,
+    authorizations: &score::Array<
+        score::Array<OpaqueHash, { score::AUTH_QUEUE_SIZE }>,
+        { score::CORES_COUNT },
+    >,
     guarantees: &GuaranteesExtrinsic,
-) -> [Vec<OpaqueHash>; score::CORES_COUNT] {
+) -> score::AuthorizationPools {
     let slot = timeslot % score::EPOCH_LENGTH;
-    let mut new_pools: [Vec<OpaqueHash>; score::CORES_COUNT] = Default::default();
+    let mut new_pools = score::AuthorizationPools::default();
     for (core_index, pool) in pools.iter().enumerate() {
         let mut new_pool = pool.clone();
 
         // remove old authorizers from the pool
         for guarantee in guarantees {
-            if guarantee.report.core_index as usize == core_index {
-                new_pool.retain(|auth| *auth != guarantee.report.authorizer_hash);
+            if guarantee.report.core_index as usize == core_index
+                && let Some(pos) = new_pool
+                    .iter()
+                    .position(|auth| *auth == guarantee.report.authorizer_hash)
+            {
+                new_pool.remove(pos);
             }
         }
 

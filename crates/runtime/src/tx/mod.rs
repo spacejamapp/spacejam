@@ -74,13 +74,11 @@ pub fn simulate_with_state<Vm: Pvm>(
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
         if new_epoch {
-            // (λ') Update validator state (6.13)
-            state.validators.previous = state.validators.previous(new_epoch);
-
-            // (κ') Update current validators (6.13)
-            state.validators.current = state
-                .validators
-                .current(new_epoch, &state.safrole.validators);
+            // (λ', κ') Update validator state (6.13)
+            state.validators.previous = std::mem::replace(
+                &mut state.validators.current,
+                state.safrole.validators.clone(),
+            );
         }
 
         // (ψ') Update disputes and get marks
@@ -199,16 +197,15 @@ pub fn simulate_with_state<Vm: Pvm>(
             state.entropy,
         )?;
 
-        // lazy load vrf rings
-        if state.validators.drawn != accumulation.validators {
-            thread::spawn(move || ticket::lazy::drawn(&accumulation.validators));
-        }
-
         // update state fields
         state.privileges = accumulation.privileges;
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
+
+        // lazy load vrf rings
+        let drawn = state.validators.drawn.clone();
+        thread::spawn(move || ticket::lazy::drawn(&drawn));
         state.statistics.merge_services(accumulation.records);
         state.logs = accumulation.logs;
         (accumulation.root, accumulation.accounts)
@@ -237,6 +234,14 @@ pub fn simulate_with_state<Vm: Pvm>(
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
 
+        // (α') Update the authorization pools (12.13)
+        state.pools = guarantee::pools(
+            block.header.slot,
+            &state.pools,
+            &state.authorization,
+            &block.extrinsic.guarantees,
+        );
+
         // (τ') Update the timeslot
         state.timeslot = block.header.slot;
     }
@@ -244,18 +249,3 @@ pub fn simulate_with_state<Vm: Pvm>(
     diff.update.extend(state.pairs(new_epoch, &block.extrinsic));
     Ok(diff)
 }
-
-// FIXME: looks like polkajam currently doesn't update the authorization
-// pool, so we're not updating it here as well atm.
-//
-// // (α') Update the authorization pool
-// let pools = guarantee::pools(
-//     block.header.slot,
-//     &state.pools,
-//     &state.authorization,
-//     &block.extrinsic.guarantees,
-// );
-// if pools != state.pools {
-//     diff.insert(key::AUTHORIZATION_POOLS, codec::encode(&pools)?);
-//     state.pools = pools;
-// }

@@ -112,16 +112,16 @@ impl State {
         let prev = self.clone();
         let new_epoch = input.slot / score::EPOCH_LENGTH > self.tau / score::EPOCH_LENGTH;
         let safrole = Safrole {
-            validators: self.gamma_k,
-            series: self.gamma_s.clone(),
+            validators: std::mem::take(&mut self.gamma_k),
+            series: std::mem::take(&mut self.gamma_s),
             ring_commitment: self.gamma_z,
-            accumulator: self.gamma_a.clone(),
+            accumulator: std::mem::take(&mut self.gamma_a),
         };
 
         let mut validators = Validators {
-            current: self.kappa,
-            drawn: self.iota,
-            previous: self.lambda,
+            current: std::mem::take(&mut self.kappa),
+            drawn: std::mem::take(&mut self.iota),
+            previous: std::mem::take(&mut self.lambda),
         };
 
         validators = tx::ticket::validators(new_epoch, &safrole.validators, &validators);
@@ -149,6 +149,7 @@ impl State {
                 self.gamma_z = safrole.ring_commitment;
                 self.kappa = validators.current;
                 self.lambda = validators.previous;
+                self.iota = validators.drawn;
                 self.tau = input.slot;
             }
             Err(e) => {

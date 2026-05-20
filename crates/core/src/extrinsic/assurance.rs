@@ -12,6 +12,8 @@ pub struct AvailAssurance {
     pub anchor: OpaqueHash,
 
     /// The bitfield of the assurance.
+    #[json(hex)]
+    #[serde(with = "codec::bytes")]
     pub bitfield: [u8; AVAIL_BITFIELD_BYTES],
 
     /// The index of the validator that signed the assurance.
@@ -41,7 +43,7 @@ impl AvailAssurance {
         let mut message = vec![];
         message.extend_from_slice(&crate::JAM_AVAILABLE);
 
-        let hashed = crate::blake2b(&codec::encode(&(self.anchor, self.bitfield)));
+        let hashed = crate::blake2b(&[self.anchor.as_slice(), self.bitfield.as_slice()].concat());
         message.extend_from_slice(&hashed);
         message
     }

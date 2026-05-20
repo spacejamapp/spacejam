@@ -12,6 +12,7 @@ keywords = ["json", "serde"]
 
 [dependencies]
 anyhow.workspace = true
+codec = { workspace = true, optional = true }
 hex = { workspace = true, features = ["alloc"] }
 serde = { workspace = true, features = ["alloc"] }
 spacejson-derive.workspace = true

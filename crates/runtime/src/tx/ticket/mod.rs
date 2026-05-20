@@ -34,14 +34,15 @@ pub fn eta(new_epoch: bool, eta: &[OpaqueHash; 4], entropy: OpaqueHash) -> [Opaq
 
 /// (ι', κ', λ') Returns the next state of validators.
 pub fn validators(new_epoch: bool, next: &ValidatorsData, validators: &Validators) -> Validators {
-    let mut validators = *validators;
     if !new_epoch {
-        return validators;
+        return validators.clone();
     }
 
-    validators.previous = validators.previous(new_epoch);
-    validators.current = validators.current(new_epoch, next);
-    validators
+    Validators {
+        previous: validators.previous(new_epoch).clone(),
+        current: validators.current(new_epoch, next).clone(),
+        drawn: validators.drawn.clone(),
+    }
 }
 
 /// (γ') Enacts an epoch change and updates the entropy accumulator.
@@ -72,8 +73,8 @@ pub fn safrole(
     if new_epoch {
         let next = safrole.next(&validators.drawn, offenders);
         if next != safrole.validators {
-            safrole.validators = next;
             safrole.ring_commitment = lazy::commitment(&next.bandersnatch());
+            safrole.validators = next;
         }
     }
 

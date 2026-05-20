@@ -13,8 +13,10 @@ tracing.workspace = true
 rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-spacejson.workspace = true
+spacejson = { workspace = true, features = ["codec"] }
 
 [features]
-default = ["blake2"]
+default = ["blake2", "tiny"]
 blake2 = ["service/blake2"]
+tiny = ["service/tiny"]
+full = ["service/full"]

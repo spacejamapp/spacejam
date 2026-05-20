@@ -26,6 +26,11 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+[features]
+default = ["tiny"]
+tiny = ["score/tiny", "erasure/tiny"]
+full = ["score/full", "erasure/full", "crypto/full"]
+
 [build-dependencies]
 anyhow.workspace = true
 proc-macro2.workspace = true

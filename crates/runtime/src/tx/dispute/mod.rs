@@ -99,45 +99,41 @@ fn verdicts(
         let mut aye = 0;
         let aye_message = verdict.signature_message(true);
         let nay_message = verdict.signature_message(false);
+        let current_epoch = timeslot / EPOCH_LENGTH;
+        let validators = if verdict.age >= current_epoch {
+            kappa
+        } else if verdict.age == current_epoch.saturating_sub(1) {
+            lambda
+        } else {
+            return Err(Error::BadJudgementAge);
+        };
+
+        let mut verify_items = Vec::with_capacity(verdict.votes.len());
         for (index, judgement) in verdict.votes.iter().enumerate() {
             if index != judgement.index as usize {
                 return Err(Error::JudgementsNotSortedUnique);
             }
 
             let message = if judgement.vote {
-                &aye_message
+                aye_message.as_slice()
             } else {
-                &nay_message
+                nay_message.as_slice()
             };
 
-            let current_epoch = timeslot / EPOCH_LENGTH;
-            if verdict.age >= current_epoch {
-                if let Err(e) = crypto::ed25519::verify(
-                    message,
-                    judgement.signature,
-                    kappa[judgement.index as usize].ed25519,
-                ) {
-                    tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                    return Err(Error::BadSignature);
-                }
-                // TODO: sub 1 could be a problem here.
-            } else if verdict.age == current_epoch.saturating_sub(1) {
-                if let Err(e) = crypto::ed25519::verify(
-                    message,
-                    judgement.signature,
-                    lambda[judgement.index as usize].ed25519,
-                ) {
-                    tracing::warn!("Invalid verdict signature for judgement {index}: {e}");
-                    return Err(Error::BadSignature);
-                }
-            } else {
-                return Err(Error::BadJudgementAge);
-            }
+            verify_items.push((
+                message,
+                judgement.signature,
+                validators[judgement.index as usize].ed25519,
+            ));
 
             if judgement.vote {
                 aye += 1;
             }
         }
+
+        crypto::ed25519::batch_verify(&verify_items)
+            .inspect_err(|e| tracing::debug!("Invalid verdict signature: {e}"))
+            .map_err(|_| Error::BadSignature)?;
 
         match aye {
             aye if aye >= VALIDATORS_SUPER_MAJORITY => {
@@ -178,7 +174,7 @@ fn culprits(
         if let Err(e) =
             crypto::ed25519::verify(&culprit.signature_message(), culprit.signature, culprit.key)
         {
-            tracing::warn!("Invalid signature in culprit: {e}");
+            tracing::debug!("Invalid signature in culprit: {e}");
             return Err(Error::BadSignature);
         }
 
@@ -248,7 +244,7 @@ fn faults(
         if let Err(e) =
             crypto::ed25519::verify(&fault.singing_message(), fault.signature, fault.key)
         {
-            tracing::warn!("Invalid signature in fault: {e}");
+            tracing::debug!("Invalid signature in fault: {e}");
             return Err(Error::BadSignature);
         }
 

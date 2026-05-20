@@ -3,6 +3,8 @@
 
 use crate::blake2b;
 
+const PARALLEL_THRESHOLD: usize = 64;
+
 /// Compute the Merkle root of a set of key-value pairs. (D.6)
 pub fn trie(kvs: &[([u8; 31], &[u8])]) -> [u8; 32] {
     let mut buf = kvs.to_vec();
@@ -21,10 +23,14 @@ fn merkle(kvs: &mut [([u8; 31], &[u8])], depth: usize) -> [u8; 32] {
     }
 
     // In-place partition: entries with bit=0 (left) before entries with bit=1 (right)
+    let len = kvs.len();
     let mid = partition(kvs, depth);
     let (left, right) = kvs.split_at_mut(mid);
-    let l_hash = merkle(left, depth + 1);
-    let r_hash = merkle(right, depth + 1);
+    let (l_hash, r_hash) = if len >= PARALLEL_THRESHOLD {
+        rayon::join(|| merkle(left, depth + 1), || merkle(right, depth + 1))
+    } else {
+        (merkle(left, depth + 1), merkle(right, depth + 1))
+    };
     blake2b(&branch(l_hash, r_hash))
 }
 

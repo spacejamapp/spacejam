@@ -7,6 +7,7 @@ extern crate alloc;
 
 pub(crate) use internal::*;
 pub use {
+    array::{Array, FixedArray},
     compact::Numeric,
     de::Deserializer,
     error::{Error, Result},
@@ -15,6 +16,7 @@ pub use {
     with::bytes,
 };
 
+pub mod array;
 pub mod compact;
 mod de;
 mod error;

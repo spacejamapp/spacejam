@@ -61,14 +61,21 @@ pub fn refine<VM: Invocation>(args: Buffer) -> Buffer {
 /// (ΨA): Accumulation invocation
 pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let args: AccumulateArgs = codec::decode(args.as_slice()).unwrap();
-    let context = AccumulateState {
-        accounts: args.context.accounts,
-        validators: args.context.validators.map(|v| ValidatorData {
+    let validators: Vec<_> = args
+        .context
+        .validators
+        .into_iter()
+        .map(|v| ValidatorData {
             bandersnatch: v.bandersnatch,
             ed25519: v.ed25519,
             bls: v.bls,
             metadata: v.metadata,
-        }),
+        })
+        .collect();
+    let validators = score::safrole::ValidatorsData::try_from_vec(validators)
+        .expect("validators length mismatch");
+    let context = AccumulateState {
+        accounts: args.context.accounts,
         authorization: args.context.authorization.clone(),
         privileges: args.context.privileges,
         entropy: args.context.entropy,
@@ -78,6 +85,7 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     // TODO: handle accumulate items
     let accumulated = VM::accumulate(
         context,
+        validators,
         args.service,
         args.gas,
         args.operands
@@ -89,12 +97,19 @@ pub fn accumulate<VM: Invocation>(args: Buffer) -> Buffer {
     let output = Accumulated {
         context: api::AccumulateState {
             accounts: accumulated.context.accounts,
-            validators: accumulated.context.validators.map(|v| api::ValidatorData {
-                bandersnatch: v.bandersnatch,
-                ed25519: v.ed25519,
-                bls: v.bls,
-                metadata: v.metadata,
-            }),
+            validators: {
+                let v: Vec<_> = accumulated
+                    .validators
+                    .into_iter()
+                    .map(|v| api::ValidatorData {
+                        bandersnatch: v.bandersnatch,
+                        ed25519: v.ed25519,
+                        bls: v.bls,
+                        metadata: v.metadata,
+                    })
+                    .collect();
+                api::ValidatorsData::try_from_vec(v).expect("validators length mismatch")
+            },
             authorization: accumulated.context.authorization,
             privileges: accumulated.context.privileges,
             entropy: accumulated.context.entropy,

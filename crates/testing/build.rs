@@ -12,106 +12,125 @@ use syn::{Ident, ItemFn, parse_quote};
 
 const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.2/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";
+const REPORT: &str = "../../res/report";
+
+fn scale() -> Scale {
+    if env::var("CARGO_FEATURE_FULL").is_ok() {
+        Scale::Full
+    } else {
+        Scale::Tiny
+    }
+}
 
 fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.2/traces");
+    println!("cargo:rerun-if-changed=../../res/report");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
+    let scale = scale();
 
     // set up the registry
     try_download(&workspace)?;
-    let registry = Registry::new(workspace.join("res/jam-test-vectors"));
+    let registry = Registry::with_scale(workspace.join("res/jam-test-vectors"), scale);
 
     // build all tests
+    build_tests(registry.accumulate(scale)?, &out_dir.join("accumulate.rs"))?;
+    build_tests(registry.assurances(scale)?, &out_dir.join("assurances.rs"))?;
     build_tests(
-        registry.accumulate(Scale::Tiny)?,
-        &out_dir.join("accumulate.rs"),
-    )?;
-    build_tests(
-        registry.assurances(Scale::Tiny)?,
-        &out_dir.join("assurances.rs"),
-    )?;
-    build_tests(
-        registry.authorizations(Scale::Tiny)?,
+        registry.authorizations(scale)?,
         &out_dir.join("authorizations.rs"),
     )?;
-    build_tests(registry.codec(Scale::Tiny)?, &out_dir.join("codec.rs"))?;
-    build_tests(
-        registry.disputes(Scale::Tiny)?,
-        &out_dir.join("disputes.rs"),
-    )?;
-    build_tests(registry.erasure(Scale::Tiny)?, &out_dir.join("erasure.rs"))?;
-    build_tests(registry.history(Scale::Tiny)?, &out_dir.join("history.rs"))?;
+    build_tests(registry.codec(scale)?, &out_dir.join("codec.rs"))?;
+    build_tests(registry.disputes(scale)?, &out_dir.join("disputes.rs"))?;
+    build_tests(registry.erasure(scale)?, &out_dir.join("erasure.rs"))?;
+    build_tests(registry.history(scale)?, &out_dir.join("history.rs"))?;
     build_tests(registry.pvm()?, &out_dir.join("pvm.rs"))?;
     build_pvmc_tests(registry.pvm()?, &out_dir.join("pvmc.rs"))?;
-    build_tests(
-        registry.preimages(Scale::Tiny)?,
-        &out_dir.join("preimages.rs"),
-    )?;
-    build_tests(registry.reports(Scale::Tiny)?, &out_dir.join("reports.rs"))?;
-    build_tests(registry.safrole(Scale::Tiny)?, &out_dir.join("safrole.rs"))?;
+    build_tests(registry.preimages(scale)?, &out_dir.join("preimages.rs"))?;
+    build_tests(registry.reports(scale)?, &out_dir.join("reports.rs"))?;
+    build_tests(registry.safrole(scale)?, &out_dir.join("safrole.rs"))?;
     build_tests(registry.shuffle()?, &out_dir.join("shuffle.rs"))?;
-    build_tests(
-        registry.statistics(Scale::Tiny)?,
-        &out_dir.join("statistics.rs"),
-    )?;
+    build_tests(registry.statistics(scale)?, &out_dir.join("statistics.rs"))?;
     build_tests(registry.trie()?, &out_dir.join("trie.rs"))?;
-    build_tests(
-        registry.trace(Trace::Fallback)?,
-        &out_dir.join("traces_fallback.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::Fuzzy)?,
-        &out_dir.join("traces_fuzzy.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::FuzzyLight)?,
-        &out_dir.join("traces_fuzzy_light.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::Safrole)?,
-        &out_dir.join("traces_safrole.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::Preimages)?,
-        &out_dir.join("traces_preimages.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::PreimagesLight)?,
-        &out_dir.join("traces_preimages_light.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::Storage)?,
-        &out_dir.join("traces_storage.rs"),
-    )?;
-    build_tests(
-        registry.trace(Trace::StorageLight)?,
-        &out_dir.join("traces_storage_light.rs"),
-    )?;
-
-    // build all sequential tests
-    build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
+    // Trace and sequential tests are tiny-only
+    if scale == Scale::Tiny {
+        build_tests(
+            registry.trace(Trace::Fallback)?,
+            &out_dir.join("traces_fallback.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::Fuzzy)?,
+            &out_dir.join("traces_fuzzy.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::FuzzyLight)?,
+            &out_dir.join("traces_fuzzy_light.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::Safrole)?,
+            &out_dir.join("traces_safrole.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::Preimages)?,
+            &out_dir.join("traces_preimages.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::PreimagesLight)?,
+            &out_dir.join("traces_preimages_light.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::Storage)?,
+            &out_dir.join("traces_storage.rs"),
+        )?;
+        build_tests(
+            registry.trace(Trace::StorageLight)?,
+            &out_dir.join("traces_storage_light.rs"),
+        )?;
+        build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
+    } else {
+        for name in [
+            "traces_fallback",
+            "traces_fuzzy",
+            "traces_fuzzy_light",
+            "traces_safrole",
+            "traces_preimages",
+            "traces_preimages_light",
+            "traces_storage",
+            "traces_storage_light",
+            "traces_seq",
+        ] {
+            fs::write(out_dir.join(format!("{name}.rs")), "")?;
+        }
+    }
     Ok(())
 }
 
-/// Builds the PVM tests
+fn scale_constructor() -> proc_macro2::TokenStream {
+    if env::var("CARGO_FEATURE_FULL").is_ok() {
+        quote::quote!(specjam::Registry::with_scale(
+            "../../res/jam-test-vectors",
+            specjam::Scale::Full
+        ))
+    } else {
+        quote::quote!(specjam::Registry::new("../../res/jam-test-vectors"))
+    }
+}
+
 fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     let section = entry.section;
     let ss = section.as_ref();
+    let registry = scale_constructor();
 
-    // Iterate over file paths directly instead of parsing JSON files to avoid
-    // reading thousands of files during build time. Test names are derived from
-    // filenames, so parsing is unnecessary.
     for (i, path) in entry.files.iter().enumerate() {
         let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
         tests.push(parse_quote! {
             #[tokio::test]
             async fn #test_name() {
-                let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
+                let test = #registry.entry(#ss).unwrap().get(#i).unwrap();
                 crate::Runner::step(&test).await.expect("failed to run test");
             }
         });
@@ -121,22 +140,19 @@ fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Builds the PVM tests
 fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     let section = entry.section;
     let ss = section.as_ref();
+    let registry = scale_constructor();
 
-    // Iterate over file paths directly instead of parsing JSON files to avoid
-    // reading thousands of files during build time. Test names are derived from
-    // filenames, so parsing is unnecessary.
     for (i, path) in entry.files.iter().enumerate() {
         let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
         tests.push(parse_quote! {
             #[test]
             fn #test_name() {
-                let test = specjam::Registry::new("../../res/jam-test-vectors").entry(#ss).unwrap().get(#i).unwrap();
+                let test = #registry.entry(#ss).unwrap().get(#i).unwrap();
                 Runner::step(&test).expect("failed to run test");
             }
         });
@@ -165,6 +181,10 @@ fn build_all_seq_test(out: &Path) -> Result<()> {
         }
     }
 
+    if Path::new(REPORT).is_dir() {
+        items.push(build_seq_test(REPORT)?);
+    }
+
     fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
     Ok(())
 }
@@ -181,7 +201,7 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
         let name = Entry::file_name(path)?;
         let names = name.split('_').collect::<Vec<&str>>();
         let fname = names.last().unwrap().to_string();
-        if fname.contains("genesis") {
+        if fname.contains("genesis") || fname.parse::<u64>().is_err() {
             continue;
         }
         tests.insert(fname);
