@@ -8,7 +8,6 @@ use score::{
     safrole::ValidatorData,
     service::{AvailabilityAssignments, WorkReport},
 };
-use std::collections::HashSet;
 
 mod error;
 
@@ -34,23 +33,11 @@ pub fn reports(
 pub fn available(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],
-    slot: TimeSlot,
     parent: OpaqueHash,
     assurances: &[AvailAssurance],
 ) -> Result<(Vec<WorkReport>, [u32; CORES_COUNT])> {
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
-    let mut stale_reports = HashSet::new();
-
-    // Check for stale reports
-    for (core_idx, assignment) in reports.iter().enumerate() {
-        if let Some(assignment) = assignment
-            && slot >= assignment.timeout + WORK_REPORT_TIMEOUT_PERIOD
-        {
-            stale_reports.insert(core_idx);
-            continue;
-        }
-    }
 
     // Check for engaged reports: cheap checks first, then batch verify sigs.
     let mut assuror = None;
@@ -111,32 +98,4 @@ pub fn available(
     }
 
     Ok((available, core_assurance_counts))
-}
-
-/// Verifies the assurance
-pub fn verify_assurance(
-    validators: &[ValidatorData],
-    assurance: &AvailAssurance,
-    parent: OpaqueHash,
-) -> Result<()> {
-    if assurance.validator_index >= VALIDATORS_COUNT {
-        return Err(Error::BadValidatorIndex);
-    }
-
-    if assurance.anchor != parent {
-        return Err(Error::BadAttestationParent);
-    }
-
-    if crypto::ed25519::verify(
-        &assurance.singing_message(),
-        assurance.signature,
-        validators[assurance.validator_index as usize].ed25519,
-    )
-    .is_err()
-    {
-        tracing::error!("bad signature for assurance: {:?}", assurance);
-        return Err(Error::BadSignature);
-    }
-
-    Ok(())
 }

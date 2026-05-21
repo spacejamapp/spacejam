@@ -142,7 +142,6 @@ pub fn simulate_with_state<Vm: Pvm>(
             } else {
                 &state.validators.current
             },
-            block.header.slot,
             block.header.parent,
             &block.extrinsic.assurances,
         )?;
