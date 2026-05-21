@@ -91,10 +91,12 @@ impl Target {
         match message {
             Message::Info(info) => self.info(info),
             Message::ImportBlock(block) => {
+                let slot = block.header.slot;
                 if let Err(e) = self.import_block(block).await {
-                    tracing::warn!("failed to import block: {e}");
+                    tracing::debug!("failed to import block#{slot}: {e}");
                     self.write_message(Message::Error(e.to_string()))?;
                 }
+                tracing::info!("imported block#{slot}");
                 Ok(())
             }
             Message::Initialize(state) => self.initialize(state).await,
@@ -137,7 +139,7 @@ impl Target {
     /// Received set state request
     #[tracing::instrument(skip_all, name = "initialize")]
     pub async fn initialize(&mut self, state: Initialize) -> Result<()> {
-        lazy::clear().await;
+        lazy::clear();
         self.chain = Default::default();
         let root = self.chain.init(state.keyvals())?;
         if let Err(e) = self.init_state().await {

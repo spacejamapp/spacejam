@@ -124,6 +124,43 @@ fn serde_vrf_signature() -> anyhow::Result<()> {
 }
 
 #[test]
+fn ring_vrf_verify_batch_matches_single() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let pkeys = ring.iter().map(|k| k.public).collect::<Vec<_>>();
+    let verifier = Verifier::new(pkeys);
+
+    let cases: Vec<(usize, &[u8])> = vec![(0, b"alpha"), (1, b"beta"), (3, b"gamma")];
+    let ad: &[u8] = b"";
+
+    let sigs: Vec<[u8; 784]> = cases
+        .iter()
+        .map(|(signer, msg)| ring[*signer].ring_sign(keys.clone(), msg, ad))
+        .collect::<anyhow::Result<_>>()?;
+
+    let expected: Vec<[u8; 32]> = cases
+        .iter()
+        .zip(sigs.iter())
+        .map(|((_, msg), sig)| verifier.ring_vrf_verify(msg, ad, sig))
+        .collect::<anyhow::Result<_>>()?;
+
+    let got = verifier.ring_vrf_verify_batch(
+        cases
+            .iter()
+            .zip(sigs.iter())
+            .map(|((_, msg), sig)| (*msg, ad, sig.as_slice())),
+    )?;
+
+    assert_eq!(got, expected);
+    Ok(())
+}
+
+#[test]
 fn vrf_output_consistency() -> anyhow::Result<()> {
     let ring: Vec<_> = (0..RING_SIZE)
         .map(|i| KeyPair::from([i as u8; 32]))

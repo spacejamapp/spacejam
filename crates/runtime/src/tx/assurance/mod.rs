@@ -98,9 +98,7 @@ pub fn available(
             )
         })
         .collect();
-    crypto::ed25519::batch_verify(&verify_items)
-        .inspect_err(|_| tracing::error!("bad signature in assurances"))
-        .map_err(|_| Error::BadSignature)?;
+    crypto::ed25519::batch_verify(&verify_items).map_err(|_| Error::BadSignature)?;
 
     // Check which cores reached 2/3 majority
     let mut available = Vec::new();

@@ -31,8 +31,7 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     );
 
     match (vresult, sresult) {
-        (Err(e), _) => anyhow::bail!("failed to import block: {e:?}"),
-        (_, Err(e)) => anyhow::bail!("failed to import block: {e:?}"),
+        (Err(e), _) | (_, Err(e)) => Err(e),
         (Ok(()), Ok(diff)) => {
             storage.commit(Column::State, diff)?;
             Ok(())

@@ -202,10 +202,11 @@ pub fn simulate_with_state<Vm: Pvm>(
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
+        let candidate = state
+            .safrole
+            .next(&state.validators.drawn, &state.disputes.offenders);
+        thread::spawn(move || ticket::lazy::drawn(&candidate));
 
-        // lazy load vrf rings
-        let drawn = state.validators.drawn.clone();
-        thread::spawn(move || ticket::lazy::drawn(&drawn));
         state.statistics.merge_services(accumulation.records);
         state.logs = accumulation.logs;
         (accumulation.root, accumulation.accounts)

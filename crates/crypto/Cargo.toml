@@ -58,6 +58,11 @@ name = "blake2b"
 harness = false
 required-features = ["blake2"]
 
+[[bench]]
+name = "ring_vrf"
+harness = false
+required-features = ["vrf"]
+
 [build-dependencies]
 ark-serialize.workspace = true
 ark-vrf.workspace = true

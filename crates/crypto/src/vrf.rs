@@ -298,6 +298,36 @@ impl Verifier {
         Ok(vrf_output_hash)
     }
 
+    /// Batched anonymous VRF signature verification.
+    ///
+    /// Collapses N independent ring verifies into one randomized pairing check,
+    /// amortizing the dominant cost across the batch. On success, returns the
+    /// per-item VRF output hashes in iteration order. On failure, the entire
+    /// batch is rejected without per-item attribution.
+    pub fn ring_vrf_verify_batch<'a>(
+        &self,
+        items: impl IntoIterator<Item = (&'a [u8], &'a [u8], &'a [u8])>,
+    ) -> anyhow::Result<Vec<[u8; 32]>> {
+        let verifier_key = RING_CTX.verifier_key_from_commitment(self.commitment.clone());
+        let ring_verifier = RING_CTX.verifier(verifier_key);
+        let mut batch = ark_vrf::ring::BatchVerifier::new(ring_verifier);
+
+        let mut outputs = Vec::new();
+        for (vrf_input_data, aux_data, signature) in items {
+            let signature = RingVrfSignature::deserialize_compressed_unchecked(signature)?;
+            let input =
+                Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
+            let output_hash: [u8; 32] = signature.output.hash()[..32].try_into()?;
+            batch.push(input, signature.output, aux_data, &signature.proof);
+            outputs.push(output_hash);
+        }
+
+        batch
+            .verify()
+            .map_err(|e| anyhow::anyhow!("Ring batch verification failure: {:?}", e))?;
+        Ok(outputs)
+    }
+
     /// Non-Anonymous VRF signature verification.
     pub fn ietf_vrf_verify(
         &self,
