@@ -65,6 +65,17 @@ impl<S: Storage> account::Accounts for Accounts<S> {
         self.storage.account_info(index).ok().map(|info| info.code)
     }
 
+    fn min_acc_gas(&self, index: u32) -> Option<pvm::score::Gas> {
+        if let Some(account) = self.accounts.get(&index) {
+            return Some(account.info.accumulate);
+        }
+
+        self.storage
+            .account_info(index)
+            .ok()
+            .map(|info| info.accumulate)
+    }
+
     fn upsert(&mut self, index: u32, account: impl account::Account) {
         let inherited = Account::inherit(self.storage.clone(), index, account);
         self.accounts.insert(index, inherited);

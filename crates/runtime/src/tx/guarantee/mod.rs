@@ -222,7 +222,7 @@ pub fn pools(
     >,
     guarantees: &GuaranteesExtrinsic,
 ) -> score::AuthorizationPools {
-    let slot = (timeslot % score::EPOCH_LENGTH) as usize % score::AUTH_QUEUE_SIZE;
+    let slot = timeslot as usize % score::AUTH_QUEUE_SIZE;
     let mut new_pools = score::AuthorizationPools::default();
     for (core_index, pool) in pools.iter().enumerate() {
         let mut new_pool = pool.clone();

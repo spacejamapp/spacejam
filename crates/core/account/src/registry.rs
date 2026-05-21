@@ -1,7 +1,7 @@
 //! Account registry
 
 use crate::Account;
-use score::{OpaqueHash, ServiceId, TrieKey, service::ServiceAccount};
+use score::{Gas, OpaqueHash, ServiceId, TrieKey, service::ServiceAccount};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Account registry
@@ -11,6 +11,9 @@ pub trait Accounts: Clone + Send + Sync + 'static {
 
     /// Get the code hash of an account
     fn code_hash(&self, index: u32) -> Option<OpaqueHash>;
+
+    /// Get the minimum gas required to invoke the accumulate entry-point
+    fn min_acc_gas(&self, index: u32) -> Option<Gas>;
 
     /// Create a new account
     fn upsert(&mut self, index: u32, account: impl Account);
@@ -65,6 +68,10 @@ impl Accounts for BTreeMap<u32, ServiceAccount> {
 
     fn code_hash(&self, index: u32) -> Option<OpaqueHash> {
         Some(self.get(&index)?.info.code)
+    }
+
+    fn min_acc_gas(&self, index: u32) -> Option<Gas> {
+        Some(self.get(&index)?.info.accumulate)
     }
 
     fn upsert(&mut self, index: u32, account: impl Account) {
