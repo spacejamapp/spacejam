@@ -46,12 +46,14 @@ pub fn tickets(
         })
         .collect();
 
-    // 3. Check for bad order: 6.32 & 6.33
-    let mut sorted = new_tickets.clone();
-    sorted.sort_by_key(|a| a.id);
-    if sorted != new_tickets {
-        return Err(Error::BadTicketOrder);
+    // 3. Strictly ascending by id, no duplicates (6.32 & 6.33)
+    for pair in new_tickets.windows(2) {
+        match pair[0].id.cmp(&pair[1].id) {
+            std::cmp::Ordering::Less => {}
+            std::cmp::Ordering::Equal => return Err(Error::DuplicateTicket),
+            std::cmp::Ordering::Greater => return Err(Error::BadTicketOrder),
+        }
     }
 
-    Ok(sorted)
+    Ok(new_tickets)
 }

@@ -19,6 +19,10 @@ pub enum Error {
     Reserved,
     /// Duplicate ticket
     DuplicateTicket,
+    /// Submitted ticket missing from posterior accumulator
+    UselessTicket,
+    /// Too many tickets in a single block
+    TooManyTickets,
 }
 
 impl std::fmt::Display for Error {
