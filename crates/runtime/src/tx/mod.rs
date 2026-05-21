@@ -224,7 +224,6 @@ pub fn simulate_with_state<Vm: Pvm>(
         block::history::import(
             &mut state.recent_blocks,
             block.header.hash(),
-            block.header.parent_state_root,
             root,
             reported,
         );
