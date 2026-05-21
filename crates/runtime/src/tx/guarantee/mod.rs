@@ -202,7 +202,7 @@ pub fn pools(
     >,
     guarantees: &GuaranteesExtrinsic,
 ) -> score::AuthorizationPools {
-    let slot = timeslot % score::EPOCH_LENGTH;
+    let slot = (timeslot % score::EPOCH_LENGTH) as usize % score::AUTH_QUEUE_SIZE;
     let mut new_pools = score::AuthorizationPools::default();
     for (core_index, pool) in pools.iter().enumerate() {
         let mut new_pool = pool.clone();
@@ -218,10 +218,8 @@ pub fn pools(
             }
         }
 
-        // add new authorizer from queue at position H_t (current timeslot)
-        if let Some(auth) = authorizations[core_index].get(slot as usize) {
-            new_pool.push(*auth);
-        }
+        // add new authorizer from queue at position H_t mod Q
+        new_pool.push(authorizations[core_index][slot]);
 
         // truncate the pool to the max size
         if let Some(old) = new_pool.len().checked_sub(score::AUTH_POOL_MAX_SIZE) {

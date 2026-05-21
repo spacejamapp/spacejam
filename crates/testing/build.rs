@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     let scale = scale();
 
     // set up the registry
-    try_download(&workspace)?;
+    util::try_download(&workspace)?;
     let registry = Registry::with_scale(workspace.join("res/jam-test-vectors"), scale);
 
     // build all tests
@@ -54,7 +54,6 @@ fn main() -> Result<()> {
     build_tests(registry.shuffle()?, &out_dir.join("shuffle.rs"))?;
     build_tests(registry.statistics(scale)?, &out_dir.join("statistics.rs"))?;
     build_tests(registry.trie()?, &out_dir.join("trie.rs"))?;
-    // Trace and sequential tests are tiny-only
     if scale == Scale::Tiny {
         build_tests(
             registry.trace(Trace::Fallback)?,
@@ -88,7 +87,6 @@ fn main() -> Result<()> {
             registry.trace(Trace::StorageLight)?,
             &out_dir.join("traces_storage_light.rs"),
         )?;
-        build_all_seq_test(&out_dir.join("traces_seq.rs"))?;
     } else {
         for name in [
             "traces_fallback",
@@ -99,31 +97,19 @@ fn main() -> Result<()> {
             "traces_preimages_light",
             "traces_storage",
             "traces_storage_light",
-            "traces_seq",
         ] {
             fs::write(out_dir.join(format!("{name}.rs")), "")?;
         }
     }
+    build_all_seq_test(&out_dir.join("traces_seq.rs"), scale)?;
     Ok(())
-}
-
-fn scale_constructor() -> proc_macro2::TokenStream {
-    if env::var("CARGO_FEATURE_FULL").is_ok() {
-        quote::quote!(specjam::Registry::with_scale(
-            "../../res/jam-test-vectors",
-            specjam::Scale::Full
-        ))
-    } else {
-        quote::quote!(specjam::Registry::new("../../res/jam-test-vectors"))
-    }
 }
 
 fn build_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     let section = entry.section;
     let ss = section.as_ref();
-    let registry = scale_constructor();
-
+    let registry = util::scale_constructor();
     for (i, path) in entry.files.iter().enumerate() {
         let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
@@ -144,8 +130,7 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
     let mut tests: Vec<ItemFn> = Vec::new();
     let section = entry.section;
     let ss = section.as_ref();
-    let registry = scale_constructor();
-
+    let registry = util::scale_constructor();
     for (i, path) in entry.files.iter().enumerate() {
         let name = Entry::file_name(path)?;
         let test_name = Ident::new(&format!("test_{name}"), Span::call_site());
@@ -163,25 +148,24 @@ fn build_pvmc_tests(entry: Entry, out: &Path) -> Result<()> {
 }
 
 /// Builds all sequential tests
-fn build_all_seq_test(out: &Path) -> Result<()> {
+fn build_all_seq_test(out: &Path, scale: Scale) -> Result<()> {
     let mut items = Vec::new();
-    for entry in [TRACES, REPORTS] {
-        for entry in fs::read_dir(entry)? {
-            let entry = entry?;
-            let path = entry.path();
-            // let dname = path.file_name().unwrap().to_string_lossy();
-            /* if dname.contains("_4872") {
-                continue;
-            } */
-
-            if path.is_dir() {
-                let testset = path.to_str().expect("failed to get testset");
-                items.push(build_seq_test(testset)?);
+    if scale == Scale::Tiny {
+        for entry in [TRACES, REPORTS] {
+            for entry in fs::read_dir(entry)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    let testset = path.to_str().expect("failed to get testset");
+                    items.push(build_seq_test(testset)?);
+                }
             }
         }
     }
 
-    if Path::new(REPORT).is_dir() {
+    // REPORT dir can hold either tiny- or full-spec traces; the spec is
+    // declared in its report.json metadata. Only include if it matches.
+    if Path::new(REPORT).is_dir() && util::report_scale()? == Some(scale) {
         items.push(build_seq_test(REPORT)?);
     }
 
@@ -194,9 +178,6 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
     let fentry = Entry::seq(entry)?;
     let test_name = Path::new(entry).file_name().unwrap().to_str().unwrap();
     let mut tests = BTreeSet::<String>::new();
-
-    // Iterate over file paths directly instead of parsing JSON files to avoid
-    // reading thousands of files during build time. Extract test names from filenames.
     for path in &fentry.files {
         let name = Entry::file_name(path)?;
         let names = name.split('_').collect::<Vec<&str>>();
@@ -225,36 +206,70 @@ fn build_seq_test(entry: &str) -> Result<ItemFn> {
     Ok(testfn)
 }
 
-fn try_download(workspace: &Path) -> Result<()> {
-    fs::create_dir_all(workspace.join("res"))?;
-    clone_if_missing(
-        workspace,
-        "https://github.com/spacejamapp/jam-test-vectors",
-        "res/jam-test-vectors",
-    )?;
-    clone_if_missing(
-        workspace,
-        "https://github.com/spacejamapp/jam-conformance",
-        "res/jam-conformance",
-    )?;
-    Ok(())
-}
+mod util {
+    use super::*;
 
-fn clone_if_missing(workspace: &Path, url: &str, dest: &str) -> Result<()> {
-    if workspace.join(dest).exists() {
-        return Ok(());
+    pub fn try_download(workspace: &Path) -> Result<()> {
+        fs::create_dir_all(workspace.join("res"))?;
+        clone_if_missing(
+            workspace,
+            "https://github.com/spacejamapp/jam-test-vectors",
+            "res/jam-test-vectors",
+        )?;
+        clone_if_missing(
+            workspace,
+            "https://github.com/spacejamapp/jam-conformance",
+            "res/jam-conformance",
+        )?;
+        Ok(())
     }
-    let output = Command::new("git")
-        .args(["clone", url, dest, "--depth", "1"])
-        .current_dir(workspace)
-        .output()
-        .map_err(|e| anyhow::anyhow!("failed to spawn `git clone {url}`: {e}"))?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "git clone {url} into {dest} failed ({}): {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
+
+    pub fn clone_if_missing(workspace: &Path, url: &str, dest: &str) -> Result<()> {
+        if workspace.join(dest).exists() {
+            return Ok(());
+        }
+        let output = Command::new("git")
+            .args(["clone", url, dest, "--depth", "1"])
+            .current_dir(workspace)
+            .output()
+            .map_err(|e| anyhow::anyhow!("failed to spawn `git clone {url}`: {e}"))?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "git clone {url} into {dest} failed ({}): {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+        Ok(())
     }
-    Ok(())
+
+    /// Read `res/report/report.json` and return the spec scale it declares,
+    /// or None if the file is missing or unrecognized.
+    pub fn report_scale() -> Result<Option<Scale>> {
+        let path = Path::new(REPORT).join("report.json");
+        if !path.exists() {
+            return Ok(None);
+        }
+        let content = fs::read_to_string(&path)?;
+        // Strip whitespace so we tolerate any pretty-printing of the JSON.
+        let stripped: String = content.chars().filter(|c| !c.is_whitespace()).collect();
+        if stripped.contains(r#""jam_spec":{"full""#) {
+            Ok(Some(Scale::Full))
+        } else if stripped.contains(r#""jam_spec":{"tiny""#) {
+            Ok(Some(Scale::Tiny))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn scale_constructor() -> proc_macro2::TokenStream {
+        if env::var("CARGO_FEATURE_FULL").is_ok() {
+            quote::quote!(specjam::Registry::with_scale(
+                "../../res/jam-test-vectors",
+                specjam::Scale::Full
+            ))
+        } else {
+            quote::quote!(specjam::Registry::new("../../res/jam-test-vectors"))
+        }
+    }
 }
