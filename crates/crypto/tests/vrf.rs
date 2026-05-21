@@ -24,7 +24,7 @@ fn test_vrf() -> anyhow::Result<()> {
     let prover_key_index = 3;
 
     // NOTE: any key can be replaced with the padding point
-    let padding_point = Public::from(RingProofParams::padding_point());
+    let padding_point = Public(RingProofParams::padding_point());
     ring[2] = padding_point;
     ring[5] = padding_point;
 

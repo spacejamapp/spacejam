@@ -16,7 +16,6 @@ once_cell = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 rcgen = { workspace = true, optional = true }
-ring = { workspace = true, optional = true }
 tiny-keccak = { workspace = true, optional = true }
 w3f-bls = { workspace = true, optional = true }
 tracing.workspace = true
@@ -40,7 +39,6 @@ vrf = [
     "ark-ed-on-bls12-381-bandersnatch",
     "ark-serialize",
     "once_cell",
-    "ring",
 ]
 
 [dev-dependencies]
