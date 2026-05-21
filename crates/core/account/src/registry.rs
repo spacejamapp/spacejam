@@ -23,6 +23,14 @@ pub trait Accounts: Clone + Send + Sync + 'static {
         self.get(index).is_some()
     }
 
+    /// Check if a lookup is providable
+    fn is_providable(&mut self, index: ServiceId, hash: OpaqueHash, len: u32) -> bool {
+        let Some(account) = self.get(index) else {
+            return false;
+        };
+        matches!(account.lookup(hash, len), Some(Some(slots)) if slots.is_empty())
+    }
+
     /// Remove an account from the registry
     fn remove(&mut self, index: u32);
 

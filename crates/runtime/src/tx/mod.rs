@@ -68,7 +68,10 @@ pub fn simulate_with_state<Vm: Pvm>(
     }
 
     // The first round computation
-    let accounts = Accounts::new(storage);
+    let mut accounts = Accounts::new(storage);
+
+    // (E_P) Validate preimages against the prior state (12.6)
+    preimage::validate(&mut accounts, &block.extrinsic.preimages)?;
     let (mut reports, reported, reporters) = {
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
@@ -230,8 +233,8 @@ pub fn simulate_with_state<Vm: Pvm>(
                 .merge_reporters(&reporters, &state.validators.current.ed25519())?;
         }
 
-        // (δ') Update the accounts
-        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
+        // (δ') Integrate preimages into the post-transfer state
+        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts);
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
 
