@@ -117,7 +117,7 @@ fn require_env(name: &str) -> Result<String> {
 fn init_logger(level: Option<&str>) {
     let Some(level) = level else { return };
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new(level))
+        .with_env_filter(EnvFilter::new(format!("spacejam={level}")))
         .with_target(false)
         .with_ansi(false)
         .try_init();

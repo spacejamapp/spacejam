@@ -2,7 +2,7 @@
 
 use crate::{
     Storage,
-    storage::{Branch, Column, KVStorage, MemoryDb, StateStorage, root},
+    storage::{Branch, Column, Commit, KVStorage, MemoryDb, MultiTreeStore, StateStorage, root},
     tx,
 };
 use anyhow::Result;
@@ -13,6 +13,9 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
+
+/// Zero hash sentinel — `current_root` before [`TestChain::init`].
+const EMPTY_ROOT: OpaqueHash = [0; 32];
 
 pub mod header;
 pub mod history;
@@ -49,6 +52,10 @@ pub struct TestChain {
 
     /// The forks and their states (diff only).
     pub forks: HashMap<OpaqueHash, Fork>,
+
+    /// The state root corresponding to `data`. Tracked incrementally via the
+    /// multitree column so we can skip the O(N log N) full retrie per block.
+    current_root: OpaqueHash,
 }
 
 impl TestChain {
@@ -65,7 +72,20 @@ impl TestChain {
                 .read()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?
                 .clone();
+            let dirty = collect_dirty_keys(&commit);
             self.data.commit(Column::State, commit)?;
+
+            // Incrementally rebuild the trie against the new `data` and prime
+            // the root cache so the next block's `state()` hits it.
+            let prev = (self.current_root != EMPTY_ROOT).then_some(self.current_root);
+            let new_root = self.data.with_data(|data| {
+                let kvs: Vec<(TrieKey, &[u8])> =
+                    data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
+                self.data.apply(Column::TrieNodes, prev, &kvs, &dirty)
+            })??;
+            root::set(parent, new_root);
+            self.current_root = new_root;
+
             self.finalized = parent;
             self.forks.clear();
         }
@@ -135,7 +155,18 @@ impl TestChain {
             .ok_or(anyhow::anyhow!("no recent blocks"))?
             .header_hash;
         self.finalized = head;
-        self.data.with_data(|data| handle_root(head, data))
+
+        // Bootstrap the incremental trie. Every key is dirty on the first
+        // build; the algorithm degenerates to a full retrie.
+        let new_root = self.data.with_data(|data| {
+            let kvs: Vec<(TrieKey, &[u8])> =
+                data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
+            let dirty: Vec<TrieKey> = data.keys().copied().collect();
+            self.data.apply(Column::TrieNodes, None, &kvs, &dirty)
+        })??;
+        root::set(head, new_root);
+        self.current_root = new_root;
+        Ok(new_root)
     }
 }
 
@@ -145,20 +176,22 @@ impl Default for TestChain {
             finalized: Default::default(),
             data: Arc::new(MemoryDb::default()),
             forks: HashMap::new(),
+            current_root: EMPTY_ROOT,
         }
     }
 }
 
-/// Compute the state root and cache it for the given header hash.
-///
-/// Base is sorted (BTreeMap), so iteration already yields keys in trie order.
-///
-/// NOTE: this method overrides the StateStorage::root for zero-copy.
-fn handle_root(head: OpaqueHash, data: &BTreeMap<TrieKey, Vec<u8>>) -> OpaqueHash {
-    let kvs: Vec<(TrieKey, &[u8])> = data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
-    let state_root = merkle::trie31(&kvs);
-    root::set(head, state_root);
-    state_root
+/// Sorted, deduplicated union of the keys an overlay commit touches.
+fn collect_dirty_keys(commit: &Commit<TrieKey, Vec<u8>>) -> Vec<TrieKey> {
+    let mut keys: Vec<TrieKey> = commit
+        .update
+        .keys()
+        .copied()
+        .chain(commit.removal.iter().copied())
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
 }
 
 /// Compute the state root from base data + overlay diff (no base clone).

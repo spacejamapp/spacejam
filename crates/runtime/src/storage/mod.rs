@@ -7,6 +7,7 @@ pub use {
     branch::Branch,
     commit::{Commit, Operation},
     kv::{KVStorage, MemoryDb},
+    multitree::{MultiTreeStore, NewNode, NodeAddress, NodeRef},
     state::StateStorage,
     sync::SyncStorage,
 };
@@ -15,6 +16,7 @@ mod archive;
 mod branch;
 mod commit;
 mod kv;
+mod multitree;
 pub mod root;
 mod state;
 pub mod sync;
@@ -23,14 +25,17 @@ pub mod sync;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Column {
-    /// The column for the sync
+    /// The column for the state
     State = 0,
 
-    /// The column for the state
+    /// The column for the sync
     Sync = 1,
 
     /// The column for the archive
     Archive = 2,
+
+    /// The column for incremental trie nodes (parity-db multitree).
+    TrieNodes = 3,
 }
 
 /// The storage of SpaceJam

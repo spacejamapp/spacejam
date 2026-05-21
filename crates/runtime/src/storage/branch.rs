@@ -2,10 +2,10 @@
 
 use crate::{
     Storage,
-    storage::{Column, Commit, KVStorage, StateStorage},
+    storage::{Column, Commit, KVStorage, MultiTreeStore, NewNode, NodeAddress, StateStorage},
 };
 use anyhow::Result;
-use score::{TrieKey, state::StateKeyLike};
+use score::{OpaqueHash, TrieKey, state::StateKeyLike};
 use std::{
     collections::{BTreeMap, btree_map::IntoIter},
     mem,
@@ -114,6 +114,32 @@ impl<S: Storage> KVStorage for Branch<S> {
             finished: false,
             iter: Default::default(),
         })
+    }
+}
+
+impl<S: Storage + MultiTreeStore> MultiTreeStore for Branch<S> {
+    fn insert_tree(&self, column: Column, key: OpaqueHash, root: NewNode) -> Result<()> {
+        self.state.insert_tree(column, key, root)
+    }
+
+    fn dereference_tree(&self, column: Column, key: OpaqueHash) -> Result<()> {
+        self.state.dereference_tree(column, key)
+    }
+
+    fn get_root(
+        &self,
+        column: Column,
+        key: OpaqueHash,
+    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        self.state.get_root(column, key)
+    }
+
+    fn get_node(
+        &self,
+        column: Column,
+        address: NodeAddress,
+    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        self.state.get_node(column, address)
     }
 }
 
