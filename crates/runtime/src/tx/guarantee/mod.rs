@@ -5,7 +5,7 @@ use account::Accounts;
 use error::{Error, Result};
 use pvm::{AccumulateState, Pvm};
 use score::{
-    CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot,
+    AUTH_QUEUE_SIZE, Array, CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     safrole::ValidatorsData,
     service::{
@@ -38,6 +38,8 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     privileges: &Privileges,
     // The validators to be drawn (ι)
     validators: &ValidatorsData,
+    // The authorization queue (φ)
+    authorization: &Array<Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT>,
     // The account storage (δ)
     accounts: R,
     // The entropy (η)
@@ -46,6 +48,14 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+
+    // Seed φ from prior state so the assign host call mutates the real queue
+    let auth_init: score::AuthorizationPools = authorization
+        .iter()
+        .map(|q| q.to_vec())
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("authorization has CORES_COUNT entries");
 
     // (Δ+) run outer accumulation (12.18)
     let gas_limit = privileges.gas_limit();
@@ -57,7 +67,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         AccumulateState {
             accounts,
             privileges: privileges.clone(),
-            authorization: Default::default(),
+            authorization: auth_init,
             entropy,
             timeslot: slot,
         },
@@ -76,6 +86,15 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     let next_ready_queue =
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
 
+    // (φ') Project the per-core Vec back to the fixed-size state shape
+    let next_authorization: Array<Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT> =
+        std::mem::take(&mut accumulated.context.authorization)
+            .into_iter()
+            .map(|q| Array::try_from(q).expect("queue has AUTH_QUEUE_SIZE entries"))
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("authorization has CORES_COUNT entries");
+
     Ok(Accumulation {
         root: accumulated.root(),
         ready_queue: next_ready_queue,
@@ -84,6 +103,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         privileges: accumulated.context.privileges,
         validators,
         records,
+        authorization: next_authorization,
         logs: accumulated.pairings,
     })
 }

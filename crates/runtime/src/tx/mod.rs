@@ -76,15 +76,8 @@ pub fn simulate_with_state<Vm: Pvm>(
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        if new_epoch {
-            // (λ', κ') Update validator state (6.13)
-            state.validators.previous = std::mem::replace(
-                &mut state.validators.current,
-                state.safrole.validators.clone(),
-            );
-        }
 
-        // (ψ') Update disputes and get marks
+        // (ψ') Update disputes against the prior validator sets (10.4)
         let marks = if block.extrinsic.disputes.is_empty() {
             if !block.header.offenders_mark.is_empty() {
                 anyhow::bail!("offenders mark is not empty");
@@ -103,6 +96,14 @@ pub fn simulate_with_state<Vm: Pvm>(
             block.header.offenders_mark = marks.offenders.clone();
             marks
         };
+
+        if new_epoch {
+            // (λ', κ') Update validator state (6.13)
+            state.validators.previous = std::mem::replace(
+                &mut state.validators.current,
+                state.safrole.validators.clone(),
+            );
+        }
 
         // complete the state root of the last block in the history
         if let Some(last) = state.recent_blocks.history.last_mut() {
@@ -135,7 +136,7 @@ pub fn simulate_with_state<Vm: Pvm>(
     let (available, assurances) = {
         // (W) the sequence of new available work reports (11.16)
         let (available, assurances) = self::assurance::available(
-            &state.reports,
+            &reports,
             if new_epoch {
                 &state.validators.previous
             } else {
@@ -196,6 +197,7 @@ pub fn simulate_with_state<Vm: Pvm>(
             &state.history,
             &state.privileges,
             &state.validators.drawn,
+            &state.authorization,
             accounts,
             state.entropy,
         )?;
@@ -205,6 +207,7 @@ pub fn simulate_with_state<Vm: Pvm>(
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
+        state.authorization = accumulation.authorization;
         let candidate = state
             .safrole
             .next(&state.validators.drawn, &state.disputes.offenders);

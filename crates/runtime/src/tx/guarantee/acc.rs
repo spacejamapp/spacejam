@@ -3,7 +3,7 @@
 use account::Accounts;
 use pvm::{Account, AccumulateState};
 use score::{
-    Gas, OpaqueHash, ServiceId,
+    AUTH_QUEUE_SIZE, Array, CORES_COUNT, Gas, OpaqueHash, ServiceId,
     safrole::ValidatorsData,
     service::{AccumulatedQueue, Privileges, ReadyQueue, WorkReport},
     statistic::{AccumulationRecord, ServiceActivityRecord},
@@ -148,6 +148,9 @@ pub struct Accumulation<R: Accounts> {
 
     /// (πS') The service records
     pub records: BTreeMap<ServiceId, ServiceActivityRecord>,
+
+    /// (φ') The authorization queue
+    pub authorization: Array<Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT>,
 
     /// (θ) The accumulation logs
     pub logs: CommitmentMap,
