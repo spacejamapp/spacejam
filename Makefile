@@ -65,7 +65,7 @@ linux-amd64-both:
 # build the docker image, tagging both :latest and :$(VERSION)
 docker: linux-amd64-both
 	docker build --platform=linux/amd64 \
-		-f docker/spacejam.Dockerfile \
+		-f docker/spacejam.dockerfile \
 		-t $(DOCKER_IMAGE):latest \
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		.

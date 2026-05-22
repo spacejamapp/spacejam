@@ -101,7 +101,7 @@ impl<S: Storage> Fork<S> {
 
             chain.insert(this.header.head());
             blocks.insert(*slot, (this.clone(), commit.clone()));
-            branch.commit(Column::State, &commit)?;
+            branch.commit(Column::State, commit)?;
         }
 
         // import the block

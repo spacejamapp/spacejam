@@ -5,9 +5,7 @@ use parity_db::{
     BTreeIterator, ColumnOptions, Db, NewNode as PdNewNode, NodeRef as PdNodeRef, Operation as Op,
     Options,
 };
-use runtime::storage::{
-    Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef,
-};
+use runtime::storage::{Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef};
 use score::{OpaqueHash, TrieKey};
 use std::path::PathBuf;
 

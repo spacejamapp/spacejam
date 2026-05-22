@@ -11,7 +11,6 @@ pub mod storage;
 mod utils;
 pub mod validator;
 
-
 /// The config of development
 pub struct Development;
 
