@@ -131,6 +131,12 @@ pub fn write(ctx: &mut impl Argument) -> Result<ExitCode> {
     // check if the account has enough balance to cover the threshold
     let account = ctx.this()?;
     let prev = account.read(&key);
+
+    // Removing a key that doesn't exist is a no-op; skip the threshold check.
+    if vz == 0 && prev.is_none() {
+        return Ok(Exit::None as u64);
+    }
+
     let threshold = account
         .write_threshold(&key, &value, prev.as_deref())
         .unwrap_or(u64::MAX);

@@ -55,10 +55,10 @@ pub fn bless(ctx: &mut impl Argument) -> Result<ExitCode> {
         }
     }
 
-    // (m, v, r) Check if bless and designate are valid service IDs
+    // (m, v, r) must fit in u32; GP allows any serviceid including the protected range.
     if [bless, designate, register]
         .iter()
-        .any(|&id| (id != 0 && id < score::MINIMUM_SERVICE_ID as u64) || id > u32::MAX as u64)
+        .any(|&id| id > u32::MAX as u64)
     {
         return Ok(Exit::Who as u64);
     }
@@ -81,19 +81,16 @@ pub fn assign(ctx: &mut impl Argument) -> Result<ExitCode> {
     let mut source = vec![0u8; 32 * score::QUEUE_ITEMS as usize];
     ctx.read_into(o as u32, &mut source)?;
 
-    // Check core index first (before reading memory)
     if core >= score::CORES_COUNT as u64 {
         return Ok(Exit::Core as u64);
     }
 
-    // Check if the calling service is the current assign service for this core
     let privileges = ctx.privileges();
     if ctx.service() != privileges.assign[core as usize] {
         return Ok(Exit::Huh as u64);
     }
 
-    // Validate assign parameter is a valid service ID
-    if (assign != 0 && assign < score::MINIMUM_SERVICE_ID as u64) || assign > u32::MAX as u64 {
+    if assign > u32::MAX as u64 {
         return Ok(Exit::Who as u64);
     }
 
@@ -157,28 +154,38 @@ pub fn checkpoint(ctx: &mut impl Argument) -> Result<ExitCode> {
 
 /// (ΩN) new
 pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
-    let [o, length, accumulate_gas, transfer_gas, f] = [
+    let [o, length, accumulate_gas, transfer_gas, gratis, desiredid] = [
         ctx.rget(7),
         ctx.rget(8),
         ctx.rget(9),
         ctx.rget(10),
         ctx.rget(11),
+        ctx.rget(12),
     ];
 
-    // check if the service is blessed
+    // Non-zero gratis requires manager privilege.
     let privileges = ctx.privileges();
-    if f != 0 && privileges.bless != ctx.service() {
+    if gratis != 0 && privileges.bless != ctx.service() {
         return Ok(Exit::Huh as u64);
     }
 
-    // get the account code
     let code = ctx.read_hash(o as u32)?;
     if length > u32::MAX as u64 {
         crate::bail!("Invalid length");
     }
 
-    // create a new account with proper storage accounting
-    let index = ctx.index();
+    // Registrar can target a protected-range index directly via r_12.
+    let registrar_target =
+        ctx.service() == privileges.register && desiredid < score::MINIMUM_SERVICE_ID as u64;
+    let index = if registrar_target {
+        if ctx.account(desiredid).is_ok() {
+            return Ok(Exit::Full as u64);
+        }
+        desiredid as u32
+    } else {
+        ctx.index()
+    };
+
     let mut created = ServiceAccount {
         index,
         info: ServiceInfo {
@@ -186,6 +193,7 @@ pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
             balance: score::BALANCE_PER_SERVICE,
             accumulate: accumulate_gas,
             transfer: transfer_gas,
+            offset: gratis,
             creation: ctx.timeslot(),
             update: 0,
             parent: ctx.service(),
@@ -195,23 +203,24 @@ pub fn new_(ctx: &mut impl Argument) -> Result<ExitCode> {
     };
     created.insert_lookup(code, length as u32, vec![]);
 
-    // Calculate the full threshold cost
     let new_account_threshold = created.threshold();
     let service = ctx.this()?;
     if service.balance() < service.threshold() + new_account_threshold {
         return Ok(Exit::Cash as u64);
     }
 
-    // Deduct full threshold from parent and give it to new account
     *service.balance_mut() -= new_account_threshold;
     created.info.balance = new_account_threshold;
     ctx.upsert(index, created);
 
-    // Check and find a free account index
-    let base =
-        score::MINIMUM_SERVICE_ID + (index - score::MINIMUM_SERVICE_ID + 42) % score::CHECK_SALT;
-    let new_index = ctx.check(base);
-    ctx.set_index(new_index);
+    // Auto-generated path bumps nextfreeid; registrar path doesn't.
+    if !registrar_target {
+        let base = score::MINIMUM_SERVICE_ID
+            + (index - score::MINIMUM_SERVICE_ID + 42) % score::CHECK_SALT;
+        let new_index = ctx.check(base);
+        ctx.set_index(new_index);
+    }
+
     Ok(index as u64)
 }
 
@@ -357,16 +366,24 @@ pub fn solicit(ctx: &mut impl Argument) -> Result<ExitCode> {
     let timeslot = ctx.timeslot();
     let account = ctx.this()?;
     let mut slots = vec![];
-    if let Some(lookup) = account.lookup(hash, z as u32).flatten() {
+    let appending = if let Some(lookup) = account.lookup(hash, z as u32).flatten() {
         if lookup.len() == 2 {
             slots = vec![lookup[0], lookup[1], timeslot];
+            true
         } else {
             return Ok(Exit::Huh as u64);
         }
-    }
+    } else {
+        false
+    };
 
-    // pre-calculate the new threshold
-    let threshold = account.lookup_threshold(z).unwrap_or(u64::MAX);
+    // Appending to an existing 2-slot entry doesn't change items/octets; only
+    // a fresh insertion changes the threshold.
+    let threshold = if appending {
+        account.threshold()
+    } else {
+        account.lookup_threshold(z).unwrap_or(u64::MAX)
+    };
     if account.balance() < threshold {
         return Ok(Exit::Full as u64);
     }
@@ -440,8 +457,6 @@ pub fn provide(ctx: &mut impl Argument) -> Result<ExitCode> {
         return Ok(Exit::Huh as u64);
     }
 
-    // FIXME: the lookup insert is not specified in graypper, could be a bug
-    // in the fuzzy tests or our implementation.
     account.insert_lookup(hash, size as u32, vec![timeslot]);
     account.insert_preimage(hash, preimage);
     Ok(Exit::Ok as u64)
