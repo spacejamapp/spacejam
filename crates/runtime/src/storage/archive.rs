@@ -18,7 +18,7 @@ pub trait ArchiveStorage: KVStorage + Send + Sync + 'static {
             commit.set(key, value);
         }
 
-        self.commit(Column::Archive, commit)?;
+        self.commit(Column::Archive, &commit)?;
         Ok(())
     }
 }
@@ -40,7 +40,7 @@ impl<S: KVStorage> Archive<S> {
 }
 
 impl<S: KVStorage> KVStorage for Archive<S> {
-    fn commit(&self, _column: Column, _commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+    fn commit(&self, _column: Column, _commit: &Commit<TrieKey, Vec<u8>>) -> Result<()> {
         anyhow::bail!("commit is not allowed on archive")
     }
 

@@ -3,7 +3,7 @@
 use crate::{
     Chain, Config,
     chain::fork::Fork,
-    storage::{Branch, Column, KVStorage, StateStorage, SyncStorage},
+    storage::{Branch, Column, Commit, KVStorage, StateStorage, SyncStorage},
 };
 use anyhow::{Context, Result};
 use score::{
@@ -158,7 +158,8 @@ impl<C: Config> Chain<C> {
         }
 
         let root = self.state.root()?;
-        self.state.commit(Column::State, (kvs, vec![]).into())?;
+        self.state
+            .commit(Column::State, &Commit::from((kvs, vec![])))?;
         self.state.finalize(
             &Block {
                 header,

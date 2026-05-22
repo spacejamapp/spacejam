@@ -23,7 +23,7 @@ pub fn import(
             reported,
         };
 
-        history.history.push(new_block.clone());
+        history.history.push(new_block);
         return;
     };
 

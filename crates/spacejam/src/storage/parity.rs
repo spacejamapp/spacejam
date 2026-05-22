@@ -6,7 +6,7 @@ use parity_db::{
     Options,
 };
 use runtime::storage::{
-    Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef, Operation,
+    Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef,
 };
 use score::{OpaqueHash, TrieKey};
 use std::path::PathBuf;
@@ -17,11 +17,14 @@ const TRIE_COL: u8 = Column::TrieNodes as u8;
 pub struct Parity(Db);
 
 impl KVStorage for Parity {
-    fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
-        self.0.commit_changes(commit.ops().map(|op| match op {
-            Operation::Set(k, v) => (column as u8, Op::Set(k.to_vec(), v)),
-            Operation::Remove(k) => (column as u8, Op::Dereference(k.to_vec())),
-        }))?;
+    fn commit(&self, column: Column, commit: &Commit<TrieKey, Vec<u8>>) -> Result<()> {
+        let sets = commit
+            .iset()
+            .map(|(k, v)| (column as u8, Op::Set(k.to_vec(), v.clone())));
+        let removes = commit
+            .iremoval()
+            .map(|k| (column as u8, Op::Dereference(k.to_vec())));
+        self.0.commit_changes(sets.chain(removes))?;
         Ok(())
     }
 

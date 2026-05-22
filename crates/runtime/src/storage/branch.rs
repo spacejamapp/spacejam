@@ -37,14 +37,19 @@ impl<S: Storage> Branch<S> {
 }
 
 impl<S: Storage> KVStorage for Branch<S> {
-    fn commit(&self, _column: Column, new_commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+    fn commit(&self, _column: Column, new_commit: &Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut commit = self
             .commit
             .write()
             .map_err(|_| anyhow::anyhow!("Failed to acquire commit lock"))?;
 
-        // Merge the new commit with the existing one
-        commit.extend(new_commit);
+        // Merge the new commit with the existing oneqq
+        for (k, v) in new_commit.iset() {
+            commit.set(*k, v.clone());
+        }
+        for k in new_commit.iremoval() {
+            commit.remove(*k);
+        }
         Ok(())
     }
 

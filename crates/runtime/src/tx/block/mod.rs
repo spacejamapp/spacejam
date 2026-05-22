@@ -34,7 +34,7 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     match (vresult, sresult) {
         (Err(e), _) | (_, Err(e)) => Err(e),
         (Ok(()), Ok(diff)) => {
-            storage.commit(Column::State, diff)?;
+            storage.commit(Column::State, &diff)?;
             Ok(())
         }
     }
@@ -79,7 +79,7 @@ impl TestChain {
                 .read()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?
                 .clone();
-            self.data.commit(Column::State, commit)?;
+            self.data.commit(Column::State, &commit)?;
 
             // Release sibling trees that won't be finalized.
             for (_, sibling_root) in self.forks.values() {
