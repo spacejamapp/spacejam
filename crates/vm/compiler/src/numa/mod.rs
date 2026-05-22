@@ -1,4 +1,12 @@
 //! NUMA-aware process placement for the AOT compiler.
+//!
+//! The process is left unpinned so default rayon (sig batches, merkle, etc.)
+//! keeps using every cgroup-allowed CPU. [`pool`] returns a dedicated rayon
+//! pool whose workers are pinned to one NUMA node — used by PVM dispatch so
+//! AOT code-cache locality is preserved across nested `par_iter`s.
+//!
+//! Note: only the AOT ([`crate::exec::Executable`]) path is hinted; cranelift's
+//! JIT manages its own code memory and bypasses [`hint_code_pages`].
 
 use std::sync::OnceLock;
 
@@ -6,7 +14,7 @@ use std::sync::OnceLock;
 mod linux;
 
 static PLAN: OnceLock<NumaPlan> = OnceLock::new();
-static NARROW: OnceLock<rayon::ThreadPool> = OnceLock::new();
+static POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
 
 /// Topology decision applied at startup.
 #[derive(Debug, Clone)]
@@ -31,36 +39,27 @@ pub fn chosen_node() -> Option<u32> {
 
 /// Rayon pool whose workers are pinned to the chosen node's CPUs.
 pub fn pool() -> &'static rayon::ThreadPool {
-    NARROW.get_or_init(|| {
+    POOL.get_or_init(|| {
         let plan = init();
         let cpus = plan.cpus.clone();
         rayon::ThreadPoolBuilder::new()
             .num_threads(plan.num_threads)
-            .thread_name(|i| format!("numa-narrow-{i}"))
+            .thread_name(|i| format!("numa-{i}"))
             .start_handler(move |_| pin_worker(&cpus))
             .build()
-            .expect("build narrow rayon pool")
+            .expect("build numa rayon pool")
     })
 }
 
-#[cfg(target_os = "linux")]
-fn pin_worker(cpus: &[usize]) {
-    if let Err(err) = linux::set_affinity(cpus) {
-        tracing::warn!("numa: narrow worker pin failed: {err}");
+/// Hint that an AOT code mmap should use huge pages and bind to the chosen
+/// node. Call before the first byte is written. No-op on non-Linux.
+pub fn hint_code_pages(addr: *mut u8, size: usize) {
+    #[cfg(target_os = "linux")]
+    linux::hint_code_pages(addr, size);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (addr, size);
     }
-}
-
-#[cfg(not(target_os = "linux"))]
-fn pin_worker(_cpus: &[usize]) {}
-
-#[cfg(target_os = "linux")]
-fn detect() -> NumaPlan {
-    linux::detect()
-}
-
-#[cfg(not(target_os = "linux"))]
-fn detect() -> NumaPlan {
-    fallback()
 }
 
 /// Fallback NUMA plan for non-Linux platforms.
@@ -73,4 +72,21 @@ pub fn fallback() -> NumaPlan {
         cpus: (0..num_threads).collect(),
         num_threads,
     }
+}
+
+fn pin_worker(cpus: &[usize]) {
+    #[cfg(target_os = "linux")]
+    if let Err(err) = linux::set_affinity(cpus) {
+        tracing::warn!("numa: worker pin failed: {err}");
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = cpus;
+}
+
+fn detect() -> NumaPlan {
+    #[cfg(target_os = "linux")]
+    return linux::detect();
+
+    #[cfg(not(target_os = "linux"))]
+    fallback()
 }

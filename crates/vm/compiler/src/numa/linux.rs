@@ -1,9 +1,4 @@
 //! Linux NUMA detection.
-//!
-//! Picks the largest CCD-local CPU bucket from `/sys`, intersected with the
-//! cgroup-allowed set. The process is left unpinned: the rayon "narrow" pool
-//! pins its own workers via [`set_affinity`] so other parallelism (sig
-//! batches, merkle, etc.) keeps using all allowed CPUs.
 
 use crate::numa::{NumaPlan, fallback};
 use std::collections::BTreeSet;
@@ -41,6 +36,33 @@ pub fn detect() -> NumaPlan {
         node: Some(node),
         cpus,
         num_threads,
+    }
+}
+
+pub fn set_affinity(cpus: &[usize]) -> std::io::Result<()> {
+    let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
+    for &cpu in cpus {
+        unsafe { libc::CPU_SET(cpu, &mut set) };
+    }
+    let size = std::mem::size_of::<libc::cpu_set_t>();
+    if unsafe { libc::sched_setaffinity(0, size, &set) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// Hint that the AOT code mapping should use huge pages, and bind its
+/// not-yet-faulted pages to the chosen node (if any).
+pub fn hint_code_pages(addr: *mut u8, size: usize) {
+    if unsafe { libc::madvise(addr.cast(), size, libc::MADV_HUGEPAGE) } != 0 {
+        tracing::warn!(
+            "numa: madvise(MADV_HUGEPAGE) on AOT code buffer failed: {}",
+            std::io::Error::last_os_error()
+        );
+    }
+
+    if let Some(node) = super::chosen_node() {
+        bind_to_node(addr, size, node);
     }
 }
 
@@ -99,14 +121,29 @@ fn parse_cpulist(s: &str) -> Vec<usize> {
     out
 }
 
-pub(super) fn set_affinity(cpus: &[usize]) -> std::io::Result<()> {
-    let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
-    for &cpu in cpus {
-        unsafe { libc::CPU_SET(cpu, &mut set) };
+fn bind_to_node(addr: *mut u8, size: usize, node: u32) {
+    // MPOL_BIND from linux/mempolicy.h; not exposed by the libc crate.
+    const MPOL_BIND: libc::c_int = 2;
+    if node >= 64 {
+        tracing::warn!("numa: chosen node {node} out of mbind range, skipping");
+        return;
     }
-    let size = std::mem::size_of::<libc::cpu_set_t>();
-    if unsafe { libc::sched_setaffinity(0, size, &set) } != 0 {
-        return Err(std::io::Error::last_os_error());
+    let mask: u64 = 1u64 << node;
+    let ret = unsafe {
+        libc::syscall(
+            libc::SYS_mbind,
+            addr,
+            size as libc::c_ulong,
+            MPOL_BIND,
+            &mask as *const u64,
+            64u64,
+            0u32,
+        )
+    };
+    if ret != 0 {
+        tracing::warn!(
+            "numa: mbind AOT code buffer to node {node} failed: {}",
+            std::io::Error::last_os_error()
+        );
     }
-    Ok(())
 }
