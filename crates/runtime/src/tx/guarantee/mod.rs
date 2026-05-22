@@ -73,14 +73,14 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         },
         &mut validators,
         &privileges.always_acc,
-    );
+    )?;
 
     // (πS') compose the service activity records
-    let records = accumulated.records(&accumulatable);
+    let n = accumulated.accumulated;
+    let records = accumulated.records(&accumulatable[..n]);
 
     // update the accumulated queue (ξ')
-    let next_accumulated_queue =
-        self::accumulated_history(accumulated_queue, accumulatable, accumulated.accumulated);
+    let next_accumulated_queue = self::accumulated_history(accumulated_queue, accumulatable, n);
 
     // update the ready queue (θ')
     let next_ready_queue =
@@ -120,15 +120,12 @@ pub fn accumulated_history(
         next.remove(0);
     }
 
-    // Add new accumulated work report hashes
+    // Set of newly-accumulated work-package hashes, canonically sorted.
     let mut new_accumulated: Vec<OpaqueHash> = accumulatable
         .iter()
         .take(accumulated)
         .map(|w| w.spec.hash)
         .collect();
-
-    // NOTE: Sort the new accumulated work report hashes again to align the test
-    // vectors, not sure if we missed anything that we have to do it here.
     new_accumulated.sort();
     next.push(new_accumulated);
 

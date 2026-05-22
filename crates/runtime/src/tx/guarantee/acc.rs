@@ -48,7 +48,7 @@ impl<R: Accounts> Accumulated<R> {
         }
     }
 
-    /// Get the service records
+    /// Compose the service activity records; caller passes the accumulated prefix.
     pub fn records(
         &mut self,
         accumulatable: &[WorkReport],
@@ -64,17 +64,12 @@ impl<R: Accounts> Accumulated<R> {
             }
         }
 
-        for transfer in self.transfers.iter() {
-            if records.contains_key(&transfer.recipient)
-                || !self.gas.contains_key(&transfer.recipient)
-            {
+        // Include services that consumed gas without contributing digests.
+        for (service, gas) in self.gas.iter() {
+            if records.contains_key(service) {
                 continue;
             }
-
-            let record = records.entry(transfer.recipient).or_default();
-            if record.accumulate_gas_used == 0 {
-                record.accumulate_gas_used = *self.gas.get(&transfer.recipient).unwrap_or(&0);
-            }
+            records.entry(*service).or_default().accumulate_gas_used = *gas;
         }
 
         // update the last update time of the accounts
