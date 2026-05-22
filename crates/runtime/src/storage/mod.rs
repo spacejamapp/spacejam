@@ -6,8 +6,8 @@ pub use {
     archive::{Archive, ArchiveStorage},
     branch::Branch,
     commit::{Commit, Operation},
+    crypto::merkle::multitree::{MultiTree, NewNode, NodeAddress, NodeRef},
     kv::{KVStorage, MemoryDb},
-    multitree::{MultiTreeStore, NewNode, NodeAddress, NodeRef},
     state::StateStorage,
     sync::SyncStorage,
 };
@@ -16,7 +16,6 @@ mod archive;
 mod branch;
 mod commit;
 mod kv;
-mod multitree;
 pub mod root;
 mod state;
 pub mod sync;

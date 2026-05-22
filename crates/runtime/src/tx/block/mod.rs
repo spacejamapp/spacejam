@@ -2,7 +2,7 @@
 
 use crate::{
     Storage,
-    storage::{Branch, Column, Commit, KVStorage, MemoryDb, MultiTreeStore, StateStorage, root},
+    storage::{Branch, Column, Commit, KVStorage, MemoryDb, MultiTree, StateStorage, root},
     tx,
 };
 use anyhow::Result;
@@ -74,13 +74,11 @@ impl TestChain {
             let dirty = collect_dirty_keys(&commit);
             self.data.commit(Column::State, commit)?;
 
-            // Incrementally rebuild the trie against the new `data` and prime
-            // the root cache so the next block's `state()` hits it.
             let prev = (self.current_root != EMPTY_ROOT).then_some(self.current_root);
             let new_root = self.data.with_data(|data| {
                 let kvs: Vec<(TrieKey, &[u8])> =
                     data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
-                self.data.apply(Column::TrieNodes, prev, &kvs, &dirty)
+                self.data.apply(prev, &kvs, &dirty)
             })??;
             root::set(parent, new_root);
             self.current_root = new_root;
@@ -155,12 +153,10 @@ impl TestChain {
             .header_hash;
         self.finalized = head;
 
-        // Bootstrap the incremental trie. Every key is dirty on the first
-        // build; the algorithm degenerates to a full retrie.
         let new_root = self.data.with_data(|data| {
             let kvs: Vec<(TrieKey, &[u8])> = data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
             let dirty: Vec<TrieKey> = data.keys().copied().collect();
-            self.data.apply(Column::TrieNodes, None, &kvs, &dirty)
+            self.data.apply(None, &kvs, &dirty)
         })??;
         root::set(head, new_root);
         self.current_root = new_root;
@@ -192,14 +188,7 @@ fn collect_dirty_keys(commit: &Commit<TrieKey, Vec<u8>>) -> Vec<TrieKey> {
     keys
 }
 
-/// Compute the state root from base data + overlay diff (no base clone).
-///
-/// Both base and diff.update are sorted by TrieKey, so we merge-walk them in
-/// O(N+M) and skip the final sort. On ties diff wins (it's the newer write);
-/// keys present in diff.removal are dropped after selection so removals take
-/// precedence over updates of the same key.
-///
-/// NOTE: this method overrides the StateStorage::root for zero-copy.
+/// Compute the state root from base data + overlay diff via merge-walk.
 fn handle_root_with_diff(
     head: OpaqueHash,
     base: &BTreeMap<TrieKey, Vec<u8>>,

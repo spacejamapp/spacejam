@@ -3540,6 +3540,7 @@ dependencies = [
  "ed25519-zebra",
  "hex",
  "once_cell",
+ "parking_lot",
  "rand 0.8.5",
  "rayon",
  "rcgen",

@@ -1,10 +1,11 @@
 //! Key-value storage abstraction
 
-use crate::storage::{Column, Commit, MultiTreeStore, NewNode, NodeAddress, NodeRef};
+use crate::storage::{Column, Commit, MultiTree, NewNode, NodeAddress};
 use anyhow::Result;
+use crypto::merkle::multitree::MultiTreeMap;
 use score::{OpaqueHash, TrieKey, state::StateKeyLike};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     sync::{Arc, RwLock},
 };
 
@@ -40,108 +41,28 @@ pub trait KVStorage: Send + Sync + 'static {
     }
 }
 
-/// In-memory key-value storage implementation
-///
-/// This implementation stores all data in memory and is not persistent.
-/// It's useful for testing and for situations where persistence isn't required.
+/// In-memory key-value storage.
 #[derive(Default)]
 pub struct MemoryDb {
     data: Arc<RwLock<BTreeMap<TrieKey, Vec<u8>>>>,
-    tries: Arc<RwLock<TrieStore>>,
-}
-
-/// Internal ref-counted node store backing [`MultiTreeStore`].
-#[derive(Default)]
-struct TrieStore {
-    nodes: HashMap<NodeAddress, NodeEntry>,
-    roots: HashMap<OpaqueHash, NodeAddress>,
-    next_addr: NodeAddress,
-}
-
-struct NodeEntry {
-    data: Vec<u8>,
-    children: Vec<NodeAddress>,
-    refcount: u32,
-}
-
-impl TrieStore {
-    fn alloc(&mut self) -> NodeAddress {
-        let addr = self.next_addr;
-        self.next_addr += 1;
-        addr
-    }
-
-    /// Recursively materialize a `NodeRef` into the store, returning the
-    /// address of its root and bumping refcounts as we go.
-    fn insert(&mut self, node_ref: NodeRef) -> NodeAddress {
-        match node_ref {
-            NodeRef::Existing(addr) => {
-                let entry = self
-                    .nodes
-                    .get_mut(&addr)
-                    .unwrap_or_else(|| panic!("NodeRef::Existing({addr}) but node is gone"));
-                entry.refcount += 1;
-                addr
-            }
-            NodeRef::New(NewNode { data, children }) => {
-                let child_addrs: Vec<_> = children.into_iter().map(|c| self.insert(c)).collect();
-                let addr = self.alloc();
-                self.nodes.insert(
-                    addr,
-                    NodeEntry {
-                        data,
-                        children: child_addrs,
-                        refcount: 1,
-                    },
-                );
-                addr
-            }
-        }
-    }
-
-    /// Drop a reference to `addr`, recursively GC'ing descendants that hit 0.
-    fn dereference(&mut self, addr: NodeAddress) {
-        let drop_children = match self.nodes.get_mut(&addr) {
-            Some(entry) => {
-                entry.refcount = entry
-                    .refcount
-                    .checked_sub(1)
-                    .unwrap_or_else(|| panic!("refcount underflow on addr {addr}"));
-                if entry.refcount == 0 {
-                    Some(std::mem::take(&mut entry.children))
-                } else {
-                    None
-                }
-            }
-            None => None,
-        };
-        if let Some(children) = drop_children {
-            self.nodes.remove(&addr);
-            for child in children {
-                self.dereference(child);
-            }
-        }
-    }
+    tries: MultiTreeMap,
 }
 
 impl MemoryDb {
-    /// Execute a closure with direct read access to the underlying data,
-    /// holding the read lock for the duration.
+    /// Run a closure under the data read lock.
     pub fn with_data<F, R>(&self, f: F) -> Result<R>
     where
         F: FnOnce(&BTreeMap<TrieKey, Vec<u8>>) -> R,
     {
-        let data = self
+        Ok(f(&*self
             .data
             .read()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        Ok(f(&data))
+            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?))
     }
 
     /// Reset the memory database
     pub fn reset(&self, data: BTreeMap<TrieKey, Vec<u8>>) {
-        let mut curr = self.data.write().unwrap();
-        *curr = data;
+        *self.data.write().unwrap() = data;
     }
 }
 
@@ -216,64 +137,20 @@ impl KVStorage for MemoryDb {
     }
 }
 
-impl MultiTreeStore for MemoryDb {
-    fn insert_tree(&self, _column: Column, key: OpaqueHash, root: NewNode) -> Result<()> {
-        let mut tries = self
-            .tries
-            .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        if tries.roots.contains_key(&key) {
-            anyhow::bail!(
-                "insert_tree: tree already present at key 0x{} — caller must dereference_tree first",
-                hex::encode(key)
-            );
-        }
-        let addr = tries.insert(NodeRef::New(root));
-        tries.roots.insert(key, addr);
-        Ok(())
+impl MultiTree for MemoryDb {
+    fn insert_tree(&self, key: OpaqueHash, root: NewNode) -> Result<()> {
+        self.tries.insert_tree(key, root)
     }
 
-    fn dereference_tree(&self, _column: Column, key: OpaqueHash) -> Result<()> {
-        let mut tries = self
-            .tries
-            .write()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        if let Some(addr) = tries.roots.remove(&key) {
-            tries.dereference(addr);
-        }
-        Ok(())
+    fn dereference_tree(&self, key: OpaqueHash) -> Result<()> {
+        self.tries.dereference_tree(key)
     }
 
-    fn get_root(
-        &self,
-        _column: Column,
-        key: OpaqueHash,
-    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
-        let tries = self
-            .tries
-            .read()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        let Some(&addr) = tries.roots.get(&key) else {
-            return Ok(None);
-        };
-        Ok(tries
-            .nodes
-            .get(&addr)
-            .map(|n| (n.data.clone(), n.children.clone())))
+    fn get_root(&self, key: OpaqueHash) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        self.tries.get_root(key)
     }
 
-    fn get_node(
-        &self,
-        _column: Column,
-        address: NodeAddress,
-    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
-        let tries = self
-            .tries
-            .read()
-            .map_err(|_| anyhow::anyhow!("RwLock poisoned"))?;
-        Ok(tries
-            .nodes
-            .get(&address)
-            .map(|n| (n.data.clone(), n.children.clone())))
+    fn get_node(&self, address: NodeAddress) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        self.tries.get_node(address)
     }
 }

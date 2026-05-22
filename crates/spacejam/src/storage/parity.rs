@@ -6,10 +6,12 @@ use parity_db::{
     Options,
 };
 use runtime::storage::{
-    Column, Commit, KVStorage, MultiTreeStore, NewNode, NodeAddress, NodeRef, Operation,
+    Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef, Operation,
 };
 use score::{OpaqueHash, TrieKey};
 use std::path::PathBuf;
+
+const TRIE_COL: u8 = Column::TrieNodes as u8;
 
 /// The parity database storage
 pub struct Parity(Db);
@@ -51,35 +53,27 @@ impl KVStorage for Parity {
     }
 }
 
-impl MultiTreeStore for Parity {
-    fn insert_tree(&self, column: Column, key: OpaqueHash, root: NewNode) -> Result<()> {
+impl MultiTree for Parity {
+    fn insert_tree(&self, key: OpaqueHash, root: NewNode) -> Result<()> {
         self.0.commit_changes([(
-            column as u8,
+            TRIE_COL,
             Op::InsertTree(key.to_vec(), to_pd_newnode(root)),
         )])?;
         Ok(())
     }
 
-    fn dereference_tree(&self, column: Column, key: OpaqueHash) -> Result<()> {
+    fn dereference_tree(&self, key: OpaqueHash) -> Result<()> {
         self.0
-            .commit_changes([(column as u8, Op::DereferenceTree(key.to_vec()))])?;
+            .commit_changes([(TRIE_COL, Op::DereferenceTree(key.to_vec()))])?;
         Ok(())
     }
 
-    fn get_root(
-        &self,
-        column: Column,
-        key: OpaqueHash,
-    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
-        Ok(self.0.get_root(column as u8, key.as_ref())?)
+    fn get_root(&self, key: OpaqueHash) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        Ok(self.0.get_root(TRIE_COL, key.as_ref())?)
     }
 
-    fn get_node(
-        &self,
-        column: Column,
-        address: NodeAddress,
-    ) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
-        Ok(self.0.get_node(column as u8, address)?)
+    fn get_node(&self, address: NodeAddress) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        Ok(self.0.get_node(TRIE_COL, address)?)
     }
 }
 
