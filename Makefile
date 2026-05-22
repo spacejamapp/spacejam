@@ -53,13 +53,13 @@ linux-amd64:
 
 # build linux-amd64 with full-spec constants
 linux-amd64-full:
-	cargo b --profile prod --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+	cargo b --profile prod --target x86_64-unknown-linux-gnu --no-default-features --features full
 
 # build both tiny and full binaries for docker
 linux-amd64-both:
 	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu
 	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-tiny
-	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu --no-default-features --features full
 	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-full
 
 # build the docker image, tagging both :latest and :$(VERSION)

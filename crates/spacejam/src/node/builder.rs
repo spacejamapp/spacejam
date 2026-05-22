@@ -8,42 +8,38 @@ use network::Network;
 use std::{fs, net::SocketAddr, path::PathBuf, sync::Arc};
 
 /// Spacejam node builder
-#[derive(Clone)]
-#[cfg_attr(feature = "cmd", derive(clap::Parser))]
+#[derive(Clone, clap::Parser)]
 pub struct Builder {
     /// The genesis path
-    #[cfg_attr(feature = "cmd", arg(long, env = "CHAIN"))]
+    #[arg(long, env = "CHAIN")]
     pub chain: Option<PathBuf>,
 
     /// The data path
-    #[cfg_attr(feature = "cmd", arg(short, long, default_value_t = default::data_path(), env = "DATA_PATH"))]
+    #[arg(short, long, default_value_t = default::data_path(), env = "DATA_PATH")]
     pub data_path: String,
 
     /// Whether running in dev mode
-    #[cfg_attr(feature = "cmd", arg(long, env = "DEV"))]
+    #[arg(long, env = "DEV")]
     pub dev: bool,
 
     /// Whether running in light mode
-    #[cfg_attr(feature = "cmd", arg(long, env = "LIGHT"))]
+    #[arg(long, env = "LIGHT")]
     pub light: bool,
 
     /// The network configuration
-    #[cfg_attr(feature = "cmd", command(flatten))]
+    #[command(flatten)]
     pub network: network::Config,
 
     /// Whether pruning the data directory before running
-    #[cfg_attr(feature = "cmd", arg(short, long, env = "PRUNE"))]
+    #[arg(short, long, env = "PRUNE")]
     pub prune: bool,
 
     /// The RPC address
-    #[cfg_attr(
-        feature = "cmd",
-        arg(short, long, default_value = "0.0.0.0:6789", env = "RPC")
-    )]
+    #[arg(short, long, default_value = "0.0.0.0:6789", env = "RPC")]
     pub rpc: SocketAddr,
 
     /// The seed of the validator
-    #[cfg_attr(feature = "cmd", arg(long, env = "VALIDATOR"))]
+    #[arg(long, env = "VALIDATOR")]
     pub validator: Option<String>,
 }
 
