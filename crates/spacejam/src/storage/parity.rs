@@ -55,10 +55,8 @@ impl KVStorage for Parity {
 
 impl MultiTree for Parity {
     fn insert_tree(&self, key: OpaqueHash, root: NewNode) -> Result<()> {
-        self.0.commit_changes([(
-            TRIE_COL,
-            Op::InsertTree(key.to_vec(), to_pd_newnode(root)),
-        )])?;
+        self.0
+            .commit_changes([(TRIE_COL, Op::InsertTree(key.to_vec(), to_pd_newnode(root)))])?;
         Ok(())
     }
 
