@@ -77,11 +77,11 @@ impl Safrole {
         let curr_slot_phase = slot % crate::EPOCH_LENGTH;
         let prev_slot_phase = tau % crate::EPOCH_LENGTH;
 
-        // Return true if:
-        // 1. Different epochs (e' ≠ e)
-        // 2. Previous slot not before submission period (m ≥ Y)
-        // 3. Current slot not after submission period (m' < Y)
-        // 4. Accumulator not full (|gamma_a| ≠ E)
+        // Return true if all of:
+        // 1. Same epoch (e' = e)
+        // 2. Previous slot before submission period (m < Y)
+        // 3. Current slot at or after submission period (m' ≥ Y)
+        // 4. Accumulator full (|gamma_a| = E)
         curr_epoch == prev_epoch
             && prev_slot_phase < crate::TICKET_SUBMISSION_PERIOD
             && curr_slot_phase >= crate::TICKET_SUBMISSION_PERIOD

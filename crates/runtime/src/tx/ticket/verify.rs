@@ -1,12 +1,10 @@
 //! Verification utilities for tickets
 
 use crate::tx::ticket::{Error, lazy};
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use score::{
     BandersnatchPublic, OpaqueHash,
-    extrinsic::{TicketBody, TicketEnvelope, TicketsAccumulator, TicketsExtrinsic},
+    extrinsic::{TicketBody, TicketsAccumulator, TicketsExtrinsic},
 };
-use std::{collections::BTreeMap, sync::Arc};
 
 /// Verify tickets
 pub fn tickets(
@@ -14,54 +12,48 @@ pub fn tickets(
     next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
 ) -> Result<TicketsAccumulator, Error> {
+    // 1. Verify ticket attempts upfront (6.29)
+    for envelope in tickets.iter() {
+        if envelope.attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+            return Err(Error::BadTicketAttempt);
+        }
+    }
+
+    // 2. Batch-verify ring VRF signatures, harvesting per-ticket ids in order
+    let messages: Vec<Vec<u8>> = tickets
+        .iter()
+        .map(|e| TicketBody::message(e.attempt, &entropy[2]))
+        .collect();
     let verifier = lazy::verifier(next);
-    let verified = tickets
-        .par_iter()
-        .enumerate()
-        .map(|(index, envelope)| self::ticket(index, envelope.clone(), entropy, verifier.clone()))
-        .collect::<Result<BTreeMap<usize, TicketBody>, Error>>()?;
-
-    // Check for bad order: 6.32 & 6.33
-    let new_tickets = verified.into_values().collect::<Vec<_>>();
-    let mut sorted = new_tickets.clone();
-    sorted.sort_by_key(|a| a.id);
-    if sorted != new_tickets {
-        return Err(Error::BadTicketOrder);
-    }
-
-    Ok(sorted)
-}
-
-/// Verify a single ticket
-fn ticket(
-    index: usize,
-    envelope: TicketEnvelope,
-    entropy: [OpaqueHash; 4],
-    verifier: Arc<crypto::vrf::Verifier>,
-) -> Result<(usize, TicketBody), Error> {
-    // 1. Verify ticket attempt (6.29)
-    if envelope.attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
-        return Err(Error::BadTicketAttempt);
-    }
-
-    // 2. Verify ring VRF signature and get ticket identifier
-    let id = verifier
-        .ring_vrf_verify(
-            &TicketBody::message(envelope.attempt, &entropy[2]),
-            &[],
-            &envelope.signature,
+    let ids = verifier
+        .ring_vrf_verify_batch(
+            messages
+                .iter()
+                .zip(tickets.iter())
+                .map(|(msg, e)| (msg.as_slice(), [].as_slice(), e.signature.as_slice())),
         )
         .map_err(|e| {
-            tracing::error!("failed to verify ring VRF signature: {:?}", e);
+            tracing::trace!("failed to batch-verify ring VRF signatures: {:?}", e);
             Error::BadTicketProof
         })?;
 
-    // 3. Store ticket for accumulation
-    Ok((
-        index,
-        TicketBody {
+    let new_tickets: Vec<TicketBody> = ids
+        .into_iter()
+        .zip(tickets.iter())
+        .map(|(id, envelope)| TicketBody {
             id,
             attempt: envelope.attempt,
-        },
-    ))
+        })
+        .collect();
+
+    // 3. Strictly ascending by id, no duplicates (6.32 & 6.33)
+    for pair in new_tickets.windows(2) {
+        match pair[0].id.cmp(&pair[1].id) {
+            std::cmp::Ordering::Less => {}
+            std::cmp::Ordering::Equal => return Err(Error::DuplicateTicket),
+            std::cmp::Ordering::Greater => return Err(Error::BadTicketOrder),
+        }
+    }
+
+    Ok(new_tickets)
 }

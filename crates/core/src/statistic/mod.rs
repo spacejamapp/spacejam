@@ -108,9 +108,7 @@ impl Statistics {
         for reporter in reporters.iter() {
             let Some(index) = validators.iter().position(|v| v == reporter) else {
                 continue;
-                // anyhow::bail!("reporter is invalid");
             };
-
             self.vals_current[index].guarantees += 1;
         }
         Ok(())

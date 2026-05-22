@@ -6,6 +6,7 @@ pub use {
     archive::{Archive, ArchiveStorage},
     branch::Branch,
     commit::{Commit, Operation},
+    crypto::merkle::multitree::{MultiTree, NewNode, NodeAddress, NodeRef},
     kv::{KVStorage, MemoryDb},
     state::StateStorage,
     sync::SyncStorage,
@@ -23,14 +24,17 @@ pub mod sync;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Column {
-    /// The column for the sync
+    /// The column for the state
     State = 0,
 
-    /// The column for the state
+    /// The column for the sync
     Sync = 1,
 
     /// The column for the archive
     Archive = 2,
+
+    /// The column for incremental trie nodes (parity-db multitree).
+    TrieNodes = 3,
 }
 
 /// The storage of SpaceJam

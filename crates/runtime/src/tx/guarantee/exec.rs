@@ -34,7 +34,7 @@ pub fn outer<V: Pvm, R: Accounts>(
     context: AccumulateState<R>,
     validators: &mut score::safrole::ValidatorsData,
     gas_table: &BTreeMap<ServiceId, Gas>,
-) -> Accumulated<R> {
+) -> anyhow::Result<Accumulated<R>> {
     let mut accumulated = Accumulated::new(context);
     let empty = BTreeMap::new();
     let mut first = true;
@@ -54,15 +54,19 @@ pub fn outer<V: Pvm, R: Accounts>(
             break;
         }
 
+        // Deferred-transfer gas supplements the block budget for this round.
+        let xfer_gas: Gas = transfers.iter().map(|t| t.gas_limit).sum();
+
         let step = self::parallel::<V, R>(
             accumulated.context.clone(),
             validators,
             &transfers,
             if index == 0 { &[] } else { &reports[..index] },
             if first { gas_table } else { &empty },
-        );
+        )?;
 
-        gas_limit -= step.gas.values().sum::<Gas>();
+        let step_gas: Gas = step.gas.values().sum();
+        gas_limit = gas_limit.saturating_add(xfer_gas).saturating_sub(step_gas);
         reports = &reports[index..];
         transfers = step.transfers.clone();
         accumulated.transfers.extend(step.transfers);
@@ -79,7 +83,7 @@ pub fn outer<V: Pvm, R: Accounts>(
         }
     }
 
-    accumulated
+    Ok(accumulated)
 }
 
 /// (Δ*) parallel accumulation
@@ -89,7 +93,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     transfers: &[DeferredTransfer],
     reports: &[WorkReport],
     table: &BTreeMap<ServiceId, Gas>,
-) -> Accumulated<R> {
+) -> anyhow::Result<Accumulated<R>> {
     let mut services: BTreeSet<ServiceId> = Default::default();
     for report in reports {
         for result in &report.results {
@@ -140,12 +144,16 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.privileges.always_acc = mgr.always_acc.clone();
     }
 
-    // Update assign services
+    // Update assign service and authorization queue from the prior c-th assigner.
     for c in 0..context.privileges.assign.len() {
         let old = context.privileges.assign[c];
         let mgr_val = mgr.map(|m| m.assign[c]).unwrap_or(old);
         let svc_val = results.get(&old).map(|r| r.context.privileges.assign[c]);
         context.privileges.assign[c] = svc_val.map(|s| r(old, mgr_val, s)).unwrap_or(mgr_val);
+
+        if let Some(result) = results.get(&old) {
+            context.authorization[c] = result.context.authorization[c].clone();
+        }
     }
 
     // Update designate
@@ -198,7 +206,8 @@ pub fn parallel<V: Pvm, R: Accounts>(
         gas.insert(*service_id, result.gas);
     }
 
-    // Apply additions (n): the service's own account from every result,
+    // Apply additions (n); reject the same new id created by two services.
+    let mut created: BTreeSet<ServiceId> = BTreeSet::new();
     for (service_id, result) in results.iter() {
         if !removed.contains(service_id)
             && let Some(account) = result.context.accounts.accounts().get(service_id)
@@ -214,12 +223,19 @@ pub fn parallel<V: Pvm, R: Accounts>(
             if id == service_id {
                 continue; // already handled above
             }
-            if !removed.contains(id)
-                && account.creation() == context.timeslot
-                && context.accounts.get(*id).is_none()
-            {
-                context.accounts.upsert(*id, account.clone());
+            if removed.contains(id) || account.creation() != context.timeslot {
+                continue;
             }
+            if context.accounts.get(*id).is_some() {
+                if created.contains(id) {
+                    anyhow::bail!(
+                        "duplicate account creation: service {id} created by multiple services"
+                    );
+                }
+                continue;
+            }
+            context.accounts.upsert(*id, account.clone());
+            created.insert(*id);
         }
     }
 
@@ -228,13 +244,13 @@ pub fn parallel<V: Pvm, R: Accounts>(
         context.accounts.remove(*service);
     }
 
-    Accumulated {
+    Ok(Accumulated {
         accumulated: reports.len(),
         context,
         transfers,
         pairings,
         gas,
-    }
+    })
 }
 
 /// (Δ1) single accumulation (12.24)

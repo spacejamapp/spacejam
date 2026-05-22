@@ -68,20 +68,16 @@ pub fn simulate_with_state<Vm: Pvm>(
     }
 
     // The first round computation
-    let accounts = Accounts::new(storage);
+    let mut accounts = Accounts::new(storage);
+
+    // (E_P) Validate preimages against the prior state (12.6)
+    preimage::validate(&mut accounts, &block.extrinsic.preimages)?;
     let (mut reports, reported, reporters) = {
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
-        if new_epoch {
-            // (λ', κ') Update validator state (6.13)
-            state.validators.previous = std::mem::replace(
-                &mut state.validators.current,
-                state.safrole.validators.clone(),
-            );
-        }
 
-        // (ψ') Update disputes and get marks
+        // (ψ') Update disputes against the prior validator sets (10.4)
         let marks = if block.extrinsic.disputes.is_empty() {
             if !block.header.offenders_mark.is_empty() {
                 anyhow::bail!("offenders mark is not empty");
@@ -100,6 +96,14 @@ pub fn simulate_with_state<Vm: Pvm>(
             block.header.offenders_mark = marks.offenders.clone();
             marks
         };
+
+        if new_epoch {
+            // (λ', κ') Update validator state (6.13)
+            state.validators.previous = std::mem::replace(
+                &mut state.validators.current,
+                state.safrole.validators.clone(),
+            );
+        }
 
         // complete the state root of the last block in the history
         if let Some(last) = state.recent_blocks.history.last_mut() {
@@ -132,13 +136,12 @@ pub fn simulate_with_state<Vm: Pvm>(
     let (available, assurances) = {
         // (W) the sequence of new available work reports (11.16)
         let (available, assurances) = self::assurance::available(
-            &state.reports,
+            &reports,
             if new_epoch {
                 &state.validators.previous
             } else {
                 &state.validators.current
             },
-            block.header.slot,
             block.header.parent,
             &block.extrinsic.assurances,
         )?;
@@ -193,6 +196,7 @@ pub fn simulate_with_state<Vm: Pvm>(
             &state.history,
             &state.privileges,
             &state.validators.drawn,
+            &state.authorization,
             accounts,
             state.entropy,
         )?;
@@ -202,10 +206,12 @@ pub fn simulate_with_state<Vm: Pvm>(
         state.queue = accumulation.ready_queue;
         state.history = accumulation.accumulated_queue;
         state.validators.drawn = accumulation.validators;
+        state.authorization = accumulation.authorization;
+        let candidate = state
+            .safrole
+            .next(&state.validators.drawn, &state.disputes.offenders);
+        thread::spawn(move || ticket::lazy::drawn(&candidate));
 
-        // lazy load vrf rings
-        let drawn = state.validators.drawn.clone();
-        thread::spawn(move || ticket::lazy::drawn(&drawn));
         state.statistics.merge_services(accumulation.records);
         state.logs = accumulation.logs;
         (accumulation.root, accumulation.accounts)
@@ -218,7 +224,6 @@ pub fn simulate_with_state<Vm: Pvm>(
         block::history::import(
             &mut state.recent_blocks,
             block.header.hash(),
-            block.header.parent_state_root,
             root,
             reported,
         );
@@ -229,8 +234,8 @@ pub fn simulate_with_state<Vm: Pvm>(
                 .merge_reporters(&reporters, &state.validators.current.ed25519())?;
         }
 
-        // (δ') Update the accounts
-        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts)?;
+        // (δ') Integrate preimages into the post-transfer state
+        let accounts = preimage::accounts(block.header.slot, &block.extrinsic.preimages, accounts);
         let (updates, removals) = accounts.diff();
         diff.extend_iter(updates, removals);
 

@@ -1,10 +1,17 @@
 //! The parity database storage
 
 use anyhow::Result;
-use parity_db::{BTreeIterator, ColumnOptions, Db, Operation as Op, Options};
-use runtime::storage::{Column, Commit, KVStorage, Operation};
-use score::TrieKey;
+use parity_db::{
+    BTreeIterator, ColumnOptions, Db, NewNode as PdNewNode, NodeRef as PdNodeRef, Operation as Op,
+    Options,
+};
+use runtime::storage::{
+    Column, Commit, KVStorage, MultiTree, NewNode, NodeAddress, NodeRef, Operation,
+};
+use score::{OpaqueHash, TrieKey};
 use std::path::PathBuf;
+
+const TRIE_COL: u8 = Column::TrieNodes as u8;
 
 /// The parity database storage
 pub struct Parity(Db);
@@ -46,6 +53,42 @@ impl KVStorage for Parity {
     }
 }
 
+impl MultiTree for Parity {
+    fn insert_tree(&self, key: OpaqueHash, root: NewNode) -> Result<()> {
+        self.0
+            .commit_changes([(TRIE_COL, Op::InsertTree(key.to_vec(), to_pd_newnode(root)))])?;
+        Ok(())
+    }
+
+    fn dereference_tree(&self, key: OpaqueHash) -> Result<()> {
+        self.0
+            .commit_changes([(TRIE_COL, Op::DereferenceTree(key.to_vec()))])?;
+        Ok(())
+    }
+
+    fn get_root(&self, key: OpaqueHash) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        Ok(self.0.get_root(TRIE_COL, key.as_ref())?)
+    }
+
+    fn get_node(&self, address: NodeAddress) -> Result<Option<(Vec<u8>, Vec<NodeAddress>)>> {
+        Ok(self.0.get_node(TRIE_COL, address)?)
+    }
+}
+
+fn to_pd_newnode(n: NewNode) -> PdNewNode {
+    PdNewNode {
+        data: n.data,
+        children: n.children.into_iter().map(to_pd_noderef).collect(),
+    }
+}
+
+fn to_pd_noderef(r: NodeRef) -> PdNodeRef {
+    match r {
+        NodeRef::New(n) => PdNodeRef::New(to_pd_newnode(n)),
+        NodeRef::Existing(addr) => PdNodeRef::Existing(addr),
+    }
+}
+
 /// The iterator wrapper
 pub struct ParityIter<'a>(BTreeIterator<'a>);
 
@@ -64,16 +107,26 @@ impl TryFrom<PathBuf> for Parity {
         let options = Options {
             path,
             columns: vec![
+                // Column::State
                 ColumnOptions {
                     btree_index: true,
                     ..Default::default()
                 },
+                // Column::Sync
                 ColumnOptions {
                     btree_index: true,
                     ..Default::default()
                 },
+                // Column::Archive
                 ColumnOptions {
                     btree_index: true,
+                    ..Default::default()
+                },
+                // Column::TrieNodes (multitree, content-addressed trie nodes)
+                ColumnOptions {
+                    multitree: true,
+                    preimage: true,
+                    allow_direct_node_access: true,
                     ..Default::default()
                 },
             ],

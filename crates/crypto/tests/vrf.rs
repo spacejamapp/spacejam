@@ -24,7 +24,7 @@ fn test_vrf() -> anyhow::Result<()> {
     let prover_key_index = 3;
 
     // NOTE: any key can be replaced with the padding point
-    let padding_point = Public::from(RingProofParams::padding_point());
+    let padding_point = Public(RingProofParams::padding_point());
     ring[2] = padding_point;
     ring[5] = padding_point;
 
@@ -120,6 +120,43 @@ fn serde_vrf_signature() -> anyhow::Result<()> {
     let signature = ring[0].ietf_sign(keys.clone(), foo, bar)?;
     assert!(vrf::ietf_output(signature).is_ok());
 
+    Ok(())
+}
+
+#[test]
+fn ring_vrf_verify_batch_matches_single() -> anyhow::Result<()> {
+    let ring: Vec<_> = (0..RING_SIZE)
+        .map(|i| KeyPair::from([i as u8; 32]))
+        .collect();
+    let keys = ring
+        .iter()
+        .map(|k| k.public())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let pkeys = ring.iter().map(|k| k.public).collect::<Vec<_>>();
+    let verifier = Verifier::new(pkeys);
+
+    let cases: Vec<(usize, &[u8])> = vec![(0, b"alpha"), (1, b"beta"), (3, b"gamma")];
+    let ad: &[u8] = b"";
+
+    let sigs: Vec<[u8; 784]> = cases
+        .iter()
+        .map(|(signer, msg)| ring[*signer].ring_sign(keys.clone(), msg, ad))
+        .collect::<anyhow::Result<_>>()?;
+
+    let expected: Vec<[u8; 32]> = cases
+        .iter()
+        .zip(sigs.iter())
+        .map(|((_, msg), sig)| verifier.ring_vrf_verify(msg, ad, sig))
+        .collect::<anyhow::Result<_>>()?;
+
+    let got = verifier.ring_vrf_verify_batch(
+        cases
+            .iter()
+            .zip(sigs.iter())
+            .map(|((_, msg), sig)| (*msg, ad, sig.as_slice())),
+    )?;
+
+    assert_eq!(got, expected);
     Ok(())
 }
 

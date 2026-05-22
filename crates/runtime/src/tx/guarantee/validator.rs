@@ -4,8 +4,8 @@ use crate::tx::guarantee::error::{Error, Result};
 use account::{Account, Accounts};
 use score::{
     CORES_COUNT, CoreIndex, EPOCH_LENGTH, Ed25519Public, Entropy, MAX_DEPENDENCY_COUNT,
-    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, SERVICE_ITEM_MIN_GAS, State,
-    TimeSlot, VALIDATORS_COUNT, WORK_REPORT_GAS_LIMIT,
+    MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, State, TimeSlot, VALIDATORS_COUNT,
+    WORK_REPORT_GAS_LIMIT,
     extrinsic::{GuaranteesExtrinsic, ReportGuarantee},
     service::{ReportedWorkPackage, WorkExecResult},
 };
@@ -251,13 +251,17 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 return Err(Error::WorkReportGasTooHigh);
             }
 
-            if result.accumulate_gas < SERVICE_ITEM_MIN_GAS {
-                return Err(Error::ServiceItemGasTooLow);
-            }
-
             let Some(code_hash) = self.accounts.code_hash(result.service_id) else {
                 return Err(Error::BadServiceId);
             };
+
+            let min_gas = self
+                .accounts
+                .min_acc_gas(result.service_id)
+                .ok_or(Error::BadServiceId)?;
+            if result.accumulate_gas < min_gas {
+                return Err(Error::ServiceItemGasTooLow);
+            }
 
             if code_hash != result.code_hash {
                 tracing::debug!(
@@ -329,10 +333,22 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    // TODO: check if duplicated in service deps?
     pub fn duplicated(&self, hash: &OpaqueHash) -> bool {
-        self.recent.iter().any(|r| r.hash == *hash)
-            || self.reported.iter().filter(|h| *h == hash).count() > 1
+        self.reported.iter().filter(|h| *h == hash).count() > 1
+            || self.recent.iter().any(|r| r.hash == *hash)
+            || self.state.history.iter().flatten().any(|h| h == hash)
+            || self
+                .state
+                .queue
+                .iter()
+                .flatten()
+                .any(|r| r.report.spec.hash == *hash)
+            || self
+                .state
+                .reports
+                .iter()
+                .flatten()
+                .any(|a| a.report.spec.hash == *hash)
     }
 
     fn contains_dep(&self, dep: &OpaqueHash) -> bool {

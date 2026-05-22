@@ -17,10 +17,12 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let input = TestInput::from_json(&test.input)?;
     let output = TestOutput::from_json(&test.output)?;
     let mut history = input.pre_state.beta.clone();
+    if let Some(last) = history.history.last_mut() {
+        last.state_root = input.input.parent_state_root;
+    }
     history::import(
         &mut history,
         input.input.header_hash,
-        input.input.parent_state_root,
         input.input.accumulate_root,
         input.input.work_packages.clone(),
     );

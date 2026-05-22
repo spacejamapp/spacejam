@@ -29,6 +29,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             &input.pre_state.accumulated,
             &input.pre_state.privileges.into(),
             &Default::default(),
+            &Default::default(),
             accounts.clone(),
             Default::default(),
         )?
@@ -40,6 +41,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
             &input.pre_state.ready_queue,
             &input.pre_state.accumulated,
             &input.pre_state.privileges.into(),
+            &Default::default(),
             &Default::default(),
             accounts.clone(),
             Default::default(),

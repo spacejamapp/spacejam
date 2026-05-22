@@ -2,14 +2,20 @@
 
 use crate::{
     Storage,
-    storage::{Branch, Column, KVStorage, MemoryDb, StateStorage, root},
+    storage::{Branch, Column, Commit, KVStorage, MemoryDb, MultiTree, StateStorage, root},
     tx,
 };
 use anyhow::Result;
 use crypto::merkle;
 use pvm::Pvm;
-use score::{Block, OpaqueHash, state::StateKeyLike};
-use std::{collections::HashMap, sync::Arc};
+use score::{Block, OpaqueHash, TrieKey, state::StateKeyLike};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
+
+/// Zero hash sentinel — `current_root` before [`TestChain::init`].
+const EMPTY_ROOT: OpaqueHash = [0; 32];
 
 pub mod header;
 pub mod history;
@@ -25,8 +31,7 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     );
 
     match (vresult, sresult) {
-        (Err(e), _) => anyhow::bail!("failed to import block: {e:?}"),
-        (_, Err(e)) => anyhow::bail!("failed to import block: {e:?}"),
+        (Err(e), _) | (_, Err(e)) => Err(e),
         (Ok(()), Ok(diff)) => {
             storage.commit(Column::State, diff)?;
             Ok(())
@@ -46,6 +51,10 @@ pub struct TestChain {
 
     /// The forks and their states (diff only).
     pub forks: HashMap<OpaqueHash, Fork>,
+
+    /// The state root corresponding to `data`. Tracked incrementally via the
+    /// multitree column so we can skip the O(N log N) full retrie per block.
+    current_root: OpaqueHash,
 }
 
 impl TestChain {
@@ -62,7 +71,18 @@ impl TestChain {
                 .read()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?
                 .clone();
+            let dirty = collect_dirty_keys(&commit);
             self.data.commit(Column::State, commit)?;
+
+            let prev = (self.current_root != EMPTY_ROOT).then_some(self.current_root);
+            let new_root = self.data.with_data(|data| {
+                let kvs: Vec<(TrieKey, &[u8])> =
+                    data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
+                self.data.apply(prev, &kvs, &dirty)
+            })??;
+            root::set(parent, new_root);
+            self.current_root = new_root;
+
             self.finalized = parent;
             self.forks.clear();
         }
@@ -120,6 +140,10 @@ impl TestChain {
 
     /// Initialize the chain with the given block.
     pub fn init(&mut self, state: HashMap<Vec<u8>, Vec<u8>>) -> anyhow::Result<OpaqueHash> {
+        let state: BTreeMap<TrieKey, Vec<u8>> = state
+            .into_iter()
+            .map(|(k, v)| (k.as_slice().as_state_key(), v))
+            .collect();
         self.data.reset(state);
         let head = self
             .data
@@ -128,7 +152,15 @@ impl TestChain {
             .ok_or(anyhow::anyhow!("no recent blocks"))?
             .header_hash;
         self.finalized = head;
-        self.data.with_data(|data| handle_root(head, data))
+
+        let new_root = self.data.with_data(|data| {
+            let kvs: Vec<(TrieKey, &[u8])> = data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
+            let dirty: Vec<TrieKey> = data.keys().copied().collect();
+            self.data.apply(None, &kvs, &dirty)
+        })??;
+        root::set(head, new_root);
+        self.current_root = new_root;
+        Ok(new_root)
     }
 }
 
@@ -138,58 +170,59 @@ impl Default for TestChain {
             finalized: Default::default(),
             data: Arc::new(MemoryDb::default()),
             forks: HashMap::new(),
+            current_root: EMPTY_ROOT,
         }
     }
 }
 
-/// Compute the state root and cache it for the given header hash.
-///
-/// NOTE: this method overrides the StateStorage::root for zero-copy.
-fn handle_root(head: OpaqueHash, data: &HashMap<Vec<u8>, Vec<u8>>) -> OpaqueHash {
-    let mut kvs: Vec<([u8; 31], &[u8])> = data
-        .iter()
-        .map(|(k, v)| (k.as_slice().as_state_key(), v.as_slice()))
+/// Sorted, deduplicated union of the keys an overlay commit touches.
+fn collect_dirty_keys(commit: &Commit<TrieKey, Vec<u8>>) -> Vec<TrieKey> {
+    let mut keys: Vec<TrieKey> = commit
+        .update
+        .keys()
+        .copied()
+        .chain(commit.removal.iter().copied())
         .collect();
-    kvs.sort_by_key(|a| a.0);
-    let state_root = merkle::trie31(&kvs);
-    root::set(head, state_root);
-    state_root
+    keys.sort_unstable();
+    keys.dedup();
+    keys
 }
 
-/// Compute the state root from base data + overlay diff (no base clone).
-///
-/// NOTE: this method overrides the StateStorage::root for zero-copy.
+/// Compute the state root from base data + overlay diff via merge-walk.
 fn handle_root_with_diff(
     head: OpaqueHash,
-    base: &HashMap<Vec<u8>, Vec<u8>>,
-    diff: &crate::storage::Commit<score::TrieKey, Vec<u8>>,
+    base: &BTreeMap<TrieKey, Vec<u8>>,
+    diff: &crate::storage::Commit<TrieKey, Vec<u8>>,
 ) -> OpaqueHash {
-    let mut kvs: Vec<([u8; 31], &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
+    let mut kvs: Vec<(TrieKey, &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
+    let mut base_iter = base.iter();
+    let mut diff_iter = diff.update.iter();
+    let mut b = base_iter.next();
+    let mut d = diff_iter.next();
 
-    // Add base entries, applying overlay
-    for (k, v) in base.iter() {
-        let trie_key = k.as_slice().as_state_key();
-        if diff.removal.contains(&trie_key) {
-            continue;
+    while let Some((key, value)) = match (b, d) {
+        (Some((bk, _)), Some((dk, dv))) if dk <= bk => {
+            if dk == bk {
+                b = base_iter.next();
+            }
+            d = diff_iter.next();
+            Some((dk, dv.as_slice()))
         }
-        if let Some(updated) = diff.update.get(&trie_key) {
-            kvs.push((trie_key, updated.as_slice()));
-        } else {
-            kvs.push((trie_key, v.as_slice()));
+        (Some((bk, bv)), _) => {
+            b = base_iter.next();
+            Some((bk, bv.as_slice()))
+        }
+        (None, Some((dk, dv))) => {
+            d = diff_iter.next();
+            Some((dk, dv.as_slice()))
+        }
+        (None, None) => None,
+    } {
+        if !diff.removal.contains(key) {
+            kvs.push((*key, value));
         }
     }
 
-    // Add new keys from overlay (not in base)
-    for (trie_key, v) in diff.update.iter() {
-        if diff.removal.contains(trie_key) {
-            continue;
-        }
-        if !base.contains_key(trie_key.as_ref()) {
-            kvs.push((*trie_key, v.as_slice()));
-        }
-    }
-
-    kvs.sort_by_key(|a| a.0);
     let state_root = merkle::trie31(&kvs);
     root::set(head, state_root);
     state_root

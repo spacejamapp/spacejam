@@ -20,7 +20,6 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let result = tx::assurance::available(
         &input.pre_state.avail_assignments,
         &input.pre_state.curr_validators,
-        input.input.slot,
         input.input.parent,
         &input.input.assurances,
     );

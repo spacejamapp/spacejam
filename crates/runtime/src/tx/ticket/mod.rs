@@ -61,8 +61,12 @@ pub fn safrole(
     }
 
     let slot_phase = slot % score::EPOCH_LENGTH;
-    if slot_phase >= score::TICKET_SUBMISSION_PERIOD && !tickets.is_empty() {
-        return Err(Error::UnexpectedTicket);
+    if slot_phase >= score::TICKET_SUBMISSION_PERIOD {
+        if !tickets.is_empty() {
+            return Err(Error::UnexpectedTicket);
+        }
+    } else if tickets.len() > score::MAX_TICKETS_PER_EXTRINSIC as usize {
+        return Err(Error::TooManyTickets);
     }
 
     let epoch = tau / score::EPOCH_LENGTH;
@@ -105,6 +109,9 @@ pub fn accumulator(
         new_tickets = self::verify::tickets(entropy, next, tickets)?;
     }
 
+    // Snapshot submitted ids for the n ⊆ γ_a' check below
+    let submitted_ids: Vec<OpaqueHash> = new_tickets.iter().map(|t| t.id).collect();
+
     // update the accumulator
     let mut accumulator = accumulator.clone();
     if new_epoch {
@@ -125,6 +132,16 @@ pub fn accumulator(
     // Take only the first E tickets (formula 6.35: truncate to E)
     accumulator.sort_by_key(|a| a.id);
     accumulator.truncate(score::EPOCH_LENGTH as usize);
+
+    // (n ⊆ γ_a') Every submitted ticket must survive into the posterior
+    // accumulator; a submission that gets truncated out is "useless".
+    if submitted_ids
+        .iter()
+        .any(|id| accumulator.binary_search_by_key(id, |t| t.id).is_err())
+    {
+        return Err(Error::UselessTicket);
+    }
+
     Ok(accumulator)
 }
 

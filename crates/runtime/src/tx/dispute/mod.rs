@@ -82,19 +82,18 @@ fn verdicts(
     verdicts: &[Verdict],
 ) -> Result<DisputesRecords> {
     let mut records = DisputesRecords::default();
-    let mut last_verdict = None;
+    let mut last_target: Option<OpaqueHash> = None;
     for verdict in verdicts {
         if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
             return Err(Error::NotEnoughValidators);
         }
 
-        if let Some(last_verdict) = last_verdict.take() {
-            if verdict < last_verdict {
-                return Err(Error::VerdictsNotSortedUnique);
-            }
-        } else {
-            last_verdict = Some(verdict);
+        if let Some(last) = last_target
+            && verdict.target <= last
+        {
+            return Err(Error::VerdictsNotSortedUnique);
         }
+        last_target = Some(verdict.target);
 
         let mut aye = 0;
         let aye_message = verdict.signature_message(true);
@@ -136,15 +135,9 @@ fn verdicts(
             .map_err(|_| Error::BadSignature)?;
 
         match aye {
-            aye if aye >= VALIDATORS_SUPER_MAJORITY => {
-                records.good.push(verdict.target);
-            }
-            aye if aye >= VALIDATORS_COUNT / 3 => {
-                records.wonky.push(verdict.target);
-            }
-            0 => {
-                records.bad.push(verdict.target);
-            }
+            aye if aye == VALIDATORS_SUPER_MAJORITY => records.good.push(verdict.target),
+            aye if aye == VALIDATORS_COUNT / 3 => records.wonky.push(verdict.target),
+            0 => records.bad.push(verdict.target),
             _ => {
                 tracing::error!("Bad vote split in verdict: {aye}/{VALIDATORS_SUPER_MAJORITY}");
                 return Err(Error::BadVoteSplit);

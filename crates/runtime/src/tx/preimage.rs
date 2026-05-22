@@ -1,23 +1,11 @@
-//! Preimage handler
+//! Preimage extrinsic handler
 
 use account::{Account, Accounts};
 use anyhow::Result;
 use score::{TimeSlot, extrinsic::PreimagesExtrinsic};
 
-/// (δ') handle preimage extrinsic
-///
-/// Validates preimages against post-transfer state and integrates valid ones.
-/// Invalid preimages are disregarded without prejudice
-///
-/// # Arguments
-/// * `slot` - Current time slot (τ')
-/// * `preimages` - Preimage extrinsic data
-/// * `accounts` - Post-transfer account state
-pub fn accounts(
-    slot: TimeSlot,
-    preimages: &PreimagesExtrinsic,
-    mut accounts: impl Accounts,
-) -> Result<impl Accounts> {
+/// Validate preimages against the prior state
+pub fn validate<A: Accounts>(accounts: &mut A, preimages: &PreimagesExtrinsic) -> Result<()> {
     let mut prev: Option<&score::extrinsic::Preimage> = None;
     for preimage in preimages {
         if let Some(p) = prev
@@ -26,41 +14,27 @@ pub fn accounts(
             anyhow::bail!("preimages not sorted or unique");
         }
         prev = Some(preimage);
-        let Some(account) = accounts.get(preimage.requester) else {
-            anyhow::bail!("Preimage for non-existent account");
-        };
 
-        let blob_len = preimage.blob.len() as u32;
         let hash = crypto::blake2b(&preimage.blob);
-        tracing::debug!("lookup hash={} len={}", hex::encode(hash), blob_len);
-        let Some(slots) = account.lookup(hash, blob_len) else {
-            anyhow::bail!("Preimage lookup failed");
-        };
-
-        // skip if the lookup is removed
-        let Some(slots) = slots else {
-            continue;
-        };
-
-        if !slots.is_empty() {
-            anyhow::bail!("Preimage already has non-empty lookup slots");
+        let len = preimage.blob.len() as u32;
+        if !accounts.is_providable(preimage.requester, hash, len) {
+            anyhow::bail!("preimage not required");
         }
-
-        if account.preimage(hash).is_some() {
-            anyhow::bail!("Preimage already exists");
-        }
-
-        // Set lookup slots to [τ'] (current time slot)
-        let updated_slots = vec![slot];
-        tracing::debug!(
-            "service={} inserting preimage hash={} len={}",
-            account.index(),
-            hex::encode(hash),
-            blob_len
-        );
-        account.insert_preimage(hash, preimage.blob.clone());
-        account.insert_lookup(hash, blob_len, updated_slots);
     }
+    Ok(())
+}
 
-    Ok(accounts)
+/// (δ') Integrate providable preimages into the post-transfer state
+pub fn accounts<A: Accounts>(slot: TimeSlot, preimages: &PreimagesExtrinsic, mut accounts: A) -> A {
+    for preimage in preimages {
+        let hash = crypto::blake2b(&preimage.blob);
+        let len = preimage.blob.len() as u32;
+        if !accounts.is_providable(preimage.requester, hash, len) {
+            continue;
+        }
+        let account = accounts.get(preimage.requester).expect("just checked");
+        account.insert_preimage(hash, preimage.blob.clone());
+        account.insert_lookup(hash, len, vec![slot]);
+    }
+    accounts
 }

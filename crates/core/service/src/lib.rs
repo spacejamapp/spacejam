@@ -75,9 +75,12 @@ pub type BlsPublic = [u8; 144];
 #[cfg(feature = "blake2")]
 /// Compute the BLAKE2b 256-bit hash of a given input.
 pub fn blake2b(input: &[u8]) -> [u8; 32] {
-    use blake2::{Blake2b, Digest, digest::consts::U32};
-
-    let mut hasher = Blake2b::<U32>::new();
-    hasher.update(input);
-    hasher.finalize().into()
+    let hash = blake2b_simd::Params::new()
+        .hash_length(32)
+        .to_state()
+        .update(input)
+        .finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(hash.as_bytes());
+    out
 }

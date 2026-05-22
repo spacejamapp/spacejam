@@ -24,6 +24,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
 dependencies = [
  "cfg-if",
+ "getrandom 0.3.3",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -399,9 +400,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9501da18569b2afe0eb934fb7afd5a247d238b94116155af4dd068f319adfe6d"
+checksum = "b722df2194fd06cd069bb3cb29cd4bfce8e023b6cace34d314ee2cf4bd4df9b5"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
@@ -569,6 +570,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "blake2b_simd"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b79834656f71332577234b50bfc009996f7449e0c056884e6a02492ded0ca2f3"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "constant_time_eq 0.4.2",
+]
+
+[[package]]
 name = "blake3"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,7 +590,7 @@ dependencies = [
  "arrayvec",
  "cc",
  "cfg-if",
- "constant_time_eq",
+ "constant_time_eq 0.3.1",
 ]
 
 [[package]]
@@ -777,6 +789,12 @@ name = "constant_time_eq"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
+
+[[package]]
+name = "constant_time_eq"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "core-foundation"
@@ -998,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "cranelift-pvm"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "cranelift",
@@ -2527,10 +2545,11 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "parity-db"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6985a45b0597d68448dac9db2907f9f72bbaf63fe3383d4ba15f99096c87212f"
+checksum = "8b63063d738c6e39a9e29e0821fc7293f1d862e75bac6e39bcea131b44c03ade"
 dependencies = [
+ "ahash",
  "blake2",
  "crc32fast",
  "fs2",
@@ -2740,7 +2759,7 @@ dependencies = [
 
 [[package]]
 name = "pvmc"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3275,7 +3294,7 @@ dependencies = [
 
 [[package]]
 name = "serde-jam"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "serde",
@@ -3443,7 +3462,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3480,7 +3499,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-account"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "serde-jam",
@@ -3491,7 +3510,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-core"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "erased-serde",
@@ -3515,11 +3534,13 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-vrf",
  "blake2",
+ "blake2b_simd",
  "blake3",
  "criterion",
  "ed25519-zebra",
  "hex",
  "once_cell",
+ "parking_lot",
  "rand 0.8.5",
  "rayon",
  "rcgen",
@@ -3528,7 +3549,6 @@ dependencies = [
  "tiny-keccak",
  "tracing",
  "w3f-bls",
- "w3f-ring-proof",
 ]
 
 [[package]]
@@ -3545,7 +3565,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-network"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -3568,7 +3588,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-offchain"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3584,7 +3604,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-rpc"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "jsonrpsee",
@@ -3596,7 +3616,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-runtime"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "hex",
@@ -3617,10 +3637,10 @@ dependencies = [
 
 [[package]]
 name = "spacejam-service"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
- "blake2",
+ "blake2b_simd",
  "hex",
  "serde",
  "serde-jam",
@@ -3631,14 +3651,14 @@ dependencies = [
 
 [[package]]
 name = "spacejam-spec"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "spacejam-testing"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "hex",
@@ -3668,7 +3688,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-testnet"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -3679,7 +3699,7 @@ dependencies = [
 
 [[package]]
 name = "spacejam-worker"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "pvm",
@@ -3695,7 +3715,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "hex",
@@ -3706,7 +3726,7 @@ dependencies = [
 
 [[package]]
 name = "spacejson-derive"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3715,7 +3735,7 @@ dependencies = [
 
 [[package]]
 name = "spacevm"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "anyhow",
  "hex",
@@ -3729,7 +3749,7 @@ dependencies = [
 
 [[package]]
 name = "spacevm-export"
-version = "0.1.2-pre.1"
+version = "0.1.2-pre.8"
 dependencies = [
  "pvm",
  "pvmc",
@@ -4308,9 +4328,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-pcs"
-version = "0.0.2"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbe7a8d5c914b69392ab3b267f679a2e546fe29afaddce47981772ac71bd02e1"
+checksum = "3ea1046a1deb6d26c34ba2d1f1bab4222d695d126502ee765f80b021753cb674"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4323,9 +4343,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.2"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aca389e494fe08c5c108b512e2328309036ee1c0bc7bdfdb743fef54d448c8c"
+checksum = "077db25196f87773d7f0784c0ea5b11f18f38d336fa25c24bc67d7936af05d7a"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -4340,9 +4360,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-ring-proof"
-version = "0.0.2"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a639379402ad51504575dbd258740383291ac8147d3b15859bdf1ea48c677de"
+checksum = "a3afac5d485a6eed7c1762be4b7b70a6f9b346bd6eebe485f48b7d909a6773f5"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",

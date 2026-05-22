@@ -137,9 +137,21 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
 
     // validate the epoch mark
     if let Some(epoch_mark) = &header.epoch_mark {
+        if !new_epoch {
+            anyhow::bail!("epoch mark present but not expected");
+        }
+
+        // Φ uses the posterior punish-set: prior offenders ∪ this block's
+        let offenders: Vec<_> = state
+            .disputes
+            .offenders
+            .iter()
+            .chain(header.offenders_mark.iter())
+            .copied()
+            .collect();
         let expected = state
             .safrole
-            .next(&state.validators.drawn, &header.offenders_mark)
+            .next(&state.validators.drawn, &offenders)
             .evals();
         if epoch_mark.validators[..] != expected[..] {
             anyhow::bail!("epoch mark validators mismatch");
@@ -153,7 +165,7 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
             anyhow::bail!("epoch mark tickets entropy mismatch");
         }
     } else if new_epoch {
-        anyhow::bail!("epoch mark is required");
+        anyhow::bail!("epoch mark required but not present");
     }
 
     let should_have_tickets_mark = state.safrole.has_tickets_mark(state.timeslot, header.slot);

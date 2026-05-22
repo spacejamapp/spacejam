@@ -9,14 +9,14 @@ ark-ec = { workspace = true, optional = true }
 ark-ed-on-bls12-381-bandersnatch = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
 ark-vrf = { workspace = true, optional = true }
-blake2 = { workspace = true, optional = true }
+blake2b_simd = { workspace = true, optional = true }
 blake3 = { workspace = true, optional = true }
 ed25519-zebra = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
+parking_lot = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 rcgen = { workspace = true, optional = true }
-ring = { workspace = true, optional = true }
 tiny-keccak = { workspace = true, optional = true }
 w3f-bls = { workspace = true, optional = true }
 tracing.workspace = true
@@ -24,26 +24,25 @@ tracing.workspace = true
 [features]
 default = []
 full = []
-blake2 = ["dep:blake2"]
+blake2 = ["dep:blake2b_simd"]
 blake3 = ["dep:blake3"]
 bls = ["w3f-bls"]
 ed25519 = ["anyhow", "ed25519-zebra", "rand", "rayon"]
 keccak = ["tiny-keccak"]
-merkle = ["blake2", "keccak", "rayon"]
+merkle = ["anyhow", "blake2", "keccak", "parking_lot", "rayon"]
 rand = ["dep:rand"]
 shuffle = ["blake2"]
 tls = ["rcgen", "ed25519-zebra/pkcs8"]
 vrf = [
-    "anyhow",
     "ark-vrf",
     "ark-ec",
     "ark-ed-on-bls12-381-bandersnatch",
     "ark-serialize",
     "once_cell",
-    "ring",
 ]
 
 [dev-dependencies]
+blake2.workspace = true
 criterion = { version = "0.5", default-features = false }
 hex = { workspace = true, features = ["std"] }
 serde.workspace = true
@@ -53,6 +52,16 @@ serde_json = { workspace = true, features = ["std"] }
 name = "ed25519"
 harness = false
 required-features = ["ed25519"]
+
+[[bench]]
+name = "blake2b"
+harness = false
+required-features = ["blake2"]
+
+[[bench]]
+name = "ring_vrf"
+harness = false
+required-features = ["vrf"]
 
 [build-dependencies]
 ark-serialize.workspace = true

@@ -5,7 +5,7 @@ use account::Accounts;
 use error::{Error, Result};
 use pvm::{AccumulateState, Pvm};
 use score::{
-    CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot,
+    AUTH_QUEUE_SIZE, Array, CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, TimeSlot,
     extrinsic::GuaranteesExtrinsic,
     safrole::ValidatorsData,
     service::{
@@ -38,6 +38,8 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     privileges: &Privileges,
     // The validators to be drawn (ι)
     validators: &ValidatorsData,
+    // The authorization queue (φ)
+    authorization: &Array<Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT>,
     // The account storage (δ)
     accounts: R,
     // The entropy (η)
@@ -46,6 +48,14 @@ pub fn accumulate<V: Pvm, R: Accounts>(
     // (W*) get accumulatable work reports
     let (accumulatable, queued) =
         queue::accumulatable(slot, reports, ready_queue, accumulated_queue);
+
+    // Seed φ from prior state so the assign host call mutates the real queue
+    let auth_init: score::AuthorizationPools = authorization
+        .iter()
+        .map(|q| q.to_vec())
+        .collect::<Vec<_>>()
+        .try_into()
+        .expect("authorization has CORES_COUNT entries");
 
     // (Δ+) run outer accumulation (12.18)
     let gas_limit = privileges.gas_limit();
@@ -57,24 +67,33 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         AccumulateState {
             accounts,
             privileges: privileges.clone(),
-            authorization: Default::default(),
+            authorization: auth_init,
             entropy,
             timeslot: slot,
         },
         &mut validators,
         &privileges.always_acc,
-    );
+    )?;
 
     // (πS') compose the service activity records
-    let records = accumulated.records(&accumulatable);
+    let n = accumulated.accumulated;
+    let records = accumulated.records(&accumulatable[..n]);
 
     // update the accumulated queue (ξ')
-    let next_accumulated_queue =
-        self::accumulated_history(accumulated_queue, accumulatable, accumulated.accumulated);
+    let next_accumulated_queue = self::accumulated_history(accumulated_queue, accumulatable, n);
 
     // update the ready queue (θ')
     let next_ready_queue =
         self::ready_queue(ready_queue, &next_accumulated_queue, queued, tau, slot);
+
+    // (φ') Project the per-core Vec back to the fixed-size state shape
+    let next_authorization: Array<Array<OpaqueHash, AUTH_QUEUE_SIZE>, CORES_COUNT> =
+        std::mem::take(&mut accumulated.context.authorization)
+            .into_iter()
+            .map(|q| Array::try_from(q).expect("queue has AUTH_QUEUE_SIZE entries"))
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("authorization has CORES_COUNT entries");
 
     Ok(Accumulation {
         root: accumulated.root(),
@@ -84,6 +103,7 @@ pub fn accumulate<V: Pvm, R: Accounts>(
         privileges: accumulated.context.privileges,
         validators,
         records,
+        authorization: next_authorization,
         logs: accumulated.pairings,
     })
 }
@@ -100,15 +120,12 @@ pub fn accumulated_history(
         next.remove(0);
     }
 
-    // Add new accumulated work report hashes
+    // Set of newly-accumulated work-package hashes, canonically sorted.
     let mut new_accumulated: Vec<OpaqueHash> = accumulatable
         .iter()
         .take(accumulated)
         .map(|w| w.spec.hash)
         .collect();
-
-    // NOTE: Sort the new accumulated work report hashes again to align the test
-    // vectors, not sure if we missed anything that we have to do it here.
     new_accumulated.sort();
     next.push(new_accumulated);
 
@@ -202,7 +219,7 @@ pub fn pools(
     >,
     guarantees: &GuaranteesExtrinsic,
 ) -> score::AuthorizationPools {
-    let slot = timeslot % score::EPOCH_LENGTH;
+    let slot = timeslot as usize % score::AUTH_QUEUE_SIZE;
     let mut new_pools = score::AuthorizationPools::default();
     for (core_index, pool) in pools.iter().enumerate() {
         let mut new_pool = pool.clone();
@@ -218,10 +235,8 @@ pub fn pools(
             }
         }
 
-        // add new authorizer from queue at position H_t (current timeslot)
-        if let Some(auth) = authorizations[core_index].get(slot as usize) {
-            new_pool.push(*auth);
-        }
+        // add new authorizer from queue at position H_t mod Q
+        new_pool.push(authorizations[core_index][slot]);
 
         // truncate the pool to the max size
         if let Some(old) = new_pool.len().checked_sub(score::AUTH_POOL_MAX_SIZE) {

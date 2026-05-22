@@ -17,20 +17,20 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let output = TestOutput::from_json(&test.output)?;
 
     // Validate post state
-    let accounts = to_accounts(input.pre_state.accounts.clone());
-    let result = tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
-    if let Ok(accounts) = result {
-        assert_eq!(
-            accounts
-                .accounts()
-                .iter()
-                .map(|(id, account)| (*id, account.account()))
-                .collect::<BTreeMap<_, _>>(),
-            self::to_accounts(output.post_state.accounts)
-        );
-    } else {
+    let mut accounts = to_accounts(input.pre_state.accounts.clone());
+    if tx::preimage::validate(&mut accounts, &input.input.preimages).is_err() {
         assert_eq!(input.pre_state, output.post_state);
+        return Ok(());
     }
+    let accounts = tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
+    assert_eq!(
+        accounts
+            .accounts()
+            .iter()
+            .map(|(id, account)| (*id, account.account()))
+            .collect::<BTreeMap<_, _>>(),
+        self::to_accounts(output.post_state.accounts)
+    );
 
     Ok(())
 }
