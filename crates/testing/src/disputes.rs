@@ -24,7 +24,11 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         &input.pre_state.lambda,
         &input.pre_state.psi,
         &input.input.disputes,
-    );
+    )
+    .and_then(|(next_psi, records, triples)| {
+        crypto::ed25519::SigItem::batch_verify(&triples).map_err(|_| Error::BadSignature)?;
+        Ok((next_psi, records))
+    });
 
     // check offenders mark
     assert_eq!(

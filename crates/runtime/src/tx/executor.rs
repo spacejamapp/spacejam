@@ -101,13 +101,14 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
             }
             DisputesRecords::default()
         } else {
-            let (next_psi, records) = dispute::disputes(
+            let (next_psi, records, triples) = dispute::disputes(
                 self.state.timeslot,
                 &self.state.validators.current,
                 &self.state.validators.previous,
                 &self.state.disputes,
                 &self.block.extrinsic.disputes,
             )?;
+            crypto::ed25519::SigItem::batch_verify(&triples)?;
             self.state.disputes = next_psi;
             self.block.header.offenders_mark = records.offenders.clone();
             records
