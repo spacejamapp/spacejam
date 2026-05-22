@@ -6,7 +6,6 @@ use crate::{
     tx,
 };
 use anyhow::Result;
-use crypto::merkle;
 use pvm::Pvm;
 use score::{Block, OpaqueHash, TrieKey, state::StateKeyLike};
 use std::{
@@ -14,11 +13,13 @@ use std::{
     sync::Arc,
 };
 
+pub mod header;
+pub mod history;
+
 /// Zero hash sentinel — `current_root` before [`TestChain::init`].
 const EMPTY_ROOT: OpaqueHash = [0; 32];
 
-pub mod header;
-pub mod history;
+type Fork = Branch<MemoryDb>;
 
 /// DEVELOPMENT: process the block with given state storage.
 pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> {
@@ -39,8 +40,6 @@ pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> 
     }
 }
 
-type Fork = Branch<MemoryDb>;
-
 /// DEVELOPMENT: A test chain for processing fuzz blocks.
 pub struct TestChain {
     /// The finalized head of the chain.
@@ -49,8 +48,9 @@ pub struct TestChain {
     /// The data of the chain.
     pub data: Arc<MemoryDb>,
 
-    /// The forks and their states (diff only).
-    pub forks: HashMap<OpaqueHash, Fork>,
+    /// The forks and their states (diff overlay + the state root computed
+    /// at import time via [`MultiTree::apply`]).
+    pub forks: HashMap<OpaqueHash, (Fork, OpaqueHash)>,
 
     /// The state root corresponding to `data`. Tracked incrementally via the
     /// multitree column so we can skip the O(N log N) full retrie per block.
@@ -63,34 +63,38 @@ impl TestChain {
         self.finalized != [0; 32]
     }
 
-    /// Finalize a parent fork by committing its diff into self.data.
-    fn finalize_fork(&mut self, parent: OpaqueHash) -> anyhow::Result<()> {
-        if let Some(fork) = self.forks.remove(&parent) {
+    /// Compute and persist the post-block state root incrementally.
+    fn compute_fork_root(&self, commit: &Commit<TrieKey, Vec<u8>>) -> Result<OpaqueHash> {
+        let prev = (self.current_root != EMPTY_ROOT).then_some(self.current_root);
+        let dirty = commit.dirty_keys();
+        self.data
+            .with_data(|base| self.data.apply(prev, &commit.merge_with(base), &dirty))?
+    }
+
+    /// Commit a fork's diff into `self.data` and release orphan siblings.
+    fn finalize_fork(&mut self, parent: OpaqueHash) -> Result<()> {
+        if let Some((fork, parent_root)) = self.forks.remove(&parent) {
             let commit = fork
                 .commit
                 .read()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?
                 .clone();
-            let dirty = collect_dirty_keys(&commit);
             self.data.commit(Column::State, commit)?;
 
-            let prev = (self.current_root != EMPTY_ROOT).then_some(self.current_root);
-            let new_root = self.data.with_data(|data| {
-                let kvs: Vec<(TrieKey, &[u8])> =
-                    data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
-                self.data.apply(prev, &kvs, &dirty)
-            })??;
-            root::set(parent, new_root);
-            self.current_root = new_root;
+            // Release sibling trees that won't be finalized.
+            for (_, sibling_root) in self.forks.values() {
+                self.data.dereference_tree(*sibling_root)?;
+            }
 
             self.finalized = parent;
+            self.current_root = parent_root;
             self.forks.clear();
         }
         Ok(())
     }
 
     /// Import a new block to the chain.
-    pub fn import<Vm: Pvm>(&mut self, block: Block) -> anyhow::Result<OpaqueHash> {
+    pub fn import<Vm: Pvm>(&mut self, block: Block) -> Result<OpaqueHash> {
         let head = block.header.hash();
         let parent = block.header.parent;
 
@@ -102,21 +106,19 @@ impl TestChain {
         let guard = Arc::new(Branch::checkout(self.data.clone()));
         self::process::<Vm>(block, guard.clone())?;
 
-        // Compute root from base HashMap + overlay diff (no clone of base)
+        // Compute the post-block root incrementally from the overlay diff.
         let state_root = {
             let commit = guard
                 .commit
                 .read()
                 .map_err(|_| anyhow::anyhow!("lock poisoned"))?;
-            self.data
-                .with_data(|data| handle_root_with_diff(head, data, &commit))?
+            self.compute_fork_root(&commit)?
         };
+        root::set(head, state_root);
 
-        // Store Branch (diff only) in forks
-        self.forks.insert(
-            head,
-            Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone()),
-        );
+        // Store Branch (diff only) + its root in forks
+        let fork = Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone());
+        self.forks.insert(head, (fork, state_root));
         Ok(state_root)
     }
 
@@ -130,12 +132,19 @@ impl TestChain {
     }
 
     /// Apply the block to the chain.
-    pub fn apply(&mut self, block: &Block, guard: Arc<Fork>) {
+    pub fn apply(&mut self, block: &Block, guard: Arc<Fork>) -> Result<()> {
         let head = block.header.hash();
-        self.forks.insert(
-            head,
-            Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone()),
-        );
+        let state_root = {
+            let commit = guard
+                .commit
+                .read()
+                .map_err(|_| anyhow::anyhow!("lock poisoned"))?;
+            self.compute_fork_root(&commit)?
+        };
+        root::set(head, state_root);
+        let fork = Arc::try_unwrap(guard).unwrap_or_else(|arc| (*arc).clone());
+        self.forks.insert(head, (fork, state_root));
+        Ok(())
     }
 
     /// Initialize the chain with the given block.
@@ -175,55 +184,3 @@ impl Default for TestChain {
     }
 }
 
-/// Sorted, deduplicated union of the keys an overlay commit touches.
-fn collect_dirty_keys(commit: &Commit<TrieKey, Vec<u8>>) -> Vec<TrieKey> {
-    let mut keys: Vec<TrieKey> = commit
-        .update
-        .keys()
-        .copied()
-        .chain(commit.removal.iter().copied())
-        .collect();
-    keys.sort_unstable();
-    keys.dedup();
-    keys
-}
-
-/// Compute the state root from base data + overlay diff via merge-walk.
-fn handle_root_with_diff(
-    head: OpaqueHash,
-    base: &BTreeMap<TrieKey, Vec<u8>>,
-    diff: &crate::storage::Commit<TrieKey, Vec<u8>>,
-) -> OpaqueHash {
-    let mut kvs: Vec<(TrieKey, &[u8])> = Vec::with_capacity(base.len() + diff.update.len());
-    let mut base_iter = base.iter();
-    let mut diff_iter = diff.update.iter();
-    let mut b = base_iter.next();
-    let mut d = diff_iter.next();
-
-    while let Some((key, value)) = match (b, d) {
-        (Some((bk, _)), Some((dk, dv))) if dk <= bk => {
-            if dk == bk {
-                b = base_iter.next();
-            }
-            d = diff_iter.next();
-            Some((dk, dv.as_slice()))
-        }
-        (Some((bk, bv)), _) => {
-            b = base_iter.next();
-            Some((bk, bv.as_slice()))
-        }
-        (None, Some((dk, dv))) => {
-            d = diff_iter.next();
-            Some((dk, dv.as_slice()))
-        }
-        (None, None) => None,
-    } {
-        if !diff.removal.contains(key) {
-            kvs.push((*key, value));
-        }
-    }
-
-    let state_root = merkle::trie31(&kvs);
-    root::set(head, state_root);
-    state_root
-}

@@ -78,6 +78,59 @@ where
     }
 }
 
+impl<Key: Ord + Copy, Value> Commit<Key, Value> {
+    /// Sorted, deduplicated union of all keys this commit touches.
+    pub fn dirty_keys(&self) -> Vec<Key> {
+        let mut keys: Vec<Key> = self
+            .update
+            .keys()
+            .copied()
+            .chain(self.removal.iter().copied())
+            .collect();
+        keys.sort_unstable();
+        keys.dedup();
+        keys
+    }
+}
+
+impl<Key, Value> Commit<Key, Value>
+where
+    Key: Ord + Copy,
+    Value: AsRef<[u8]>,
+{
+    /// Merge-walk `base` ∪ `self.update` in key order, skipping `self.removal`.
+    pub fn merge_with<'a>(&'a self, base: &'a BTreeMap<Key, Value>) -> Vec<(Key, &'a [u8])> {
+        let mut kvs: Vec<(Key, &[u8])> = Vec::with_capacity(base.len() + self.update.len());
+        let mut base_iter = base.iter();
+        let mut diff_iter = self.update.iter();
+        let mut b = base_iter.next();
+        let mut d = diff_iter.next();
+        while let Some((key, value)) = match (b, d) {
+            (Some((bk, _)), Some((dk, dv))) if dk <= bk => {
+                if dk == bk {
+                    b = base_iter.next();
+                }
+                d = diff_iter.next();
+                Some((*dk, dv.as_ref()))
+            }
+            (Some((bk, bv)), _) => {
+                b = base_iter.next();
+                Some((*bk, bv.as_ref()))
+            }
+            (None, Some((dk, dv))) => {
+                d = diff_iter.next();
+                Some((*dk, dv.as_ref()))
+            }
+            (None, None) => None,
+        } {
+            if !self.removal.contains(&key) {
+                kvs.push((key, value));
+            }
+        }
+        kvs
+    }
+}
+
 impl<K, U, V, R> From<(U, R)> for Commit<K, V>
 where
     U: IntoIterator<Item = (K, V)>,
