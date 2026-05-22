@@ -158,8 +158,7 @@ impl TestChain {
         // Bootstrap the incremental trie. Every key is dirty on the first
         // build; the algorithm degenerates to a full retrie.
         let new_root = self.data.with_data(|data| {
-            let kvs: Vec<(TrieKey, &[u8])> =
-                data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
+            let kvs: Vec<(TrieKey, &[u8])> = data.iter().map(|(k, v)| (*k, v.as_slice())).collect();
             let dirty: Vec<TrieKey> = data.keys().copied().collect();
             self.data.apply(Column::TrieNodes, None, &kvs, &dirty)
         })??;

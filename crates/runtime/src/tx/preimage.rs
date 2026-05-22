@@ -25,11 +25,7 @@ pub fn validate<A: Accounts>(accounts: &mut A, preimages: &PreimagesExtrinsic) -
 }
 
 /// (δ') Integrate providable preimages into the post-transfer state
-pub fn accounts<A: Accounts>(
-    slot: TimeSlot,
-    preimages: &PreimagesExtrinsic,
-    mut accounts: A,
-) -> A {
+pub fn accounts<A: Accounts>(slot: TimeSlot, preimages: &PreimagesExtrinsic, mut accounts: A) -> A {
     for preimage in preimages {
         let hash = crypto::blake2b(&preimage.blob);
         let len = preimage.blob.len() as u32;

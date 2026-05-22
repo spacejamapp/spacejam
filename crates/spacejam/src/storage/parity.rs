@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use parity_db::{
-    BTreeIterator, ColumnOptions, Db, NewNode as PdNewNode, NodeRef as PdNodeRef,
-    Operation as Op, Options,
+    BTreeIterator, ColumnOptions, Db, NewNode as PdNewNode, NodeRef as PdNodeRef, Operation as Op,
+    Options,
 };
 use runtime::storage::{
     Column, Commit, KVStorage, MultiTreeStore, NewNode, NodeAddress, NodeRef, Operation,

@@ -38,7 +38,9 @@ fn merkle(kvs: &mut [([u8; 31], &[u8])], depth: usize) -> [u8; 32] {
 /// `bit=0` entries come before `bit=1` entries at `depth`. Linear scan — use
 /// this when the slice's relative order is known to be preserved.
 pub fn split_at_bit(keys: &[[u8; 31]], depth: usize) -> usize {
-    keys.iter().position(|k| bit(k, depth)).unwrap_or(keys.len())
+    keys.iter()
+        .position(|k| bit(k, depth))
+        .unwrap_or(keys.len())
 }
 
 /// Recover `(left, right)` child slots for a branch given its encoded payload

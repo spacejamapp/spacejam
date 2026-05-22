@@ -2,8 +2,8 @@
 //! reference [`crypto::merkle::trie31`] root.
 
 use crypto::{blake2b, merkle};
-use spacejam_runtime::storage::{Column, MemoryDb, MultiTreeStore};
 use score::{OpaqueHash, TrieKey};
+use spacejam_runtime::storage::{Column, MemoryDb, MultiTreeStore};
 use std::collections::BTreeMap;
 
 fn key(seed: u64) -> TrieKey {
@@ -36,7 +36,8 @@ fn apply(
     dirty: &[TrieKey],
 ) -> OpaqueHash {
     let kvs: Vec<(TrieKey, &[u8])> = state.iter().map(|(k, v)| (*k, v.as_slice())).collect();
-    db.apply(Column::TrieNodes, prev, &kvs, dirty).expect("apply")
+    db.apply(Column::TrieNodes, prev, &kvs, dirty)
+        .expect("apply")
 }
 
 #[test]

@@ -315,8 +315,7 @@ impl Verifier {
         let mut outputs = Vec::new();
         for (vrf_input_data, aux_data, signature) in items {
             let signature = RingVrfSignature::deserialize_compressed_unchecked(signature)?;
-            let input =
-                Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
+            let input = Input::new(vrf_input_data).ok_or(anyhow::anyhow!("Invalid input"))?;
             let output_hash: [u8; 32] = signature.output.hash()[..32].try_into()?;
             batch.push(input, signature.output, aux_data, &signature.proof);
             outputs.push(output_hash);

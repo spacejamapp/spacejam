@@ -3,14 +3,14 @@
 //! at 8–64KiB). Compares the in-tree blake2b_simd impl against the RustCrypto
 //! `blake2` crate side by side.
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 fn simd(input: &[u8]) -> [u8; 32] {
     spacejam_crypto::blake2b(input)
 }
 
 fn rustcrypto(input: &[u8]) -> [u8; 32] {
-    use blake2::{Blake2b, Digest, digest::consts::U32};
+    use blake2::{digest::consts::U32, Blake2b, Digest};
     let mut hasher = Blake2b::<U32>::new();
     hasher.update(input);
     hasher.finalize().into()

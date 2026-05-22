@@ -93,10 +93,11 @@ pub trait MultiTreeStore: Send + Sync + 'static {
             self.insert_tree(column, new_root, root_node)?;
         }
 
-        if let Some(prev) = prev_root {
-            if prev != ZERO_HASH && prev != new_root {
-                self.dereference_tree(column, prev)?;
-            }
+        if let Some(prev) = prev_root
+            && prev != ZERO_HASH
+            && prev != new_root
+        {
+            self.dereference_tree(column, prev)?;
         }
 
         Ok(new_root)
@@ -120,7 +121,13 @@ pub trait MultiTreeStore: Send + Sync + 'static {
             let (k, v) = new_keys[0];
             let data = trie31::leaf(k, v).to_vec();
             let hash = crypto::blake2b(&data);
-            return Ok((Some(NodeRef::New(NewNode { data, children: vec![] })), hash));
+            return Ok((
+                Some(NodeRef::New(NewNode {
+                    data,
+                    children: vec![],
+                })),
+                hash,
+            ));
         }
 
         // Branch case: partition both keys and dirty by bit at `depth`.
@@ -131,20 +138,20 @@ pub trait MultiTreeStore: Send + Sync + 'static {
         let (left_dirty, right_dirty) = new_dirty.split_at(dirty_mid);
 
         let (prev_left, prev_right) = match &prev_node {
-            Some((data, children)) if !trie31::is_leaf(data) => trie31::split_branch_children(
-                data, children,
-            )
-            .ok_or_else(|| {
-                anyhow!(
-                    "trie node shape mismatch at depth {depth}: children.len()={}",
-                    children.len()
-                )
-            })?,
+            Some((data, children)) if !trie31::is_leaf(data) => {
+                trie31::split_branch_children(data, children).ok_or_else(|| {
+                    anyhow!(
+                        "trie node shape mismatch at depth {depth}: children.len()={}",
+                        children.len()
+                    )
+                })?
+            }
             _ => (None, None),
         };
 
         let (l_ref, l_hash) = self.descend(column, prev_left, left_keys, left_dirty, depth + 1)?;
-        let (r_ref, r_hash) = self.descend(column, prev_right, right_keys, right_dirty, depth + 1)?;
+        let (r_ref, r_hash) =
+            self.descend(column, prev_right, right_keys, right_dirty, depth + 1)?;
 
         let data = trie31::branch(l_hash, r_hash).to_vec();
         let hash = crypto::blake2b(&data);
