@@ -2,6 +2,7 @@
 
 use crate::tx::guarantee::error::{Error, Result};
 use account::{Account, Accounts};
+use crypto::ed25519::SigItem;
 use score::{
     CORES_COUNT, CoreIndex, EPOCH_LENGTH, Ed25519Public, Entropy, MAX_DEPENDENCY_COUNT,
     MAX_WORK_REPORT_OUTPUT_SIZE, OpaqueHash, ROTATION_PERIOD, State, TimeSlot, VALIDATORS_COUNT,
@@ -39,26 +40,27 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         }
     }
 
-    /// Validate work reports according to the guarantees extrinsic
+    /// Validate work reports according to the guarantees extrinsic.
     #[tracing::instrument(skip_all, name = "guarantee")]
     pub fn validate(
         &mut self,
         slot: TimeSlot,
         guarantees: &GuaranteesExtrinsic,
-    ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
+    ) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>, Vec<SigItem>)> {
         self.init_deps(guarantees);
         self.timeslot = slot;
 
         // Prepare for reporting
         let mut reported = Vec::new();
         let mut reporters = BTreeSet::new();
+        let mut triples = Vec::new();
 
         // Process each guarantee
         for guarantee in guarantees.iter() {
             self.validate_results(guarantee)?;
             self.validate_block(guarantee)?;
             self.validate_deps(guarantee)?;
-            let guarantors = self.validate_guarantee(guarantee)?;
+            let (guarantors, mut g_triples) = self.validate_guarantee(guarantee)?;
 
             // Record reported package
             reported.push(ReportedWorkPackage {
@@ -68,11 +70,12 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
 
             // Record reporters (guarantors)
             reporters.extend(guarantors);
+            triples.append(&mut g_triples);
         }
 
         // Sort the reported work packages and reporters
         reported.sort_by_key(|a| a.hash);
-        Ok((reported, reporters.into_iter().collect()))
+        Ok((reported, reporters.into_iter().collect(), triples))
     }
 
     fn init_deps(&mut self, guarantees: &GuaranteesExtrinsic) {
@@ -171,7 +174,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
         Ok(())
     }
 
-    fn validate_guarantee(&mut self, guarantee: &ReportGuarantee) -> Result<Vec<Ed25519Public>> {
+    fn validate_guarantee(
+        &mut self,
+        guarantee: &ReportGuarantee,
+    ) -> Result<(Vec<Ed25519Public>, Vec<SigItem>)> {
         // 1. validate the rotation
         let guarantors = self.validate_rotation(guarantee)?;
 
@@ -186,10 +192,10 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             return Err(Error::InsufficientGuarantees);
         }
 
-        // 4. validate the signatures: cheap checks first, then batch verify.
+        // 4. Semantic checks; collect triples for the caller to batch-verify.
         let message = guarantee.signing_message();
         let mut guarantor = None;
-        let mut to_verify = Vec::with_capacity(guarantee.signatures.len());
+        let mut triples = Vec::with_capacity(guarantee.signatures.len());
         for sig in guarantee.signatures.iter() {
             let validator_index = sig.validator_index as usize;
             if validator_index >= VALIDATORS_COUNT as usize {
@@ -211,27 +217,23 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
                 return Err(Error::BannedValidator);
             }
 
-            to_verify.push((message.as_slice(), sig.signature, *key));
+            triples.push(SigItem {
+                message: message.clone(),
+                signature: sig.signature,
+                key: *key,
+            });
             guarantor = Some(validator_index);
         }
-
-        crypto::ed25519::batch_verify(&to_verify)
-            .inspect_err(|_| {
-                tracing::debug!(
-                    "failed to verify guarantee signatures for slot={}",
-                    guarantee.slot,
-                )
-            })
-            .map_err(|_| Error::BadSignature)?;
 
         self.processed.insert(guarantee.report.core_index);
 
         // Return only the validators who actually provided signatures (reporters)
-        Ok(guarantee
+        let reporters = guarantee
             .signatures
             .iter()
             .map(|sig| guarantors[&(sig.validator_index as usize)])
-            .collect())
+            .collect();
+        Ok((reporters, triples))
     }
 
     fn validate_results(&self, guarantee: &ReportGuarantee) -> Result<()> {

@@ -72,7 +72,7 @@ pub fn simulate_with_state<Vm: Pvm>(
 
     // (E_P) Validate preimages against the prior state (12.6)
     preimage::validate(&mut accounts, &block.extrinsic.preimages)?;
-    let (mut reports, reported, reporters) = {
+    let (mut reports, reported, reporters, available, assurances) = {
         // (η') Update entropy (6.22)
         let entropy = crypto::vrf::ietf_output(block.header.entropy_source).unwrap_or_default();
         state.entropy = ticket::eta(new_epoch, &state.entropy, entropy);
@@ -110,32 +110,24 @@ pub fn simulate_with_state<Vm: Pvm>(
             last.state_root = block.header.parent_state_root;
         }
 
-        // (p of β') validate the guarantees
-        let (mut reported, mut reporters) = (vec![], vec![]);
-        if !block.extrinsic.guarantees.is_empty() {
-            (reported, reporters) = {
-                let _guard = timing::guarantees();
-                guarantee::report(
-                    &state,
-                    block.header.slot,
-                    &accounts,
-                    &block.extrinsic.guarantees,
-                )?
-            }
+        // (p of β') collect guarantee semantic results + triples (no verify yet)
+        let (reported, reporters, mut batch) = if block.extrinsic.guarantees.is_empty() {
+            (vec![], vec![], vec![])
+        } else {
+            let _guard = timing::guarantees();
+            guarantee::report(
+                &state,
+                block.header.slot,
+                &accounts,
+                &block.extrinsic.guarantees,
+            )?
         };
 
         // (ρ†) Update availability assignments based on verdicts (V) (10.15)
-        (
-            dispute::reports(&marks, &state.reports),
-            reported,
-            reporters,
-        )
-    };
+        let reports = dispute::reports(&marks, &state.reports);
 
-    // Round 2 computation
-    let (available, assurances) = {
-        // (W) the sequence of new available work reports (11.16)
-        let (available, assurances) = self::assurance::available(
+        // (W) the sequence of new available work reports (11.16); semantic only
+        let (available, assurances, a_triples) = self::assurance::available(
             &reports,
             if new_epoch {
                 &state.validators.previous
@@ -146,14 +138,20 @@ pub fn simulate_with_state<Vm: Pvm>(
             &block.extrinsic.assurances,
         )?;
 
+        batch.extend(a_triples);
+        crypto::ed25519::SigItem::batch_verify(&batch)?;
+        (reports, reported, reporters, available, assurances)
+    };
+
+    // Round 2 computation: apply state effects now that sigs have been verified.
+    {
         // (ρ‡) Update availability assignments based on assurances (11.17)
-        reports = self::assurance::reports(block.header.slot, &available, reports.clone());
+        reports = assurance::reports(block.header.slot, &available, reports);
 
         // (ρ') Update availability assignments based on guarantees (11.43)
         state.reports =
             guarantee::reports(block.header.slot, &reports, &block.extrinsic.guarantees)?;
-        (available, assurances)
-    };
+    }
 
     // Round 3 computation
     let (root, accounts) = {
