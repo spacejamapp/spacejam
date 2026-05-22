@@ -38,6 +38,13 @@ pub const REGISTER_COUNT: usize = 13;
 pub const MAX_FUNCTIONS: usize = 512;
 
 /// The PVM interface
-pub trait Pvm: Invocation {}
-
-impl<T> Pvm for T where T: Invocation {}
+pub trait Pvm: Invocation {
+    /// Run `f` on the worker pool if needed.
+    fn install<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R + Send,
+        R: Send,
+    {
+        f()
+    }
+}

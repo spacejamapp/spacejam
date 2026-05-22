@@ -2772,6 +2772,7 @@ dependencies = [
  "libc",
  "postcard",
  "pvm",
+ "rayon",
  "serde",
  "serde_json",
  "spacejam-crypto",

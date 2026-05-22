@@ -5,7 +5,7 @@ use lru::LruCache;
 use parser::{program, reader::Offset, Instruction};
 use pvm::{
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked,
+    Argument, Invocation, Invoked, Pvm,
 };
 use std::{
     num::NonZeroUsize,
@@ -64,3 +64,5 @@ impl Invocation for Interpreter {
         Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")
     }
 }
+
+impl Pvm for Interpreter {}

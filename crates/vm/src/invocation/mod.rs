@@ -348,3 +348,4 @@ pub trait Invocation {
 }
 
 impl Invocation for () {}
+impl crate::Pvm for () {}

@@ -4,10 +4,10 @@ use anyhow::Result;
 use lru::LruCache;
 pub use pvm;
 use pvm::{
-    Argument, Invocation, Invoked, State, parser,
+    Argument, Invocation, Invoked, Pvm, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR};
+pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR, numa};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeSet,
@@ -34,6 +34,16 @@ pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeSet<OpaqueHash>>> =
 
 /// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
+
+impl Pvm for SpaceVM {
+    fn install<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R + Send,
+        R: Send,
+    {
+        pvmc::numa::pool().install(f)
+    }
+}
 
 impl Invocation for SpaceVM {
     fn invoke2<X: Argument>(
