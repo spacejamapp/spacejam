@@ -18,4 +18,5 @@ COPY target/x86_64-unknown-linux-gnu/prod/spacejam-tiny /usr/local/bin/spacejam-
 COPY target/x86_64-unknown-linux-gnu/prod/spacejam-full /usr/local/bin/spacejam-full
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+ENV SPACEJAM_MODULE_CACHE=64
 ENTRYPOINT ["entrypoint.sh"]
