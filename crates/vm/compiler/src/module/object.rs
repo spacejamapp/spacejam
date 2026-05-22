@@ -17,6 +17,19 @@ pub struct ObjectModule {
     exec: Executable,
 }
 
+impl ObjectModule {
+    /// On-disk artifact filename for the AOT object cache.
+    fn artifact_name(program: &Program) -> String {
+        let info = program.meta.info();
+        format!(
+            "{}-{}-{}.o",
+            info.name,
+            info.version,
+            &hex::encode(crypto::blake3(program.code.as_ref()))[..6]
+        )
+    }
+}
+
 impl ModuleLike for ObjectModule {
     fn new<X: Argument>() -> Result<Self> {
         let isa = Engine::compilation()?;
@@ -29,13 +42,7 @@ impl ModuleLike for ObjectModule {
     }
 
     fn compile(mut self, program: &Program) -> Result<Self> {
-        let info = program.meta.info();
-        let name = format!(
-            "{}-{}-{}.o",
-            info.name,
-            info.version,
-            &hex::encode(crypto::blake3(program.code.as_ref()))[..6]
-        );
+        let name = Self::artifact_name(program);
         if let Some(object) = Artifact::get("lib", &name) {
             self.exec.load::<()>(&object)?;
             return Ok(self);
@@ -50,6 +57,16 @@ impl ModuleLike for ObjectModule {
         Artifact::set("lib", &name, &object)?;
         self.exec.load::<()>(&object)?;
         Ok(self)
+    }
+
+    fn try_load(mut self, program: &Program) -> Result<Option<Self>> {
+        match Artifact::get("lib", &Self::artifact_name(program)) {
+            Some(object) => {
+                self.exec.load::<()>(&object)?;
+                Ok(Some(self))
+            }
+            None => Ok(None),
+        }
     }
 
     fn main<X: Argument>(&self) -> Result<MainSig<X>> {

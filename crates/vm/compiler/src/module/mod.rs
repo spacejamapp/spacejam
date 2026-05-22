@@ -28,6 +28,12 @@ pub trait ModuleLike: Sized {
     /// Compile a program
     fn compile(self, program: &Program) -> Result<Self>;
 
+    /// Try to load a previously-saved artifact for `program` without
+    /// running codegen.
+    fn try_load(self, _program: &Program) -> Result<Option<Self>> {
+        Ok(None)
+    }
+
     /// Get the main function
     fn main<X: Argument>(&self) -> Result<MainSig<X>>;
 

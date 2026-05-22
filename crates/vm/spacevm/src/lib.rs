@@ -16,17 +16,21 @@ use std::{
     thread,
 };
 
-/// Maximum number of modules to keep in memory. Evicted modules remain on disk
-/// and can be reloaded when needed.
-const MAX_CACHED_MODULES: usize = 8;
+/// Default max modules kept in memory.
+const DEFAULT_MODULE_CACHE: usize = 8;
+
+/// Effective cache size.
+fn module_cache_size() -> NonZeroUsize {
+    std::env::var("SPACEJAM_MODULE_CACHE")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .and_then(NonZeroUsize::new)
+        .unwrap_or_else(|| NonZeroUsize::new(DEFAULT_MODULE_CACHE).expect("nonzero default"))
+}
 
 /// Cached modules (LRU). Uses Mutex because LruCache::get requires &mut for LRU tracking.
 pub static SPACEVM_MODULES: LazyLock<Mutex<LruCache<OpaqueHash, Arc<pvmc::Module>>>> =
-    LazyLock::new(|| {
-        Mutex::new(LruCache::new(
-            NonZeroUsize::new(MAX_CACHED_MODULES).expect("MAX_CACHED_MODULES must be non-zero"),
-        ))
-    });
+    LazyLock::new(|| Mutex::new(LruCache::new(module_cache_size())));
 
 /// Locks for the Jastime compilation
 pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeSet<OpaqueHash>>> =
@@ -54,11 +58,26 @@ impl Invocation for SpaceVM {
         gas: Gas,
         pc: usize,
     ) -> Invoked<X> {
-        if let Ok(true) = SPACEVM_LOCKS.read().map(|lock| !lock.contains(&hash))
+        let module = if let Ok(true) = SPACEVM_LOCKS.read().map(|lock| !lock.contains(&hash))
             && let Ok(Some(module)) = SPACEVM_MODULES
                 .lock()
                 .map(|mut cache| cache.get(&hash).cloned())
         {
+            Some(module)
+        } else if let Ok(module) = <pvmc::Module as ModuleLike>::new::<X>()
+            && let Ok(program) = parser::program::preimage(code.clone(), &args)
+            && let Ok(Some(module)) = ModuleLike::try_load(module, &program)
+        {
+            let arc = Arc::new(module);
+            if let Ok(mut cache) = SPACEVM_MODULES.lock() {
+                cache.put(hash, arc.clone());
+            }
+            Some(arc)
+        } else {
+            None
+        };
+
+        if let Some(module) = module {
             let program = parser::program::preimage(code, &args).expect("failed to preimage");
             let mut context = pvm::Context {
                 registers: program.registers,
