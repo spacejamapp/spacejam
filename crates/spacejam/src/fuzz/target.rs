@@ -110,7 +110,7 @@ impl Target {
     /// Received info request
     pub fn info(&mut self, info: PeerInfo) -> anyhow::Result<()> {
         let this = PeerInfo::default();
-        if info.jam_version != Version::PROTOCOL {
+        if info.jam_version != Version::protocol() {
             anyhow::bail!(
                 "protocol version mismatched, remote: {:?}, local: {:?}",
                 info.jam_version,
