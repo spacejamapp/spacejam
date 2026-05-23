@@ -12,7 +12,17 @@ async fn main() {
     App::run().await;
 }
 
-/// Cap the rayon global pool at 32
+/// Spec-matched rayon worker cap: matches the upper bound on par_iter sizes
+/// across our hot paths.
+///
+/// - on tiny that's `VALIDATORS_COUNT = 6`;
+/// - on full the ed25519 sig batch dominates with ~64 chunks of 32, so
+/// 32 workers gives ~2 chunks per worker
+#[cfg(all(feature = "tiny", not(feature = "full")))]
+const RAYON_DEFAULT_CAP: usize = 6;
+#[cfg(feature = "full")]
+const RAYON_DEFAULT_CAP: usize = 32;
+
 fn init_rayon() {
     let threads = std::env::var("RAYON_NUM_THREADS")
         .ok()
@@ -20,8 +30,8 @@ fn init_rayon() {
         .filter(|n| *n > 0)
         .unwrap_or_else(|| {
             std::thread::available_parallelism()
-                .map(|n| n.get().min(32))
-                .unwrap_or(8)
+                .map(|n| n.get().min(RAYON_DEFAULT_CAP))
+                .unwrap_or(RAYON_DEFAULT_CAP.min(4))
         });
 
     let _ = rayon::ThreadPoolBuilder::new()
