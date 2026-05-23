@@ -20,7 +20,6 @@ mod exec;
 pub mod host;
 pub mod memory;
 pub mod module;
-pub mod numa;
 pub mod trap;
 
 #[cfg(target_os = "macos")]

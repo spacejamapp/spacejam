@@ -10,6 +10,7 @@ lru.workspace = true
 pvm.workspace = true
 pvmc.workspace = true
 pvmi.workspace = true
+rayon.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

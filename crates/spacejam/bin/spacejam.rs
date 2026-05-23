@@ -4,12 +4,30 @@ use spacejam::cmd::App;
 
 #[tokio::main]
 async fn main() {
-    let _ = spacevm::numa::init();
+    self::init_rayon();
 
     #[cfg(feature = "dhat")]
     dhat::init();
 
     App::run().await;
+}
+
+/// Cap the rayon global pool at 32
+fn init_rayon() {
+    let threads = std::env::var("RAYON_NUM_THREADS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get().min(32))
+                .unwrap_or(8)
+        });
+
+    let _ = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .thread_name(|i| format!("rayon-{i}"))
+        .build_global();
 }
 
 #[cfg(feature = "dhat")]

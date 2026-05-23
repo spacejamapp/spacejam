@@ -90,7 +90,12 @@ impl Executable {
             return Err(anyhow::anyhow!("Failed to allocate memory"));
         }
 
-        crate::numa::bind_pages(self.memory, self.size);
+        // Huge-page hint only; mbind pinned AOT code to one node and hurt
+        // cross-socket execution.
+        #[cfg(target_os = "linux")]
+        unsafe {
+            libc::madvise(self.memory.cast(), self.size, libc::MADV_HUGEPAGE);
+        }
         Ok(())
     }
 

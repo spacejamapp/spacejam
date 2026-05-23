@@ -7,13 +7,12 @@ use pvm::{
     Argument, Invocation, Invoked, Pvm, State, parser,
     score::{Gas, OpaqueHash},
 };
-pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR, numa};
+pub use pvmc::{Artifact, Compiler, Memory, ModuleLike, SPACEJAM_CACHE_DIR};
 pub use pvmi::Interpreter;
 use std::{
     collections::BTreeSet,
     num::NonZeroUsize,
     sync::{Arc, LazyLock, Mutex, RwLock},
-    thread,
 };
 
 /// Default max modules kept in memory.
@@ -114,7 +113,7 @@ impl Invocation for SpaceVM {
             {
                 let code = code.clone();
                 let args = args.clone();
-                thread::spawn(move || {
+                rayon::spawn(move || {
                     if let Err(e) = self::compile::<X>(code, args, hash, true) {
                         tracing::debug!("failed to compile program: {e:?}");
                     }
