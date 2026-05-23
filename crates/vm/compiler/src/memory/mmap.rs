@@ -1,10 +1,13 @@
 //! Memory management for PVM programs using mmap for efficient virtual memory
 #![cfg(target_os = "linux")]
 
+use crate::memory::image::MemoryImage;
 use anyhow::Result;
-use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
+use libc::{
+    MAP_ANONYMOUS, MAP_FIXED, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE,
+};
 use parking_lot::Mutex;
-use pvm::MemoryLike;
+use pvm::{MemoryLike, score::OpaqueHash};
 use std::{collections::BTreeMap, io, ptr, sync::LazyLock};
 
 /// Process-wide pool of pre-reserved 4 GB virtual regions.
@@ -23,13 +26,14 @@ pub struct Memory {
 
 impl Memory {
     /// Create a new memory instance from parser Memory
-    pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
+    pub fn new(hash: OpaqueHash, pmemory: &pvm::Memory) -> Result<Self> {
+        let image = MemoryImage::get_or_build(hash, pmemory)?;
         let region = Region::acquire()?;
         let memory = Memory {
             region,
             heap_ptr: pmemory.heap_ptr,
         };
-        memory.init(pmemory)?;
+        memory.init(pmemory, &image)?;
         Ok(memory)
     }
 
@@ -38,50 +42,48 @@ impl Memory {
     }
 
     /// Initialize memory regions from parser memory
-    fn init(&self, memory: &pvm::Memory) -> Result<()> {
+    fn init(&self, memory: &pvm::Memory, image: &MemoryImage) -> Result<()> {
         let base = self.base();
         unsafe {
-            // Set up read-only data region
-            {
-                let read = memory.ro_data()?;
+            // Bind RO range CoW from the image
+            if image.ro_size > 0 {
                 let start = memory.info.read.start as usize;
-                let size = read.len();
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    anyhow::bail!(
-                        "Failed to make read region writable: {}",
-                        io::Error::last_os_error()
-                    );
-                }
-
-                ptr::copy_nonoverlapping(read.as_ptr(), base.add(start), size);
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ) != 0 {
-                    anyhow::bail!(
-                        "Failed to set read region read-only: {}",
-                        io::Error::last_os_error()
-                    );
+                let bound = libc::mmap(
+                    base.add(start) as *mut _,
+                    image.ro_size,
+                    PROT_READ,
+                    MAP_FIXED | MAP_PRIVATE,
+                    image.raw_fd(),
+                    0,
+                );
+                if bound == libc::MAP_FAILED {
+                    anyhow::bail!("Failed to bind RO range: {}", io::Error::last_os_error());
                 }
             }
 
-            // Set up write region as read-write
-            {
-                let write = memory.rw_data()?;
+            // Bind RW range CoW from the image — writes hit private pages
+            if image.rw_size > 0 {
                 let start = memory.info.write.start as usize;
-                let size = write.len();
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    anyhow::bail!(
-                        "Failed to set write region protection: {}",
-                        io::Error::last_os_error()
-                    );
+                let bound = libc::mmap(
+                    base.add(start) as *mut _,
+                    image.rw_size,
+                    PROT_READ | PROT_WRITE,
+                    MAP_FIXED | MAP_PRIVATE,
+                    image.raw_fd(),
+                    image.ro_size as libc::off_t,
+                );
+                if bound == libc::MAP_FAILED {
+                    anyhow::bail!("Failed to bind RW range: {}", io::Error::last_os_error());
                 }
-
-                ptr::copy_nonoverlapping(write.as_ptr(), base.add(start), size);
             }
 
-            // Set up stack region as read-write
+            // Stack: anonymous CoW from the slot reservation, just unlock perms
             {
                 let start = memory.info.stack.start as usize;
                 let size = (memory.info.stack.end - memory.info.stack.start) as usize;
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
+                if size > 0
+                    && libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                {
                     anyhow::bail!(
                         "Failed to set stack region protection: {}",
                         io::Error::last_os_error()
@@ -89,24 +91,26 @@ impl Memory {
                 }
             }
 
-            // Set up args region as read-only
+            // Args vary per invocation — copy in, then lock read-only
             {
                 let args = memory.args()?;
                 let start = memory.info.args.start as usize;
                 let size = args.len();
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
-                    anyhow::bail!(
-                        "Failed to make args region writable: {}",
-                        io::Error::last_os_error()
-                    );
-                }
-
-                ptr::copy_nonoverlapping(args.as_ptr(), base.add(start), size);
-                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ) != 0 {
-                    anyhow::bail!(
-                        "Failed to set args region read-only: {}",
-                        io::Error::last_os_error()
-                    );
+                if size > 0 {
+                    if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
+                    {
+                        anyhow::bail!(
+                            "Failed to make args region writable: {}",
+                            io::Error::last_os_error()
+                        );
+                    }
+                    ptr::copy_nonoverlapping(args.as_ptr(), base.add(start), size);
+                    if libc::mprotect(base.add(start) as *mut _, size, PROT_READ) != 0 {
+                        anyhow::bail!(
+                            "Failed to set args region read-only: {}",
+                            io::Error::last_os_error()
+                        );
+                    }
                 }
             }
         }
