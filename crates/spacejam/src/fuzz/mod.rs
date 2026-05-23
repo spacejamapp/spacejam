@@ -8,10 +8,13 @@ use std::{
 };
 
 pub mod env;
-pub mod fuzzer;
 pub mod init;
 pub mod message;
 pub mod target;
+
+#[cfg(feature = "trace")]
+pub mod fuzzer;
+#[cfg(feature = "trace")]
 pub mod trace;
 
 /// Extension methods for streams

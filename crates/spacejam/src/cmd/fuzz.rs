@@ -1,6 +1,8 @@
 //! Fuzz related commands
 
-use crate::fuzz::{self, fuzzer::Fuzzer, target::Target};
+use crate::fuzz::target::Target;
+#[cfg(feature = "trace")]
+use crate::fuzz::{self, fuzzer::Fuzzer};
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -19,6 +21,7 @@ pub enum Fuzz {
     },
 
     /// Fuzz with a fuzzer
+    #[cfg(feature = "trace")]
     Fuzzer {
         /// The path to the fuzzer
         #[clap(default_value = "/tmp/jam_target.sock")]
@@ -42,6 +45,7 @@ pub enum Fuzz {
     },
 
     /// Run trace test via the given trace file
+    #[cfg(feature = "trace")]
     Tx {
         /// The path to the trace file
         test: PathBuf,
@@ -53,6 +57,7 @@ impl Fuzz {
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
             Self::Target { socket, interp } => Target::serve(socket, *interp).await,
+            #[cfg(feature = "trace")]
             Self::Fuzzer {
                 socket,
                 traces,
@@ -68,6 +73,7 @@ impl Fuzz {
                     Fuzzer::run(socket, traces, report)
                 }
             }
+            #[cfg(feature = "trace")]
             Self::Tx { test } => fuzz::trace::test(test).await,
         }
     }
