@@ -41,8 +41,9 @@ pub trait Accounts: Clone + Send + Sync + 'static {
     fn accounts(&self) -> &BTreeMap<u32, impl Account>;
 
     /// Get the removed accounts from the registry
-    fn removed(&self) -> BTreeSet<u32> {
-        Default::default()
+    fn removed(&self) -> &BTreeSet<u32> {
+        static EMPTY: std::sync::OnceLock<BTreeSet<u32>> = std::sync::OnceLock::new();
+        EMPTY.get_or_init(BTreeSet::new)
     }
 
     /// Get the diff of the accounts

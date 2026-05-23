@@ -88,7 +88,7 @@ impl<'s, R: Accounts> GuaranteeValidator<'s, R> {
             .recent_blocks
             .history
             .iter()
-            .flat_map(|b| b.reported.clone())
+            .flat_map(|b| b.reported.iter().cloned())
             .collect::<Vec<_>>();
 
         self.recent = recent;

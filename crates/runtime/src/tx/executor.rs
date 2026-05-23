@@ -105,7 +105,7 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
                 self.state.timeslot,
                 &self.state.validators.current,
                 &self.state.validators.previous,
-                &self.state.disputes,
+                std::mem::take(&mut self.state.disputes),
                 &self.block.extrinsic.disputes,
             )?;
             crypto::ed25519::SigItem::batch_verify(&triples)?;
@@ -226,7 +226,7 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
         let accounts = self.accounts.take().expect("accounts present");
         let accounts = preimage::accounts(
             self.block.header.slot,
-            &self.block.extrinsic.preimages,
+            std::mem::take(&mut self.block.extrinsic.preimages),
             accounts,
         );
         let (updates, removals) = accounts.diff();
@@ -251,11 +251,13 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
     /// Run guarantee/assurance sig collect + batch_verify in parallel with
     /// ticket::safrole ring-VRF.
     fn sigs_and_safrole_parallel(&mut self) -> Result<()> {
+        let new_epoch = self.new_epoch;
+        let needs_safrole = !self.block.extrinsic.tickets.is_empty() || new_epoch;
+        let safrole_in = needs_safrole.then(|| std::mem::take(&mut self.state.safrole));
         let state_view: &State = &self.state;
         let block_view: &Block = &*self.block;
         let accounts_view = self.accounts.as_ref().expect("accounts present");
         let dispute_records_view = &self.dispute_records;
-        let new_epoch = self.new_epoch;
         let (sigs_res, safrole_res) = rayon::join(
             || {
                 Self::sigs_branch(
@@ -266,7 +268,11 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
                     new_epoch,
                 )
             },
-            || Self::safrole_branch(state_view, block_view, new_epoch),
+            || {
+                safrole_in
+                    .map(|s| Self::safrole_branch(state_view, block_view, new_epoch, s))
+                    .transpose()
+            },
         );
 
         let out = sigs_res?;
@@ -337,17 +343,15 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
         state: &State,
         block: &Block,
         new_epoch: bool,
-    ) -> Result<Option<SafroleOutput>> {
-        if block.extrinsic.tickets.is_empty() && !new_epoch {
-            return Ok(None);
-        }
+        safrole_in: Safrole,
+    ) -> Result<SafroleOutput> {
         let _guard = timing::safrole();
         let safrole = ticket::safrole(
             state.timeslot,
             block.header.slot,
             state.entropy,
             &state.disputes.offenders,
-            &state.safrole,
+            safrole_in,
             &state.validators,
             &block.extrinsic.tickets,
         )?;
@@ -357,11 +361,11 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
             None
         };
         let tickets_mark = safrole.tickets_mark(state.timeslot, block.header.slot);
-        Ok(Some(SafroleOutput {
+        Ok(SafroleOutput {
             safrole,
             epoch_mark,
             tickets_mark,
-        }))
+        })
     }
 }
 

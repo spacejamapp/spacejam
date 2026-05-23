@@ -22,7 +22,7 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         input.pre_state.tau,
         &input.pre_state.kappa,
         &input.pre_state.lambda,
-        &input.pre_state.psi,
+        input.pre_state.psi.clone(),
         &input.input.disputes,
     )
     .and_then(|(next_psi, records, triples)| {

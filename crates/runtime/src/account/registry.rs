@@ -90,8 +90,8 @@ impl<S: Storage> account::Accounts for Accounts<S> {
         &self.accounts
     }
 
-    fn removed(&self) -> BTreeSet<u32> {
-        self.removed.clone()
+    fn removed(&self) -> &BTreeSet<u32> {
+        &self.removed
     }
 
     fn diff(self) -> (Vec<([u8; 31], Vec<u8>)>, Vec<[u8; 31]>) {

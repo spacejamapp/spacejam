@@ -20,10 +20,9 @@ pub fn disputes(
     timeslot: TimeSlot,
     kappa: &ValidatorsData,
     lambda: &ValidatorsData,
-    psi: &DisputesRecords,
+    psi: DisputesRecords,
     extrinsic: &DisputesExtrinsic,
 ) -> Result<(DisputesRecords, DisputesRecords, Vec<SigItem>)> {
-    let mut next_psi = psi.clone();
     let (mut records, mut triples) =
         dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
 
@@ -35,26 +34,23 @@ pub fn disputes(
 
     // handle culprits
     let (culprit_offenders, culprit_triples) =
-        dispute::culprits(&validators, psi, &records.bad, &extrinsic.culprits)?;
+        dispute::culprits(&validators, &psi, &records.bad, &extrinsic.culprits)?;
     records.offenders.extend(&culprit_offenders);
     triples.extend(culprit_triples);
 
     // handle faults
     let (fault_offenders, fault_triples) =
-        dispute::faults(&validators, psi, &records.good, &extrinsic.faults)?;
+        dispute::faults(&validators, &psi, &records.good, &extrinsic.faults)?;
     records.offenders.extend(&fault_offenders);
     triples.extend(fault_triples);
 
-    // update psi
-    {
-        next_psi.good.extend(&records.good);
-        next_psi.wonky.extend(&records.wonky);
-        next_psi.bad.extend(&records.bad);
-
-        // TODO: make offenders unique
-        next_psi.offenders.extend(&records.offenders);
-        next_psi.offenders.sort();
-    }
+    let mut next_psi = psi;
+    next_psi.good.extend(&records.good);
+    next_psi.wonky.extend(&records.wonky);
+    next_psi.bad.extend(&records.bad);
+    // TODO: make offenders unique
+    next_psi.offenders.extend(&records.offenders);
+    next_psi.offenders.sort();
 
     Ok((next_psi, records, triples))
 }

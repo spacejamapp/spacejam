@@ -51,7 +51,7 @@ pub fn safrole(
     slot: u32,
     entropy: [OpaqueHash; 4],
     offenders: &[Ed25519Public],
-    safrole: &Safrole,
+    mut safrole: Safrole,
     validators: &Validators,
     tickets: &TicketsExtrinsic,
 ) -> Result<Safrole> {
@@ -72,8 +72,9 @@ pub fn safrole(
     let epoch = tau / score::EPOCH_LENGTH;
     let next_epoch = slot / score::EPOCH_LENGTH;
     let new_epoch: bool = next_epoch > epoch;
-    let mut safrole = safrole.clone();
-    safrole.series = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current);
+    if let Some(series) = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current) {
+        safrole.series = series;
+    }
     if new_epoch {
         let next = safrole.next(&validators.drawn, offenders);
         if next != safrole.validators {
@@ -83,9 +84,10 @@ pub fn safrole(
     }
 
     // Process accumulator and ring commitment in parallel
+    let acc = std::mem::take(&mut safrole.accumulator);
     safrole.accumulator = self::accumulator(
         new_epoch,
-        &safrole.accumulator,
+        acc,
         entropy,
         &safrole.validators.bandersnatch(),
         tickets,
@@ -99,7 +101,7 @@ pub fn safrole(
 /// NOTE: gamma_k has already been updated at this point
 pub fn accumulator(
     new_epoch: bool,
-    accumulator: &TicketsAccumulator,
+    mut accumulator: TicketsAccumulator,
     entropy: [OpaqueHash; 4],
     next: &Vec<BandersnatchPublic>,
     tickets: &TicketsExtrinsic,
@@ -113,7 +115,6 @@ pub fn accumulator(
     let submitted_ids: Vec<OpaqueHash> = new_tickets.iter().map(|t| t.id).collect();
 
     // update the accumulator
-    let mut accumulator = accumulator.clone();
     if new_epoch {
         // Clear the accumulator if we're starting a new epoch: 6.34
         accumulator.clear();
@@ -146,30 +147,29 @@ pub fn accumulator(
 }
 
 /// (γ_s') Updates the sealing key series according to graypaper formula 6.24.
+/// Returns `None` when the series is unchanged (same epoch).
 pub fn sealing_key_series(
     tau: u32,
     slot: u32,
     entropy: [OpaqueHash; 4],
     safrole: &Safrole,
     curr_validators: &[ValidatorData],
-) -> TicketsOrKeys {
-    let mut next = safrole.series.clone();
+) -> Option<TicketsOrKeys> {
     let curr_epoch = slot / score::EPOCH_LENGTH;
     let prev_epoch = tau / score::EPOCH_LENGTH;
     let prev_slot_phase = tau % score::EPOCH_LENGTH;
     if curr_epoch == prev_epoch {
-        return next;
+        return None;
     }
 
     // FIXME: should be curr_epoch > prev_epoch
-    if curr_epoch == prev_epoch + 1
+    let next = if curr_epoch == prev_epoch + 1
         && prev_slot_phase >= score::TICKET_SUBMISSION_PERIOD
         && safrole.accumulator.len() == score::EPOCH_LENGTH as usize
     {
-        next = TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator));
+        TicketsOrKeys::Tickets(TicketBody::sequence(&safrole.accumulator))
     } else {
-        next = TicketsOrKeys::fallback(&curr_validators.bandersnatch(), entropy[2]);
-    }
-
-    next
+        TicketsOrKeys::fallback(&curr_validators.bandersnatch(), entropy[2])
+    };
+    Some(next)
 }
