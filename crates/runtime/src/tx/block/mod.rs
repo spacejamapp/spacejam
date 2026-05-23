@@ -97,7 +97,6 @@ impl TestChain {
     pub fn import<Vm: Pvm>(&mut self, block: Block) -> Result<OpaqueHash> {
         let head = block.header.hash();
         let parent = block.header.parent;
-
         if self.forks.contains_key(&parent) {
             self.finalize_fork(parent)?;
         }

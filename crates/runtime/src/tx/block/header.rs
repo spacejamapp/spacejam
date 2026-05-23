@@ -30,7 +30,10 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
     };
 
     // check the ticket mark
-    if new_epoch && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
+    if new_epoch
+        && state.timeslot % score::EPOCH_LENGTH >= score::TICKET_SUBMISSION_PERIOD
+        && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+    {
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
         tickets.copy_from_slice(&TicketBody::sequence(&state.safrole.accumulator));
         ticket = Some(tickets[slot]);
@@ -182,7 +185,7 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
 
         // Validate ticket attempts
         for ticket in tickets_mark {
-            if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+            if ticket.attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
             }
         }
