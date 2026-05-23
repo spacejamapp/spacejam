@@ -21,23 +21,14 @@ const EMPTY_ROOT: OpaqueHash = [0; 32];
 
 type Fork = Branch<MemoryDb>;
 
-/// DEVELOPMENT: process the block with given state storage.
+/// Process the block with given state storage.
 pub fn process<Vm: Pvm>(block: Block, storage: Arc<impl Storage>) -> Result<()> {
     let state = storage.state()?;
-    let mut block2 = block.clone();
-    let state2 = state.clone();
-    let (vresult, sresult) = rayon::join(
-        || header::validate(state, &block.header),
-        || tx::simulate_with_state::<Vm>(&mut block2, state2, storage.clone()),
-    );
-
-    match (vresult, sresult) {
-        (Err(e), _) | (_, Err(e)) => Err(e),
-        (Ok(()), Ok(diff)) => {
-            storage.commit(Column::State, &diff)?;
-            Ok(())
-        }
-    }
+    header::validate(&state, &block.header)?;
+    let mut block = block;
+    let diff = tx::simulate_with_state::<Vm>(&mut block, state, storage.clone())?;
+    storage.commit(Column::State, &diff)?;
+    Ok(())
 }
 
 /// DEVELOPMENT: A test chain for processing fuzz blocks.

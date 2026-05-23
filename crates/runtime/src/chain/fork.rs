@@ -163,7 +163,7 @@ impl<S: Storage> Fork<S> {
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = TicketsOrKeys::fallback(&validators, entropy[1]);
             self.series.insert(epoch, series);
         }
 
@@ -194,7 +194,7 @@ impl<S: Storage> Fork<S> {
         } else {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = TicketsOrKeys::fallback(&validators, entropy[1]);
             Ok(series)
         }
     }

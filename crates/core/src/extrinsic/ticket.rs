@@ -147,7 +147,7 @@ pub enum TicketsOrKeys {
 impl TicketsOrKeys {
     /// Returns the fallback keys for the given ring and entropy.
     #[cfg(feature = "blake2")]
-    pub fn fallback(ring: Vec<BandersnatchPublic>, entropy: OpaqueHash) -> Self {
+    pub fn fallback(ring: &[BandersnatchPublic], entropy: OpaqueHash) -> Self {
         let mut keys = EpochKeys::default();
         for i in 0..crate::EPOCH_LENGTH {
             let input = [entropy.as_slice(), &i.to_le_bytes()].concat();

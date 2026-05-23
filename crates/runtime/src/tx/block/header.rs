@@ -9,9 +9,9 @@ use score::{
 };
 
 /// Validate the header
-pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
+pub fn validate(state: &State, header: &Header) -> anyhow::Result<()> {
     let new_epoch = header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
-    self::check(&state, header, new_epoch)?;
+    self::check(state, header, new_epoch)?;
 
     // setup the verifier
     let slot = (header.slot % score::EPOCH_LENGTH) as usize;
@@ -55,7 +55,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
         };
 
         let key = if new_epoch {
-            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(vals.clone(), state.entropy[1])
+            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(&vals, state.entropy[1])
             else {
                 anyhow::bail!("invalid series");
             };
