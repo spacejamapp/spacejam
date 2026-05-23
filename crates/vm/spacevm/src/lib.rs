@@ -39,15 +39,7 @@ pub static SPACEVM_LOCKS: LazyLock<RwLock<BTreeSet<OpaqueHash>>> =
 /// SpaceVM - JAM virtual machine
 pub struct SpaceVM;
 
-impl Pvm for SpaceVM {
-    fn install<F, R>(f: F) -> R
-    where
-        F: FnOnce() -> R + Send,
-        R: Send,
-    {
-        pvmc::numa::pool().install(f)
-    }
-}
+impl Pvm for SpaceVM {}
 
 impl Invocation for SpaceVM {
     fn invoke2<X: Argument>(

@@ -90,7 +90,7 @@ impl Executable {
             return Err(anyhow::anyhow!("Failed to allocate memory"));
         }
 
-        crate::numa::hint_code_pages(self.memory, self.size);
+        crate::numa::bind_pages(self.memory, self.size);
         Ok(())
     }
 

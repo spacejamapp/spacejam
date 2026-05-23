@@ -111,26 +111,24 @@ pub fn parallel<V: Pvm, R: Accounts>(
 
     let designate = context.privileges.designate;
     let validators_ref = &*validators;
-    let mut results = V::install(|| {
-        services
-            .par_iter()
-            .map(|service| {
-                let v = if *service == designate {
-                    validators_ref.clone()
-                } else {
-                    Default::default()
-                };
-                let transfers = transfers
-                    .par_iter()
-                    .filter(|t| t.recipient == *service)
-                    .cloned()
-                    .collect();
-                let result =
-                    self::once::<V, R>(context.clone(), v, transfers, reports, table, *service);
-                (*service, result)
-            })
-            .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>()
-    });
+    let mut results = services
+        .par_iter()
+        .map(|service| {
+            let v = if *service == designate {
+                validators_ref.clone()
+            } else {
+                Default::default()
+            };
+            let transfers = transfers
+                .par_iter()
+                .filter(|t| t.recipient == *service)
+                .cloned()
+                .collect();
+            let result =
+                self::once::<V, R>(context.clone(), v, transfers, reports, table, *service);
+            (*service, result)
+        })
+        .collect::<BTreeMap<ServiceId, pvm::Accumulated<R>>>();
 
     // Helper function R(o, a, b) from graypaper: if manager changed it (a != o), use a; else use b
     let r = |old: ServiceId, mgr: ServiceId, svc: ServiceId| -> ServiceId {

@@ -1,62 +1,38 @@
 //! Linux NUMA detection.
 
-use crate::numa::{NumaPlan, fallback};
+use crate::numa::NumaPlan;
 use std::collections::BTreeSet;
 
 /// Detect NUMA topology and pick a node for code-local execution.
 pub fn detect() -> NumaPlan {
-    let allowed: BTreeSet<usize> = match get_allowed_cpus() {
-        Some(set) if !set.is_empty() => set,
-        _ => return fallback(),
+    let Some(allowed) = get_allowed_cpus() else {
+        return NumaPlan { node: None };
     };
+    if allowed.is_empty() {
+        return NumaPlan { node: None };
+    }
 
-    let buckets: Vec<(u32, Vec<usize>)> = read_node_cpulists()
+    let buckets: Vec<(u32, usize)> = read_node_cpulists()
         .into_iter()
-        .map(|(id, cpus)| {
-            let kept: Vec<usize> = cpus.into_iter().filter(|c| allowed.contains(c)).collect();
-            (id, kept)
-        })
-        .filter(|(_, cpus)| !cpus.is_empty())
+        .map(|(id, cpus)| (id, cpus.into_iter().filter(|c| allowed.contains(c)).count()))
+        .filter(|(_, n)| *n > 0)
         .collect();
 
     if buckets.len() <= 1 {
-        let cpus: Vec<usize> = allowed.into_iter().collect();
-        let num_threads = cpus.len().max(1);
-        return NumaPlan {
-            node: None,
-            cpus,
-            num_threads,
-        };
+        return NumaPlan { node: None };
     }
 
-    let (node, cpus) = buckets.into_iter().max_by_key(|(_, c)| c.len()).unwrap();
-    let num_threads = cpus.len().max(1);
-    tracing::info!("numa: chose node {node} ({num_threads} cpus) for code-local execution");
-    NumaPlan {
-        node: Some(node),
-        cpus,
-        num_threads,
-    }
+    let (node, n) = buckets.into_iter().max_by_key(|(_, n)| *n).unwrap();
+    tracing::info!("numa: chose node {node} ({n} cpus) for code mappings");
+    NumaPlan { node: Some(node) }
 }
 
-pub fn set_affinity(cpus: &[usize]) -> std::io::Result<()> {
-    let mut set: libc::cpu_set_t = unsafe { std::mem::zeroed() };
-    for &cpu in cpus {
-        unsafe { libc::CPU_SET(cpu, &mut set) };
-    }
-    let size = std::mem::size_of::<libc::cpu_set_t>();
-    if unsafe { libc::sched_setaffinity(0, size, &set) } != 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(())
-}
-
-/// Hint that the AOT code mapping should use huge pages, and bind its
-/// not-yet-faulted pages to the chosen node (if any).
-pub fn hint_code_pages(addr: *mut u8, size: usize) {
+/// Bind the mapping to the chosen NUMA node (via `mbind`) and hint it for
+/// transparent huge pages (`MADV_HUGEPAGE`).
+pub fn bind_pages(addr: *mut u8, size: usize) {
     if unsafe { libc::madvise(addr.cast(), size, libc::MADV_HUGEPAGE) } != 0 {
         tracing::warn!(
-            "numa: madvise(MADV_HUGEPAGE) on AOT code buffer failed: {}",
+            "numa: madvise(MADV_HUGEPAGE) failed: {}",
             std::io::Error::last_os_error()
         );
     }
