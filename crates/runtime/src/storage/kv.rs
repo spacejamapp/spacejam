@@ -12,7 +12,7 @@ use std::{
 /// Key-value storage
 pub trait KVStorage: Send + Sync + 'static {
     /// Batch write a set of key-value pairs to the storage
-    fn commit(&self, column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()>;
+    fn commit(&self, column: Column, commit: &Commit<TrieKey, Vec<u8>>) -> Result<()>;
 
     /// Set a key-value pair with column specified
     fn set(&self, column: Column, key: impl AsRef<[u8]>, value: impl AsRef<[u8]>) -> Result<()>;
@@ -67,7 +67,7 @@ impl MemoryDb {
 }
 
 impl KVStorage for MemoryDb {
-    fn commit(&self, _column: Column, commit: Commit<TrieKey, Vec<u8>>) -> Result<()> {
+    fn commit(&self, _column: Column, commit: &Commit<TrieKey, Vec<u8>>) -> Result<()> {
         let mut data = self
             .data
             .write()

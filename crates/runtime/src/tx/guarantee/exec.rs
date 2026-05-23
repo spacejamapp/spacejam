@@ -189,7 +189,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
     let mut transfers = Vec::new();
     let mut pairings = BTreeSet::new();
     for (service_id, result) in results.iter_mut() {
-        transfers.extend(result.transfers.clone());
+        transfers.extend(std::mem::take(&mut result.transfers));
 
         if let Some(hash) = result.hash {
             pairings.insert((*service_id, hash));
@@ -199,7 +199,7 @@ pub fn parallel<V: Pvm, R: Accounts>(
             continue;
         }
 
-        for service in result.context.accounts.removed() {
+        for &service in result.context.accounts.removed() {
             removed.insert(service);
         }
 

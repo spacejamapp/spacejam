@@ -1,8 +1,9 @@
 //! Fuzz messages
 
+use anyhow::Context;
 use score::{Block, OpaqueHash, TimeSlot, TrieKey, block::Header};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 /// Messages used in the unix socket communication
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -83,8 +84,8 @@ impl Default for PeerInfo {
             fuzz_version: 1,
             // feature-ancestry (1) | feature-fork (2) — both [M1] mandatory
             fuzz_features: 3,
-            jam_version: Version::PROTOCOL,
-            app_version: Version::SPACEJAM,
+            jam_version: Version::protocol(),
+            app_version: Version::spacejam(),
             app_name: "spacejam".to_string(),
         }
     }
@@ -104,19 +105,53 @@ pub struct Version {
 }
 
 impl Version {
-    /// The binary version of spacejam
-    pub const SPACEJAM: Version = Version {
-        major: 0,
-        minor: 1,
-        patch: 1,
-    };
+    /// Binary version, derived from `CARGO_PKG_VERSION_*` at compile time.
+    pub fn spacejam() -> Version {
+        Version {
+            major: env!("CARGO_PKG_VERSION_MAJOR")
+                .parse()
+                .expect("CARGO_PKG_VERSION_MAJOR not a u8"),
+            minor: env!("CARGO_PKG_VERSION_MINOR")
+                .parse()
+                .expect("CARGO_PKG_VERSION_MINOR not a u8"),
+            patch: env!("CARGO_PKG_VERSION_PATCH")
+                .parse()
+                .expect("CARGO_PKG_VERSION_PATCH not a u8"),
+        }
+    }
 
-    /// The protocol version of spacejam
-    pub const PROTOCOL: Version = Version {
-        major: 0,
-        minor: 7,
-        patch: 2,
-    };
+    /// JAM protocol version, sourced from `[workspace.metadata.graypaper]`
+    /// in the workspace manifest via the build script.
+    pub fn protocol() -> Version {
+        env!("GRAYPAPER_VERSION")
+            .parse()
+            .expect("invalid graypaper version")
+    }
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+impl FromStr for Version {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split('.');
+        let major = parts.next().context("missing major")?.parse()?;
+        let minor = parts.next().context("missing minor")?.parse()?;
+        let patch = parts.next().context("missing patch")?.parse()?;
+        if parts.next().is_some() {
+            anyhow::bail!("version has too many components");
+        }
+        Ok(Self {
+            major,
+            minor,
+            patch,
+        })
+    }
 }
 
 /// A key-value pair

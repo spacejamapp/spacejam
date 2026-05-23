@@ -101,7 +101,7 @@ impl<S: Storage> Fork<S> {
 
             chain.insert(this.header.head());
             blocks.insert(*slot, (this.clone(), commit.clone()));
-            branch.commit(Column::State, commit.clone())?;
+            branch.commit(Column::State, commit)?;
         }
 
         // import the block
@@ -144,7 +144,7 @@ impl<S: Storage> Fork<S> {
         tracing::trace!("transiting block");
         let head = block.header.head();
         let diff = tx::simulate::<Vm>(&mut block.clone(), self.state.clone())?;
-        self.state.commit(Column::State, diff.clone())?;
+        self.state.commit(Column::State, &diff)?;
         tracing::info!(
             "imported block#{}@{}, previous block#{}@{}",
             block.header.slot,
@@ -163,7 +163,7 @@ impl<S: Storage> Fork<S> {
         if epoch > prev_epoch && !self.series.contains_key(&epoch) {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = TicketsOrKeys::fallback(&validators, entropy[1]);
             self.series.insert(epoch, series);
         }
 
@@ -194,7 +194,7 @@ impl<S: Storage> Fork<S> {
         } else {
             let validators = self.state.safrole()?.validators.bandersnatch();
             let entropy = self.state.entropy()?;
-            let series = TicketsOrKeys::fallback(validators, entropy[1]);
+            let series = TicketsOrKeys::fallback(&validators, entropy[1]);
             Ok(series)
         }
     }

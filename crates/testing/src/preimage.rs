@@ -22,7 +22,8 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         assert_eq!(input.pre_state, output.post_state);
         return Ok(());
     }
-    let accounts = tx::preimage::accounts(input.input.slot, &input.input.preimages, accounts);
+    let accounts =
+        tx::preimage::accounts(input.input.slot, input.input.preimages.clone(), accounts);
     assert_eq!(
         accounts
             .accounts()

@@ -33,8 +33,11 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     let result =
         tx::guarantee::reports(input.slot, &pre_state.avail_assignments, &input.guarantees)
             .and_then(|assignments| {
-                tx::guarantee::report(&state, input.slot, &state.accounts, &input.guarantees)
-                    .map(|(reported, reporters)| (reported, reporters, assignments))
+                let (reported, reporters, triples) =
+                    tx::guarantee::report(&state, input.slot, &state.accounts, &input.guarantees)?;
+                crypto::ed25519::SigItem::batch_verify(&triples)
+                    .map_err(|_| Error::BadSignature)?;
+                Ok((reported, reporters, assignments))
             });
 
     assert_eq!(

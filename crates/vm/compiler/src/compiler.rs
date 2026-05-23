@@ -2,12 +2,14 @@
 
 use crate::{Memory, ModuleLike};
 use pvm::{
-    Argument, Invocation, Invoked, State, parser,
+    Argument, Invocation, Invoked, Pvm, State, parser,
     score::{Gas, OpaqueHash},
 };
 
 /// Cranelift JIT module builder
 pub struct Compiler;
+
+impl Pvm for Compiler {}
 
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(

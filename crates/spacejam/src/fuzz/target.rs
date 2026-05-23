@@ -110,7 +110,7 @@ impl Target {
     /// Received info request
     pub fn info(&mut self, info: PeerInfo) -> anyhow::Result<()> {
         let this = PeerInfo::default();
-        if info.jam_version != Version::PROTOCOL {
+        if info.jam_version != Version::protocol() {
             anyhow::bail!(
                 "protocol version mismatched, remote: {:?}, local: {:?}",
                 info.jam_version,
@@ -155,7 +155,7 @@ impl Target {
     pub fn get_state(&mut self, hash: OpaqueHash) -> Result<()> {
         let mut state = Vec::new();
         let iter: Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>>> =
-            if let Some(fork) = self.chain.forks.get(&hash) {
+            if let Some((fork, _)) = self.chain.forks.get(&hash) {
                 Box::new(fork.iter(Column::State)?)
             } else {
                 Box::new(self.chain.data.iter(Column::State)?)

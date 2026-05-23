@@ -15,6 +15,7 @@ const JAM_FUZZ_SPEC: &str = "JAM_FUZZ_SPEC";
 const JAM_FUZZ_DATA_PATH: &str = "JAM_FUZZ_DATA_PATH";
 const JAM_FUZZ_SOCK_PATH: &str = "JAM_FUZZ_SOCK_PATH";
 const JAM_FUZZ_LOG_LEVEL: &str = "JAM_FUZZ_LOG_LEVEL";
+const SPACEJAM_INTERP: &str = "SPACEJAM_INTERP";
 
 /// Whether the env-driven fuzz mode is requested.
 pub fn is_active() -> bool {
@@ -26,8 +27,7 @@ pub async fn run() -> Result<()> {
     init_logger(std::env::var(JAM_FUZZ_LOG_LEVEL).ok().as_deref());
     let cfg = Config::from_env()?;
     log_runtime_env(&cfg);
-    // Use the compiler on linux; Target::serve falls back to interp on other platforms.
-    Target::serve(&cfg.socket, /*interp=*/ false).await
+    Target::serve(&cfg.socket, cfg.interp).await
 }
 
 /// Log target config (spec / data_path / socket) and host hardware (CPU model,
@@ -44,8 +44,13 @@ fn log_runtime_env(cfg: &Config) {
         .unwrap_or_else(|| "unknown".to_string());
     let cores = sys.cpus().len();
     let ram_gb = sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
+    let vm = if cfg.interp {
+        "interpreter"
+    } else {
+        "compiler"
+    };
     tracing::info!(
-        "fuzz target starting: spec={}, data_path={}, socket={}, vm=compiler, cpu={cpu:?} ({cores} cores), ram={ram_gb:.1} GB",
+        "fuzz target starting: spec={}, data_path={}, socket={}, vm={vm}, cpu={cpu:?} ({cores} cores), ram={ram_gb:.1} GB",
         cfg.spec.as_str(),
         cfg.data_path.display(),
         cfg.socket.display(),
@@ -56,6 +61,7 @@ struct Config {
     spec: Spec,
     data_path: PathBuf,
     socket: PathBuf,
+    interp: bool,
 }
 
 impl Config {
@@ -63,10 +69,15 @@ impl Config {
         let spec = Spec::from_str(&require_env(JAM_FUZZ_SPEC)?)?;
         let data_path = PathBuf::from(require_env(JAM_FUZZ_DATA_PATH)?);
         let socket = PathBuf::from(require_env(JAM_FUZZ_SOCK_PATH)?);
+        let interp = match std::env::var(SPACEJAM_INTERP).as_deref() {
+            Ok("" | "0" | "false") | Err(_) => false,
+            Ok(_) => true,
+        };
         Ok(Self {
             spec,
             data_path,
             socket,
+            interp,
         })
     }
 }

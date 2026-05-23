@@ -29,17 +29,21 @@ pub fn reports(
     reports
 }
 
-/// (W) Handle assurances input and return newly available reports
+/// (W) Handle assurances input and return newly available reports.
 pub fn available(
     reports: &AvailabilityAssignments,
     validators: &[ValidatorData],
     parent: OpaqueHash,
     assurances: &[AvailAssurance],
-) -> Result<(Vec<WorkReport>, [u32; CORES_COUNT])> {
+) -> Result<(
+    Vec<WorkReport>,
+    [u32; CORES_COUNT],
+    Vec<crypto::ed25519::SigItem>,
+)> {
     // Track assurance count per core
     let mut core_assurance_counts = [0u32; CORES_COUNT];
 
-    // Check for engaged reports: cheap checks first, then batch verify sigs.
+    // Semantic checks; sig verification is deferred to the caller's batch.
     let mut assuror = None;
     for assurance in assurances.iter() {
         if assurance.validator_index >= VALIDATORS_COUNT {
@@ -73,19 +77,14 @@ pub fn available(
         }
     }
 
-    let messages: Vec<Vec<u8>> = assurances.iter().map(|a| a.singing_message()).collect();
-    let verify_items: Vec<_> = assurances
+    let triples: Vec<crypto::ed25519::SigItem> = assurances
         .iter()
-        .zip(messages.iter())
-        .map(|(a, m)| {
-            (
-                m.as_slice(),
-                a.signature,
-                validators[a.validator_index as usize].ed25519,
-            )
+        .map(|a| crypto::ed25519::SigItem {
+            message: a.singing_message(),
+            signature: a.signature,
+            key: validators[a.validator_index as usize].ed25519,
         })
         .collect();
-    crypto::ed25519::batch_verify(&verify_items).map_err(|_| Error::BadSignature)?;
 
     // Check which cores reached 2/3 majority
     let mut available = Vec::new();
@@ -97,5 +96,5 @@ pub fn available(
         }
     }
 
-    Ok((available, core_assurance_counts))
+    Ok((available, core_assurance_counts, triples))
 }

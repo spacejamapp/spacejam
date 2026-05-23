@@ -133,7 +133,7 @@ impl State {
             input.slot,
             self.eta,
             &self.post_offenders,
-            &safrole,
+            safrole.clone(),
             &validators,
             &input.extrinsic,
         ) {

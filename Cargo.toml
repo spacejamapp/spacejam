@@ -21,11 +21,14 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.2-pre.8"
+version = "0.1.2-pre.9"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
 authors = ["clearloop <tianyi.gc@gmail.com>"]
+
+[workspace.metadata.graypaper]
+version = "0.7.2"
 
 [profile.prod]
 inherits = "release"
@@ -68,6 +71,7 @@ worker = { path = "crates/offchain/worker", package = "spacejam-worker" }
 
 # crates.io
 anyhow = { version = "1.0.99", default-features = false }
+arc-swap = "1.7"
 ark-bls12-381 = "0.5.0"
 ark-ec = { version = "0.5", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
@@ -83,8 +87,8 @@ blake3 = "1.8.2"
 cc = "1.2"
 clap = "4.5.47"
 colored = "3.0.0"
-cranelift = "0.123.2"
-cranelift-codegen = "0.123.2"
+cranelift = "0.132.0"
+cranelift-codegen = "0.132.0"
 dhat = "0.3"
 dirs = "6.0.0"
 ed25519-zebra = "4.1.0"

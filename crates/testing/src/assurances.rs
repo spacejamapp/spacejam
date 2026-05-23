@@ -22,7 +22,11 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
         &input.pre_state.curr_validators,
         input.input.parent,
         &input.input.assurances,
-    );
+    )
+    .and_then(|(available, counts, triples)| {
+        crypto::ed25519::SigItem::batch_verify(&triples).map_err(|_| Error::BadSignature)?;
+        Ok((available, counts))
+    });
     assert_eq!(result.clone().map(|(a, _)| a), output.map(|s| s.reported));
 
     // validate post state

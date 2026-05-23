@@ -15,7 +15,12 @@ async fn ec_4096() -> anyhow::Result<()> {
 
 async fn run_codec(test: &str) -> anyhow::Result<()> {
     let registry = Registry::new(PathBuf::from("../../../res/jam-test-vectors"));
-    let test = registry.erasure(specjam::Scale::Tiny)?.test(test)?;
+    let scale = if cfg!(feature = "full") {
+        specjam::Scale::Full
+    } else {
+        specjam::Scale::Tiny
+    };
+    let test = registry.erasure(scale)?.test(test)?;
     let mut data = hex::decode(test.input.trim_start_matches("0x"))?;
     let shards = serde_json::from_str::<Vec<String>>(&test.output)?
         .into_iter()
@@ -25,12 +30,19 @@ async fn run_codec(test: &str) -> anyhow::Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let n = erasure::Config::default().original;
+    let recovery_pairs = || -> Vec<(usize, Vec<u8>)> {
+        let mut pairs: Vec<_> = (0..n - 1).map(|i| (i, shards[i].clone())).collect();
+        pairs.push((n, shards[n].clone()));
+        pairs
+    };
+
     // testing sync
     {
         let encoded = erasure::encode_sync(data.clone())?;
         assert_eq!(encoded, shards);
 
-        let decoded = erasure::decode_sync(vec![(0, shards[0].clone()), (2, shards[2].clone())])?;
+        let decoded = erasure::decode_sync(recovery_pairs())?;
         data.resize(decoded.len(), 0);
         assert_eq!(decoded, data);
     }
@@ -40,7 +52,7 @@ async fn run_codec(test: &str) -> anyhow::Result<()> {
         let encoded = erasure::encode(data.clone()).await?;
         assert_eq!(encoded, shards);
 
-        let decoded = erasure::decode(vec![(0, shards[0].clone()), (2, shards[2].clone())]).await?;
+        let decoded = erasure::decode(recovery_pairs()).await?;
         data.resize(decoded.len(), 0);
         assert_eq!(decoded, data);
     }

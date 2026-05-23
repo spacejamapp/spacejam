@@ -1,41 +1,24 @@
 //! PVM interface implementation
 
 use crate::Interpreter;
-use lru::LruCache;
 use parser::{program, reader::Offset, Instruction};
 use pvm::{
     score::{Gas, OpaqueHash},
-    Argument, Invocation, Invoked,
+    Argument, Cache, Invocation, Invoked, Pvm,
 };
-use std::{
-    num::NonZeroUsize,
-    sync::{Arc, LazyLock, Mutex},
-};
+use std::sync::{Arc, LazyLock};
 
-/// The maximum number of cached parsed programs.
-const MAX_CACHED_PROGRAMS: usize = 16;
-
-/// Cached parsed programs (LRU).
-pub static CACHED_PROGRAMS: LazyLock<Mutex<LruCache<OpaqueHash, Arc<ParsedProgram>>>> =
-    LazyLock::new(|| {
-        Mutex::new(LruCache::new(
-            NonZeroUsize::new(MAX_CACHED_PROGRAMS).expect("MAX_CACHED_PROGRAMS must be non-zero"),
-        ))
-    });
+/// Cached parsed programs.
+pub static CACHED_PROGRAMS: LazyLock<Cache<ParsedProgram>> = LazyLock::new(Default::default);
 
 /// Set the parsed program.
 pub fn set(hash: OpaqueHash, program: ParsedProgram) {
-    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
-        cache.put(hash, Arc::new(program));
-    }
+    CACHED_PROGRAMS.put(hash, Arc::new(program));
 }
 
 /// Get the parsed program.
 pub fn get(hash: OpaqueHash) -> Option<Arc<ParsedProgram>> {
-    if let Ok(mut cache) = CACHED_PROGRAMS.try_lock() {
-        return cache.get(&hash).cloned();
-    }
-    None
+    CACHED_PROGRAMS.get(&hash)
 }
 
 /// The parsed program.
@@ -64,3 +47,5 @@ impl Invocation for Interpreter {
         Self::invoke(program, hash, ctx, gas, pc).expect("fix me later")
     }
 }
+
+impl Pvm for Interpreter {}

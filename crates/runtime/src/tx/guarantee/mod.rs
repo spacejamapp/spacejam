@@ -249,13 +249,17 @@ pub fn pools(
     new_pools
 }
 
-/// (p of β') Report the work packages
+/// (p of β') Report the work packages.
 pub fn report(
     state: &score::State,
     slot: TimeSlot,
     services: &impl Accounts,
     guarantees: &GuaranteesExtrinsic,
-) -> Result<(Vec<ReportedWorkPackage>, Vec<Ed25519Public>)> {
+) -> Result<(
+    Vec<ReportedWorkPackage>,
+    Vec<Ed25519Public>,
+    Vec<crypto::ed25519::SigItem>,
+)> {
     let mut validator = validator::GuaranteeValidator::new(state, services);
     validator.validate(slot, guarantees)
 }

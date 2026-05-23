@@ -5,6 +5,7 @@ pub use parser::{
 };
 pub use {
     account::Account,
+    cache::Cache,
     codec,
     context::{check_range, Argument, Context, Executed, Invoked, MemoryLike, State},
     invocation::{AccumulateContext, AccumulateState, Accumulated, Invocation},
@@ -22,6 +23,7 @@ macro_rules! bail {
     };
 }
 
+mod cache;
 mod context;
 pub mod host;
 pub mod invocation;
@@ -39,5 +41,3 @@ pub const MAX_FUNCTIONS: usize = 512;
 
 /// The PVM interface
 pub trait Pvm: Invocation {}
-
-impl<T> Pvm for T where T: Invocation {}

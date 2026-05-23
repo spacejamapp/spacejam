@@ -185,10 +185,10 @@ impl Fuzzer {
 
         // check the remote peer info
         tracing::info!("Received peer info: {received:?}");
-        if received.jam_version != Version::PROTOCOL {
+        if received.jam_version != Version::protocol() {
             anyhow::bail!(
                 "Expected protocol: {:?}, got {:?}",
-                Version::PROTOCOL,
+                Version::protocol(),
                 received.jam_version
             );
         }

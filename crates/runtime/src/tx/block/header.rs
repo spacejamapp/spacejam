@@ -9,9 +9,9 @@ use score::{
 };
 
 /// Validate the header
-pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
+pub fn validate(state: &State, header: &Header) -> anyhow::Result<()> {
     let new_epoch = header.slot / score::EPOCH_LENGTH > state.timeslot / score::EPOCH_LENGTH;
-    self::check(&state, header, new_epoch)?;
+    self::check(state, header, new_epoch)?;
 
     // setup the verifier
     let slot = (header.slot % score::EPOCH_LENGTH) as usize;
@@ -30,7 +30,10 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
     };
 
     // check the ticket mark
-    if new_epoch && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize {
+    if new_epoch
+        && state.timeslot % score::EPOCH_LENGTH >= score::TICKET_SUBMISSION_PERIOD
+        && state.safrole.accumulator.len() == score::EPOCH_LENGTH as usize
+    {
         let mut tickets = [TicketBody::default(); score::EPOCH_LENGTH as usize];
         tickets.copy_from_slice(&TicketBody::sequence(&state.safrole.accumulator));
         ticket = Some(tickets[slot]);
@@ -52,8 +55,7 @@ pub fn validate(state: State, header: &Header) -> anyhow::Result<()> {
         };
 
         let key = if new_epoch {
-            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(vals.clone(), state.entropy[1])
-            else {
+            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(&vals, state.entropy[1]) else {
                 anyhow::bail!("invalid series");
             };
             keys[slot]
@@ -182,7 +184,7 @@ pub fn check(state: &State, header: &Header, new_epoch: bool) -> anyhow::Result<
 
         // Validate ticket attempts
         for ticket in tickets_mark {
-            if ticket.attempt > score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
+            if ticket.attempt >= score::TICKET_ENTRIES_PER_VALIDATOR as u8 {
                 anyhow::bail!("invalid ticket attempt {}", ticket.attempt);
             }
         }

@@ -32,7 +32,7 @@ impl Processor {
         };
 
         if is_ok {
-            self.chain.apply(&block, data);
+            self.chain.apply(&block, data)?;
         }
         Ok(())
     }

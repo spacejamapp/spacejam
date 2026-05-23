@@ -46,7 +46,7 @@ impl App {
 
         let app = App::parse();
         if app.graypaper {
-            println!("graypaper: {}", crate::GRAYPAPER);
+            println!("graypaper: {}", crate::fuzz::message::Version::protocol());
             return;
         }
 

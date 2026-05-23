@@ -10,6 +10,7 @@ dirs.workspace = true
 hex.workspace = true
 postcard.workspace = true
 pvm.workspace = true
+rayon.workspace = true
 translator.workspace = true
 cranelift = { workspace = true, features = [
     "native",

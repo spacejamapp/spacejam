@@ -6,33 +6,32 @@ edition.workspace = true
 [[bin]]
 name = "spacejam"
 path = "bin/spacejam.rs"
-required-features = ["node"]
 
 [dependencies]
 account.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
-clap = { workspace = true, features = ["derive", "env"], optional = true }
+clap = { workspace = true, features = ["derive", "env"] }
 codec.workspace = true
-crypto.workspace = true
+crypto = { workspace = true, features = ["bls", "ed25519", "vrf"] }
 dhat = { workspace = true, optional = true }
 dirs.workspace = true
 hex.workspace = true
-network.workspace = true
+network = { workspace = true, features = ["cmd"] }
 offchain.workspace = true
 parity-db.workspace = true
 spacevm.workspace = true
 rand.workspace = true
 rayon.workspace = true
 runtime.workspace = true
-score = { workspace = true }
-serde = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
-spacejson = { workspace = true, optional = true }
+score.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+spacejson.workspace = true
 sysinfo.workspace = true
-testing.workspace = true
-time = { workspace = true, optional = true, features = ["local-offset"] }
-toml = { workspace = true, optional = true }
+testing = { workspace = true, optional = true }
+time = { workspace = true, features = ["local-offset"] }
+toml.workspace = true
 tokio = { workspace = true, features = [
     "rt",
     "rt-multi-thread",
@@ -42,10 +41,7 @@ tokio = { workspace = true, features = [
     "signal",
 ] }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, optional = true, features = [
-    "fmt",
-    "time",
-] }
+tracing-subscriber = { workspace = true, features = ["fmt", "time"] }
 
 [dev-dependencies]
 temp-dir.workspace = true
@@ -54,27 +50,11 @@ temp-dir.workspace = true
 syn.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
+toml.workspace = true
 
 [features]
-bin = ["node"]
-cmd = [
-    "clap",
-    "network/cmd",
-    "serde",
-    "spacejson",
-    "time",
-    "tracing-subscriber",
-]
+default = ["tiny"]
 dhat = ["dep:dhat"]
-default = ["bin", "serde", "tiny"]
-node = ["cmd"]
-serde = [
-    "dep:serde",
-    "serde_json",
-    "toml",
-    "crypto/bls",
-    "crypto/ed25519",
-    "crypto/vrf",
-]
 tiny = ["score/tiny"]
 full = ["score/full"]
+trace = ["dep:testing"]

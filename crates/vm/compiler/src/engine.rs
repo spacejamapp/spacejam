@@ -19,7 +19,6 @@ impl Engine {
         builder.set("enable_incremental_compilation_cache_checks", "false")?;
         builder.set("unwind_info", "false")?;
         builder.set("machine_code_cfg_info", "false")?;
-        builder.set("enable_pcc", "false")?;
 
         // Create the ISA builder and finish it with the flags
         let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -38,7 +37,6 @@ impl Engine {
         builder.set("enable_incremental_compilation_cache_checks", "false")?;
         builder.set("unwind_info", "false")?;
         builder.set("machine_code_cfg_info", "false")?;
-        builder.set("enable_pcc", "false")?;
 
         // Create the ISA builder and finish it with the flags
         let isa_builder = native::builder().map_err(|e| anyhow::anyhow!("{}", e))?;

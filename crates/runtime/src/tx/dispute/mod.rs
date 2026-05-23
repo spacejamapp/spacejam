@@ -3,6 +3,7 @@
 //! 1. update judgements on work-reports and validators (ψ)
 //! 2. update pending reports (ρ)
 use super::dispute;
+use crypto::ed25519::SigItem;
 pub use error::{Error, Result};
 use score::{
     EPOCH_LENGTH, Ed25519Public, OpaqueHash, TimeSlot, VALIDATORS_COUNT, VALIDATORS_SUPER_MAJORITY,
@@ -14,16 +15,16 @@ use std::collections::{BTreeMap, HashSet};
 
 pub mod error;
 
-/// (ψ) Update disputes verdicts and offenders
+/// (ψ) Update disputes verdicts and offenders.
 pub fn disputes(
     timeslot: TimeSlot,
     kappa: &ValidatorsData,
     lambda: &ValidatorsData,
-    psi: &DisputesRecords,
+    psi: DisputesRecords,
     extrinsic: &DisputesExtrinsic,
-) -> Result<(DisputesRecords, DisputesRecords)> {
-    let mut next_psi = psi.clone();
-    let mut records = dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
+) -> Result<(DisputesRecords, DisputesRecords, Vec<SigItem>)> {
+    let (mut records, mut triples) =
+        dispute::verdicts(timeslot, kappa, lambda, &extrinsic.verdicts)?;
 
     // get validators for the current slot
     let validators: HashSet<Ed25519Public> = [kappa.ed25519(), lambda.ed25519()]
@@ -32,25 +33,26 @@ pub fn disputes(
         .collect();
 
     // handle culprits
-    let offenders = dispute::culprits(&validators, psi, &records.bad, &extrinsic.culprits)?;
-    records.offenders.extend(&offenders);
+    let (culprit_offenders, culprit_triples) =
+        dispute::culprits(&validators, &psi, &records.bad, &extrinsic.culprits)?;
+    records.offenders.extend(&culprit_offenders);
+    triples.extend(culprit_triples);
 
     // handle faults
-    let offenders = dispute::faults(&validators, psi, &records.good, &extrinsic.faults)?;
-    records.offenders.extend(&offenders);
+    let (fault_offenders, fault_triples) =
+        dispute::faults(&validators, &psi, &records.good, &extrinsic.faults)?;
+    records.offenders.extend(&fault_offenders);
+    triples.extend(fault_triples);
 
-    // update psi
-    {
-        next_psi.good.extend(&records.good);
-        next_psi.wonky.extend(&records.wonky);
-        next_psi.bad.extend(&records.bad);
+    let mut next_psi = psi;
+    next_psi.good.extend(&records.good);
+    next_psi.wonky.extend(&records.wonky);
+    next_psi.bad.extend(&records.bad);
+    // TODO: make offenders unique
+    next_psi.offenders.extend(&records.offenders);
+    next_psi.offenders.sort();
 
-        // TODO: make offenders unique
-        next_psi.offenders.extend(&records.offenders);
-        next_psi.offenders.sort();
-    }
-
-    Ok((next_psi, records))
+    Ok((next_psi, records, triples))
 }
 
 /// (ρ†) Update availability assignments based on verdicts (ψ')
@@ -74,14 +76,15 @@ pub fn reports(
     next_assignments
 }
 
-// Update goodset, badset, wonkyset based on verdicts
+// Update goodset, badset, wonkyset based on verdicts; collect sig triples.
 fn verdicts(
     timeslot: TimeSlot,
     kappa: &ValidatorsData,
     lambda: &ValidatorsData,
     verdicts: &[Verdict],
-) -> Result<DisputesRecords> {
+) -> Result<(DisputesRecords, Vec<SigItem>)> {
     let mut records = DisputesRecords::default();
+    let mut triples: Vec<SigItem> = Vec::new();
     let mut last_target: Option<OpaqueHash> = None;
     for verdict in verdicts {
         if verdict.votes.len() != VALIDATORS_SUPER_MAJORITY as usize {
@@ -107,32 +110,27 @@ fn verdicts(
             return Err(Error::BadJudgementAge);
         };
 
-        let mut verify_items = Vec::with_capacity(verdict.votes.len());
         for (index, judgement) in verdict.votes.iter().enumerate() {
             if index != judgement.index as usize {
                 return Err(Error::JudgementsNotSortedUnique);
             }
 
             let message = if judgement.vote {
-                aye_message.as_slice()
+                aye_message.clone()
             } else {
-                nay_message.as_slice()
+                nay_message.clone()
             };
 
-            verify_items.push((
+            triples.push(SigItem {
                 message,
-                judgement.signature,
-                validators[judgement.index as usize].ed25519,
-            ));
+                signature: judgement.signature,
+                key: validators[judgement.index as usize].ed25519,
+            });
 
             if judgement.vote {
                 aye += 1;
             }
         }
-
-        crypto::ed25519::batch_verify(&verify_items)
-            .inspect_err(|e| tracing::debug!("Invalid verdict signature: {e}"))
-            .map_err(|_| Error::BadSignature)?;
 
         match aye {
             aye if aye == VALIDATORS_SUPER_MAJORITY => records.good.push(verdict.target),
@@ -145,31 +143,31 @@ fn verdicts(
         }
     }
 
-    Ok(records)
+    Ok((records, triples))
 }
 
-/// (ψ) Update offenders based on verdicts
+/// (ψ) Update offenders based on culprits; collect sig triples.
 fn culprits(
     validators: &HashSet<Ed25519Public>,
     records: &DisputesRecords,
     bad: &[OpaqueHash],
     culprits: &[Culprit],
-) -> Result<Vec<Ed25519Public>> {
+) -> Result<(Vec<Ed25519Public>, Vec<SigItem>)> {
     let mut last_culprit = None;
     let mut bad_verdicts = bad.iter().map(|v| (v, 0)).collect::<BTreeMap<_, _>>();
     let mut offenders = vec![];
+    let mut triples: Vec<SigItem> = Vec::new();
 
     for culprit in culprits {
         if !validators.contains(&culprit.key) {
             return Err(Error::BadGuarantorKey);
         }
 
-        if let Err(e) =
-            crypto::ed25519::verify(&culprit.signature_message(), culprit.signature, culprit.key)
-        {
-            tracing::debug!("Invalid signature in culprit: {e}");
-            return Err(Error::BadSignature);
-        }
+        triples.push(SigItem {
+            message: culprit.signature_message().to_vec(),
+            signature: culprit.signature,
+            key: culprit.key,
+        });
 
         if records.good.contains(&culprit.target)
             || records.bad.contains(&culprit.target)
@@ -204,19 +202,20 @@ fn culprits(
         return Err(Error::NotEnoughCulprits);
     }
 
-    Ok(offenders)
+    Ok((offenders, triples))
 }
 
-/// (ψ) Update offenders based on verdicts
+/// (ψ) Update offenders based on faults; collect sig triples.
 fn faults(
     validators: &HashSet<Ed25519Public>,
     records: &DisputesRecords,
     good: &[OpaqueHash],
     faults: &[Fault],
-) -> Result<Vec<Ed25519Public>> {
+) -> Result<(Vec<Ed25519Public>, Vec<SigItem>)> {
     let mut last_fault = None;
     let mut verdicts = good.iter().map(|v| (v, 0)).collect::<BTreeMap<_, _>>();
     let mut new_offenders = vec![];
+    let mut triples: Vec<SigItem> = Vec::new();
 
     for fault in faults {
         if !validators.contains(&fault.key) {
@@ -234,12 +233,11 @@ fn faults(
             return Err(Error::OffenderAlreadyReported);
         }
 
-        if let Err(e) =
-            crypto::ed25519::verify(&fault.singing_message(), fault.signature, fault.key)
-        {
-            tracing::debug!("Invalid signature in fault: {e}");
-            return Err(Error::BadSignature);
-        }
+        triples.push(SigItem {
+            message: fault.singing_message(),
+            signature: fault.signature,
+            key: fault.key,
+        });
 
         if let Some(last_fault) = last_fault
             && fault < last_fault
@@ -266,5 +264,5 @@ fn faults(
         return Err(Error::NotEnoughFaults);
     }
 
-    Ok(new_offenders)
+    Ok((new_offenders, triples))
 }

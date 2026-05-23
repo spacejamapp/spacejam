@@ -53,24 +53,39 @@ linux-amd64:
 
 # build linux-amd64 with full-spec constants
 linux-amd64-full:
-	cargo b --profile prod --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+	cargo b --profile prod --target x86_64-unknown-linux-gnu --no-default-features --features full
 
 # build both tiny and full binaries for docker
 linux-amd64-both:
 	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu
 	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-tiny
-	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu --no-default-features --features bin,serde,full
+	cargo b --profile prod -p spacejam --target x86_64-unknown-linux-gnu --no-default-features --features full
 	cp target/x86_64-unknown-linux-gnu/prod/spacejam target/x86_64-unknown-linux-gnu/prod/spacejam-full
 
 # build the docker image, tagging both :latest and :$(VERSION)
 docker: linux-amd64-both
 	docker build --platform=linux/amd64 \
-		-f docker/spacejam.Dockerfile \
+		-f docker/spacejam.dockerfile \
 		-t $(DOCKER_IMAGE):latest \
 		-t $(DOCKER_IMAGE):$(VERSION) \
+		.
+
+# build the fuzz-paired docker images (regular + interpreter) for AOT-vs-int
+# A/B comparison on NUMA hosts.
+fuzz: docker
+	docker build --platform=linux/amd64 \
+		--build-arg SPACEJAM_INTERP=1 \
+		-f docker/spacejam.dockerfile \
+		-t $(DOCKER_IMAGE):int \
+		-t $(DOCKER_IMAGE):$(VERSION)-int \
 		.
 
 # push images to ghcr
 dpush:
 	docker push $(DOCKER_IMAGE):latest
 	docker push $(DOCKER_IMAGE):$(VERSION)
+
+# push fuzz-paired images (regular + interpreter) to ghcr
+fpush: dpush
+	docker push $(DOCKER_IMAGE):int
+	docker push $(DOCKER_IMAGE):$(VERSION)-int
