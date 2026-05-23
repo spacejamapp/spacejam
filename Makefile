@@ -70,7 +70,22 @@ docker: linux-amd64-both
 		-t $(DOCKER_IMAGE):$(VERSION) \
 		.
 
+# build the fuzz-paired docker images (regular + interpreter) for AOT-vs-int
+# A/B comparison on NUMA hosts.
+fuzz: docker
+	docker build --platform=linux/amd64 \
+		--build-arg SPACEJAM_INTERP=1 \
+		-f docker/spacejam.dockerfile \
+		-t $(DOCKER_IMAGE):int \
+		-t $(DOCKER_IMAGE):$(VERSION)-int \
+		.
+
 # push images to ghcr
 dpush:
 	docker push $(DOCKER_IMAGE):latest
 	docker push $(DOCKER_IMAGE):$(VERSION)
+
+# push fuzz-paired images (regular + interpreter) to ghcr
+fpush: dpush
+	docker push $(DOCKER_IMAGE):int
+	docker push $(DOCKER_IMAGE):$(VERSION)-int

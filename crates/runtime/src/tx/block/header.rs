@@ -55,8 +55,7 @@ pub fn validate(state: &State, header: &Header) -> anyhow::Result<()> {
         };
 
         let key = if new_epoch {
-            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(&vals, state.entropy[1])
-            else {
+            let TicketsOrKeys::Keys(keys) = TicketsOrKeys::fallback(&vals, state.entropy[1]) else {
                 anyhow::bail!("invalid series");
             };
             keys[slot]

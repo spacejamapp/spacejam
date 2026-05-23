@@ -16,7 +16,7 @@ pub enum Fuzz {
         socket: PathBuf,
 
         /// If use interpreter instead
-        #[clap(short, long)]
+        #[clap(short, long, env = "SPACEJAM_INTERP")]
         interp: bool,
     },
 

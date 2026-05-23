@@ -72,7 +72,9 @@ pub fn safrole(
     let epoch = tau / score::EPOCH_LENGTH;
     let next_epoch = slot / score::EPOCH_LENGTH;
     let new_epoch: bool = next_epoch > epoch;
-    if let Some(series) = self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current) {
+    if let Some(series) =
+        self::sealing_key_series(tau, slot, entropy, &safrole, &validators.current)
+    {
         safrole.series = series;
     }
     if new_epoch {
