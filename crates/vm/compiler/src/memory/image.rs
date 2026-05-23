@@ -6,7 +6,6 @@
 use anyhow::Result;
 use pvm::{Cache, score::OpaqueHash};
 use std::{
-    ffi::CStr,
     io,
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     sync::{Arc, LazyLock},
@@ -43,27 +42,34 @@ impl MemoryImage {
     fn build(pmemory: &pvm::Memory) -> Result<Self> {
         let ro = pmemory.ro_data()?;
         let rw = pmemory.rw_data()?;
-        let total = ro.len() + rw.len();
+        let page = pvm::PAGE_SIZE as usize;
+        let ro_size = ro.len().next_multiple_of(page);
+        let rw_size = rw.len().next_multiple_of(page);
+        let total = ro_size + rw_size;
 
-        let name = CStr::from_bytes_with_nul(b"spacejam-pvm-image\0").unwrap();
+        let name = c"spacejam-pvm-image";
         let raw = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
         if raw < 0 {
             anyhow::bail!("memfd_create failed: {}", io::Error::last_os_error());
         }
-        let memfd = unsafe { OwnedFd::from_raw_fd(raw) };
 
+        let memfd = unsafe { OwnedFd::from_raw_fd(raw) };
         if total > 0 {
             if unsafe { libc::ftruncate(memfd.as_raw_fd(), total as libc::off_t) } != 0 {
                 anyhow::bail!("ftruncate failed: {}", io::Error::last_os_error());
             }
-            Self::pwrite_all(&memfd, &ro, 0)?;
-            Self::pwrite_all(&memfd, &rw, ro.len() as libc::off_t)?;
+            if !ro.is_empty() {
+                Self::pwrite_all(&memfd, &ro, 0)?;
+            }
+            if !rw.is_empty() {
+                Self::pwrite_all(&memfd, &rw, ro_size as libc::off_t)?;
+            }
         }
 
         Ok(Self {
             memfd,
-            ro_size: ro.len(),
-            rw_size: rw.len(),
+            ro_size,
+            rw_size,
         })
     }
 
