@@ -7,6 +7,7 @@ description = "Polkadot Virtual Machine"
 [dependencies]
 account = { workspace = true, features = ["blake2"] }
 anyhow.workspace = true
+arc-swap.workspace = true
 codec.workspace = true
 crypto = { workspace = true, features = ["blake2"] }
 hex.workspace = true
