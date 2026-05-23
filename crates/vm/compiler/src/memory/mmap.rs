@@ -4,11 +4,7 @@
 use anyhow::Result;
 use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use pvm::MemoryLike;
-use std::{cell::RefCell, collections::BTreeMap, io, ptr};
-
-thread_local! {
-    static POOL: RefCell<Option<Region>> = const { RefCell::new(None) };
-}
+use std::{collections::BTreeMap, io, ptr};
 
 /// memory for PVM programs
 #[derive(Debug, Clone)]
@@ -25,23 +21,6 @@ pub struct Memory {
 impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
-        let region = match POOL.with(|p| p.borrow_mut().take()) {
-            Some(r) => r,
-            None => Self::mmap_region()?,
-        };
-        let base = region.0;
-        std::mem::forget(region);
-
-        let memory = Memory {
-            base,
-            heap_ptr: pmemory.heap_ptr,
-        };
-
-        memory.init(pmemory)?;
-        Ok(memory)
-    }
-
-    fn mmap_region() -> Result<Region> {
         let base = unsafe {
             libc::mmap(
                 ptr::null_mut(),
@@ -52,13 +31,21 @@ impl Memory {
                 0,
             )
         };
+
         if base == libc::MAP_FAILED {
             anyhow::bail!(
                 "Failed to mmap virtual memory: {}",
                 std::io::Error::last_os_error()
             );
         }
-        Ok(Region(base as *mut u8))
+
+        let memory = Memory {
+            base: base as *mut u8,
+            heap_ptr: pmemory.heap_ptr,
+        };
+
+        memory.init(pmemory)?;
+        Ok(memory)
     }
 
     /// Initialize memory regions from parser memory
@@ -185,28 +172,11 @@ impl Memory {
 
 impl Drop for Memory {
     fn drop(&mut self) {
-        if self.base.is_null() {
-            return;
-        }
-
-        let size = pvm::PVM_MEMORY_SIZE as usize;
         unsafe {
-            libc::madvise(self.base as *mut _, size, libc::MADV_DONTNEED);
-            libc::mprotect(self.base as *mut _, size, PROT_NONE);
-        }
-
-        let base = self.base;
-        self.base = ptr::null_mut();
-
-        POOL.with(|p| {
-            let mut slot = p.borrow_mut();
-            if slot.is_none() {
-                *slot = Some(Region(base));
-            } else {
-                // Slot already full; drop this region (munmaps via Region::drop).
-                drop(Region(base));
+            if !self.base.is_null() {
+                libc::munmap(self.base as *mut _, pvm::PVM_MEMORY_SIZE as usize);
             }
-        });
+        }
     }
 }
 
@@ -263,16 +233,5 @@ impl MemoryLike for Memory {
 
     fn set_heap_ptr(&mut self, heap_ptr: u32) {
         self.heap_ptr = heap_ptr;
-    }
-}
-
-// Per-thread reusable 4 GB guest mapping.
-struct Region(*mut u8);
-
-impl Drop for Region {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe { libc::munmap(self.0 as *mut _, pvm::PVM_MEMORY_SIZE as usize) };
-        }
     }
 }
