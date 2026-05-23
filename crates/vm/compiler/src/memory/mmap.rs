@@ -3,14 +3,17 @@
 
 use anyhow::Result;
 use libc::{MAP_ANONYMOUS, MAP_NORESERVE, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
+use parking_lot::Mutex;
 use pvm::MemoryLike;
-use std::{collections::BTreeMap, io, ptr};
+use std::{collections::BTreeMap, io, ptr, sync::LazyLock};
+
+/// Process-wide pool of pre-reserved 4 GB virtual regions.
+static REGION_POOL: LazyLock<Mutex<Vec<Region>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// memory for PVM programs
-#[derive(Debug, Clone)]
 pub struct Memory {
-    /// Base pointer to the virtual memory region
-    base: *mut u8,
+    /// Backing 4 GB virtual region, returned to the pool on drop.
+    region: Region,
 
     /// Heap pointer
     ///
@@ -21,51 +24,37 @@ pub struct Memory {
 impl Memory {
     /// Create a new memory instance from parser Memory
     pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
-        let base = unsafe {
-            libc::mmap(
-                ptr::null_mut(),
-                pvm::PVM_MEMORY_SIZE as usize,
-                PROT_NONE,
-                MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
-                -1,
-                0,
-            )
-        };
-
-        if base == libc::MAP_FAILED {
-            anyhow::bail!(
-                "Failed to mmap virtual memory: {}",
-                std::io::Error::last_os_error()
-            );
-        }
-
+        let region = Region::acquire()?;
         let memory = Memory {
-            base: base as *mut u8,
+            region,
             heap_ptr: pmemory.heap_ptr,
         };
-
         memory.init(pmemory)?;
         Ok(memory)
     }
 
+    fn base(&self) -> *mut u8 {
+        self.region.as_ptr()
+    }
+
     /// Initialize memory regions from parser memory
     fn init(&self, memory: &pvm::Memory) -> Result<()> {
+        let base = self.base();
         unsafe {
             // Set up read-only data region
             {
                 let read = memory.ro_data()?;
                 let start = memory.info.read.start as usize;
                 let size = read.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
-                {
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     anyhow::bail!(
                         "Failed to make read region writable: {}",
                         io::Error::last_os_error()
                     );
                 }
 
-                ptr::copy_nonoverlapping(read.as_ptr(), self.base.add(start), size);
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                ptr::copy_nonoverlapping(read.as_ptr(), base.add(start), size);
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ) != 0 {
                     anyhow::bail!(
                         "Failed to set read region read-only: {}",
                         io::Error::last_os_error()
@@ -78,23 +67,21 @@ impl Memory {
                 let write = memory.rw_data()?;
                 let start = memory.info.write.start as usize;
                 let size = write.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
-                {
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     anyhow::bail!(
                         "Failed to set write region protection: {}",
                         io::Error::last_os_error()
                     );
                 }
 
-                ptr::copy_nonoverlapping(write.as_ptr(), self.base.add(start), size);
+                ptr::copy_nonoverlapping(write.as_ptr(), base.add(start), size);
             }
 
             // Set up stack region as read-write
             {
                 let start = memory.info.stack.start as usize;
                 let size = (memory.info.stack.end - memory.info.stack.start) as usize;
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
-                {
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     anyhow::bail!(
                         "Failed to set stack region protection: {}",
                         io::Error::last_os_error()
@@ -107,16 +94,15 @@ impl Memory {
                 let args = memory.args()?;
                 let start = memory.info.args.start as usize;
                 let size = args.len();
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0
-                {
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ | PROT_WRITE) != 0 {
                     anyhow::bail!(
                         "Failed to make args region writable: {}",
                         io::Error::last_os_error()
                     );
                 }
 
-                ptr::copy_nonoverlapping(args.as_ptr(), self.base.add(start), size);
-                if libc::mprotect(self.base.add(start) as *mut _, size, PROT_READ) != 0 {
+                ptr::copy_nonoverlapping(args.as_ptr(), base.add(start), size);
+                if libc::mprotect(base.add(start) as *mut _, size, PROT_READ) != 0 {
                     anyhow::bail!(
                         "Failed to set args region read-only: {}",
                         io::Error::last_os_error()
@@ -131,26 +117,27 @@ impl Memory {
     /// Read bytes from memory
     #[inline]
     pub fn read_bytes(&self, addr: u32, len: u32) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.base.add(addr as usize), len as usize) }
+        unsafe { std::slice::from_raw_parts(self.base().add(addr as usize), len as usize) }
     }
 
     /// Write bytes to memory
     #[inline]
     pub fn write_bytes(&mut self, addr: u32, data: &[u8]) {
         unsafe {
-            ptr::copy_nonoverlapping(data.as_ptr(), self.base.add(addr as usize), data.len());
+            ptr::copy_nonoverlapping(data.as_ptr(), self.base().add(addr as usize), data.len());
         }
     }
 
     /// Convert the virtual memory back to pvm::Memory structure
     pub fn fill(&self, original: &pvm::Memory) -> pvm::Memory {
+        let base = self.base();
         let mut memory_map = BTreeMap::new();
         for (&page_num, (_, perms)) in &original.memory {
             let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             let mut page_data = vec![0u8; pvm::PAGE_SIZE as usize];
             unsafe {
                 ptr::copy_nonoverlapping(
-                    self.base.add(page_addr),
+                    base.add(page_addr),
                     page_data.as_mut_ptr(),
                     pvm::PAGE_SIZE as usize,
                 );
@@ -166,16 +153,6 @@ impl Memory {
             memory: memory_map,
             info: original.info.clone(),
             heap_ptr: original.heap_ptr,
-        }
-    }
-}
-
-impl Drop for Memory {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.base.is_null() {
-                libc::munmap(self.base as *mut _, pvm::PVM_MEMORY_SIZE as usize);
-            }
         }
     }
 }
@@ -205,11 +182,12 @@ impl MemoryLike for Memory {
             return Ok(());
         }
 
+        let base = self.base();
         for page_num in page..(page + count) {
             let page_addr = (page_num as usize) * (pvm::PAGE_SIZE as usize);
             unsafe {
                 if libc::mprotect(
-                    self.base.add(page_addr) as *mut _,
+                    base.add(page_addr) as *mut _,
                     pvm::PAGE_SIZE as usize,
                     PROT_READ | PROT_WRITE,
                 ) != 0
@@ -233,5 +211,65 @@ impl MemoryLike for Memory {
 
     fn set_heap_ptr(&mut self, heap_ptr: u32) {
         self.heap_ptr = heap_ptr;
+    }
+}
+
+/// Reusable 4 GB virtual region.
+struct Region(*mut u8);
+
+// Safety: a `Region` is only handed out to one owner at a time.
+unsafe impl Send for Region {}
+
+impl Region {
+    /// Pop from the pool, or `mmap` a fresh 4 GB reservation if empty.
+    fn acquire() -> Result<Self> {
+        if let Some(region) = REGION_POOL.lock().pop() {
+            return Ok(region);
+        }
+        let base = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                pvm::PVM_MEMORY_SIZE as usize,
+                PROT_NONE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+                -1,
+                0,
+            )
+        };
+        if base == libc::MAP_FAILED {
+            anyhow::bail!(
+                "Failed to mmap virtual memory: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+        Ok(Region(base as *mut u8))
+    }
+
+    fn as_ptr(&self) -> *mut u8 {
+        self.0
+    }
+}
+
+impl Drop for Region {
+    fn drop(&mut self) {
+        let ptr = std::mem::replace(&mut self.0, ptr::null_mut());
+        if ptr.is_null() {
+            return;
+        }
+
+        // Reset the region to a known state
+        let size = pvm::PVM_MEMORY_SIZE as usize;
+        let madv_ok = unsafe { libc::madvise(ptr as *mut _, size, libc::MADV_DONTNEED) } == 0;
+        let mp_ok = unsafe { libc::mprotect(ptr as *mut _, size, PROT_NONE) } == 0;
+        if madv_ok && mp_ok {
+            REGION_POOL.lock().push(Region(ptr));
+        } else {
+            tracing::error!(
+                "Region reset failed (madvise_ok={madv_ok}, mprotect_ok={mp_ok}); dropping slot to avoid cross-invocation data leak"
+            );
+            unsafe {
+                libc::munmap(ptr as *mut _, size);
+            }
+        }
     }
 }

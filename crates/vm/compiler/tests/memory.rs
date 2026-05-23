@@ -30,17 +30,6 @@ fn gen_read(mut memory: Memory) -> anyhow::Result<()> {
         assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
     }
 
-    /*     // try accessing unallocated memory near the allocated memory
-    {
-        let Err(info) = trap::with(|| {
-            let slice = memory.read_bytes(REGION_END, 1);
-            slice[0]
-        }) else {
-            panic!("should trap on reading unallocated memory (REGION_END + 1)");
-        };
-        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
-    } */
-
     Ok(())
 }
 
@@ -110,4 +99,62 @@ fn test_heap() -> anyhow::Result<()> {
     memory.allocate(page_num, 1)?;
     memory.write_bytes(REGION_START, &[INIT_VALUE; REGION_SIZE]);
     gen_write(memory)
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn slot_reuse_rw_writes() -> anyhow::Result<()> {
+    let initial = vec![0xAA_u8; REGION_SIZE];
+    let pmem = pvm::Memory::default().with_rw_data(initial.clone(), REGION_START);
+
+    // Phase 1: overwrite initial state with a recognizable pattern.
+    {
+        let mut memory = Memory::new(&pmem)?;
+        memory.write_bytes(REGION_START, &[0xCC; REGION_SIZE]);
+        assert_eq!(
+            memory.read_bytes(REGION_START, REGION_SIZE as u32),
+            &[0xCC; REGION_SIZE][..]
+        );
+    }
+
+    // Phase 2: same layout. Must see freshly-initialized data, not phase 1's writes.
+    {
+        let memory = Memory::new(&pmem)?;
+        assert_eq!(
+            memory.read_bytes(REGION_START, REGION_SIZE as u32),
+            initial.as_slice(),
+            "rw region must be reset to initial state on slot reuse"
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn slot_reuse_heap_allocations() -> anyhow::Result<()> {
+    let pmem = pvm::Memory::default().with_heap(REGION_START..REGION_END);
+    let page_num = REGION_START / pvm::PAGE_SIZE as u32;
+
+    // Phase 1: allocate the page, write a pattern, drop.
+    {
+        let mut memory = Memory::new(&pmem)?;
+        memory.allocate(page_num, 1)?;
+        memory.write_bytes(REGION_START, &[0xCC; REGION_SIZE]);
+        assert_eq!(
+            memory.read_bytes(REGION_START, REGION_SIZE as u32),
+            &[0xCC; REGION_SIZE][..]
+        );
+    }
+
+    // Phase 2: same layout, but no `allocate` call. The page must be PROT_NONE again.
+    {
+        let memory = Memory::new(&pmem)?;
+        let Err(info) = trap::with(|| memory.read_bytes(REGION_START, 1)[0]) else {
+            panic!("heap page should be unmapped on slot reuse");
+        };
+        assert!(info.signal == libc::SIGSEGV || info.signal == libc::SIGBUS);
+    }
+
+    Ok(())
 }

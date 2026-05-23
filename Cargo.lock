@@ -2798,6 +2798,7 @@ dependencies = [
  "dirs",
  "hex",
  "libc",
+ "parking_lot",
  "postcard",
  "pvm",
  "rayon",
