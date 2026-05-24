@@ -55,6 +55,6 @@ toml.workspace = true
 [features]
 default = ["tiny"]
 dhat = ["dep:dhat"]
-tiny = ["score/tiny"]
-full = ["score/full"]
+tiny = ["score/tiny", "testing?/tiny"]
+full = ["score/full", "testing?/full"]
 trace = ["dep:testing"]

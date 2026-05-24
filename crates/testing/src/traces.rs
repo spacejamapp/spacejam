@@ -7,7 +7,7 @@ use runtime::{
     tx::{self, block::header, ticket::lazy},
 };
 use score::{
-    EntropyBuffer, OpaqueHash,
+    EntropyBuffer, OpaqueHash, TrieKey,
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
@@ -261,4 +261,61 @@ pub struct KeyValue {
     /// The value
     #[json(hex)]
     pub value: Vec<u8>,
+}
+
+/// Decode a binary trace into test input/output.
+pub fn from_bin(bytes: &[u8]) -> anyhow::Result<(TestInput, TestOutput)> {
+    let bin: bin::BinTrace = codec::decode(bytes)?;
+    Ok((
+        TestInput {
+            pre_state: bin.pre_state.into_state(),
+            block: bin.block,
+        },
+        TestOutput {
+            post_state: bin.post_state.into_state(),
+        },
+    ))
+}
+
+mod bin {
+    use super::*;
+
+    /// A binary trace
+    #[derive(Deserialize)]
+    pub struct BinTrace {
+        pub pre_state: BinState,
+        pub block: Block,
+        pub post_state: BinState,
+    }
+
+    /// A binary state
+    #[derive(Deserialize)]
+    pub struct BinState {
+        pub state_root: OpaqueHash,
+        pub keyvals: Vec<BinKeyValue>,
+    }
+
+    /// A binary key-value
+    #[derive(Deserialize)]
+    pub struct BinKeyValue {
+        pub key: TrieKey,
+        pub value: Vec<u8>,
+    }
+
+    /// Convert a binary state into a state
+    impl BinState {
+        pub fn into_state(self) -> State {
+            State {
+                state_root: self.state_root,
+                keyvals: self
+                    .keyvals
+                    .into_iter()
+                    .map(|kv| KeyValue {
+                        key: kv.key.to_vec(),
+                        value: kv.value,
+                    })
+                    .collect(),
+            }
+        }
+    }
 }

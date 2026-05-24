@@ -13,6 +13,7 @@ use syn::{Ident, ItemFn, parse_quote};
 const REPORTS: &str = "../../res/jam-conformance/fuzz-reports/0.7.2/traces";
 const TRACES: &str = "../../res/jam-test-vectors/traces";
 const REPORT: &str = "../../res/report";
+const SESSION: &str = "../../res/session/trace";
 
 fn scale() -> Scale {
     if env::var("CARGO_FEATURE_FULL").is_ok() {
@@ -26,6 +27,7 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=../../res/jam-test-vectors");
     println!("cargo:rerun-if-changed=../../res/jam-conformance/fuzz-reports/0.7.2/traces");
     println!("cargo:rerun-if-changed=../../res/report");
+    println!("cargo:rerun-if-changed=../../res/session/trace");
     println!("cargo:rerun-if-changed=./build.rs");
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     let workspace = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../");
@@ -157,16 +159,24 @@ fn build_all_seq_test(out: &Path, scale: Scale) -> Result<()> {
                 let path = entry.path();
                 if path.is_dir() {
                     let testset = path.to_str().expect("failed to get testset");
-                    items.push(build_seq_test(testset)?);
+                    let name = Path::new(testset)
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .expect("failed to get testset name");
+                    items.push(build_seq_test(testset, name)?);
                 }
             }
         }
     }
 
-    // REPORT dir can hold either tiny- or full-spec traces; the spec is
-    // declared in its report.json metadata. Only include if it matches.
+    // report from fuzzer
     if Path::new(REPORT).is_dir() && util::report_scale()? == Some(scale) {
-        items.push(build_seq_test(REPORT)?);
+        items.push(build_seq_test(REPORT, "report")?);
+    }
+
+    // session from fuzzer
+    if Path::new(SESSION).is_dir() && util::session_scale()? == Some(scale) {
+        items.push(build_seq_test(SESSION, "session")?);
     }
 
     fs::write(out, quote::quote!(#(#items)*).to_token_stream().to_string())?;
@@ -174,9 +184,8 @@ fn build_all_seq_test(out: &Path, scale: Scale) -> Result<()> {
 }
 
 /// Builds the sequential tests
-fn build_seq_test(entry: &str) -> Result<ItemFn> {
+fn build_seq_test(entry: &str, test_name: &str) -> Result<ItemFn> {
     let fentry = Entry::seq(entry)?;
-    let test_name = Path::new(entry).file_name().unwrap().to_str().unwrap();
     let mut tests = BTreeSet::<String>::new();
     for path in &fentry.files {
         let name = Entry::file_name(path)?;
@@ -243,14 +252,13 @@ mod util {
         Ok(())
     }
 
-    /// Read `res/report/report.json` and return the spec scale it declares,
-    /// or None if the file is missing or unrecognized.
-    pub fn report_scale() -> Result<Option<Scale>> {
-        let path = Path::new(REPORT).join("report.json");
+    /// Read a fuzz `report.json` at the given path and return the spec scale
+    /// it declares, or None if the file is missing or unrecognized.
+    pub fn spec_from_report(path: &Path) -> Result<Option<Scale>> {
         if !path.exists() {
             return Ok(None);
         }
-        let content = fs::read_to_string(&path)?;
+        let content = fs::read_to_string(path)?;
         // Strip whitespace so we tolerate any pretty-printing of the JSON.
         let stripped: String = content.chars().filter(|c| !c.is_whitespace()).collect();
         if stripped.contains(r#""jam_spec":{"full""#) {
@@ -260,6 +268,20 @@ mod util {
         } else {
             Ok(None)
         }
+    }
+
+    /// Spec declared by `res/report/report.json`, if present.
+    pub fn report_scale() -> Result<Option<Scale>> {
+        spec_from_report(&Path::new(REPORT).join("report.json"))
+    }
+
+    /// Spec declared by `res/session/report/report.json`, if present.
+    pub fn session_scale() -> Result<Option<Scale>> {
+        spec_from_report(
+            &Path::new(SESSION)
+                .with_file_name("report")
+                .join("report.json"),
+        )
     }
 
     pub fn scale_constructor() -> proc_macro2::TokenStream {

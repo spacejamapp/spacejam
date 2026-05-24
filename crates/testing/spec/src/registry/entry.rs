@@ -93,7 +93,11 @@ impl Entry {
         let base = PathBuf::from(repo);
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
-            if path.is_file() && path.extension().unwrap_or_default() == "json" {
+            if !path.is_file() {
+                continue;
+            }
+            let ext = path.extension().unwrap_or_default();
+            if ext == "json" || ext == "bin" {
                 files.insert(path);
             }
         }
@@ -124,8 +128,12 @@ impl Entry {
 
     /// Get a test vector by name
     pub fn test(&self, name: &str) -> Result<Test> {
-        let path = self.base.join(format!("{name}.json"));
-        self.parse(&path)
+        let json_path = self.base.join(format!("{name}.json"));
+        if json_path.exists() {
+            return self.parse(&json_path);
+        }
+        let bin_path = self.base.join(format!("{name}.bin"));
+        self.parse(&bin_path)
     }
 
     /// Parse a test vector from a file
@@ -255,6 +263,16 @@ impl Entry {
     /// Parse a trace test vector from a file
     fn parse_trace(&self, path: &PathBuf) -> Result<Test> {
         let name = Self::file_name(path)?;
+        if path.extension().and_then(|s| s.to_str()) == Some("bin") {
+            let bytes = fs::read(path)?;
+            return Ok(Test {
+                input: format!("bin:{}", hex::encode(&bytes)),
+                output: String::new(),
+                scale: self.scale,
+                section: self.section,
+                name,
+            });
+        }
         let json: Value = serde_json::from_slice(&fs::read(path)?)?;
         let input = serde_json::json!({
             "block": json["block"],
