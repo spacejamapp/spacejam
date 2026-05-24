@@ -66,7 +66,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
 
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     if use_compiler {
-        self::run_single::<spacevm::Compiler, _>(memdb, input, output).await
+        self::run_single::<spacevm::SpaceVM, _>(memdb, input, output).await
     } else {
         self::run_single::<spacevm::Interpreter, _>(memdb, input, output).await
     }

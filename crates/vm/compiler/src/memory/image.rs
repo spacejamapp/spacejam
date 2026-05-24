@@ -46,7 +46,6 @@ impl MemoryImage {
         let ro_size = ro.len().next_multiple_of(page);
         let rw_size = rw.len().next_multiple_of(page);
         let total = ro_size + rw_size;
-
         let name = c"spacejam-pvm-image";
         let raw = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
         if raw < 0 {

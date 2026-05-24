@@ -21,7 +21,7 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
     // run the accumulate function
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     let accumulation = if use_compiler {
-        tx::guarantee::accumulate::<spacevm::Compiler, _>(
+        tx::guarantee::accumulate::<spacevm::SpaceVM, _>(
             input.input.slot,
             input.pre_state.slot,
             input.input.reports,
