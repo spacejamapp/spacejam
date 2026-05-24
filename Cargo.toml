@@ -21,7 +21,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.2-pre.9"
+version = "0.1.2-pre.10"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -78,7 +78,11 @@ ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
-ark-vrf = { version = "=0.2.1", features = ["bandersnatch", "ring", "parallel"] }
+ark-vrf = { version = "=0.2.1", features = [
+    "bandersnatch",
+    "ring",
+    "parallel",
+] }
 async-trait = "0.1.89"
 bindgen = "0.72"
 blake2 = "0.10.6"
@@ -116,10 +120,22 @@ quinn = "0.11.9"
 quote = "1.0.40"
 rand = "0.8.5"
 rayon = "1.11.0"
-rcgen = { version = "0.13.2", default-features = false, features = ["crypto", "pem", "ring"] }
+rcgen = { version = "0.13.2", default-features = false, features = [
+    "crypto",
+    "pem",
+    "ring",
+] }
 reed-solomon = { package = "reed-solomon-simd", version = "3.0.1" }
-rustls = { version = "0.23.31", default-features = false, features = ["std", "logging", "tls12", "ring"] }
-rustls-webpki = { version = "0.102.8", default-features = false, features = ["std", "ring"] }
+rustls = { version = "0.23.31", default-features = false, features = [
+    "std",
+    "logging",
+    "tls12",
+    "ring",
+] }
+rustls-webpki = { version = "0.102.8", default-features = false, features = [
+    "std",
+    "ring",
+] }
 serde = { version = "1.0.219", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.143", default-features = false }
 syn = "2.0.106"

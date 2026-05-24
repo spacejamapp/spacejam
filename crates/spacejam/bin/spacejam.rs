@@ -17,7 +17,7 @@ async fn main() {
 ///
 /// - on tiny that's `VALIDATORS_COUNT = 6`;
 /// - on full the ed25519 sig batch dominates with ~64 chunks of 32, so
-/// 32 workers gives ~2 chunks per worker
+///   32 workers gives ~2 chunks per worker
 #[cfg(all(feature = "tiny", not(feature = "full")))]
 const RAYON_DEFAULT_CAP: usize = 6;
 #[cfg(feature = "full")]
