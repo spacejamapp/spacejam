@@ -89,19 +89,26 @@ impl Entry {
 
     /// Build entry from the jam-conformance repo
     pub fn seq(repo: &str) -> Result<Self> {
-        let mut files = BTreeSet::new();
         let base = PathBuf::from(repo);
+        let mut bins = BTreeSet::new();
+        let mut jsons = BTreeSet::new();
         for entry in fs::read_dir(Path::new(repo))? {
             let path = entry?.path();
             if !path.is_file() {
                 continue;
             }
-            let ext = path.extension().unwrap_or_default();
-            if ext == "json" || ext == "bin" {
-                files.insert(path);
+            match path.extension().and_then(|s| s.to_str()) {
+                Some("bin") => {
+                    bins.insert(path);
+                }
+                Some("json") => {
+                    jsons.insert(path);
+                }
+                _ => {}
             }
         }
 
+        let files = if bins.is_empty() { jsons } else { bins };
         Ok(Self {
             base,
             section: Section::Trace(Trace::Any),
