@@ -22,7 +22,8 @@ w3f-bls = { workspace = true, optional = true }
 tracing.workspace = true
 
 [features]
-default = []
+default = ["tiny"]
+tiny = []
 full = []
 blake2 = ["dep:blake2b_simd"]
 blake3 = ["dep:blake3"]

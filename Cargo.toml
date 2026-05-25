@@ -21,7 +21,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.2-pre.11"
+version = "0.1.2-pre.12"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
