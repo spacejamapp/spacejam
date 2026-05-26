@@ -318,12 +318,6 @@ impl Fuzzer {
 
     /// Decode a trace test into its input/output pair.
     fn decode(test: &Test) -> Result<(traces::TestInput, traces::TestOutput)> {
-        if let Some(hex_data) = test.input.strip_prefix("bin:") {
-            let bytes = hex::decode(hex_data)?;
-            return traces::from_bin(&bytes);
-        }
-        let input = traces::TestInput::from_json(&test.input)?;
-        let output = traces::TestOutput::from_json(&test.output)?;
-        Ok((input, output))
+        Ok(traces::decode(test)?)
     }
 }

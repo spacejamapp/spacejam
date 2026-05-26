@@ -56,8 +56,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
         return Ok(false);
     }
     let memdb = Arc::new(MemoryDb::default());
-    let input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let (input, output) = decode(test)?;
     for keyval in input.pre_state.keyvals.clone() {
         memdb
             .state_set(keyval.key, keyval.value)
@@ -261,6 +260,18 @@ pub struct KeyValue {
     /// The value
     #[json(hex)]
     pub value: Vec<u8>,
+}
+
+/// Decode a `Test` into its input/output, accepting either JSON or `bin:<hex>` input.
+pub fn decode(test: &specjam::Test) -> anyhow::Result<(TestInput, TestOutput)> {
+    if let Some(hex_data) = test.input.strip_prefix("bin:") {
+        let bytes = hex::decode(hex_data)?;
+        return from_bin(&bytes);
+    }
+    Ok((
+        TestInput::from_json(&test.input)?,
+        TestOutput::from_json(&test.output)?,
+    ))
 }
 
 /// Decode a binary trace into test input/output.
