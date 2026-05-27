@@ -3,7 +3,6 @@
 use crate::{
     Storage,
     storage::{Column, Commit},
-    timing,
 };
 use anyhow::Result;
 pub use executor::Executor;
@@ -26,7 +25,6 @@ pub fn transit<Vm: Pvm>(
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let diff = self::simulate::<Vm>(&mut block, storage.clone())?;
-    let _guard = timing::commit();
     storage.commit(Column::State, &diff)?;
     Ok(diff)
 }
@@ -39,7 +37,6 @@ pub fn transit_with_state<Vm: Pvm>(
     storage: Arc<impl Storage>,
 ) -> Result<Commit<TrieKey, Vec<u8>>> {
     let diff = self::simulate_with_state::<Vm>(&mut block, state, storage.clone())?;
-    let _guard = timing::commit();
     storage.commit(Column::State, &diff)?;
     Ok(diff)
 }
