@@ -21,7 +21,7 @@ resolver = "1"
 
 [workspace.package]
 edition = "2024"
-version = "0.1.2-pre.12"
+version = "0.1.2"
 homepage = "https://spacejam.app"
 repository = "https://github.com/spacejamapp/jade"
 license = "GPL-3.0"
@@ -167,10 +167,6 @@ trait-variant = "0.1.2"
 uint = "0.10.0"
 w3f-bls = "0.1.9"
 x509-parser = "0.17.0"
-
-[patch.crates-io]
-# w3f-ring-proof = { git = "https://github.com/sunhuachuang/ring-proof" }
-# ark-vrf = { git = "https://github.com/sunhuachuang/ark-vrf" }
 
 [workspace.metadata.conta]
 packages = ["codec", "spacejson-derive", "spacejson", "spec", "service"]
