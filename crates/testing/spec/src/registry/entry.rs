@@ -1,6 +1,6 @@
 //! Test vector registry entry
 
-use crate::{Scale, Section, Test, Trace};
+use crate::{Payload, Scale, Section, Test, Trace};
 use anyhow::Result;
 use serde_json::Value;
 use std::{
@@ -178,8 +178,8 @@ impl Entry {
     /// Parse a codec test vector from a file
     fn parse_codec(&self, path: &PathBuf) -> Result<Test> {
         let name = Self::file_name(path)?;
-        let input = fs::read_to_string(path)?;
-        let output = hex::encode(fs::read(path.with_extension("bin"))?);
+        let input = Payload::Json(fs::read_to_string(path)?);
+        let output = Payload::Bin(fs::read(path.with_extension("bin"))?);
 
         Ok(Test {
             input,
@@ -198,8 +198,8 @@ impl Entry {
         let output: Vec<String> = serde_json::from_value(json["shards"].clone())?;
 
         Ok(Test {
-            input,
-            output: serde_json::to_string(&output)?,
+            input: Payload::Json(input),
+            output: Payload::Json(serde_json::to_string(&output)?),
             name,
             scale: self.scale,
             section: self.section,
@@ -223,8 +223,8 @@ impl Entry {
         .to_string();
 
         Ok(Test {
-            input,
-            output,
+            input: Payload::Json(input),
+            output: Payload::Json(output),
             name,
             scale: self.scale,
             section: self.section,
@@ -259,8 +259,8 @@ impl Entry {
         .to_string();
 
         Ok(Test {
-            input,
-            output,
+            input: Payload::Json(input),
+            output: Payload::Json(output),
             scale: self.scale,
             section: self.section,
             name,
@@ -271,10 +271,9 @@ impl Entry {
     fn parse_trace(&self, path: &PathBuf) -> Result<Test> {
         let name = Self::file_name(path)?;
         if path.extension().and_then(|s| s.to_str()) == Some("bin") {
-            let bytes = fs::read(path)?;
             return Ok(Test {
-                input: format!("bin:{}", hex::encode(&bytes)),
-                output: String::new(),
+                input: Payload::Bin(fs::read(path)?),
+                output: Payload::default(),
                 scale: self.scale,
                 section: self.section,
                 name,
@@ -293,8 +292,8 @@ impl Entry {
         .to_string();
 
         Ok(Test {
-            input,
-            output,
+            input: Payload::Json(input),
+            output: Payload::Json(output),
             scale: self.scale,
             section: self.section,
             name,
@@ -320,8 +319,8 @@ impl Entry {
         }
 
         Ok(Test {
-            input: serde_json::to_string(&input)?,
-            output: serde_json::to_string(&output)?,
+            input: Payload::Json(serde_json::to_string(&input)?),
+            output: Payload::Json(serde_json::to_string(&output)?),
             scale: self.scale,
             section: self.section,
             name,
@@ -349,8 +348,8 @@ impl Entry {
         }
 
         Ok(Test {
-            input: serde_json::to_string(&input)?,
-            output: serde_json::to_string(&output)?,
+            input: Payload::Json(serde_json::to_string(&input)?),
+            output: Payload::Json(serde_json::to_string(&output)?),
             scale: self.scale,
             section: self.section,
             name,

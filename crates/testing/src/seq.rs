@@ -54,11 +54,5 @@ impl Default for Processor {
 }
 
 fn decode_trace(test: &Test) -> Result<(TestInput, TestOutput)> {
-    if let Some(hex_data) = test.input.strip_prefix("bin:") {
-        let bytes = hex::decode(hex_data)?;
-        return traces::from_bin(&bytes);
-    }
-    let input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
-    Ok((input, output))
+    traces::decode(test)
 }

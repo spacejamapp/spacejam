@@ -24,8 +24,8 @@ macro_rules! impl_codec_tests {
         };
         let registry = Registry::with_scale(PathBuf::from("../../res/jam-test-vectors"), scale);
         let test = registry.entry("codec").unwrap().test(stringify!($name)).unwrap();
-        let json = test.input.to_string();
-        let data = hex::decode(&test.output)?;
+        let json = test.input.expect_json()?.to_string();
+        let data = test.output.expect_bin()?.to_vec();
 
         (json, data)
     }};

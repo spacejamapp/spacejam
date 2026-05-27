@@ -52,7 +52,9 @@ mod storage_light {
 }
 
 pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
-    if test.input.len() == 31 {
+    if let Some(s) = test.input.as_json()
+        && s.len() == 31
+    {
         return Ok(false);
     }
     let memdb = Arc::new(MemoryDb::default());
@@ -262,16 +264,20 @@ pub struct KeyValue {
     pub value: Vec<u8>,
 }
 
-/// Decode a `Test` into its input/output, accepting either JSON or `bin:<hex>` input.
+/// Decode a `Test` into its input/output.
 pub fn decode(test: &specjam::Test) -> anyhow::Result<(TestInput, TestOutput)> {
-    if let Some(hex_data) = test.input.strip_prefix("bin:") {
-        let bytes = hex::decode(hex_data)?;
-        return from_bin(&bytes);
+    if let Some(bytes) = test.input.as_bin() {
+        return from_bin(bytes);
     }
-    Ok((
-        TestInput::from_json(&test.input)?,
-        TestOutput::from_json(&test.output)?,
-    ))
+    let input = test
+        .input
+        .as_json()
+        .ok_or_else(|| anyhow::anyhow!("trace input: expected JSON or bin"))?;
+    let output = test
+        .output
+        .as_json()
+        .ok_or_else(|| anyhow::anyhow!("trace output: expected JSON"))?;
+    Ok((TestInput::from_json(input)?, TestOutput::from_json(output)?))
 }
 
 /// Decode a binary trace into test input/output.

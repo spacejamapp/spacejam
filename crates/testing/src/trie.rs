@@ -21,10 +21,14 @@ fn trie() {
     let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
     let test = registry.trie().unwrap().get(0).unwrap();
 
-    let tests: Vec<TestInput> =
-        serde_json::from_str(&test.input).expect("failed to parse trie test input");
-    let output: Vec<TestOutput> =
-        serde_json::from_str(&test.output).expect("failed to parse trie test output");
+    let tests: Vec<TestInput> = serde_json::from_str(
+        test.input.expect_json().expect("trie input must be JSON"),
+    )
+    .expect("failed to parse trie test input");
+    let output: Vec<TestOutput> = serde_json::from_str(
+        test.output.expect_json().expect("trie output must be JSON"),
+    )
+    .expect("failed to parse trie test output");
 
     for (input, output) in tests
         .into_iter()

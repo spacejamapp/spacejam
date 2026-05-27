@@ -21,8 +21,8 @@ async fn run_codec(test: &str) -> anyhow::Result<()> {
         specjam::Scale::Tiny
     };
     let test = registry.erasure(scale)?.test(test)?;
-    let mut data = hex::decode(test.input.trim_start_matches("0x"))?;
-    let shards = serde_json::from_str::<Vec<String>>(&test.output)?
+    let mut data = hex::decode(test.input.expect_json()?.trim_start_matches("0x"))?;
+    let shards = serde_json::from_str::<Vec<String>>(test.output.expect_json()?)?
         .into_iter()
         .map(|shard| {
             hex::decode(shard.trim_start_matches("0x"))

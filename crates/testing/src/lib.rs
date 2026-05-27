@@ -2,7 +2,7 @@
 
 #![allow(unused_imports)]
 
-pub use specjam::{Entry, Scale, Section, Test, Trace};
+pub use specjam::{Entry, Payload, Scale, Section, Test, Trace};
 
 pub mod accumulate;
 pub mod assurances;

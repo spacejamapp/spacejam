@@ -20,8 +20,8 @@ fn tests() -> anyhow::Result<()> {
     // grab `shuffle_tests.json`
     let registry = Registry::new(PathBuf::from("../../res/jam-test-vectors"));
     let test = registry.shuffle()?.get(0)?;
-    let input: Vec<TestInput> = serde_json::from_str(&test.input)?;
-    let output: Vec<TestOutput> = serde_json::from_str(&test.output)?;
+    let input: Vec<TestInput> = serde_json::from_str(test.input.expect_json()?)?;
+    let output: Vec<TestOutput> = serde_json::from_str(test.output.expect_json()?)?;
 
     for (source, target) in input.into_iter().zip(output) {
         let mut input = vec![0; source.input as usize];

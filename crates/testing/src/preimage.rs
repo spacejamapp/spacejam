@@ -13,8 +13,8 @@ use types::*;
 // include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let input = TestInput::from_json(test.input.expect_json()?)?;
+    let output = TestOutput::from_json(test.output.expect_json()?)?;
 
     // Validate post state
     let mut accounts = to_accounts(input.pre_state.accounts.clone());

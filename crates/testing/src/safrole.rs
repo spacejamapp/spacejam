@@ -17,8 +17,8 @@ include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
 /// Run the safrole test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let mut input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let mut input = TestInput::from_json(test.input.expect_json()?)?;
+    let output = TestOutput::from_json(test.output.expect_json()?)?;
     let result = input.pre_state.enact(&input.input);
 
     assert_eq!(result, output.output);

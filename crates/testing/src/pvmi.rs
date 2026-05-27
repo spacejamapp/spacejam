@@ -9,8 +9,8 @@ include!(concat!(env!("OUT_DIR"), "/pvm.rs"));
 
 /// Run the PVM test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input: TestInput = serde_json::from_str(&test.input)?;
-    let output: TestOutput = serde_json::from_str(&test.output)?;
+    let input: TestInput = serde_json::from_str(test.input.expect_json()?)?;
+    let output: TestOutput = serde_json::from_str(test.output.expect_json()?)?;
     let mut registers = [0; 13];
     registers.copy_from_slice(&input.initial_regs);
 

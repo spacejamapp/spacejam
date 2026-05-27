@@ -3,7 +3,7 @@
 use anyhow::Context;
 use serde_json::Value;
 use std::{fs, path::Path, time::Instant};
-use testing::{Entry, Runner, Scale, Section, Test, Trace};
+use testing::{Entry, Payload, Runner, Scale, Section, Test, Trace};
 
 /// Test a single trace file (`.json` or `.bin`).
 pub async fn test(file: &Path) -> anyhow::Result<()> {
@@ -40,10 +40,9 @@ fn parse(file: &Path) -> anyhow::Result<Test> {
     let scale = Some(Scale::Tiny);
 
     if file.extension().and_then(|s| s.to_str()) == Some("bin") {
-        let bytes = fs::read(file)?;
         return Ok(Test {
-            input: format!("bin:{}", hex::encode(&bytes)),
-            output: String::new(),
+            input: Payload::Bin(fs::read(file)?),
+            output: Payload::default(),
             scale,
             section,
             name,
@@ -62,8 +61,8 @@ fn parse(file: &Path) -> anyhow::Result<Test> {
     .to_string();
 
     Ok(Test {
-        input,
-        output,
+        input: Payload::Json(input),
+        output: Payload::Json(output),
         scale,
         section,
         name,

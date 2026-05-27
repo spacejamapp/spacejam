@@ -16,8 +16,8 @@ use spacejson::{Json, ResultJson};
 include!(concat!(env!("OUT_DIR"), "/disputes.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let mut input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let mut input = TestInput::from_json(test.input.expect_json()?)?;
+    let output = TestOutput::from_json(test.output.expect_json()?)?;
     let result = tx::dispute::disputes(
         input.pre_state.tau,
         &input.pre_state.kappa,

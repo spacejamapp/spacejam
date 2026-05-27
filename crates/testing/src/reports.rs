@@ -18,8 +18,8 @@ include!(concat!(env!("OUT_DIR"), "/reports.rs"));
 
 /// Run the reports test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let TestInput { input, pre_state } = TestInput::from_json(&test.input)?;
-    let TestOutput { output, post_state } = TestOutput::from_json(&test.output)?;
+    let TestInput { input, pre_state } = TestInput::from_json(test.input.expect_json()?)?;
+    let TestOutput { output, post_state } = TestOutput::from_json(test.output.expect_json()?)?;
 
     assert_eq!(pre_state.curr_validators, post_state.curr_validators);
     assert_eq!(pre_state.prev_validators, post_state.prev_validators);

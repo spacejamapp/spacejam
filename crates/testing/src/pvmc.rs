@@ -26,8 +26,8 @@ impl Runner {
             .with_target(false)
             .try_init();
 
-        let input: TestInput = serde_json::from_str(&test.input)?;
-        let output: TestOutput = serde_json::from_str(&test.output)?;
+        let input: TestInput = serde_json::from_str(test.input.expect_json()?)?;
+        let output: TestOutput = serde_json::from_str(test.output.expect_json()?)?;
         let mut initial_registers = [0u64; pvm::REGISTER_COUNT];
         initial_registers.copy_from_slice(&input.initial_regs);
 
