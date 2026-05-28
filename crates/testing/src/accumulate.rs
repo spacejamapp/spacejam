@@ -2,12 +2,8 @@
 
 use anyhow::Result;
 use runtime::tx;
-use score::{
-    OpaqueHash, TimeSlot,
-    service::{WorkReport, WorkReportJson},
-};
+use score::{OpaqueHash, TimeSlot, service::WorkReport};
 use serde::{Deserialize, Serialize};
-use spacejson::{Json, ResultJson};
 pub use types::*;
 
 include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
@@ -93,64 +89,56 @@ pub async fn run(test: &specjam::Test) -> Result<()> {
 }
 
 /// Accumulate test
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Test {
     /// The input
-    #[json(nested)]
     pub input: TestInput,
 
     /// The output
-    #[json(ResultJson<String, ()>)]
     pub output: Result<OpaqueHash, ()>,
 }
 
 /// Test input
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Input {
     /// The time slot from the block header
     pub slot: TimeSlot,
 
     /// The reports
-    #[json(nested)]
     pub reports: Vec<WorkReport>,
 }
 
 /// Test input
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TestInput {
     /// The input
-    #[json(nested)]
     pub input: Input,
 
     /// The pre-state
-    #[json(nested)]
     pub pre_state: State,
 }
 
 /// Test output
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TestOutput {
     /// The post-state
-    #[json(nested)]
     pub post_state: State,
 
     /// The output
-    #[json(ResultJson<String, ()>)]
     pub output: Result<OpaqueHash, ()>,
 }
 
 mod types {
-    use crate::reports::{ServiceItem, ServiceItemJson};
+    use crate::reports::ServiceItem;
     use ::account::{Account, Accounts};
     use runtime::Accumulation;
     use score::{
         Entropy, Gas, ServiceId, TimeSlot,
-        service::{AccumulatedQueue, Privileges, ReadyQueue, ReadyReportJson, ServiceAccount},
+        service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceAccount},
         state::account,
-        statistic::{ServiceActivityRecord, ServiceActivityRecordJson},
+        statistic::ServiceActivityRecord,
     };
     use serde::{Deserialize, Serialize};
-    use spacejson::Json;
     use std::collections::BTreeMap;
 
     /// Convert the accumulation to the accounts
@@ -168,33 +156,27 @@ mod types {
     }
 
     /// State for the accumulation
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct State {
         /// The time slot
         pub slot: TimeSlot,
 
         /// The current entropy
-        #[json(hex)]
         pub entropy: Entropy,
 
         /// The ready queue
-        #[json(Vec<Vec<ReadyReportJson>>)]
         pub ready_queue: ReadyQueue,
 
         /// The accumulated reports
-        #[json(Vec<Vec<String>>)]
         pub accumulated: AccumulatedQueue,
 
         /// The privileges
-        #[json(nested)]
         pub privileges: PrivilegesWrap,
 
         /// The statistics
-        #[json(nested)]
         pub statistics: Vec<RecordWrap>,
 
         /// The accounts
-        #[json(nested)]
         pub accounts: Vec<ServiceItem>,
     }
 
@@ -230,24 +212,22 @@ mod types {
     }
 
     /// Record wrapper
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct RecordWrap {
         /// The service id
         pub id: ServiceId,
 
         /// The record
-        #[json(nested)]
         pub record: ServiceActivityRecord,
     }
 
     /// Privileges wrapper
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct PrivilegesWrap {
         /// The bless service id
         pub bless: ServiceId,
 
         /// The assign service id
-        #[json(Vec<ServiceId>)]
         pub assign: score::CoreAssignments,
 
         /// The designate service id
@@ -257,7 +237,6 @@ mod types {
         pub register: ServiceId,
 
         /// The always accumulate service ids
-        #[json(nested)]
         pub always_acc: Vec<AlwaysAccumulateMapItem>,
     }
 
@@ -294,7 +273,7 @@ mod types {
     }
 
     /// Always accumulate service id
-    #[derive(Debug, Serialize, Deserialize, Json)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct AlwaysAccumulateMapItem {
         /// The service id
         pub service: ServiceId,

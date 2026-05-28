@@ -5,13 +5,10 @@ use runtime::tx::{
     guarantee::error::{Error, Result},
 };
 use score::{
-    Block, Ed25519Public, OpaqueHash, TimeSlot,
-    block::{History, HistoryJson},
-    extrinsic::{GuaranteesExtrinsic, ReportGuaranteeJson},
-    service::{ReportedWorkPackage, ReportedWorkPackageJson},
+    Block, Ed25519Public, OpaqueHash, TimeSlot, extrinsic::GuaranteesExtrinsic,
+    service::ReportedWorkPackage,
 };
 use serde::{Deserialize, Serialize};
-use spacejson::{Json, ResultJson};
 pub use types::*;
 
 include!(concat!(env!("OUT_DIR"), "/reports.rs"));
@@ -59,30 +56,24 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 }
 
 /// Test input.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestInput {
-    #[json(nested)]
     pub input: Input,
-    #[json(nested)]
     pub pre_state: State,
 }
 
 /// Test output.
-#[derive(Debug, Serialize, Deserialize, Json, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TestOutput {
-    #[json(ResultJson<OutputJson, Error>)]
     pub output: Result<Output>,
-    #[json(nested)]
     pub post_state: State,
 }
 
 /// Input of the reporting module.
-#[derive(Debug, Clone, Serialize, Deserialize, Json)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Input {
-    #[json(Vec<ReportGuaranteeJson>)]
     pub guarantees: GuaranteesExtrinsic,
     pub slot: TimeSlot,
-    #[json(Vec<String>)]
     pub known_packages: Vec<OpaqueHash>,
 }
 
@@ -96,62 +87,48 @@ impl From<Input> for Block {
 }
 
 /// Output of the reporting module.
-#[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Output {
-    #[json(nested)]
     pub reported: Vec<ReportedWorkPackage>,
-    #[json(Vec<String>)]
     pub reporters: Vec<Ed25519Public>,
 }
 
 mod types {
     use score::{
-        CORES_COUNT, Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId,
-        block::{History, HistoryJson},
-        safrole::{ValidatorDataJson, ValidatorsData},
-        service::{
-            AvailabilityAssignmentJson, AvailabilityAssignments, ServiceAccount, ServiceInfo,
-            ServiceInfoJson,
-        },
+        Ed25519Public, EntropyBuffer, OpaqueHash, ServiceId,
+        block::History,
+        safrole::ValidatorsData,
+        service::{AvailabilityAssignments, ServiceAccount, ServiceInfo},
     };
     use serde::{Deserialize, Serialize};
-    use spacejson::Json;
     use std::collections::BTreeMap;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct State {
         /// (ρ‡) Intermediate pending reports after that any work report judged as
         /// uncertain or invalid has been removed from it (ϱ†), and the availability
         /// assurances are processed. Mutated to ϱ'.
-        #[json(Vec<Option<AvailabilityAssignmentJson>>)]
         pub avail_assignments: AvailabilityAssignments,
 
         /// (κ') Posterior active validators.
-        #[json(Vec<ValidatorDataJson>)]
         pub curr_validators: ValidatorsData,
 
         /// (λ') Posterior previous validators.
-        #[json(Vec<ValidatorDataJson>)]
         pub prev_validators: ValidatorsData,
 
         /// (η') Posterior entropy buffer.
-        #[json(Vec<String>)]
         pub entropy: EntropyBuffer,
 
         /// (ψ'_o) Posterior offenders.
-        #[json(Vec<String>)]
         pub offenders: Vec<Ed25519Public>,
 
         /// (β) Recent blocks.
-        #[json(nested)]
         pub recent_blocks: History,
 
         /// (α') Authorization pools.
-        #[json(Vec<Vec<String>>)]
         pub auth_pools: score::AuthorizationPools,
 
         /// (δ) Encoded services dictionary. Refer to T(σ) in Appendix D.
-        #[json(nested)]
         #[serde(alias = "accounts")]
         pub services: Vec<ServiceItem>,
     }
@@ -265,37 +242,32 @@ mod types {
     }
 
     /// Represents a service item.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServiceItem {
         /// The id of the service item
         pub id: ServiceId,
 
         /// The info of the service item
-        #[json(nested)]
         pub data: ServiceAccountData,
     }
 
     /// Represents the service account data.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServiceAccountData {
         /// The service account state
-        #[json(nested)]
         pub service: ServiceInfo,
 
         /// The storage
         #[serde(default)]
-        #[json(nested)]
         pub storage: Vec<ServiceStorage>,
 
         /// (a_p) The preimages
         #[serde(default)]
-        #[json(nested)]
         #[serde(alias = "preimage_blobs")]
         pub preimages: Vec<ServicePreimage>,
 
         /// The preimage status
         #[serde(default)]
-        #[json(nested)]
         #[serde(alias = "preimage_requests")]
         pub preimage_requests: Vec<ServicePreimageRequest>,
     }
@@ -365,22 +337,19 @@ mod types {
     }
 
     /// Represents a service preimage.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServicePreimage {
         /// The hash of the preimage
-        #[json(hex)]
         pub hash: OpaqueHash,
 
         /// The blob of the preimage
-        #[json(hex)]
         pub blob: Vec<u8>,
     }
 
     /// Represents a service preimage.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServicePreimageRequest {
         /// The key of the preimage
-        #[json(nested)]
         pub key: ServicePreimageRequestKey,
 
         /// The status of the preimage
@@ -388,10 +357,9 @@ mod types {
     }
 
     /// Represents a service preimage.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServicePreimageRequestKey {
         /// The hash of the preimage
-        #[json(hex)]
         pub hash: OpaqueHash,
 
         /// The length of the preimage
@@ -399,14 +367,12 @@ mod types {
     }
 
     /// Represents a service storage.
-    #[derive(Debug, Clone, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct ServiceStorage {
         /// The key of the storage
-        #[json(hex)]
         pub key: Vec<u8>,
 
         /// The value of the storage
-        #[json(hex)]
         pub value: Vec<u8>,
     }
 }

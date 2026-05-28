@@ -2,12 +2,11 @@
 
 use score::{
     EPOCH_LENGTH, TimeSlot, ValidatorIndex,
-    extrinsic::{Extrinsic, ExtrinsicJson},
+    extrinsic::Extrinsic,
     safrole::{ValidatorIter, ValidatorsData},
     statistic::{Statistics, ValidatorStats},
 };
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
 
 include!(concat!(env!("OUT_DIR"), "/statistics.rs"));
 
@@ -48,10 +47,9 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Debug, PartialEq, Eq, Json, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {
     pub slot: TimeSlot,
     pub author_index: ValidatorIndex,
-    #[json(nested)]
     pub extrinsic: Extrinsic,
 }

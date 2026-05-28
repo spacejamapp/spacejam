@@ -3,15 +3,11 @@
 use runtime::tx::{self, ticket::Error};
 use score::{
     BandersnatchRingCommitment, Ed25519Public, EntropyBuffer, OpaqueHash,
-    block::header::{EpochMark, EpochMarkJson, TicketsMark},
-    extrinsic::ticket::{
-        TicketBodyJson, TicketEnvelopeJson, TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys,
-        TicketsOrKeysJson,
-    },
-    safrole::{Safrole, ValidatorDataJson, Validators, ValidatorsData},
+    block::header::{EpochMark, TicketsMark},
+    extrinsic::ticket::{TicketsAccumulator, TicketsExtrinsic, TicketsOrKeys},
+    safrole::{Safrole, Validators, ValidatorsData},
 };
 use serde::{Deserialize, Serialize};
-use spacejson::{Json, ResultJson};
 
 include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
@@ -38,78 +34,61 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 }
 
 /// Test input.
-#[derive(Deserialize, Serialize, Json, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Input {
     pub slot: u32,
-    #[json(hex)]
     pub entropy: OpaqueHash,
-    #[json(Vec<TicketEnvelopeJson>)]
     pub extrinsic: TicketsExtrinsic,
 }
 
 /// Test input.
-#[derive(Deserialize, Serialize, Json, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TestInput {
-    #[json(nested)]
     pub input: Input,
-    #[json(nested)]
     pub pre_state: State,
 }
 
 /// Test output.
-#[derive(Deserialize, Serialize, Json, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TestOutput {
-    #[json(ResultJson<MarkersJson, Error>)]
     pub output: std::result::Result<Markers, Error>,
-    #[json(nested)]
     pub post_state: State,
 }
 
 /// Represents the Output marks
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq, Json)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Eq)]
 pub struct Markers {
     /// New epoch marker
-    #[json(nested)]
     pub epoch_mark: Option<EpochMark>,
     /// New tickets marker
-    #[json(Option<Vec<TicketBodyJson>>)]
     pub tickets_mark: Option<TicketsMark>,
 }
 
 /// Represents the State structure.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Json, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct State {
     /// Most recent block's timeslot.
     pub tau: u32,
     /// Entropy accumulator and epochal randomness.
     ///
     /// graypaper reference: 6.21
-    #[json(Vec<String>)]
     pub eta: EntropyBuffer,
     /// Previous epoch's validators
-    #[json(Vec<ValidatorDataJson>)]
     pub lambda: ValidatorsData,
     /// Current epoch's validators
-    #[json(Vec<ValidatorDataJson>)]
     pub kappa: ValidatorsData,
     /// Next epoch's validators
-    #[json(Vec<ValidatorDataJson>)]
     pub gamma_k: ValidatorsData,
     /// Validators to be drawn from next
-    #[json(Vec<ValidatorDataJson>)]
     pub iota: ValidatorsData,
     /// Sealing-key contest ticket accumulator
-    #[json(Vec<TicketBodyJson>)]
     pub gamma_a: TicketsAccumulator,
     /// Sealing-key series of the current epoch
-    #[json(nested)]
     pub gamma_s: TicketsOrKeys,
     /// Bandersnatch ring commitment
     #[serde(with = "codec::bytes")]
-    #[json(hex)]
     pub gamma_z: BandersnatchRingCommitment,
     /// Offenders
-    #[json(Vec<String>)]
     pub post_offenders: Vec<Ed25519Public>,
 }
 

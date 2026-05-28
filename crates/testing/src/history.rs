@@ -1,14 +1,8 @@
 //! history test
 
-use anyhow::Result;
 use runtime::tx::block::history;
-use score::{
-    OpaqueHash,
-    block::{History, HistoryJson},
-    service::{ReportedWorkPackage, ReportedWorkPackageJson},
-};
+use score::{OpaqueHash, block::History, service::ReportedWorkPackage};
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
 
 include!(concat!(env!("OUT_DIR"), "/history.rs"));
 
@@ -36,38 +30,29 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
-    #[json(hex)]
     pub header_hash: OpaqueHash,
-    #[json(hex)]
     pub parent_state_root: OpaqueHash,
-    #[json(hex)]
     pub accumulate_root: OpaqueHash,
-    #[json(nested)]
     pub work_packages: Vec<ReportedWorkPackage>,
 }
 
-#[derive(Serialize, Deserialize, Json, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
-    #[json(nested)]
     pub beta: History,
 }
 
 /// Test input for history
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TestInput {
-    #[json(nested)]
     pub input: Input,
-    #[json(nested)]
     pub pre_state: State,
 }
 
 /// Test output for history
-#[derive(Serialize, Deserialize, Json, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TestOutput {
-    #[json(Option<()>)]
     pub output: Option<()>,
-    #[json(nested)]
     pub post_state: State,
 }
