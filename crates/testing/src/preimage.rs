@@ -8,13 +8,15 @@ use spacejson::Json;
 use std::collections::BTreeMap;
 use types::*;
 
-// FIXME: skipping the preimage tests since it's currently outdated.
-//
-// include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
+include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input = TestInput::from_json(test.input.expect_json()?)?;
-    let output = TestOutput::from_json(test.output.expect_json()?)?;
+    // The preimages STF `Output` is `CHOICE { ok NULL, err ErrorCode }`; the
+    // test recomputes it below, so the decoded value is discarded.
+    let (preimages, pre, _output, post) =
+        codec::decode::<(Input, RawState, Result<(), u8>, RawState)>(test.input.expect_bin()?)?;
+    let input = TestInput { input: preimages, pre_state: pre.into() };
+    let output = TestOutput { post_state: post.into() };
 
     // Validate post state
     let mut accounts = to_accounts(input.pre_state.accounts.clone());
@@ -136,11 +138,9 @@ mod types {
             }
 
             for lookup in info.lookup_meta {
-                let mut slots = [0; 3];
-                slots[..lookup.value.len()].copy_from_slice(&lookup.value);
                 account
                     .lookup
-                    .insert((lookup.key.hash, lookup.key.length), slots.to_vec());
+                    .insert((lookup.key.hash, lookup.key.length), lookup.value);
             }
 
             account
@@ -151,5 +151,18 @@ mod types {
     pub struct TState {
         #[json(nested)]
         pub accounts: Vec<Account>,
+    }
+
+    /// The preimages STF `State` raw layout: `(accounts, services-statistics)`.
+    /// The statistics records aren't asserted on, so they're discarded.
+    pub type RawState = (
+        Vec<Account>,
+        Vec<(score::ServiceId, score::statistic::ServiceActivityRecord)>,
+    );
+
+    impl From<RawState> for TState {
+        fn from((accounts, _stats): RawState) -> Self {
+            TState { accounts }
+        }
     }
 }

@@ -18,8 +18,10 @@ include!(concat!(env!("OUT_DIR"), "/reports.rs"));
 
 /// Run the reports test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let TestInput { input, pre_state } = TestInput::from_json(test.input.expect_json()?)?;
-    let TestOutput { output, post_state } = TestOutput::from_json(test.output.expect_json()?)?;
+    let (input, pre, output, post) =
+        codec::decode::<(Input, RawState, Result<Output>, RawState)>(test.input.expect_bin()?)?;
+    let pre_state: State = pre.into();
+    let post_state: State = post.into();
 
     assert_eq!(pre_state.curr_validators, post_state.curr_validators);
     assert_eq!(pre_state.prev_validators, post_state.prev_validators);
@@ -77,9 +79,9 @@ pub struct TestOutput {
 /// Input of the reporting module.
 #[derive(Debug, Clone, Serialize, Deserialize, Json)]
 pub struct Input {
-    pub slot: TimeSlot,
     #[json(Vec<ReportGuaranteeJson>)]
     pub guarantees: GuaranteesExtrinsic,
+    pub slot: TimeSlot,
     #[json(Vec<String>)]
     pub known_packages: Vec<OpaqueHash>,
 }
@@ -154,6 +156,62 @@ mod types {
         pub services: Vec<ServiceItem>,
     }
 
+    /// The reports STF `State` raw layout (reports.asn): the eight modelled
+    /// fields, then a minimal `(id, ServiceInfo)` accounts list, then the
+    /// `cores-statistics` and `services-statistics` records.
+    pub type RawState = (
+        AvailabilityAssignments,
+        ValidatorsData,
+        ValidatorsData,
+        EntropyBuffer,
+        Vec<Ed25519Public>,
+        History,
+        score::AuthorizationPools,
+        Vec<(ServiceId, ServiceInfo)>,
+        score::statistic::CoreStats,
+        Vec<(ServiceId, score::statistic::ServiceActivityRecord)>,
+    );
+
+    /// Build from the raw tuple, dropping the statistics records the reports
+    /// test doesn't assert on.
+    impl From<RawState> for State {
+        fn from(w: RawState) -> Self {
+            let (
+                avail_assignments,
+                curr_validators,
+                prev_validators,
+                entropy,
+                offenders,
+                recent_blocks,
+                auth_pools,
+                accounts,
+                _cores,
+                _services,
+            ) = w;
+            State {
+                avail_assignments,
+                curr_validators,
+                prev_validators,
+                entropy,
+                offenders,
+                recent_blocks,
+                auth_pools,
+                services: accounts
+                    .into_iter()
+                    .map(|(id, service)| ServiceItem {
+                        id,
+                        data: ServiceAccountData {
+                            service,
+                            storage: vec![],
+                            preimages: vec![],
+                            preimage_requests: vec![],
+                        },
+                    })
+                    .collect(),
+            }
+        }
+    }
+
     impl State {
         /// Apply the state to the score state
         fn apply(self, state: &mut score::State) {
@@ -224,6 +282,11 @@ mod types {
         #[json(nested)]
         pub service: ServiceInfo,
 
+        /// The storage
+        #[serde(default)]
+        #[json(nested)]
+        pub storage: Vec<ServiceStorage>,
+
         /// (a_p) The preimages
         #[serde(default)]
         #[json(nested)]
@@ -235,11 +298,6 @@ mod types {
         #[json(nested)]
         #[serde(alias = "preimage_requests")]
         pub preimage_requests: Vec<ServicePreimageRequest>,
-
-        /// The storage
-        #[serde(default)]
-        #[json(nested)]
-        pub storage: Vec<ServiceStorage>,
     }
 
     impl From<&ServiceAccount> for ServiceAccountData {

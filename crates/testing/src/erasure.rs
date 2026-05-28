@@ -5,11 +5,7 @@ use anyhow::Result;
 include!(concat!(env!("OUT_DIR"), "/erasure.rs"));
 
 pub async fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let mut data = hex::decode(test.input.expect_json()?.trim_start_matches("0x"))?;
-    let shards = serde_json::from_str::<Vec<String>>(test.output.expect_json()?)?
-        .into_iter()
-        .map(|s| hex::decode(s.trim_start_matches("0x")).map_err(Into::into))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+    let (mut data, shards) = codec::decode::<(Vec<u8>, Vec<Vec<u8>>)>(test.input.expect_bin()?)?;
 
     // test encoding
     let edata = data.clone();

@@ -14,8 +14,14 @@ include!(concat!(env!("OUT_DIR"), "/history.rs"));
 
 /// Run the history test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input = TestInput::from_json(test.input.expect_json()?)?;
-    let output = TestOutput::from_json(test.output.expect_json()?)?;
+    // The history STF `Output` is ASN.1 `NULL` (zero raw bytes).
+    let (input, pre_state, (), post_state) =
+        codec::decode::<(Input, State, (), State)>(test.input.expect_bin()?)?;
+    let input = TestInput { input, pre_state };
+    let output = TestOutput {
+        output: None,
+        post_state,
+    };
     let mut history = input.pre_state.beta.clone();
     if let Some(last) = history.history.last_mut() {
         last.state_root = input.input.parent_state_root;

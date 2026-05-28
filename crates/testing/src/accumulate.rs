@@ -14,8 +14,13 @@ include!(concat!(env!("OUT_DIR"), "/accumulate.rs"));
 
 /// Run the accumulate test
 pub async fn run(test: &specjam::Test) -> Result<()> {
-    let input = TestInput::from_json(test.input.expect_json()?)?;
-    let output = TestOutput::from_json(test.output.expect_json()?)?;
+    let (input, pre_state, out, post_state) =
+        codec::decode::<(Input, State, Result<OpaqueHash, ()>, State)>(test.input.expect_bin()?)?;
+    let input = TestInput { input, pre_state };
+    let output = TestOutput {
+        post_state,
+        output: out,
+    };
     let accounts = input.pre_state.accounts();
 
     // run the accumulate function

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use spacejam_erasure as erasure;
 use specjam::Registry;
 use std::path::PathBuf;
@@ -21,14 +20,7 @@ async fn run_codec(test: &str) -> anyhow::Result<()> {
         specjam::Scale::Tiny
     };
     let test = registry.erasure(scale)?.test(test)?;
-    let mut data = hex::decode(test.input.expect_json()?.trim_start_matches("0x"))?;
-    let shards = serde_json::from_str::<Vec<String>>(test.output.expect_json()?)?
-        .into_iter()
-        .map(|shard| {
-            hex::decode(shard.trim_start_matches("0x"))
-                .map_err(|e| anyhow::anyhow!("Failed to decode shard: {e}"))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let (mut data, shards) = codec::decode::<(Vec<u8>, Vec<Vec<u8>>)>(test.input.expect_bin()?)?;
 
     let n = erasure::Config::default().original;
     let recovery_pairs = || -> Vec<(usize, Vec<u8>)> {

@@ -14,6 +14,5 @@ tiny = []
 full = []
 
 [dev-dependencies]
-hex.workspace = true
-serde_json.workspace = true
+codec.workspace = true
 specjam.workspace = true

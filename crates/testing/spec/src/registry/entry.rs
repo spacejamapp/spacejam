@@ -144,11 +144,11 @@ impl Entry {
     }
 
     /// Parse a test vector from a file
-    pub fn parse(&self, path: &PathBuf) -> Result<Test> {
+    pub fn parse(&self, path: &Path) -> Result<Test> {
         match self.section {
-            Section::Accumulate => self.parse_general(path),
-            Section::Assurances => self.parse_general(path),
-            Section::Authorizations => self.parse_general(path),
+            Section::Accumulate => self.parse_stf(path),
+            Section::Assurances => self.parse_stf(path),
+            Section::Authorizations => self.parse_stf(path),
             Section::Codec => self.parse_codec(path),
             Section::Erasure => self.parse_erasure(path),
             Section::Pvm => self.parse_pvm(path),
@@ -166,17 +166,17 @@ impl Entry {
                 }
                 Ok(parsed)
             }
-            Section::Reports => self.parse_general(path),
-            Section::Statistics => self.parse_general(path),
-            Section::Safrole => self.parse_general(path),
-            Section::Disputes => self.parse_general(path),
-            Section::History => self.parse_general(path),
-            Section::Preimages => self.parse_general(path),
+            Section::Reports => self.parse_stf(path),
+            Section::Statistics => self.parse_stf(path),
+            Section::Safrole => self.parse_stf(path),
+            Section::Disputes => self.parse_stf(path),
+            Section::History => self.parse_stf(path),
+            Section::Preimages => self.parse_stf(path),
         }
     }
 
     /// Parse a codec test vector from a file
-    fn parse_codec(&self, path: &PathBuf) -> Result<Test> {
+    fn parse_codec(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
         let input = Payload::Json(fs::read_to_string(path)?);
         let output = Payload::Bin(fs::read(path.with_extension("bin"))?);
@@ -190,41 +190,26 @@ impl Entry {
         })
     }
 
-    /// Parse an erasure test vector from a file
-    fn parse_erasure(&self, path: &PathBuf) -> Result<Test> {
+    /// Parse an erasure test vector. The `.bin` sibling carries
+    /// codec-encoded `(data, shards)` and is the source of truth.
+    fn parse_erasure(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
-        let json: Value = serde_json::from_slice(&fs::read(path)?)?;
-        let input: String = serde_json::from_value(json["data"].clone())?;
-        let output: Vec<String> = serde_json::from_value(json["shards"].clone())?;
-
         Ok(Test {
-            input: Payload::Json(input),
-            output: Payload::Json(serde_json::to_string(&output)?),
+            input: Payload::Bin(fs::read(path.with_extension("bin"))?),
+            output: Payload::default(),
             name,
             scale: self.scale,
             section: self.section,
         })
     }
 
-    /// Parse a scaled test vector from a file
-    fn parse_general(&self, path: &PathBuf) -> Result<Test> {
+    /// Parse an STF test vector from its `.bin` sibling, codec-encoded as
+    /// `(input, pre_state, output, post_state)`.
+    fn parse_stf(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
-        let json: Value = serde_json::from_slice(&fs::read(path)?)?;
-        let input = serde_json::json!({
-            "input": json["input"],
-            "pre_state": json["pre_state"],
-        })
-        .to_string();
-
-        let output = serde_json::json!({
-            "output": json["output"],
-            "post_state": json["post_state"],
-        })
-        .to_string();
-
         Ok(Test {
-            input: Payload::Json(input),
-            output: Payload::Json(output),
+            input: Payload::Bin(fs::read(path.with_extension("bin"))?),
+            output: Payload::default(),
             name,
             scale: self.scale,
             section: self.section,
@@ -232,7 +217,7 @@ impl Entry {
     }
 
     /// Parse a pvm test vector from a file
-    fn parse_pvm(&self, path: &PathBuf) -> Result<Test> {
+    fn parse_pvm(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
         let json: Value = serde_json::from_slice(&fs::read(path)?)?;
 
@@ -268,7 +253,7 @@ impl Entry {
     }
 
     /// Parse a trace test vector from a file
-    fn parse_trace(&self, path: &PathBuf) -> Result<Test> {
+    fn parse_trace(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
         if path.extension().and_then(|s| s.to_str()) == Some("bin") {
             return Ok(Test {
@@ -300,7 +285,7 @@ impl Entry {
         })
     }
 
-    fn parse_trie(&self, path: &PathBuf) -> Result<Test> {
+    fn parse_trie(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
         let json: Value = serde_json::from_slice(&fs::read(path)?)?;
         let vectors = json
@@ -327,7 +312,7 @@ impl Entry {
         })
     }
 
-    fn parse_shuffle(&self, path: &PathBuf) -> Result<Test> {
+    fn parse_shuffle(&self, path: &Path) -> Result<Test> {
         let name = Self::file_name(path)?;
         let json: Value = serde_json::from_slice(&fs::read(path)?)?;
 

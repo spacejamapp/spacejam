@@ -1,30 +1,50 @@
 //! Statistics tests
 
 use score::{
-    TimeSlot, ValidatorIndex,
+    EPOCH_LENGTH, TimeSlot, ValidatorIndex,
     extrinsic::{Extrinsic, ExtrinsicJson},
-    safrole::{ValidatorDataJson, ValidatorsData},
-    statistic::{Statistics, StatisticsJson},
+    safrole::{ValidatorIter, ValidatorsData},
+    statistic::{Statistics, ValidatorStats},
 };
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
-// FIXME: skipping the statistics tests since it's currently outdated.
-//
-// include!(concat!(env!("OUT_DIR"), "/statistics.rs"));
+include!(concat!(env!("OUT_DIR"), "/statistics.rs"));
+
+/// The statistics STF `State` raw layout:
+/// `(vals-curr-stats, vals-last-stats, slot, curr-validators)`.
+type RawState = (ValidatorStats, ValidatorStats, TimeSlot, ValidatorsData);
 
 /// Run the statistics test
-pub fn run(_test: &specjam::Test) -> anyhow::Result<()> {
-    // let input = TestInput::from_json(&test.input)?;
-    // let output = TestOutput::from_json(&test.output)?;
-    //
-    // // validate
-    // let state = input.pre_state.statistics.update(
-    //     input.input.slot,
-    //     input.input.author_index,
-    //     &input.input.extrinsic,
-    // );
-    // assert_eq!(state, output.post_state.statistics);
+pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
+    // The statistics STF `Output` is ASN.1 `NULL` (zero raw bytes).
+    let (input, pre, (), post) =
+        codec::decode::<(Input, RawState, (), RawState)>(test.input.expect_bin()?)?;
+    let new_epoch = input.slot / EPOCH_LENGTH > pre.2 / EPOCH_LENGTH;
+    let validators = pre.3;
+    let mut stats = Statistics {
+        vals_current: pre.0,
+        vals_last: pre.1,
+        ..Default::default()
+    };
+    stats.update(new_epoch, input.author_index, &input.extrinsic)?;
+
+    // Per-validator guarantee credit comes from the reporters (the validators
+    // that signed each guarantee), mirroring the executor's `merge_reporters`.
+    let reporters: Vec<_> = input
+        .extrinsic
+        .guarantees
+        .iter()
+        .flat_map(|g| {
+            g.signatures
+                .iter()
+                .map(|s| validators[s.validator_index as usize].ed25519)
+        })
+        .collect();
+    stats.merge_reporters(&reporters, &validators.ed25519())?;
+
+    assert_eq!(stats.vals_current, post.0);
+    assert_eq!(stats.vals_last, post.1);
     Ok(())
 }
 
@@ -34,38 +54,4 @@ pub struct Input {
     pub author_index: ValidatorIndex,
     #[json(nested)]
     pub extrinsic: Extrinsic,
-}
-
-/// Test input.
-#[derive(Deserialize, Serialize, Json, Debug)]
-pub struct TestInput {
-    #[json(nested)]
-    pub input: Input,
-    #[json(nested)]
-    pub pre_state: State,
-}
-
-/// Test output.
-#[derive(Deserialize, Serialize, Json, Debug)]
-pub struct TestOutput {
-    #[json(nested)]
-    pub post_state: State,
-}
-
-/// State of the stats
-///
-/// NOTE: this should be moved to storage in the future
-#[derive(Json, Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-pub struct State {
-    /// The statistics state
-    #[json(nested)]
-    #[serde(flatten)]
-    pub statistics: Statistics,
-
-    /// The current time slot
-    pub slot: TimeSlot,
-
-    /// The current validators
-    #[json(Vec<ValidatorDataJson>)]
-    pub curr_validators: ValidatorsData,
 }

@@ -11,9 +11,9 @@ use types::*;
 include!(concat!(env!("OUT_DIR"), "/assurances.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let mut input = TestInput::from_json(test.input.expect_json()?)?;
-    let TestOutput { output, post_state } = TestOutput::from_json(test.output.expect_json()?)?;
-
+    let (input, pre_state, output, post_state) =
+        codec::decode::<(Input, State, Result<Output>, State)>(test.input.expect_bin()?)?;
+    let mut input = TestInput { input, pre_state };
     assert_eq!(input.pre_state.curr_validators, post_state.curr_validators);
 
     // validate output

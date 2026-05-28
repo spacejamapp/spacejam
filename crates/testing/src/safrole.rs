@@ -17,8 +17,15 @@ include!(concat!(env!("OUT_DIR"), "/safrole.rs"));
 
 /// Run the safrole test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let mut input = TestInput::from_json(test.input.expect_json()?)?;
-    let output = TestOutput::from_json(test.output.expect_json()?)?;
+    let (input, pre_state, out, post_state) =
+        codec::decode::<(Input, State, std::result::Result<Markers, Error>, State)>(
+            test.input.expect_bin()?,
+        )?;
+    let mut input = TestInput { input, pre_state };
+    let output = TestOutput {
+        output: out,
+        post_state,
+    };
     let result = input.pre_state.enact(&input.input);
 
     assert_eq!(result, output.output);
@@ -85,22 +92,22 @@ pub struct State {
     /// Current epoch's validators
     #[json(Vec<ValidatorDataJson>)]
     pub kappa: ValidatorsData,
-    /// Validators to be drawn from next
-    #[json(Vec<ValidatorDataJson>)]
-    pub iota: ValidatorsData,
     /// Next epoch's validators
     #[json(Vec<ValidatorDataJson>)]
     pub gamma_k: ValidatorsData,
+    /// Validators to be drawn from next
+    #[json(Vec<ValidatorDataJson>)]
+    pub iota: ValidatorsData,
+    /// Sealing-key contest ticket accumulator
+    #[json(Vec<TicketBodyJson>)]
+    pub gamma_a: TicketsAccumulator,
+    /// Sealing-key series of the current epoch
+    #[json(nested)]
+    pub gamma_s: TicketsOrKeys,
     /// Bandersnatch ring commitment
     #[serde(with = "codec::bytes")]
     #[json(hex)]
     pub gamma_z: BandersnatchRingCommitment,
-    /// Sealing-key series of the current epoch
-    #[json(nested)]
-    pub gamma_s: TicketsOrKeys,
-    /// Sealing-key contest ticket accumulator
-    #[json(Vec<TicketBodyJson>)]
-    pub gamma_a: TicketsAccumulator,
     /// Offenders
     #[json(Vec<String>)]
     pub post_offenders: Vec<Ed25519Public>,

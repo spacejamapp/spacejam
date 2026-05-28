@@ -5,14 +5,29 @@ use score::{CoreIndex, OpaqueHash, State, extrinsic::ReportGuarantee};
 use serde::{Deserialize, Serialize};
 use spacejson::Json;
 
-// FIXME: the ordering of the authorization pools could be wrong in the test cases,
-// note that we follow the result in the tests of traces.
-//
-// include!(concat!(env!("OUT_DIR"), "/authorizations.rs"));
+include!(concat!(env!("OUT_DIR"), "/authorizations.rs"));
+
+/// The authorizations STF `State` raw layout: `(auth-pools, auth-queues)`.
+type RawState = (
+    score::AuthorizationPools,
+    score::Array<score::Array<OpaqueHash, { score::AUTH_QUEUE_SIZE }>, { score::CORES_COUNT }>,
+);
+
+impl From<RawState> for TestState {
+    fn from((pools, queues): RawState) -> Self {
+        TestState {
+            auth_pools: pools.to_vec(),
+            auth_queues: queues.iter().map(|q| q.to_vec()).collect(),
+        }
+    }
+}
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input = TestInput::from_json(test.input.expect_json()?)?;
-    let output = TestOutput::from_json(test.output.expect_json()?)?;
+    // The authorizations STF `Output` is ASN.1 `NULL` (zero raw bytes).
+    let (auths, pre, (), post) =
+        codec::decode::<(Input, RawState, (), RawState)>(test.input.expect_bin()?)?;
+    let input = TestInput { input: auths, pre_state: pre.into() };
+    let output = TestOutput { post_state: post.into() };
     let state: score::State = input.pre_state.clone().into();
     let post: score::State = output.post_state.clone().into();
 
@@ -59,9 +74,9 @@ impl From<TestState> for State {
 
 #[derive(Serialize, Deserialize, Json, Debug, Clone)]
 pub struct Authorization {
+    pub core: CoreIndex,
     #[json(hex)]
     pub auth_hash: OpaqueHash,
-    pub core: CoreIndex,
 }
 
 impl From<Authorization> for ReportGuarantee {
