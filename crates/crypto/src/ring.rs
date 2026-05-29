@@ -1,6 +1,12 @@
 //! Bandersnatch ring related primitives
 #![cfg(feature = "vrf")]
 
+#[cfg(not(any(feature = "tiny", feature = "full")))]
+compile_error!(
+    "spacejam-crypto/ring: enable one of `tiny` or `full` — \
+     otherwise the size-6 SRS is silently baked in (caused docker pre-11 BadTicketProof)"
+);
+
 use crate::vrf;
 use ark_ec::AffineRepr;
 use ark_serialize::CanonicalDeserialize;

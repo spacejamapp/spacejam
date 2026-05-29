@@ -43,7 +43,7 @@ impl Invocation for SpaceVM {
             let mut context = pvm::Context {
                 registers: program.registers,
                 gas: gas as i64,
-                memory: Memory::new(&program.memory).expect("failed to create memory"),
+                memory: Memory::new(hash, &program.memory).expect("failed to create memory"),
                 ctx: &mut ctx,
             };
 

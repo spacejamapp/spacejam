@@ -44,10 +44,10 @@ pub enum Fuzz {
         exact: Option<PathBuf>,
     },
 
-    /// Run trace test via the given trace file
+    /// Run trace test via the given trace file or directory
     #[cfg(feature = "trace")]
     Tx {
-        /// The path to the trace file
+        /// The path to the trace file or directory of `.bin`/`.json` traces
         test: PathBuf,
     },
 }
@@ -74,7 +74,13 @@ impl Fuzz {
                 }
             }
             #[cfg(feature = "trace")]
-            Self::Tx { test } => fuzz::trace::test(test).await,
+            Self::Tx { test } => {
+                if test.is_dir() {
+                    fuzz::trace::test_dir(test).await
+                } else {
+                    fuzz::trace::test(test).await
+                }
+            }
         }
     }
 }

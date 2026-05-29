@@ -8,7 +8,6 @@ use crate::{
     Storage,
     account::Accounts,
     storage::Commit,
-    timing,
     tx::{assurance, block, dispute, guarantee, preimage, ticket},
 };
 use account::Accounts as _;
@@ -161,7 +160,6 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
             .statistics
             .merge_reports(&self.available, &self.counts);
 
-        let _guard = timing::accumulate();
         let available = std::mem::take(&mut self.available);
         let accounts = self.accounts.take().expect("accounts present");
 
@@ -303,7 +301,6 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
         let (reported, reporters, mut batch) = if block.extrinsic.guarantees.is_empty() {
             (vec![], vec![], vec![])
         } else {
-            let _guard = timing::guarantees();
             guarantee::report(
                 state,
                 block.header.slot,
@@ -345,7 +342,6 @@ impl<'a, Vm: Pvm, S: Storage> Executor<'a, Vm, S> {
         new_epoch: bool,
         safrole_in: Safrole,
     ) -> Result<SafroleOutput> {
-        let _guard = timing::safrole();
         let safrole = ticket::safrole(
             state.timeslot,
             block.header.slot,

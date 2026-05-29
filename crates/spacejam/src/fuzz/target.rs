@@ -35,7 +35,6 @@ pub struct Target {
 impl Target {
     /// Create a new target
     pub fn new(stream: UnixStream, interp: bool) -> Self {
-        runtime::timing::setup();
         Self {
             stream,
             chain: TestChain::default(),

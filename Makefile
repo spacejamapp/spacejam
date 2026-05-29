@@ -89,3 +89,20 @@ dpush:
 fpush: dpush
 	docker push $(DOCKER_IMAGE):int
 	docker push $(DOCKER_IMAGE):$(VERSION)-int
+
+# Sample-profile `spacejam fuzz tx` on a trace directory via samply.
+# Needs sudo (kernel.perf_event_paranoid=3 blocks unprivileged perf_event_open).
+# Override:
+#   TRACE_DIR=res/foo/trace OUT=/tmp/foo.json.gz SPACEVM=true make profile-trace
+TRACE_DIR ?= res/l2a/trace
+OUT       ?= /tmp/spacejam-trace.json.gz
+
+.PHONY: profile-trace
+profile-trace:
+	CARGO_PROFILE_RELEASE_DEBUG=line-tables-only \
+		cargo build --release -p spacejam --features trace
+	sudo SPACEVM=$(SPACEVM) $$(command -v samply) record --save-only -o $(OUT) \
+		./target/release/spacejam fuzz tx $(TRACE_DIR)
+	@echo ""
+	@echo "profile saved: $(OUT)"
+	@echo "view: samply load $(OUT)"

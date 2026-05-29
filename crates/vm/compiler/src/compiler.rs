@@ -14,7 +14,7 @@ impl Pvm for Compiler {}
 impl Invocation for Compiler {
     fn invoke2<X: Argument>(
         mut ctx: X,
-        _hash: OpaqueHash,
+        hash: OpaqueHash,
         code: Vec<u8>,
         args: Vec<u8>,
         gas: Gas,
@@ -26,7 +26,7 @@ impl Invocation for Compiler {
         let mut context = pvm::Context {
             registers: program.registers,
             gas: gas as i64,
-            memory: Memory::new(&program.memory).expect("failed to create memory"),
+            memory: Memory::new(hash, &program.memory).expect("failed to create memory"),
             ctx: &mut ctx,
         };
 

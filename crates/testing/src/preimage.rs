@@ -4,17 +4,21 @@ use account::{Account, Accounts};
 use runtime::tx;
 use score::service::ServiceAccount;
 use serde::{Deserialize, Serialize};
-use spacejson::Json;
 use std::collections::BTreeMap;
 use types::*;
 
-// FIXME: skipping the preimage tests since it's currently outdated.
-//
-// include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
+include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    let input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let (preimages, pre, _output, post) =
+        codec::decode::<(Input, RawState, Result<(), u8>, RawState)>(test.input.expect_bin()?)?;
+    let input = TestInput {
+        input: preimages,
+        pre_state: pre.into(),
+    };
+    let output = TestOutput {
+        post_state: post.into(),
+    };
 
     // Validate post state
     let mut accounts = to_accounts(input.pre_state.accounts.clone());
@@ -37,28 +41,22 @@ pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
 }
 
 /// Test input.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TestInput {
-    #[json(nested)]
     pub input: Input,
-    #[json(nested)]
     pub pre_state: TState,
 }
 
 /// Test output.
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TestOutput {
-    #[json(nested)]
     pub post_state: TState,
 }
 
-#[derive(Debug, Serialize, Deserialize, Json)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Test {
-    #[json(nested)]
     pub input: Input,
-    #[json(nested)]
     pub pre_state: TState,
-    #[json(nested)]
     pub post_state: TState,
 }
 
@@ -73,58 +71,45 @@ pub fn to_accounts(accs: Vec<types::Account>) -> BTreeMap<u32, ServiceAccount> {
 
 // TODO: clean types later
 mod types {
-    use score::{
-        OpaqueHash,
-        extrinsic::{Preimage, PreimageJson},
-        service::ServiceAccount,
-    };
+    use score::{OpaqueHash, extrinsic::Preimage, service::ServiceAccount};
     use serde::{Deserialize, Serialize};
-    use spacejson::Json;
 
-    #[derive(Debug, Serialize, Deserialize, Json, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     pub struct Input {
-        #[json(nested)]
         pub preimages: Vec<Preimage>,
         pub slot: u32,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct Account {
         /// Account ID
         pub id: u32,
 
         /// Account info
-        #[json(nested)]
         pub data: AccountInfo,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct TPreimage {
-        #[json(hex)]
         pub hash: OpaqueHash,
-        #[json(hex)]
         pub blob: Vec<u8>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct HistoryKey {
-        #[json(hex)]
         pub hash: OpaqueHash,
         pub length: u32,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct History {
-        #[json(nested)]
         pub key: HistoryKey,
         pub value: Vec<u32>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct AccountInfo {
-        #[json(nested)]
         pub preimages: Vec<TPreimage>,
-        #[json(nested)]
         pub lookup_meta: Vec<History>,
     }
 
@@ -136,20 +121,30 @@ mod types {
             }
 
             for lookup in info.lookup_meta {
-                let mut slots = [0; 3];
-                slots[..lookup.value.len()].copy_from_slice(&lookup.value);
                 account
                     .lookup
-                    .insert((lookup.key.hash, lookup.key.length), slots.to_vec());
+                    .insert((lookup.key.hash, lookup.key.length), lookup.value);
             }
 
             account
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Json, Clone, PartialEq, Eq)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
     pub struct TState {
-        #[json(nested)]
         pub accounts: Vec<Account>,
+    }
+
+    /// The preimages STF `State` raw layout: `(accounts, services-statistics)`.
+    /// The statistics records aren't asserted on, so they're discarded.
+    pub type RawState = (
+        Vec<Account>,
+        Vec<(score::ServiceId, score::statistic::ServiceActivityRecord)>,
+    );
+
+    impl From<RawState> for TState {
+        fn from((accounts, _stats): RawState) -> Self {
+            TState { accounts }
+        }
     }
 }

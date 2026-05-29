@@ -7,7 +7,7 @@ use runtime::{
     tx::{self, block::header, ticket::lazy},
 };
 use score::{
-    EntropyBuffer, OpaqueHash,
+    EntropyBuffer, OpaqueHash, TrieKey,
     block::{Block, BlockInfo, BlockJson, Header, History, Mmr},
     safrole::{Safrole, ValidatorIter, ValidatorsData},
     service::{AccumulatedQueue, Privileges, ReadyQueue, ServiceInfo},
@@ -52,12 +52,13 @@ mod storage_light {
 }
 
 pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
-    if test.input.len() == 31 {
+    if let Some(s) = test.input.as_json()
+        && s.len() == 31
+    {
         return Ok(false);
     }
     let memdb = Arc::new(MemoryDb::default());
-    let input = TestInput::from_json(&test.input)?;
-    let output = TestOutput::from_json(&test.output)?;
+    let (input, output) = decode(test)?;
     for keyval in input.pre_state.keyvals.clone() {
         memdb
             .state_set(keyval.key, keyval.value)
@@ -66,7 +67,7 @@ pub async fn run(test: &specjam::Test) -> anyhow::Result<bool> {
 
     let use_compiler = std::env::var("SPACEVM").is_ok_and(|v| v == "true");
     if use_compiler {
-        self::run_single::<spacevm::Compiler, _>(memdb, input, output).await
+        self::run_single::<spacevm::SpaceVM, _>(memdb, input, output).await
     } else {
         self::run_single::<spacevm::Interpreter, _>(memdb, input, output).await
     }
@@ -261,4 +262,77 @@ pub struct KeyValue {
     /// The value
     #[json(hex)]
     pub value: Vec<u8>,
+}
+
+/// Decode a `Test` into its input/output.
+pub fn decode(test: &specjam::Test) -> anyhow::Result<(TestInput, TestOutput)> {
+    if let Some(bytes) = test.input.as_bin() {
+        return from_bin(bytes);
+    }
+    let input = test
+        .input
+        .as_json()
+        .ok_or_else(|| anyhow::anyhow!("trace input: expected JSON or bin"))?;
+    let output = test
+        .output
+        .as_json()
+        .ok_or_else(|| anyhow::anyhow!("trace output: expected JSON"))?;
+    Ok((TestInput::from_json(input)?, TestOutput::from_json(output)?))
+}
+
+/// Decode a binary trace into test input/output.
+pub fn from_bin(bytes: &[u8]) -> anyhow::Result<(TestInput, TestOutput)> {
+    let bin: bin::BinTrace = codec::decode(bytes)?;
+    Ok((
+        TestInput {
+            pre_state: bin.pre_state.into_state(),
+            block: bin.block,
+        },
+        TestOutput {
+            post_state: bin.post_state.into_state(),
+        },
+    ))
+}
+
+mod bin {
+    use super::*;
+
+    /// A binary trace
+    #[derive(Deserialize)]
+    pub struct BinTrace {
+        pub pre_state: BinState,
+        pub block: Block,
+        pub post_state: BinState,
+    }
+
+    /// A binary state
+    #[derive(Deserialize)]
+    pub struct BinState {
+        pub state_root: OpaqueHash,
+        pub keyvals: Vec<BinKeyValue>,
+    }
+
+    /// A binary key-value
+    #[derive(Deserialize)]
+    pub struct BinKeyValue {
+        pub key: TrieKey,
+        pub value: Vec<u8>,
+    }
+
+    /// Convert a binary state into a state
+    impl BinState {
+        pub fn into_state(self) -> State {
+            State {
+                state_root: self.state_root,
+                keyvals: self
+                    .keyvals
+                    .into_iter()
+                    .map(|kv| KeyValue {
+                        key: kv.key.to_vec(),
+                        value: kv.value,
+                    })
+                    .collect(),
+            }
+        }
+    }
 }

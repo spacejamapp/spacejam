@@ -5,8 +5,13 @@ pub use ed25519_zebra::{batch, Signature, SigningKey, VerificationKey, Verificat
 use rand::rngs::OsRng;
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
-/// Number of signatures per parallel chunk for batch verification.
-const BATCH_PAR_CHUNK: usize = 32;
+/// Below this batch size, verify the whole slice as one ed25519 batch with
+/// no rayon involvement.
+const SEQUENTIAL_BATCH_THRESHOLD: usize = 32;
+
+/// Chunk size when the batch is large enough to parallelize. Each chunk is
+/// itself one ed25519 batch verification.
+const PAR_CHUNK_SIZE: usize = 32;
 
 /// Ed25519 key pair.
 #[derive(Clone)]
@@ -71,11 +76,11 @@ pub fn batch_verify(items: &[(&[u8], [u8; 64], [u8; 32])]) -> anyhow::Result<()>
     if items.is_empty() {
         return Ok(());
     }
-    if items.len() <= BATCH_PAR_CHUNK {
+    if items.len() <= SEQUENTIAL_BATCH_THRESHOLD {
         return verify_batch(items);
     }
 
-    items.par_chunks(BATCH_PAR_CHUNK).try_for_each(verify_batch)
+    items.par_chunks(PAR_CHUNK_SIZE).try_for_each(verify_batch)
 }
 
 fn verify_batch(items: &[(&[u8], [u8; 64], [u8; 32])]) -> anyhow::Result<()> {

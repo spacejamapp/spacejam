@@ -13,7 +13,6 @@ use spacejson::Json;
 #[serde(rename_all = "snake_case")]
 pub enum Error {
     BadCoreIndex,
-    BannedValidator,
     FutureReportSlot,
     ReportEpochBeforeLast,
     InsufficientGuarantees,
@@ -34,10 +33,11 @@ pub enum Error {
     ServiceItemGasTooLow,
     TooManyDependencies,
     SegmentRootLookupInvalid,
-    WorkReportTooBig,
     BadSignature,
-    MissingWorkResults,
+    WorkReportTooBig,
+    BannedValidator,
     LookupAnchorNotRecent,
+    MissingWorkResults,
 }
 
 impl Json<Error> for Error {

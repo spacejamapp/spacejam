@@ -26,5 +26,5 @@ tokio.workspace = true
 tracing.workspace = true
 
 [features]
-default = ["timing"]
-timing = []
+tiny = ["score/tiny", "crypto/tiny"]
+full = ["score/full", "crypto/full"]

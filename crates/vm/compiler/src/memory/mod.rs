@@ -17,5 +17,7 @@ pub use mmap::Memory;
 #[cfg(target_os = "macos")]
 pub use range::Memory;
 
+#[cfg(target_os = "linux")]
+mod image;
 mod mmap;
 mod range;

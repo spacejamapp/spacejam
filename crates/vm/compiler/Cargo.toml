@@ -19,6 +19,7 @@ cranelift = { workspace = true, features = [
     "object",
 ] }
 cranelift-codegen = { workspace = true, features = ["incremental-cache"] }
+parking_lot.workspace = true
 tracing.workspace = true
 libc.workspace = true
 

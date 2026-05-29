@@ -41,7 +41,7 @@ pub struct Memory {
 
 impl Memory {
     /// Create a new memory instance from parser Memory
-    pub fn new(pmemory: &pvm::Memory) -> Result<Self> {
+    pub fn new(_hash: pvm::score::OpaqueHash, pmemory: &pvm::Memory) -> Result<Self> {
         tracing::debug!("memory info: {:?}", pmemory.info);
         let mut data = vec![];
         data.extend_from_slice(&pmemory.ro_data()?);

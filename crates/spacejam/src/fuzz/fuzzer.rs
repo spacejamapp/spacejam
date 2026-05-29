@@ -35,8 +35,11 @@ pub struct Fuzzer {
 impl Fuzzer {
     /// Run the fuzzer
     pub fn run(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
-        let entry = Entry::new(Section::Trace(Trace::Any), None, entry).context(format!(
-            "Failed to parse traces folder, {entry:?}, should be the folder of traces, \n
+        let entry_str = entry
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("non-utf8 trace path: {entry:?}"))?;
+        let entry = Entry::seq(entry_str).context(format!(
+            "Failed to parse traces folder, {entry_str:?}, should be the folder of traces,
             for example jam-test-vectors/traces/storage"
         ))?;
 
@@ -67,7 +70,8 @@ impl Fuzzer {
     pub fn handle(&mut self, source: Entry) -> Result<()> {
         let base = source.base.clone();
         for test in source {
-            if test.name.contains("genesis") {
+            let stem = test.name.rsplit('_').next().unwrap_or(&test.name);
+            if stem.parse::<u64>().is_err() {
                 continue;
             }
             tracing::debug!("\tProcessing test: {}", test.name);
@@ -84,7 +88,7 @@ impl Fuzzer {
     /// Handle a new connection
     pub fn handle_single(&mut self, source: &Entry) -> Result<()> {
         let test = source.get(0).context("No test found")?;
-        let input = traces::TestInput::from_json(&test.input)?;
+        let (input, _) = Self::decode(&test)?;
         self.init_state(&input, &test.name)?;
         self.init = true;
         self.import_block(test)
@@ -92,8 +96,7 @@ impl Fuzzer {
 
     /// Import a block
     pub fn import_block(&mut self, test: Test) -> Result<()> {
-        let input = traces::TestInput::from_json(&test.input)?;
-        let output = traces::TestOutput::from_json(&test.output)?;
+        let (input, output) = Self::decode(&test)?;
         if !self.init {
             self.init_state(&input, &test.name)?;
             self.init = true;
@@ -230,9 +233,7 @@ impl Fuzzer {
             })
             .collect::<Vec<_>>()
     }
-}
 
-impl Fuzzer {
     /// Run the fuzzer with traces
     pub fn conformance(socket: &Path, entry: &Path, report: &Path) -> Result<()> {
         if !entry.is_dir() {
@@ -313,5 +314,10 @@ impl Fuzzer {
         };
 
         fuzzer.handle_single(&entry)
+    }
+
+    /// Decode a trace test into its input/output pair.
+    fn decode(test: &Test) -> Result<(traces::TestInput, traces::TestOutput)> {
+        Ok(traces::decode(test)?)
     }
 }

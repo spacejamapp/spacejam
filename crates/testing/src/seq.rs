@@ -3,9 +3,7 @@
 use crate::traces::{self, TestInput, TestOutput};
 use anyhow::Result;
 use runtime::tx::block::TestChain;
-use score::{OpaqueHash, TimeSlot};
 use specjam::Test;
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 include!(concat!(env!("OUT_DIR"), "/traces_seq.rs"));
 
@@ -17,8 +15,7 @@ pub struct Processor {
 impl Processor {
     /// Process a test
     pub async fn process(&mut self, test: Test) -> Result<()> {
-        let input = TestInput::from_json(&test.input)?;
-        let output = TestOutput::from_json(&test.output)?;
+        let (input, output) = decode_trace(&test)?;
         if !self.chain.initialized() {
             self.chain.init(input.pre_state.keyvals())?;
         }
@@ -26,7 +23,7 @@ impl Processor {
         let block = input.block.clone();
         let data = self.chain.prepare(&input.block);
         let is_ok = if std::env::var("SPACEVM").is_ok_and(|v| v == "true") {
-            traces::run_single::<spacevm::Compiler, _>(data.clone(), input, output).await?
+            traces::run_single::<spacevm::SpaceVM, _>(data.clone(), input, output).await?
         } else {
             traces::run_single::<spacevm::Interpreter, _>(data.clone(), input, output).await?
         };
@@ -54,4 +51,8 @@ impl Default for Processor {
             chain: TestChain::default(),
         }
     }
+}
+
+fn decode_trace(test: &Test) -> Result<(TestInput, TestOutput)> {
+    traces::decode(test)
 }

@@ -8,8 +8,6 @@ use spacejson::Json;
 #[serde(rename_all = "snake_case")]
 pub enum Error {
     AlreadyJudged,
-    BadAuditorKey,
-    BadGuarantorKey,
     BadVoteSplit,
     VerdictsNotSortedUnique,
     JudgementsNotSortedUnique,
@@ -23,6 +21,8 @@ pub enum Error {
     BadJudgementAge,
     BadValidatorIndex,
     BadSignature,
+    BadGuarantorKey,
+    BadAuditorKey,
     VerdictNotExists,
     NotEnoughValidators,
 }
