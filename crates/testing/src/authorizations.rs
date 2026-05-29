@@ -22,7 +22,6 @@ impl From<RawState> for TestState {
 }
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    // The authorizations STF `Output` is ASN.1 `NULL` (zero raw bytes).
     let (auths, pre, (), post) =
         codec::decode::<(Input, RawState, (), RawState)>(test.input.expect_bin()?)?;
     let input = TestInput {

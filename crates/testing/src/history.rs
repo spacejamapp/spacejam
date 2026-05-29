@@ -8,7 +8,6 @@ include!(concat!(env!("OUT_DIR"), "/history.rs"));
 
 /// Run the history test
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    // The history STF `Output` is ASN.1 `NULL` (zero raw bytes).
     let (input, pre_state, (), post_state) =
         codec::decode::<(Input, State, (), State)>(test.input.expect_bin()?)?;
     let input = TestInput { input, pre_state };

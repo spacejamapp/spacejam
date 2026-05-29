@@ -10,8 +10,6 @@ use types::*;
 include!(concat!(env!("OUT_DIR"), "/preimages.rs"));
 
 pub fn run(test: &specjam::Test) -> anyhow::Result<()> {
-    // The preimages STF `Output` is `CHOICE { ok NULL, err ErrorCode }`; the
-    // test recomputes it below, so the decoded value is discarded.
     let (preimages, pre, _output, post) =
         codec::decode::<(Input, RawState, Result<(), u8>, RawState)>(test.input.expect_bin()?)?;
     let input = TestInput {
